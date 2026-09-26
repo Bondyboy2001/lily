@@ -40,14 +40,17 @@ do
     echo "[cwa-auto-zipper] Next run in $SECS seconds."
     sleep $SECS &  # We sleep in the background to make the script interruptible via SIGTERM when running in docker
     wait $!
-    python3 /app/calibre-web-automated/scripts/auto_zip.py
-    if [[ $? == 1 ]]
+    # Only the timezone setup above needs root; the zipper itself only touches
+    # /config/processed_books (owned by abc), so run it unprivileged.
+    s6-setuidgid abc python3 /app/calibre-web-automated/scripts/auto_zip.py
+    zip_exit=$?
+    if [[ $zip_exit == 1 ]]
     then
         echo "[cwa-auto-zipper] Error occurred during script initialisation (see errors above)."
-    elif [[ $? == 2 ]]
+    elif [[ $zip_exit == 2 ]]
     then
         echo "[cwa-auto-zipper] Error occurred while zipping today's files (see errors above)."
-    elif [[ $? == 3 ]]
+    elif [[ $zip_exit == 3 ]]
     then
         echo "[cwa-auto-zipper] Error occurred while trying to removed the files that have been zipped (see errors above)."
     fi

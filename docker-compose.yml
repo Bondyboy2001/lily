@@ -20,9 +20,15 @@ services:
       - NETWORK_SHARE_MODE=false
       # If you want to force polling mode regardless of share type, set CWA_WATCH_MODE=poll
       # - CWA_WATCH_MODE=poll
-      # If running behind multiple proxies (e.g., Cloudflare Tunnel + reverse proxy), set the total number of proxies
-      # This ensures proper IP detection for session protection and rate limiting (default: 1)
-      # - TRUSTED_PROXY_COUNT=2
+      # Number of reverse proxies in front of Lily whose X-Forwarded-* headers should be trusted (default: 0 = none).
+      # If you run Lily behind a reverse proxy (nginx, Caddy, Traefik, ...), set this to 1; for Cloudflare Tunnel +
+      # reverse proxy use 2. Leave at 0 if Lily is accessed directly, otherwise clients could spoof their IP.
+      # - TRUSTED_PROXY_COUNT=1
+      # Comma-separated CIDRs allowed to send the reverse-proxy login header (only used if reverse proxy authentication
+      # is enabled in the admin settings). Default: loopback + private ranges (RFC1918 / IPv6 ULA).
+      # - TRUSTED_PROXY_IPS=127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7
+      # Set to true when serving Lily over HTTPS so session / remember-me cookies are marked Secure (default: false)
+      # - SESSION_COOKIE_SECURE=true
       # Skip the automatic library detection/mount at startup. When enabled, the auto-library service will not run.
       # Accepts: true/yes/1 to disable auto-mount (default: false)
       # - DISABLE_LIBRARY_AUTOMOUNT=false

@@ -9,6 +9,7 @@ import atexit
 import json
 import os
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -89,8 +90,18 @@ def removeLock():
 atexit.register(removeLock)
 
 
+# Split-library settings from app.db, read once per process (see Book.get_split_library)
+_SPLIT_LIBRARY_UNSET = object()
+_split_library_cache = _SPLIT_LIBRARY_UNSET
+# The settle delay before calibredb export only guards the change that triggered this run
+# (the web app's DB write), so it is only needed before the first export in the process.
+_export_settle_done = False
+
+
 class Book:
-    def __init__(self, book_dir: str, file_path: str):
+    def __init__(self, book_dir: str, file_path: str, new_metadata_path: str | None = None):
+        """new_metadata_path: an OPF already exported for this book (same book_id) to reuse
+        instead of running calibredb export again, e.g. for the book's other formats."""
         self.book_dir: str = book_dir
         self.file_path: str = file_path
 
@@ -112,28 +123,34 @@ class Book:
 
         self.cover_path = book_dir + '/cover.jpg'
         self.old_metadata_path = book_dir + '/metadata.opf'
-        self.new_metadata_path = self.get_new_metadata_path()
+        self.new_metadata_path = new_metadata_path or self.get_new_metadata_path()
 
         self.log_info = None
 
 
     def get_split_library(self) -> dict[str, str] | None:
-        """Checks whether or not the user has split library enabled. Returns None if they don't and the path of the Split Library location if True."""
-        con = sqlite3.connect("/config/app.db", timeout=60)
-        cur = con.cursor()
-        split_library = cur.execute('SELECT config_calibre_split FROM settings;').fetchone()[0]
+        """Checks whether or not the user has split library enabled. Returns None if they don't and the path of the Split Library location if True.
 
-        if split_library:
-            split_path = cur.execute('SELECT config_calibre_split_dir FROM settings;').fetchone()[0]
-            db_path = cur.execute('SELECT config_calibre_dir FROM settings;').fetchone()[0]
-            con.close()
-            return {
-                "split_path": split_path,
-                "db_path": db_path
-            }
-        else:
-            con.close()
-            return None
+        Read from app.db once per process (a Book is built per file, so a full-library run would
+        otherwise open app.db thousands of times); a copy is returned so callers can't mutate the cache."""
+        global _split_library_cache
+        if _split_library_cache is _SPLIT_LIBRARY_UNSET:
+            con = sqlite3.connect("/config/app.db", timeout=60)
+            try:
+                cur = con.cursor()
+                split_library = cur.execute('SELECT config_calibre_split FROM settings;').fetchone()[0]
+                if split_library:
+                    split_path = cur.execute('SELECT config_calibre_split_dir FROM settings;').fetchone()[0]
+                    db_path = cur.execute('SELECT config_calibre_dir FROM settings;').fetchone()[0]
+                    _split_library_cache = {
+                        "split_path": split_path,
+                        "db_path": db_path
+                    }
+                else:
+                    _split_library_cache = None
+            finally:
+                con.close()
+        return dict(_split_library_cache) if _split_library_cache else None
 
     def get_calibre_library(self) -> str:
         """Gets Calibre-Library location from dirs.json"""
@@ -158,6 +175,7 @@ class Book:
     def get_new_metadata_path(self) -> str:
         """Uses the export function of the calibredb utility to export any new metadata for the given book to metadata_temp, and returns the path to the new metadata.opf"""
         # Add retry logic with exponential backoff to handle database locks
+        global _export_settle_done
         max_retries = 3
         for attempt in range(max_retries):
             try:
@@ -166,8 +184,11 @@ class Book:
                     delay = 2 ** attempt  # Exponential backoff: 2s, 4s
                     print(f"[cover-metadata-enforcer] Retrying calibredb export (attempt {attempt + 1}/{max_retries}) after {delay}s delay...", flush=True)
                     time.sleep(delay)
-                else:
-                    # Small initial delay to ensure database writes are flushed
+                elif not _export_settle_done:
+                    # Small initial delay so the web app's write that triggered this run can settle.
+                    # Only needed once per process: later exports (other books in a full-library run)
+                    # follow our own already-exited subprocesses, and "database is locked" is retried above.
+                    _export_settle_done = True
                     time.sleep(0.5)
                 
                 result = subprocess.run(
@@ -542,42 +563,16 @@ class Enforcer:
             if len(supported_files) > 1:
                 print("[cover-metadata-enforcer] Multiple file formats for current book detected...", flush=True)
             book_objects = []
-            for file in supported_files:
-                book = Book(book_dir, file)
-                self.replace_old_metadata(book.old_metadata_path, book.new_metadata_path)
-                
-                # Use subprocess instead of os.system for better error handling
-                # Add small delay to ensure any file locks are released
-                time.sleep(0.5)
-                
-                try:
-                    if Path(book.cover_path).exists():
-                        result = subprocess.run(
-                            ['ebook-polish', '-c', book.cover_path, '-o', book.new_metadata_path, '-U', file, file],
-                            capture_output=True, text=True, timeout=120, check=False
-                        )
-                    else:
-                        result = subprocess.run(
-                            ['ebook-polish', '-o', book.new_metadata_path, '-U', file, file],
-                            capture_output=True, text=True, timeout=120, check=False
-                        )
-                    
-                    if result.returncode != 0:
-                        print(f"[cover-metadata-enforcer] Warning: ebook-polish returned {result.returncode} for {file}", flush=True)
-                        if result.stderr:
-                            print(f"[cover-metadata-enforcer] Error output: {result.stderr.strip()}", flush=True)
-                except subprocess.TimeoutExpired:
-                    print(f"[cover-metadata-enforcer] Error: ebook-polish timed out for {file}", flush=True)
-                except Exception as e:
-                    print(f"[cover-metadata-enforcer] Error running ebook-polish for {file}: {e}", flush=True)
-                
+            # All formats share the book's metadata (same book_id), so export it once and reuse the
+            # OPF for every format; metadata_temp is emptied once all formats are done.
+            shared_metadata_path = None
+            try:
+                for file in supported_files:
+                    book = self._enforce_file(book_dir, file, shared_metadata_path)
+                    shared_metadata_path = book.new_metadata_path
+                    book_objects.append(book)
+            finally:
                 self.empty_metadata_temp()
-                print(f"[cover-metadata-enforcer]: DONE: '{book.title_author}.{book.file_format}': Cover & Metadata updated", flush=True)
-
-                # Calculate and store new checksum after modification
-                self._recalculate_checksum_after_modification(book.book_id, book.file_format, file)
-
-                book_objects.append(book)
 
             return book_objects
         else:
@@ -586,15 +581,55 @@ class Enforcer:
             return []
 
 
+    def _enforce_file(self, book_dir: str, file: str, new_metadata_path: str | None = None) -> "Book":
+        """Polish one book file with the book's exported metadata and cover (exports it unless given)."""
+        book = Book(book_dir, file, new_metadata_path)
+        self.replace_old_metadata(book.old_metadata_path, book.new_metadata_path)
+
+        # No settle delay needed here: the calibredb export and the metadata copy above have
+        # already finished (subprocess exited, file closed), so nothing still holds the files.
+        try:
+            if Path(book.cover_path).exists():
+                result = subprocess.run(
+                    ['ebook-polish', '-c', book.cover_path, '-o', book.new_metadata_path, '-U', file, file],
+                    capture_output=True, text=True, timeout=120, check=False
+                )
+            else:
+                result = subprocess.run(
+                    ['ebook-polish', '-o', book.new_metadata_path, '-U', file, file],
+                    capture_output=True, text=True, timeout=120, check=False
+                )
+            
+            if result.returncode != 0:
+                print(f"[cover-metadata-enforcer] Warning: ebook-polish returned {result.returncode} for {file}", flush=True)
+                if result.stderr:
+                    print(f"[cover-metadata-enforcer] Error output: {result.stderr.strip()}", flush=True)
+        except subprocess.TimeoutExpired:
+            print(f"[cover-metadata-enforcer] Error: ebook-polish timed out for {file}", flush=True)
+        except Exception as e:
+            print(f"[cover-metadata-enforcer] Error running ebook-polish for {file}: {e}", flush=True)
+        
+        print(f"[cover-metadata-enforcer]: DONE: '{book.title_author}.{book.file_format}': Cover & Metadata updated", flush=True)
+
+        # Calculate and store new checksum after modification
+        self._recalculate_checksum_after_modification(book.book_id, book.file_format, file)
+
+        return book
+
+
     def enforce_all_covers(self) -> tuple[int, float, int] | tuple[bool, bool, bool]:
         """Will force the covers and metadata to be re-generated for all books in the library"""
         t_start = time.time()
 
         supported_files = self.get_supported_files_from_dir(self.calibre_library)
         if supported_files:
-            book_dirs = []
+            # One entry per book dir (a multi-format book used to be enforced once per format,
+            # and enforce_cover already handles every format in the dir)
+            files_per_dir: dict[str, int] = {}
             for file in supported_files:
-                book_dirs.append(os.path.dirname(file))
+                book_dir = os.path.dirname(file)
+                files_per_dir[book_dir] = files_per_dir.get(book_dir, 0) + 1
+            book_dirs = list(files_per_dir)
 
             print(f"[cover-metadata-enforcer]: {len(book_dirs)} books detected in Library")
             print(f"[cover-metadata-enforcer]: Enforcing covers for {len(supported_files)} supported file(s) in {self.calibre_library} ...")
@@ -612,7 +647,7 @@ class Enforcer:
                 except Exception as e:
                     print(f"[cover-metadata-enforcer]: ERROR: {book_dir}")
                     print(f"[cover-metadata-enforcer]: Skipping book due to following error: {e}")
-                    successful_enforcements = successful_enforcements - 1
+                    successful_enforcements = successful_enforcements - files_per_dir[book_dir]
                     continue
 
             t_end = time.time()
@@ -624,7 +659,9 @@ class Enforcer:
 
     def replace_old_metadata(self, old_metadata: str, new_metadata: str) -> None:
         """Switches the metadata in metadata_temp with the metadata in the Calibre-Library"""
-        os.system(f'cp "{new_metadata}" "{old_metadata}"')
+        # Never shell out here: the paths contain book titles/authors, which
+        # can carry shell metacharacters such as $() or backticks.
+        shutil.copyfile(new_metadata, old_metadata)
 
 
     def print_library_list(self) -> None:
@@ -694,7 +731,17 @@ class Enforcer:
 
     def empty_metadata_temp(self):
         """Empties the metadata_temp folder"""
-        os.system(f"rm -r {metadata_temp_dir}/*")
+        if not os.path.isdir(metadata_temp_dir):
+            return
+        for entry in os.listdir(metadata_temp_dir):
+            entry_path = os.path.join(metadata_temp_dir, entry)
+            try:
+                if os.path.isdir(entry_path) and not os.path.islink(entry_path):
+                    shutil.rmtree(entry_path)
+                else:
+                    os.remove(entry_path)
+            except FileNotFoundError:
+                continue
 
 
     def check_for_other_logs(self, processed_book_ids: set | None = None):

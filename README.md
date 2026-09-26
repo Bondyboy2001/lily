@@ -89,15 +89,26 @@ This tells Lily to avoid enabling WAL on the Calibre `metadata.db` and the `app.
 - On Docker Desktop (Windows/macOS), the container runs on a LinuxKit/WSL2 VM and host-mounted paths may not propagate `inotify` events reliably. Lily auto-detects Docker Desktop at startup and prefers the same polling watcher for reliability.
 - Advanced: You can also force polling regardless of share mode by setting `CWA_WATCH_MODE=poll`.
 
-### Running behind multiple proxies (Cloudflare Tunnel, reverse proxy)
+### Running behind a reverse proxy (nginx, Caddy, Traefik, Cloudflare Tunnel, ...)
 
-- Lily uses Werkzeug's ProxyFix middleware to properly handle `X-Forwarded-For`, `X-Forwarded-Proto`, and other proxy headers.
-- By default, it trusts **1 proxy** in the chain. If you have multiple proxies (e.g., Cloudflare Tunnel → nginx → Lily), set:
-
-  - `TRUSTED_PROXY_COUNT=2` (or the total number of proxies in your chain)
-
-- **Why this matters**: Session protection validates requests based on the client's IP address. If ProxyFix doesn't trust enough proxies, it may see different IPs between requests, causing "Session protection triggered" warnings and forcing re-login.
+- Lily uses Werkzeug's ProxyFix middleware to handle `X-Forwarded-For`, `X-Forwarded-Proto`, and other proxy headers.
+- By default Lily trusts **no** proxy (`TRUSTED_PROXY_COUNT=0`) and ignores `X-Forwarded-*` headers, because trusting them while Lily is reachable directly lets any client spoof its IP address (bypassing login rate limits and polluting logs).
+- **If Lily sits behind a reverse proxy, set** `TRUSTED_PROXY_COUNT=1`. With multiple proxies (e.g., Cloudflare Tunnel → nginx → Lily) set it to the total number of proxies in the chain, e.g. `TRUSTED_PROXY_COUNT=2`.
+- **Why this matters**: Session protection validates requests based on the client's IP address, and rate limiting is keyed on it. If ProxyFix doesn't trust enough proxies, it may see different IPs between requests, causing "Session protection triggered" warnings and forcing re-login; if it trusts too many, clients can forge their IP.
 - **Troubleshooting**: If you see frequent session protection warnings in logs, check your proxy chain depth and adjust this variable accordingly.
+
+### Security-related environment variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `TRUSTED_PROXY_COUNT` | `0` | Number of reverse proxies whose `X-Forwarded-*` headers are trusted. Set to `1` behind a single reverse proxy. |
+| `TRUSTED_PROXY_IPS` | `127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7` | Comma-separated CIDRs allowed to send the *reverse proxy login header* (Admin → Configuration → "Allow Reverse Proxy Authentication"). The header is ignored from any other source address. The check uses the address of the socket that actually connected, not `X-Forwarded-For`. Narrow this to your proxy's address (e.g. `172.18.0.5/32`) where possible. |
+| `SESSION_COOKIE_SECURE` | `false` | Set to `true` when Lily is served over HTTPS so the session and remember-me cookies are only sent over HTTPS. |
+
+Other hardening defaults:
+
+- The default `admin` / `admin123` account must change its password on first web login (existing installs where an admin still uses `admin123` are flagged too). OPDS, Kobo and KOReader sync keep working in the meantime.
+- Failed KOReader sync (KOSync) logins are rate limited per username (5/minute, 60/hour) when the rate limiter is enabled; successful syncs are never throttled.
 
 ## **_Features:_**
 
@@ -390,6 +401,8 @@ And just like that, Lily should be up and running! **HOWEVER** to avoid potentia
 
 > **Username:** admin\
 > **Password:** admin123
+
+You will be asked to choose a new password the first time you log in with the default credentials.
 
 # Usage 🔧
 

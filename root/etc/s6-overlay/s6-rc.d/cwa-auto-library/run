@@ -6,6 +6,10 @@ if [[ "${DISABLE_LIBRARY_AUTOMOUNT,,}" == "true" || "${DISABLE_LIBRARY_AUTOMOUNT
     exit 0
 fi
 
+# NOTE: intentionally runs as root. auto_library.py creates/adopts the Calibre
+# library and /config app.db and must `chown -R abc:abc` them (unless
+# NETWORK_SHARE_MODE is set). It is a one-shot that runs before the web app and
+# ingest services start, so no user-supplied content is processed at this point.
 python3 /app/calibre-web-automated/scripts/auto_library.py
 exit_code=$?
 

@@ -17,6 +17,7 @@ import xml.etree.ElementTree as ET
 from flask import Blueprint, jsonify
 from flask import request, redirect, send_from_directory, send_file, make_response, flash, abort, url_for, Response, g
 from flask import session as flask_session
+from markupsafe import Markup, escape
 from flask_babel import gettext as _
 from flask_babel import get_locale
 from .cw_login import login_user, logout_user, current_user
@@ -962,7 +963,7 @@ def render_magic_shelf(shelf_id, sort_param, page):
     return render_title_template('index.html', 
                                  entries=entries, 
                                  pagination=pagination,
-                                 title=_("Magic Shelf&nbsp&nbsp&nbsp—&nbsp&nbsp&nbsp%(icon)s %(name)s", icon=shelf.icon, name=shelf.name), 
+                                 title=Markup(_("Magic Shelf&nbsp&nbsp&nbsp—&nbsp&nbsp&nbsp%(icon)s %(name)s", icon=escape(shelf.icon or ""), name=escape(shelf.name))), 
                                  page="magicshelf",
                                  shelf=shelf,
                                  is_hidden_shelf=is_hidden,
@@ -1070,40 +1071,76 @@ def preview_magic_shelf():
         return jsonify({"success": False, "message": _("Invalid request")}), 400
 
 
+# Curated emoji list for magic shelf icons - organized by category
+MAGIC_SHELF_ALLOWED_ICONS = [
+    # Books & Reading
+    '📚', '📖', '📕', '📗', '📘', '📙', '📔', '📓', '📒', '📰',
+    # Stars & Favorites
+    '⭐', '🌟', '✨', '💫', '🌠', '⚡', '🔥', '💥', '🎯', '🏆',
+    # Hearts
+    '❤️', '💙', '💚', '💛', '🧡', '💜', '🖤', '🤍', '💖', '💝',
+    # Entertainment
+    '🎭', '🎬', '🎪', '🎨', '🎮', '🎲', '🎰', '🎳', '🎱', '🎸',
+    # Travel & Space
+    '🚀', '🛸', '🌌', '🌍', '🌎', '🌏', '🗺️', '🧭', '⛰️', '🏔️',
+    # Fantasy & Magic
+    '🔮', '🎃', '👻', '🦄', '🐉', '🐲', '🧙', '🧚', '🧛', '🧜',
+    # Awards & Achievement
+    '🥇', '🥈', '🥉', '🏅', '🎖️', '👑', '💎', '💍', '🔱', '🎗️',
+    # Time & Organization
+    '⏰', '⏱️', '⌛', '⏳', '🕰️', '🔔', '📅', '📆', '📌', '📍',
+    # Learning & Science
+    '🎓', '🏫', '📝', '✏️', '📐', '📏', '🔬', '🔭', '🖌️', '🖍️',
+    # Nature & Weather
+    '🌈', '☀️', '🌙', '🌸', '🌺', '🌻', '🌹', '🌷', '🍀', '🌱'
+]
+MAGIC_SHELF_DEFAULT_ICON = '🪄'
+MAGIC_SHELF_NAME_MAX_LEN = 100
+MAGIC_SHELF_RULES_MAX_BYTES = 64 * 1024
+
+
+def _magic_shelf_valid_icons():
+    """Icons a magic shelf may use: the curated picker list, the default and the system template icons."""
+    icons = set(MAGIC_SHELF_ALLOWED_ICONS)
+    icons.add(MAGIC_SHELF_DEFAULT_ICON)
+    try:
+        icons.update(t.get('icon') for t in magic_shelf.SYSTEM_SHELF_TEMPLATES.values() if t.get('icon'))
+    except Exception:
+        pass
+    return icons
+
+
+def _sanitize_magic_shelf_icon(icon):
+    """Return icon if it is one of the allowed icons, otherwise the default icon."""
+    if isinstance(icon, str) and icon in _magic_shelf_valid_icons():
+        return icon
+    return MAGIC_SHELF_DEFAULT_ICON
+
+
+def _magic_shelf_rules_valid(rules):
+    """Rules must be a JSON object/array of bounded size."""
+    if not isinstance(rules, (dict, list)):
+        return False
+    try:
+        return len(json.dumps(rules)) <= MAGIC_SHELF_RULES_MAX_BYTES
+    except (TypeError, ValueError):
+        return False
+
+
 @web.route("/magicshelf", methods=["GET", "POST"])
 @user_login_required
 def create_magic_shelf():
-    # Curated emoji list for magic shelf icons - organized by category
-    ALLOWED_ICONS = [
-        # Books & Reading
-        '📚', '📖', '📕', '📗', '📘', '📙', '📔', '📓', '📒', '📰',
-        # Stars & Favorites
-        '⭐', '🌟', '✨', '💫', '🌠', '⚡', '🔥', '💥', '🎯', '🏆',
-        # Hearts
-        '❤️', '💙', '💚', '💛', '🧡', '💜', '🖤', '🤍', '💖', '💝',
-        # Entertainment
-        '🎭', '🎬', '🎪', '🎨', '🎮', '🎲', '🎰', '🎳', '🎱', '🎸',
-        # Travel & Space
-        '🚀', '🛸', '🌌', '🌍', '🌎', '🌏', '🗺️', '🧭', '⛰️', '🏔️',
-        # Fantasy & Magic
-        '🔮', '🎃', '👻', '🦄', '🐉', '🐲', '🧙', '🧚', '🧛', '🧜',
-        # Awards & Achievement
-        '🥇', '🥈', '🥉', '🏅', '🎖️', '👑', '💎', '💍', '🔱', '🎗️',
-        # Time & Organization
-        '⏰', '⏱️', '⌛', '⏳', '🕰️', '🔔', '📅', '📆', '📌', '📍',
-        # Learning & Science
-        '🎓', '🏫', '📝', '✏️', '📐', '📏', '🔬', '🔭', '🖌️', '🖍️',
-        # Nature & Weather
-        '🌈', '☀️', '🌙', '🌸', '🌺', '🌻', '🌹', '🌷', '🍀', '🌱'
-    ]
     
     if request.method == "POST":
-        data = request.get_json()
-        name = strip_whitespaces(data.get('name', ''))
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"success": False, "message": _("Name and rules are required")}), 400
+        name = data.get('name', '')
+        name = strip_whitespaces(name) if isinstance(name, str) else ''
         rules = data.get('rules')
-        icon = data.get('icon', '🪄')
-        kobo_sync = data.get('kobo_sync', False)
-        is_public = data.get('is_public', False)
+        icon = _sanitize_magic_shelf_icon(data.get('icon', MAGIC_SHELF_DEFAULT_ICON))
+        kobo_sync = bool(data.get('kobo_sync', False))
+        is_public = bool(data.get('is_public', False))
         
         # Only allow public if user has permission
         if is_public and not current_user.role_edit_shelfs():
@@ -1113,12 +1150,11 @@ def create_magic_shelf():
         if not name or not rules:
             return jsonify({"success": False, "message": _("Name and rules are required")}), 400
         
-        if len(name) > 100:
+        if len(name) > MAGIC_SHELF_NAME_MAX_LEN:
             return jsonify({"success": False, "message": _("Shelf name too long (max 100 characters)")}), 400
-        
-        # Use default icon if none provided, otherwise accept any emoji/symbol
-        if not icon:
-            icon = '🪄'
+
+        if not _magic_shelf_rules_valid(rules):
+            return jsonify({"success": False, "message": _("Invalid rules")}), 400
         
         try:
             new_shelf = ub.MagicShelf(
@@ -1152,36 +1188,13 @@ def create_magic_shelf():
     return render_title_template('magic_shelf_edit.html', 
                                  title=_("Create Magic Shelf"), 
                                  page="magic_shelf_create",
-                                 allowed_icons=ALLOWED_ICONS,
+                                 allowed_icons=MAGIC_SHELF_ALLOWED_ICONS,
                                  languages=language_map)
 
 
 @web.route("/magicshelf/<int:shelf_id>/edit", methods=["GET", "POST"])
 @user_login_required
 def edit_magic_shelf(shelf_id):
-    # Curated emoji list for magic shelf icons - organized by category
-    ALLOWED_ICONS = [
-        # Books & Reading
-        '📚', '📖', '📕', '📗', '📘', '📙', '📔', '📓', '📒', '📰',
-        # Stars & Favorites
-        '⭐', '🌟', '✨', '💫', '🌠', '⚡', '🔥', '💥', '🎯', '🏆',
-        # Hearts
-        '❤️', '💙', '💚', '💛', '🧡', '💜', '🖤', '🤍', '💖', '💝',
-        # Entertainment
-        '🎭', '🎬', '🎪', '🎨', '🎮', '🎲', '🎰', '🎳', '🎱', '🎸',
-        # Travel & Space
-        '🚀', '🛸', '🌌', '🌍', '🌎', '🌏', '🗺️', '🧭', '⛰️', '🏔️',
-        # Fantasy & Magic
-        '🔮', '🎃', '👻', '🦄', '🐉', '🐲', '🧙', '🧚', '🧛', '🧜',
-        # Awards & Achievement
-        '🥇', '🥈', '🥉', '🏅', '🎖️', '👑', '💎', '💍', '🔱', '🎗️',
-        # Time & Organization
-        '⏰', '⏱️', '⌛', '⏳', '🕰️', '🔔', '📅', '📆', '📌', '📍',
-        # Learning & Science
-        '🎓', '🏫', '📝', '✏️', '📐', '📏', '🔬', '🔭', '🖌️', '🖍️',
-        # Nature & Weather
-        '🌈', '☀️', '🌙', '🌸', '🌺', '🌻', '🌹', '🌷', '🍀', '🌱'
-    ]
     
     shelf = ub.session.query(ub.MagicShelf).get(shelf_id)
     if not shelf:
@@ -1194,12 +1207,19 @@ def edit_magic_shelf(shelf_id):
         abort(403)
 
     if request.method == "POST":
-        data = request.get_json()
-        name = strip_whitespaces(data.get('name', shelf.name))
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"success": False, "message": _("Shelf name is required")}), 400
+        name = data.get('name', shelf.name)
+        name = strip_whitespaces(name) if isinstance(name, str) else ''
         rules = data.get('rules', shelf.rules)
         icon = data.get('icon', shelf.icon)
-        kobo_sync = data.get('kobo_sync', shelf.kobo_sync)
-        is_public = data.get('is_public', shelf.is_public == 1)
+        # Shelves created before the icon allowlist may use other emoji; keep those
+        # unless the user actually picks a different icon.
+        if icon != shelf.icon:
+            icon = _sanitize_magic_shelf_icon(icon)
+        kobo_sync = bool(data.get('kobo_sync', shelf.kobo_sync))
+        is_public = bool(data.get('is_public', shelf.is_public == 1))
         
         # Only allow changing public status if user has permission
         if is_public != (shelf.is_public == 1):
@@ -1210,12 +1230,11 @@ def edit_magic_shelf(shelf_id):
         if not name:
             return jsonify({"success": False, "message": _("Shelf name is required")}), 400
         
-        if len(name) > 100:
+        if len(name) > MAGIC_SHELF_NAME_MAX_LEN:
             return jsonify({"success": False, "message": _("Shelf name too long (max 100 characters)")}), 400
-        
-        # Use default icon if none provided, otherwise accept any emoji/symbol
-        if not icon:
-            icon = '🪄'
+
+        if not _magic_shelf_rules_valid(rules):
+            return jsonify({"success": False, "message": _("Invalid rules")}), 400
         
         try:
             shelf.name = name
@@ -1259,7 +1278,7 @@ def edit_magic_shelf(shelf_id):
                                  shelf=shelf, 
                                  title=_("Edit Magic Shelf"), 
                                  page="magic_shelf_edit",
-                                 allowed_icons=ALLOWED_ICONS,
+                                 allowed_icons=MAGIC_SHELF_ALLOWED_ICONS,
                                  languages=language_map)
 
 
@@ -2394,6 +2413,66 @@ def logout():
         return redirect(location)
     else:
         return redirect(url_for('web.login'))
+
+
+# ################################### Forced password change (default admin password) ###############################
+# Device / API protocols authenticate per request with their own credentials and must keep
+# working, so they are never redirected.
+_FORCE_PW_EXEMPT_BLUEPRINTS = {"opds", "kobo", "kobo_auth", "kosync", "cwa_internal",
+                               "readingservices_api_v3", "readingservices_userstorage"}
+_FORCE_PW_EXEMPT_ENDPOINTS = {"static", "web.logout", "web.change_password"}
+
+
+@web.before_app_request
+def enforce_forced_password_change():
+    endpoint = request.endpoint
+    if not endpoint or endpoint in _FORCE_PW_EXEMPT_ENDPOINTS or endpoint.endswith(".static"):
+        return None
+    if request.blueprint in _FORCE_PW_EXEMPT_BLUEPRINTS:
+        return None
+    try:
+        if not (current_user and current_user.is_authenticated
+                and getattr(current_user, "force_password_change", False)):
+            return None
+    except Exception:
+        return None
+    if request.method in ("GET", "HEAD"):
+        return redirect(url_for("web.change_password"))
+    abort(403)
+
+
+@web.route('/change-password', methods=['GET', 'POST'])
+@user_login_required
+def change_password():
+    forced = bool(getattr(current_user, "force_password_change", False))
+    if not forced and not (current_user.role_passwd() or current_user.role_admin()):
+        abort(403)
+    if request.method == "POST":
+        form = request.form
+        current_pw = form.get("current_password", "")
+        new_pw = form.get("new_password", "")
+        confirm_pw = form.get("confirm_password", "")
+        if not current_user.password or not check_password_hash(str(current_user.password), current_pw):
+            flash(_("Current password is incorrect"), category="error")
+        elif not new_pw or new_pw != confirm_pw:
+            flash(_("New passwords do not match"), category="error")
+        elif new_pw == constants.DEFAULT_PASSWORD or check_password_hash(str(current_user.password), new_pw):
+            flash(_("Please choose a password different from the current one"), category="error")
+        else:
+            try:
+                user = ub.session.query(ub.User).filter(ub.User.id == current_user.id).first()
+                # Assigning the password also clears force_password_change (ub listener)
+                user.password = generate_password_hash(valid_password(new_pw))
+                user.force_password_change = False
+                ub.session_commit()
+                log.info("User '%s' changed their password", user.name)
+                flash(_("Password changed"), category="success")
+                return redirect(url_for("web.index"))
+            except Exception as ex:
+                ub.session.rollback()
+                flash(str(ex), category="error")
+    return render_title_template("change_password.html", title=_("Change Password"),
+                                 page="change_password", forced=forced)
 
 
 # ################################### Users own configuration #########################################################

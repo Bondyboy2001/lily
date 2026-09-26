@@ -24,7 +24,8 @@ Security:
     - All API endpoints use HTTP Basic Authentication
     - Document identifiers validated to prevent injection attacks
     - Session management via SQLAlchemy with proper isolation
-    - Rate limiting should be applied at reverse proxy level
+    - Failed authentication attempts are rate limited per username
+      (see KOSYNC_FAILED_AUTH_LIMITS); successful syncs are never throttled
 
 Integration:
     - Syncs with Calibre library via BookFormatChecksum table
@@ -49,7 +50,7 @@ from werkzeug.security import check_password_hash
 from sqlalchemy import func, desc
 from sqlalchemy.exc import SQLAlchemyError
 
-from ... import logger, ub, csrf, config, constants, services, usermanagement
+from ... import logger, ub, csrf, config, constants, services, usermanagement, limiter
 from ...render_template import render_title_template
 from ..models import KOSyncProgress
 from ..settings import is_koreader_sync_enabled
@@ -79,6 +80,61 @@ MAX_DOCUMENT_LENGTH = 255  # Maximum document identifier length
 MAX_PROGRESS_LENGTH = 255  # Maximum progress string length
 MAX_DEVICE_LENGTH = 100    # Maximum device name length
 MAX_DEVICE_ID_LENGTH = 100 # Maximum device ID length
+
+
+# Brute-force protection: KOReader syncs very frequently with valid credentials, so
+# instead of limiting every request we only count *failed* password checks, keyed on
+# the (lower-cased) username. Once exceeded, further attempts for that username are
+# rejected (even with the right password) until the window expires.
+KOSYNC_FAILED_AUTH_LIMITS = ("5/minute", "60/hour")
+_KOSYNC_FAILED_AUTH_KEY = "kosync-auth-fail"
+
+
+def _kosync_failed_auth_items():
+    try:
+        from limits import parse_many
+    except ImportError:
+        return []
+    items = []
+    for limit_string in KOSYNC_FAILED_AUTH_LIMITS:
+        items.extend(parse_many(limit_string))
+    return items
+
+
+def _kosync_limiter_strategy():
+    """Return the underlying `limits` strategy if rate limiting is active, else None."""
+    if limiter is None or not getattr(limiter, "enabled", False):
+        return None
+    try:
+        return limiter.limiter
+    except Exception as e:  # limiter not initialised / backend unavailable
+        log.error(f"KOSync rate limiter unavailable: {e}")
+        return None
+
+
+def kosync_auth_blocked(username: str) -> bool:
+    """True if this username has exceeded the failed-authentication limit."""
+    strategy = _kosync_limiter_strategy()
+    if strategy is None:
+        return False
+    key = username.lower()
+    try:
+        return any(not strategy.test(item, _KOSYNC_FAILED_AUTH_KEY, key) for item in _kosync_failed_auth_items())
+    except Exception as e:
+        log.error(f"KOSync rate limiter check failed: {e}")
+        return False
+
+
+def kosync_record_auth_failure(username: str) -> None:
+    strategy = _kosync_limiter_strategy()
+    if strategy is None:
+        return
+    key = username.lower()
+    try:
+        for item in _kosync_failed_auth_items():
+            strategy.hit(item, _KOSYNC_FAILED_AUTH_KEY, key)
+    except Exception as e:
+        log.error(f"KOSync rate limiter update failed: {e}")
 
 
 def _require_kosync_enabled():
@@ -173,6 +229,11 @@ def authenticate_user() -> Optional[ub.User]:
         log.debug(f"Invalid username or password format")
         return None
 
+    if kosync_auth_blocked(username):
+        log.warning(f"KOSync: too many failed authentication attempts for user '{username}' "
+                    f"from {request.remote_addr}; rejecting")
+        return None
+
     # Find user by username (case-insensitive for Calibre-Web compatibility)
     try:
         user = ub.session.query(ub.User).filter(
@@ -184,6 +245,7 @@ def authenticate_user() -> Optional[ub.User]:
 
     if not user:
         log.debug(f"User not found: {username}")
+        kosync_record_auth_failure(username)
         return None
 
     # Check if LDAP authentication is enabled
@@ -206,6 +268,7 @@ def authenticate_user() -> Optional[ub.User]:
         return user
 
     log.debug(f"Invalid password for user: {username}")
+    kosync_record_auth_failure(username)
     return None
 
 
@@ -502,8 +565,7 @@ def auth_user():
         401: {"error": 2001, "message": "Unauthorized"} if authentication fails
 
     Note:
-        Rate limiting should be applied at reverse proxy level to prevent
-        brute force attacks (suggested: 10 requests per minute per IP).
+        Failed attempts are rate limited per username inside authenticate_user().
     """
     blocked = _require_kosync_enabled()
     if blocked:

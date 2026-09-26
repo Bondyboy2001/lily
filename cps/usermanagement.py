@@ -5,7 +5,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-from functools import wraps
+import ipaddress
+import os
+from functools import lru_cache, wraps
 
 from sqlalchemy.sql.expression import func
 from .cw_login import login_required
@@ -194,6 +196,49 @@ def user_login_required(func):
     return decorated_view
 
 
+# Networks allowed to assert a username via the reverse proxy login header.
+# Default: loopback, RFC1918 private ranges (typical Docker / homelab proxies) and
+# IPv6 unique-local addresses. Override with TRUSTED_PROXY_IPS (comma separated CIDRs).
+DEFAULT_TRUSTED_PROXY_IPS = "127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7"
+
+
+@lru_cache(maxsize=None)
+def _parse_trusted_proxy_networks(raw):
+    networks = []
+    for item in (raw or "").split(","):
+        item = item.strip()
+        if not item:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(item, strict=False))
+        except ValueError:
+            log.error("Ignoring invalid entry %r in TRUSTED_PROXY_IPS", item)
+    return tuple(networks)
+
+
+def trusted_proxy_networks():
+    return _parse_trusted_proxy_networks(os.environ.get("TRUSTED_PROXY_IPS", DEFAULT_TRUSTED_PROXY_IPS))
+
+
+def get_socket_peer_address(req):
+    """Address of the socket that actually connected (ignores X-Forwarded-For rewriting by ProxyFix)."""
+    orig = req.environ.get("werkzeug.proxy_fix.orig") or {}
+    return (orig.get("REMOTE_ADDR") or req.environ.get("REMOTE_ADDR") or "").split("%")[0]
+
+
+def request_from_trusted_proxy(req):
+    addr = get_socket_peer_address(req)
+    try:
+        ip = ipaddress.ip_address(addr)
+    except ValueError:
+        return False
+    candidates = [ip]
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped:
+        candidates.append(mapped)
+    return any(c in net for c in candidates for net in trusted_proxy_networks() if c.version == net.version)
+
+
 def load_user_from_reverse_proxy_header(req):
     """Load user from reverse proxy header, optionally creating new users"""
     rp_header_name = config.config_reverse_proxy_login_header_name
@@ -202,6 +247,13 @@ def load_user_from_reverse_proxy_header(req):
         
     rp_header_username = req.headers.get(rp_header_name)
     if not rp_header_username:
+        return None
+
+    # Only honour the header when the connection comes from a trusted proxy;
+    # otherwise any client could log in as any user by sending the header itself.
+    if not request_from_trusted_proxy(req):
+        log.warning("Ignoring reverse proxy login header from untrusted address %s "
+                    "(adjust TRUSTED_PROXY_IPS if this is your proxy)", get_socket_peer_address(req))
         return None
         
     # Clean username (strip whitespace, etc.)

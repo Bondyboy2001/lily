@@ -41,7 +41,7 @@ try:
 except ImportError:
     from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import backref, relationship, sessionmaker, Session, scoped_session
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from . import constants, logger
 from .string_helper import strip_whitespaces
@@ -288,6 +288,17 @@ class User(UserBase, Base):
     auto_send_enabled = Column(Boolean, default=False)
     # Allow entering additional email addresses on send-to-eReader
     allow_additional_ereader_emails = Column(Boolean, default=True)
+    # Set for accounts still using the default password; the web UI forces a
+    # password change before anything else can be used. Cleared whenever the
+    # password is changed (see _clear_force_password_change below).
+    force_password_change = Column(Boolean, default=False)
+
+
+@event.listens_for(User.password, 'set')
+def _clear_force_password_change(target, value, oldvalue, initiator):
+    # Any explicit password assignment (profile, admin edit, reset) satisfies the
+    # forced change. Attribute 'set' events are not fired when rows are loaded.
+    target.force_password_change = False
 
 
 if oauth_support:
@@ -337,6 +348,7 @@ class Anonymous(AnonymousUserMixin, UserBase):
         self.role = None
         self.name = None
         self.auto_send_enabled = False
+        self.force_password_change = False
         self.loadSettings()
 
     def loadSettings(self):
@@ -390,6 +402,7 @@ class Anonymous(AnonymousUserMixin, UserBase):
 
 class User_Sessions(Base):
     __tablename__ = 'user_session'
+    __table_args__ = (Index('ix_user_session_random_session_key', 'random', 'session_key'),)
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('user.id'))
@@ -532,6 +545,7 @@ class DismissedDuplicateGroup(Base):
 # Baseclass representing Relationship between books and Shelfs in Calibre-Web in app.db (N:M)
 class BookShelf(Base):
     __tablename__ = 'book_shelf_link'
+    __table_args__ = (Index('ix_book_shelf_link_shelf', 'shelf'),)
 
     id = Column(Integer, primary_key=True)
     book_id = Column(Integer)
@@ -555,6 +569,7 @@ class ShelfArchive(Base):
 
 class ReadBook(Base):
     __tablename__ = 'book_read_link'
+    __table_args__ = (Index('ix_book_read_link_user_book', 'user_id', 'book_id'),)
 
     STATUS_UNREAD = 0
     STATUS_FINISHED = 1
@@ -577,6 +592,7 @@ class ReadBook(Base):
 
 class Bookmark(Base):
     __tablename__ = 'bookmark'
+    __table_args__ = (Index('ix_bookmark_user_book', 'user_id', 'book_id'),)
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('user.id'))
@@ -588,6 +604,7 @@ class Bookmark(Base):
 # Baseclass representing books that are archived on the user's Kobo device.
 class ArchivedBook(Base):
     __tablename__ = 'archived_book'
+    __table_args__ = (Index('ix_archived_book_user_book', 'user_id', 'book_id'),)
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('user.id'))
@@ -598,6 +615,7 @@ class ArchivedBook(Base):
 
 class KoboSyncedBooks(Base):
     __tablename__ = 'kobo_synced_books'
+    __table_args__ = (Index('ix_kobo_synced_books_user_book', 'user_id', 'book_id'),)
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('user.id'))
     book_id = Column(Integer)
@@ -638,6 +656,7 @@ def set_opds_magic_shelf_exposed_for_user(user_id, shelf_id, exposed, _session=N
 #   KoboReadingState, ReadBook, KoboStatistics and KoboBookmark
 class KoboReadingState(Base):
     __tablename__ = 'kobo_reading_state'
+    __table_args__ = (Index('ix_kobo_reading_state_user_book', 'user_id', 'book_id'),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('user.id'))
@@ -747,6 +766,7 @@ def receive_before_flush(session, flush_context, instances):
 # Baseclass representing Downloads from calibre-web in app.db
 class Downloads(Base):
     __tablename__ = 'downloads'
+    __table_args__ = (Index('ix_downloads_user_id', 'user_id'),)
 
     id = Column(Integer, primary_key=True)
     book_id = Column(Integer)
@@ -827,6 +847,7 @@ def filename(context):
 
 class Thumbnail(Base):
     __tablename__ = 'thumbnail'
+    __table_args__ = (Index('ix_thumbnail_type_entity_resolution', 'type', 'entity_id', 'resolution'),)
 
     id = Column(Integer, primary_key=True)
     entity_id = Column(Integer)
@@ -954,6 +975,14 @@ def migrate_user_table(engine, _session):
                 e,
             )
 
+    # Migration for forced password change flag (default admin password)
+    try:
+        _session.query(exists().where(User.force_password_change)).scalar()
+        _session.commit()
+    except exc.OperationalError:
+        _safe_session_rollback(_session, "user.force_password_change")
+        _run_ddl_with_retry(engine, "ALTER TABLE user ADD column 'force_password_change' Boolean DEFAULT 0")
+
     # Migration to add per-user email subject for Kindle sending
     try:
         _session.query(exists().where(User.kindle_mail_subject)).scalar()
@@ -993,6 +1022,31 @@ def migrate_user_table(engine, _session):
     except Exception as e:
         print(f"[Migration] Warning: Could not update duplicates sidebar setting: {e}")
         _session.rollback()
+
+def flag_users_with_default_password(_session):
+    """Flag admin accounts whose password is still the shipped default so they must change it.
+
+    Runs on every start (the empty app.db shipped with the image also contains the
+    default admin). Only admin accounts are checked to keep start-up cheap.
+    """
+    try:
+        candidates = _session.query(User).filter(
+            User.role.op('&')(constants.ROLE_ADMIN) == constants.ROLE_ADMIN,
+            User.force_password_change.isnot(True),
+        ).all()
+        flagged = []
+        for user in candidates:
+            if user.password and check_password_hash(str(user.password), constants.DEFAULT_PASSWORD):
+                user.force_password_change = True
+                flagged.append(user.name)
+        if flagged:
+            _session.commit()
+            log.warning("User(s) %s still use the default password; they will be required to change it "
+                        "at next web login", ", ".join(flagged))
+    except Exception as e:
+        log.error("Could not check for accounts using the default password: %s", e)
+        _session.rollback()
+
 
 def migrate_oauth_provider_table(engine, _session):
     try:
@@ -1117,16 +1171,44 @@ def migrate_shelf_table(engine, _session):
 # Migrate database to current version, has to be updated after every database change. Currently migration from
 # maybe 4/5 versions back to current should work.
 # Migration is done by checking if relevant columns are existing, and then adding rows with SQL commands
+# Lookup indexes declared via __table_args__ above. metadata.create_all() does not add
+# indexes to tables that already exist, so existing app.db files get them here.
+_PERFORMANCE_INDEXES = (
+    ('ix_book_read_link_user_book', 'book_read_link', ('user_id', 'book_id')),
+    ('ix_archived_book_user_book', 'archived_book', ('user_id', 'book_id')),
+    ('ix_kobo_synced_books_user_book', 'kobo_synced_books', ('user_id', 'book_id')),
+    ('ix_kobo_reading_state_user_book', 'kobo_reading_state', ('user_id', 'book_id')),
+    ('ix_thumbnail_type_entity_resolution', 'thumbnail', ('type', 'entity_id', 'resolution')),
+    ('ix_user_session_random_session_key', 'user_session', ('random', 'session_key')),
+    ('ix_book_shelf_link_shelf', 'book_shelf_link', ('shelf',)),
+    ('ix_downloads_user_id', 'downloads', ('user_id',)),
+    ('ix_bookmark_user_book', 'bookmark', ('user_id', 'book_id')),
+)
+
+
+def migrate_performance_indexes(engine):
+    for index_name, table_name, columns in _PERFORMANCE_INDEXES:
+        try:
+            _run_ddl_with_retry(engine, 'CREATE INDEX IF NOT EXISTS "{}" ON "{}" ({})'.format(
+                index_name, table_name, ', '.join('"{}"'.format(c) for c in columns)))
+        except Exception as e:
+            log.warning("Could not create index %s on %s: %s", index_name, table_name, e)
+
+
 def migrate_Database(_session):
     engine = _session.bind
     add_missing_tables(engine, _session)
     migrate_registration_table(engine, _session)
     migrate_user_session_table(engine, _session)
     migrate_user_table(engine, _session)
+    # Runs after every user column migration so the full User model can be queried
+    flag_users_with_default_password(_session)
     migrate_shelf_table(engine, _session)
     migrate_oauth_provider_table(engine, _session)
     migrate_config_table(engine, _session)
     migrate_magic_shelf_table(engine, _session)
+    _safe_session_rollback(_session, "performance indexes")  # release any read lock before DDL
+    migrate_performance_indexes(engine)
 
     # Ensure progress syncing tables in app.db (user-related tables)
     from .progress_syncing.models import ensure_app_db_tables
@@ -1259,6 +1341,8 @@ def create_admin_user(_session):
     user.sidebar_view = constants.ADMIN_USER_SIDEBAR
 
     user.password = generate_password_hash(constants.DEFAULT_PASSWORD)
+    # Must come after the password assignment (which clears the flag)
+    user.force_password_change = True
 
     _session.add(user)
     try:
@@ -1286,10 +1370,37 @@ def create_system_magic_shelves_for_user(user_id):
         return 0
 
 
+def _set_app_db_pragmas(dbapi_connection, connection_record):
+    """Per-connection pragmas for app.db.
+
+    busy_timeout matches the 30s sqlite3 connect timeout. synchronous=NORMAL is only
+    safe (and only applied) when the database is actually in WAL mode, which db.py
+    enables unless NETWORK_SHARE_MODE is set.
+    """
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute("PRAGMA busy_timeout=30000")
+        if os.environ.get("NETWORK_SHARE_MODE", "false").lower() not in ("1", "true", "yes", "on"):
+            cursor.execute("PRAGMA journal_mode")
+            row = cursor.fetchone()
+            if row and str(row[0]).lower() == "wal":
+                cursor.execute("PRAGMA synchronous=NORMAL")
+    except Exception as e:
+        log.debug("Could not set app.db pragmas: %s", e)
+    finally:
+        cursor.close()
+
+
+def _create_app_db_engine(db_path):
+    engine = create_engine('sqlite:///{0}'.format(db_path), echo=False,
+                           connect_args={'timeout': 30})
+    event.listen(engine, "connect", _set_app_db_pragmas)
+    return engine
+
+
 def init_db_thread():
     global app_DB_path
-    engine = create_engine('sqlite:///{0}'.format(app_DB_path), echo=False,
-                           connect_args={'timeout': 30})
+    engine = _create_app_db_engine(app_DB_path)
 
     Session = scoped_session(sessionmaker())
     Session.configure(bind=engine)
@@ -1302,8 +1413,7 @@ def init_db(app_db_path):
     global app_DB_path
 
     app_DB_path = app_db_path
-    engine = create_engine('sqlite:///{0}'.format(app_db_path), echo=False,
-                           connect_args={'timeout': 30})
+    engine = _create_app_db_engine(app_db_path)
 
     Session = scoped_session(sessionmaker())
     Session.configure(bind=engine)

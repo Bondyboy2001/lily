@@ -73,10 +73,15 @@ mimetypes.add_type('application/zip', '.kfx-zip')
 log = logger.create()
 
 app = Flask(__name__)
+# Set SESSION_COOKIE_SECURE=true when Lily is served over HTTPS so the session and
+# remember-me cookies are never sent over plain HTTP.
+_secure_cookies = os.environ.get('SESSION_COOKIE_SECURE', 'False').lower() == 'true'
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SECURE=os.environ.get('SESSION_COOKIE_SECURE', 'False').lower() == 'true',
+    SESSION_COOKIE_SECURE=_secure_cookies,
     SESSION_COOKIE_SAMESITE='Lax',
+    REMEMBER_COOKIE_HTTPONLY=True,
+    REMEMBER_COOKIE_SECURE=_secure_cookies,
     REMEMBER_COOKIE_SAMESITE='Strict',
     WTF_CSRF_SSL_STRICT=False,
     SESSION_COOKIE_NAME=os.environ.get('COOKIE_PREFIX', "") + "session",
@@ -85,12 +90,21 @@ app.config.update(
 )
 
 # Fix for running behind reverse proxy (e.g. nginx, apache, caddy, ...)
-# Without it, url_for will generate http:// urls even if https:// is used
-# Set TRUSTED_PROXY_COUNT to the number of proxies in your chain (default: 1)
-# For CF Tunnel + reverse proxy, use TRUSTED_PROXY_COUNT=2
-num_proxies = int(os.environ.get('TRUSTED_PROXY_COUNT', '1'))
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=num_proxies, x_proto=num_proxies, x_host=num_proxies, x_prefix=num_proxies)
-log.info(f'ProxyFix configured to trust {num_proxies} proxy(ies) for X-Forwarded-* headers')
+# Without it, url_for will generate http:// urls even if https:// is used.
+# Set TRUSTED_PROXY_COUNT to the number of proxies in your chain. The default is 0
+# (X-Forwarded-* headers are ignored), because trusting them when Lily is exposed
+# directly lets any client spoof its IP address (defeating rate limiting / logging).
+# Behind a single reverse proxy use TRUSTED_PROXY_COUNT=1; for CF Tunnel + reverse proxy use 2.
+try:
+    num_proxies = max(0, int(os.environ.get('TRUSTED_PROXY_COUNT', '0')))
+except (TypeError, ValueError):
+    log.warning('Invalid TRUSTED_PROXY_COUNT value %r, falling back to 0', os.environ.get('TRUSTED_PROXY_COUNT'))
+    num_proxies = 0
+if num_proxies > 0:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=num_proxies, x_proto=num_proxies, x_host=num_proxies, x_prefix=num_proxies)
+    log.info(f'ProxyFix configured to trust {num_proxies} proxy(ies) for X-Forwarded-* headers')
+else:
+    log.info('TRUSTED_PROXY_COUNT=0: X-Forwarded-* headers are ignored (set TRUSTED_PROXY_COUNT=1 when running behind a reverse proxy)')
 
 lm = MyLoginManager()
 
@@ -241,6 +255,22 @@ def create_app():
         app.config.update(RATELIMIT_STORAGE_URI=None)
         limiter.init_app(app)
 
+    if num_proxies == 0:
+        # The TRUSTED_PROXY_COUNT default changed from 1 to 0. Warn once if requests arrive
+        # through a proxy, so upgraded installs notice broken https URLs / shared rate limits.
+        _proxy_warning = {'shown': False}
+
+        @app.before_request
+        def _warn_untrusted_proxy_headers():
+            if _proxy_warning['shown']:
+                return
+            from flask import request
+            if request.headers.get('X-Forwarded-For') or request.headers.get('X-Forwarded-Proto'):
+                _proxy_warning['shown'] = True
+                log.warning('Request contains X-Forwarded-* headers but TRUSTED_PROXY_COUNT=0, so they are '
+                            'ignored: generated URLs may use http:// and all clients share the proxy IP for '
+                            'rate limiting. Set TRUSTED_PROXY_COUNT to the number of reverse proxies in front of Lily.')
+
     # Register scheduled tasks
     # Ensure a valid calibre_db session exists before handling each request
     @app.before_request
@@ -381,6 +411,9 @@ def create_app():
     def shutdown_session(exception=None):
         if calibre_db.session_factory:
             calibre_db.session_factory.remove()
+
+    from .render_template import close_request_cwa_db
+    app.teardown_appcontext(close_request_cwa_db)
 
     from .schedule import register_scheduled_tasks, register_startup_tasks
     register_scheduled_tasks(config.schedule_reconnect)
