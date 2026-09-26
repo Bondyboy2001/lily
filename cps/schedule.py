@@ -71,6 +71,7 @@ def register_scheduled_tasks(reconnect=True):
 
         _schedule_hardcover_auto_fetch(scheduler, timezone_info)
         _schedule_archived_book_cleanup(scheduler, timezone_info)
+        _schedule_db_backup(scheduler, start, timezone_info)
 
         # Kick-off tasks, if they should currently be running
         if should_task_be_running(start, duration):
@@ -374,6 +375,20 @@ def _schedule_archived_book_cleanup(scheduler, timezone_info):
         if trigger:
             scheduler.schedule_task(lambda: TaskCleanArchivedBooks(), user='System',
                                     trigger=trigger, name=name, hidden=True)
+    except Exception:
+        # Scheduling is best-effort; never block startup
+        pass
+
+
+def _schedule_db_backup(scheduler, start_hour, timezone_info):
+    """Nightly sqlite snapshots of app.db, cwa.db and metadata.db at the start of the
+    configured maintenance window. Kept separate from get_scheduled_tasks() so it is not
+    re-run every time the schedule is re-registered or tasks are kicked off immediately."""
+    try:
+        from .tasks.db_backup import TaskBackupDatabases
+        scheduler.schedule_task(lambda: TaskBackupDatabases(), user='System',
+                                trigger=CronTrigger(hour=start_hour, minute=0, timezone=timezone_info),
+                                name='backup databases', hidden=False)
     except Exception:
         # Scheduling is best-effort; never block startup
         pass

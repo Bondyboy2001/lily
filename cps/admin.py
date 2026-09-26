@@ -154,6 +154,7 @@ def before_request():
                                  'web.login',
                                  'web.login_post',
                                  'web.logout',
+                                 'web.change_password',
                                  'admin.load_dialogtexts',
                                  'admin.ajax_pathchooser'):
         return redirect(url_for('admin.db_configuration'))
@@ -2964,6 +2965,54 @@ def test_metadata():
         return json.dumps({'success': False, 'message': _('An unknown error occurred.')}), 200
 
 # --- Last Resort Calibre DB Restore ---
+def _acquire_service_lock(lock_path, existence_lock=False):
+    """Takes a background service's lock so it can't run during a restore.
+
+    Returns (handle, path_to_remove_on_release). Raises if the service holds it.
+    Opened with 'a+' (never 'w') so the holder's PID is not truncated, and the
+    file is never unlinked while a flock-based service may be using it (same
+    contract as ProcessLock in scripts/ingest_processor.py).
+
+    existence_lock: the service (cover_enforcer.py) treats the file's mere
+    existence as "running" (open(..., 'x')) rather than using flock. An existing
+    empty file therefore means it is running; if we create the file ourselves we
+    remove it again on release.
+    """
+    existed = True
+    if existence_lock:
+        # Create atomically (like the service's open(..., 'x')) so there is no window
+        # between an existence check and the open in which the service can create it.
+        try:
+            os.close(os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644))
+            existed = False
+        except FileExistsError:
+            pass
+    handle = open(lock_path, "a+", encoding="utf-8")
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        handle.close()
+        raise RuntimeError("lock held by another process: %s" % lock_path)
+    if existence_lock and existed:
+        handle.seek(0)
+        content = handle.read().strip()
+        if not content.isdigit():
+            # Legacy 'x'-style lock (empty file) present: the service is running,
+            # or crashed and left it behind (delete the file manually in that case).
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            handle.close()
+            raise RuntimeError("lock file present: %s" % lock_path)
+    try:
+        # We hold the lock, so replacing the diagnostic PID is safe
+        handle.seek(0)
+        handle.truncate()
+        handle.write(str(os.getpid()))
+        handle.flush()
+    except OSError:
+        pass
+    return handle, (lock_path if existence_lock and not existed else None)
+
+
 @admi.route("/admin/restore_calibre_db", methods=["POST"])
 @user_login_required
 @admin_required
@@ -2994,36 +3043,32 @@ def restore_calibre_db():
         with open(lock_path, "w", encoding="utf-8") as lock_file:
             lock_file.write(str(os.getpid()))
 
-        # 1. Backup both DBs
+        # Pause background services first so nothing writes metadata.db while we
+        # snapshot and restore it. Abort if either service is busy.
+        for service_name, lock_name, existence_lock in (
+                ("ingest processor", "ingest_processor.lock", False),
+                ("cover enforcer", "cover_enforcer.lock", True)):
+            try:
+                service_lock_handles.append(
+                    _acquire_service_lock(os.path.join(tempfile.gettempdir(), lock_name), existence_lock))
+            except Exception as e:
+                log.error("Restore aborted: could not pause %s: %s", service_name, e)
+                flash(_("Restore aborted: the %(service)s is currently running. Wait for it to finish and try again.",
+                        service=service_name), category="error")
+                return redirect(url_for("admin.db_configuration"))
+
+        # 1. Backup both DBs (sqlite backup API: consistent even with pending -wal pages)
         backup_dir = f"/config/backup/restore_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         os.makedirs(backup_dir, exist_ok=True)
-        shutil.copy2(metadata_path, os.path.join(backup_dir, "metadata.db.bak"))
-        shutil.copy2(app_db_path, os.path.join(backup_dir, "app.db.bak"))
+        if '/app/calibre-web-automated/scripts/' not in sys.path:
+            sys.path.insert(1, '/app/calibre-web-automated/scripts/')
+        from db_backup import sqlite_backup
+        sqlite_backup(metadata_path, os.path.join(backup_dir, "metadata.db.bak"))
+        sqlite_backup(app_db_path, os.path.join(backup_dir, "app.db.bak"))
 
         log_path = os.path.join(backup_dir, "restore.log")
         with open(log_path, "a", encoding="utf-8") as log_file:
             log_file.write(f"Restore started at {datetime.now().isoformat()}\n")
-
-        # Pause background services and close active sessions to reduce lock contention
-        try:
-            ingest_lock_path = os.path.join(tempfile.gettempdir(), "ingest_processor.lock")
-            ingest_lock = open(ingest_lock_path, "w")
-            fcntl.flock(ingest_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            ingest_lock.write("restore_calibre_db")
-            ingest_lock.flush()
-            service_lock_handles.append(ingest_lock)
-        except Exception as e:
-            log.warning("Failed to lock ingest processor: %s", e)
-
-        try:
-            cover_lock_path = os.path.join(tempfile.gettempdir(), "cover_enforcer.lock")
-            cover_lock = open(cover_lock_path, "w")
-            fcntl.flock(cover_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            cover_lock.write("restore_calibre_db")
-            cover_lock.flush()
-            service_lock_handles.append(cover_lock)
-        except Exception as e:
-            log.warning("Failed to lock cover enforcer: %s", e)
 
         # Close active sessions to reduce lock contention
         try:
@@ -3108,7 +3153,7 @@ def restore_calibre_db():
         except Exception:
             pass
         try:
-            for handle in service_lock_handles:
+            for handle, remove_path in service_lock_handles:
                 try:
                     fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
                 except Exception:
@@ -3117,5 +3162,12 @@ def restore_calibre_db():
                     handle.close()
                 except Exception:
                     pass
+                if remove_path:
+                    # We created this existence-style lock ourselves; leaving it
+                    # behind would block the cover enforcer forever.
+                    try:
+                        os.remove(remove_path)
+                    except OSError:
+                        pass
         except Exception:
             pass

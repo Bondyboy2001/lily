@@ -86,6 +86,8 @@ CREATE TABLE IF NOT EXISTS cwa_settings(
     hardcover_auto_fetch_min_confidence REAL DEFAULT 0.85 NOT NULL,
     hardcover_auto_fetch_batch_size INTEGER DEFAULT 50 NOT NULL,
     hardcover_auto_fetch_rate_limit REAL DEFAULT 5.0 NOT NULL,
+    -- Number of nightly sqlite backups (app.db, cwa.db, metadata.db) kept in /config/backup/db/
+    db_backup_keep_count INTEGER DEFAULT 7 NOT NULL,
     -- Duplicate notification and auto-resolution settings
     duplicate_detection_enabled SMALLINT DEFAULT 1 NOT NULL,
     duplicate_notifications_enabled SMALLINT DEFAULT 1 NOT NULL,

@@ -6,6 +6,7 @@
 # See CONTRIBUTORS for full list of authors.
 
 from flask import render_template, g, abort, request, flash, current_app
+from flask import after_this_request, has_app_context, has_request_context
 from flask_babel import gettext as _
 from flask_babel import get_locale
 import polib
@@ -28,12 +29,39 @@ from cwa_db import CWA_DB
 log = logger.create()
 
 
+def get_request_cwa_db():
+    """Returns one CWA_DB per request (stored on flask.g) instead of opening a new
+    connection for every notification check. Outside a request/app context a fresh
+    instance is returned and the caller owns it."""
+    if not has_app_context():
+        return CWA_DB()
+    db = g.get('_lily_cwa_db')
+    if db is None:
+        db = CWA_DB()
+        g._lily_cwa_db = db
+        if has_request_context():
+            @after_this_request
+            def _close_cwa_db(response):
+                close_request_cwa_db()
+                return response
+    return db
+
+
+def close_request_cwa_db(exc=None):
+    """Closes the per-request CWA_DB, if any. Safe to register with app.teardown_appcontext."""
+    if not has_app_context():
+        return
+    db = g.pop('_lily_cwa_db', None)
+    if db is not None:
+        db.close()
+
+
 def _duplicate_setup_notice_dismissed():
     notice_file = f"/config/cwa_duplicate_index_setup_notice_{getattr(current_user, 'id', 'unknown')}"
     return os.path.isfile(notice_file)
 
 
-def duplicate_index_setup_notification(settings, cwa_db=None):
+def duplicate_index_setup_notification(settings, cwa_db=None, cache_data=None, cache_data_loaded=False):
     notice_file = f"/config/cwa_duplicate_index_setup_notice_{getattr(current_user, 'id', 'unknown')}"
     if os.path.isfile(notice_file):
         return False
@@ -43,7 +71,11 @@ def duplicate_index_setup_notification(settings, cwa_db=None):
 
         if not library_has_books():
             return False
-        if not duplicate_index_needs_manual_full_scan(settings):
+        # Reuse the caller's DB connection and already-parsed cache when available.
+        needs_scan_kwargs = {"cwa_db": cwa_db}
+        if cache_data_loaded:
+            needs_scan_kwargs["cache_data"] = cache_data
+        if not duplicate_index_needs_manual_full_scan(settings, **needs_scan_kwargs):
             return False
     except Exception as e:
         log.debug("[cwa-duplicates] Failed to check duplicate setup notification state: %s", str(e))
@@ -178,7 +210,7 @@ def get_cwa_last_notification() -> str:
 # Displays a notification to the user that an update for CWA is available, no matter which page they're on
 # Currently set to only display once per calender day
 def cwa_update_notification() -> None:
-    db = CWA_DB()
+    db = get_request_cwa_db()
     if db.cwa_settings['cwa_update_notifications']:
         current_date = datetime.now().strftime("%Y-%m-%d")
         cwa_last_notification = get_cwa_last_notification()
@@ -198,36 +230,9 @@ def cwa_update_notification() -> None:
     else:
         return
 
-# Notify users once about theme migration to caliBlur
-def theme_migration_notification() -> None:
-    notice_file = '/app/theme_migration_notice'
-    current_date = datetime.now().strftime("%Y-%m-%d")
-    
-    # Check if notification already shown today
-    if os.path.isfile(notice_file):
-        try:
-            with open(notice_file, 'r') as f:
-                last_notification = f.read().strip()
-                if last_notification == current_date:
-                    return
-        except Exception:
-            pass
-    
-    # Show notification
-    message = _("ℹ️ Your theme has been updated to caliBlur (Dark). Theme switching is temporarily disabled while we develop a new frontend for v5.0.0.")
-    flash(message, category="theme_migration")
-    
-    # Mark as shown today
-    try:
-        with open(notice_file, 'w') as f:
-            f.write(current_date)
-    except Exception as e:
-        print(f"[theme-migration-notification] Error writing notice file: {e}", flush=True)
-
-
 # Checks if translations are missing for the current language
 def translations_missing_notification() -> None:
-    db = CWA_DB()
+    db = get_request_cwa_db()
     if db.cwa_settings['contribute_translations_notifications']:
         lang = str(get_locale())
         # Skip English as it is the default language
@@ -276,11 +281,6 @@ def render_title_template(*args, **kwargs):
             cwa_update_notification()
         except Exception as e:
             print(f"[cwa-update-notification-service] The following error occurred when checking for available updates:\n{e}", flush=True)
-    # Notify users about theme migration (once per day)
-    try:
-        theme_migration_notification()
-    except Exception as e:
-        print(f"[theme-migration-notification] Error showing theme migration notification: {e}", flush=True)
     # Notify any user if translations are missing for their language
     try:
         translations_missing_notification()
@@ -295,7 +295,7 @@ def render_title_template(*args, **kwargs):
     }
     try:
         if current_user.is_authenticated and (current_user.role_admin() or current_user.role_edit()):
-            cwa_db = CWA_DB()
+            cwa_db = get_request_cwa_db()
             detection_enabled = cwa_db.cwa_settings.get('duplicate_detection_enabled', 1)
             notifications_enabled = bool(cwa_db.cwa_settings.get('duplicate_notifications_enabled', 1))
             if detection_enabled:
@@ -303,7 +303,12 @@ def render_title_template(*args, **kwargs):
                 duplicate_setup_notice_dismissed = _duplicate_setup_notice_dismissed()
                 duplicate_setup_notice_shown = False
                 if not duplicate_setup_notice_dismissed:
-                    duplicate_setup_notice_shown = duplicate_index_setup_notification(cwa_db.cwa_settings, cwa_db=cwa_db)
+                    duplicate_setup_notice_shown = duplicate_index_setup_notification(
+                        cwa_db.cwa_settings,
+                        cwa_db=cwa_db,
+                        cache_data=cache_data,
+                        cache_data_loaded=True,
+                    )
 
                 if duplicate_setup_notice_shown:
                     duplicate_notification = {

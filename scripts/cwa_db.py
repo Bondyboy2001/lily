@@ -7,11 +7,70 @@
 import sqlite3
 import sys
 import os
+import threading
 from sqlite3 import Error as sqlError
 import re
 from datetime import datetime
 
 from tabulate import tabulate
+
+
+class CWADBConnectionError(sqlError):
+    """Raised when cwa.db cannot be opened.
+
+    Subclasses sqlite3.Error so existing ``except sqlite3.Error`` handlers keep
+    working. Previously connect_to_db() called sys.exit(0), which raised
+    SystemExit inside web requests and worker threads.
+    """
+
+
+# Schema creation + settings/column migrations only need to run once per process
+# per database file. Every CWA_DB() construction used to re-run them (12 CREATE
+# TABLEs with a commit each, several ALTER/UPDATE passes), and there are ~85 call
+# sites, several per page render.
+_SCHEMA_INIT_LOCK = threading.Lock()
+_SCHEMA_INITIALIZED: set[str] = set()
+_SCHEMA_FILE_CACHE: dict[str, tuple[list[str], list[str]]] = {}
+# Default cwa_settings values parsed from the schema file, per schema path. Parsing
+# used to run on every CWA_DB() construction.
+_DEFAULT_SETTINGS_CACHE: dict[str, dict] = {}
+
+
+def invalidate_schema_cache(db_file: str | None = None) -> None:
+    """Forget that schema setup ran, so the next CWA_DB() re-runs migrations.
+
+    Call after cwa.db was replaced on disk (e.g. a restore). With no argument,
+    all database paths are invalidated.
+    """
+    with _SCHEMA_INIT_LOCK:
+        if db_file is None:
+            _SCHEMA_INITIALIZED.clear()
+        else:
+            _SCHEMA_INITIALIZED.discard(os.path.abspath(db_file))
+
+
+def _network_share_mode() -> bool:
+    """Same NETWORK_SHARE_MODE parsing as cps/db.py (WAL is unsafe on network shares)."""
+    return os.getenv('NETWORK_SHARE_MODE', 'False').lower() in ('1', 'true', 'yes', 'on')
+
+
+def _read_schema_file(schema_path: str) -> tuple[list[str], list[str]]:
+    """Returns (statements, raw non-blank lines) for the schema file, cached per process."""
+    cached = _SCHEMA_FILE_CACHE.get(schema_path)
+    if cached is not None:
+        return list(cached[0]), list(cached[1])
+    schema = []
+    with open(schema_path, 'r') as f:
+        for line in f:
+            if line != "\n":
+                schema.append(line)
+    tables = "".join(schema)
+    tables = tables.split(';')
+    tables.pop(-1)
+    for x in range(len(tables)):
+        tables[x] = tables[x] + ";"
+    _SCHEMA_FILE_CACHE[schema_path] = (tables, schema)
+    return list(tables), list(schema)
 
 
 class CWA_DB:
@@ -21,6 +80,10 @@ class CWA_DB:
         self.db_file = "cwa.db"
         # CWA_DB_PATH lets tests point at an isolated directory; production always uses /config/
         self.db_path = os.path.join(os.environ.get("CWA_DB_PATH", "/config"), "")
+        full_path = os.path.abspath(self.db_path + self.db_file)
+        if not os.path.exists(full_path):
+            # A missing/replaced file must get its schema created again
+            invalidate_schema_cache(full_path)
         self.con, self.cur = self.connect_to_db() # type: ignore
 
         # Support both Docker and CI environments for schema path
@@ -36,48 +99,74 @@ class CWA_DB:
             "cwa_duplicate_book_keys",
             "cwa_duplicate_resolutions",
         ]
-        self.tables, self.schema = self.make_tables()
-
+        self.tables, self.schema = _read_schema_file(self.schema_path)
         self.cwa_default_settings = self.get_cwa_default_settings()
+
+        with _SCHEMA_INIT_LOCK:
+            if full_path not in _SCHEMA_INITIALIZED:
+                self.run_schema_setup()
+                _SCHEMA_INITIALIZED.add(full_path)
+
+        self.cwa_settings = self.get_cwa_settings()
+
+
+    def run_schema_setup(self) -> None:
+        """Creates tables and applies settings/column migrations. Runs once per process per db file."""
+        self.make_tables()
         self.ensure_settings_schema_match()
         self.match_stat_table_columns_with_schema()
         self.ensure_scheduled_jobs_schema()
         self.set_default_settings()
-        self.cwa_settings = self.get_cwa_settings()
 
 
-    def connect_to_db(self) -> tuple[sqlite3.Connection, sqlite3.Cursor] | None:
+    def close(self) -> None:
+        """Closes the underlying connection. Safe to call more than once."""
+        con = getattr(self, "con", None)
+        if con is not None:
+            try:
+                con.close()
+            except Exception:
+                pass
+
+
+    def __enter__(self):
+        return self
+
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+        return False
+
+
+    def connect_to_db(self) -> tuple[sqlite3.Connection, sqlite3.Cursor]:
         """Establishes connection with the db or makes one if one doesn't already exist"""
-        con = None
-        cur = None
         try:
             os.makedirs(self.db_path, exist_ok=True)
             con = sqlite3.connect(self.db_path + self.db_file, timeout=30)
-        except sqlError as e:
+        except (sqlError, OSError) as e:
             print(f"[cwa-db]: The following error occurred while trying to connect to the CWA Enforcement DB: {e}")
-            sys.exit(0)
-        if con:
-            cur = con.cursor()
-            if self.verbose:
-                print("[cwa-db]: Connection with the CWA Enforcement DB Successful!")
-            return con, cur
+            raise CWADBConnectionError(f"Could not open {self.db_path + self.db_file}: {e}") from e
+        try:
+            con.execute("PRAGMA busy_timeout=30000")
+            if not _network_share_mode():
+                # journal_mode is persistent in the file; this is a cheap no-op once set
+                con.execute("PRAGMA journal_mode=WAL")
+                # Durable across app crashes in WAL mode; avoids an fsync on every commit
+                con.execute("PRAGMA synchronous=NORMAL")
+        except sqlError as e:
+            print(f"[cwa-db] Warning: could not configure cwa.db pragmas: {e}")
+        cur = con.cursor()
+        if self.verbose:
+            print("[cwa-db]: Connection with the CWA Enforcement DB Successful!")
+        return con, cur
 
 
     def make_tables(self) -> tuple[list[str], list[str]]:
         """Creates the tables for the CWA DB if they don't already exist"""
-        schema = []
-        with open(self.schema_path, 'r') as f:
-            for line in f:
-                if line != "\n":
-                    schema.append(line)
-        tables = "".join(schema)
-        tables = tables.split(';')
-        tables.pop(-1)
-        for x in range(len(tables)):
-            tables[x] = tables[x] + ";"
+        tables, schema = _read_schema_file(self.schema_path)
         for table in tables:
             self.cur.execute(table)
-            self.con.commit()
+        self.con.commit()
 
         return tables, schema
 
@@ -111,6 +200,10 @@ class CWA_DB:
 
 
     def get_cwa_default_settings(self):
+        schema_path = getattr(self, "schema_path", None)
+        cached = _DEFAULT_SETTINGS_CACHE.get(schema_path) if schema_path else None
+        if cached is not None:
+            return dict(cached)
         for table in self.tables:
             if "cwa_settings" in table:
                 settings_table = table.strip()
@@ -160,6 +253,8 @@ class CWA_DB:
 
             default_settings |= {setting_name:setting_value}
 
+        if schema_path:
+            _DEFAULT_SETTINGS_CACHE[schema_path] = dict(default_settings)
         return default_settings
 
 
@@ -360,7 +455,7 @@ class CWA_DB:
                     if command.startswith('--') or not command:
                         continue
                     command = command.replace(',', ';')
-                    with open('/config/.cwa_db_debug', 'a') as f:
+                    with open(os.path.join(self.db_path, '.cwa_db_debug'), 'a') as f:
                         f.write(command)
                     self.cur.execute(f"ALTER TABLE cwa_settings ADD {command}")  
                     self.con.commit()
@@ -490,13 +585,15 @@ class CWA_DB:
     def get_cwa_settings(self) -> dict:
         """Gets the current cwa_settings values from the table of the same name in cwa.db and returns them as a dict"""
         self.cur.execute("SELECT * FROM cwa_settings")
-        if self.cur.fetchall() == []: # If settings table is empty, populates it with default values
+        rows = self.cur.fetchall()
+        headers = [header[0] for header in self.cur.description]
+        if rows == []: # If settings table is empty, populates it with default values
             self.cur.execute("INSERT INTO cwa_settings DEFAULT VALUES;")
             self.con.commit()
-            
-        self.cur.execute("SELECT * FROM cwa_settings")
-        headers = [header[0] for header in self.cur.description]
-        cwa_settings = [dict(zip(headers,row)) for row in self.cur.fetchall()][0]
+            self.cur.execute("SELECT * FROM cwa_settings")
+            rows = self.cur.fetchall()
+            headers = [header[0] for header in self.cur.description]
+        cwa_settings = dict(zip(headers, rows[0]))
 
         # Define default values for new columns (in case db doesn't have them yet)
         schema_defaults = {
@@ -513,7 +610,8 @@ class CWA_DB:
             'archived_cleanup_schedule_hour': 3,
             'ingest_stale_temp_minutes': 120,
             'ingest_stale_temp_interval': 600,
-            'cover_download_max_mb': 15
+            'cover_download_max_mb': 15,
+            'db_backup_keep_count': 7
         }
         
         # Apply defaults for missing keys
@@ -522,7 +620,7 @@ class CWA_DB:
                 cwa_settings[key] = default_value
 
         # Define which settings should remain as integers (not converted to boolean)
-        integer_settings = ['ingest_timeout_minutes', 'ingest_stale_temp_minutes', 'ingest_stale_temp_interval', 'auto_send_delay_minutes', 'hardcover_auto_fetch_batch_size', 'hardcover_auto_fetch_schedule_hour', 'duplicate_scan_hour', 'duplicate_scan_chunk_size', 'duplicate_scan_debounce_seconds', 'duplicate_auto_resolve_cooldown_minutes', 'archived_cleanup_schedule_hour', 'cover_download_max_mb']
+        integer_settings = ['ingest_timeout_minutes', 'ingest_stale_temp_minutes', 'ingest_stale_temp_interval', 'auto_send_delay_minutes', 'hardcover_auto_fetch_batch_size', 'hardcover_auto_fetch_schedule_hour', 'duplicate_scan_hour', 'duplicate_scan_chunk_size', 'duplicate_scan_debounce_seconds', 'duplicate_auto_resolve_cooldown_minutes', 'archived_cleanup_schedule_hour', 'cover_download_max_mb', 'db_backup_keep_count']
         
         # Define which settings should remain as floats (not converted to boolean)
         float_settings = ['hardcover_auto_fetch_min_confidence', 'hardcover_auto_fetch_rate_limit']
