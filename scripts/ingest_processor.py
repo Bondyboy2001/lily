@@ -53,7 +53,15 @@ _duplicate_scan_timer = None
 _duplicate_scan_lock = threading.Lock()
 
 class ProcessLock:
-    """Robust process lock using both file locking and PID tracking"""
+    """Process lock backed by flock(2).
+
+    The kernel releases the flock automatically when the holding process exits
+    (even on SIGKILL), so there is no such thing as a "stale" lock to clean up.
+    The lock file itself is never truncated before the lock is held and never
+    unlinked: removing a path another process has flocked would let a third
+    process create a fresh inode and lock it too, so two processors could run
+    at once. The PID written after acquiring is purely diagnostic.
+    """
 
     def __init__(self, lock_name="ingest_processor"):
         self.lock_name = lock_name
@@ -64,33 +72,33 @@ class ProcessLock:
     def acquire(self, timeout=5):
         """Acquire the lock with timeout. Returns True if successful, False if another process has it."""
         try:
-            # Try to open/create the lock file
-            self.lock_file = open(self.lock_path, 'w+')
+            # 'a+' creates the file if needed without truncating the holder's PID
+            self.lock_file = open(self.lock_path, 'a+')
 
-            # Try to acquire an exclusive lock with timeout
             start_time = time.time()
-            while time.time() - start_time < timeout:
+            while True:
                 try:
                     fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except (IOError, OSError):
+                    # Lock is held by another live process
+                    if time.time() - start_time >= timeout:
+                        break
+                    time.sleep(0.1)
+                    continue
 
-                    # Successfully acquired lock, write our PID
+                # We hold the lock now, so it is safe to replace the diagnostic PID
+                try:
                     self.lock_file.seek(0)
+                    self.lock_file.truncate()
                     self.lock_file.write(str(os.getpid()))
                     self.lock_file.flush()
-                    self.lock_file.truncate()  # Truncate at current position to remove any leftover data
+                except OSError as e:
+                    print(f"[ingest-processor] WARN: Could not record PID in lock file: {e}")
 
-                    self.acquired = True
-                    print(f"[ingest-processor] Lock acquired successfully (PID: {os.getpid()})")
-                    return True
+                self.acquired = True
+                print(f"[ingest-processor] Lock acquired successfully (PID: {os.getpid()})")
+                return True
 
-                except (IOError, OSError):
-                    # Lock is held by another process
-                    # Check if the holding process is still alive
-                    if self._check_stale_lock():
-                        continue  # Try again as we cleaned up a stale lock
-                    time.sleep(0.1)  # Brief wait before retry
-
-            # Timeout reached
             holding_pid = self._get_holding_pid()
             print(f"[ingest-processor] CANCELLING... ingest-processor initiated but is already running (PID: {holding_pid})")
             self.release()
@@ -102,92 +110,33 @@ class ProcessLock:
             return False
 
     def _get_holding_pid(self):
-        """Get the PID of the process holding the lock"""
+        """Get the PID recorded by the process holding the lock (diagnostic only)"""
         try:
-            if self.lock_file:
-                self.lock_file.seek(0)
-                pid_str = self.lock_file.read().strip()
-                return int(pid_str) if pid_str.isdigit() else "unknown"
-        except:
+            with open(self.lock_path, 'r') as f:
+                pid_str = f.read().strip()
+            return int(pid_str) if pid_str.isdigit() else "unknown"
+        except Exception:
             pass
         return "unknown"
 
-    def _check_stale_lock(self):
-        """Check if the lock is stale (holding process no longer exists) and clean it up"""
-        try:
-            if not self.lock_file:
-                return False
-
-            self.lock_file.seek(0)
-            pid_str = self.lock_file.read().strip()
-
-            if not pid_str.isdigit():
-                print("[ingest-processor] Lock file contains invalid PID, treating as stale")
-                return self._cleanup_stale_lock()
-
-            holding_pid = int(pid_str)
-
-            # Check if process is still running
-            try:
-                os.kill(holding_pid, 0)  # Signal 0 just checks if process exists
-                return False  # Process is still running
-            except ProcessLookupError:
-                # Process doesn't exist, lock is stale
-                print(f"[ingest-processor] Detected stale lock from non-existent process {holding_pid}, cleaning up")
-                return self._cleanup_stale_lock()
-            except PermissionError:
-                # Process exists but we can't signal it (different user), assume it's running
-                return False
-
-        except Exception as e:
-            print(f"[ingest-processor] Error checking stale lock: {e}")
-            return False
-
-    def _cleanup_stale_lock(self):
-        """Clean up a stale lock file"""
-        try:
-            if self.lock_file:
-                try:
-                    fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
-                except (OSError, IOError):
-                    # We might not have had the lock in the first place
-                    pass
-                self.lock_file.close()
-                self.lock_file = None
-
-            # Remove the lock file
-            if os.path.exists(self.lock_path):
-                os.remove(self.lock_path)
-                print(f"[ingest-processor] Cleaned up stale lock file: {self.lock_path}")
-
-            return True
-        except Exception as e:
-            print(f"[ingest-processor] Error cleaning up stale lock: {e}")
-            return False
-
     def release(self):
-        """Release the lock"""
-        if self.acquired and self.lock_file:
-            try:
+        """Release the lock. The lock file is intentionally left in place."""
+        if self.lock_file is None:
+            self.acquired = False
+            return
+        try:
+            if self.acquired:
                 fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
-                self.lock_file.close()
-                self.lock_file = None
-
-                # Remove lock file
-                if os.path.exists(self.lock_path):
-                    os.remove(self.lock_path)
-
-                self.acquired = False
                 print(f"[ingest-processor] Lock released (PID: {os.getpid()})")
-            except Exception as e:
-                print(f"[ingest-processor] Error releasing lock: {e}")
-        elif self.lock_file:
-            # Clean up even if we didn't successfully acquire
+        except Exception as e:
+            print(f"[ingest-processor] Error releasing lock: {e}")
+        finally:
             try:
                 self.lock_file.close()
-                self.lock_file = None
-            except:
+            except Exception:
                 pass
+            self.lock_file = None
+            self.acquired = False
 
 def cleanup_lock():
     """Cleanup function for atexit"""
@@ -361,6 +310,21 @@ def initialize_runtime() -> bool:
     _load_backup_destinations()
     _runtime_initialized = True
     return True
+
+
+DEFAULT_FAILED_DIR = "/config/processed_books/failed"
+
+
+def unique_failed_path(failed_dir: str, filename: str) -> str:
+    """Return a path in failed_dir that doesn't exist yet: '<timestamp>_<name>', plus a counter on collision."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    stem, ext = os.path.splitext(filename)
+    candidate = os.path.join(failed_dir, f"{timestamp}_{filename}")
+    counter = 1
+    while os.path.lexists(candidate):
+        candidate = os.path.join(failed_dir, f"{timestamp}_{stem}_{counter}{ext}")
+        counter += 1
+    return candidate
 
 
 def _is_missing_ingest_target(filepath: str) -> bool:
@@ -715,11 +679,39 @@ class NewBookProcessor:
                 raise KeyError(f"No backup destination for type '{backup_type}'")
             # Ensure destination directory exists
             os.makedirs(output_path, exist_ok=True)
-            destination = shutil.copy(input_file, output_path)
+            if backup_type == "failed":
+                # Never overwrite an earlier failed copy that happens to share a name
+                destination = shutil.copy(input_file, unique_failed_path(output_path, os.path.basename(input_file)))
+            else:
+                destination = shutil.copy(input_file, output_path)
             os.utime(destination, None)
         except Exception as e:
             # Never let backups crash ingest; just log the problem
             print(f"[ingest-processor]: ERROR - Failed to backup '{input_file}' to '{output_path}': {e}")
+
+    def move_to_failed(self) -> bool:
+        """Move the ingest source into processed_books/failed under a unique name.
+
+        Returns True once the source is safely out of the ingest folder. If the move
+        fails the source is left where it is (never deleted) and the error is logged.
+        """
+        if not os.path.exists(self.filepath):
+            print(f"[ingest-processor] Source already gone, nothing to move to failed: {self.filepath}", flush=True)
+            return True
+        failed_dir = backup_destinations.get("failed") or DEFAULT_FAILED_DIR
+        try:
+            os.makedirs(failed_dir, exist_ok=True)
+            destination = unique_failed_path(failed_dir, self.filename)
+            shutil.move(self.filepath, destination)
+            print(f"[ingest-processor] Moved {self.filename} to failed backups: {destination}", flush=True)
+            return True
+        except Exception as e:
+            print(
+                f"[ingest-processor] ERROR: Could not move {self.filepath} to {failed_dir} ({e}). "
+                "LEAVING THE ORIGINAL IN THE INGEST FOLDER so it is not lost.",
+                flush=True,
+            )
+            return False
 
 
     def convert_book(self, end_format=None) -> tuple[bool, str]:
@@ -751,8 +743,8 @@ class NewBookProcessor:
             return True, target_filepath
 
         except subprocess.CalledProcessError as e:
+            # The caller moves the original into failed/ once processing ends
             print(f"\n[ingest-processor]: CON_ERROR: {self.filename} could not be converted to {end_format} due to the following error:\nEXIT/ERROR CODE: {e.returncode}\n{e.stderr}", flush=True)
-            self.backup(self.filepath, backup_type="failed")
             return False, ""
 
 
@@ -788,10 +780,10 @@ class NewBookProcessor:
 
             except subprocess.CalledProcessError as e:
                 print(f"[ingest-processor]: CON_ERROR: {self.filename} could not be converted to kepub due to the following error:\nEXIT/ERROR CODE: {e.returncode}\n{e.stderr}", flush=True)
-                self.backup(converted_filepath, backup_type="failed")
                 return False, ""
             except Exception as e:
                 print(f"[ingest-processor] ingest-processor ran into the following error:\n{e}", flush=True)
+                return False, ""
         else:
             print(f"[ingest-processor]: An error occurred when converting the original {self.input_format} to epub. Cancelling kepub conversion...", flush=True)
             return False, ""
@@ -856,7 +848,9 @@ class NewBookProcessor:
 
 
 
-    def add_book_to_library(self, book_path:str, text: bool=True, format: str="text" ) -> None:
+    def add_book_to_library(self, book_path:str, text: bool=True, format: str="text" ) -> bool:
+        """Import book_path into the library. Returns True only once calibredb has accepted it;
+        on False the caller is responsible for preserving the ingest source in failed/."""
         # If kindle-epub-fixer is on, run it first and import the *fixed* file.
         if self.target_format == "epub" and self.is_kindle_epub_fixer:
             fixed_epub_path = Path(self.tmp_conversion_dir) / os.path.basename(book_path)
@@ -870,7 +864,7 @@ class NewBookProcessor:
             except OSError as e:
                 if e.errno == 36: # Filename too long
                     print(f"[ingest-processor] Skipping file due to OS path length error: {book_path}", flush=True)
-                    return
+                    return False
                 else:
                     print(f"[ingest-processor] An error occurred while checking the fixed EPUB path on {book_path}:\n{e}", flush=True)
                     raise
@@ -889,8 +883,7 @@ class NewBookProcessor:
         source_path = Path(book_path)
         if not source_path.exists() or source_path.stat().st_size == 0:
             print(f"[ingest-processor] ERROR: Import file is missing or empty, skipping: {book_path}", flush=True)
-            self.backup(self.filepath, backup_type="failed") # Backup original file
-            return
+            return False
 
         # Stage file for import
         staged_path = Path(self.staging_dir) / source_path.name
@@ -898,9 +891,9 @@ class NewBookProcessor:
             shutil.copy2(source_path, staged_path)
         except Exception as e:
             print(f"[ingest-processor] ERROR: Failed to stage file for import: {e}", flush=True)
-            self.backup(self.filepath, backup_type="failed")
-            return
+            return False
 
+        imported = False
         try:
             if text:
                 result = subprocess.run([
@@ -959,6 +952,8 @@ class NewBookProcessor:
                     self.last_added_book_id = added_ids[-1]
                 else:
                     self._fallback_last_added_book_id()
+            # calibredb accepted the file; everything below is best-effort follow-up
+            imported = True
             print(f"[ingest-processor] Added {staged_path.stem} to Calibre database", flush=True)
 
             if self.cwa_settings['auto_backup_imports']:
@@ -1015,7 +1010,7 @@ class NewBookProcessor:
                         cur = con.cursor()
                         if not self._register_title_sort_function(con):
                             print("[ingest-processor] INFO: Skipping timestamp adjust (title_sort SQL function unavailable).", flush=True)
-                            return
+                            return imported
                         # pre_import_max_timestamp may be None (empty library) -> update all rows where timestamp < last_modified
                         if pre_import_max_timestamp is None:
                             cur.execute('UPDATE books SET timestamp = last_modified WHERE timestamp < last_modified')
@@ -1029,12 +1024,15 @@ class NewBookProcessor:
 
         except subprocess.CalledProcessError as e:
             print(f"[ingest-processor] {staged_path.stem} was not able to be added to the Calibre Library due to the following error:\nCALIBREDB EXIT/ERROR CODE: {e.returncode}\n{e.stderr}", flush=True)
+            # Keep the exact file calibredb rejected (may be a converted/fixed copy);
+            # the original ingest source is moved to failed/ separately by main()
             self.backup(str(staged_path), backup_type="failed")
         except Exception as e:
             print(f"[ingest-processor] ingest-processor ran into the following error:\n{e}", flush=True)
         finally:
             if staged_path.exists():
                 os.remove(staged_path)
+        return imported
 
     def _validate_book_exists(self, book_id: int) -> bool:
         """Check if a book with the given ID exists in the Calibre library"""
@@ -1047,19 +1045,18 @@ class NewBookProcessor:
             print(f"[ingest-processor] ERROR: Failed to validate book_id {book_id}: {e}", flush=True)
             return False
 
-    def add_format_to_book(self, book_id:int, book_path:str) -> None:
-        """Attach a new format file to an existing Calibre book using calibredb add_format"""
+    def add_format_to_book(self, book_id:int, book_path:str) -> bool:
+        """Attach a new format file to an existing Calibre book using calibredb add_format.
+        Returns True only if calibredb accepted the format."""
         source_path = Path(book_path)
         if not source_path.exists() or source_path.stat().st_size == 0:
             print(f"[ingest-processor] ERROR: Source file for add_format is missing or empty, skipping: {book_path}", flush=True)
-            self.backup(self.filepath, backup_type="failed") # Backup original file
-            return
+            return False
 
         # Validate that the book exists before attempting to add format
         if not self._validate_book_exists(book_id):
             print(f"[ingest-processor] ERROR: Book ID {book_id} not found in library, cannot add format: {os.path.basename(book_path)}", flush=True)
-            self.backup(self.filepath, backup_type="failed")
-            return
+            return False
 
         # Stage file for import
         staged_path = Path(self.staging_dir) / source_path.name
@@ -1067,13 +1064,14 @@ class NewBookProcessor:
             shutil.copy2(source_path, staged_path)
         except Exception as e:
             print(f"[ingest-processor] ERROR: Failed to stage file for add_format: {e}", flush=True)
-            self.backup(self.filepath, backup_type="failed")
-            return
+            return False
 
+        added = False
         try:
             result = subprocess.run([
                 "calibredb", "add_format", str(book_id), str(staged_path), f"--library-path={self.library_dir}"
             ], env=self.calibre_env, check=True, capture_output=True, text=True)
+            added = True
             print(f"[ingest-processor] Added new format for book id {book_id}: {os.path.basename(str(staged_path))}", flush=True)
             mark_ingest_batch_dirty()
             if self.cwa_settings['auto_backup_imports']:
@@ -1083,12 +1081,12 @@ class NewBookProcessor:
         except subprocess.CalledProcessError as e:
             stderr_output = e.stderr if e.stderr else "No error details available"
             print(f"[ingest-processor] Failed to add format for book id {book_id}: {os.path.basename(str(staged_path))}\nCALIBREDB EXIT/ERROR CODE: {e.returncode}\nError details: {stderr_output}", flush=True)
-            self.backup(str(staged_path), backup_type="failed")
         except Exception as e:
             print(f"[ingest-processor] Unexpected error while adding format for book id {book_id}: {e}", flush=True)
         finally:
             if staged_path.exists():
                 os.remove(staged_path)
+        return added
 
 
     def run_kindle_epub_fixer(self, filepath:str, dest=None) -> None:
@@ -1364,7 +1362,12 @@ def main(filepath=None):
         return run_post_batch_follow_up()
 
     nbp = None
-    skip_delete = False
+    # What happens to the ingest source once we're done with it:
+    #   "delete" - only after a confirmed successful import
+    #   "keep"   - leave it in place (temp/ignored files, not ready yet)
+    #   "failed" - move it into processed_books/failed (default for every other outcome,
+    #              including unexpected exceptions)
+    source_outcome = "failed"
     try:
         ##############################################################################################
         # Truncates the filename if it is too long
@@ -1412,7 +1415,7 @@ def main(filepath=None):
             ready = nbp.is_file_in_use()
             if not ready:
                 print(f"[ingest-processor] WARN: File did not become ready in time or vanished (after {timeout_minutes} minutes): {nbp.filename}", flush=True)
-                skip_delete = True
+                source_outcome = "keep"
                 return 0
 
         # Sidecar manifest handling for explicit actions (e.g., add_format)
@@ -1432,14 +1435,11 @@ def main(filepath=None):
                     if book_id > -1:
                         # Validate book exists before attempting add_format
                         if nbp._validate_book_exists(book_id):
-                            nbp.add_format_to_book(book_id, filepath)
-                            success = True
+                            success = nbp.add_format_to_book(book_id, filepath)
                         else:
                             print(f"[ingest-processor] ERROR: Book ID {book_id} not found in library for {os.path.basename(filepath)}", flush=True)
-                            nbp.backup(filepath, backup_type="failed")
                     else:
                         print(f"[ingest-processor] ERROR: Invalid book_id in manifest for {os.path.basename(filepath)}", flush=True)
-                        nbp.backup(filepath, backup_type="failed")
                     
                     # Cleanup manifest: delete on success, preserve on failure for debugging
                     try:
@@ -1452,8 +1452,8 @@ def main(filepath=None):
                     except Exception as e:
                         print(f"[ingest-processor] WARN: Failed to handle manifest cleanup: {e}", flush=True)
                     
-                    nbp.set_library_permissions()
-                    nbp.delete_current_file()
+                    # The finally block deletes the source on success or moves it to failed/
+                    source_outcome = "delete" if success else "failed"
                     return 0
         except Exception as e:
             print(f"[ingest-processor] Error processing manifest file: {e}", flush=True)
@@ -1465,21 +1465,22 @@ def main(filepath=None):
         if ext in nbp.ingest_ignored_formats:
             # Do NOT delete ignored temporary files; they may be renamed shortly (e.g. .uploading -> .epub)
             print(f"[ingest-processor] Skipping ignored/temporary file (no action taken): {nbp.filename}", flush=True)
-            skip_delete = True
+            source_outcome = "keep"
             return 0
 
+        imported = False
         if nbp.is_target_format: # File can just be imported
             print(f"\n[ingest-processor]: No conversion needed for {nbp.filename}, importing now...", flush=True)
-            nbp.add_book_to_library(filepath)
+            imported = nbp.add_book_to_library(filepath)
         elif nbp.is_supported_audiobook():
             print(f"\n[ingest-processor]: No conversion needed for {nbp.filename}, is audiobook, importing now...", flush=True)
-            nbp.add_book_to_library(filepath, False, Path(nbp.filename).suffix)
+            imported = nbp.add_book_to_library(filepath, False, Path(nbp.filename).suffix)
         else:
             if nbp.auto_convert_on and nbp.can_convert: # File can be converted to target format and Auto-Converter is on
 
                 if nbp.input_format in nbp.convert_ignored_formats: # File could be converted & the converter is activated but the user has specified files of this format should not be converted
                     print(f"\n[ingest-processor]: {nbp.filename} not in target format but user has told CWA not to convert this format so importing the file anyway...", flush=True)
-                    nbp.add_book_to_library(filepath)
+                    imported = nbp.add_book_to_library(filepath)
                     convert_successful = False
                 elif nbp.target_format == "kepub": # File is not in the convert ignore list and target is kepub, so we start the kepub conversion process
                     convert_successful, converted_filepath = nbp.convert_to_kepub()
@@ -1487,10 +1488,11 @@ def main(filepath=None):
                     convert_successful, converted_filepath = nbp.convert_book()
 
                 if convert_successful: # If previous conversion process was successful, remove tmp files and import into library
-                    nbp.add_book_to_library(converted_filepath) # type: ignore
+                    imported = nbp.add_book_to_library(converted_filepath) # type: ignore
 
                     # If the original format should be retained, also add it as an additional format
-                    if nbp.input_format in nbp.convert_retained_formats and nbp.input_format not in nbp.ingest_ignored_formats:
+                    if imported and nbp.input_format in nbp.convert_retained_formats and nbp.input_format not in nbp.ingest_ignored_formats:
+                        retained = False
                         print(f"[ingest-processor]: Retaining original format ({nbp.input_format}) for {nbp.filename}...", flush=True)
                         # Find the book that was just added to get its ID
                         try:
@@ -1506,20 +1508,29 @@ def main(filepath=None):
 
                             if target_book_id is not None:
                                 if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
-                                    nbp.add_format_to_book(int(target_book_id), filepath)
+                                    retained = nbp.add_format_to_book(int(target_book_id), filepath)
                                 else:
                                     print(f"[ingest-processor] Original file no longer exists or is empty, cannot retain format: {filepath}", flush=True)
                             else:
                                 print(f"[ingest-processor] Could not find book ID to add retained format for: {nbp.filename}", flush=True)
                         except Exception as e:
                             print(f"[ingest-processor] Error adding retained format: {e}", flush=True)
+                        if not retained:
+                            # The converted copy is in the library but the original the user asked
+                            # to keep isn't, so preserve it in failed/ rather than deleting it
+                            print(f"[ingest-processor] WARN: Retained format was not added; preserving original {nbp.filename} in failed backups", flush=True)
+                            source_outcome = "failed"
+                            return 0
 
             elif nbp.can_convert and not nbp.auto_convert_on: # Books not in target format but Auto-Converter is off so files are imported anyway
                 print(f"\n[ingest-processor]: {nbp.filename} not in target format but CWA Auto-Convert is deactivated so importing the file anyway...", flush=True)
-                nbp.add_book_to_library(filepath)
+                imported = nbp.add_book_to_library(filepath)
             else:
                 print(f"[ingest-processor]: Cannot convert {nbp.filepath}. {nbp.input_format} is currently unsupported / is not a known ebook format.", flush=True)
 
+        source_outcome = "delete" if imported else "failed"
+        if not imported:
+            print(f"[ingest-processor] {nbp.filename} was not imported; preserving it in failed backups", flush=True)
         return 0
 
     except Exception as e:
@@ -1534,12 +1545,14 @@ def main(filepath=None):
                 print(f"[ingest-processor] Error setting library permissions during cleanup: {e}", flush=True)
 
             try:
-                if skip_delete:
+                if source_outcome == "keep":
                     print(f"[ingest-processor] Skipping delete for ignored/temporary file: {nbp.filename}", flush=True)
-                else:
+                elif source_outcome == "delete":
                     nbp.delete_current_file()
+                else:
+                    nbp.move_to_failed()
             except Exception as e:
-                print(f"[ingest-processor] Error deleting current file during cleanup: {e}", flush=True)
+                print(f"[ingest-processor] Error handling source file during cleanup (left in place): {e}", flush=True)
 
             try:
                 # Cleanup the temp conversion folder, which now contains the staging dir

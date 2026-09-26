@@ -19,7 +19,8 @@ STATUS_FILE="${CWA_INGEST_STATUS_FILE:-/config/cwa_ingest_status}"
 echo "idle" > "$STATUS_FILE"
 
 # Ensure failed backup directory exists
-mkdir -p "/config/processed_books/failed" 2>/dev/null || true
+FAILED_DIR="${CWA_INGEST_FAILED_DIR:-/config/processed_books/failed}"
+mkdir -p "$FAILED_DIR" 2>/dev/null || true
 
 # Function to get timeout from database
 get_timeout_from_db() {
@@ -46,10 +47,10 @@ except:
 }
 
 # Tunables (override via env)
-STABLE_CHECKS=${CWA_INGEST_STABLE_CHECKS:-6}
-STABLE_CONSEC_MATCH=${CWA_INGEST_STABLE_CONSEC_MATCH:-2}
-STABLE_INTERVAL=${CWA_INGEST_STABLE_INTERVAL:-0.5}
 MAX_QUEUE_SIZE=${CWA_INGEST_MAX_QUEUE_SIZE:-50}
+# How often (seconds) queued busy files are retried even if no new files arrive
+RETRY_QUEUE_INTERVAL=${CWA_INGEST_RETRY_INTERVAL:-30}
+[[ "$RETRY_QUEUE_INTERVAL" =~ ^[0-9]+$ ]] && [ "$RETRY_QUEUE_INTERVAL" -ge 1 ] || RETRY_QUEUE_INTERVAL=30
 SUPPORTED_EXT_REGEX='(epub|mobi|azw3|azw|pdf|txt|rtf|cbz|cbr|cb7|cbc|fb2|fbz|docx|html|htmlz|lit|lrf|odt|prc|pdb|pml|rb|snb|tcr|txtz|kepub|m4b|m4a|mp4|acsm|kfx|kfx-zip)$'
 TEMP_SUFFIXES='crdownload download part uploading'
 PROCESSING_DIR="${CWA_INGEST_PROCESSING_DIR:-/tmp/cwa_ingest_processing}"
@@ -101,32 +102,68 @@ except:
         echo "$seconds"
 }
 
-wait_for_stable_file() {
-        local file="$1" last_size="" same_count=0 i sz
-        for (( i=0; i<STABLE_CHECKS; i++ )); do
-                [ -f "$file" ] || return 1
-                sz=$(stat -c %s "$file" 2>/dev/null || echo "") || return 1
-                [ -n "$sz" ] || return 1
-                if [ "$sz" = "$last_size" ]; then
-                        same_count=$((same_count+1))
-                        if [ $same_count -ge $((STABLE_CONSEC_MATCH-1)) ]; then
-                                return 0
-                        fi
+# Move a file into the failed backup dir under a unique timestamped name.
+# The source is only gone if the move succeeded; on any failure it is left in
+# place (never deleted) and the error is logged. Returns non-zero on failure.
+move_to_failed() {
+        local filepath="$1"
+        local reason="$2"
+        [ -e "$filepath" ] || return 0
+        if ! mkdir -p "$FAILED_DIR" 2>/dev/null; then
+                echo "[cwa-ingest-service] ERROR: Cannot create $FAILED_DIR; LEAVING $filepath IN PLACE"
+                return 1
+        fi
+        local base stem ext dest n=1
+        base="$(date '+%Y%m%d_%H%M%S')_${reason}_$(basename "$filepath")"
+        dest="$FAILED_DIR/$base"
+        while [ -e "$dest" ]; do
+                if [[ "$base" == *.* ]]; then
+                        stem="${base%.*}"; ext=".${base##*.}"
                 else
-                        same_count=0
-                        last_size="$sz"
+                        stem="$base"; ext=""
                 fi
-                sleep "$STABLE_INTERVAL"
+                dest="$FAILED_DIR/${stem}_${n}${ext}"
+                n=$((n+1))
         done
-        return 0
+        # mv only removes the source after a successful copy (also across filesystems)
+        if mv -n -- "$filepath" "$dest" 2>/dev/null && [ ! -e "$filepath" ] && [ -e "$dest" ]; then
+                echo "[cwa-ingest-service] Moved $filepath to failed backup as $(basename "$dest")"
+                return 0
+        fi
+        echo "[cwa-ingest-service] ERROR: Could not move $filepath to $FAILED_DIR; LEAVING IT IN PLACE so it is not lost"
+        return 1
+}
+
+LAST_RETRY_QUEUE_RUN=""
+
+maybe_process_retry_queue() {
+        [ -s "$QUEUE_FILE" ] || return 0
+        if [ -n "$LAST_RETRY_QUEUE_RUN" ] && [ $((SECONDS - LAST_RETRY_QUEUE_RUN)) -lt "$RETRY_QUEUE_INTERVAL" ]; then
+                return 0
+        fi
+        process_retry_queue
+}
+
+# Reads watcher events from stdin. Between events (and at startup) the retry queue
+# is drained periodically so busy files don't wait for an unrelated successful ingest.
+# Everything runs in this one loop so the queue file is never mutated concurrently.
+event_loop() {
+        local events filepath rc
+        while true; do
+                maybe_process_retry_queue
+                read -r -t "$RETRY_QUEUE_INTERVAL" events filepath
+                rc=$?
+                if [ $rc -eq 0 ]; then
+                        handle_event "$filepath"
+                elif [ $rc -le 128 ]; then
+                        break  # watcher exited (EOF)
+                fi
+        done
 }
 
 run_fallback() {
         echo "[cwa-ingest-service] Falling back to polling watcher" >&2
-        python3 /app/calibre-web-automated/scripts/watch_fallback.py --path "$WATCH_FOLDER" --interval 5 |
-        while read -r events filepath; do
-                handle_event "$filepath"
-        done
+        python3 /app/calibre-web-automated/scripts/watch_fallback.py --path "$WATCH_FOLDER" --interval 5 | event_loop
 }
 
 cleanup_stale_temps() {
@@ -354,12 +391,18 @@ terminate_service() {
 }
 
 process_retry_queue() {
+        LAST_RETRY_QUEUE_RUN=$SECONDS
         if [ -s "$QUEUE_FILE" ]; then
                 echo "[cwa-ingest-service] Processing retry queue..."
                 local temp_queue=$(mktemp)
+                local still_busy=0
 
                 while IFS= read -r queued_file; do
-                        if [ -f "$queued_file" ]; then
+                        [ -n "$queued_file" ] || continue
+                        if [ $still_busy -eq 1 ]; then
+                                # Processor is still busy; keep the rest for the next pass
+                                echo "$queued_file" >> "$temp_queue"
+                        elif [ -f "$queued_file" ]; then
                                 echo "[cwa-ingest-service] Retrying: $queued_file"
                                 local configured_timeout=$(get_timeout_from_db)  # Get configured timeout from database
                                 local safety_timeout=$((configured_timeout * 3))  # Safety timeout is 3x the configured timeout
@@ -374,15 +417,11 @@ process_retry_queue() {
                                 if [ $retry_exit -eq 2 ]; then
                                         # Still busy, keep in queue
                                         echo "$queued_file" >> "$temp_queue"
+                                        still_busy=1
                                 elif [ $retry_exit -eq 124 ]; then
-                                        # Timeout, remove problematic file
-                                        echo "[cwa-ingest-service] TIMEOUT on retry: $queued_file, removing"
-                                        if [ -d "/config/processed_books/failed" ]; then
-                                                local timestamp=$(date '+%Y%m%d_%H%M%S')
-                                                local failed_filename="${timestamp}_retry_timeout_$(basename "$queued_file")"
-                                                cp "$queued_file" "/config/processed_books/failed/$failed_filename" 2>/dev/null || true
-                                        fi
-                                        rm -f "$queued_file" 2>/dev/null || true
+                                        # Timeout, move problematic file to failed backups (left in place if that fails)
+                                        echo "[cwa-ingest-service] TIMEOUT on retry: $queued_file"
+                                        move_to_failed "$queued_file" "retry_timeout" || true
                                         mark_recent_path "$queued_file"
                                 elif [ $retry_exit -eq 0 ]; then
                                         echo "[cwa-ingest-service] Successfully processed retry: $queued_file"
@@ -463,26 +502,26 @@ handle_event() {
                 echo "[cwa-ingest-service] SAFETY TIMEOUT: $filepath took longer than safety timeout of ${safety_timeout} seconds"
                 echo "[cwa-ingest-service] This indicates a serious issue - processor should have timed out internally at ${configured_timeout} seconds"
                 echo "safety_timeout:$filename:$(date '+%Y-%m-%d %H:%M:%S')" > "$STATUS_FILE"
-                # Move problematic file to failed backup with timestamp
-                if [ -d "/config/processed_books/failed" ]; then
-                        local timestamp=$(date '+%Y%m%d_%H%M%S')
-                        local failed_filename="${timestamp}_safety_timeout_${filename}"
-                        echo "[cwa-ingest-service] Moving $filename to failed backup as $failed_filename"
-                        cp "$filepath" "/config/processed_books/failed/$failed_filename" 2>/dev/null || true
-                fi
-                rm -f "$filepath" 2>/dev/null || true
+                # Move problematic file to failed backup with timestamp (left in place if that fails)
+                move_to_failed "$filepath" "safety_timeout" || true
                 mark_recent_path "$filepath"
         elif [ $exit_code -eq 2 ]; then
                 echo "[cwa-ingest-service] Processor busy, adding to retry queue: $filepath"
                 echo "queued:$filename:$(date '+%Y-%m-%d %H:%M:%S')" > "$STATUS_FILE"
 
-                # Add to queue with size management
-                echo "$filepath" >> "$QUEUE_FILE"
+                # Add to queue (once) with size management
+                if ! grep -Fxq -- "$filepath" "$QUEUE_FILE" 2>/dev/null; then
+                        echo "$filepath" >> "$QUEUE_FILE"
+                fi
 
                 # Check queue size and trim if necessary
                 local queue_size=$(wc -l < "$QUEUE_FILE" 2>/dev/null || echo 0)
                 if [ "$queue_size" -gt "$MAX_QUEUE_SIZE" ]; then
-                        echo "[cwa-ingest-service] Queue size ($queue_size) exceeds maximum ($MAX_QUEUE_SIZE), removing oldest entries"
+                        echo "[cwa-ingest-service] WARN: Queue size ($queue_size) exceeds maximum ($MAX_QUEUE_SIZE), dropping oldest entries from the retry queue"
+                        local dropped
+                        while IFS= read -r dropped; do
+                                echo "[cwa-ingest-service] WARN: Dropped from retry queue (file left untouched in ingest folder, will not be retried automatically): $dropped"
+                        done < <(head -n "$((queue_size - MAX_QUEUE_SIZE))" "$QUEUE_FILE")
                         local temp_queue=$(mktemp)
                         tail -n "$MAX_QUEUE_SIZE" "$QUEUE_FILE" > "$temp_queue"
                         mv "$temp_queue" "$QUEUE_FILE"
@@ -543,8 +582,5 @@ if [ -n "$(get_stale_temp_interval_from_db)" ]; then
 fi
 
 ( set -o pipefail
-        inotifywait -m -r --format="%e %w%f" -e close_write -e moved_to "$WATCH_FOLDER" | \
-        while read -r events filepath; do
-                handle_event "$filepath"
-        done
+        inotifywait -m -r --format="%e %w%f" -e close_write -e moved_to "$WATCH_FOLDER" | event_loop
 ) || run_fallback

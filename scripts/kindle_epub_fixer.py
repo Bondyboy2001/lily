@@ -16,7 +16,7 @@ import subprocess
 
 import logging
 import tempfile
-import atexit
+import fcntl
 import traceback
 from datetime import datetime
 import json
@@ -119,26 +119,26 @@ def exit_if_cancelled() -> None:
         sys.exit(0)
 
 ### LOCK FILES
-# Creates a lock file unless one already exists meaning an instance of the script is
-# already running, then the script is closed, the user is notified and the program
-# exits with code 2
+# Holds an exclusive flock on the lock file for the life of the process. If another
+# instance already holds it, the user is notified and the program exits with code 2.
+# The kernel drops the flock when the process exits (even if killed), so a crash can't
+# leave a stale lock behind, and the file is never unlinked (unlinking a path another
+# process has flocked would let a third process lock a fresh inode alongside it).
+_lock_handle = open(tempfile.gettempdir() + '/kindle_epub_fixer.lock', 'a+')
 try:
-    lock = open(tempfile.gettempdir() + '/kindle_epub_fixer.lock', 'x')
-    lock.close()
-except FileExistsError:
+    fcntl.flock(_lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+except OSError:
+    _lock_handle.close()
     print_and_log("[cwa-kindle-epub-fixer] CANCELLING... kindle-epub-fixer was initiated but is already running")
     logger.info(f"\nCWA Kindle EPUB Fixer Service - Run Ended: {datetime.now()}")
     sys.exit(2)
-
-# Defining function to delete the lock on script exit
-def removeLock():
-    try:
-        os.remove(tempfile.gettempdir() + '/kindle_epub_fixer.lock')
-    except FileNotFoundError:
-        ...
-
-# Will automatically run when the script exits
-atexit.register(removeLock)
+try:
+    _lock_handle.seek(0)
+    _lock_handle.truncate()
+    _lock_handle.write(str(os.getpid()))
+    _lock_handle.flush()
+except OSError:
+    pass  # PID is diagnostic only
 
 
 class EPUBFixer:
@@ -1021,27 +1021,68 @@ class EPUBFixer:
             print_and_log(f"[cwa-kindle-epub-fixer] Warning: Could not strip Amazon identifiers: {e}", log=self.manually_triggered)
 
     def write_epub(self, output_path):
-        """Write EPUB file"""
-        with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zip_ref:
-            # First write mimetype file
-            if 'mimetype' in self.files:
-                mimetype_content = self.files['mimetype']
-                if isinstance(mimetype_content, str):
-                    mimetype_content = mimetype_content.encode('utf-8')
-                zip_ref.writestr('mimetype', mimetype_content, compress_type=zipfile.ZIP_STORED)
+        """Write EPUB file atomically.
 
-            # Add text files
-            for filename, content in self.files.items():
-                if filename != 'mimetype':
-                    if isinstance(content, bytes):
-                        zip_ref.writestr(filename, content)
-                    else:
-                        encoding = self.file_target_encodings.get(filename, 'utf-8')
-                        zip_ref.writestr(filename, content.encode(encoding))
+        output_path is often the live library file itself, so the new archive is built
+        in a temp file next to it and only swapped in with os.replace() once complete.
+        On any failure the temp file is removed and the original is left untouched.
+        """
+        output_path = os.fspath(output_path)
+        out_dir = os.path.dirname(os.path.abspath(output_path))
+        fd, tmp_path = tempfile.mkstemp(prefix=".cwa-epub-fix-", suffix=".tmp", dir=out_dir)
+        try:
+            with os.fdopen(fd, 'wb') as tmp_file:
+                with zipfile.ZipFile(tmp_file, 'w', zipfile.ZIP_DEFLATED) as zip_ref:
+                    self._write_epub_entries(zip_ref)
+                tmp_file.flush()
+                os.fsync(tmp_file.fileno())
+            self._copy_file_attributes(output_path, tmp_path)
+            os.replace(tmp_path, output_path)
+        except BaseException:
+            try:
+                os.remove(tmp_path)
+            except FileNotFoundError:
+                pass
+            raise
 
-            # Add binary files
-            for filename, content in self.binary_files.items():
-                zip_ref.writestr(filename, content)
+    @staticmethod
+    def _copy_file_attributes(original_path, new_path):
+        """Give new_path the permissions (and, where allowed, ownership) of original_path."""
+        try:
+            st = os.stat(original_path)
+        except FileNotFoundError:
+            # New output file: mkstemp creates 0600, use the normal umask-derived mode instead
+            umask = os.umask(0)
+            os.umask(umask)
+            os.chmod(new_path, 0o666 & ~umask)
+            return
+        os.chmod(new_path, st.st_mode & 0o7777)
+        try:
+            os.chown(new_path, st.st_uid, st.st_gid)
+        except OSError:
+            pass  # Not permitted (e.g. network shares / non-root); keep our ownership
+
+    def _write_epub_entries(self, zip_ref):
+        """Write all loaded entries into an open ZipFile"""
+        # First write mimetype file
+        if 'mimetype' in self.files:
+            mimetype_content = self.files['mimetype']
+            if isinstance(mimetype_content, str):
+                mimetype_content = mimetype_content.encode('utf-8')
+            zip_ref.writestr('mimetype', mimetype_content, compress_type=zipfile.ZIP_STORED)
+
+        # Add text files
+        for filename, content in self.files.items():
+            if filename != 'mimetype':
+                if isinstance(content, bytes):
+                    zip_ref.writestr(filename, content)
+                else:
+                    encoding = self.file_target_encodings.get(filename, 'utf-8')
+                    zip_ref.writestr(filename, content.encode(encoding))
+
+        # Add binary files
+        for filename, content in self.binary_files.items():
+            zip_ref.writestr(filename, content)
 
     def export_issue_summary(self, epub_path):
         if self.current_position:

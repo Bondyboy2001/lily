@@ -1,0 +1,149 @@
+# Calibre-Web Automated – fork of Calibre-Web
+# Copyright (C) 2018-2026 Calibre-Web contributors
+# Copyright (C) 2024-2026 Calibre-Web Automated contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# See CONTRIBUTORS for full list of authors.
+
+"""cwa-ingest-service run script: timeouts, failed backups and the retry queue."""
+
+import os
+import shutil
+import subprocess
+import textwrap
+from pathlib import Path
+
+import pytest
+
+
+pytestmark = pytest.mark.unit
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+RUN_SCRIPT = REPO_ROOT / "root/etc/s6-overlay/s6-rc.d/cwa-ingest-service/run"
+
+
+@pytest.fixture
+def svc(tmp_path):
+    if shutil.which("bash") is None:
+        pytest.skip("bash not available")
+    dirs = {name: tmp_path / name for name in ("watch", "processing", "recent", "failed", "bin")}
+    for d in dirs.values():
+        d.mkdir()
+    if shutil.which("timeout") is None:
+        # macOS dev machines: minimal stand-in that just runs the command
+        shim = dirs["bin"] / "timeout"
+        shim.write_text('#!/usr/bin/env bash\nshift\nexec "$@"\n')
+        shim.chmod(0o755)
+    stub = dirs["bin"] / "processor"
+    stub.write_text(textwrap.dedent("""\
+        #!/usr/bin/env bash
+        printf '%s\\n' "$1" >> "$PROCESSOR_LOG"
+        exit "${PROCESSOR_EXIT_CODE:-0}"
+    """))
+    stub.chmod(0o755)
+    post = dirs["bin"] / "post"
+    post.write_text("#!/usr/bin/env bash\nexit 0\n")
+    post.chmod(0o755)
+
+    env = dict(os.environ)
+    env.update({
+        "PATH": f"{dirs['bin']}:{env.get('PATH', '')}",
+        "WATCH_FOLDER": str(dirs["watch"]),
+        "CWA_INGEST_SERVICE_TEST_MODE": "1",
+        "CWA_INGEST_PROCESSING_DIR": str(dirs["processing"]),
+        "CWA_INGEST_RECENT_DIR": str(dirs["recent"]),
+        "CWA_INGEST_RETRY_QUEUE": str(tmp_path / "retry_queue"),
+        "CWA_INGEST_STATUS_FILE": str(tmp_path / "status"),
+        "CWA_INGEST_BATCH_DIRTY_FILE": str(tmp_path / "batch_dirty"),
+        "CWA_INGEST_BATCH_LAST_SUCCESS_FILE": str(tmp_path / "batch_last_success"),
+        "CWA_INGEST_POST_BATCH_CMD": str(post),
+        "CWA_INGEST_PROCESSOR_CMD": str(stub),
+        "CWA_INGEST_FAILED_DIR": str(dirs["failed"]),
+        "PROCESSOR_LOG": str(tmp_path / "processor.log"),
+        "PROCESSOR_EXIT_CODE": "0",
+    })
+
+    def run(body, **extra_env):
+        e = dict(env)
+        e.update(extra_env)
+        script = f'source "{RUN_SCRIPT}" >/dev/null\n{body}\n'
+        return subprocess.run(["bash", "-c", script], env=e, text=True, capture_output=True, timeout=60)
+
+    def invocations():
+        log = tmp_path / "processor.log"
+        return log.read_text().splitlines() if log.exists() else []
+
+    dirs["queue"] = tmp_path / "retry_queue"
+    dirs["run"] = run
+    dirs["invocations"] = invocations
+    dirs["tmp"] = tmp_path
+    return dirs
+
+
+def test_safety_timeout_moves_file_to_failed_without_overwriting(svc):
+    book = svc["watch"] / "book.epub"
+    for payload in ("first", "second"):
+        book.write_text(payload)
+        # Different content each time so the recent-event dedupe doesn't skip it
+        res = svc["run"](f'handle_event "{book}"', PROCESSOR_EXIT_CODE="124")
+        assert res.returncode == 0, res.stderr
+        assert not book.exists()
+    failed = sorted(svc["failed"].iterdir())
+    assert len(failed) == 2
+    assert sorted(p.read_text() for p in failed) == ["first", "second"]
+    assert all("_safety_timeout_book" in p.name for p in failed)
+
+
+def test_safety_timeout_leaves_file_when_failed_dir_unusable(svc):
+    blocker = svc["tmp"] / "blocker"
+    blocker.write_text("x")
+    book = svc["watch"] / "book.epub"
+    book.write_text("precious")
+    res = svc["run"](
+        f'handle_event "{book}"',
+        PROCESSOR_EXIT_CODE="124",
+        CWA_INGEST_FAILED_DIR=str(blocker / "failed"),
+    )
+    assert book.exists() and book.read_text() == "precious"
+    assert "LEAVING" in res.stdout
+
+
+def test_busy_file_is_retried_without_waiting_for_unrelated_success(svc):
+    book = svc["watch"] / "busy.epub"
+    book.write_text("busy")
+    res = svc["run"](f'handle_event "{book}"', PROCESSOR_EXIT_CODE="2")
+    assert svc["queue"].read_text().splitlines() == [str(book)]
+    # Same busy file again doesn't duplicate the queue entry
+    book.write_text("busy2")
+    svc["run"](f'handle_event "{book}"', PROCESSOR_EXIT_CODE="2")
+    assert svc["queue"].read_text().splitlines() == [str(book)]
+
+    # Service (re)start: the event loop drains the queue before/between events,
+    # even when no new file arrives (stdin at EOF here)
+    res = svc["run"]("event_loop < /dev/null", PROCESSOR_EXIT_CODE="0")
+    assert res.returncode == 0, res.stderr
+    assert "Successfully processed retry" in res.stdout
+    assert svc["queue"].read_text() == ""
+
+
+def test_retry_queue_stops_after_busy_and_keeps_remaining(svc):
+    paths = []
+    for i in range(3):
+        p = svc["watch"] / f"b{i}.epub"
+        p.write_text(str(i))
+        paths.append(str(p))
+    svc["queue"].write_text("\n".join(paths) + "\n")
+    before = len(svc["invocations"]())
+    svc["run"]("process_retry_queue", PROCESSOR_EXIT_CODE="2")
+    assert len(svc["invocations"]()) - before == 1
+    assert svc["queue"].read_text().splitlines() == paths
+
+
+def test_queue_trim_logs_dropped_entries(svc):
+    existing = [str(svc["watch"] / f"old{i}.epub") for i in range(3)]
+    svc["queue"].write_text("\n".join(existing) + "\n")
+    book = svc["watch"] / "new.epub"
+    book.write_text("new")
+    res = svc["run"](f'handle_event "{book}"', PROCESSOR_EXIT_CODE="2", CWA_INGEST_MAX_QUEUE_SIZE="2")
+    assert f"Dropped from retry queue (file left untouched in ingest folder, will not be retried automatically): {existing[0]}" in res.stdout
+    assert f"{existing[1]}" in res.stdout
+    assert svc["queue"].read_text().splitlines() == [existing[2], str(book)]
