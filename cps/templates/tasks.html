@@ -175,9 +175,13 @@
   }
   function cancelScheduled(id) {
     if (!id) return;
+    const csrfInput = document.querySelector("input[name='csrf_token']");
     fetch('{{ url_for("cwa_stats.cwa_scheduled_cancel") }}', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfInput ? csrfInput.value : ''
+      },
       body: JSON.stringify({ id: id })
     })
     .then(r => {

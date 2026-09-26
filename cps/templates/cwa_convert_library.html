@@ -20,12 +20,22 @@
           and the run will terminate ASAP. If you wish to change the service's target format, please change your target format in the Lily Settings panel as desired.
         </p>
         <div>
-          <a class="btn btn-default" href="{{ url_for('convert_library.cancel_convert_library') }}" style="vertical-align: top; float: right; width: 100px; margin-left: 10px;">{{_('Cancel')}}</a>
-          <a class="btn btn-default" href="{{ url_for('convert_library.start_conversion') }}" style="vertical-align: top; float: right; width: 100px;">{{_('Start')}}</a>
+          <form method="post" action="{{ url_for('convert_library.cancel_convert_library') }}" style="display: inline; float: right; margin-left: 10px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-default" style="vertical-align: top; width: 100px;">{{_('Cancel')}}</button>
+          </form>
+          <form method="post" action="{{ url_for('convert_library.start_conversion') }}" style="display: inline; float: right;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-default" style="vertical-align: top; width: 100px;">{{_('Start')}}</button>
+          </form>
           {% if current_user.role_admin() %}
           <div class="btn-group" role="group" aria-label="schedule" style="float: right; margin-right: 10px; display: flex; gap: 1rem;">
-            <a class="btn btn-default" href="{{ url_for('convert_library.schedule_convert_library', delay=5) }}">{{ _('Schedule 5m') }}</a>
-            <a class="btn btn-default" href="{{ url_for('convert_library.schedule_convert_library', delay=15) }}">{{ _('Schedule 15m') }}</a>
+            {% for delay in [5, 15] %}
+            <form method="post" action="{{ url_for('convert_library.schedule_convert_library', delay=delay) }}" style="display: inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-default">{{ _('Schedule 5m') if delay == 5 else _('Schedule 15m') }}</button>
+            </form>
+            {% endfor %}
           </div>
           {% endif %}
         </div>
