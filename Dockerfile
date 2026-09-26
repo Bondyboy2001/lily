@@ -20,16 +20,50 @@
 # ==========================================================================
 # STAGE 1: Dependencies - Install system packages and Python dependencies
 # ==========================================================================
-ARG CALIBRE_RELEASE=9.1.0
-ARG KEPUBIFY_RELEASE=v4.0.4
+#
+# Pinned third-party inputs. Every download is verified against a SHA-256 below,
+# and base images are pinned by digest. To bump a version, change the version ARG
+# AND the matching hash ARG(s) together, in this block only.
+#
+# Base images (tag kept for readability, digest is what is actually pulled).
+# Bump: TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:linuxserver/<repo>:pull" | jq -r .token)
+#       curl -sI -H "Authorization: Bearer $TOKEN" \
+#         -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json" \
+#         https://ghcr.io/v2/linuxserver/<repo>/manifests/<tag> | grep -i docker-content-digest
+#   (or: docker buildx imagetools inspect ghcr.io/linuxserver/<repo>:<tag>)
+ARG BASE_IMAGE=ghcr.io/linuxserver/baseimage-ubuntu:noble@sha256:e3c0ef35fa0beae613f5571236325b147c7fff647da0e7ccd5aa1af7c46ca093
+ARG UNRAR_IMAGE=ghcr.io/linuxserver/unrar:latest@sha256:48c0ce2609bb3c35764956bbd9395e95b177421e3c74b3628c3676029f24f2e0
 
-FROM ghcr.io/linuxserver/baseimage-ubuntu:noble AS dependencies
+# Calibre. Bump: SHA-512s are published at https://calibre-ebook.com/signatures/calibre-<ver>-<arch>.txz.sha512
+# (cross-check the download against those), then record: sha256sum calibre-<ver>-{x86_64,arm64}.txz
+ARG CALIBRE_RELEASE=9.1.0
+ARG CALIBRE_SHA256_X86_64=93a2d3104933366a50b03f8a2ff3889dc16b9c1d739ad22055e95ea35b03c1df
+ARG CALIBRE_SHA256_ARM64=ca1261b71030390d6316fe6e3f722247f05670eec845bcefb62d8c0b1d1478cb
+
+# kepubify (upstream publishes no checksums). Bump: download
+# https://github.com/pgaskin/kepubify/releases/download/<ver>/kepubify-linux-{64bit,arm64} and sha256sum them.
+ARG KEPUBIFY_RELEASE=v4.0.4
+ARG KEPUBIFY_SHA256_X86_64=37d7628d26c5c906f607f24b36f781f306075e7073a6fe7820a751bb60431fc5
+ARG KEPUBIFY_SHA256_ARM64=5a15b8f6f6a96216c69330601bca29638cfee50f7bf48712795cff88ae2d03a3
+
+# lsof release tarball. Bump: GitHub publishes the digest on the release asset:
+# curl -s https://api.github.com/repos/lsof-org/lsof/releases/tags/<ver> | jq -r '.assets[] | select(.name|endswith(".tar.gz")) | .digest'
+ARG LSOF_VERSION=4.99.5
+ARG LSOF_SHA256=4682c2491ec8b3d62f84e135afc1d9ead1bad5f034b50716f0c3826a4ee7d229
+
+FROM ${BASE_IMAGE} AS dependencies
 
 ARG CALIBRE_RELEASE
+ARG CALIBRE_SHA256_X86_64
+ARG CALIBRE_SHA256_ARM64
 ARG KEPUBIFY_RELEASE
+ARG KEPUBIFY_SHA256_X86_64
+ARG KEPUBIFY_SHA256_ARM64
+ARG LSOF_VERSION
+ARG LSOF_SHA256
 
 # Set the default shell for the following RUN instructions to bash instead of sh
-SHELL ["/bin/bash", "-c"]
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # STEP 1 - Install Required Packages
 RUN \
@@ -81,23 +115,25 @@ RUN \
   libglx-mesa0 \
   xz-utils \
   binutils && \
-  # Install lsof 4.99.5 from source to fix hanging issue with 4.95 (issue #654)
-  echo "**** install lsof 4.99.5 from source ****" && \
-  LSOF_VERSION="4.99.5" && \
-  curl -L "https://github.com/lsof-org/lsof/archive/${LSOF_VERSION}.tar.gz" -o /tmp/lsof.tar.gz && \
+  # Install lsof from source to fix hanging issue with 4.95 (issue #654)
+  echo "**** install lsof ${LSOF_VERSION} from source ****" && \
+  curl -fsSL "https://github.com/lsof-org/lsof/releases/download/${LSOF_VERSION}/lsof-${LSOF_VERSION}.tar.gz" -o /tmp/lsof.tar.gz && \
+  echo "${LSOF_SHA256}  /tmp/lsof.tar.gz" | sha256sum -c - && \
   cd /tmp && \
   tar -xzf lsof.tar.gz && \
   cd "lsof-${LSOF_VERSION}" && \
-  ./Configure -n linux && \
-  make && \
+  # Release tarballs use autotools. Build only the static binary (the full "make"
+  # also renders the man page, which needs soelim/groff).
+  ./configure --disable-shared && \
+  make lsof && \
   cp lsof /usr/bin/lsof && \
   chmod 755 /usr/bin/lsof && \
   cd / && \
   rm -rf /tmp/lsof* && \
   # Create python3 symlink to point to python3.13
-  ln -sf /usr/bin/python3.13 /usr/bin/python3 && \
-  # Install pip for Python 3.13
-  curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13
+  # (pip comes from ensurepip via python3.13-venv when the /lsiopy venv is created below;
+  #  no system-wide pip / get-pip.py is needed)
+  ln -sf /usr/bin/python3.13 /usr/bin/python3
 
 # STEP 2 - Set up Python virtual environment
 RUN \
@@ -121,20 +157,17 @@ RUN \
 
 # STEP 4 - Install kepubify
 RUN \
-  echo "**** install kepubify ****" && \
-  if [[ $KEPUBIFY_RELEASE == 'newest' ]]; then \
-  KEPUBIFY_RELEASE=$(curl -sX GET "https://api.github.com/repos/pgaskin/kepubify/releases/latest" \
-  | awk '/tag_name/{print $4;exit}' FS='[""]'); \
-  fi && \
+  echo "**** install kepubify ${KEPUBIFY_RELEASE} ****" && \
   if [ "$(uname -m)" == "x86_64" ]; then \
-  curl -o \
-  /usr/bin/kepubify -L \
-  https://github.com/pgaskin/kepubify/releases/download/${KEPUBIFY_RELEASE}/kepubify-linux-64bit; \
+  KEPUBIFY_ASSET="kepubify-linux-64bit"; KEPUBIFY_SHA256="${KEPUBIFY_SHA256_X86_64}"; \
   elif [ "$(uname -m)" == "aarch64" ]; then \
-  curl -o \
-  /usr/bin/kepubify -L \
-  https://github.com/pgaskin/kepubify/releases/download/${KEPUBIFY_RELEASE}/kepubify-linux-arm64; \
+  KEPUBIFY_ASSET="kepubify-linux-arm64"; KEPUBIFY_SHA256="${KEPUBIFY_SHA256_ARM64}"; \
+  else \
+  echo "Unsupported architecture: $(uname -m)" >&2; exit 1; \
   fi && \
+  curl -fsSL -o /usr/bin/kepubify \
+  "https://github.com/pgaskin/kepubify/releases/download/${KEPUBIFY_RELEASE}/${KEPUBIFY_ASSET}" && \
+  echo "${KEPUBIFY_SHA256}  /usr/bin/kepubify" | sha256sum -c - && \
   chmod +x /usr/bin/kepubify
 
 # STEP 5 - Install Calibre
@@ -143,14 +176,15 @@ RUN \
   mkdir -p /app/calibre && \
   # STEP 5.2 - Download the desired version of Calibre, determined by the CALIBRE_RELEASE variable and the architecture of the build environment
   if [ "$(uname -m)" == "x86_64" ]; then \
-  curl -o \
-  /calibre.txz -L \
-  "https://download.calibre-ebook.com/${CALIBRE_RELEASE}/calibre-${CALIBRE_RELEASE}-x86_64.txz"; \
+  CALIBRE_ARCH="x86_64"; CALIBRE_SHA256="${CALIBRE_SHA256_X86_64}"; \
   elif [ "$(uname -m)" == "aarch64" ]; then \
-  curl -o \
-  /calibre.txz -L \
-  "https://download.calibre-ebook.com/${CALIBRE_RELEASE}/calibre-${CALIBRE_RELEASE}-arm64.txz"; \
+  CALIBRE_ARCH="arm64"; CALIBRE_SHA256="${CALIBRE_SHA256_ARM64}"; \
+  else \
+  echo "Unsupported architecture: $(uname -m)" >&2; exit 1; \
   fi && \
+  curl -fsSL -o /calibre.txz \
+  "https://download.calibre-ebook.com/${CALIBRE_RELEASE}/calibre-${CALIBRE_RELEASE}-${CALIBRE_ARCH}.txz" && \
+  echo "${CALIBRE_SHA256}  /calibre.txz" | sha256sum -c - && \
   # STEP 5.3 - Extract the downloaded file to /app/calibre
   tar xf \
   /calibre.txz -C \
@@ -163,10 +197,9 @@ RUN \
 # ============================================================================
 # STAGE 2: Final - Build the final runtime image
 # ============================================================================
-FROM ghcr.io/linuxserver/baseimage-ubuntu:noble AS unrar-stage
-FROM ghcr.io/linuxserver/unrar:latest AS unrar
+FROM ${UNRAR_IMAGE} AS unrar
 
-FROM ghcr.io/linuxserver/baseimage-ubuntu:noble
+FROM ${BASE_IMAGE}
 
 ARG BUILD_DATE
 ARG VERSION
