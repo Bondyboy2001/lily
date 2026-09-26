@@ -215,8 +215,8 @@ msgid "Invalid Restricted Column"
 msgstr "Geçersiz kısıtlanmış sütun"
 
 #: cps/admin.py:916 cps/admin.py:2464
-msgid "Calibre-Web Automated configuration updated"
-msgstr "Calibre-Web Automated yapılandırması güncellendi"
+msgid "Lily configuration updated"
+msgstr "Lily yapılandırması güncellendi"
 
 #: cps/admin.py:928
 msgid "Do you really want to delete the Kobo Token?"
@@ -278,18 +278,18 @@ msgstr "Calibre kütüphane konumunu değiştirmek istiyor musunuz?"
 
 #: cps/admin.py:951
 msgid ""
-"Calibre-Web Automated will search for updated Covers and update Cover "
+"Lily will search for updated Covers and update Cover "
 "Thumbnails, this may take a while?"
 msgstr ""
-"Calibre-Web Automated güncellenmiş Kapak Fotoğrafları ve Küçük Resimleri "
+"Lily güncellenmiş Kapak Fotoğrafları ve Küçük Resimleri "
 "arayacak, bu biraz süre alacaktır?"
 
 #: cps/admin.py:954
 msgid ""
-"Are you sure you want delete Calibre-Web Automated's sync database to force "
+"Are you sure you want delete Lily's sync database to force "
 "a full sync with your Kobo Reader?"
 msgstr ""
-"Calibre-Web Automated uygulamasının Kobo Reader tam eşitleme ayarlarını "
+"Lily uygulamasının Kobo Reader tam eşitleme ayarlarını "
 "silmek istiyor musunuz?"
 
 #: cps/admin.py:1193 cps/admin.py:1199 cps/admin.py:1209 cps/admin.py:1219
@@ -922,8 +922,8 @@ msgstr ""
 "Yinelenen taramalar için geçersiz cron ifadesi. Değişiklikler kaydedilmedi."
 
 #: cps/cwa_functions.py:1002
-msgid "Calibre-Web Automated User Settings"
-msgstr "Calibre-Web Automated Kullanıcı Ayarları"
+msgid "Lily User Settings"
+msgstr "Lily Kullanıcı Ayarları"
 
 #: cps/cwa_functions.py:1048 cps/cwa_functions.py:1050
 #: cps/cwa_functions.py:1054 cps/cwa_functions.py:1056
@@ -989,34 +989,34 @@ msgid "Unknown User"
 msgstr "Bilinmeyen Kullanıcı"
 
 #: cps/cwa_functions.py:1274
-msgid "Calibre-Web Automated Stats & Activity"
-msgstr "Calibre-Web Automated İstatistikler & Aktivite"
+msgid "Lily Stats & Activity"
+msgstr "Lily İstatistikler & Aktivite"
 
 #: cps/cwa_functions.py:1658
-msgid "Calibre-Web Automated - Full Enforcement History"
-msgstr "Calibre-Web Automated - Tam Uygulama Geçmişi"
+msgid "Lily - Full Enforcement History"
+msgstr "Lily - Tam Uygulama Geçmişi"
 
 #: cps/cwa_functions.py:1667
-msgid "Calibre-Web Automated - Full Enforcement History (w/ Paths)"
+msgid "Lily - Full Enforcement History (w/ Paths)"
 msgstr "Calibre-Web Otomatik - Tam Uygulama Geçmişi (w/ Paths)"
 
 #: cps/cwa_functions.py:1676
-msgid "Calibre-Web Automated - Full Import History"
-msgstr "Calibre-Web Automated - Tam Aktarım Geçmişi"
+msgid "Lily - Full Import History"
+msgstr "Lily - Tam Aktarım Geçmişi"
 
 #: cps/cwa_functions.py:1685
-msgid "Calibre-Web Automated - Full Conversion History"
-msgstr "Calibre-Web Automated - Tam Dönüştürme Geçmişi"
+msgid "Lily - Full Conversion History"
+msgstr "Lily - Tam Dönüştürme Geçmişi"
 
 #: cps/cwa_functions.py:1694
-msgid "Calibre-Web Automated - Full EPUB Fixer History (w/out Paths & Fixes)"
+msgid "Lily - Full EPUB Fixer History (w/out Paths & Fixes)"
 msgstr ""
-"Calibre-Web Automated - Tam EPUB Onarım Geçmişi (w/out Dizinler & Onarımlar)"
+"Lily - Tam EPUB Onarım Geçmişi (w/out Dizinler & Onarımlar)"
 
 #: cps/cwa_functions.py:1703
-msgid "Calibre-Web Automated - Full EPUB Fixer History (w/ Paths & Fixes)"
+msgid "Lily - Full EPUB Fixer History (w/ Paths & Fixes)"
 msgstr ""
-"Calibre-Web Automated - Tam EPUB Onarım Geçmişi (w/ Dizinler & Onarımlar)"
+"Lily - Tam EPUB Onarım Geçmişi (w/ Dizinler & Onarımlar)"
 
 #: cps/cwa_functions.py:1721
 msgid "✅ All Monitoring Services are running as intended! 👍"
@@ -1044,12 +1044,12 @@ msgid "An Error has occurred"
 msgstr "Bir hata oluştu"
 
 #: cps/cwa_functions.py:1906 cps/cwa_functions.py:1930
-msgid "Calibre-Web Automated - Convert Library"
-msgstr "Calibre-Web Automated - Kütüphane Dönüştürme"
+msgid "Lily - Convert Library"
+msgstr "Lily - Kütüphane Dönüştürme"
 
 #: cps/cwa_functions.py:2069 cps/cwa_functions.py:2091
-msgid "Calibre-Web Automated - EPUB Fixer Service"
-msgstr "Calibre-Web Automated - EPUB Onarım Servisi"
+msgid "Lily - EPUB Fixer Service"
+msgstr "Lily - EPUB Onarım Servisi"
 
 #: cps/cwa_functions.py:2171
 msgid "Single-book EPUB Fixer is not supported with Google Drive libraries."
@@ -1116,8 +1116,8 @@ msgid "Profile picture updated successfully."
 msgstr "Profil fotoğrafı başarıyla güncellendi."
 
 #: cps/cwa_functions.py:2344
-msgid "CWA Profile Picture Management (WIP)"
-msgstr "CWA Profile Fotoğraf Yönetimi (WIP)"
+msgid "Lily Profile Picture Management (WIP)"
+msgstr "Lily Profile Fotoğraf Yönetimi (WIP)"
 
 #: cps/db.py:1270 cps/templates/config_edit.html:295
 #: cps/templates/config_view_edit.html:79
@@ -1351,8 +1351,8 @@ msgid "Send to eReader"
 msgstr "E-kitap okuyucuya gönder"
 
 #: cps/helper.py:114 cps/helper.py:141 cps/helper.py:254
-msgid "This Email has been sent via Calibre-Web Automated."
-msgstr "Bu e-posta Calibre-Web Automated ile gönderilmiştir."
+msgid "This Email has been sent via Lily."
+msgstr "Bu e-posta Lily ile gönderilmiştir."
 
 #: cps/helper.py:129
 #, fuzzy, python-format
@@ -1365,16 +1365,16 @@ msgid "Conversion failed for book id: %(book)d"
 msgstr "%(book)d nolu kitap için %(format)s biçimi bulunamadı"
 
 #: cps/helper.py:139
-msgid "Calibre-Web Automated Test Email"
-msgstr "Calibre-Web Automated deneme e-postası"
+msgid "Lily Test Email"
+msgstr "Lily deneme e-postası"
 
 #: cps/helper.py:140
 msgid "Test Email"
 msgstr "Deneme e-postası"
 
 #: cps/helper.py:157
-msgid "Get Started with Calibre-Web Automated"
-msgstr "Calibre-Web Automated Kullanmaya Başlayın"
+msgid "Get Started with Lily"
+msgstr "Lily Kullanmaya Başlayın"
 
 #: cps/helper.py:162
 #, python-format
@@ -1533,10 +1533,10 @@ msgstr "UnRar çalıştırma hatası"
 #: cps/helper.py:1361
 #, python-format
 msgid ""
-"Unsupported architecture detected: %(arch)s. CWA is optimized for x86_64 and "
+"Unsupported architecture detected: %(arch)s. Lily is optimized for x86_64 and "
 "aarch64."
 msgstr ""
-"Geçersiz mimari tespit edildi: %(arch)s. CWA x86_64 ve aarch64 için optimize "
+"Geçersiz mimari tespit edildi: %(arch)s. Lily x86_64 ve aarch64 için optimize "
 "edilmiştir."
 
 #: cps/helper.py:1370
@@ -1571,7 +1571,7 @@ msgstr "Metaveri yedeklemesi için tüm kitapları sıraya al"
 
 #: cps/kobo_auth.py:87
 msgid ""
-"Please access Calibre-Web Automated from non localhost to get valid "
+"Please access Lily from non localhost to get valid "
 "api_endpoint for kobo device"
 msgstr ""
 "Kobo cihazı için geçerli api_endpoint'i almak üzere lütfen Calibre-Web "
@@ -2843,8 +2843,8 @@ msgid "Reverse Proxy Header Name"
 msgstr "Ters Proxy Başlık Adı"
 
 #: cps/templates/admin.html:164
-msgid "CWA Settings"
-msgstr "CWA Ayarları"
+msgid "Lily Settings"
+msgstr "Lily Ayarları"
 
 #: cps/templates/admin.html:165
 msgid "Edit Basic Configuration"
@@ -2893,32 +2893,32 @@ msgid "Refresh Thumbnail Cache"
 msgstr "Küçük Resim Belleğini Yenile"
 
 #: cps/templates/admin.html:208
-msgid "CWA Admin Functions&nbsp;&nbsp;⚡"
-msgstr "CWA Yönetici Fonksiyonları&nbsp;&nbsp;⚡"
+msgid "Lily Admin Functions&nbsp;&nbsp;⚡"
+msgstr "Lily Yönetici Fonksiyonları&nbsp;&nbsp;⚡"
 
 #: cps/templates/admin.html:209
-msgid "Show CWA Stats"
-msgstr "CWA İstatistiklerini Göster"
+msgid "Show Lily Stats"
+msgstr "Lily İstatistiklerini Göster"
 
 #: cps/templates/admin.html:210
-msgid "Check CWA Status"
-msgstr "CWA Durumunu Kontrol Et"
+msgid "Check Lily Status"
+msgstr "Lily Durumunu Kontrol Et"
 
 #: cps/templates/admin.html:211
 msgid "Setup KOReader Sync"
 msgstr "KOReader Eşitleme Kurulumu"
 
 #: cps/templates/admin.html:214
-msgid "CWA Library Conversion Service"
-msgstr "CWA Kütüphane Dönüştürme Servisi"
+msgid "Lily Library Conversion Service"
+msgstr "Lily Kütüphane Dönüştürme Servisi"
 
 #: cps/templates/admin.html:215
-msgid "CWA EPUB Fixer Service"
-msgstr "CWA EPUB Düzenleme Servisi"
+msgid "Lily EPUB Fixer Service"
+msgstr "Lily EPUB Düzenleme Servisi"
 
 #: cps/templates/admin.html:218
-msgid "CWA GitHub"
-msgstr "CWA GitHub"
+msgid "Lily GitHub"
+msgstr "Lily GitHub"
 
 #: cps/templates/admin.html:219
 msgid "CWA Discord Server"
@@ -3465,9 +3465,9 @@ msgstr "Calibre Veri Tabanı Konumu (metadata.db dosyası)"
 
 #: cps/templates/config_db.html:48
 msgid ""
-"CWA is configured so that your Calibre Database (<code>metadata.db</code> "
+"Lily is configured so that your Calibre Database (<code>metadata.db</code> "
 "file) should always be somewhere in <code>/calibre-library</code>.\n"
-"        CWA automatically searches whatever directory you've bound to <code>/"
+"        Lily automatically searches whatever directory you've bound to <code>/"
 "calibre-library</code> in your docker-compose file for existing Calibre\n"
 "        Libraries/metadata.db files on start up. If it finds just one "
 "existing library, it mounts it automatically, if it find multiple, by "
@@ -3477,10 +3477,10 @@ msgid ""
 "        <a href=\"https://github.com/crocodilestick/Calibre-Web-Automated/"
 "wiki/Configuration#database-configuration\">see here</a>!"
 msgstr ""
-"CWA, Calibre Veri Tabanınızın (<code>metadata.db</code> dosyası) her zaman "
+"Lily, Calibre Veri Tabanınızın (<code>metadata.db</code> dosyası) her zaman "
 "<code>/calibre-library</code> içinde bir yerde bulunacak şekilde "
 "yapılandırılmıştır.\n"
-"        CWA, başlangıçta docker-compose dosyanızda <code>/calibre-library</"
+"        Lily, başlangıçta docker-compose dosyanızda <code>/calibre-library</"
 "code> dizinine bağladığınız klasörü mevcut Calibre Kütüphaneleri / "
 "<code>metadata.db</code>\n"
 "        dosyaları için otomatik olarak tarar. Eğer yalnızca bir mevcut "
@@ -3494,16 +3494,16 @@ msgstr ""
 
 #: cps/templates/config_db.html:54
 msgid ""
-"Therefore, when configuring your docker-compose file for CWA, <b>DO NOT "
+"Therefore, when configuring your docker-compose file for Lily, <b>DO NOT "
 "CHANGE THE PATHS IN THE VOLUMES SECTION ON THE RIGHT SIDE OF THE COLONS!</b>"
 msgstr ""
-"Bu nedenle, CWA için docker-compose dosyanızı yapılandırırken, <b>VOLUMES "
+"Bu nedenle, Lily için docker-compose dosyanızı yapılandırırken, <b>VOLUMES "
 "bölümünde iki nokta üst üste işaretinin sağ tarafındaki yolları ASLA "
 "DEĞİŞTİRMEYİN!</b>"
 
 #: cps/templates/config_db.html:55
 msgid ""
-"These paths are internal to CWA only, you can change what they're bind to to "
+"These paths are internal to Lily only, you can change what they're bind to to "
 "your heart's content on the left-hand side but there's no reason to\n"
 "        change the paths on the right-hand side.<br><br>If you would like "
 "your <code>metadata.db</code> file in a different location to the rest of "
@@ -3511,7 +3511,7 @@ msgid ""
 "        library, use the <b>Separate Book Files from Library Option below "
 "and there, enter the path to the rest of the library</b>"
 msgstr ""
-"Bu yollar yalnızca CWA’nın kendi iç yapısında kullanılır. Sol taraftaki "
+"Bu yollar yalnızca Lily’nın kendi iç yapısında kullanılır. Sol taraftaki "
 "bağlanan (bind edilen) yolları istediğiniz gibi değiştirebilirsiniz, ancak "
 "sağ taraftaki \n"
 "        yolları değiştirmeniz için bir neden yoktur.<br><br>Eğer "
@@ -4429,33 +4429,33 @@ msgid "Error starting EPUB Fixer"
 msgstr "EPUB onarıcı başlatma hatası"
 
 #: cps/templates/cwa_settings.html:136
-msgid "Enable/Disable Calibre-Web Automated Services"
-msgstr "Calibre-Web Automated servislerini başlat/duraklat"
+msgid "Enable/Disable Lily Services"
+msgstr "Lily servislerini başlat/duraklat"
 
 #: cps/templates/cwa_settings.html:143
-msgid "Enable CWA Auto-Convert"
-msgstr "CWA Otomatik dönüştürmeyi aktifleştir"
+msgid "Enable Lily Auto-Convert"
+msgstr "Lily Otomatik dönüştürmeyi aktifleştir"
 
 #: cps/templates/cwa_settings.html:145
 msgid ""
 "On by default, when active all ingested books will automatically be "
 "converted to the target format specified below (epub by default) \n"
-"        <em>EXCEPT</em> those you have specifically told CWA to ignore below."
+"        <em>EXCEPT</em> those you have specifically told Lily to ignore below."
 msgstr ""
 "Varsayılan olarak açık olan bu özellik etkinleştirildiğinde, içeri aktarılan "
 "tüm kitaplar otomatik olarak aşağıda belirtilen hedef biçime (varsayılan "
 "olarak epub) dönüştürülecektir.\n"
-"       Aşağıda CWA'ya özellikle yok saymasını söylediğiniz kitaplar  "
+"       Aşağıda Lily'ya özellikle yok saymasını söylediğiniz kitaplar  "
 "<em>HARİÇ.</em>."
 
 #: cps/templates/cwa_settings.html:154
-msgid "Enable CWA Automatic Cover & Metadata Enforcement Service"
-msgstr "CWA Otomatik Kapak & Meta Veri Uygulama Servisini Aktifleştir"
+msgid "Enable Lily Automatic Cover & Metadata Enforcement Service"
+msgstr "Lily Otomatik Kapak & Meta Veri Uygulama Servisini Aktifleştir"
 
 #: cps/templates/cwa_settings.html:156
 msgid ""
 "On by default, when active, whenever the Metadata and/or Cover Image is "
-"edited in the Web UI, the CWA Metadata Enforcement service \n"
+"edited in the Web UI, the Lily Metadata Enforcement service \n"
 "        will then apply those changes the ebook files themselves. Normally "
 "in Stock CW or when this setting is disabled, the changes made \n"
 "        are only applied to what you see in the Web UI, not the ebook files "
@@ -4463,7 +4463,7 @@ msgid ""
 "        or AZW3 format."
 msgstr ""
 "Varsayılan olarak açık olan bu özellik etkinleştirildiğinde, Web arayüzünde "
-"Meta Veriler ve/veya Kapak Resmi düzenlendiğinde, CWA Meta Veri Uygulama "
+"Meta Veriler ve/veya Kapak Resmi düzenlendiğinde, Lily Meta Veri Uygulama "
 "hizmeti\n"
 "        bu değişiklikleri e-kitap dosyalarına uygular. Normalde Stock CW'de "
 "veya bu ayar devre dışı bırakıldığında, yapılan değişiklikler\n"
@@ -4472,19 +4472,19 @@ msgstr ""
 "        veya AZW3 formatındaki dosyaları desteklemektedir."
 
 #: cps/templates/cwa_settings.html:167
-msgid "Enable CWA Kindle EPUB Fixer"
-msgstr "CWA Kindle EPUB onarıyıcıyı aktifleştir"
+msgid "Enable Lily Kindle EPUB Fixer"
+msgstr "Lily Kindle EPUB onarıyıcıyı aktifleştir"
 
 #: cps/templates/cwa_settings.html:169
 msgid ""
 "When active, the encoding among other attributes of all EPUB files processed "
-"by CWA will be checked and fixed to ensure maximum \n"
+"by Lily will be checked and fixed to ensure maximum \n"
 "        compatibility with Amazon's Send-to-Kindle Service. This feature is "
 "particularly useful for users who frequently send EPUB files to their Kindle "
 "devices and have experienced issues with \n"
 "        file rejections or formatting problems."
 msgstr ""
-"Etkinleştirildiğinde, CWA tarafından işlenen tüm EPUB dosyalarının kodlaması "
+"Etkinleştirildiğinde, Lily tarafından işlenen tüm EPUB dosyalarının kodlaması "
 "ve diğer özellikleri kontrol edilerek Amazon'un Kindle'a Gönderme Hizmeti \n"
 "        ile maksimum uyumluluk sağlanacak şekilde düzeltilecektir. Bu "
 "özellik, özellikle EPUB dosyalarını Kindle cihazlarına sık sık gönderen ve "
@@ -4502,16 +4502,16 @@ msgstr ""
 "innocenat\">innocenat</a> tarafından geliştirilmiştir."
 
 #: cps/templates/cwa_settings.html:181
-msgid "Enable KOReader Sync (CWA Plugin)"
-msgstr "KOReader Eşitlemeyi Aktifleştir (CWA Eklentisi)"
+msgid "Enable KOReader Sync (Lily Plugin)"
+msgstr "KOReader Eşitlemeyi Aktifleştir (Lily Eklentisi)"
 
 #: cps/templates/cwa_settings.html:183
 msgid ""
-"When enabled, CWA exposes the /kosync endpoints and stores KOReader-"
+"When enabled, Lily exposes the /kosync endpoints and stores KOReader-"
 "compatible checksums in metadata.db for progress syncing. Requires the "
 "KOReader plugin on your device."
 msgstr ""
-"Etkinleştirildiğinde, CWA /kosync uç noktalarını kullanıma sunar ve ilerleme "
+"Etkinleştirildiğinde, Lily /kosync uç noktalarını kullanıma sunar ve ilerleme "
 "senkronizasyonu için KOReader uyumlu sağlama toplamlarını metadata.db "
 "dosyasına kaydeder. Cihazınızda KOReader eklentisinin yüklü olması gerekir."
 
@@ -4663,12 +4663,12 @@ msgstr "Yeni kitaplar için otomatik metaveri çekmeyi aktifleştir"
 
 #: cps/templates/cwa_settings.html:304
 msgid ""
-"When active, CWA will automatically attempt to fetch and apply metadata "
+"When active, Lily will automatically attempt to fetch and apply metadata "
 "(title, author, description, cover, etc.) for newly ingested books using the "
 "configured metadata provider hierarchy. This helps improve the quality of "
 "book information, especially for books with poor or missing metadata."
 msgstr ""
-"Etkinleştirildiğinde, CWA, yapılandırılmış meta veri sağlayıcı hiyerarşisini "
+"Etkinleştirildiğinde, Lily, yapılandırılmış meta veri sağlayıcı hiyerarşisini "
 "kullanarak yeni eklenen kitaplar için meta verileri (başlık, yazar, "
 "açıklama, kapak vb.) otomatik olarak almaya ve uygulamaya çalışır. Bu, "
 "özellikle yetersiz veya eksik meta verilere sahip kitaplar için kitap "
@@ -4959,12 +4959,12 @@ msgstr ""
 #: cps/templates/cwa_settings.html:731
 msgid ""
 "You can manually trigger the Hardcover auto-fetch task from the Admin panel "
-"at any time. Check the CWA Stats page to see progress and review queued "
+"at any time. Check the Lily Stats page to see progress and review queued "
 "matches that need manual approval."
 msgstr ""
 "Basılı kitap otomatik getirme görevini istediğiniz zaman Yönetici panelinden "
 "manuel olarak tetikleyebilirsiniz. İlerleme durumunu görmek ve manuel onay "
-"gerektiren sıraya alınmış eşleşmeleri incelemek için CWA İstatistikleri "
+"gerektiren sıraya alınmış eşleşmeleri incelemek için Lily İstatistikleri "
 "sayfasını kontrol edin."
 
 #: cps/templates/cwa_settings.html:738
@@ -4972,15 +4972,15 @@ msgid "Web UI Settings"
 msgstr "Web Arayüzü Ayarları"
 
 #: cps/templates/cwa_settings.html:745
-msgid "Enable CWA Update Notifications"
-msgstr "CWA Güncelleme Bildirimlerini Aktifleştir"
+msgid "Enable Lily Update Notifications"
+msgstr "Lily Güncelleme Bildirimlerini Aktifleştir"
 
 #: cps/templates/cwa_settings.html:747
 msgid ""
 "When active, you will receive notifications in the Web UI when a new version "
-"of CWA is released"
+"of Lily is released"
 msgstr ""
-"Aktif olduğunda, yeni CWA sürümleri için kullanıcı arayüzünden bildirim "
+"Aktif olduğunda, yeni Lily sürümleri için kullanıcı arayüzünden bildirim "
 "alırsınız"
 
 #: cps/templates/cwa_settings.html:755
@@ -5028,8 +5028,8 @@ msgid "Automatic Backup Settings"
 msgstr "Otomatik Yedekleme Ayarları"
 
 #: cps/templates/cwa_settings.html:789
-msgid "Enable CWA Import Auto-Backup"
-msgstr "CWA İçeri Aktarım Otomatik Yedeklemeyi Aktifleştir"
+msgid "Enable Lily Import Auto-Backup"
+msgstr "Lily İçeri Aktarım Otomatik Yedeklemeyi Aktifleştir"
 
 #: cps/templates/cwa_settings.html:791
 msgid ""
@@ -5040,8 +5040,8 @@ msgstr ""
 "processed_books/imported</i> dizinine kaydedilecektir"
 
 #: cps/templates/cwa_settings.html:799
-msgid "Enable CWA Conversion Auto-Backup"
-msgstr "CWA Dönüştürme Otomatik Yedeklemeyi Aktifleştir"
+msgid "Enable Lily Conversion Auto-Backup"
+msgstr "Lily Dönüştürme Otomatik Yedeklemeyi Aktifleştir"
 
 #: cps/templates/cwa_settings.html:801
 msgid ""
@@ -5052,21 +5052,21 @@ msgstr ""
 "orijinalleri /config/processed_books/converted dizinine kaydedilecektir"
 
 #: cps/templates/cwa_settings.html:809
-msgid "Enable CWA EPUB Fixer Auto-Backup"
-msgstr "CWA EPUB Onarıcı Otomatik Yedeklemeyi Aktifleştir"
+msgid "Enable Lily EPUB Fixer Auto-Backup"
+msgstr "Lily EPUB Onarıcı Otomatik Yedeklemeyi Aktifleştir"
 
 #: cps/templates/cwa_settings.html:811
 msgid ""
-"When active, the originals of EPUBs processed by the CWA Kindle EPUB Fixer "
+"When active, the originals of EPUBs processed by the Lily Kindle EPUB Fixer "
 "service will be stored in /config/processed_books/fixed_originals"
 msgstr ""
-"Etkinleştirildiğinde, CWA Kindle EPUB Onarım  hizmeti tarafından işlenen "
+"Etkinleştirildiğinde, Lily Kindle EPUB Onarım  hizmeti tarafından işlenen "
 "EPUB dosyalarının orijinalleri /config/processed_books/fixed_originals "
 "klasöründe saklanacaktır"
 
 #: cps/templates/cwa_settings.html:821
-msgid "Enable CWA Auto-Zip Backups"
-msgstr "CWA Auto-Zp Yedeklemeyi Aktifleştir"
+msgid "Enable Lily Auto-Zip Backups"
+msgstr "Lily Auto-Zp Yedeklemeyi Aktifleştir"
 
 #: cps/templates/cwa_settings.html:823
 msgid ""
@@ -5082,8 +5082,8 @@ msgstr ""
 "indirilmesine yardımcı olmak içindir."
 
 #: cps/templates/cwa_settings.html:828
-msgid "CWA Auto-Conversion Target Format - EPUB by Default"
-msgstr "CWA Otomatik Dönüştürme Hedef Formatı - Varsayılan EPUB"
+msgid "Lily Auto-Conversion Target Format - EPUB by Default"
+msgstr "Lily Otomatik Dönüştürme Hedef Formatı - Varsayılan EPUB"
 
 #: cps/templates/cwa_settings.html:831
 msgid ""
@@ -5101,45 +5101,45 @@ msgstr "Hedef format seçin:"
 
 #: cps/templates/cwa_settings.html:845
 msgid ""
-"Note: CWA's Metadata Enforcement service can currently only support file in "
+"Note: Lily's Metadata Enforcement service can currently only support file in "
 "either EPUB and AZW3 format. Files in other formats will simply be ignored "
 "by the service"
 msgstr ""
-"Not: CWA'nın Meta Veri Uygulama hizmeti şu anda yalnızca EPUB ve AZW3 "
+"Not: Lily'nın Meta Veri Uygulama hizmeti şu anda yalnızca EPUB ve AZW3 "
 "formatındaki dosyaları desteklemektedir. Diğer formatlardaki dosyalar hizmet "
 "tarafından göz ardı edilecektir"
 
 #: cps/templates/cwa_settings.html:851
-msgid "CWA Auto-Convert - Ignored Formats"
-msgstr "CWA Otomatik Dönüştürme - Yoksayılan Formatlar"
+msgid "Lily Auto-Convert - Ignored Formats"
+msgstr "Lily Otomatik Dönüştürme - Yoksayılan Formatlar"
 
 #: cps/templates/cwa_settings.html:853
 msgid ""
-"The formats selected here will be ignored by CWA's Auto-Conversion feature "
+"The formats selected here will be ignored by Lily's Auto-Conversion feature "
 "when it's active, meaning they will be imported as is."
 msgstr ""
-"Burada seçilen formatlar, CWA'nın Otomatik Dönüştürme özelliği "
+"Burada seçilen formatlar, Lily'nın Otomatik Dönüştürme özelliği "
 "etkinleştirildiğinde göz ardı edilecek, yani olduğu gibi içe aktarılacaktır."
 
 #: cps/templates/cwa_settings.html:878
-msgid "CWA Auto-Convert - Retained Formats"
-msgstr "CWA Otomatik Dönüştürme - Korunan Formatlar"
+msgid "Lily Auto-Convert - Retained Formats"
+msgstr "Lily Otomatik Dönüştürme - Korunan Formatlar"
 
 #: cps/templates/cwa_settings.html:880
 msgid ""
 "The formats selected here will always be added to the library, even after "
 "they have been converted to the target format. However, if the format is in "
-"the \"CWA Auto-Ingest - Ignored Formats\" list, it will not be imported. "
+"the \"Lily Auto-Ingest - Ignored Formats\" list, it will not be imported. "
 "Note that the target format is always retained."
 msgstr ""
 "Burada seçilen formatlar, hedef formata dönüştürüldükten sonra bile her "
-"zaman kütüphaneye eklenecektir. Ancak, format \"CWA Otomatik Alım - Göz Ardı "
+"zaman kütüphaneye eklenecektir. Ancak, format \"Lily Otomatik Alım - Göz Ardı "
 "Edilen Formatlar\" listesinde yer alıyorsa, içe aktarılmayacaktır. Hedef "
 "formatın her zaman korunduğunu unutmayın."
 
 #: cps/templates/cwa_settings.html:907
-msgid "CWA Auto-Ingest Automerge"
-msgstr "CWA Otomatik-Ingest Otomatik Birleştirme"
+msgid "Lily Auto-Ingest Automerge"
+msgstr "Lily Otomatik-Ingest Otomatik Birleştirme"
 
 #: cps/templates/cwa_settings.html:910
 msgid "Calibre can detect Duplicate Book Titles on Import and depending on the"
@@ -5172,22 +5172,22 @@ msgid "Creates a duplicate record, keeping both copies"
 msgstr "Kayıtın bir kopyasını oluşturur ve her iki kopyayı da saklar"
 
 #: cps/templates/cwa_settings.html:943
-msgid "CWA Auto-Ingest - Ignored Formats"
-msgstr "CWA Otomatik-Ingest - Yoksayılan Formatlar"
+msgid "Lily Auto-Ingest - Ignored Formats"
+msgstr "Lily Otomatik-Ingest - Yoksayılan Formatlar"
 
 #: cps/templates/cwa_settings.html:945
 msgid ""
-"The formats selected here will be ignored by CWA's Auto-Ingest feature, "
-"meaning files in these formats won't be added to the library by CWA during "
+"The formats selected here will be ignored by Lily's Auto-Ingest feature, "
+"meaning files in these formats won't be added to the library by Lily during "
 "the ingest process"
 msgstr ""
-"Burada seçilen formatlar CWA'nın Otomatik Ingest özelliği tarafından göz "
-"ardı edilecektir; yani bu formatlardaki dosyalar alım işlemi sırasında CWA "
+"Burada seçilen formatlar Lily'nın Otomatik Ingest özelliği tarafından göz "
+"ardı edilecektir; yani bu formatlardaki dosyalar alım işlemi sırasında Lily "
 "tarafından kütüphaneye eklenmeyecektir"
 
 #: cps/templates/cwa_settings.html:970
-msgid "CWA Duplicate Detection System"
-msgstr "CWA Tekrarlı Tespit Sistemi"
+msgid "Lily Duplicate Detection System"
+msgstr "Lily Tekrarlı Tespit Sistemi"
 
 #: cps/templates/cwa_settings.html:973
 msgid ""
@@ -5203,9 +5203,9 @@ msgid "Enable Duplicate Detection"
 msgstr "Tekrarlı Tespitini Aktifleştir"
 
 #: cps/templates/cwa_settings.html:982
-msgid "When enabled, CWA will scan for duplicate books after each import"
+msgid "When enabled, Lily will scan for duplicate books after each import"
 msgstr ""
-"Etkinleştirildiğinde, CWA her içe aktarma işleminden sonra yinelenen "
+"Etkinleştirildiğinde, Lily her içe aktarma işleminden sonra yinelenen "
 "kitapları tarayacaktır"
 
 #: cps/templates/cwa_settings.html:990
@@ -5294,8 +5294,8 @@ msgid "Next scheduled scan:"
 msgstr "Sonraki zamanlanmış tarama:"
 
 #: cps/templates/cwa_settings.html:1076
-msgid "CWA Duplicate Detection Criteria"
-msgstr "CWA Tekrarlı Tespit Kriteri"
+msgid "Lily Duplicate Detection Criteria"
+msgstr "Lily Tekrarlı Tespit Kriteri"
 
 #: cps/templates/cwa_settings.html:1079
 msgid ""
@@ -5692,8 +5692,8 @@ msgid "Failed to update shelves"
 msgstr "Kitaplık güncellenemedi"
 
 #: cps/templates/duplicates.html:497
-msgid "CWA Duplicates Manager"
-msgstr "CWA Tekrarlı Yönetimi"
+msgid "Lily Duplicates Manager"
+msgstr "Lily Tekrarlı Yönetimi"
 
 #: cps/templates/duplicates.html:499
 msgid ""
@@ -5730,7 +5730,7 @@ msgstr ""
 
 #: cps/templates/duplicates.html:531
 msgid ""
-"CWA now uses a duplicate index to keep duplicate checks fast during imports "
+"Lily now uses a duplicate index to keep duplicate checks fast during imports "
 "and metadata changes. Before incremental scans can run, the index needs an "
 "initial baseline."
 msgstr ""
@@ -5738,7 +5738,7 @@ msgstr ""
 #: cps/templates/duplicates.html:534
 msgid ""
 "Click \"Run Full Duplicate Scan\" to build it. This may take several minutes "
-"on large libraries, and you can keep using CWA while it runs."
+"on large libraries, and you can keep using Lily while it runs."
 msgstr ""
 
 #: cps/templates/duplicates.html:541
@@ -5747,7 +5747,7 @@ msgid "Duplicate scan is running."
 msgstr "eKitabı Sil"
 
 #: cps/templates/duplicates.html:542
-msgid "You can keep using CWA while it runs."
+msgid "You can keep using Lily while it runs."
 msgstr ""
 
 #: cps/templates/duplicates.html:545 cps/templates/tasks.html:17
@@ -5864,7 +5864,7 @@ msgstr ""
 
 #: cps/templates/duplicates.html:688
 msgid ""
-"CWA will resolve duplicate groups using the selected strategy and "
+"Lily will resolve duplicate groups using the selected strategy and "
 "permanently delete duplicate books."
 msgstr ""
 
@@ -6149,10 +6149,10 @@ msgstr "Eşleşme geçilirken hata oluştu"
 
 #: cps/templates/http_error.html:34
 msgid ""
-"Calibre-Web Automated Instance is unconfigured, please contact your "
+"Lily Instance is unconfigured, please contact your "
 "administrator"
 msgstr ""
-"Calibre-Web Automated örneğin ayarlanamadı, lütfen yöneticiniz ile iletişime "
+"Lily örneğin ayarlanamadı, lütfen yöneticiniz ile iletişime "
 "geçin"
 
 #: cps/templates/http_error.html:44
@@ -6237,18 +6237,18 @@ msgstr "KOReader eşitleme kapalı."
 
 #: cps/templates/kosync_plugin.html:113
 msgid ""
-"Enable it in CWA Settings to activate the /kosync endpoints and checksum "
+"Enable it in Lily Settings to activate the /kosync endpoints and checksum "
 "generation."
 msgstr ""
 
 #: cps/templates/kosync_plugin.html:115
-msgid "Open CWA Settings"
-msgstr "CWA Ayarlarını Aç"
+msgid "Open Lily Settings"
+msgstr "Lily Ayarlarını Aç"
 
 #: cps/templates/kosync_plugin.html:139
-msgid "Download is available after enabling KOReader Sync in CWA Settings."
+msgid "Download is available after enabling KOReader Sync in Lily Settings."
 msgstr ""
-"CWA ayarlarından KOReader eşitleme aktif edildikten sonra indirilebilir."
+"Lily ayarlarından KOReader eşitleme aktif edildikten sonra indirilebilir."
 
 #: cps/templates/layout.html:93 cps/templates/login.html:51
 msgid "Home"
@@ -6519,8 +6519,8 @@ msgid "Ok"
 msgstr "Tamam"
 
 #: cps/templates/osd.xml:5
-msgid "Calibre-Web Automated eBook Catalog"
-msgstr "Calibre-Web Automated E-kitap Kataloğu"
+msgid "Lily eBook Catalog"
+msgstr "Lily E-kitap Kataloğu"
 
 #: cps/templates/read.html:7
 msgid "epub Reader"

@@ -1,14 +1,14 @@
 # =====================================================================
-# This script builds a custom Docker image of Calibre-Web-Automated.
+# This script builds a custom Docker image of Lily.
 # It clones the upstream repository into a specified local directory,
 # then builds either a development or production image tagged under
 # your Docker Hub username, with versioning and build date metadata.
 #
 # Optional Environment Variables:
 #
-#   REPO_DIR – Local directory where the Calibre-Web-Automated repo
+#   REPO_DIR – Local directory where the Lily repo
 #              will be cloned for building.
-#              Example: export REPO_DIR="$HOME/cwa-repo-download"
+#              Example: export REPO_DIR="$HOME/lily-repo-download"
 #
 #   DH_USER  – Docker Hub username used to tag the built image.
 #              Example: export DH_USER="mydockerusername"
@@ -81,7 +81,7 @@ done
 : "${DH_USER:=}"
 : "${DH_USER_FROM_ARG:=0}"
 : "${REPO_DIR:=}"
-: "${REPO_URL:=https://github.com/crocodilestick/calibre-web-automated.git}"
+: "${REPO_URL:=https://github.com/Bondyboy2001/lily.git}"
 : "${build_type:=}"
 : "${version:=}"
 : "${testnum:=}"
@@ -120,7 +120,7 @@ else
   else
     DEFAULT_HOME="${HOME:-}"
     [ -z "${DEFAULT_HOME}" ] && die "Cannot find your home directory, set \$REPO_DIR manually."
-    DEFAULT_REPO_DIR="${DEFAULT_HOME}/cwa-repo-download"
+    DEFAULT_REPO_DIR="${DEFAULT_HOME}/lily-repo-download"
 
     read -r -p "Enter directory for repo files [ENTER for default: ${DEFAULT_REPO_DIR}]: " input_dir
     REPO_DIR="${input_dir:-${DEFAULT_REPO_DIR}}"
@@ -196,10 +196,10 @@ fi
 NOW="$(date +"%Y-%m-%d %H:%M:%S")"
 
 if [ "${build_type}" = "dev" ]; then
-  image_preview="${DH_USER}/calibre-web-automated:dev-$testnum"
+  image_preview="${DH_USER}/lily:dev-$testnum"
   version_str="${version}-TEST-${testnum}"
 else
-  image_preview="${DH_USER}/calibre-web-automated:$version"
+  image_preview="${DH_USER}/lily:$version"
   version_str="${version}"
 fi
 

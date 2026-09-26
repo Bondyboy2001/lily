@@ -208,8 +208,8 @@ msgid "Invalid Restricted Column"
 msgstr "无效的限制栏目"
 
 #: cps/admin.py:916 cps/admin.py:2464
-msgid "Calibre-Web Automated configuration updated"
-msgstr "Calibre-Web Automated 配置已更新"
+msgid "Lily configuration updated"
+msgstr "Lily 配置已更新"
 
 #: cps/admin.py:928
 msgid "Do you really want to delete the Kobo Token?"
@@ -264,18 +264,18 @@ msgstr "您确定要更改 Calibre 库位置吗？"
 
 #: cps/admin.py:951
 msgid ""
-"Calibre-Web Automated will search for updated Covers and update Cover "
+"Lily will search for updated Covers and update Cover "
 "Thumbnails, this may take a while?"
 msgstr ""
-"Calibre-Web Automated 将会查找更新后的封面并更新封面缩略图，这个过程可能需要"
+"Lily 将会查找更新后的封面并更新封面缩略图，这个过程可能需要"
 "一段时间？"
 
 #: cps/admin.py:954
 msgid ""
-"Are you sure you want delete Calibre-Web Automated's sync database to force "
+"Are you sure you want delete Lily's sync database to force "
 "a full sync with your Kobo Reader?"
 msgstr ""
-"您确定要删除 Calibre-Web Automated的同步数据库，以强制与您的 Kobo Reader 进行"
+"您确定要删除 Lily的同步数据库，以强制与您的 Kobo Reader 进行"
 "完全同步吗？"
 
 #: cps/admin.py:1193 cps/admin.py:1199 cps/admin.py:1209 cps/admin.py:1219
@@ -880,8 +880,8 @@ msgid "Invalid cron expression for duplicate scans. Changes were not saved."
 msgstr "重复扫描的 cron 表达式无效。更改未保存。"
 
 #: cps/cwa_functions.py:1002
-msgid "Calibre-Web Automated User Settings"
-msgstr "Calibre-Web Automated 用户设置"
+msgid "Lily User Settings"
+msgstr "Lily 用户设置"
 
 #: cps/cwa_functions.py:1048 cps/cwa_functions.py:1050
 #: cps/cwa_functions.py:1054 cps/cwa_functions.py:1056
@@ -946,32 +946,32 @@ msgid "Unknown User"
 msgstr "未知用户"
 
 #: cps/cwa_functions.py:1274
-msgid "Calibre-Web Automated Stats & Activity"
-msgstr "Calibre-Web Automated Server 统计与活动"
+msgid "Lily Stats & Activity"
+msgstr "Lily Server 统计与活动"
 
 #: cps/cwa_functions.py:1658
-msgid "Calibre-Web Automated - Full Enforcement History"
-msgstr "Calibre-Web Automated - 完整的执行历史"
+msgid "Lily - Full Enforcement History"
+msgstr "Lily - 完整的执行历史"
 
 #: cps/cwa_functions.py:1667
-msgid "Calibre-Web Automated - Full Enforcement History (w/ Paths)"
-msgstr "Calibre-Web Automated - 完整的执行历史（带路径）"
+msgid "Lily - Full Enforcement History (w/ Paths)"
+msgstr "Lily - 完整的执行历史（带路径）"
 
 #: cps/cwa_functions.py:1676
-msgid "Calibre-Web Automated - Full Import History"
-msgstr "Calibre-Web Automated - 完整的导入历史"
+msgid "Lily - Full Import History"
+msgstr "Lily - 完整的导入历史"
 
 #: cps/cwa_functions.py:1685
-msgid "Calibre-Web Automated - Full Conversion History"
-msgstr "Calibre-Web Automated - 完整的转换历史"
+msgid "Lily - Full Conversion History"
+msgstr "Lily - 完整的转换历史"
 
 #: cps/cwa_functions.py:1694
-msgid "Calibre-Web Automated - Full EPUB Fixer History (w/out Paths & Fixes)"
-msgstr "Calibre-Web Automated - 完整的 EPUB 修复历史（无路径和修复）"
+msgid "Lily - Full EPUB Fixer History (w/out Paths & Fixes)"
+msgstr "Lily - 完整的 EPUB 修复历史（无路径和修复）"
 
 #: cps/cwa_functions.py:1703
-msgid "Calibre-Web Automated - Full EPUB Fixer History (w/ Paths & Fixes)"
-msgstr "Calibre-Web Automated - 完整的 EPUB 修复历史（带路径和修复）"
+msgid "Lily - Full EPUB Fixer History (w/ Paths & Fixes)"
+msgstr "Lily - 完整的 EPUB 修复历史（带路径和修复）"
 
 #: cps/cwa_functions.py:1721
 msgid "✅ All Monitoring Services are running as intended! 👍"
@@ -997,12 +997,12 @@ msgid "An Error has occurred"
 msgstr "发生错误"
 
 #: cps/cwa_functions.py:1906 cps/cwa_functions.py:1930
-msgid "Calibre-Web Automated - Convert Library"
-msgstr "Calibre-Web Automated - 转换图书库"
+msgid "Lily - Convert Library"
+msgstr "Lily - 转换图书库"
 
 #: cps/cwa_functions.py:2069 cps/cwa_functions.py:2091
-msgid "Calibre-Web Automated - EPUB Fixer Service"
-msgstr "Calibre-Web Automated - EPUB 修复服务"
+msgid "Lily - EPUB Fixer Service"
+msgstr "Lily - EPUB 修复服务"
 
 #: cps/cwa_functions.py:2171
 msgid "Single-book EPUB Fixer is not supported with Google Drive libraries."
@@ -1069,8 +1069,8 @@ msgid "Profile picture updated successfully."
 msgstr "头像更新成功。"
 
 #: cps/cwa_functions.py:2344
-msgid "CWA Profile Picture Management (WIP)"
-msgstr "CWA 头像管理（开发中）"
+msgid "Lily Profile Picture Management (WIP)"
+msgstr "Lily 头像管理（开发中）"
 
 #: cps/db.py:1270 cps/templates/config_edit.html:295
 #: cps/templates/config_view_edit.html:79
@@ -1294,8 +1294,8 @@ msgid "Send to eReader"
 msgstr "发送到电子阅读器"
 
 #: cps/helper.py:114 cps/helper.py:141 cps/helper.py:254
-msgid "This Email has been sent via Calibre-Web Automated."
-msgstr "此邮件是通过 Calibre-Web Automated系统发送的。"
+msgid "This Email has been sent via Lily."
+msgstr "此邮件是通过 Lily系统发送的。"
 
 #: cps/helper.py:129
 #, fuzzy, python-format
@@ -1308,16 +1308,16 @@ msgid "Conversion failed for book id: %(book)d"
 msgstr "找不到 ID 为 %(book)d 的书籍的 %(format)s 格式"
 
 #: cps/helper.py:139
-msgid "Calibre-Web Automated Test Email"
-msgstr "Calibre-Web Automated 测试邮件"
+msgid "Lily Test Email"
+msgstr "Lily 测试邮件"
 
 #: cps/helper.py:140
 msgid "Test Email"
 msgstr "测试邮件"
 
 #: cps/helper.py:157
-msgid "Get Started with Calibre-Web Automated"
-msgstr "开启 Calibre-Web Automated 之旅"
+msgid "Get Started with Lily"
+msgstr "开启 Lily 之旅"
 
 #: cps/helper.py:162
 #, python-format
@@ -1462,10 +1462,10 @@ msgstr "执行 UnRar 时出错"
 #: cps/helper.py:1361
 #, python-format
 msgid ""
-"Unsupported architecture detected: %(arch)s. CWA is optimized for x86_64 and "
+"Unsupported architecture detected: %(arch)s. Lily is optimized for x86_64 and "
 "aarch64."
 msgstr ""
-"检测到不支持的架构：%(arch)s。CWA 仅针对 x86_64 和 aarch64 架构进行了优化。"
+"检测到不支持的架构：%(arch)s。Lily 仅针对 x86_64 和 aarch64 架构进行了优化。"
 
 #: cps/helper.py:1370
 msgid "Could not find the specified directory"
@@ -1499,10 +1499,10 @@ msgstr "将所有书籍加入元数据备份队列"
 
 #: cps/kobo_auth.py:87
 msgid ""
-"Please access Calibre-Web Automated from non localhost to get valid "
+"Please access Lily from non localhost to get valid "
 "api_endpoint for kobo device"
 msgstr ""
-"请不要从 localhost 访问 Calibre-Web Automated，以便 Kobo 设备能获取有效的 "
+"请不要从 localhost 访问 Lily，以便 Kobo 设备能获取有效的 "
 "api_endpoint"
 
 #: cps/kobo_auth.py:106
@@ -2723,8 +2723,8 @@ msgid "Reverse Proxy Header Name"
 msgstr "反向代理头部名称"
 
 #: cps/templates/admin.html:164
-msgid "CWA Settings"
-msgstr "CWA 设置"
+msgid "Lily Settings"
+msgstr "Lily 设置"
 
 #: cps/templates/admin.html:165
 msgid "Edit Basic Configuration"
@@ -2773,32 +2773,32 @@ msgid "Refresh Thumbnail Cache"
 msgstr "刷新封面缩略图缓存"
 
 #: cps/templates/admin.html:208
-msgid "CWA Admin Functions&nbsp;&nbsp;⚡"
-msgstr "CWA 管理功能&nbsp;&nbsp;⚡"
+msgid "Lily Admin Functions&nbsp;&nbsp;⚡"
+msgstr "Lily 管理功能&nbsp;&nbsp;⚡"
 
 #: cps/templates/admin.html:209
-msgid "Show CWA Stats"
-msgstr "显示 CWA 数据统计信息"
+msgid "Show Lily Stats"
+msgstr "显示 Lily 数据统计信息"
 
 #: cps/templates/admin.html:210
-msgid "Check CWA Status"
-msgstr "查询 CWA 状态"
+msgid "Check Lily Status"
+msgstr "查询 Lily 状态"
 
 #: cps/templates/admin.html:211
 msgid "Setup KOReader Sync"
 msgstr "设置“KOReader 同步”"
 
 #: cps/templates/admin.html:214
-msgid "CWA Library Conversion Service"
-msgstr "CWA 书库转换服务"
+msgid "Lily Library Conversion Service"
+msgstr "Lily 书库转换服务"
 
 #: cps/templates/admin.html:215
-msgid "CWA EPUB Fixer Service"
-msgstr "CWA EPUB 修复工具"
+msgid "Lily EPUB Fixer Service"
+msgstr "Lily EPUB 修复工具"
 
 #: cps/templates/admin.html:218
-msgid "CWA GitHub"
-msgstr "CWA GitHub"
+msgid "Lily GitHub"
+msgstr "Lily GitHub"
 
 #: cps/templates/admin.html:219
 msgid "CWA Discord Server"
@@ -3342,9 +3342,9 @@ msgstr "Calibre 数据库的位置（metadata.db 文件所在位置）"
 
 #: cps/templates/config_db.html:48
 msgid ""
-"CWA is configured so that your Calibre Database (<code>metadata.db</code> "
+"Lily is configured so that your Calibre Database (<code>metadata.db</code> "
 "file) should always be somewhere in <code>/calibre-library</code>.\n"
-"        CWA automatically searches whatever directory you've bound to <code>/"
+"        Lily automatically searches whatever directory you've bound to <code>/"
 "calibre-library</code> in your docker-compose file for existing Calibre\n"
 "        Libraries/metadata.db files on start up. If it finds just one "
 "existing library, it mounts it automatically, if it find multiple, by "
@@ -3354,9 +3354,9 @@ msgid ""
 "        <a href=\"https://github.com/crocodilestick/Calibre-Web-Automated/"
 "wiki/Configuration#database-configuration\">see here</a>!"
 msgstr ""
-"CWA 的配置方式是，您的 Calibre 数据库（<code>metadata.db</code> 文件）应始终"
+"Lily 的配置方式是，您的 Calibre 数据库（<code>metadata.db</code> 文件）应始终"
 "位于 <code>/calibre-library</code> 中的某个位置。\n"
-"CWA 会在启动时自动搜索您在 docker-compose 文件中绑定到 <code>/calibre-"
+"Lily 会在启动时自动搜索您在 docker-compose 文件中绑定到 <code>/calibre-"
 "library</code> 的目录，查找现有的 Calibre 库/metadata.db 文件。\n"
 "如果仅找到一个现有库，它会自动挂载；如果找到多个，按默认设置它会自动挂载最大"
 "的那个；如果一个都没有找到，它会自动创建并挂载一个新的。\n"
@@ -3365,15 +3365,15 @@ msgstr ""
 
 #: cps/templates/config_db.html:54
 msgid ""
-"Therefore, when configuring your docker-compose file for CWA, <b>DO NOT "
+"Therefore, when configuring your docker-compose file for Lily, <b>DO NOT "
 "CHANGE THE PATHS IN THE VOLUMES SECTION ON THE RIGHT SIDE OF THE COLONS!</b>"
 msgstr ""
-"因此，在为 CWA 配置您的 docker-compose 文件时，<b>切勿更改冒号右侧“卷”中的路"
+"因此，在为 Lily 配置您的 docker-compose 文件时，<b>切勿更改冒号右侧“卷”中的路"
 "径！</b>"
 
 #: cps/templates/config_db.html:55
 msgid ""
-"These paths are internal to CWA only, you can change what they're bind to to "
+"These paths are internal to Lily only, you can change what they're bind to to "
 "your heart's content on the left-hand side but there's no reason to\n"
 "        change the paths on the right-hand side.<br><br>If you would like "
 "your <code>metadata.db</code> file in a different location to the rest of "
@@ -3381,7 +3381,7 @@ msgid ""
 "        library, use the <b>Separate Book Files from Library Option below "
 "and there, enter the path to the rest of the library</b>"
 msgstr ""
-"这些路径仅在 CWA 内部使用，您可以在左侧随意更改它们绑定的内容，但没有理由更改"
+"这些路径仅在 Lily 内部使用，您可以在左侧随意更改它们绑定的内容，但没有理由更改"
 "右侧的路径。\n"
 "<br><br>如果您希望将 <code>metadata.db</code> 文件放在与您的库其余部分不同的"
 "位置，\n"
@@ -4258,31 +4258,31 @@ msgid "Error starting EPUB Fixer"
 msgstr "启动 EPUB 修复程序时出错"
 
 #: cps/templates/cwa_settings.html:136
-msgid "Enable/Disable Calibre-Web Automated Services"
-msgstr "启用/禁用 Calibre-Web Automated 服务"
+msgid "Enable/Disable Lily Services"
+msgstr "启用/禁用 Lily 服务"
 
 #: cps/templates/cwa_settings.html:143
-msgid "Enable CWA Auto-Convert"
-msgstr "启用 CWA 自动转换"
+msgid "Enable Lily Auto-Convert"
+msgstr "启用 Lily 自动转换"
 
 #: cps/templates/cwa_settings.html:145
 msgid ""
 "On by default, when active all ingested books will automatically be "
 "converted to the target format specified below (epub by default) \n"
-"        <em>EXCEPT</em> those you have specifically told CWA to ignore below."
+"        <em>EXCEPT</em> those you have specifically told Lily to ignore below."
 msgstr ""
 "默认情况下，当处于激活状态时，所有导入的书籍都会自动转换为以下指定的目标格式"
 "（默认为 epub 格式）。\n"
-"<em>但</em>有以下这些您明确告知 CWA 忽略的书籍除外。"
+"<em>但</em>有以下这些您明确告知 Lily 忽略的书籍除外。"
 
 #: cps/templates/cwa_settings.html:154
-msgid "Enable CWA Automatic Cover & Metadata Enforcement Service"
-msgstr "启用 CWA 自动覆盖及元数据执行服务"
+msgid "Enable Lily Automatic Cover & Metadata Enforcement Service"
+msgstr "启用 Lily 自动覆盖及元数据执行服务"
 
 #: cps/templates/cwa_settings.html:156
 msgid ""
 "On by default, when active, whenever the Metadata and/or Cover Image is "
-"edited in the Web UI, the CWA Metadata Enforcement service \n"
+"edited in the Web UI, the Lily Metadata Enforcement service \n"
 "        will then apply those changes the ebook files themselves. Normally "
 "in Stock CW or when this setting is disabled, the changes made \n"
 "        are only applied to what you see in the Web UI, not the ebook files "
@@ -4290,25 +4290,25 @@ msgid ""
 "        or AZW3 format."
 msgstr ""
 "默认情况下，当处于激活状态时，只要在网页用户界面中对元数据和/或封面图片进行编"
-"辑，CWA 元数据执行服务就会将这些更改应用到电子书文件本身。\n"
+"辑，Lily 元数据执行服务就会将这些更改应用到电子书文件本身。\n"
 "通常在标准 CW 系统中或当此设置被禁用时，所做的更改仅应用于您在网页用户界面中"
 "看到的内容，而非电子书文件本身。\n"
 "此功能目前仅支持 EPUB 或 AZW3 格式的文件。"
 
 #: cps/templates/cwa_settings.html:167
-msgid "Enable CWA Kindle EPUB Fixer"
-msgstr "启用 CWA Kindle EPUB 修复器"
+msgid "Enable Lily Kindle EPUB Fixer"
+msgstr "启用 Lily Kindle EPUB 修复器"
 
 #: cps/templates/cwa_settings.html:169
 msgid ""
 "When active, the encoding among other attributes of all EPUB files processed "
-"by CWA will be checked and fixed to ensure maximum \n"
+"by Lily will be checked and fixed to ensure maximum \n"
 "        compatibility with Amazon's Send-to-Kindle Service. This feature is "
 "particularly useful for users who frequently send EPUB files to their Kindle "
 "devices and have experienced issues with \n"
 "        file rejections or formatting problems."
 msgstr ""
-"当启用时，CWA 处理的所有 EPUB 文件的编码等属性将被检查并修复，以确保与\n"
+"当启用时，Lily 处理的所有 EPUB 文件的编码等属性将被检查并修复，以确保与\n"
 "Amazon 的 Send-to-Kindle 服务具有最大的兼容性。此功能对于经常向 Kindle 设备发"
 "送\n"
 "EPUB 文件并遇到文件被拒绝或格式问题的用户特别有用。"
@@ -4324,16 +4324,16 @@ msgstr ""
 "innocenat\">innocenat</a> 制作。"
 
 #: cps/templates/cwa_settings.html:181
-msgid "Enable KOReader Sync (CWA Plugin)"
-msgstr "启用 KOReader 同步（CWA 插件）"
+msgid "Enable KOReader Sync (Lily Plugin)"
+msgstr "启用 KOReader 同步（Lily 插件）"
 
 #: cps/templates/cwa_settings.html:183
 msgid ""
-"When enabled, CWA exposes the /kosync endpoints and stores KOReader-"
+"When enabled, Lily exposes the /kosync endpoints and stores KOReader-"
 "compatible checksums in metadata.db for progress syncing. Requires the "
 "KOReader plugin on your device."
 msgstr ""
-"启用后，CWA 会暴露 /kosync 端点，并在 metadata.db 中存储与 KOReader 兼容的校"
+"启用后，Lily 会暴露 /kosync 端点，并在 metadata.db 中存储与 KOReader 兼容的校"
 "验和\n"
 "用于进度同步。需要在您的设备上安装 KOReader 插件。"
 
@@ -4481,12 +4481,12 @@ msgstr "为新书籍启用自动元数据获取"
 
 #: cps/templates/cwa_settings.html:304
 msgid ""
-"When active, CWA will automatically attempt to fetch and apply metadata "
+"When active, Lily will automatically attempt to fetch and apply metadata "
 "(title, author, description, cover, etc.) for newly ingested books using the "
 "configured metadata provider hierarchy. This helps improve the quality of "
 "book information, especially for books with poor or missing metadata."
 msgstr ""
-"当处于激活状态时，CWA 会自动尝试使用已配置的元数据提供者层次结构获取并应用新"
+"当处于激活状态时，Lily 会自动尝试使用已配置的元数据提供者层次结构获取并应用新"
 "导入书籍的元数据（标题、作者、描述、封面等）。这有助于提高书籍信息的质量，特"
 "别是对于那些元数据质量不佳或缺失的书籍。"
 
@@ -4762,10 +4762,10 @@ msgstr ""
 #: cps/templates/cwa_settings.html:731
 msgid ""
 "You can manually trigger the Hardcover auto-fetch task from the Admin panel "
-"at any time. Check the CWA Stats page to see progress and review queued "
+"at any time. Check the Lily Stats page to see progress and review queued "
 "matches that need manual approval."
 msgstr ""
-"您可以随时从管理面板手动启动“精装本自动获取”任务。请查看 CWA 统计页面以查看进"
+"您可以随时从管理面板手动启动“精装本自动获取”任务。请查看 Lily 统计页面以查看进"
 "展情况，并审查需要人工审批的排队中的匹配项。"
 
 #: cps/templates/cwa_settings.html:738
@@ -4773,14 +4773,14 @@ msgid "Web UI Settings"
 msgstr "Web 界面设置"
 
 #: cps/templates/cwa_settings.html:745
-msgid "Enable CWA Update Notifications"
-msgstr "启用 CWA 更新通知"
+msgid "Enable Lily Update Notifications"
+msgstr "启用 Lily 更新通知"
 
 #: cps/templates/cwa_settings.html:747
 msgid ""
 "When active, you will receive notifications in the Web UI when a new version "
-"of CWA is released"
-msgstr "当处于激活状态时，您将在网页用户界面中收到有关 CWA 新版本发布的通知"
+"of Lily is released"
+msgstr "当处于激活状态时，您将在网页用户界面中收到有关 Lily 新版本发布的通知"
 
 #: cps/templates/cwa_settings.html:755
 msgid "Enable Contribute Translations Notifications"
@@ -4822,8 +4822,8 @@ msgid "Automatic Backup Settings"
 msgstr "自动备份设置"
 
 #: cps/templates/cwa_settings.html:789
-msgid "Enable CWA Import Auto-Backup"
-msgstr "启用 CWA 导入自动备份"
+msgid "Enable Lily Import Auto-Backup"
+msgstr "启用 Lily 导入自动备份"
 
 #: cps/templates/cwa_settings.html:791
 msgid ""
@@ -4833,8 +4833,8 @@ msgstr ""
 "启用后，所有导入的文件的副本将存储在 <i>/config/processed_books/imported</i>"
 
 #: cps/templates/cwa_settings.html:799
-msgid "Enable CWA Conversion Auto-Backup"
-msgstr "启用 CWA 转换自动备份"
+msgid "Enable Lily Conversion Auto-Backup"
+msgstr "启用 Lily 转换自动备份"
 
 #: cps/templates/cwa_settings.html:801
 msgid ""
@@ -4845,20 +4845,20 @@ msgstr ""
 "converted"
 
 #: cps/templates/cwa_settings.html:809
-msgid "Enable CWA EPUB Fixer Auto-Backup"
-msgstr "启用 CWA EPUB 修复自动备份"
+msgid "Enable Lily EPUB Fixer Auto-Backup"
+msgstr "启用 Lily EPUB 修复自动备份"
 
 #: cps/templates/cwa_settings.html:811
 msgid ""
-"When active, the originals of EPUBs processed by the CWA Kindle EPUB Fixer "
+"When active, the originals of EPUBs processed by the Lily Kindle EPUB Fixer "
 "service will be stored in /config/processed_books/fixed_originals"
 msgstr ""
-"启用后，CWA Kindle EPUB 修复服务处理的 EPUB 原始文件将存储在 /config/"
+"启用后，Lily Kindle EPUB 修复服务处理的 EPUB 原始文件将存储在 /config/"
 "processed_books/fixed_originals"
 
 #: cps/templates/cwa_settings.html:821
-msgid "Enable CWA Auto-Zip Backups"
-msgstr "启用 CWA 自动压缩备份"
+msgid "Enable Lily Auto-Zip Backups"
+msgstr "启用 Lily 自动压缩备份"
 
 #: cps/templates/cwa_settings.html:823
 msgid ""
@@ -4872,8 +4872,8 @@ msgstr ""
 "processed_books 目录下的子目录井然有序，并减少磁盘空间的使用量。"
 
 #: cps/templates/cwa_settings.html:828
-msgid "CWA Auto-Conversion Target Format - EPUB by Default"
-msgstr "CWA 自动转换目标格式 - 默认 EPUB"
+msgid "Lily Auto-Conversion Target Format - EPUB by Default"
+msgstr "Lily 自动转换目标格式 - 默认 EPUB"
 
 #: cps/templates/cwa_settings.html:831
 msgid ""
@@ -4890,43 +4890,43 @@ msgstr "选择一种目标格式："
 
 #: cps/templates/cwa_settings.html:845
 msgid ""
-"Note: CWA's Metadata Enforcement service can currently only support file in "
+"Note: Lily's Metadata Enforcement service can currently only support file in "
 "either EPUB and AZW3 format. Files in other formats will simply be ignored "
 "by the service"
 msgstr ""
-"注意：CWA 的元数据强制服务目前仅支持 EPUB 和 AZW3 格式的文件。其他格式的文件"
+"注意：Lily 的元数据强制服务目前仅支持 EPUB 和 AZW3 格式的文件。其他格式的文件"
 "将被服务忽略"
 
 #: cps/templates/cwa_settings.html:851
-msgid "CWA Auto-Convert - Ignored Formats"
-msgstr "CWA 自动转换 - 忽略格式"
+msgid "Lily Auto-Convert - Ignored Formats"
+msgstr "Lily 自动转换 - 忽略格式"
 
 #: cps/templates/cwa_settings.html:853
 msgid ""
-"The formats selected here will be ignored by CWA's Auto-Conversion feature "
+"The formats selected here will be ignored by Lily's Auto-Conversion feature "
 "when it's active, meaning they will be imported as is."
 msgstr ""
-"在此所选的格式在 CWA 的自动转换功能启用时将会被忽略，这意味着这些格式将保持原"
+"在此所选的格式在 Lily 的自动转换功能启用时将会被忽略，这意味着这些格式将保持原"
 "样被导入。"
 
 #: cps/templates/cwa_settings.html:878
-msgid "CWA Auto-Convert - Retained Formats"
-msgstr "CWA 自动转换 - 保留格式"
+msgid "Lily Auto-Convert - Retained Formats"
+msgstr "Lily 自动转换 - 保留格式"
 
 #: cps/templates/cwa_settings.html:880
 msgid ""
 "The formats selected here will always be added to the library, even after "
 "they have been converted to the target format. However, if the format is in "
-"the \"CWA Auto-Ingest - Ignored Formats\" list, it will not be imported. "
+"the \"Lily Auto-Ingest - Ignored Formats\" list, it will not be imported. "
 "Note that the target format is always retained."
 msgstr ""
 "此处选择的格式将始终添加到书库中，即使在转换为目标格式后也是如此。但是，如果"
-"该格式在\"CWA 自动导入 - 忽略格式\"列表中，则不会被导入。请注意，目标格式始终"
+"该格式在\"Lily 自动导入 - 忽略格式\"列表中，则不会被导入。请注意，目标格式始终"
 "会被保留。"
 
 #: cps/templates/cwa_settings.html:907
-msgid "CWA Auto-Ingest Automerge"
-msgstr "CWA 自动导入自动合并"
+msgid "Lily Auto-Ingest Automerge"
+msgstr "Lily 自动导入自动合并"
 
 #: cps/templates/cwa_settings.html:910
 msgid "Calibre can detect Duplicate Book Titles on Import and depending on the"
@@ -4955,21 +4955,21 @@ msgid "Creates a duplicate record, keeping both copies"
 msgstr "创建重复记录，保留两个副本"
 
 #: cps/templates/cwa_settings.html:943
-msgid "CWA Auto-Ingest - Ignored Formats"
-msgstr "CWA 自动导入 - 忽略格式"
+msgid "Lily Auto-Ingest - Ignored Formats"
+msgstr "Lily 自动导入 - 忽略格式"
 
 #: cps/templates/cwa_settings.html:945
 msgid ""
-"The formats selected here will be ignored by CWA's Auto-Ingest feature, "
-"meaning files in these formats won't be added to the library by CWA during "
+"The formats selected here will be ignored by Lily's Auto-Ingest feature, "
+"meaning files in these formats won't be added to the library by Lily during "
 "the ingest process"
 msgstr ""
-"在此选择的格式将被 CWA 的自动导入功能忽略，这意味着这些格式的文件在导入过程中"
-"不会被 CWA 添加到库中"
+"在此选择的格式将被 Lily 的自动导入功能忽略，这意味着这些格式的文件在导入过程中"
+"不会被 Lily 添加到库中"
 
 #: cps/templates/cwa_settings.html:970
-msgid "CWA Duplicate Detection System"
-msgstr "CWA 重复检测系统"
+msgid "Lily Duplicate Detection System"
+msgstr "Lily 重复检测系统"
 
 #: cps/templates/cwa_settings.html:973
 msgid ""
@@ -4982,8 +4982,8 @@ msgid "Enable Duplicate Detection"
 msgstr "启用重复检测功能"
 
 #: cps/templates/cwa_settings.html:982
-msgid "When enabled, CWA will scan for duplicate books after each import"
-msgstr "启用后，CWA 将在每次导入后扫描重复书籍"
+msgid "When enabled, Lily will scan for duplicate books after each import"
+msgstr "启用后，Lily 将在每次导入后扫描重复书籍"
 
 #: cps/templates/cwa_settings.html:990
 msgid "Duplicate Detection Method"
@@ -5066,8 +5066,8 @@ msgid "Next scheduled scan:"
 msgstr "下一次计划扫描："
 
 #: cps/templates/cwa_settings.html:1076
-msgid "CWA Duplicate Detection Criteria"
-msgstr "CWA 重复检测条件"
+msgid "Lily Duplicate Detection Criteria"
+msgstr "Lily 重复检测条件"
 
 #: cps/templates/cwa_settings.html:1079
 msgid ""
@@ -5445,8 +5445,8 @@ msgid "Failed to update shelves"
 msgstr "更新书架失败"
 
 #: cps/templates/duplicates.html:497
-msgid "CWA Duplicates Manager"
-msgstr "CWA 重复书籍管理器"
+msgid "Lily Duplicates Manager"
+msgstr "Lily 重复书籍管理器"
 
 #: cps/templates/duplicates.html:499
 msgid ""
@@ -5480,28 +5480,28 @@ msgstr "重复项扫描需要进行一次全面扫描。"
 
 #: cps/templates/duplicates.html:531
 msgid ""
-"CWA now uses a duplicate index to keep duplicate checks fast during imports "
+"Lily now uses a duplicate index to keep duplicate checks fast during imports "
 "and metadata changes. Before incremental scans can run, the index needs an "
 "initial baseline."
 msgstr ""
-"CWA 现在使用重复项索引，以在导入和更改元数据时保持快速的重复项检查。在增量扫"
+"Lily 现在使用重复项索引，以在导入和更改元数据时保持快速的重复项检查。在增量扫"
 "描运行之前，索引需要一个初始基线。"
 
 #: cps/templates/duplicates.html:534
 msgid ""
 "Click \"Run Full Duplicate Scan\" to build it. This may take several minutes "
-"on large libraries, and you can keep using CWA while it runs."
+"on large libraries, and you can keep using Lily while it runs."
 msgstr ""
 "点击“运行完整重复项扫描”以建立它。在大型书库上可能需要几分钟时间，在它运行时"
-"您可以继续使用 CWA。"
+"您可以继续使用 Lily。"
 
 #: cps/templates/duplicates.html:541
 msgid "Duplicate scan is running."
 msgstr "重复项扫描正在运行。"
 
 #: cps/templates/duplicates.html:542
-msgid "You can keep using CWA while it runs."
-msgstr "在它运行时您可以继续使用 CWA。"
+msgid "You can keep using Lily while it runs."
+msgstr "在它运行时您可以继续使用 Lily。"
 
 #: cps/templates/duplicates.html:545 cps/templates/tasks.html:17
 msgid "Progress"
@@ -5607,9 +5607,9 @@ msgstr "执行自动解决"
 
 #: cps/templates/duplicates.html:688
 msgid ""
-"CWA will resolve duplicate groups using the selected strategy and "
+"Lily will resolve duplicate groups using the selected strategy and "
 "permanently delete duplicate books."
-msgstr "CWA 将使用所选策略解决重复项组并永久删除重复的书籍。"
+msgstr "Lily 将使用所选策略解决重复项组并永久删除重复的书籍。"
 
 #: cps/templates/duplicates.html:690
 msgid "Selected strategy:"
@@ -5883,9 +5883,9 @@ msgstr "跳过匹配失败"
 
 #: cps/templates/http_error.html:34
 msgid ""
-"Calibre-Web Automated Instance is unconfigured, please contact your "
+"Lily Instance is unconfigured, please contact your "
 "administrator"
-msgstr "Calibre-Web Automated 实例尚未进行配置，请联系您的管理员"
+msgstr "Lily 实例尚未进行配置，请联系您的管理员"
 
 #: cps/templates/http_error.html:44
 msgid "Create Issue"
@@ -5967,17 +5967,17 @@ msgstr "KOReader 同步已禁用。"
 
 #: cps/templates/kosync_plugin.html:113
 msgid ""
-"Enable it in CWA Settings to activate the /kosync endpoints and checksum "
+"Enable it in Lily Settings to activate the /kosync endpoints and checksum "
 "generation."
-msgstr "在 CWA 设置中启用它以激活 /kosync 端点和校验和生成。"
+msgstr "在 Lily 设置中启用它以激活 /kosync 端点和校验和生成。"
 
 #: cps/templates/kosync_plugin.html:115
-msgid "Open CWA Settings"
-msgstr "打开 CWA 设置"
+msgid "Open Lily Settings"
+msgstr "打开 Lily 设置"
 
 #: cps/templates/kosync_plugin.html:139
-msgid "Download is available after enabling KOReader Sync in CWA Settings."
-msgstr "在 CWA 设置中启用 KOReader 同步后即可下载。"
+msgid "Download is available after enabling KOReader Sync in Lily Settings."
+msgstr "在 Lily 设置中启用 KOReader 同步后即可下载。"
 
 #: cps/templates/layout.html:93 cps/templates/login.html:51
 msgid "Home"
@@ -6243,8 +6243,8 @@ msgid "Ok"
 msgstr "完成"
 
 #: cps/templates/osd.xml:5
-msgid "Calibre-Web Automated eBook Catalog"
-msgstr "Calibre-Web Automated 电子书目录"
+msgid "Lily eBook Catalog"
+msgstr "Lily 电子书目录"
 
 #: cps/templates/read.html:7
 msgid "epub Reader"

@@ -2341,5 +2341,5 @@ def set_profile_picture():
     # Handle the GET request and render the page
     log.debug("Rendering GET view for profile_pictures page.")
     return render_title_template("profile_pictures.html", 
-                                title=_("CWA Profile Picture Management (WIP)"), 
+                                title=_("Lily Profile Picture Management (WIP)"), 
                                 page="profile-picture")

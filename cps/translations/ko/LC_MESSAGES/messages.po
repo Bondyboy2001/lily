@@ -213,8 +213,8 @@ msgid "Invalid Restricted Column"
 msgstr "제한된 항목이 유효하지 않습니다."
 
 #: cps/admin.py:916 cps/admin.py:2464
-msgid "Calibre-Web Automated configuration updated"
-msgstr "Calibre-Web Automated 설정이 업데이트되었습니다."
+msgid "Lily configuration updated"
+msgstr "Lily 설정이 업데이트되었습니다."
 
 #: cps/admin.py:928
 msgid "Do you really want to delete the Kobo Token?"
@@ -269,18 +269,18 @@ msgstr "Calibre 라이브러리 경로를 변경하시겠습니까?"
 
 #: cps/admin.py:951
 msgid ""
-"Calibre-Web Automated will search for updated Covers and update Cover "
+"Lily will search for updated Covers and update Cover "
 "Thumbnails, this may take a while?"
 msgstr ""
-"Calibre-Web Automated가 업데이트된 표지를 검색하고, 표지 미리보기를 갱신합니"
+"Lily가 업데이트된 표지를 검색하고, 표지 미리보기를 갱신합니"
 "다. 시간이 걸릴 수 있습니다."
 
 #: cps/admin.py:954
 msgid ""
-"Are you sure you want delete Calibre-Web Automated's sync database to force "
+"Are you sure you want delete Lily's sync database to force "
 "a full sync with your Kobo Reader?"
 msgstr ""
-"Calibre-Web Automated의 동기화 데이터베이스를 삭제하여 Kobo Reader와 전체 동"
+"Lily의 동기화 데이터베이스를 삭제하여 Kobo Reader와 전체 동"
 "기화를 강제하시겠습니까?"
 
 #: cps/admin.py:1193 cps/admin.py:1199 cps/admin.py:1209 cps/admin.py:1219
@@ -904,8 +904,8 @@ msgstr ""
 "중복 검사용 cron 표현식이 올바르지 않습니다. 변경 사항이 저장되지 않았습니다."
 
 #: cps/cwa_functions.py:1002
-msgid "Calibre-Web Automated User Settings"
-msgstr "Calibre-Web Automated 사용자 설정"
+msgid "Lily User Settings"
+msgstr "Lily 사용자 설정"
 
 #: cps/cwa_functions.py:1048 cps/cwa_functions.py:1050
 #: cps/cwa_functions.py:1054 cps/cwa_functions.py:1056
@@ -970,32 +970,32 @@ msgid "Unknown User"
 msgstr "알 수 없는 사용자"
 
 #: cps/cwa_functions.py:1274
-msgid "Calibre-Web Automated Stats & Activity"
-msgstr "Calibre-Web Automated 통계 및 활동"
+msgid "Lily Stats & Activity"
+msgstr "Lily 통계 및 활동"
 
 #: cps/cwa_functions.py:1658
-msgid "Calibre-Web Automated - Full Enforcement History"
-msgstr "Calibre-Web Automated - 전체 적용 내역"
+msgid "Lily - Full Enforcement History"
+msgstr "Lily - 전체 적용 내역"
 
 #: cps/cwa_functions.py:1667
-msgid "Calibre-Web Automated - Full Enforcement History (w/ Paths)"
-msgstr "Calibre-Web Automated - 전체 적용 내역 (경로 포함)"
+msgid "Lily - Full Enforcement History (w/ Paths)"
+msgstr "Lily - 전체 적용 내역 (경로 포함)"
 
 #: cps/cwa_functions.py:1676
-msgid "Calibre-Web Automated - Full Import History"
-msgstr "Calibre-Web Automated - 전체 가져오기 내역"
+msgid "Lily - Full Import History"
+msgstr "Lily - 전체 가져오기 내역"
 
 #: cps/cwa_functions.py:1685
-msgid "Calibre-Web Automated - Full Conversion History"
-msgstr "Calibre-Web Automated - 전체 변환 내역"
+msgid "Lily - Full Conversion History"
+msgstr "Lily - 전체 변환 내역"
 
 #: cps/cwa_functions.py:1694
-msgid "Calibre-Web Automated - Full EPUB Fixer History (w/out Paths & Fixes)"
-msgstr "Calibre-Web Automated - 전체 EPUB Fixer 내역 (경로 & 수정 제외)"
+msgid "Lily - Full EPUB Fixer History (w/out Paths & Fixes)"
+msgstr "Lily - 전체 EPUB Fixer 내역 (경로 & 수정 제외)"
 
 #: cps/cwa_functions.py:1703
-msgid "Calibre-Web Automated - Full EPUB Fixer History (w/ Paths & Fixes)"
-msgstr "Calibre-Web Automated - 전체 EPUB Fixer 내역 (경로 & 수정 포함)"
+msgid "Lily - Full EPUB Fixer History (w/ Paths & Fixes)"
+msgstr "Lily - 전체 EPUB Fixer 내역 (경로 & 수정 포함)"
 
 #: cps/cwa_functions.py:1721
 msgid "✅ All Monitoring Services are running as intended! 👍"
@@ -1023,12 +1023,12 @@ msgid "An Error has occurred"
 msgstr "오류가 발생했습니다."
 
 #: cps/cwa_functions.py:1906 cps/cwa_functions.py:1930
-msgid "Calibre-Web Automated - Convert Library"
-msgstr "Calibre-Web Automated - 서재 변환"
+msgid "Lily - Convert Library"
+msgstr "Lily - 서재 변환"
 
 #: cps/cwa_functions.py:2069 cps/cwa_functions.py:2091
-msgid "Calibre-Web Automated - EPUB Fixer Service"
-msgstr "Calibre-Web Automated - EPUB 수정 서비스"
+msgid "Lily - EPUB Fixer Service"
+msgstr "Lily - EPUB 수정 서비스"
 
 #: cps/cwa_functions.py:2171
 msgid "Single-book EPUB Fixer is not supported with Google Drive libraries."
@@ -1096,8 +1096,8 @@ msgid "Profile picture updated successfully."
 msgstr "프로필 사진이 갱신되었습니다."
 
 #: cps/cwa_functions.py:2344
-msgid "CWA Profile Picture Management (WIP)"
-msgstr "CWA 프로필 사진 관리자 (개발중)"
+msgid "Lily Profile Picture Management (WIP)"
+msgstr "Lily 프로필 사진 관리자 (개발중)"
 
 #: cps/db.py:1270 cps/templates/config_edit.html:295
 #: cps/templates/config_view_edit.html:79
@@ -1328,8 +1328,8 @@ msgid "Send to eReader"
 msgstr "전자책 리더로 보내기"
 
 #: cps/helper.py:114 cps/helper.py:141 cps/helper.py:254
-msgid "This Email has been sent via Calibre-Web Automated."
-msgstr "이 이메일은 Calibre-Web Automated에서 전송되었습니다."
+msgid "This Email has been sent via Lily."
+msgstr "이 이메일은 Lily에서 전송되었습니다."
 
 #: cps/helper.py:129
 #, fuzzy, python-format
@@ -1342,16 +1342,16 @@ msgid "Conversion failed for book id: %(book)d"
 msgstr "책 ID %(book)d의 %(format)s 형식을 찾을 수 없습니다."
 
 #: cps/helper.py:139
-msgid "Calibre-Web Automated Test Email"
-msgstr "Calibre-Web Automated 테스트 이메일"
+msgid "Lily Test Email"
+msgstr "Lily 테스트 이메일"
 
 #: cps/helper.py:140
 msgid "Test Email"
 msgstr "테스트 이메일"
 
 #: cps/helper.py:157
-msgid "Get Started with Calibre-Web Automated"
-msgstr "Calibre-Web Automated 시작하기"
+msgid "Get Started with Lily"
+msgstr "Lily 시작하기"
 
 #: cps/helper.py:162
 #, python-format
@@ -1498,7 +1498,7 @@ msgstr "UnRar 실행 중 오류가 발생했습니다."
 #: cps/helper.py:1361
 #, python-format
 msgid ""
-"Unsupported architecture detected: %(arch)s. CWA is optimized for x86_64 and "
+"Unsupported architecture detected: %(arch)s. Lily is optimized for x86_64 and "
 "aarch64."
 msgstr ""
 "지원하지 않는 아키텍처가 감지되었습니다: %(arch)s. CWA는 x86_64와 aarch64에 "
@@ -1536,7 +1536,7 @@ msgstr "메타데이터 백업이 작업에 추가되었습니다."
 
 #: cps/kobo_auth.py:87
 msgid ""
-"Please access Calibre-Web Automated from non localhost to get valid "
+"Please access Lily from non localhost to get valid "
 "api_endpoint for kobo device"
 msgstr ""
 "Kobo 장치에 대한 유효한 api_endpoint를 얻으려면, 로컬 호스트가 아닌 곳에서 "
@@ -2783,8 +2783,8 @@ msgid "Reverse Proxy Header Name"
 msgstr "리버스 프록시 헤더 이름"
 
 #: cps/templates/admin.html:164
-msgid "CWA Settings"
-msgstr "CWA 설정"
+msgid "Lily Settings"
+msgstr "Lily 설정"
 
 #: cps/templates/admin.html:165
 msgid "Edit Basic Configuration"
@@ -2833,32 +2833,32 @@ msgid "Refresh Thumbnail Cache"
 msgstr "섬네일 캐시 새로 고침"
 
 #: cps/templates/admin.html:208
-msgid "CWA Admin Functions&nbsp;&nbsp;⚡"
-msgstr "CWA 관리자 기능&nbsp;&nbsp;⚡"
+msgid "Lily Admin Functions&nbsp;&nbsp;⚡"
+msgstr "Lily 관리자 기능&nbsp;&nbsp;⚡"
 
 #: cps/templates/admin.html:209
-msgid "Show CWA Stats"
-msgstr "CWA 통계 보기"
+msgid "Show Lily Stats"
+msgstr "Lily 통계 보기"
 
 #: cps/templates/admin.html:210
-msgid "Check CWA Status"
-msgstr "CWA 상태 확인"
+msgid "Check Lily Status"
+msgstr "Lily 상태 확인"
 
 #: cps/templates/admin.html:211
 msgid "Setup KOReader Sync"
 msgstr "KOReader Sync 설치"
 
 #: cps/templates/admin.html:214
-msgid "CWA Library Conversion Service"
-msgstr "CWA 서재 변환 서비스"
+msgid "Lily Library Conversion Service"
+msgstr "Lily 서재 변환 서비스"
 
 #: cps/templates/admin.html:215
-msgid "CWA EPUB Fixer Service"
-msgstr "CWA EPUB 수정 서비스"
+msgid "Lily EPUB Fixer Service"
+msgstr "Lily EPUB 수정 서비스"
 
 #: cps/templates/admin.html:218
-msgid "CWA GitHub"
-msgstr "CWA Github"
+msgid "Lily GitHub"
+msgstr "Lily Github"
 
 #: cps/templates/admin.html:219
 msgid "CWA Discord Server"
@@ -3402,9 +3402,9 @@ msgstr "Calibre 데이터베이스 경로 (metadata.db 파일)"
 
 #: cps/templates/config_db.html:48
 msgid ""
-"CWA is configured so that your Calibre Database (<code>metadata.db</code> "
+"Lily is configured so that your Calibre Database (<code>metadata.db</code> "
 "file) should always be somewhere in <code>/calibre-library</code>.\n"
-"        CWA automatically searches whatever directory you've bound to <code>/"
+"        Lily automatically searches whatever directory you've bound to <code>/"
 "calibre-library</code> in your docker-compose file for existing Calibre\n"
 "        Libraries/metadata.db files on start up. If it finds just one "
 "existing library, it mounts it automatically, if it find multiple, by "
@@ -3430,7 +3430,7 @@ msgstr ""
 
 #: cps/templates/config_db.html:54
 msgid ""
-"Therefore, when configuring your docker-compose file for CWA, <b>DO NOT "
+"Therefore, when configuring your docker-compose file for Lily, <b>DO NOT "
 "CHANGE THE PATHS IN THE VOLUMES SECTION ON THE RIGHT SIDE OF THE COLONS!</b>"
 msgstr ""
 "따라서, CWA에 docker-compose 파일을 설정할 때 <b>절대 콜론( : ) 오른쪽의 "
@@ -3438,7 +3438,7 @@ msgstr ""
 
 #: cps/templates/config_db.html:55
 msgid ""
-"These paths are internal to CWA only, you can change what they're bind to to "
+"These paths are internal to Lily only, you can change what they're bind to to "
 "your heart's content on the left-hand side but there's no reason to\n"
 "        change the paths on the right-hand side.<br><br>If you would like "
 "your <code>metadata.db</code> file in a different location to the rest of "
@@ -3446,7 +3446,7 @@ msgid ""
 "        library, use the <b>Separate Book Files from Library Option below "
 "and there, enter the path to the rest of the library</b>"
 msgstr ""
-"이 경로들은 CWA 내부에서만 사용됩니다. 콜론 왼쪽 경로는 자유롭게 변경가능하"
+"이 경로들은 Lily 내부에서만 사용됩니다. 콜론 왼쪽 경로는 자유롭게 변경가능하"
 "나,\n"
 "        오른쪽 경로는 변경할 이유가 없습니다.<br><br>만약 <code>metadata."
 "db<code> 파일을 나머지 서재와 다른 위치에 두고 싶다면, \n"
@@ -4335,31 +4335,31 @@ msgid "Error starting EPUB Fixer"
 msgstr "EPUB 수정 시작 중 오류가 발생했습니다"
 
 #: cps/templates/cwa_settings.html:136
-msgid "Enable/Disable Calibre-Web Automated Services"
-msgstr "Calibre-Web Automated 서비스 활성화/비활성화"
+msgid "Enable/Disable Lily Services"
+msgstr "Lily 서비스 활성화/비활성화"
 
 #: cps/templates/cwa_settings.html:143
-msgid "Enable CWA Auto-Convert"
-msgstr "CWA 자동 컨버터 활성화"
+msgid "Enable Lily Auto-Convert"
+msgstr "Lily 자동 컨버터 활성화"
 
 #: cps/templates/cwa_settings.html:145
 msgid ""
 "On by default, when active all ingested books will automatically be "
 "converted to the target format specified below (epub by default) \n"
-"        <em>EXCEPT</em> those you have specifically told CWA to ignore below."
+"        <em>EXCEPT</em> those you have specifically told Lily to ignore below."
 msgstr ""
 "활성화가 기본값입니다. 활성화된 경우, 가져온 모든 책을 이하의 확장자로 변환합"
 "니다. (기본값 epub)\n"
 "        CWA에 무시하도록 지정한 이하의 <em>예외</em>를 제외합니다."
 
 #: cps/templates/cwa_settings.html:154
-msgid "Enable CWA Automatic Cover & Metadata Enforcement Service"
-msgstr "CWA 자동 표지 & 메타데이터 적용 서비스 활성화"
+msgid "Enable Lily Automatic Cover & Metadata Enforcement Service"
+msgstr "Lily 자동 표지 & 메타데이터 적용 서비스 활성화"
 
 #: cps/templates/cwa_settings.html:156
 msgid ""
 "On by default, when active, whenever the Metadata and/or Cover Image is "
-"edited in the Web UI, the CWA Metadata Enforcement service \n"
+"edited in the Web UI, the Lily Metadata Enforcement service \n"
 "        will then apply those changes the ebook files themselves. Normally "
 "in Stock CW or when this setting is disabled, the changes made \n"
 "        are only applied to what you see in the Web UI, not the ebook files "
@@ -4368,20 +4368,20 @@ msgid ""
 msgstr ""
 "활성화가 기본값입니다. 활성화된 경우, Web UI에서 표지/메타데이터가 수정될 때 "
 "마다\n"
-"        CWA 자동 표지 & 메타데이터 적용 서비스가 수정된 점을 책 파일에 적용합"
+"        Lily 자동 표지 & 메타데이터 적용 서비스가 수정된 점을 책 파일에 적용합"
 "니다. Normally in Stock CW or when this setting is disabled, the changes "
 "made CW 기본값 또는 비활성화된 경우, 수정된 내용은 Web UI에만 적용되고 책 파"
 "일에는 저장되지 않습니다.\n"
 "        이 기능은 현재 EPUB, AZW3 확장자만 지원합니다."
 
 #: cps/templates/cwa_settings.html:167
-msgid "Enable CWA Kindle EPUB Fixer"
-msgstr "CWA Kindle EPUB Fixer 활성화"
+msgid "Enable Lily Kindle EPUB Fixer"
+msgstr "Lily Kindle EPUB Fixer 활성화"
 
 #: cps/templates/cwa_settings.html:169
 msgid ""
 "When active, the encoding among other attributes of all EPUB files processed "
-"by CWA will be checked and fixed to ensure maximum \n"
+"by Lily will be checked and fixed to ensure maximum \n"
 "        compatibility with Amazon's Send-to-Kindle Service. This feature is "
 "particularly useful for users who frequently send EPUB files to their Kindle "
 "devices and have experienced issues with \n"
@@ -4403,12 +4403,12 @@ msgstr ""
 "a> 도구를 기반으로 제작되었습니다."
 
 #: cps/templates/cwa_settings.html:181
-msgid "Enable KOReader Sync (CWA Plugin)"
-msgstr "KOReader 동기화 활성화 (CWA 플러그인)"
+msgid "Enable KOReader Sync (Lily Plugin)"
+msgstr "KOReader 동기화 활성화 (Lily 플러그인)"
 
 #: cps/templates/cwa_settings.html:183
 msgid ""
-"When enabled, CWA exposes the /kosync endpoints and stores KOReader-"
+"When enabled, Lily exposes the /kosync endpoints and stores KOReader-"
 "compatible checksums in metadata.db for progress syncing. Requires the "
 "KOReader plugin on your device."
 msgstr ""
@@ -4561,7 +4561,7 @@ msgstr "새 책 자동 메타데이터 가져오기 활성화"
 
 #: cps/templates/cwa_settings.html:304
 msgid ""
-"When active, CWA will automatically attempt to fetch and apply metadata "
+"When active, Lily will automatically attempt to fetch and apply metadata "
 "(title, author, description, cover, etc.) for newly ingested books using the "
 "configured metadata provider hierarchy. This helps improve the quality of "
 "book information, especially for books with poor or missing metadata."
@@ -4848,11 +4848,11 @@ msgstr ""
 #: cps/templates/cwa_settings.html:731
 msgid ""
 "You can manually trigger the Hardcover auto-fetch task from the Admin panel "
-"at any time. Check the CWA Stats page to see progress and review queued "
+"at any time. Check the Lily Stats page to see progress and review queued "
 "matches that need manual approval."
 msgstr ""
 "언제든지 관리자 패널에서 Hardcover 자동 가져오기 작업을 수동으로 실행할 수 있"
-"습니다. 진행 상황과 수동 승인이 필요한 대기 중인 일치 항목은 CWA 통계 페이지"
+"습니다. 진행 상황과 수동 승인이 필요한 대기 중인 일치 항목은 Lily 통계 페이지"
 "에서 확인하세요."
 
 #: cps/templates/cwa_settings.html:738
@@ -4860,14 +4860,14 @@ msgid "Web UI Settings"
 msgstr "Web UI 설정"
 
 #: cps/templates/cwa_settings.html:745
-msgid "Enable CWA Update Notifications"
-msgstr "CWA 업데이트 알림 켜기"
+msgid "Enable Lily Update Notifications"
+msgstr "Lily 업데이트 알림 켜기"
 
 #: cps/templates/cwa_settings.html:747
 msgid ""
 "When active, you will receive notifications in the Web UI when a new version "
-"of CWA is released"
-msgstr "켜진 경우, Web UI에서 새 CWA 버전 알림을 받습니다."
+"of Lily is released"
+msgstr "켜진 경우, Web UI에서 새 Lily 버전 알림을 받습니다."
 
 #: cps/templates/cwa_settings.html:755
 msgid "Enable Contribute Translations Notifications"
@@ -4911,8 +4911,8 @@ msgid "Automatic Backup Settings"
 msgstr "자동 백업 설정"
 
 #: cps/templates/cwa_settings.html:789
-msgid "Enable CWA Import Auto-Backup"
-msgstr "CWA 자동 백업 불러오기 활성화"
+msgid "Enable Lily Import Auto-Backup"
+msgstr "Lily 자동 백업 불러오기 활성화"
 
 #: cps/templates/cwa_settings.html:791
 msgid ""
@@ -4923,8 +4923,8 @@ msgstr ""
 "imported</i>에 저장됩니다."
 
 #: cps/templates/cwa_settings.html:799
-msgid "Enable CWA Conversion Auto-Backup"
-msgstr "CWA 변환 자동 백업 활성화"
+msgid "Enable Lily Conversion Auto-Backup"
+msgstr "Lily 변환 자동 백업 활성화"
 
 #: cps/templates/cwa_settings.html:801
 msgid ""
@@ -4935,20 +4935,20 @@ msgstr ""
 "장됩니다."
 
 #: cps/templates/cwa_settings.html:809
-msgid "Enable CWA EPUB Fixer Auto-Backup"
-msgstr "CWA EPUB Fixer 자동 백업 활성화"
+msgid "Enable Lily EPUB Fixer Auto-Backup"
+msgstr "Lily EPUB Fixer 자동 백업 활성화"
 
 #: cps/templates/cwa_settings.html:811
 msgid ""
-"When active, the originals of EPUBs processed by the CWA Kindle EPUB Fixer "
+"When active, the originals of EPUBs processed by the Lily Kindle EPUB Fixer "
 "service will be stored in /config/processed_books/fixed_originals"
 msgstr ""
-"활성화된 경우, CWA Kindle EPUB Fixer 서비스 대상인 원본 EPUB 파일이 /config/"
+"활성화된 경우, Lily Kindle EPUB Fixer 서비스 대상인 원본 EPUB 파일이 /config/"
 "processed_books/fixed_originals에 저장됩니다."
 
 #: cps/templates/cwa_settings.html:821
-msgid "Enable CWA Auto-Zip Backups"
-msgstr "CWA 자동 압축 백업 활성화"
+msgid "Enable Lily Auto-Zip Backups"
+msgstr "Lily 자동 압축 백업 활성화"
 
 #: cps/templates/cwa_settings.html:823
 msgid ""
@@ -4963,8 +4963,8 @@ msgstr ""
 "화합니다."
 
 #: cps/templates/cwa_settings.html:828
-msgid "CWA Auto-Conversion Target Format - EPUB by Default"
-msgstr "CWA 자동 변환 목표 확장자 - 기본값 EPUB"
+msgid "Lily Auto-Conversion Target Format - EPUB by Default"
+msgstr "Lily 자동 변환 목표 확장자 - 기본값 EPUB"
 
 #: cps/templates/cwa_settings.html:831
 msgid ""
@@ -4981,43 +4981,43 @@ msgstr "목표 책 형식 지정:"
 
 #: cps/templates/cwa_settings.html:845
 msgid ""
-"Note: CWA's Metadata Enforcement service can currently only support file in "
+"Note: Lily's Metadata Enforcement service can currently only support file in "
 "either EPUB and AZW3 format. Files in other formats will simply be ignored "
 "by the service"
 msgstr ""
-"참고: CWA 메타데이터 적용 서비스는 현재 EPUB과 AZW3 형식의 파일만 지원합니"
+"참고: Lily 메타데이터 적용 서비스는 현재 EPUB과 AZW3 형식의 파일만 지원합니"
 "다. 다른 형식의 파일은 이 서비스에서 무시됩니다"
 
 #: cps/templates/cwa_settings.html:851
-msgid "CWA Auto-Convert - Ignored Formats"
-msgstr "CWA 자동 변환 - 무시할 형식"
+msgid "Lily Auto-Convert - Ignored Formats"
+msgstr "Lily 자동 변환 - 무시할 형식"
 
 #: cps/templates/cwa_settings.html:853
 msgid ""
-"The formats selected here will be ignored by CWA's Auto-Conversion feature "
+"The formats selected here will be ignored by Lily's Auto-Conversion feature "
 "when it's active, meaning they will be imported as is."
 msgstr ""
-"지정된 형식은 CWA 자동 변환이 활성화되어 있어도 변환하지 않고, 현재 형식 그대"
+"지정된 형식은 Lily 자동 변환이 활성화되어 있어도 변환하지 않고, 현재 형식 그대"
 "로 가져옵니다."
 
 #: cps/templates/cwa_settings.html:878
-msgid "CWA Auto-Convert - Retained Formats"
-msgstr "CWA 자동 변환 - 유지할 형식"
+msgid "Lily Auto-Convert - Retained Formats"
+msgstr "Lily 자동 변환 - 유지할 형식"
 
 #: cps/templates/cwa_settings.html:880
 msgid ""
 "The formats selected here will always be added to the library, even after "
 "they have been converted to the target format. However, if the format is in "
-"the \"CWA Auto-Ingest - Ignored Formats\" list, it will not be imported. "
+"the \"Lily Auto-Ingest - Ignored Formats\" list, it will not be imported. "
 "Note that the target format is always retained."
 msgstr ""
 "여기서 선택한 형식은 목표 형식으로 변환된 후에도 항상 라이브러리에 추가됩니"
-"다. 단, 해당 형식이 \"CWA 자동 가져오기 - 무시할 형식\" 목록에 있으면 가져오"
+"다. 단, 해당 형식이 \"Lily 자동 가져오기 - 무시할 형식\" 목록에 있으면 가져오"
 "지 않습니다. 목표 형식은 항상 유지됩니다."
 
 #: cps/templates/cwa_settings.html:907
-msgid "CWA Auto-Ingest Automerge"
-msgstr "CWA 자동 가져오기 자동병합"
+msgid "Lily Auto-Ingest Automerge"
+msgstr "Lily 자동 가져오기 자동병합"
 
 #: cps/templates/cwa_settings.html:910
 msgid "Calibre can detect Duplicate Book Titles on Import and depending on the"
@@ -5048,21 +5048,21 @@ msgid "Creates a duplicate record, keeping both copies"
 msgstr "중복된 항목을 모두 저장합니다."
 
 #: cps/templates/cwa_settings.html:943
-msgid "CWA Auto-Ingest - Ignored Formats"
-msgstr "CWA 자동 가져오기 - 무시할 형식"
+msgid "Lily Auto-Ingest - Ignored Formats"
+msgstr "Lily 자동 가져오기 - 무시할 형식"
 
 #: cps/templates/cwa_settings.html:945
 msgid ""
-"The formats selected here will be ignored by CWA's Auto-Ingest feature, "
-"meaning files in these formats won't be added to the library by CWA during "
+"The formats selected here will be ignored by Lily's Auto-Ingest feature, "
+"meaning files in these formats won't be added to the library by Lily during "
 "the ingest process"
 msgstr ""
-"지정된 형식은 CWA 자동 가져오기 기능을 사용하지 않습니다. 이 형식의 파일들은 "
-"CWA 가져오기 프로세스를 통해서는 서재에 추가되지 않습니다."
+"지정된 형식은 Lily 자동 가져오기 기능을 사용하지 않습니다. 이 형식의 파일들은 "
+"Lily 가져오기 프로세스를 통해서는 서재에 추가되지 않습니다."
 
 #: cps/templates/cwa_settings.html:970
-msgid "CWA Duplicate Detection System"
-msgstr "CWA 중복 감지 시스템"
+msgid "Lily Duplicate Detection System"
+msgstr "Lily 중복 감지 시스템"
 
 #: cps/templates/cwa_settings.html:973
 msgid ""
@@ -5077,7 +5077,7 @@ msgid "Enable Duplicate Detection"
 msgstr "중복 감지 활성화"
 
 #: cps/templates/cwa_settings.html:982
-msgid "When enabled, CWA will scan for duplicate books after each import"
+msgid "When enabled, Lily will scan for duplicate books after each import"
 msgstr "활성화하면 CWA가 가져오기마다 중복된 책을 검사합니다"
 
 #: cps/templates/cwa_settings.html:990
@@ -5162,8 +5162,8 @@ msgid "Next scheduled scan:"
 msgstr "다음 예약된 검사:"
 
 #: cps/templates/cwa_settings.html:1076
-msgid "CWA Duplicate Detection Criteria"
-msgstr "CWA 중복 감지 기준"
+msgid "Lily Duplicate Detection Criteria"
+msgstr "Lily 중복 감지 기준"
 
 #: cps/templates/cwa_settings.html:1079
 msgid ""
@@ -5545,8 +5545,8 @@ msgid "Failed to update shelves"
 msgstr "책장 업데이트에 실패했습니다"
 
 #: cps/templates/duplicates.html:497
-msgid "CWA Duplicates Manager"
-msgstr "CWA 중복 관리자"
+msgid "Lily Duplicates Manager"
+msgstr "Lily 중복 관리자"
 
 #: cps/templates/duplicates.html:499
 msgid ""
@@ -5582,7 +5582,7 @@ msgstr "중복 검사를 위해 한 번의 전체 검사가 필요합니다."
 
 #: cps/templates/duplicates.html:531
 msgid ""
-"CWA now uses a duplicate index to keep duplicate checks fast during imports "
+"Lily now uses a duplicate index to keep duplicate checks fast during imports "
 "and metadata changes. Before incremental scans can run, the index needs an "
 "initial baseline."
 msgstr ""
@@ -5593,7 +5593,7 @@ msgstr ""
 #: cps/templates/duplicates.html:534
 msgid ""
 "Click \"Run Full Duplicate Scan\" to build it. This may take several minutes "
-"on large libraries, and you can keep using CWA while it runs."
+"on large libraries, and you can keep using Lily while it runs."
 msgstr ""
 "\"전체 중복 검사 실행\"을 클릭해 인덱스를 생성하세요. 큰 라이브러리에서는 몇 "
 "분 정도 걸릴 수 있으며, 실행 중에도 CWA를 계속 사용할 수 있습니다."
@@ -5603,7 +5603,7 @@ msgid "Duplicate scan is running."
 msgstr "중복 검사가 실행 중입니다."
 
 #: cps/templates/duplicates.html:542
-msgid "You can keep using CWA while it runs."
+msgid "You can keep using Lily while it runs."
 msgstr "실행 중에도 CWA를 계속 사용할 수 있습니다."
 
 #: cps/templates/duplicates.html:545 cps/templates/tasks.html:17
@@ -5714,7 +5714,7 @@ msgstr "자동 해결 실행"
 
 #: cps/templates/duplicates.html:688
 msgid ""
-"CWA will resolve duplicate groups using the selected strategy and "
+"Lily will resolve duplicate groups using the selected strategy and "
 "permanently delete duplicate books."
 msgstr ""
 "CWA가 선택한 전략으로 중복 그룹을 해결하고 중복된 책을 영구적으로 삭제합니다."
@@ -5995,7 +5995,7 @@ msgstr "일치 항목 건너뛰기에 실패했습니다"
 
 #: cps/templates/http_error.html:34
 msgid ""
-"Calibre-Web Automated Instance is unconfigured, please contact your "
+"Lily Instance is unconfigured, please contact your "
 "administrator"
 msgstr "Calibre-Web이 아직 구성되지 않았습니다. 관리자에게 문의하세요."
 
@@ -6079,18 +6079,18 @@ msgstr "KOReader 동기화가 비활성화되어 있습니다."
 
 #: cps/templates/kosync_plugin.html:113
 msgid ""
-"Enable it in CWA Settings to activate the /kosync endpoints and checksum "
+"Enable it in Lily Settings to activate the /kosync endpoints and checksum "
 "generation."
-msgstr "CWA 설정에서 활성화하면 /kosync 엔드포인트와 체크섬 생성이 작동합니다."
+msgstr "Lily 설정에서 활성화하면 /kosync 엔드포인트와 체크섬 생성이 작동합니다."
 
 #: cps/templates/kosync_plugin.html:115
-msgid "Open CWA Settings"
-msgstr "CWA 설정 열기"
+msgid "Open Lily Settings"
+msgstr "Lily 설정 열기"
 
 #: cps/templates/kosync_plugin.html:139
-msgid "Download is available after enabling KOReader Sync in CWA Settings."
+msgid "Download is available after enabling KOReader Sync in Lily Settings."
 msgstr ""
-"CWA 설정에서 KOReader 동기화를 활성화하면 다운로드를 사용할 수 있습니다."
+"Lily 설정에서 KOReader 동기화를 활성화하면 다운로드를 사용할 수 있습니다."
 
 #: cps/templates/layout.html:93 cps/templates/login.html:51
 msgid "Home"
@@ -6355,8 +6355,8 @@ msgid "Ok"
 msgstr "확인"
 
 #: cps/templates/osd.xml:5
-msgid "Calibre-Web Automated eBook Catalog"
-msgstr "Calibre-Web Automated 책 목록"
+msgid "Lily eBook Catalog"
+msgstr "Lily 책 목록"
 
 #: cps/templates/read.html:7
 msgid "epub Reader"

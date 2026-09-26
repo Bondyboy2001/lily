@@ -383,6 +383,17 @@ class ConfigSQL(object):
                 log.error('Database error: %s', e)
                 self._session.rollback()
 
+        # Rename instances still using an upstream default title to Lily; a custom title is left alone
+        if self.config_calibre_web_title in ('Calibre-Web Automated', 'Calibre-Web'):
+            self.config_calibre_web_title = 'Lily'
+            s.config_calibre_web_title = 'Lily'
+            try:
+                self._session.merge(s)
+                self._session.commit()
+            except OperationalError as e:
+                log.error('Database error: %s', e)
+                self._session.rollback()
+
         have_metadata_db = bool(self.config_calibre_dir)
         if have_metadata_db:
             db_file = os.path.join(self.config_calibre_dir, 'metadata.db')

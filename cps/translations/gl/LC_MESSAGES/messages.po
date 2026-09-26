@@ -212,7 +212,7 @@ msgstr "Columna restrinxida non válida"
 
 #: cps/admin.py:916 cps/admin.py:2464
 #, fuzzy
-msgid "Calibre-Web Automated configuration updated"
+msgid "Lily configuration updated"
 msgstr "Configuración de Calibre-Web actualizada"
 
 #: cps/admin.py:928
@@ -277,7 +277,7 @@ msgstr "De verdade queres cambiar a localización da biblioteca Calibre?"
 #: cps/admin.py:951
 #, fuzzy
 msgid ""
-"Calibre-Web Automated will search for updated Covers and update Cover "
+"Lily will search for updated Covers and update Cover "
 "Thumbnails, this may take a while?"
 msgstr ""
 "Calibre-web buscará cubertas actualizadas e miniaturas de cubertas "
@@ -286,7 +286,7 @@ msgstr ""
 #: cps/admin.py:954
 #, fuzzy
 msgid ""
-"Are you sure you want delete Calibre-Web Automated's sync database to force "
+"Are you sure you want delete Lily's sync database to force "
 "a full sync with your Kobo Reader?"
 msgstr ""
 "Está seguro que quere borrar a base de datos de sincronización de Calibre-"
@@ -914,7 +914,7 @@ msgstr ""
 
 #: cps/cwa_functions.py:1002
 #, fuzzy
-msgid "Calibre-Web Automated User Settings"
+msgid "Lily User Settings"
 msgstr "Axustes de Calibre E-Book Converter"
 
 #: cps/cwa_functions.py:1048 cps/cwa_functions.py:1050
@@ -987,31 +987,31 @@ msgstr "Descoñecido"
 
 #: cps/cwa_functions.py:1274
 #, fuzzy
-msgid "Calibre-Web Automated Stats & Activity"
+msgid "Lily Stats & Activity"
 msgstr "Correo de proba de Calibre-Web"
 
 #: cps/cwa_functions.py:1658
-msgid "Calibre-Web Automated - Full Enforcement History"
+msgid "Lily - Full Enforcement History"
 msgstr ""
 
 #: cps/cwa_functions.py:1667
-msgid "Calibre-Web Automated - Full Enforcement History (w/ Paths)"
+msgid "Lily - Full Enforcement History (w/ Paths)"
 msgstr ""
 
 #: cps/cwa_functions.py:1676
-msgid "Calibre-Web Automated - Full Import History"
+msgid "Lily - Full Import History"
 msgstr ""
 
 #: cps/cwa_functions.py:1685
-msgid "Calibre-Web Automated - Full Conversion History"
+msgid "Lily - Full Conversion History"
 msgstr ""
 
 #: cps/cwa_functions.py:1694
-msgid "Calibre-Web Automated - Full EPUB Fixer History (w/out Paths & Fixes)"
+msgid "Lily - Full EPUB Fixer History (w/out Paths & Fixes)"
 msgstr ""
 
 #: cps/cwa_functions.py:1703
-msgid "Calibre-Web Automated - Full EPUB Fixer History (w/ Paths & Fixes)"
+msgid "Lily - Full EPUB Fixer History (w/ Paths & Fixes)"
 msgstr ""
 
 #: cps/cwa_functions.py:1721
@@ -1038,12 +1038,12 @@ msgid "An Error has occurred"
 msgstr ""
 
 #: cps/cwa_functions.py:1906 cps/cwa_functions.py:1930
-msgid "Calibre-Web Automated - Convert Library"
+msgid "Lily - Convert Library"
 msgstr ""
 
 #: cps/cwa_functions.py:2069 cps/cwa_functions.py:2091
 #, fuzzy
-msgid "Calibre-Web Automated - EPUB Fixer Service"
+msgid "Lily - EPUB Fixer Service"
 msgstr "Axustes de Calibre E-Book Converter"
 
 #: cps/cwa_functions.py:2171
@@ -1118,7 +1118,7 @@ msgid "Profile picture updated successfully."
 msgstr "{} usuarios borrados con éxito"
 
 #: cps/cwa_functions.py:2344
-msgid "CWA Profile Picture Management (WIP)"
+msgid "Lily Profile Picture Management (WIP)"
 msgstr ""
 
 #: cps/db.py:1270 cps/templates/config_edit.html:295
@@ -1362,7 +1362,7 @@ msgstr "Enviar ao Kindle"
 
 #: cps/helper.py:114 cps/helper.py:141 cps/helper.py:254
 #, fuzzy
-msgid "This Email has been sent via Calibre-Web Automated."
+msgid "This Email has been sent via Lily."
 msgstr "Este correo electrónico enviouse empregando Calibre-Web."
 
 #: cps/helper.py:129
@@ -1377,7 +1377,7 @@ msgstr "%(format)s formato non atopado para o id do libro: %(book)d"
 
 #: cps/helper.py:139
 #, fuzzy
-msgid "Calibre-Web Automated Test Email"
+msgid "Lily Test Email"
 msgstr "Correo de proba de Calibre-Web"
 
 #: cps/helper.py:140
@@ -1387,7 +1387,7 @@ msgstr "Comprobar correo electrónico"
 
 #: cps/helper.py:157
 #, fuzzy
-msgid "Get Started with Calibre-Web Automated"
+msgid "Get Started with Lily"
 msgstr "Primeiros pasos con Calibre-Web"
 
 #: cps/helper.py:162
@@ -1544,7 +1544,7 @@ msgstr "Erro executando UnRar"
 #: cps/helper.py:1361
 #, python-format
 msgid ""
-"Unsupported architecture detected: %(arch)s. CWA is optimized for x86_64 and "
+"Unsupported architecture detected: %(arch)s. Lily is optimized for x86_64 and "
 "aarch64."
 msgstr ""
 
@@ -1583,7 +1583,7 @@ msgstr ""
 #: cps/kobo_auth.py:87
 #, fuzzy
 msgid ""
-"Please access Calibre-Web Automated from non localhost to get valid "
+"Please access Lily from non localhost to get valid "
 "api_endpoint for kobo device"
 msgstr ""
 "Por favor, accede a calibre-web dende unha ubicación que non sexa localhost "
@@ -2874,7 +2874,7 @@ msgstr "Nome de cabeceira do Proxy inverso"
 
 #: cps/templates/admin.html:164
 #, fuzzy
-msgid "CWA Settings"
+msgid "Lily Settings"
 msgstr "Axustes"
 
 #: cps/templates/admin.html:165
@@ -2925,17 +2925,17 @@ msgid "Refresh Thumbnail Cache"
 msgstr "Refrescar a caché de miniaturas das cubertas"
 
 #: cps/templates/admin.html:208
-msgid "CWA Admin Functions&nbsp;&nbsp;⚡"
+msgid "Lily Admin Functions&nbsp;&nbsp;⚡"
 msgstr ""
 
 #: cps/templates/admin.html:209
 #, fuzzy
-msgid "Show CWA Stats"
+msgid "Show Lily Stats"
 msgstr "Axustes"
 
 #: cps/templates/admin.html:210
 #, fuzzy
-msgid "Check CWA Status"
+msgid "Check Lily Status"
 msgstr "Estado do arquivo"
 
 #: cps/templates/admin.html:211
@@ -2944,16 +2944,16 @@ msgid "Setup KOReader Sync"
 msgstr "Lector epub"
 
 #: cps/templates/admin.html:214
-msgid "CWA Library Conversion Service"
+msgid "Lily Library Conversion Service"
 msgstr ""
 
 #: cps/templates/admin.html:215
 #, fuzzy
-msgid "CWA EPUB Fixer Service"
+msgid "Lily EPUB Fixer Service"
 msgstr "Descubrir"
 
 #: cps/templates/admin.html:218
-msgid "CWA GitHub"
+msgid "Lily GitHub"
 msgstr ""
 
 #: cps/templates/admin.html:219
@@ -3516,9 +3516,9 @@ msgstr "Localización da base de datos Calibre"
 
 #: cps/templates/config_db.html:48
 msgid ""
-"CWA is configured so that your Calibre Database (<code>metadata.db</code> "
+"Lily is configured so that your Calibre Database (<code>metadata.db</code> "
 "file) should always be somewhere in <code>/calibre-library</code>.\n"
-"        CWA automatically searches whatever directory you've bound to <code>/"
+"        Lily automatically searches whatever directory you've bound to <code>/"
 "calibre-library</code> in your docker-compose file for existing Calibre\n"
 "        Libraries/metadata.db files on start up. If it finds just one "
 "existing library, it mounts it automatically, if it find multiple, by "
@@ -3531,13 +3531,13 @@ msgstr ""
 
 #: cps/templates/config_db.html:54
 msgid ""
-"Therefore, when configuring your docker-compose file for CWA, <b>DO NOT "
+"Therefore, when configuring your docker-compose file for Lily, <b>DO NOT "
 "CHANGE THE PATHS IN THE VOLUMES SECTION ON THE RIGHT SIDE OF THE COLONS!</b>"
 msgstr ""
 
 #: cps/templates/config_db.html:55
 msgid ""
-"These paths are internal to CWA only, you can change what they're bind to to "
+"These paths are internal to Lily only, you can change what they're bind to to "
 "your heart's content on the left-hand side but there's no reason to\n"
 "        change the paths on the right-hand side.<br><br>If you would like "
 "your <code>metadata.db</code> file in a different location to the rest of "
@@ -4438,28 +4438,28 @@ msgstr "Erro borrando o estante"
 
 #: cps/templates/cwa_settings.html:136
 #, fuzzy
-msgid "Enable/Disable Calibre-Web Automated Services"
+msgid "Enable/Disable Lily Services"
 msgstr "Rexistro de Calibre-Web: "
 
 #: cps/templates/cwa_settings.html:143
-msgid "Enable CWA Auto-Convert"
+msgid "Enable Lily Auto-Convert"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:145
 msgid ""
 "On by default, when active all ingested books will automatically be "
 "converted to the target format specified below (epub by default) \n"
-"        <em>EXCEPT</em> those you have specifically told CWA to ignore below."
+"        <em>EXCEPT</em> those you have specifically told Lily to ignore below."
 msgstr ""
 
 #: cps/templates/cwa_settings.html:154
-msgid "Enable CWA Automatic Cover & Metadata Enforcement Service"
+msgid "Enable Lily Automatic Cover & Metadata Enforcement Service"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:156
 msgid ""
 "On by default, when active, whenever the Metadata and/or Cover Image is "
-"edited in the Web UI, the CWA Metadata Enforcement service \n"
+"edited in the Web UI, the Lily Metadata Enforcement service \n"
 "        will then apply those changes the ebook files themselves. Normally "
 "in Stock CW or when this setting is disabled, the changes made \n"
 "        are only applied to what you see in the Web UI, not the ebook files "
@@ -4468,13 +4468,13 @@ msgid ""
 msgstr ""
 
 #: cps/templates/cwa_settings.html:167
-msgid "Enable CWA Kindle EPUB Fixer"
+msgid "Enable Lily Kindle EPUB Fixer"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:169
 msgid ""
 "When active, the encoding among other attributes of all EPUB files processed "
-"by CWA will be checked and fixed to ensure maximum \n"
+"by Lily will be checked and fixed to ensure maximum \n"
 "        compatibility with Amazon's Send-to-Kindle Service. This feature is "
 "particularly useful for users who frequently send EPUB files to their Kindle "
 "devices and have experienced issues with \n"
@@ -4489,12 +4489,12 @@ msgid ""
 msgstr ""
 
 #: cps/templates/cwa_settings.html:181
-msgid "Enable KOReader Sync (CWA Plugin)"
+msgid "Enable KOReader Sync (Lily Plugin)"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:183
 msgid ""
-"When enabled, CWA exposes the /kosync endpoints and stores KOReader-"
+"When enabled, Lily exposes the /kosync endpoints and stores KOReader-"
 "compatible checksums in metadata.db for progress syncing. Requires the "
 "KOReader plugin on your device."
 msgstr ""
@@ -4638,7 +4638,7 @@ msgstr ""
 
 #: cps/templates/cwa_settings.html:304
 msgid ""
-"When active, CWA will automatically attempt to fetch and apply metadata "
+"When active, Lily will automatically attempt to fetch and apply metadata "
 "(title, author, description, cover, etc.) for newly ingested books using the "
 "configured metadata provider hierarchy. This helps improve the quality of "
 "book information, especially for books with poor or missing metadata."
@@ -4892,7 +4892,7 @@ msgstr ""
 #: cps/templates/cwa_settings.html:731
 msgid ""
 "You can manually trigger the Hardcover auto-fetch task from the Admin panel "
-"at any time. Check the CWA Stats page to see progress and review queued "
+"at any time. Check the Lily Stats page to see progress and review queued "
 "matches that need manual approval."
 msgstr ""
 
@@ -4902,13 +4902,13 @@ msgid "Web UI Settings"
 msgstr "Axustes"
 
 #: cps/templates/cwa_settings.html:745
-msgid "Enable CWA Update Notifications"
+msgid "Enable Lily Update Notifications"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:747
 msgid ""
 "When active, you will receive notifications in the Web UI when a new version "
-"of CWA is released"
+"of Lily is released"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:755
@@ -4949,7 +4949,7 @@ msgid "Automatic Backup Settings"
 msgstr "Axustes OAuth"
 
 #: cps/templates/cwa_settings.html:789
-msgid "Enable CWA Import Auto-Backup"
+msgid "Enable Lily Import Auto-Backup"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:791
@@ -4959,7 +4959,7 @@ msgid ""
 msgstr ""
 
 #: cps/templates/cwa_settings.html:799
-msgid "Enable CWA Conversion Auto-Backup"
+msgid "Enable Lily Conversion Auto-Backup"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:801
@@ -4969,17 +4969,17 @@ msgid ""
 msgstr ""
 
 #: cps/templates/cwa_settings.html:809
-msgid "Enable CWA EPUB Fixer Auto-Backup"
+msgid "Enable Lily EPUB Fixer Auto-Backup"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:811
 msgid ""
-"When active, the originals of EPUBs processed by the CWA Kindle EPUB Fixer "
+"When active, the originals of EPUBs processed by the Lily Kindle EPUB Fixer "
 "service will be stored in /config/processed_books/fixed_originals"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:821
-msgid "Enable CWA Auto-Zip Backups"
+msgid "Enable Lily Auto-Zip Backups"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:823
@@ -4991,7 +4991,7 @@ msgid ""
 msgstr ""
 
 #: cps/templates/cwa_settings.html:828
-msgid "CWA Auto-Conversion Target Format - EPUB by Default"
+msgid "Lily Auto-Conversion Target Format - EPUB by Default"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:831
@@ -5008,35 +5008,35 @@ msgstr "Convertir formato de libro:"
 
 #: cps/templates/cwa_settings.html:845
 msgid ""
-"Note: CWA's Metadata Enforcement service can currently only support file in "
+"Note: Lily's Metadata Enforcement service can currently only support file in "
 "either EPUB and AZW3 format. Files in other formats will simply be ignored "
 "by the service"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:851
-msgid "CWA Auto-Convert - Ignored Formats"
+msgid "Lily Auto-Convert - Ignored Formats"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:853
 msgid ""
-"The formats selected here will be ignored by CWA's Auto-Conversion feature "
+"The formats selected here will be ignored by Lily's Auto-Conversion feature "
 "when it's active, meaning they will be imported as is."
 msgstr ""
 
 #: cps/templates/cwa_settings.html:878
-msgid "CWA Auto-Convert - Retained Formats"
+msgid "Lily Auto-Convert - Retained Formats"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:880
 msgid ""
 "The formats selected here will always be added to the library, even after "
 "they have been converted to the target format. However, if the format is in "
-"the \"CWA Auto-Ingest - Ignored Formats\" list, it will not be imported. "
+"the \"Lily Auto-Ingest - Ignored Formats\" list, it will not be imported. "
 "Note that the target format is always retained."
 msgstr ""
 
 #: cps/templates/cwa_settings.html:907
-msgid "CWA Auto-Ingest Automerge"
+msgid "Lily Auto-Ingest Automerge"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:910
@@ -5066,18 +5066,18 @@ msgid "Creates a duplicate record, keeping both copies"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:943
-msgid "CWA Auto-Ingest - Ignored Formats"
+msgid "Lily Auto-Ingest - Ignored Formats"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:945
 msgid ""
-"The formats selected here will be ignored by CWA's Auto-Ingest feature, "
-"meaning files in these formats won't be added to the library by CWA during "
+"The formats selected here will be ignored by Lily's Auto-Ingest feature, "
+"meaning files in these formats won't be added to the library by Lily during "
 "the ingest process"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:970
-msgid "CWA Duplicate Detection System"
+msgid "Lily Duplicate Detection System"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:973
@@ -5092,7 +5092,7 @@ msgid "Enable Duplicate Detection"
 msgstr "Permitir rexistro público"
 
 #: cps/templates/cwa_settings.html:982
-msgid "When enabled, CWA will scan for duplicate books after each import"
+msgid "When enabled, Lily will scan for duplicate books after each import"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:990
@@ -5173,7 +5173,7 @@ msgid "Next scheduled scan:"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:1076
-msgid "CWA Duplicate Detection Criteria"
+msgid "Lily Duplicate Detection Criteria"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:1079
@@ -5561,7 +5561,7 @@ msgid "Failed to update shelves"
 msgstr "Erro ao crear unha ruta para a cuberta"
 
 #: cps/templates/duplicates.html:497
-msgid "CWA Duplicates Manager"
+msgid "Lily Duplicates Manager"
 msgstr ""
 
 #: cps/templates/duplicates.html:499
@@ -5600,7 +5600,7 @@ msgstr ""
 
 #: cps/templates/duplicates.html:531
 msgid ""
-"CWA now uses a duplicate index to keep duplicate checks fast during imports "
+"Lily now uses a duplicate index to keep duplicate checks fast during imports "
 "and metadata changes. Before incremental scans can run, the index needs an "
 "initial baseline."
 msgstr ""
@@ -5608,7 +5608,7 @@ msgstr ""
 #: cps/templates/duplicates.html:534
 msgid ""
 "Click \"Run Full Duplicate Scan\" to build it. This may take several minutes "
-"on large libraries, and you can keep using CWA while it runs."
+"on large libraries, and you can keep using Lily while it runs."
 msgstr ""
 
 #: cps/templates/duplicates.html:541
@@ -5617,7 +5617,7 @@ msgid "Duplicate scan is running."
 msgstr "Borrar libro"
 
 #: cps/templates/duplicates.html:542
-msgid "You can keep using CWA while it runs."
+msgid "You can keep using Lily while it runs."
 msgstr ""
 
 #: cps/templates/duplicates.html:545 cps/templates/tasks.html:17
@@ -5730,7 +5730,7 @@ msgstr ""
 
 #: cps/templates/duplicates.html:688
 msgid ""
-"CWA will resolve duplicate groups using the selected strategy and "
+"Lily will resolve duplicate groups using the selected strategy and "
 "permanently delete duplicate books."
 msgstr ""
 
@@ -6022,7 +6022,7 @@ msgstr ""
 #: cps/templates/http_error.html:34
 #, fuzzy
 msgid ""
-"Calibre-Web Automated Instance is unconfigured, please contact your "
+"Lily Instance is unconfigured, please contact your "
 "administrator"
 msgstr ""
 "A instancia de Calibre-Web non está configurada, por favor contacta co teu "
@@ -6113,17 +6113,17 @@ msgstr ""
 
 #: cps/templates/kosync_plugin.html:113
 msgid ""
-"Enable it in CWA Settings to activate the /kosync endpoints and checksum "
+"Enable it in Lily Settings to activate the /kosync endpoints and checksum "
 "generation."
 msgstr ""
 
 #: cps/templates/kosync_plugin.html:115
 #, fuzzy
-msgid "Open CWA Settings"
+msgid "Open Lily Settings"
 msgstr "Axustes"
 
 #: cps/templates/kosync_plugin.html:139
-msgid "Download is available after enabling KOReader Sync in CWA Settings."
+msgid "Download is available after enabling KOReader Sync in Lily Settings."
 msgstr ""
 
 #: cps/templates/layout.html:93 cps/templates/login.html:51
@@ -6402,7 +6402,7 @@ msgstr "Vale"
 
 #: cps/templates/osd.xml:5
 #, fuzzy
-msgid "Calibre-Web Automated eBook Catalog"
+msgid "Lily eBook Catalog"
 msgstr "Catálogo de libros electrónicos de Calibre-Web"
 
 #: cps/templates/read.html:7

@@ -494,7 +494,7 @@
 <div class="discover">
   <h2>{{title}}</h2>
   <div class="settings-container" style="margin-top: 3rem; max-width: none; justify-self: auto;">
-    <h2>{{_('CWA Duplicates Manager')}}</h2>
+    <h2>{{_('Lily Duplicates Manager')}}</h2>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <p style="color: whitesmoke; margin-bottom: 2rem;" class="text-muted">{{_('Books with matching titles, authors, and languages. Books in different languages are not considered duplicates.')}}</p>
       
@@ -528,10 +528,10 @@
         <div id="duplicate_index_setup_notice" class="cwa-settings-tip" style="margin: 0 0 24px 0; background: rgba(243, 156, 18, 0.16); border-left: 4px solid #f39c12; padding: 16px; border-radius: 6px;">
           <strong style="color: #f39c12;">{{_('Duplicate scanning needs a one-time full scan.')}}</strong>
           <p style="color: #ddd; margin: 8px 0 0 0;">
-            {{_('CWA now uses a duplicate index to keep duplicate checks fast during imports and metadata changes. Before incremental scans can run, the index needs an initial baseline.')}}
+            {{_('Lily now uses a duplicate index to keep duplicate checks fast during imports and metadata changes. Before incremental scans can run, the index needs an initial baseline.')}}
           </p>
           <p style="color: #bbb; margin: 8px 0 0 0;">
-            {{_('Click "Run Full Duplicate Scan" to build it. This may take several minutes on large libraries, and you can keep using CWA while it runs.')}}
+            {{_('Click "Run Full Duplicate Scan" to build it. This may take several minutes on large libraries, and you can keep using Lily while it runs.')}}
           </p>
         </div>
       {% endif %}
@@ -539,7 +539,7 @@
       <div id="duplicate_scan_results_status" class="no-duplicates">
         <div id="duplicate_scan_task_notice">
           <h3 id="duplicate_scan_task_title" style="color: #8bd8ef;">{{_('Duplicate scan is running.')}}</h3>
-          <p id="duplicate_scan_task_message">{{_('You can keep using CWA while it runs.')}}</p>
+          <p id="duplicate_scan_task_message">{{_('You can keep using Lily while it runs.')}}</p>
           <div id="duplicate_scan_task_progress_container">
             <div class="duplicate-scan-progress-header">
               <span>{{_('Progress')}}</span>
@@ -685,7 +685,7 @@
         <span>{{_('Execute Auto-Resolution')}}</span>
       </div>
       <div class="modal-body">
-        <div class="text-left">{{_('CWA will resolve duplicate groups using the selected strategy and permanently delete duplicate books.')}}</div>
+        <div class="text-left">{{_('Lily will resolve duplicate groups using the selected strategy and permanently delete duplicate books.')}}</div>
         <div class="text-left strategy-summary">
           {{_('Selected strategy:')}} <strong id="execute_resolution_strategy_name"></strong>
         </div>

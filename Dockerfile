@@ -2,7 +2,7 @@
 
 # Simple Example Build Command:
 # docker build \
-# --tag crocodilestick/calibre-web-automated:dev \
+# --tag lily:dev \
 # --build-arg="BUILD_DATE=27-09-2024 12:06" \
 # --build-arg="VERSION=2.1.0-test-5" .
 
@@ -15,7 +15,7 @@
 # --platform linux/amd64,linux/arm64, \
 # --build-arg="BUILD_DATE=02-08-2024 20:52" \
 # --build-arg="VERSION=2.1.0" \
-# --tag crocodilestick/calibre-web-automated:latest .
+# --tag lily:latest .
 
 # ==========================================================================
 # STAGE 1: Dependencies - Install system packages and Python dependencies
@@ -175,7 +175,7 @@ ARG KEPUBIFY_RELEASE
 
 LABEL build_version="Version:- ${VERSION}"
 LABEL build_date="${BUILD_DATE}"
-LABEL maintainer="CrocodileStick"
+LABEL maintainer="Bondyboy2001"
 
 # Set the default shell for the following RUN instructions to bash instead of sh
 SHELL ["/bin/bash", "-c"]
@@ -248,7 +248,7 @@ RUN \
   # STEP 7.1 - Move contents of /app/calibre-web-automated/root to / and delete the /app/calibre-web-automated/root directory
   cp -R /app/calibre-web-automated/root/* / && \
   rm -R /app/calibre-web-automated/root/ && \
-  # STEP 7.2 - Run CWA install script to make required dirs, set script permissions and add aliases for CLI commands  ect.
+  # STEP 7.2 - Run Lily install script to make required dirs, set script permissions and add aliases for CLI commands  ect.
   chmod +x /app/calibre-web-automated/scripts/setup-cwa.sh && \
   /app/calibre-web-automated/scripts/setup-cwa.sh && \
   # STEP 7.3 - Create koplugin.zip from KOReader plugin folder
@@ -290,7 +290,7 @@ ENV CALIBRE_CONFIG_DIR=/config/.config/calibre
 
 # Ports and volumes
 WORKDIR /config
-# The default port CWA listens on. Can be overridden with the CWA_PORT_OVERRIDE environment variable.
+# The default port Lily listens on. Can be overridden with the CWA_PORT_OVERRIDE environment variable.
 EXPOSE 8083
 VOLUME /config
 VOLUME /cwa-book-ingest

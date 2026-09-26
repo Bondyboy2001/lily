@@ -214,8 +214,8 @@ msgid "Invalid Restricted Column"
 msgstr "Érvénytelen korlátozások oszlop"
 
 #: cps/admin.py:916 cps/admin.py:2464
-msgid "Calibre-Web Automated configuration updated"
-msgstr "A Calibre-Web Automated konfigurációja frissítve"
+msgid "Lily configuration updated"
+msgstr "A Lily konfigurációja frissítve"
 
 #: cps/admin.py:928
 msgid "Do you really want to delete the Kobo Token?"
@@ -282,7 +282,7 @@ msgstr "Biztosan meg akarja változtatni a Calibre könyvtár helyét?"
 
 #: cps/admin.py:951
 msgid ""
-"Calibre-Web Automated will search for updated Covers and update Cover "
+"Lily will search for updated Covers and update Cover "
 "Thumbnails, this may take a while?"
 msgstr ""
 "A Calibre-Web megkeresi a legújabb borítókat és frissíti a borító "
@@ -290,7 +290,7 @@ msgstr ""
 
 #: cps/admin.py:954
 msgid ""
-"Are you sure you want delete Calibre-Web Automated's sync database to force "
+"Are you sure you want delete Lily's sync database to force "
 "a full sync with your Kobo Reader?"
 msgstr ""
 "Biztosan törölni szeretné a Calibre-Web szinkronizálási adatbázisát, hogy "
@@ -941,8 +941,8 @@ msgstr ""
 "elmentve."
 
 #: cps/cwa_functions.py:1002
-msgid "Calibre-Web Automated User Settings"
-msgstr "Calibre-Web Automated felhasználói beállítások"
+msgid "Lily User Settings"
+msgstr "Lily felhasználói beállítások"
 
 #: cps/cwa_functions.py:1048 cps/cwa_functions.py:1050
 #: cps/cwa_functions.py:1054 cps/cwa_functions.py:1056
@@ -1007,35 +1007,35 @@ msgid "Unknown User"
 msgstr "Ismeretlen felhasználó"
 
 #: cps/cwa_functions.py:1274
-msgid "Calibre-Web Automated Stats & Activity"
-msgstr "Calibre-Web Automated Statisztika és Aktivitás"
+msgid "Lily Stats & Activity"
+msgstr "Lily Statisztika és Aktivitás"
 
 #: cps/cwa_functions.py:1658
-msgid "Calibre-Web Automated - Full Enforcement History"
-msgstr "Calibre-Web Automated - Kényszerítési történet"
+msgid "Lily - Full Enforcement History"
+msgstr "Lily - Kényszerítési történet"
 
 #: cps/cwa_functions.py:1667
-msgid "Calibre-Web Automated - Full Enforcement History (w/ Paths)"
-msgstr "Calibre-Web Automated - Kényszerítési történet (útvonalakkal)"
+msgid "Lily - Full Enforcement History (w/ Paths)"
+msgstr "Lily - Kényszerítési történet (útvonalakkal)"
 
 #: cps/cwa_functions.py:1676
-msgid "Calibre-Web Automated - Full Import History"
-msgstr "Calibre-Web Automated - Teljes import történet"
+msgid "Lily - Full Import History"
+msgstr "Lily - Teljes import történet"
 
 #: cps/cwa_functions.py:1685
-msgid "Calibre-Web Automated - Full Conversion History"
-msgstr "Calibre-Web Automated - Teljes konvertálási történet"
+msgid "Lily - Full Conversion History"
+msgstr "Lily - Teljes konvertálási történet"
 
 #: cps/cwa_functions.py:1694
-msgid "Calibre-Web Automated - Full EPUB Fixer History (w/out Paths & Fixes)"
+msgid "Lily - Full EPUB Fixer History (w/out Paths & Fixes)"
 msgstr ""
-"Calibre-Web Automated - Teljes EPUB javító történet (útvonalak és javítások "
+"Lily - Teljes EPUB javító történet (útvonalak és javítások "
 "nélkül)"
 
 #: cps/cwa_functions.py:1703
-msgid "Calibre-Web Automated - Full EPUB Fixer History (w/ Paths & Fixes)"
+msgid "Lily - Full EPUB Fixer History (w/ Paths & Fixes)"
 msgstr ""
-"Calibre-Web Automated - Teljes EPUB javító történet (útvonalakkal és "
+"Lily - Teljes EPUB javító történet (útvonalakkal és "
 "javításokkal)"
 
 #: cps/cwa_functions.py:1721
@@ -1063,12 +1063,12 @@ msgid "An Error has occurred"
 msgstr "Hiba történt"
 
 #: cps/cwa_functions.py:1906 cps/cwa_functions.py:1930
-msgid "Calibre-Web Automated - Convert Library"
-msgstr "Calibre-Web Automated - Könyvtár könvertálás"
+msgid "Lily - Convert Library"
+msgstr "Lily - Könyvtár könvertálás"
 
 #: cps/cwa_functions.py:2069 cps/cwa_functions.py:2091
-msgid "Calibre-Web Automated - EPUB Fixer Service"
-msgstr "Calibre-Web Automated - EPUB javító szolgáltatás"
+msgid "Lily - EPUB Fixer Service"
+msgstr "Lily - EPUB javító szolgáltatás"
 
 #: cps/cwa_functions.py:2171
 msgid "Single-book EPUB Fixer is not supported with Google Drive libraries."
@@ -1137,8 +1137,8 @@ msgid "Profile picture updated successfully."
 msgstr "Profilkép sikeresen frissítve."
 
 #: cps/cwa_functions.py:2344
-msgid "CWA Profile Picture Management (WIP)"
-msgstr "CWA Profilkép Menedzsment (WIP)"
+msgid "Lily Profile Picture Management (WIP)"
+msgstr "Lily Profilkép Menedzsment (WIP)"
 
 #: cps/db.py:1270 cps/templates/config_edit.html:295
 #: cps/templates/config_view_edit.html:79
@@ -1378,8 +1378,8 @@ msgid "Send to eReader"
 msgstr "Küldés e-olvasóra"
 
 #: cps/helper.py:114 cps/helper.py:141 cps/helper.py:254
-msgid "This Email has been sent via Calibre-Web Automated."
-msgstr "Ez az e-mail Calibre-Web Automateden keresztül lett küldve."
+msgid "This Email has been sent via Lily."
+msgstr "Ez az e-mail Lilyen keresztül lett küldve."
 
 #: cps/helper.py:129
 #, fuzzy, python-format
@@ -1392,16 +1392,16 @@ msgid "Conversion failed for book id: %(book)d"
 msgstr "A(z) %(format)s formátum nem található a következő könyvhöz: %(book)d"
 
 #: cps/helper.py:139
-msgid "Calibre-Web Automated Test Email"
-msgstr "Calibre-Web Automated teszt e-mail"
+msgid "Lily Test Email"
+msgstr "Lily teszt e-mail"
 
 #: cps/helper.py:140
 msgid "Test Email"
 msgstr "Teszt e-mail"
 
 #: cps/helper.py:157
-msgid "Get Started with Calibre-Web Automated"
-msgstr "Kezdő lépések a Calibre-Web Automateddel"
+msgid "Get Started with Lily"
+msgstr "Kezdő lépések a Lilydel"
 
 #: cps/helper.py:162
 #, python-format
@@ -1558,10 +1558,10 @@ msgstr "Hiba az UnRar végrehajtása közben"
 #: cps/helper.py:1361
 #, python-format
 msgid ""
-"Unsupported architecture detected: %(arch)s. CWA is optimized for x86_64 and "
+"Unsupported architecture detected: %(arch)s. Lily is optimized for x86_64 and "
 "aarch64."
 msgstr ""
-"Nem támogatott architektúra észlelve: %(arch)s. A CWA ezekhez lett "
+"Nem támogatott architektúra észlelve: %(arch)s. A Lily ezekhez lett "
 "optimalizálva: x86_64 és aarch64 "
 
 #: cps/helper.py:1370
@@ -1596,10 +1596,10 @@ msgstr "Az összes könyv sorba állítása a metaadatok biztonsági mentéséhe
 
 #: cps/kobo_auth.py:87
 msgid ""
-"Please access Calibre-Web Automated from non localhost to get valid "
+"Please access Lily from non localhost to get valid "
 "api_endpoint for kobo device"
 msgstr ""
-"Kérjük, ne a localhostról, hanem máshonnan lépjen be a Calibre-Web Automated "
+"Kérjük, ne a localhostról, hanem máshonnan lépjen be a Lily "
 "oldalra, hogy érvényes api_endpoint-ot kapjon a kobo eszközhöz"
 
 #: cps/kobo_auth.py:106
@@ -2863,8 +2863,8 @@ msgid "Reverse Proxy Header Name"
 msgstr "Reverse Proxy fejlécnév"
 
 #: cps/templates/admin.html:164
-msgid "CWA Settings"
-msgstr "CWA beállítások"
+msgid "Lily Settings"
+msgstr "Lily beállítások"
 
 #: cps/templates/admin.html:165
 msgid "Edit Basic Configuration"
@@ -2913,32 +2913,32 @@ msgid "Refresh Thumbnail Cache"
 msgstr "Bélyegképek gyorsítótárának frissítése"
 
 #: cps/templates/admin.html:208
-msgid "CWA Admin Functions&nbsp;&nbsp;⚡"
-msgstr "CWA Admin Funkciók&nbsp;&nbsp;⚡"
+msgid "Lily Admin Functions&nbsp;&nbsp;⚡"
+msgstr "Lily Admin Funkciók&nbsp;&nbsp;⚡"
 
 #: cps/templates/admin.html:209
-msgid "Show CWA Stats"
-msgstr "CWA statisztika mutatása"
+msgid "Show Lily Stats"
+msgstr "Lily statisztika mutatása"
 
 #: cps/templates/admin.html:210
-msgid "Check CWA Status"
-msgstr "CWA státusz ellenőrzése"
+msgid "Check Lily Status"
+msgstr "Lily státusz ellenőrzése"
 
 #: cps/templates/admin.html:211
 msgid "Setup KOReader Sync"
 msgstr "KOReader szinkronizáció beállítása"
 
 #: cps/templates/admin.html:214
-msgid "CWA Library Conversion Service"
-msgstr "CWA Könyvtár konverziós szolgáltatás"
+msgid "Lily Library Conversion Service"
+msgstr "Lily Könyvtár konverziós szolgáltatás"
 
 #: cps/templates/admin.html:215
-msgid "CWA EPUB Fixer Service"
-msgstr "CWA EPUB javító szolgáltatás"
+msgid "Lily EPUB Fixer Service"
+msgstr "Lily EPUB javító szolgáltatás"
 
 #: cps/templates/admin.html:218
-msgid "CWA GitHub"
-msgstr "CWA GitHub"
+msgid "Lily GitHub"
+msgstr "Lily GitHub"
 
 #: cps/templates/admin.html:219
 msgid "CWA Discord Server"
@@ -3485,9 +3485,9 @@ msgstr "Calibra adatbázis helye (metadata.db fájl)"
 
 #: cps/templates/config_db.html:48
 msgid ""
-"CWA is configured so that your Calibre Database (<code>metadata.db</code> "
+"Lily is configured so that your Calibre Database (<code>metadata.db</code> "
 "file) should always be somewhere in <code>/calibre-library</code>.\n"
-"        CWA automatically searches whatever directory you've bound to <code>/"
+"        Lily automatically searches whatever directory you've bound to <code>/"
 "calibre-library</code> in your docker-compose file for existing Calibre\n"
 "        Libraries/metadata.db files on start up. If it finds just one "
 "existing library, it mounts it automatically, if it find multiple, by "
@@ -3497,10 +3497,10 @@ msgid ""
 "        <a href=\"https://github.com/crocodilestick/Calibre-Web-Automated/"
 "wiki/Configuration#database-configuration\">see here</a>!"
 msgstr ""
-"A CWA úgy van konfigurálva, hogy a Calibre adatbázisa (a <code>metadata.db</"
+"A Lily úgy van konfigurálva, hogy a Calibre adatbázisa (a <code>metadata.db</"
 "code> fájl) mindig a <code>/calibre-library</code> könyvtáron belül "
 "helyezkedjen el. \n"
-"Induláskor a CWA automatikusan átvizsgálja azt a könyvtárat, amelyet a "
+"Induláskor a Lily automatikusan átvizsgálja azt a könyvtárat, amelyet a "
 "docker-compose fájlban a <code>/calibre-library</code> útvonalhoz rendelt, "
 "és meglévő Calibre \n"
 "könyvtárakat/metadata.db fájlokat keres. Ha pontosan egy meglévő könyvtárat "
@@ -3513,15 +3513,15 @@ msgstr ""
 
 #: cps/templates/config_db.html:54
 msgid ""
-"Therefore, when configuring your docker-compose file for CWA, <b>DO NOT "
+"Therefore, when configuring your docker-compose file for Lily, <b>DO NOT "
 "CHANGE THE PATHS IN THE VOLUMES SECTION ON THE RIGHT SIDE OF THE COLONS!</b>"
 msgstr ""
-"Ezért a CWA docker-compose fájljának konfigurálásakor <b>NE MÓDOSÍTSA A "
+"Ezért a Lily docker-compose fájljának konfigurálásakor <b>NE MÓDOSÍTSA A "
 "KETTŐSPONTOK JOBB OLDALÁN SZEREPLŐ ÚTVONALAKAT A VOLUMES SZEKCIÓBAN!</b>"
 
 #: cps/templates/config_db.html:55
 msgid ""
-"These paths are internal to CWA only, you can change what they're bind to to "
+"These paths are internal to Lily only, you can change what they're bind to to "
 "your heart's content on the left-hand side but there's no reason to\n"
 "        change the paths on the right-hand side.<br><br>If you would like "
 "your <code>metadata.db</code> file in a different location to the rest of "
@@ -3529,7 +3529,7 @@ msgid ""
 "        library, use the <b>Separate Book Files from Library Option below "
 "and there, enter the path to the rest of the library</b>"
 msgstr ""
-"Ezek az útvonalak kizárólag a CWA belső használatára szolgálnak. A "
+"Ezek az útvonalak kizárólag a Lily belső használatára szolgálnak. A "
 "kettőspont bal oldalán lévő kötéseket (bindokat) nyugodtan módosíthatja "
 "igényei szerint, \n"
 "azonban a jobb oldalon szereplő útvonalakat nincs értelme megváltoztatni."
@@ -4399,34 +4399,34 @@ msgid "Error starting EPUB Fixer"
 msgstr "Hiba EPUB javító indításakor"
 
 #: cps/templates/cwa_settings.html:136
-msgid "Enable/Disable Calibre-Web Automated Services"
-msgstr "Calibre-Web Automated szolgáltatások engedélyezése/tiltása"
+msgid "Enable/Disable Lily Services"
+msgstr "Lily szolgáltatások engedélyezése/tiltása"
 
 #: cps/templates/cwa_settings.html:143
-msgid "Enable CWA Auto-Convert"
-msgstr "CWA Automatikus konvertálás engedélyezése"
+msgid "Enable Lily Auto-Convert"
+msgstr "Lily Automatikus konvertálás engedélyezése"
 
 #: cps/templates/cwa_settings.html:145
 msgid ""
 "On by default, when active all ingested books will automatically be "
 "converted to the target format specified below (epub by default) \n"
-"        <em>EXCEPT</em> those you have specifically told CWA to ignore below."
+"        <em>EXCEPT</em> those you have specifically told Lily to ignore below."
 msgstr ""
 "Alapértelmezetten be van kapcsolva. Aktiválás esetén minden beolvasott könyv "
 "automatikusan konvertálásra kerül az alább megadott célformátumra "
 "(alapértelmezetten EPUB),\n"
-"<em>KIVÉVE</em> azokat, amelyeket lentebb kifejezetten kizárt a CWA "
+"<em>KIVÉVE</em> azokat, amelyeket lentebb kifejezetten kizárt a Lily "
 "feldolgozásából."
 
 #: cps/templates/cwa_settings.html:154
-msgid "Enable CWA Automatic Cover & Metadata Enforcement Service"
+msgid "Enable Lily Automatic Cover & Metadata Enforcement Service"
 msgstr ""
-"CWA Automatikus borító- és metaadat-kényszerítő szolgáltatás engedélyezése"
+"Lily Automatikus borító- és metaadat-kényszerítő szolgáltatás engedélyezése"
 
 #: cps/templates/cwa_settings.html:156
 msgid ""
 "On by default, when active, whenever the Metadata and/or Cover Image is "
-"edited in the Web UI, the CWA Metadata Enforcement service \n"
+"edited in the Web UI, the Lily Metadata Enforcement service \n"
 "        will then apply those changes the ebook files themselves. Normally "
 "in Stock CW or when this setting is disabled, the changes made \n"
 "        are only applied to what you see in the Web UI, not the ebook files "
@@ -4434,19 +4434,19 @@ msgid ""
 "        or AZW3 format."
 msgstr ""
 "Alapértelmezés szerint aktív. Ha engedélyezett, a Web UI-ban módosított "
-"metaadatok és borítók a CWA metaadat-kényszerítő szolgáltatás által "
+"metaadatok és borítók a Lily metaadat-kényszerítő szolgáltatás által "
 "automatikusan a könyvfájlokra is alkalmazásra kerülnek. Ha a beállítás ki "
 "van kapcsolva, vagy sima Calibre-Webet használ, a változtatások csak a Web "
 "UI-ban látszanak. Jelenleg csak EPUB és AZW3 fájlok támogatottak."
 
 #: cps/templates/cwa_settings.html:167
-msgid "Enable CWA Kindle EPUB Fixer"
-msgstr "CWA Kindle EPUB javító engedélyezése"
+msgid "Enable Lily Kindle EPUB Fixer"
+msgstr "Lily Kindle EPUB javító engedélyezése"
 
 #: cps/templates/cwa_settings.html:169
 msgid ""
 "When active, the encoding among other attributes of all EPUB files processed "
-"by CWA will be checked and fixed to ensure maximum \n"
+"by Lily will be checked and fixed to ensure maximum \n"
 "        compatibility with Amazon's Send-to-Kindle Service. This feature is "
 "particularly useful for users who frequently send EPUB files to their Kindle "
 "devices and have experienced issues with \n"
@@ -4461,12 +4461,12 @@ msgid ""
 msgstr ""
 
 #: cps/templates/cwa_settings.html:181
-msgid "Enable KOReader Sync (CWA Plugin)"
-msgstr "KOReader szinkronizáció engedélyezése (CWA plugin)"
+msgid "Enable KOReader Sync (Lily Plugin)"
+msgstr "KOReader szinkronizáció engedélyezése (Lily plugin)"
 
 #: cps/templates/cwa_settings.html:183
 msgid ""
-"When enabled, CWA exposes the /kosync endpoints and stores KOReader-"
+"When enabled, Lily exposes the /kosync endpoints and stores KOReader-"
 "compatible checksums in metadata.db for progress syncing. Requires the "
 "KOReader plugin on your device."
 msgstr ""
@@ -4609,7 +4609,7 @@ msgstr "Automatikus metaadat letöltés új könyvekhez engedélyezése"
 
 #: cps/templates/cwa_settings.html:304
 msgid ""
-"When active, CWA will automatically attempt to fetch and apply metadata "
+"When active, Lily will automatically attempt to fetch and apply metadata "
 "(title, author, description, cover, etc.) for newly ingested books using the "
 "configured metadata provider hierarchy. This helps improve the quality of "
 "book information, especially for books with poor or missing metadata."
@@ -4860,7 +4860,7 @@ msgstr ""
 #: cps/templates/cwa_settings.html:731
 msgid ""
 "You can manually trigger the Hardcover auto-fetch task from the Admin panel "
-"at any time. Check the CWA Stats page to see progress and review queued "
+"at any time. Check the Lily Stats page to see progress and review queued "
 "matches that need manual approval."
 msgstr ""
 
@@ -4869,15 +4869,15 @@ msgid "Web UI Settings"
 msgstr "Webes felület beállításai"
 
 #: cps/templates/cwa_settings.html:745
-msgid "Enable CWA Update Notifications"
-msgstr "CWA Frissítés értesítések engedélyezése"
+msgid "Enable Lily Update Notifications"
+msgstr "Lily Frissítés értesítések engedélyezése"
 
 #: cps/templates/cwa_settings.html:747
 msgid ""
 "When active, you will receive notifications in the Web UI when a new version "
-"of CWA is released"
+"of Lily is released"
 msgstr ""
-"Engedélyezés esetén értesítéseket kap a WEB UI-ban amikor új CWA frissítés "
+"Engedélyezés esetén értesítéseket kap a WEB UI-ban amikor új Lily frissítés "
 "érhető el"
 
 #: cps/templates/cwa_settings.html:755
@@ -4920,8 +4920,8 @@ msgid "Automatic Backup Settings"
 msgstr "Automatikus biztonsági mentés beállításai"
 
 #: cps/templates/cwa_settings.html:789
-msgid "Enable CWA Import Auto-Backup"
-msgstr "CWA import automatikus mentés engedélyezése"
+msgid "Enable Lily Import Auto-Backup"
+msgstr "Lily import automatikus mentés engedélyezése"
 
 #: cps/templates/cwa_settings.html:791
 msgid ""
@@ -4932,8 +4932,8 @@ msgstr ""
 "processed_books/imported</i> mappába"
 
 #: cps/templates/cwa_settings.html:799
-msgid "Enable CWA Conversion Auto-Backup"
-msgstr "CWA konvertálás automatikus mentés engedélyezése"
+msgid "Enable Lily Conversion Auto-Backup"
+msgstr "Lily konvertálás automatikus mentés engedélyezése"
 
 #: cps/templates/cwa_settings.html:801
 msgid ""
@@ -4944,20 +4944,20 @@ msgstr ""
 "amelyek konvertáláson esnek át a /config/processed_books/converted mappába"
 
 #: cps/templates/cwa_settings.html:809
-msgid "Enable CWA EPUB Fixer Auto-Backup"
-msgstr "CWA EPUB javító automatikus mentés engedélyezése"
+msgid "Enable Lily EPUB Fixer Auto-Backup"
+msgstr "Lily EPUB javító automatikus mentés engedélyezése"
 
 #: cps/templates/cwa_settings.html:811
 msgid ""
-"When active, the originals of EPUBs processed by the CWA Kindle EPUB Fixer "
+"When active, the originals of EPUBs processed by the Lily Kindle EPUB Fixer "
 "service will be stored in /config/processed_books/fixed_originals"
 msgstr ""
 "Engedélyezés esetén másolat készül az EPUB javító szolgáltatáson áteső "
 "könyvek eredetijéről a /config/processed_books/fixed_originals mappába"
 
 #: cps/templates/cwa_settings.html:821
-msgid "Enable CWA Auto-Zip Backups"
-msgstr "CWA Automatikus mentések ZIP-elésének engedélyezése"
+msgid "Enable Lily Auto-Zip Backups"
+msgstr "Lily Automatikus mentések ZIP-elésének engedélyezése"
 
 #: cps/templates/cwa_settings.html:823
 msgid ""
@@ -4973,8 +4973,8 @@ msgstr ""
 "tárterületet."
 
 #: cps/templates/cwa_settings.html:828
-msgid "CWA Auto-Conversion Target Format - EPUB by Default"
-msgstr "CWA Automatikus konvertáló célformátum - Alapértelmezetten EPUB"
+msgid "Lily Auto-Conversion Target Format - EPUB by Default"
+msgstr "Lily Automatikus konvertáló célformátum - Alapértelmezetten EPUB"
 
 #: cps/templates/cwa_settings.html:831
 msgid ""
@@ -4989,36 +4989,36 @@ msgstr "Válasszon célformátumot:"
 
 #: cps/templates/cwa_settings.html:845
 msgid ""
-"Note: CWA's Metadata Enforcement service can currently only support file in "
+"Note: Lily's Metadata Enforcement service can currently only support file in "
 "either EPUB and AZW3 format. Files in other formats will simply be ignored "
 "by the service"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:851
-msgid "CWA Auto-Convert - Ignored Formats"
-msgstr "CWA Automatikus konvertáló - Figyelmen kívül hagyott formátumok"
+msgid "Lily Auto-Convert - Ignored Formats"
+msgstr "Lily Automatikus konvertáló - Figyelmen kívül hagyott formátumok"
 
 #: cps/templates/cwa_settings.html:853
 msgid ""
-"The formats selected here will be ignored by CWA's Auto-Conversion feature "
+"The formats selected here will be ignored by Lily's Auto-Conversion feature "
 "when it's active, meaning they will be imported as is."
 msgstr ""
 
 #: cps/templates/cwa_settings.html:878
-msgid "CWA Auto-Convert - Retained Formats"
-msgstr "CWA Automatikus konvertáló - Meghagyott formátumok"
+msgid "Lily Auto-Convert - Retained Formats"
+msgstr "Lily Automatikus konvertáló - Meghagyott formátumok"
 
 #: cps/templates/cwa_settings.html:880
 msgid ""
 "The formats selected here will always be added to the library, even after "
 "they have been converted to the target format. However, if the format is in "
-"the \"CWA Auto-Ingest - Ignored Formats\" list, it will not be imported. "
+"the \"Lily Auto-Ingest - Ignored Formats\" list, it will not be imported. "
 "Note that the target format is always retained."
 msgstr ""
 
 #: cps/templates/cwa_settings.html:907
-msgid "CWA Auto-Ingest Automerge"
-msgstr "CWA automatikus beolvasás automatikus egyesítés"
+msgid "Lily Auto-Ingest Automerge"
+msgstr "Lily automatikus beolvasás automatikus egyesítés"
 
 #: cps/templates/cwa_settings.html:910
 msgid "Calibre can detect Duplicate Book Titles on Import and depending on the"
@@ -5047,18 +5047,18 @@ msgid "Creates a duplicate record, keeping both copies"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:943
-msgid "CWA Auto-Ingest - Ignored Formats"
-msgstr "CWA Automatikus beolvasás - figyelmen kívül hagyott formátumok"
+msgid "Lily Auto-Ingest - Ignored Formats"
+msgstr "Lily Automatikus beolvasás - figyelmen kívül hagyott formátumok"
 
 #: cps/templates/cwa_settings.html:945
 msgid ""
-"The formats selected here will be ignored by CWA's Auto-Ingest feature, "
-"meaning files in these formats won't be added to the library by CWA during "
+"The formats selected here will be ignored by Lily's Auto-Ingest feature, "
+"meaning files in these formats won't be added to the library by Lily during "
 "the ingest process"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:970
-msgid "CWA Duplicate Detection System"
+msgid "Lily Duplicate Detection System"
 msgstr "Ismétlődő könyv felismerő rendszer"
 
 #: cps/templates/cwa_settings.html:973
@@ -5072,7 +5072,7 @@ msgid "Enable Duplicate Detection"
 msgstr "Ismétlődő könyvek felismerésének engedélyezése"
 
 #: cps/templates/cwa_settings.html:982
-msgid "When enabled, CWA will scan for duplicate books after each import"
+msgid "When enabled, Lily will scan for duplicate books after each import"
 msgstr ""
 
 #: cps/templates/cwa_settings.html:990
@@ -5152,8 +5152,8 @@ msgid "Next scheduled scan:"
 msgstr "Következő időzített keresés:"
 
 #: cps/templates/cwa_settings.html:1076
-msgid "CWA Duplicate Detection Criteria"
-msgstr "CWA ismétlődés felismerési kritérium"
+msgid "Lily Duplicate Detection Criteria"
+msgstr "Lily ismétlődés felismerési kritérium"
 
 #: cps/templates/cwa_settings.html:1079
 msgid ""
@@ -5520,8 +5520,8 @@ msgid "Failed to update shelves"
 msgstr "Polcok frissítése sikertelen"
 
 #: cps/templates/duplicates.html:497
-msgid "CWA Duplicates Manager"
-msgstr "CWA ismétlődéskezelő"
+msgid "Lily Duplicates Manager"
+msgstr "Lily ismétlődéskezelő"
 
 #: cps/templates/duplicates.html:499
 msgid ""
@@ -5556,7 +5556,7 @@ msgstr ""
 
 #: cps/templates/duplicates.html:531
 msgid ""
-"CWA now uses a duplicate index to keep duplicate checks fast during imports "
+"Lily now uses a duplicate index to keep duplicate checks fast during imports "
 "and metadata changes. Before incremental scans can run, the index needs an "
 "initial baseline."
 msgstr ""
@@ -5564,7 +5564,7 @@ msgstr ""
 #: cps/templates/duplicates.html:534
 msgid ""
 "Click \"Run Full Duplicate Scan\" to build it. This may take several minutes "
-"on large libraries, and you can keep using CWA while it runs."
+"on large libraries, and you can keep using Lily while it runs."
 msgstr ""
 
 #: cps/templates/duplicates.html:541
@@ -5573,7 +5573,7 @@ msgid "Duplicate scan is running."
 msgstr "Ismétlődő könyvek"
 
 #: cps/templates/duplicates.html:542
-msgid "You can keep using CWA while it runs."
+msgid "You can keep using Lily while it runs."
 msgstr ""
 
 #: cps/templates/duplicates.html:545 cps/templates/tasks.html:17
@@ -5681,7 +5681,7 @@ msgstr ""
 
 #: cps/templates/duplicates.html:688
 msgid ""
-"CWA will resolve duplicate groups using the selected strategy and "
+"Lily will resolve duplicate groups using the selected strategy and "
 "permanently delete duplicate books."
 msgstr ""
 
@@ -5956,9 +5956,9 @@ msgstr "Hiba átugrás közben"
 
 #: cps/templates/http_error.html:34
 msgid ""
-"Calibre-Web Automated Instance is unconfigured, please contact your "
+"Lily Instance is unconfigured, please contact your "
 "administrator"
-msgstr "Calibre-Web Automated nincs konfigurálva, keresse a rendszergazdát!"
+msgstr "Lily nincs konfigurálva, keresse a rendszergazdát!"
 
 #: cps/templates/http_error.html:44
 msgid "Create Issue"
@@ -6040,16 +6040,16 @@ msgstr "KOReader szinkronizáció letiltva."
 
 #: cps/templates/kosync_plugin.html:113
 msgid ""
-"Enable it in CWA Settings to activate the /kosync endpoints and checksum "
+"Enable it in Lily Settings to activate the /kosync endpoints and checksum "
 "generation."
 msgstr ""
 
 #: cps/templates/kosync_plugin.html:115
-msgid "Open CWA Settings"
-msgstr "CWA beállítások megnyitása"
+msgid "Open Lily Settings"
+msgstr "Lily beállítások megnyitása"
 
 #: cps/templates/kosync_plugin.html:139
-msgid "Download is available after enabling KOReader Sync in CWA Settings."
+msgid "Download is available after enabling KOReader Sync in Lily Settings."
 msgstr ""
 
 #: cps/templates/layout.html:93 cps/templates/login.html:51
@@ -6314,8 +6314,8 @@ msgid "Ok"
 msgstr "Ok"
 
 #: cps/templates/osd.xml:5
-msgid "Calibre-Web Automated eBook Catalog"
-msgstr "Calibre-Web Automated e-könyv katalógus"
+msgid "Lily eBook Catalog"
+msgstr "Lily e-könyv katalógus"
 
 #: cps/templates/read.html:7
 msgid "epub Reader"

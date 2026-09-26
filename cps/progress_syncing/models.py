@@ -41,7 +41,7 @@ def _execute_sql_with_retry(conn, sql, is_sqlalchemy, retries=5, base_delay=0.25
                     log.warning(
                         "Database is locked while initializing KOReader sync tables. "
                         "Retrying with busy_timeout; this can happen during startup/backfill or other writers. "
-                        "To stop KOReader checksum backfill, disable it in CWA Settings and restart the container."
+                        "To stop KOReader checksum backfill, disable it in Lily Settings and restart the container."
                     )
                 time.sleep(base_delay * (2 ** attempt))
                 continue
@@ -280,7 +280,7 @@ def ensure_checksum_table(conn):
             log.warning(
                 "metadata.db is locked while creating KOReader checksum tables. "
                 "If KOReader sync is enabled, startup checksum backfill may be running (or another writer holds the lock). "
-                "To stop KOReader checksum backfill, disable it in CWA Settings and restart the container."
+                "To stop KOReader checksum backfill, disable it in Lily Settings and restart the container."
             )
         import traceback
         log.error(traceback.format_exc())

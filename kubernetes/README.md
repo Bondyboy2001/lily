@@ -1,6 +1,6 @@
 # Calibre Web Automated — Kubernetes Deployment
 
-This directory contains a working, opinionated example for deploying Calibre Web Automated (CWA) to Kubernetes. It includes:
+This directory contains a working, opinionated example for deploying Calibre Web Automated (Lily) to Kubernetes. It includes:
 
 - A `Deployment` and `Service`
 - Two `PersistentVolumeClaim`s for configuration and the Calibre library
@@ -27,13 +27,13 @@ Adjust storage classes, hostnames, and paths to match your cluster.
 
 ## What’s in this folder
 
-- `deployment.yaml`: Runs `crocodilestick/calibre-web-automated:latest` on port `8083` with a single replica and `Recreate` strategy. Mounts:
-  - `/config` from PVC `calibre-web-automated-config`
+- `deployment.yaml`: Runs `lily:latest` on port `8083` with a single replica and `Recreate` strategy. Mounts:
+  - `/config` from PVC `lily-config`
   - `/calibre-library` from PVC `calibre-library-pvc`
   - `/cwa-book-ingest` from a hostPath (edit this to your NAS or use a PVC)
-  - Sets `PUID`, `PGID`, and `TZ`. Add any other CWA envs you need.
-- `service.yaml`: ClusterIP service exposing port `8083` with selector `app.service=calibre-web-automated`.
-- `pvc-config.yaml`: RWX claim for CWA config data. Uses `longhorn-retain` (100Gi) in namespace `media`.
+  - Sets `PUID`, `PGID`, and `TZ`. Add any other Lily envs you need.
+- `service.yaml`: ClusterIP service exposing port `8083` with selector `app.service=lily`.
+- `pvc-config.yaml`: RWX claim for Lily config data. Uses `longhorn-retain` (100Gi) in namespace `media`.
 - `pvc-library.yml`: RWX claim for the Calibre library. Uses `nfs-client` (100Gi) in namespace `media`.
 - `gateway-istio.yaml` (optional): Gateway + HTTPRoutes using Gateway API. Redirects HTTP→HTTPS and terminates TLS for your hostname via cert-manager.
 
@@ -82,7 +82,7 @@ kubectl apply -f kubernetes/gateway-istio.yaml
 - Port-forward:
 
 ```bash
-kubectl -n media port-forward svc/calibre-web-automated 8083:8083
+kubectl -n media port-forward svc/lily 8083:8083
 ```
 
   Then open http://localhost:8083
@@ -93,26 +93,26 @@ kubectl -n media port-forward svc/calibre-web-automated 8083:8083
 
 ## Storage and Data
 
-- `/config` (PVC: `calibre-web-automated-config`) holds application configuration and state.
+- `/config` (PVC: `lily-config`) holds application configuration and state.
 - `/calibre-library` (PVC: `calibre-library-pvc`) holds the Calibre library data.
 - `/cwa-book-ingest` is an ingest folder. Files dropped here are imported and then removed after processing. By default this is a `hostPath` you must edit; consider switching to a PVC if you prefer.
 
-Note: If you use the Calibre Web Automated Book Downloader, you can mount the same ingest volume into that downloader so finished downloads are written directly into `/cwa-book-ingest` for automatic import by CWA. Make sure the PVC is Reads Write Many (`RWX`) so it can be mounted by more than one deployment. See the project: [Calibre Web Automated Book Downloader](https://github.com/calibrain/calibre-web-automated-book-downloader).
+Note: If you use the Calibre Web Automated Book Downloader, you can mount the same ingest volume into that downloader so finished downloads are written directly into `/cwa-book-ingest` for automatic import by Lily. Make sure the PVC is Reads Write Many (`RWX`) so it can be mounted by more than one deployment. See the project: [Calibre Web Automated Book Downloader](https://github.com/calibrain/calibre-web-automated-book-downloader).
 
 Example: switch ingest from hostPath to a PVC
 
 ```yaml
 # Replace the hostPath volume in deployment.yaml with:
 volumes:
-  - name: calibre-web-automated-ingest
+  - name: lily-ingest
     persistentVolumeClaim:
-      claimName: calibre-web-automated-ingest
+      claimName: lily-ingest
 
 # And create a matching PVC (adjust storageClassName as needed):
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: calibre-web-automated-ingest
+  name: lily-ingest
   namespace: media
 spec:
   accessModes: ["ReadWriteMany"]
@@ -138,7 +138,7 @@ Note on RWX: Both example PVCs request `ReadWriteMany`. Ensure your storage supp
 - `gateway-istio.yaml` creates:
   - A `Gateway` with HTTP (80) and HTTPS (443) listeners
   - An `HTTPRoute` that redirects HTTP→HTTPS
-  - An `HTTPRoute` that routes HTTPS traffic to the `calibre-web-automated` service on port `8083`
+  - An `HTTPRoute` that routes HTTPS traffic to the `lily` service on port `8083`
 - TLS termination: The Gateway references a secret via `certificateRefs`. You typically manage this secret using cert-manager. A minimal Certificate example:
 
 Note: cert-manager must be deployed with Gateway API support enabled so it can watch Gateway/HTTPRoute resources and provision certificates automatically. Docs: https://cert-manager.io/docs/usage/gateway-api/
@@ -147,10 +147,10 @@ Note: cert-manager must be deployed with Gateway API support enabled so it can w
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: calibre-web-automated-cert
+  name: lily-cert
   namespace: media
 spec:
-  secretName: calibre-web-automated-tls  # must match certificateRefs.name
+  secretName: lily-tls  # must match certificateRefs.name
   dnsNames:
     - books.example.com
   issuerRef:
@@ -181,14 +181,14 @@ Apply this after cert-manager is installed and your issuer exists.
   - Ensure `PUID`/`PGID` match ownership of files on the backing storage.
   - For NFS, verify export permissions (e.g., `no_root_squash` if needed).
 - Pod CrashLoopBackOff:
-  - `kubectl -n media logs deploy/calibre-web-automated` to inspect errors.
+  - `kubectl -n media logs deploy/lily` to inspect errors.
 - Gateway returns 404:
   - Verify hostname matches the request and `HTTPRoute` `parentRefs` section names.
   - Check the `GatewayClass` exists and is `Accepted` by Istio.
 - TLS not provisioning:
   - Ensure cert-manager is installed, issuer/ClusterIssuer exists, and a `Certificate` resource was created pointing to your DNS name.
 - Ingest not working / files not removed:
-  - Confirm the ingest volume path is correct and writable; check CWA settings in the UI.
+  - Confirm the ingest volume path is correct and writable; check Lily settings in the UI.
 
 ---
 

@@ -2,14 +2,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app.service: calibre-web-automated
-  name: calibre-web-automated
+    app.service: lily
+  name: lily
   namespace: media
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.service: calibre-web-automated
+      app.service: lily
   strategy:
     type: Recreate
   template:
@@ -17,7 +17,7 @@ spec:
       annotations:
         diun.enable: "true" # Enable Diun monitoring for image updates (must setup DIUN separately)
       labels:
-        app.service: calibre-web-automated
+        app.service: lily
     spec:
       containers:
         - env:
@@ -27,17 +27,17 @@ spec:
               value: "2000"
             - name: TZ
               value: America/Los_Angeles # Change to your timezone
-          image: crocodilestick/calibre-web-automated:latest
+          image: lily:latest
           imagePullPolicy: Always #Always enables updates with a rollout restart
-          name: calibre-web-automated
+          name: lily
           ports:
             - containerPort: 8083
               protocol: TCP
           volumeMounts:
             - mountPath: /config
-              name: calibre-web-automated-config
+              name: lily-config
             - mountPath: /cwa-book-ingest
-              name: calibre-web-automated-ingest
+              name: lily-ingest
             - mountPath: /calibre-library
               name: calibre-library
           resources: {} # Add resource requests/limits here if needed
@@ -46,12 +46,12 @@ spec:
       # except for the ingest folder which is a hostPath to a NAS mount so files can be 
       # manually deposited for import (or via automation)
       volumes:
-        - name: calibre-web-automated-config
+        - name: lily-config
           persistentVolumeClaim:
-            claimName: calibre-web-automated-config
+            claimName: lily-config
         - name: calibre-library
           persistentVolumeClaim:
             claimName: calibre-library-pvc
-        - name: calibre-web-automated-ingest
+        - name: lily-ingest
           hostPath:
             path: /nas/path/to/import-ebooks

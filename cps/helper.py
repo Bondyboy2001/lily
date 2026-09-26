@@ -1358,7 +1358,7 @@ def check_unrar(unrar_location):
 def check_architecture():
     arch = platform.machine()
     if arch not in ['x86_64', 'aarch64']:
-        return _("Unsupported architecture detected: %(arch)s. CWA is optimized for x86_64 and aarch64.", arch=arch)
+        return _("Unsupported architecture detected: %(arch)s. Lily is optimized for x86_64 and aarch64.", arch=arch)
     return None
 
 
