@@ -1,6 +1,8 @@
-# Calibre-Web Automated _(formerly Calibre-Web Automator)_
+<img src="cps/static/icon.png" width="160" alt="Lily">
 
-![Calibre-Web Automated](README_images/CWA-banner.png "Calibre-Web Automated")
+# Lily
+
+_A personal redesign of [Calibre-Web Automated](https://github.com/crocodilestick/calibre-web-automated) by crocodilestick._
 
 ## Making Calibre-Web your _dream_, all-in-one self-hosted digital library solution.
 

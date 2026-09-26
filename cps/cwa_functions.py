@@ -999,7 +999,7 @@ def set_cwa_settings():
 
     next_scan_run = get_next_duplicate_scan_run(cwa_settings)
 
-    return render_title_template("cwa_settings.html", title=_("Calibre-Web Automated User Settings"), page="cwa-settings",
+    return render_title_template("cwa_settings.html", title=_("Lily User Settings"), page="cwa-settings",
                                     cwa_settings=cwa_settings, ignorable_formats=ignorable_formats, target_formats=target_formats,
                                     automerge_options=automerge_options, autoingest_options=autoingest_options,
                                     hardcover_token_available=hardcover_token_available,
@@ -1271,7 +1271,7 @@ def cwa_stats_show():
         log.debug(f"Error fetching Hardcover stats: {e}")
         hardcover_stats = None
 
-    return render_title_template("cwa_stats_tabs.html", title=_("Calibre-Web Automated Stats & Activity"),
+    return render_title_template("cwa_stats_tabs.html", title=_("Lily Stats & Activity"),
                                 page="cwa-stats",
                                 active_tab=active_tab,
                                 dashboard_stats=dashboard_stats,
@@ -1655,7 +1655,7 @@ def cwa_scheduled_upcoming_ops():
 def show_full_enforcement():
     cwa_db = CWA_DB()
     data = cwa_db.enforce_show(paths=False, verbose=True, web_ui=True)
-    return render_title_template("cwa_stats_full.html", title=_("Calibre-Web Automated - Full Enforcement History"), page="cwa-stats-full",
+    return render_title_template("cwa_stats_full.html", title=_("Lily - Full Enforcement History"), page="cwa-stats-full",
                                     table_headers=headers["enforcement"]["no_paths"], data=data)
 
 @cwa_stats.route("/cwa-stats-show/full-enforcement-with-paths", methods=["GET", "POST"])
@@ -1664,7 +1664,7 @@ def show_full_enforcement():
 def show_full_enforcement_path():
     cwa_db = CWA_DB()
     data = cwa_db.enforce_show(paths=True, verbose=True, web_ui=True)
-    return render_title_template("cwa_stats_full.html", title=_("Calibre-Web Automated - Full Enforcement History (w/ Paths)"), page="cwa-stats-full",
+    return render_title_template("cwa_stats_full.html", title=_("Lily - Full Enforcement History (w/ Paths)"), page="cwa-stats-full",
                                     table_headers=headers["enforcement"]["with_paths"], data=data)
 
 @cwa_stats.route("/cwa-stats-show/full-imports", methods=["GET", "POST"])
@@ -1673,7 +1673,7 @@ def show_full_enforcement_path():
 def show_full_imports():
     cwa_db = CWA_DB()
     data = cwa_db.get_import_history(verbose=True)
-    return render_title_template("cwa_stats_full.html", title=_("Calibre-Web Automated - Full Import History"), page="cwa-stats-full",
+    return render_title_template("cwa_stats_full.html", title=_("Lily - Full Import History"), page="cwa-stats-full",
                                     table_headers=headers["imports"], data=data)
 
 @cwa_stats.route("/cwa-stats-show/full-conversions", methods=["GET", "POST"])
@@ -1682,7 +1682,7 @@ def show_full_imports():
 def show_full_conversions():
     cwa_db = CWA_DB()
     data = cwa_db.get_conversion_history(verbose=True)
-    return render_title_template("cwa_stats_full.html", title=_("Calibre-Web Automated - Full Conversion History"), page="cwa-stats-full",
+    return render_title_template("cwa_stats_full.html", title=_("Lily - Full Conversion History"), page="cwa-stats-full",
                                     table_headers=headers["conversions"], data=data)
 
 @cwa_stats.route("/cwa-stats-show/full-epub-fixer", methods=["GET", "POST"])
@@ -1691,7 +1691,7 @@ def show_full_conversions():
 def show_full_epub_fixer():
     cwa_db = CWA_DB()
     data = cwa_db.get_epub_fixer_history(fixes=False, verbose=True)
-    return render_title_template("cwa_stats_full.html", title=_("Calibre-Web Automated - Full EPUB Fixer History (w/out Paths & Fixes)"), page="cwa-stats-full",
+    return render_title_template("cwa_stats_full.html", title=_("Lily - Full EPUB Fixer History (w/out Paths & Fixes)"), page="cwa-stats-full",
                                     table_headers=headers["epub_fixer"]["no_fixes"], data=data)
 
 @cwa_stats.route("/cwa-stats-show/full-epub-fixer-with-paths-fixes", methods=["GET", "POST"])
@@ -1700,7 +1700,7 @@ def show_full_epub_fixer():
 def show_full_epub_fixer_with_paths_fixes():
     cwa_db = CWA_DB()
     data = cwa_db.get_epub_fixer_history(fixes=True, verbose=True)
-    return render_title_template("cwa_stats_full.html", title=_("Calibre-Web Automated - Full EPUB Fixer History (w/ Paths & Fixes)"), page="cwa-stats-full",
+    return render_title_template("cwa_stats_full.html", title=_("Lily - Full EPUB Fixer History (w/ Paths & Fixes)"), page="cwa-stats-full",
                                     table_headers=headers["epub_fixer"]["with_fixes"], data=data)
 
 ##————————————————————————————————————————————————————————————————————————————##
@@ -1785,7 +1785,7 @@ def read_log(log_filename):
         with open(file_path, 'r') as f:
             log = f.read()
 
-        return render_title_template('cwa_read_log.html', title=_(f"Calibre-Web Automated - Log Archive - Read Log - {log_filename}"), page="cwa-log-read",
+        return render_title_template('cwa_read_log.html', title=_(f"Lily - Log Archive - Read Log - {log_filename}"), page="cwa-log-read",
                                     log_filename=log_filename, log=log)
     
     except Exception as e:
@@ -1903,7 +1903,7 @@ def kill_convert_library(queue):
 @login_required_if_no_ano
 @admin_required
 def show_convert_library_page():
-    return render_title_template('cwa_convert_library.html', title=_("Calibre-Web Automated - Convert Library"), page="cwa-library-convert",
+    return render_title_template('cwa_convert_library.html', title=_("Lily - Convert Library"), page="cwa-library-convert",
                                 target_format=CWA_DB().cwa_settings['auto_convert_target_format'].upper())
 
 @convert_library.route('/cwa-convert-library/schedule/<int:delay>', methods=["GET"])
@@ -1927,7 +1927,7 @@ def schedule_convert_library(delay: int):
 def show_convert_library_logs():
     logs=get_logs_from_archive("convert-library")
     log_dates = get_log_dates(logs)
-    return render_title_template('cwa_list_logs.html', title=_("Calibre-Web Automated - Convert Library"), page="cwa-library-convert-logs",
+    return render_title_template('cwa_list_logs.html', title=_("Lily - Convert Library"), page="cwa-library-convert-logs",
                                 logs=logs, log_dates=log_dates)
 
 @convert_library.route('/cwa-convert-library/download-current-log/<log_filename>')
@@ -2066,7 +2066,7 @@ def kill_epub_fixer(queue):
 @login_required_if_no_ano
 @admin_required
 def show_epub_fixer_page():
-    return render_title_template('cwa_epub_fixer.html', title=_("Calibre-Web Automated - EPUB Fixer Service"), page="cwa-epub-fixer")
+    return render_title_template('cwa_epub_fixer.html', title=_("Lily - EPUB Fixer Service"), page="cwa-epub-fixer")
 
 @epub_fixer.route('/cwa-epub-fixer/schedule/<int:delay>', methods=["GET"])
 @login_required_if_no_ano
@@ -2088,7 +2088,7 @@ def schedule_epub_fixer(delay: int):
 def show_epub_fixer_logs():
     logs = get_logs_from_archive("epub-fixer")
     log_dates = get_log_dates(logs)
-    return render_title_template('cwa_list_logs.html', title=_("Calibre-Web Automated - EPUB Fixer Service"), page="cwa-epub-fixer-logs",
+    return render_title_template('cwa_list_logs.html', title=_("Lily - EPUB Fixer Service"), page="cwa-epub-fixer-logs",
                                 logs=logs, log_dates=log_dates)
 
 @epub_fixer.route('/cwa-epub-fixer/download-current-log/<log_filename>')

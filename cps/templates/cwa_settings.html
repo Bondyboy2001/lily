@@ -133,7 +133,7 @@
   <h2>{{title}}</h2>
   <form action="{{ url_for('cwa_settings.set_cwa_settings')}}" method="post">
     <div class="settings-container" style="margin-top: 3rem;">
-      <h4 class="settings-section-header">{{_('Enable/Disable Calibre-Web Automated Services')}}</h4>
+      <h4 class="settings-section-header">{{_('Enable/Disable Lily Services')}}</h4>
       
       {% if cwa_settings['auto_convert'] %}
       <input type="checkbox" id="auto_convert" name="auto_convert" value="True" checked style="accent-color: var(--color-secondary);" data-toggle="tooltip"data-placement="right" data-html="true" title="Placeholder">

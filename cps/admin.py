@@ -913,8 +913,8 @@ def update_view_configuration():
         config.config_default_show |= constants.DETAIL_RANDOM
 
     config.save()
-    flash(_("Calibre-Web Automated configuration updated"), category="success")
-    log.debug("Calibre-Web Automated configuration updated")
+    flash(_("Lily configuration updated"), category="success")
+    log.debug("Lily configuration updated")
     before_request()
 
     return view_configuration()
@@ -948,10 +948,10 @@ def load_dialogtexts(element_id):
     elif element_id == "db_submit":
         texts["main"] = _('Are you sure you want to change Calibre library location?')
     elif element_id == "admin_refresh_cover_cache":
-        texts["main"] = _('Calibre-Web Automated will search for updated Covers '
+        texts["main"] = _('Lily will search for updated Covers '
                           'and update Cover Thumbnails, this may take a while?')
     elif element_id == "btnfullsync":
-        texts["main"] = _("Are you sure you want delete Calibre-Web Automated's sync database "
+        texts["main"] = _("Are you sure you want delete Lily's sync database "
                           "to force a full sync with your Kobo Reader?")
     return json.dumps(texts)
 
@@ -2256,7 +2256,7 @@ def _db_configuration_update_helper():
         config.store_calibre_uuid(calibre_db, db.Library_Id)
         # if db changed -> delete shelfs, delete download books, delete read books, kobo sync...
         if db_change:
-            log.info("Calibre Database changed, all Calibre-Web Automated info related to old Database gets deleted")
+            log.info("Calibre Database changed, all Lily info related to old Database gets deleted")
             ub.session.query(ub.Downloads).delete()
             ub.session.query(ub.ArchivedBook).delete()
             ub.session.query(ub.ReadBook).delete()
@@ -2461,7 +2461,7 @@ def _configuration_result(error_flash=None, reboot=False, warning_flash=None):
         config.load()
         resp['result'] = [{'type': "danger", 'message': error_flash}]
     else:
-        resp['result'] = [{'type': "success", 'message': _("Calibre-Web Automated configuration updated")}]
+        resp['result'] = [{'type': "success", 'message': _("Lily configuration updated")}]
         # Add warning message if present (configuration was saved, but with a warning)
         if warning_flash:
             log.warning(warning_flash)

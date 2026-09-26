@@ -2,7 +2,7 @@
 <OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
    <LongName>{{instance}}</LongName>
    <ShortName>{{instance}}</ShortName>
-   <Description>{{_('Calibre-Web Automated eBook Catalog')}}</Description>
+   <Description>{{_('Lily eBook Catalog')}}</Description>
    <Developer>CrocodileStick</Developer>
    <Contact>https://github.com/crocodilestick/calibre-web-automated</Contact>
    <Url type="text/html"

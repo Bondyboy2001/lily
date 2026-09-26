@@ -1,4 +1,4 @@
-/* Calibre-Web Automated – Modern Duplicates Notification System
+/* Lily – Modern Duplicates Notification System
  * Copyright (C) 2024-2025 Calibre-Web Automated contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
