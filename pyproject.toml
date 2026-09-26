@@ -3,10 +3,10 @@ requires = ["setuptools>=61.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "calibre-web-automated"
-description = "Calibre-Web but Automated and with Many New Features! Fully automate and simplify your eBook set up!"
+name = "lily"
+description = "Lily: a personal redesign of Calibre-Web Automated, a self-hosted ebook library"
 authors = [{name = "CrocodileStick", email = "crocodilestick@users.noreply.github.com"}]
-maintainers = [{name = "CrocodileStick"}]
+maintainers = [{name = "Bondyboy2001"}]
 license = {text = "GPLv3+"}
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -125,11 +125,11 @@ kobo = [
 ]
 
 [project.scripts]
-cps = "calibreweb:main"
+cps = "cps.main:main"
 
 [tool.setuptools]
 include-package-data = true
 license-files = ["LICENSE"]
 
 [tool.setuptools.dynamic]
-version = {attr = "calibreweb.cps.constants.STABLE_VERSION"}
+version = {attr = "cps.constants.STABLE_VERSION"}
