@@ -624,6 +624,16 @@ input:-moz-placeholder { color: #454545; }
   padding: 4px;
 }
 
+/* The modal close control is a <button>; strip the default button chrome */
+.md-content > button.closer {
+  margin: 0;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  line-height: inherit;
+}
+
 @media only screen and (max-width: 1040px) and (orientation: portrait) {
   #viewer {
     width: 80%;

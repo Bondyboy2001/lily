@@ -479,7 +479,7 @@
         <div class="book-detail-card">
             <div class="book-detail-main">
                 <div class="book-detail-cover cover">
-                <img id="detailcover" title="{{ entry.title }}"
+                <img id="detailcover" alt="{{ entry.title }}" title="{{ entry.title }}"
                      src="{{ url_for('web.get_cover', book_id=entry.id, resolution='og', c=entry|last_modified) }}"/>
             </div>
                     <div class="book-detail-meta">

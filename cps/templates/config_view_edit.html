@@ -59,13 +59,7 @@
         <p class="settings-explanation">{{_('Maximum number of authors to show in book details before truncating. Set to 0 to disable.')}}</p>
       </div>
       
-      <div class="form-group">
-        <label for="config_theme">{{_('Default Theme')}}</label>
-        <select name="config_theme" id="config_theme" class="form-control">
-          <option value="1" selected>{{ _("caliBlur! Dark Theme") }}</option>
-        </select>
-        <p class="settings-explanation">{{_('Default theme for new users and anonymous browsing. Users can select their own preferred theme in their profile.')}}</p>
-      </div>
+      <input type="hidden" name="config_theme" id="config_theme" value="1">
       
       <div class="form-group">
         <label for="config_columns_to_ignore">{{_('Regular Expression for Ignoring Columns')}}</label>

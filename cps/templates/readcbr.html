@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
   <meta name="description" content="">
   <title>{{_('Comic Reader')}} | {{title}}</title>
-  <meta name="viewport" content="width=device-width, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="mobile-web-app-capable" content="yes">
   {% if g.google_site_verification|length > 0 %}
     <meta name="google-site-verification" content="{{g.google_site_verification}}">
@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/kthoom.css') }}" type="text/css"/>
 
   <script src="{{ url_for('static', filename='js/libs/jquery.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/libs/jquery-migrate.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/libs/plugins.js') }}"></script>
   <script src="{{ url_for('static', filename='js/libs/screenfull.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/compress/uncompress.js') }}"></script>
@@ -177,7 +178,7 @@
           </table>
         </div>
       </div>
-      <div class="closer icon-cancel-circled"></div>
+      <button type="button" class="closer icon-cancel-circled" aria-label="{{_('Close')}}"></button>
     </div>
   </div>
   <div class="overlay"></div>

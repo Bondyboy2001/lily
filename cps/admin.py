@@ -138,13 +138,10 @@ def before_request():
     g.allow_registration = config.config_public_reg
     g.allow_anonymous = config.config_anonbrowse
     g.allow_upload = config.config_uploading
-    # Theme enforcement: light theme fully deprecated, force caliBlur (dark) in runtime
-    try:
-        g.current_theme = getattr(current_user, 'theme', config.config_theme)
-        if current_user.is_anonymous and not hasattr(current_user, 'theme'):
-            g.current_theme = config.config_theme
-    except Exception:
-        g.current_theme = getattr(config, 'config_theme', 1)
+    # caliBlur is the only server-side theme the Lily UI is built for (the plain Bootstrap theme 0 is
+    # missing most of the CWA/Lily layout), so it is always used. Light/dark/system colour modes are a
+    # per-browser choice layered on top of caliBlur (see static/css/lily-light.css and the inline
+    # script in layout.html); stored user.theme / config_theme values are left untouched.
     g.current_theme = 1
     g.config_authors_max = config.config_authors_max
     if '/static/' not in request.path and not config.db_configured and \

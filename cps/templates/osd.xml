@@ -3,8 +3,8 @@
    <LongName>{{instance}}</LongName>
    <ShortName>{{instance}}</ShortName>
    <Description>{{_('Lily eBook Catalog')}}</Description>
-   <Developer>CrocodileStick</Developer>
-   <Contact>https://github.com/crocodilestick/calibre-web-automated</Contact>
+   <Developer>Lily</Developer>
+   <Contact>https://github.com/Bondyboy2001/lily</Contact>
    <Url type="text/html"
         template="{{url_for('opds.feed_normal_search')}}/{searchTerms}"/>
    <Url type="application/atom+xml"

@@ -60,3 +60,21 @@
     font-size: 16px;
     text-align: center;
 }
+.readerLayout {
+    margin-top: 5%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+}
+
+.readerLayout select {
+    font-size: 16px;
+    color: #000;
+    padding: 2px 4px;
+}
+
+#settings-modal .md-content {
+    max-height: 90vh;
+    overflow-y: auto;
+}

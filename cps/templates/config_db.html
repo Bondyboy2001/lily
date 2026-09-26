@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 {% block flash %}
 <div id="spinning_success" class="row-fluid text-center" style="display:none;">
-    <div class="alert alert-info"><img id="img-spinner" src="{{ url_for('static', filename='css/libs/images/loading-icon.gif') }}"/></div>
+    <div class="alert alert-info"><img id="img-spinner" src="{{ url_for('static', filename='css/libs/images/loading-icon.gif') }}" alt="{{_('Loading...')}}"/></div>
 </div>
 {% endblock %}
 {% block body %}
@@ -49,7 +49,7 @@
         Lily automatically searches whatever directory you've bound to <code>/calibre-library</code> in your docker-compose file for existing Calibre
         Libraries/metadata.db files on start up. If it finds just one existing library, it mounts it automatically, if it find multiple, by default
         it will mount the largest one automatically and if it doesn't find any, it will automatically create and mount a new one. For more details,
-        <a href=\"https://github.com/crocodilestick/Calibre-Web-Automated/wiki/Configuration#database-configuration\">see here</a>!") | safe }}
+        see the <a href=\"https://github.com/crocodilestick/Calibre-Web-Automated/wiki/Configuration#database-configuration\" target=\"_blank\" rel=\"noopener\">upstream Calibre-Web Automated docs</a>!") | safe }}
         <br><br>
         {{_("Therefore, when configuring your docker-compose file for Lily, <b>DO NOT CHANGE THE PATHS IN THE VOLUMES SECTION ON THE RIGHT SIDE OF THE COLONS!</b>") | safe }}
         {{_("These paths are internal to Lily only, you can change what they're bind to to your heart's content on the left-hand side but there's no reason to

@@ -11,7 +11,7 @@
     {% endif %}    
 
     <!-- Bootstrap -->
-    <link rel="apple-touch-icon" sizes="140x140" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link href="{{ url_for('static', filename='css/libs/bootstrap.min.css') }}" rel="stylesheet" media="screen">
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" media="screen">
@@ -33,15 +33,23 @@
         {% if unconfigured %}
             <div>{{_('Lily Instance is unconfigured, please contact your administrator')}}</div>
         {% endif %}
-      {% for element in error_stack %}
-        <div>{{ element }}</div>
-      {% endfor %}
+      {% if error_id %}
+        <p>{{_('An unexpected error occurred. The details have been written to the server log.')}}</p>
+        <p>{{_('Error ID')}}: <code>{{ error_id }}</code></p>
+      {% endif %}
+      {% if error_stack %}
+        <details>
+          <summary>{{_('Technical details (visible to admins only)')}}</summary>
+          <pre style="white-space: pre-wrap; text-align: left;">{% for element in error_stack %}{{ element }}
+{% endfor %}</pre>
+        </details>
+      {% endif %}
     </div>
    </div>
   {% if issue %}
     <div class="row">
-    <div class="col errorlink">Please report this issue with all related information:
-        <a href="https://github.com/crocodilestick/calibre-web-automated/issues/new/choose">{{_('Create Issue')}}</a>
+    <div class="col errorlink">{{_('If this keeps happening, please report it and include the error ID:')}}
+        <a href="https://github.com/Bondyboy2001/lily/issues/new" target="_blank" rel="noopener">{{_('Create Issue')}}</a>
     </div>
       </div>
     {% endif %}

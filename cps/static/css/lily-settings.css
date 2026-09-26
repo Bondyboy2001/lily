@@ -1,0 +1,497 @@
+/* Lily settings page (cps/templates/cwa_settings.html) */
+
+/* ---------- Layout shell: tabs + panes share the settings-container width ---------- */
+.lily-settings-nav,
+.lily-savebar {
+  max-width: 900px;
+  margin-left: 2rem;
+  margin-right: 2rem;
+  width: -webkit-fill-available;
+  width: stretch;
+  /* same centring rule as .settings-container in caliBlur.css */
+  justify-self: anchor-center;
+}
+
+.lily-settings-nav {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+/* ---------- Tabs ---------- */
+.lily-settings-tabs.nav-tabs {
+  position: relative; /* offsetParent for scrolling the active tab into view */
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.35);
+}
+
+.lily-settings-tabs.nav-tabs > li {
+  float: none;
+  flex: 0 0 auto;
+  margin-bottom: -1px;
+}
+
+.lily-settings-tabs.nav-tabs > li > a {
+  margin-right: 0;
+  padding: 10px 14px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+.lily-settings-tabs.nav-tabs > li > a:hover,
+.lily-settings-tabs.nav-tabs > li > a:focus {
+  background: rgba(127, 127, 127, 0.12);
+  border-bottom-color: rgba(127, 127, 127, 0.5);
+  opacity: 1;
+}
+
+.lily-settings-tabs.nav-tabs > li.active > a,
+.lily-settings-tabs.nav-tabs > li.active > a:hover,
+.lily-settings-tabs.nav-tabs > li.active > a:focus {
+  border: none;
+  border-bottom: 3px solid var(--color-secondary);
+  background: rgba(127, 127, 127, 0.12);
+  color: inherit;
+  opacity: 1;
+  font-weight: 600;
+}
+
+.lily-settings-tabs.nav-tabs > li > a:focus-visible {
+  outline: 2px solid var(--color-secondary);
+  outline-offset: -2px;
+}
+
+.lily-settings-panes > .tab-pane {
+  outline: none;
+}
+
+/* ---------- Sticky save bar ---------- */
+.lily-savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid rgba(127, 127, 127, 0.35);
+  border-radius: 6px 6px 0 0;
+  background: rgba(248, 248, 248, 0.96);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+}
+
+body.blur .lily-savebar {
+  background: rgba(21, 30, 38, 0.94);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.45);
+}
+
+.lily-savebar-primary {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-left: auto;
+}
+
+.lily-savebar-status {
+  font-size: small;
+  opacity: 0.85;
+}
+
+.lily-savebar-status:empty {
+  display: none;
+}
+
+.lily-btn-save.btn {
+  background-color: var(--color-secondary);
+  border-color: var(--color-secondary);
+  color: #fff;
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+.lily-btn-save.btn:hover,
+.lily-btn-save.btn:focus {
+  background-color: var(--color-secondary-hover, var(--color-secondary));
+  border-color: var(--color-secondary-hover, var(--color-secondary));
+  color: #fff;
+}
+
+.lily-btn-reset.btn {
+  background: transparent;
+  border: 1px solid #d9534f;
+  color: #d9534f;
+}
+
+.lily-btn-reset.btn:hover,
+.lily-btn-reset.btn:focus {
+  background: rgba(217, 83, 79, 0.15);
+  border-color: #d9534f;
+  color: #e8736f;
+}
+
+/* ---------- Form controls (replaces repeated inline styles) ---------- */
+.lily-settings input[type="checkbox"] {
+  accent-color: var(--color-secondary);
+}
+
+.lily-check-label {
+  padding-left: 10px;
+}
+
+.lily-check-label.is-disabled {
+  color: #888;
+  cursor: not-allowed;
+}
+
+.lily-input,
+.lily-select {
+  padding: 5px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background-color: #151e2680;
+}
+
+.lily-select-wide {
+  min-width: 200px;
+}
+
+.lily-input-xs { width: 80px; }
+.lily-input-sm { width: 100px; }
+.lily-input-md { width: 120px; }
+.lily-input-lg { width: 220px; }
+
+/* Inputs laid out in the flex rows of the duplicate sections */
+.lily-input-roomy {
+  padding: 1rem;
+  border: none;
+  margin-left: 1rem;
+}
+
+.lily-inline-header {
+  padding-right: 10px;
+  margin-bottom: 6px !important;
+  padding-bottom: 0 !important;
+}
+
+.lily-hint {
+  color: #bbbbbb;
+  margin-left: 10px;
+}
+
+.lily-hint-muted {
+  color: #888;
+  margin-left: 5px;
+}
+
+.lily-subrow {
+  margin-top: 10px;
+}
+
+.lily-subrow-label {
+  color: #bbbbbb;
+  margin-right: 10px;
+}
+
+.lily-mt-sm { margin-top: 10px; }
+.lily-mt { margin-top: 20px; }
+.lily-mt-lg { margin-top: 3rem; }
+
+.lily-info-text {
+  color: var(--color-info-text);
+}
+
+.lily-code {
+  color: var(--color-secondary);
+  background-color: #4e5254;
+}
+
+.lily-flex-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 2rem;
+}
+
+.lily-inset {
+  padding: 2rem 3rem;
+  background: #151e2680;
+}
+
+.cwa-settings-tip.lily-tip-danger {
+  background: #e74c3c57;
+  border-color: #e74c3c;
+  font-size: small;
+}
+
+.lily-token-warning {
+  margin: 15px 0;
+  padding: 12px;
+  background-color: rgba(255, 193, 7, 0.1);
+  border-left: 4px solid #ffc107;
+  border-radius: 4px;
+}
+
+/* ---------- Metadata field selection ---------- */
+.lily-panel {
+  margin-top: 20px;
+  padding: 2rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background-color: #1d28328a;
+}
+
+.lily-panel-title {
+  margin-bottom: 15px;
+  color: var(--color-text);
+}
+
+.lily-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 6px;
+  padding: 2rem;
+  margin-left: 1rem;
+}
+
+.lily-criteria-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+/* ---------- Format checkbox lists ---------- */
+.lily-format-grid {
+  max-width: 90rem;
+  padding-left: 30px;
+}
+
+.lily-format-option {
+  width: 75px;
+  padding-right: 6px;
+  display: inline-block !important;
+}
+
+.lily-format-option input[type="checkbox"] {
+  vertical-align: middle;
+  display: inline-block !important;
+}
+
+.lily-format-option span {
+  padding-left: 4px;
+  vertical-align: middle;
+}
+
+/* ---------- Metadata provider hierarchy ---------- */
+.lily-hierarchy-edge {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.lily-hierarchy-edge.is-bottom {
+  margin-top: 20px;
+  margin-bottom: 0;
+}
+
+.lily-hierarchy-arrow {
+  font-weight: 900;
+  color: #f8be03;
+}
+
+/* ---------- Duplicate format priority list ---------- */
+#format_priority_list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.lily-format-priority-row {
+  display: flex;
+  align-items: center;
+  padding: 6px 6px 6px 2rem;
+  margin-bottom: 8px;
+  background: #2a3441;
+  border: 1px solid #444;
+  border-radius: 6px;
+  cursor: move;
+  transition: all 0.2s;
+}
+
+.lily-format-priority-handle {
+  color: #ffc200;
+  margin-right: 15px;
+  font-size: 18px;
+}
+
+.lily-format-priority-name {
+  flex: 1;
+  color: white;
+  font-weight: 500;
+}
+
+.lily-format-priority-badge {
+  color: #4CAF50;
+  font-size: 13px;
+  padding: 4px 8px;
+  background: rgba(76, 160, 80, 0.1);
+  border-radius: 4px;
+}
+
+.lily-format-priority-error {
+  color: #e74c3c;
+  padding: 12px;
+}
+
+/* ---------- Small screens ---------- */
+@media (max-width: 767px) {
+  .lily-settings-nav,
+  .lily-savebar {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .lily-savebar {
+    padding: 0.75rem 1rem;
+  }
+
+  .lily-inset {
+    padding: 1.5rem;
+  }
+}
+
+/* ---------- Metadata provider widgets (moved from the inline <style> block) ---------- */
+.metadata-provider-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  margin: 5px 0;
+  background-color: #2a3441;
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: move;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.metadata-provider-item:hover {
+  background-color: #3a4451;
+}
+
+.metadata-provider-item.dragging {
+  opacity: 0.5;
+  background-color: #2a3441;
+  z-index: 1000;
+  transform: rotate(2deg);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.metadata-provider-drag-handle {
+  margin-right: 10px;
+  color: #ffc200;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.metadata-provider-name {
+  flex-grow: 1;
+  color: #fff;
+}
+
+.metadata-provider-disabled {
+  color: #888;
+  font-style: italic;
+}
+
+/* Prevent drag operations from affecting page styling */
+#metadata_provider_list_outer {
+  position: relative;
+  isolation: isolate;
+  contain: layout style;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding-inline: 30px;
+  background-color: #151e2680;
+  width: -webkit-fill-available;
+  padding-top: 20px;
+  padding-bottom: 10px;
+}
+
+/* Prevent dragover effects from affecting the page */
+body.drag-active {
+  overflow: hidden;
+}
+
+/* Completely override any browser drag effects */
+.metadata-provider-item::-webkit-drag-placeholder {
+  opacity: 0 !important;
+}
+
+.metadata-provider-item:-moz-drag-over {
+  background-color: transparent !important;
+}
+
+/* Prevent any global styles from being affected during drag */
+body:has(.metadata-provider-item.dragging) {
+  filter: none !important;
+  backdrop-filter: none !important;
+  opacity: 1 !important;
+}
+
+/* Ensure drag doesn't affect parent containers */
+.discover,
+.settings-container {
+  filter: none !important;
+  backdrop-filter: none !important;
+  opacity: 1 !important;
+}
+
+.metadata-provider-item * {
+  pointer-events: none;
+}
+
+div#metadata_provider_enabled_list {
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 10px;
+  background-color: #151e2680;
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 12px;
+}
+
+div#metadata_provider_enabled_list > div > input {
+  margin: 5px;
+}
+div#metadata_provider_enabled_list > div > label {
+  padding: 4px;
+  margin-bottom: 0px;
+  margin-left: 10px;
+}
+
+.provider_enable_item {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    margin: 4px 0px;
+    background-color: rgba(21, 30, 38, 0.5);
+    border-radius: 4px;
+    flex-basis: calc(50% - 6px);
+}
+

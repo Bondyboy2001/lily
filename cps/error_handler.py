@@ -5,9 +5,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+import secrets
 import traceback
 
 from flask import render_template
+from .cw_login import current_user
 from werkzeug.exceptions import default_exceptions
 try:
     from werkzeug.exceptions import FailedDependency
@@ -22,7 +24,7 @@ log = logger.create()
 # custom error page
 
 def error_http(error):
-    headers = {'WWW-Authenticate': f'Basic realm="{config.config_calibre_web_title or "calibre-web-automated"}"'} if error.code == 401 else {}
+    headers = {'WWW-Authenticate': f'Basic realm="{config.config_calibre_web_title or "lily"}"'} if error.code == 401 else {}
     return render_template('http_error.html',
                            error_code="Error {0}".format(error.code),
                            error_name=error.name,
@@ -32,14 +34,25 @@ def error_http(error):
                            ), error.code, headers
 
 
+def _is_admin():
+    # current_user may be unavailable (no request/app context, broken user DB, anonymous proxy, ...)
+    try:
+        return bool(current_user and current_user.is_authenticated and current_user.role_admin())
+    except Exception:
+        return False
+
+
 def internal_error(error):
+    error_id = secrets.token_hex(4)
+    stack = traceback.format_exc()
+    log.error("Internal server error [error id %s]:\n%s", error_id, stack)
     return render_template('http_error.html',
                            error_code="500 Internal Server Error",
-                           error_name='The server encountered an internal error and was unable to complete your '
-                                      'request. There is an error in the application.',
+                           error_name='Something went wrong on our side and the request could not be completed.',
                            issue=True,
                            unconfigured=False,
-                           error_stack=traceback.format_exc().split("\n"),
+                           error_id=error_id,
+                           error_stack=stack.split("\n") if _is_admin() else [],
                            instance=config.config_calibre_web_title
                            ), 500
 

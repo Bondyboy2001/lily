@@ -11,12 +11,12 @@
 {%- endmacro %}
 
 {% macro series(series, alt=None) -%}
-    {%- set image_alt = alt if alt else image_title -%}
+    {%- set image_alt = alt if alt else (series.name if series.name else _('Series cover')) -%}
     {% set srcset = series|get_series_srcset %}
     <img
         srcset="{{ srcset }}"
         src="{{ url_for('web.get_series_cover', series_id=series.id, resolution='og', c='day'|cache_timestamp) }}"
-        alt="{{ title }}"
+        alt="{{ image_alt }}"
         loading="lazy"
     />
 {%- endmacro %}

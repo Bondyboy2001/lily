@@ -1,0 +1,786 @@
+/*
+ * Lily light theme
+ *
+ * caliBlur (dark) stays the base stylesheet. This file only applies when <html data-theme="light">,
+ * which is set by the inline script in layout.html <head> from the user's choice
+ * (dark / light / system, stored in localStorage under "lily-theme").
+ *
+ * caliBlur hard-codes most of its colours (often with !important and very long selectors), so the
+ * overrides below lean on !important. Colours are defined once as custom properties.
+ */
+
+html[data-theme="light"] {
+    color-scheme: light;
+    --lily-bg: #f5f2ed;
+    --lily-bg-2: #ebe5dc;
+    --lily-surface: #ffffff;
+    --lily-surface-2: #f8f5f0;
+    --lily-surface-hover: #efe9e0;
+    --lily-border: #dcd4c8;
+    --lily-border-strong: #c5bbad;
+    --lily-text: #2b2723;
+    --lily-text-muted: #6b6259;
+    --lily-text-faint: #8d847a;
+    --lily-link: #a3500b;
+    --lily-link-hover: #7c3c06;
+    --lily-accent: #c0661a;
+    --lily-accent-hover: #a3500b;
+    --lily-accent-text: #ffffff;
+    --lily-shadow: 0 1px 3px rgba(60, 45, 30, .12), 0 4px 14px rgba(60, 45, 30, .08);
+
+    /* caliBlur's own variables */
+    --color-background: var(--lily-bg);
+    --color-background-mobile: var(--lily-bg);
+    --color-primary: #a3500b;
+    --color-secondary: #c0661a;
+    --color-secondary-hover: #a3500b;
+}
+
+html[data-theme="dark"] {
+    color-scheme: dark;
+}
+
+/* ---- Theme toggle icon: show the icon for the current preference ---- */
+#cwa-switch-theme .lily-theme-icon {
+    display: none;
+    vertical-align: middle;
+}
+html:not([data-theme-pref]) #cwa-switch-theme .lily-theme-icon-dark,
+html[data-theme-pref="dark"] #cwa-switch-theme .lily-theme-icon-dark,
+html[data-theme-pref="light"] #cwa-switch-theme .lily-theme-icon-light,
+html[data-theme-pref="system"] #cwa-switch-theme .lily-theme-icon-system {
+    display: inline-block;
+}
+
+/* ================================================================== */
+/* Page background and base text                                       */
+/* ================================================================== */
+html[data-theme="light"],
+html[data-theme="light"] body,
+html[data-theme="light"] body:not(.read-frame) {
+    background: var(--lily-bg) !important;
+    background-image: none !important;
+    color: var(--lily-text) !important;
+    scrollbar-color: rgba(0, 0, 0, .25) transparent;
+}
+html[data-theme="light"] body.blur:before,
+html[data-theme="light"] body:before {
+    background: none !important;
+}
+html[data-theme="light"] h1, html[data-theme="light"] h2, html[data-theme="light"] h3,
+html[data-theme="light"] h4, html[data-theme="light"] h5, html[data-theme="light"] h6,
+html[data-theme="light"] body h2,
+html[data-theme="light"] label,
+html[data-theme="light"] legend,
+html[data-theme="light"] p,
+html[data-theme="light"] dt, html[data-theme="light"] dd,
+html[data-theme="light"] th, html[data-theme="light"] td,
+html[data-theme="light"] .col-sm-10,
+html[data-theme="light"] .container-fluid {
+    color: var(--lily-text);
+}
+html[data-theme="light"] body.blur .row-fluid .col-sm-10 {
+    background: transparent !important;
+}
+html[data-theme="light"] a {
+    color: var(--lily-link);
+}
+html[data-theme="light"] a:hover,
+html[data-theme="light"] a:focus {
+    color: var(--lily-link-hover);
+}
+html[data-theme="light"] .text-muted,
+html[data-theme="light"] .settings-explanation,
+html[data-theme="light"] .help-block {
+    color: var(--lily-text-muted) !important;
+}
+html[data-theme="light"] hr {
+    border-color: var(--lily-border);
+}
+html[data-theme="light"] code {
+    color: #9c2c5a;
+    background-color: #f3e9ee;
+}
+html[data-theme="light"] pre {
+    color: var(--lily-text);
+    background-color: var(--lily-surface-2);
+    border-color: var(--lily-border);
+}
+
+/* ================================================================== */
+/* Top navbar                                                          */
+/* ================================================================== */
+html[data-theme="light"] .navbar-default,
+html[data-theme="light"] body > div.navbar.navbar-default.navbar-static-top {
+    background: var(--lily-surface) !important;
+    border-bottom: 1px solid var(--lily-border) !important;
+    box-shadow: 0 1px 4px rgba(60, 45, 30, .06);
+}
+html[data-theme="light"] .navbar-default .navbar-brand,
+html[data-theme="light"] body > div.navbar.navbar-default.navbar-static-top > div > div.navbar-header > a {
+    background: var(--lily-surface-2) !important;
+    color: var(--lily-link) !important;
+    border-right: 1px solid var(--lily-border);
+}
+html[data-theme="light"] .navbar-default .navbar-nav > li > a,
+html[data-theme="light"] .navbar-default .navbar-nav > li > a:before,
+html[data-theme="light"] .navbar-default .navbar-nav > li > a .glyphicon,
+html[data-theme="light"] .navbar-default .navbar-nav > li > a .glyphicon:before,
+html[data-theme="light"] #main-nav > li > a,
+html[data-theme="light"] #main-nav > li > a > span,
+html[data-theme="light"] #main-nav > li > a > span:before,
+html[data-theme="light"] #main-nav .btn-file:before,
+html[data-theme="light"] #form-upload .form-group .btn:before,
+html[data-theme="light"] .home-btn > a,
+html[data-theme="light"] .home-btn > a:before,
+html[data-theme="light"] .plexBack > a,
+html[data-theme="light"] .plexBack > a:before,
+html[data-theme="light"] .profileDrop,
+html[data-theme="light"] .profileDrop:before,
+html[data-theme="light"] .profileDrop .glyphicon:before,
+html[data-theme="light"] #advanced_search,
+html[data-theme="light"] #advanced_search > span,
+html[data-theme="light"] #advanced_search > span:before {
+    color: var(--lily-text-muted) !important;
+}
+html[data-theme="light"] .navbar-default .navbar-nav > li > a:hover,
+html[data-theme="light"] .navbar-default .navbar-nav > li > a:focus,
+html[data-theme="light"] .navbar-default .navbar-nav > li > a:hover:before,
+html[data-theme="light"] #main-nav > li > a:hover > span,
+html[data-theme="light"] #main-nav > li > a:hover > span:before,
+html[data-theme="light"] .home-btn > a:hover:before,
+html[data-theme="light"] .plexBack > a:hover:before,
+html[data-theme="light"] #advanced_search:hover,
+html[data-theme="light"] #advanced_search:hover > span {
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .navbar-default .navbar-nav > .open > a,
+html[data-theme="light"] .navbar-default .navbar-nav > .open > a:hover,
+html[data-theme="light"] .navbar-default .navbar-nav > .open > a:focus {
+    background: var(--lily-surface-hover) !important;
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .navbar-default .navbar-toggle .icon-bar {
+    background-color: var(--lily-text-muted);
+}
+html[data-theme="light"] .navbar-form .form-control,
+html[data-theme="light"] #query,
+html[data-theme="light"] input#query {
+    background-color: var(--lily-surface-2) !important;
+    color: var(--lily-text) !important;
+    border: 1px solid var(--lily-border) !important;
+}
+html[data-theme="light"] #query::placeholder {
+    color: var(--lily-text-faint) !important;
+}
+html[data-theme="light"] form[role="search"] .input-group-btn .btn,
+html[data-theme="light"] form[role="search"] .input-group-btn .btn:before,
+html[data-theme="light"] form[role="search"]:before,
+html[data-theme="light"] body > div.navbar.navbar-default.navbar-static-top > div > form:before {
+    color: var(--lily-text-muted) !important;
+    background: transparent !important;
+}
+
+/* Upload button: caliBlur hides the text and draws an icon; keep it transparent */
+html[data-theme="light"] #main-nav .btn-file,
+html[data-theme="light"] #main-nav .btn-file:hover {
+    background: transparent !important;
+    border: none !important;
+    color: transparent !important;
+    box-shadow: none !important;
+}
+html[data-theme="light"] #main-nav .btn-file:after {
+    background-color: var(--lily-surface-2) !important;
+}
+/* Profile avatar icon is a white SVG background image */
+html[data-theme="light"] .profileDrop .glyphicon-user:before,
+html[data-theme="light"] #top_user .glyphicon-user:before {
+    filter: invert(1) brightness(.45);
+}
+html[data-theme="light"] .profileDrop:after,
+html[data-theme="light"] .profileDrop .caret {
+    color: var(--lily-text-muted) !important;
+    border-top-color: var(--lily-text-muted) !important;
+}
+
+/* ================================================================== */
+/* Sidebar                                                             */
+/* ================================================================== */
+html[data-theme="light"] .col-sm-2,
+html[data-theme="light"] body > div.container-fluid > div > div.col-sm-2 {
+    background: var(--lily-surface-2) !important;
+    border-right: 1px solid var(--lily-border);
+}
+html[data-theme="light"] .navigation li a,
+html[data-theme="light"] .navigation li a span,
+html[data-theme="light"] .navigation li a .glyphicon,
+html[data-theme="light"] .navigation li a .glyphicon:before,
+html[data-theme="light"] .navigation .create-shelf a,
+html[data-theme="light"] .navigation .create-shelf a:before {
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .navigation .nav-head,
+html[data-theme="light"] .navigation li.nav-head {
+    color: var(--lily-text-faint) !important;
+}
+html[data-theme="light"] .navigation li:hover,
+html[data-theme="light"] .navigation li a:hover {
+    background: var(--lily-surface-hover) !important;
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .navigation li.active,
+html[data-theme="light"] .navigation li.active a {
+    background: var(--lily-bg-2) !important;
+    color: var(--lily-link) !important;
+}
+html[data-theme="light"] .navigation li.active a:before,
+html[data-theme="light"] .navigation li.active a .glyphicon:before {
+    color: var(--lily-link) !important;
+}
+html[data-theme="light"] .navigation li.nav-head:hover {
+    background: transparent !important;
+}
+
+/* ================================================================== */
+/* Page header bar, sort toolbar, pagination                           */
+/* ================================================================== */
+html[data-theme="light"] .discover > h2,
+html[data-theme="light"] .col-sm-10 > h2,
+html[data-theme="light"] .col-sm-10 > div > h2,
+html[data-theme="light"] body > div.container-fluid > div > div.col-sm-10 > div.discover > h2,
+html[data-theme="light"] body > div.container-fluid > div > div.col-sm-10 > div.discover > h1 {
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] #scnd-nav:after,
+html[data-theme="light"] .col-sm-10 .discover > h2,
+html[data-theme="light"] .col-sm-10 > h2,
+html[data-theme="light"] .col-sm-10 > h1,
+html[data-theme="light"] .col-sm-2:after,
+html[data-theme="light"] body > div.container-fluid > div > div.col-sm-2:after,
+html[data-theme="light"] .col-sm-10:before,
+html[data-theme="light"] body > div.container-fluid > div.row-fluid > div.col-sm-10:before {
+    background: var(--lily-surface) !important;
+    border-bottom: 1px solid var(--lily-border);
+}
+html[data-theme="light"] .shelf-actions,
+html[data-theme="light"] .filterheader,
+html[data-theme="light"] .well {
+    background: var(--lily-surface) !important;
+    border: 1px solid var(--lily-border) !important;
+    box-shadow: var(--lily-shadow);
+    color: var(--lily-text);
+}
+html[data-theme="light"] .pagination > li > a,
+html[data-theme="light"] .pagination > li > span {
+    background-color: var(--lily-surface) !important;
+    color: var(--lily-text) !important;
+    border: 1px solid var(--lily-border) !important;
+}
+html[data-theme="light"] .pagination > li > a:hover,
+html[data-theme="light"] .pagination > li > a:focus {
+    background-color: var(--lily-surface-hover) !important;
+}
+html[data-theme="light"] .pagination > li.active > a,
+html[data-theme="light"] .pagination > li.active > a:hover {
+    background-color: var(--lily-accent) !important;
+    border-color: var(--lily-accent) !important;
+    color: var(--lily-accent-text) !important;
+}
+html[data-theme="light"] body > div.container-fluid > div > div.col-sm-10 > .pagination > .page-next > a,
+html[data-theme="light"] body > div.container-fluid > div > div.col-sm-10 > .pagination > .page-previous > a {
+    background: transparent !important;
+    border: none !important;
+    color: transparent !important;
+}
+html[data-theme="light"] body > div.container-fluid > div > div.col-sm-10 > .pagination > .page-next > a:before,
+html[data-theme="light"] body > div.container-fluid > div > div.col-sm-10 > .pagination > .page-previous > a:before {
+    color: var(--lily-text-muted) !important;
+}
+html[data-theme="light"] body > div.container-fluid > div > div.col-sm-10 > .pagination > .page-next > a:hover:before,
+html[data-theme="light"] body > div.container-fluid > div > div.col-sm-10 > .pagination > .page-previous > a:hover:before {
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .pagination .page-jump-menu {
+    background-color: var(--lily-surface) !important;
+    border-color: var(--lily-border) !important;
+}
+
+/* ================================================================== */
+/* Buttons                                                             */
+/* ================================================================== */
+html[data-theme="light"] .btn-default,
+html[data-theme="light"] .btn-primary:not(.active):not(.btn-lily-keep) {
+    background-color: var(--lily-surface) !important;
+    color: var(--lily-text) !important;
+    border: 1px solid var(--lily-border-strong) !important;
+}
+html[data-theme="light"] .btn-default:hover,
+html[data-theme="light"] .btn-default:focus,
+html[data-theme="light"] .btn-primary:not(.active):hover,
+html[data-theme="light"] .btn-primary:not(.active):focus {
+    background-color: var(--lily-surface-hover) !important;
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .btn-primary.active,
+html[data-theme="light"] .btn-success,
+html[data-theme="light"] .btn-info {
+    color: var(--lily-accent-text) !important;
+}
+html[data-theme="light"] .btn.disabled,
+html[data-theme="light"] .btn[disabled] {
+    opacity: .55;
+}
+
+/* ================================================================== */
+/* Book grid                                                           */
+/* ================================================================== */
+html[data-theme="light"] .book .meta .title,
+html[data-theme="light"] .book .meta .title a,
+html[data-theme="light"] .book .meta p.title,
+html[data-theme="light"] .book .meta .series,
+html[data-theme="light"] .book .meta .series a {
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .book .meta .author,
+html[data-theme="light"] .book .meta .author a,
+html[data-theme="light"] .book .meta .author .author-name,
+html[data-theme="light"] .book .meta .publisher,
+html[data-theme="light"] .book .meta .publishing-date,
+html[data-theme="light"] .book .meta .rating {
+    color: var(--lily-text-muted) !important;
+}
+html[data-theme="light"] .book .cover img {
+    box-shadow: 0 2px 8px rgba(60, 45, 30, .25) !important;
+}
+html[data-theme="light"] .book .cover .badge {
+    color: #fff;
+}
+html[data-theme="light"] .authorlist a, html[data-theme="light"] .catlist a,
+html[data-theme="light"] .langlist a, html[data-theme="light"] .serieslist a,
+html[data-theme="light"] .container .col-xs-12 a,
+html[data-theme="light"] .container .col-sm-6 a {
+    color: var(--lily-text);
+}
+
+/* ================================================================== */
+/* Book detail                                                         */
+/* ================================================================== */
+html[data-theme="light"] .single,
+html[data-theme="light"] .single .author,
+html[data-theme="light"] .single .author a,
+html[data-theme="light"] .single h2,
+html[data-theme="light"] .single h3,
+html[data-theme="light"] .single p,
+html[data-theme="light"] .single .description,
+html[data-theme="light"] .single .comments,
+html[data-theme="light"] .single .book-meta,
+html[data-theme="light"] .book-meta > div,
+html[data-theme="light"] .book-meta > p,
+html[data-theme="light"] .book-meta a,
+html[data-theme="light"] .book-meta span,
+html[data-theme="light"] .book-meta .tags,
+html[data-theme="light"] .book-meta .identifiers,
+html[data-theme="light"] .book-meta .languages,
+html[data-theme="light"] .book-meta .publishers,
+html[data-theme="light"] .book-meta .publishing-date {
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .book-meta a:hover,
+html[data-theme="light"] .single .author a:hover {
+    color: var(--lily-link) !important;
+}
+html[data-theme="light"] .book-meta .btn,
+html[data-theme="light"] .single .btn-group > .btn {
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .single .btn-toolbar .btn,
+html[data-theme="light"] .single .btn-toolbar .btn:before {
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .tags .label, html[data-theme="light"] .tags a .label,
+html[data-theme="light"] .identifiers .label, html[data-theme="light"] .book-meta .label {
+    background-color: var(--lily-bg-2) !important;
+    color: var(--lily-text) !important;
+}
+
+/* Detail page backdrop: caliBlur paints a heavily blurred copy of the cover on a dark base */
+html[data-theme="light"] .blur-wrapper {
+    background-color: var(--lily-bg) !important;
+}
+html[data-theme="light"] .blur-wrapper:after {
+    opacity: .25;
+}
+html[data-theme="light"] img.bg-blur {
+    opacity: .35 !important;
+    filter: blur(125px) saturate(1.2) brightness(1.15) !important;
+}
+html[data-theme="light"] .book-detail-card {
+    background-color: rgba(255, 255, 255, .82) !important;
+    border: 1px solid var(--lily-border);
+    box-shadow: var(--lily-shadow);
+}
+html[data-theme="light"] .meta-chip {
+    background-color: var(--lily-surface-2) !important;
+    border: 1px solid var(--lily-border);
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .meta-pill {
+    background-color: var(--lily-bg-2) !important;
+    color: var(--lily-text) !important;
+    border-color: var(--lily-border-strong) !important;
+}
+html[data-theme="light"] .book-detail-card .glyphicon-trash,
+html[data-theme="light"] .book-detail-card .glyphicon-tags {
+    color: var(--lily-text-muted) !important;
+}
+html[data-theme="light"] #detailcover {
+    box-shadow: 0 4px 18px rgba(60, 45, 30, .3) !important;
+}
+
+/* Section cards used by profile / settings / admin / stats / duplicates pages */
+html[data-theme="light"] .profile-header-container,
+html[data-theme="light"] .settings-container,
+html[data-theme="light"] .settings-container > div,
+html[data-theme="light"] .metric-card,
+html[data-theme="light"] .chart-container,
+html[data-theme="light"] .date-range-picker,
+html[data-theme="light"] .bulk-actions,
+html[data-theme="light"] .scheduled_tasks_details,
+html[data-theme="light"] body.admin .col-sm-10 .col-xs-12.col-sm-6 {
+    background-color: var(--lily-surface) !important;
+    color: var(--lily-text) !important;
+    border-color: var(--lily-border) !important;
+}
+html[data-theme="light"] .profile-header-container,
+html[data-theme="light"] .settings-container,
+html[data-theme="light"] .metric-card,
+html[data-theme="light"] .chart-container {
+    border: 1px solid var(--lily-border) !important;
+    box-shadow: var(--lily-shadow);
+}
+html[data-theme="light"] .settings-container .settings-container,
+html[data-theme="light"] .settings-container > div .settings-container {
+    background-color: var(--lily-surface-2) !important;
+    box-shadow: none;
+}
+html[data-theme="light"] .opds-order-item {
+    background-color: var(--lily-surface-2) !important;
+    color: var(--lily-text) !important;
+    border: 1px solid var(--lily-border) !important;
+}
+html[data-theme="light"] .lily-savebar {
+    background-color: rgba(255, 255, 255, .96) !important;
+    color: var(--lily-text) !important;
+    border-top: 1px solid var(--lily-border) !important;
+}
+html[data-theme="light"] .settings-explanation,
+html[data-theme="light"] p.settings-explanation {
+    background-color: #f7efd9 !important;
+}
+html[data-theme="light"] .table > thead > tr > th,
+html[data-theme="light"] body.admin th {
+    background-color: var(--lily-surface-2) !important;
+}
+html[data-theme="light"] body.admin .col-sm-10 h1,
+html[data-theme="light"] body.admin .col-sm-10 h2,
+html[data-theme="light"] body.config .col-sm-10 h2 {
+    background-color: transparent !important;
+    border-bottom: 1px solid var(--lily-border) !important;
+}
+/* Default avatar placeholder is a white glyph: give it a tinted disc */
+html[data-theme="light"] .profile-picture {
+    background-color: #b9ae9f !important;
+}
+/* Star ratings */
+html[data-theme="light"] .glyphicon-star-empty,
+html[data-theme="light"] .rating-input .glyphicon-star-empty,
+html[data-theme="light"] .rating .glyphicon-star-empty {
+    color: var(--lily-border-strong) !important;
+}
+html[data-theme="light"] .glyphicon-star.good,
+html[data-theme="light"] .rating-input .glyphicon-star {
+    color: #d99a00 !important;
+}
+
+/* ================================================================== */
+/* Forms                                                               */
+/* ================================================================== */
+html[data-theme="light"] .form-control,
+html[data-theme="light"] input[type="text"],
+html[data-theme="light"] input[type="email"],
+html[data-theme="light"] input[type="password"],
+html[data-theme="light"] input[type="number"],
+html[data-theme="light"] input[type="url"],
+html[data-theme="light"] input[type="search"],
+html[data-theme="light"] input[type="date"],
+html[data-theme="light"] textarea,
+html[data-theme="light"] select {
+    background-color: var(--lily-surface) !important;
+    color: var(--lily-text) !important;
+    border: 1px solid var(--lily-border-strong) !important;
+    box-shadow: none;
+}
+html[data-theme="light"] .form-control:focus,
+html[data-theme="light"] input:focus,
+html[data-theme="light"] textarea:focus,
+html[data-theme="light"] select:focus {
+    border-color: var(--lily-accent) !important;
+    box-shadow: 0 0 0 3px rgba(192, 102, 26, .18) !important;
+}
+html[data-theme="light"] .form-control::placeholder,
+html[data-theme="light"] input::placeholder,
+html[data-theme="light"] textarea::placeholder {
+    color: var(--lily-text-faint) !important;
+}
+html[data-theme="light"] .form-control[disabled],
+html[data-theme="light"] .form-control[readonly] {
+    background-color: var(--lily-surface-2) !important;
+    color: var(--lily-text-muted) !important;
+}
+html[data-theme="light"] .input-group-addon,
+html[data-theme="light"] .input-group-btn > .btn {
+    background-color: var(--lily-surface-2) !important;
+    color: var(--lily-text) !important;
+    border-color: var(--lily-border-strong) !important;
+}
+html[data-theme="light"] .bootstrap-select > .dropdown-toggle,
+html[data-theme="light"] .bootstrap-select .filter-option {
+    background-color: var(--lily-surface) !important;
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .checkbox label, html[data-theme="light"] .radio label {
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .panel,
+html[data-theme="light"] .panel-default {
+    background-color: var(--lily-surface) !important;
+    border-color: var(--lily-border) !important;
+    color: var(--lily-text);
+}
+html[data-theme="light"] .panel-heading,
+html[data-theme="light"] .panel-default > .panel-heading,
+html[data-theme="light"] .panel-title,
+html[data-theme="light"] .panel-title > a,
+html[data-theme="light"] .panel-body {
+    background-color: var(--lily-surface-2) !important;
+    color: var(--lily-text) !important;
+    border-color: var(--lily-border) !important;
+}
+html[data-theme="light"] .panel-body {
+    background-color: var(--lily-surface) !important;
+}
+
+/* ================================================================== */
+/* Dropdowns, tooltips, modals                                         */
+/* ================================================================== */
+html[data-theme="light"] .dropdown-menu {
+    background-color: var(--lily-surface) !important;
+    border: 1px solid var(--lily-border) !important;
+    box-shadow: var(--lily-shadow) !important;
+}
+html[data-theme="light"] .dropdown-menu > li > a,
+html[data-theme="light"] .dropdown-menu > li > a > span,
+html[data-theme="light"] .dropdown-menu > li > a:before,
+html[data-theme="light"] .dropdown-menu > li > a .glyphicon:before,
+html[data-theme="light"] .dropdown-header {
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .dropdown-menu > li > a:hover,
+html[data-theme="light"] .dropdown-menu > li > a:focus {
+    background-color: var(--lily-surface-hover) !important;
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .dropdown-menu > .active > a,
+html[data-theme="light"] .dropdown-menu > .active > a:hover {
+    background-color: var(--lily-accent) !important;
+    color: var(--lily-accent-text) !important;
+}
+html[data-theme="light"] .dropdown-menu .divider {
+    background-color: var(--lily-border) !important;
+}
+html[data-theme="light"] .tooltip-inner {
+    background-color: #3a342e !important;
+    color: #fff !important;
+}
+html[data-theme="light"] .modal-backdrop.in {
+    opacity: .35;
+}
+html[data-theme="light"] .modal-content,
+html[data-theme="light"] #bookDetailsModal .modal-content {
+    background-color: var(--lily-surface) !important;
+    color: var(--lily-text) !important;
+    border: 1px solid var(--lily-border) !important;
+    box-shadow: 0 10px 40px rgba(40, 30, 20, .25) !important;
+}
+html[data-theme="light"] .modal-header,
+html[data-theme="light"] .modal-footer {
+    background-color: var(--lily-surface-2) !important;
+    border-color: var(--lily-border) !important;
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .modal-title,
+html[data-theme="light"] .modal-body,
+html[data-theme="light"] .modal-body p,
+html[data-theme="light"] .modal-body label {
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .close,
+html[data-theme="light"] .modal-header .close {
+    color: var(--lily-text) !important;
+    text-shadow: none;
+    opacity: .6;
+}
+html[data-theme="light"] .close:hover {
+    opacity: 1;
+}
+
+/* ================================================================== */
+/* Tables                                                              */
+/* ================================================================== */
+html[data-theme="light"] .table,
+html[data-theme="light"] .table > thead > tr > th,
+html[data-theme="light"] .table > tbody > tr > td,
+html[data-theme="light"] .table > tbody > tr > th {
+    color: var(--lily-text) !important;
+    border-color: var(--lily-border) !important;
+}
+html[data-theme="light"] .table > thead > tr > th,
+html[data-theme="light"] .bootstrap-table .fixed-table-container thead th {
+    background-color: var(--lily-surface-2) !important;
+}
+html[data-theme="light"] .table > tbody > tr,
+html[data-theme="light"] .table > tbody > tr > td {
+    background-color: var(--lily-surface) !important;
+}
+html[data-theme="light"] .table-striped > tbody > tr:nth-of-type(odd) > td,
+html[data-theme="light"] .table-striped > tbody > tr:nth-of-type(odd) {
+    background-color: var(--lily-surface-2) !important;
+}
+html[data-theme="light"] .table-hover > tbody > tr:hover > td {
+    background-color: var(--lily-surface-hover) !important;
+}
+html[data-theme="light"] .fixed-table-container,
+html[data-theme="light"] .bootstrap-table .fixed-table-container {
+    border-color: var(--lily-border) !important;
+}
+
+/* ================================================================== */
+/* Alerts / flash messages                                             */
+/* ================================================================== */
+html[data-theme="light"] .alert-info,
+html[data-theme="light"] .alert-cwa,
+html[data-theme="light"] .refresh-cwa {
+    background-color: #e8f1f7 !important;
+    border: 1px solid #b9d3e6 !important;
+    color: #1e3f57 !important;
+}
+html[data-theme="light"] .alert-success {
+    background-color: #e7f4ea !important;
+    border: 1px solid #b6dcbf !important;
+    color: #1f4d2b !important;
+}
+html[data-theme="light"] .alert-warning {
+    background-color: #fdf3e1 !important;
+    border: 1px solid #efd29a !important;
+    color: #5c4210 !important;
+}
+html[data-theme="light"] .alert-danger {
+    background-color: #fbe9e7 !important;
+    border: 1px solid #efbdb5 !important;
+    color: #6b2016 !important;
+}
+html[data-theme="light"] .alert a {
+    color: inherit !important;
+    text-decoration: underline;
+}
+html[data-theme="light"] .alert .close {
+    color: inherit !important;
+}
+
+/* ================================================================== */
+/* Misc shared widgets                                                 */
+/* ================================================================== */
+html[data-theme="light"] #loader {
+    background: rgba(245, 242, 237, .92) !important;
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .nav-tabs {
+    border-color: var(--lily-border) !important;
+}
+html[data-theme="light"] .nav-tabs > li > a {
+    color: var(--lily-text-muted) !important;
+}
+html[data-theme="light"] .nav-tabs > li.active > a,
+html[data-theme="light"] .nav-tabs > li.active > a:hover,
+html[data-theme="light"] .nav-tabs > li.active > a:focus {
+    background-color: var(--lily-surface) !important;
+    color: var(--lily-text) !important;
+    border-color: var(--lily-border) var(--lily-border) transparent !important;
+}
+html[data-theme="light"] .progress {
+    background-color: var(--lily-bg-2) !important;
+}
+html[data-theme="light"] .duplicate-notification-modal {
+    background: var(--lily-surface) !important;
+    color: var(--lily-text) !important;
+    border: 1px solid var(--lily-border);
+}
+html[data-theme="light"] .duplicate-notification-modal h3,
+html[data-theme="light"] .duplicate-preview-list,
+html[data-theme="light"] .duplicate-preview-list li {
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .duplicate-notification-btn-secondary {
+    background: var(--lily-surface-2) !important;
+    color: var(--lily-text) !important;
+    border: 1px solid var(--lily-border-strong) !important;
+}
+html[data-theme="light"] .duplicate-notification-backdrop {
+    background: rgba(40, 30, 20, .35) !important;
+}
+
+/* Quick-action buttons on cover hover keep their dark chip look (they sit on top of cover art). */
+html[data-theme="light"] .read-toggle-btn,
+html[data-theme="light"] .edit-metadata-btn,
+html[data-theme="light"] .send-ereader-btn {
+    color: #fff !important;
+}
+
+/* ================================================================== */
+/* Catch-all for text that caliBlur hard-codes as white inside the     */
+/* main content column (headings, labels, CWA/Lily page widgets).      */
+/* The long prefix gives enough specificity to beat caliBlur's rules.  */
+/* ================================================================== */
+html[data-theme="light"] body div.container-fluid div.row-fluid div.col-sm-10 :is(h1, h2, h3, h4, h6, p, label, legend, li, dt, dd, td, th, em, strong, small):not(.btn):not(.label):not(.badge):not(.btn *):not(.label *):not(.badge *):not(.cover *) {
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] body div.container-fluid div.row-fluid div.col-sm-10 h5 {
+    color: var(--lily-link) !important;
+}
+html[data-theme="light"] .chart-title,
+html[data-theme="light"] .opds-order-label,
+html[data-theme="light"] .cwa-settings-tooltip,
+html[data-theme="light"] .top-item-name,
+html[data-theme="light"] a.session,
+html[data-theme="light"] .demo-toggle {
+    color: var(--lily-text) !important;
+}
+html[data-theme="light"] .demo-toggle {
+    background-color: var(--lily-surface) !important;
+    border: 1px solid var(--lily-border-strong) !important;
+}
+html[data-theme="light"] .opds-order-drag-handle {
+    color: var(--lily-accent) !important;
+}
+html[data-theme="light"] .close > span,
+html[data-theme="light"] .alert .close > span {
+    color: inherit !important;
+}
+html[data-theme="light"] .badge {
+    background-color: var(--lily-text-muted);
+    color: #fff !important;
+}
+html[data-theme="light"] .col-sm-10 .text-muted,
+html[data-theme="light"] body div.container-fluid div.row-fluid div.col-sm-10 .settings-explanation {
+    color: var(--lily-text-muted) !important;
+}

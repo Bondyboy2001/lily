@@ -325,8 +325,15 @@ $(function() {
         });
     }
 
+    var updateTimerInFlight = false;
     function updateTimer() {
         var no_response = 0;
+        // Avoid overlapping status requests; the interval keeps running so the
+        // next tick still picks up completion.
+        if (updateTimerInFlight) {
+            return;
+        }
+        updateTimerInFlight = true;
         $.ajax({
             dataType: "json",
             url: getPath() + "/get_updater_status",
@@ -343,6 +350,9 @@ $(function() {
                     $("#DialogContent").html(updateText[11]);
                     cleanUp();
                 }
+            },
+            complete: function() {
+                updateTimerInFlight = false;
             },
             timeout: 2000
         });
@@ -409,44 +419,21 @@ $(function() {
         layoutMode : selectedLayoutMode
     });
 
-    // Only initialize Infinite Scroll if pagination is NOT present
-    if ($(".load-more").length && $(".next").length && $(".pagination").length === 0) {
-        var $loadMore = $(".load-more .row").infiniteScroll({
-            debug: false,
-            // selector for the paged navigation (it will be hidden)
-            path : ".next",
-            // selector for the NEXT link (to page 2)
-            append : ".load-more .book"
-            //animate      : true, # ToDo: Reenable function
-            //extraScrollPx: 300
-        });
-        $loadMore.on( "append.infiniteScroll", function( event, response, path, data ) {
-            $(".pagination").addClass("hidden").html(() => $(response).find(".pagination").html());
-            if ($("body").hasClass("blur")) {
-                $(" a:not(.dropdown-toggle) ")
-                  .removeAttr("data-toggle");
-            }
-            $(".load-more .row").isotope( "appended", $(data), null );
-
-            // Disable infinite scroll if no .next link exists (last page)
-            if (!$(response).find(".next").length) {
-                $loadMore.infiniteScroll('destroy');
-            }
-        });
-
-        // fix for infinite scroll on CaliBlur Theme (#981)
-        if ($("body").hasClass("blur")) {
-            $(".col-sm-10").bind("scroll", function () {
-                if (
-                    $(this).scrollTop() + $(this).innerHeight() >=
-                    $(this)[0].scrollHeight
-                ) {
-                    $loadMore.infiniteScroll("loadNextPage");
-                    window.history.replaceState({}, null, $loadMore.infiniteScroll("getAbsolutePath"));
-                }
-            });
-        }
-    }
+    // Compact pager: "…" opens a small jump-to-page form
+    $(".pagination .page-jump").on("shown.bs.dropdown", function() {
+        $(this).find("input[type=number]").trigger("focus");
+    });
+    $(".page-jump-form").on("submit", function(e) {
+        e.preventDefault();
+        var $input = $(this).find("input[type=number]");
+        var max = parseInt($input.attr("max"), 10);
+        var target = parseInt($input.val(), 10);
+        if (isNaN(target)) { return; }
+        target = Math.min(Math.max(target, 1), max);
+        var template = String($(this).data("url-template"));
+        var placeholder = String($(this).data("placeholder"));
+        window.location.href = template.split(placeholder).join(String(target));
+    });
 
     $("#restart").click(function() {
         $.ajax({
@@ -597,7 +584,13 @@ $(function() {
 
     // Function to poll task completion
     function pollTaskCompletion(taskId) {
+        var pollInFlight = false;
         var pollInterval = setInterval(function() {
+            // Skip ticks while the tab is hidden or a request is still pending
+            if (document.hidden || pollInFlight) {
+                return;
+            }
+            pollInFlight = true;
             $.ajax({
                 method: "get",
                 url: getPath() + "/ajax/emailstat",
@@ -659,6 +652,9 @@ $(function() {
                         .addClass('alert-warning refresh-cwa');
                     $("#thumbnail_message").text('⚠️ Status check failed');
                     $("#thumbnail_progress_status").text('Task may have completed - check manually');
+                },
+                complete: function() {
+                    pollInFlight = false;
                 }
             });
         }, 2000); // Poll every 2 seconds
@@ -1016,10 +1012,15 @@ $(function() {
         }
     });
 
+    var isotopeResizeTimer = null;
     $(window).resize(function() {
-        $(".discover .row").filter(function() {
-            return !!$(this).data("isotope");
-        }).isotope("layout");
+        // Debounce: re-layout once resizing settles instead of on every event
+        clearTimeout(isotopeResizeTimer);
+        isotopeResizeTimer = setTimeout(function() {
+            $(".discover .row").filter(function() {
+                return !!$(this).data("isotope");
+            }).isotope("layout");
+        }, 150);
     });
 
     $("#import_ldap_users").click(function() {
@@ -1065,3 +1066,58 @@ $(function() {
         });
     });
 });
+
+// Lily colour theme toggle (dark -> light -> system). The initial attributes are set by an
+// inline script in layout.html <head> so the page never flashes the wrong theme.
+(function () {
+    var STORAGE_KEY = "lily-theme";
+    var ORDER = ["dark", "light", "system"];
+    var root = document.documentElement;
+    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
+
+    function readPref() {
+        var pref = root.getAttribute("data-theme-pref") || "dark";
+        return ORDER.indexOf(pref) === -1 ? "dark" : pref;
+    }
+
+    function effectiveFor(pref) {
+        if (pref === "system") {
+            return (mql && mql.matches) ? "light" : "dark";
+        }
+        return pref;
+    }
+
+    function apply(pref) {
+        var effective = effectiveFor(pref);
+        root.setAttribute("data-theme-pref", pref);
+        root.setAttribute("data-theme", effective);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) { meta.setAttribute("content", effective === "light" ? "#f5f2ed" : "#1f1f1f"); }
+        var $btn = $("#cwa-switch-theme");
+        if ($btn.length) {
+            var label = $btn.attr("data-label-" + pref) || pref;
+            $btn.attr("aria-label", label).attr("data-original-title", label).attr("title", label);
+            $btn.find(".theme-label").text(label);
+            if ($btn.data("bs.tooltip")) { $btn.tooltip("fixTitle"); }
+        }
+    }
+
+    $(function () {
+        apply(readPref());
+        $("#cwa-switch-theme").on("click", function (e) {
+            e.preventDefault();
+            var next = ORDER[(ORDER.indexOf(readPref()) + 1) % ORDER.length];
+            try { window.localStorage.setItem(STORAGE_KEY, next); } catch (err) { /* storage blocked: theme lasts for this page only */ }
+            apply(next);
+            var $btn = $(this);
+            if ($btn.data("bs.tooltip")) { $btn.tooltip("show"); }
+        });
+        if (mql) {
+            var onSystemChange = function () {
+                if (readPref() === "system") { apply("system"); }
+            };
+            if (mql.addEventListener) { mql.addEventListener("change", onSystemChange); }
+            else if (mql.addListener) { mql.addListener(onSystemChange); }
+        }
+    });
+})();

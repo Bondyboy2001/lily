@@ -11,7 +11,7 @@
     {% endif %}      
 
     <!-- Bootstrap -->
-    <link rel="apple-touch-icon" sizes="140x140" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link href="{{ url_for('static', filename='css/libs/bootstrap.min.css') }}" rel="stylesheet" media="screen">
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" media="screen">
@@ -68,6 +68,7 @@
   </div>
 </div>
     <script src="{{ url_for('static', filename='js/libs/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/libs/jquery-migrate.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/libs/bootstrap.min.js') }}"></script>
 {% endblock %}
   </body>

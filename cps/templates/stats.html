@@ -1,8 +1,12 @@
 {% extends "layout.html" %}
 {% block body %}
   <h3>{{_('About')}} {{instance}}</h3>
-<p>{{instance}} powered by
-<a href="https://github.com/crocodilestick/calibre-web-automated" title="Calibre-Web Automated">Calibre-Web Automated</a>.
+<p>{{instance}} {{_('is powered by')}}
+<a href="https://github.com/Bondyboy2001/lily" title="Lily" target="_blank" rel="noopener">Lily</a>.
+</p>
+<p class="text-muted small">{{_('Lily is based on')}}
+<a href="https://github.com/crocodilestick/Calibre-Web-Automated" target="_blank" rel="noopener">Calibre-Web Automated</a> {{_('and')}}
+<a href="https://github.com/janeczku/calibre-web" target="_blank" rel="noopener">Calibre-Web</a>, {{_('licensed under the GNU GPL v3.')}}
 </p>
   <h3>{{_('Library Statistics')}}</h3>
 <table id="stats" class="table">

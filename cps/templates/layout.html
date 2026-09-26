@@ -4,17 +4,40 @@
 <!DOCTYPE html>
 <html lang="{{ current_user.locale }}">
   <head>
-    <title>{{instance}} | {{title|safe}}</title>
+    <title>{{instance}} | {{title}}</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Lily">
+    <meta name="theme-color" content="#1f1f1f">
+    <script>
+      /* Lily colour theme: runs before any CSS is applied to avoid a flash of the wrong theme.
+         Preference ("dark" | "light" | "system") is stored per browser in localStorage. */
+      (function () {
+        var pref = "dark";
+        try { pref = window.localStorage.getItem("lily-theme") || "dark"; } catch (e) {}
+        if (pref !== "light" && pref !== "dark" && pref !== "system") { pref = "dark"; }
+        var effective = pref;
+        if (pref === "system") {
+          effective = (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) ? "light" : "dark";
+        }
+        var root = document.documentElement;
+        root.setAttribute("data-theme-pref", pref);
+        root.setAttribute("data-theme", effective);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) { meta.setAttribute("content", effective === "light" ? "#f5f2ed" : "#1f1f1f"); }
+      })();
+    </script>
     {% if g.google_site_verification|length > 0 %}
       <meta name="google-site-verification" content="{{g.google_site_verification}}">
     {% endif %}
     <!-- Bootstrap -->
-    <link rel="apple-touch-icon" sizes="140x140" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='icon.svg') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     <link href="{{ url_for('static', filename='css/libs/bootstrap.min.css') }}" rel="stylesheet" media="screen">
     {% block header %}{% endblock %}
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" media="screen">
@@ -24,6 +47,9 @@
       <link href="{{ url_for('static', filename='css/caliBlur_override.css') }}" rel="stylesheet" media="screen">
     {% endif %}
     <link href="{{ url_for('static', filename='css/cwa.css') }}" rel="stylesheet" media="screen">
+    {% if g.current_theme == 1 %}
+      <link href="{{ url_for('static', filename='css/lily-light.css') }}" rel="stylesheet" media="screen">
+    {% endif %}
     {% if current_user.is_authenticated and (current_user.role_admin() or current_user.role_edit()) %}
     <link href="{{ url_for('static', filename='css/duplicates-notifications.css') }}" rel="stylesheet" media="screen">
     {% endif %}
@@ -31,22 +57,47 @@
       let checkMessagesInterval = null; // Store interval ID
 
       function refreshLibrary() {
-          fetch("/cwa-library-refresh", {
+          const csrfInput = document.querySelector("input[name='csrf_token']");
+          fetch("{{ request.script_root }}/cwa-library-refresh", {
               method: "POST",
+              credentials: "same-origin",
               headers: {
-                  "Content-Type": "application/json"
+                  "Content-Type": "application/json",
+                  "X-CSRFToken": csrfInput ? csrfInput.value : ""
               }
           })
-          .then(response => response.json())
+          .then(response => {
+              if (!response.ok) {
+                  throw new Error("HTTP " + response.status);
+              }
+              return response.json();
+          })
           .then(data => {
             updateLibraryRefreshMessage(data.message);  // Show immediate confirmation
             startCheckingMessages(); // Start checking for messages
           })
-          .catch(error => console.error("Error:", error));
+          .catch(error => {
+            console.error("Error:", error);
+            updateLibraryRefreshMessage({{ _('Library refresh failed. Please try again or check the logs.')|tojson }});
+          });
       }
 
+      let checkMessagesAttempts = 0;
+      let checkMessagesInFlight = false;
+      const CHECK_MESSAGES_MAX_ATTEMPTS = 600; // ~5 minutes of visible polling at 500ms
+
       function checkLibraryMessages() {
-          fetch("/cwa-library-refresh/messages")
+          // Pause while the tab is hidden and never overlap requests
+          if (document.hidden || checkMessagesInFlight) {
+              return;
+          }
+          checkMessagesAttempts += 1;
+          if (checkMessagesAttempts > CHECK_MESSAGES_MAX_ATTEMPTS) {
+              stopCheckingMessages();
+              return;
+          }
+          checkMessagesInFlight = true;
+          fetch("{{ request.script_root }}/cwa-library-refresh/messages", {credentials: "same-origin"})
               .then(response => response.json())
               .then(data => {
                   if (data.messages.length > 0) {
@@ -54,11 +105,13 @@
                       stopCheckingMessages(); // Stop checking once we get a message
                   }
               })
-              .catch(error => console.error("Error fetching messages:", error));
+              .catch(error => console.error("Error fetching messages:", error))
+              .finally(() => { checkMessagesInFlight = false; });
       }
 
       function startCheckingMessages() {
           if (!checkMessagesInterval) { // Prevent multiple intervals
+              checkMessagesAttempts = 0;
               checkMessagesInterval = setInterval(checkLibraryMessages, 500);
           }
       }
@@ -142,9 +195,13 @@
               </li>
               {% endif %}
               <li class="cwa-switch-theme">
-                <a id="cwa-switch-theme" href="#" class="disabled" style="opacity: 0.5; cursor: not-allowed;" title="Temporarily disabled until v5.0.0" data-toggle="tooltip" data-placement="bottom" onclick="return false;">
-                  <span class="glyphicon glyphicon-sunglasses"></span>
-                  <span class="hidden-sm">{{_('Switch Theme')}}</span>
+                <a id="cwa-switch-theme" href="#" role="button" data-toggle="tooltip" data-placement="bottom"
+                   title="{{_('Theme: Dark')}}"
+                   data-label-dark="{{_('Theme: Dark')}}" data-label-light="{{_('Theme: Light')}}" data-label-system="{{_('Theme: System')}}">
+                  <svg class="lily-theme-icon lily-theme-icon-dark" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+                  <svg class="lily-theme-icon lily-theme-icon-light" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></g></svg>
+                  <svg class="lily-theme-icon lily-theme-icon-system" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path fill="currentColor" d="M12 3a9 9 0 0 1 0 18z"/></svg>
+                  <span class="hidden-sm theme-label">{{_('Theme: Dark')}}</span>
                 </a>
               </li>
               {% if current_user.role_upload() and g.allow_upload %}
@@ -165,7 +222,9 @@
               {% if current_user.role_admin() %}
                 <li><a id="top_admin" data-text="{{_('Settings')}}" href="{{url_for('admin.admin')}}"><span class="glyphicon glyphicon-dashboard"></span> <span class="hidden-sm">{{_('Admin')}}</span></a></li>
               {% endif %}
-              <li><a id="refresh-library" style="cursor: pointer;" data-text="{{_('Refresh Library')}}" onclick="refreshLibrary()"><span class="glyphicon glyphicon-refresh"></span> <span class="hidden-sm">{{_('Refresh Library')}}</span></a></li>
+              {% if current_user.role_admin() %}
+                <li><a id="refresh-library" href="#" role="button" data-text="{{_('Refresh Library')}}" onclick="refreshLibrary(); return false;"><span class="glyphicon glyphicon-refresh"></span> <span class="hidden-sm">{{_('Refresh Library')}}</span></a></li>
+              {% endif %}
               {% if g.current_theme == 0 %}
               <li><a id="top_user" data-text="{{_('Account')}}" href="{% if not current_user.is_anonymous %}{{url_for('web.profile')}}{% else %}{{url_for('web.login', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}{% endif %}"><span class="glyphicon glyphicon-user"></span> <span class="hidden-sm">{{current_user.name}}</span></a></li>
                 {% if not current_user.is_anonymous %}
@@ -206,7 +265,7 @@
       {%if message[0] == "cwa_update" %}
       <div class="row-fluid text-center">
         <div id="flash_info" class="alert alert-info alert-cwa">
-          {{ message[1] }} <a href="https://github.com/crocodilestick/Calibre-Web-Automated/releases">{{ _('See Changelog') }}</a>
+          {{ message[1] }} <a href="https://github.com/Bondyboy2001/lily/releases">{{ _('See Changelog') }}</a>
           <button type="button" class="close" data-dismiss="alert" aria-label="Close">
             <span aria-hidden="true">&times;</span>
           </button>
@@ -238,7 +297,7 @@
       {%if message[0] == "translation_missing" %}
       <div class="row-fluid text-center">
         <div id="flash_info" class="alert alert-info alert-cwa">
-          {{ message[1] }} <a href="https://github.com/crocodilestick/Calibre-Web-Automated/wiki/Contributing-Translations">{{ _('Contribute here!') }}</a>
+          {{ message[1] }} <a href="https://github.com/Bondyboy2001/lily/issues" target="_blank" rel="noopener">{{ _('Contribute here!') }}</a>
           <button type="button" class="close" data-dismiss="alert" aria-label="Close">
             <span aria-hidden="true">&times;</span>
           </button>
@@ -336,34 +395,37 @@
         <div class="col-sm-10">
           {% block body %}{% endblock %}
           {% if pagination and (pagination.has_next or pagination.has_prev) %}
-            <div class="pagination">
+            <ul class="pagination" role="navigation" aria-label="{{_('Pagination')}}">
               {% if pagination.has_prev %}
-              <li class="page-item page-previous"><a class="page-link" aria-label="next page" href="{{ (pagination.page - 1)|url_for_other_page
-                }}">&laquo; {{_('Previous')}}</a></li>
+              <li class="page-item page-previous"><a class="page-link previous" rel="prev" aria-label="{{_('Previous page')}}" href="{{ (pagination.page - 1)|url_for_other_page }}">&laquo; {{_('Previous')}}</a></li>
               {% endif %}
             {% for page in pagination.iter_pages() %}
               {% if page %}
                 {% if page != pagination.page %}
-                  <li class="page-item"><a class="page-link" aria-label="to page {{ page }}" href="{{ (page)|url_for_other_page }}">{{ page }}</a></li>
+                  <li class="page-item"><a class="page-link" aria-label="{{_('Go to page %(page)s', page=page)}}" href="{{ (page)|url_for_other_page }}">{{ page }}</a></li>
                 {% else %}
-                  <li class="page-item active"><a class="page-link" aria-label="to page {{ page }}" href="{{ (page)|url_for_other_page }}">{{ page }}</a></li>
+                  <li class="page-item active"><a class="page-link" aria-current="page" aria-label="{{_('Current page, page %(page)s', page=page)}}" href="{{ (page)|url_for_other_page }}">{{ page }}</a></li>
                 {% endif %}
               {% else %}
+                {# Compact "…" separator: opens a small jump-to-page box instead of listing every page #}
                 <li class="page-item page-last-separator page-jump dropdown">
                   <a class="page-link dropdown-toggle" href="#" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false" aria-label="{{_('Go to page')}}">…</a>
-                  <ul class="dropdown-menu page-jump-menu" role="menu">
-                    {% for i in range(1, pagination.pages + 1) %}
-                      <li role="presentation"{% if i == pagination.page %} class="active"{% endif %}><a role="menuitem" tabindex="-1" href="{{ i|url_for_other_page }}">{{ i }}</a></li>
-                    {% endfor %}
-                  </ul>
+                  <div class="dropdown-menu page-jump-menu">
+                    {# sentinel goes through a variable: a literal would be constant-folded by Jinja at compile time, outside this request #}
+                    {% set jump_sentinel = 987654321 %}
+                    <form class="page-jump-form" data-url-template="{{ jump_sentinel|url_for_other_page }}" data-placeholder="{{ jump_sentinel }}">
+                      <label class="sr-only" for="page-jump-{{ loop.index }}">{{_('Go to page')}}</label>
+                      <input id="page-jump-{{ loop.index }}" class="form-control input-sm" type="number" min="1" max="{{ pagination.pages }}" placeholder="1–{{ pagination.pages }}" required>
+                      <button type="submit" class="btn btn-default btn-sm">{{_('Go')}}</button>
+                    </form>
+                  </div>
                 </li>
               {% endif %}
             {% endfor %}
             {% if pagination.has_next %}
-              <li class="page-item page-next"><a class="page-link next" aria-label="next page" href="{{ (pagination.page + 1)|url_for_other_page
-                }}">{{_('Next')}} &raquo;</a></li>
+              <li class="page-item page-next"><a class="page-link next" rel="next" aria-label="{{_('Next page')}}" href="{{ (pagination.page + 1)|url_for_other_page }}">{{_('Next')}} &raquo;</a></li>
             {% endif %}
-            </div>
+            </ul>
           {% endif %}
       </div>
     </div>
@@ -385,6 +447,8 @@
     {% block modal %}{% endblock %}
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="{{ url_for('static', filename='js/libs/jquery.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/libs/jquery-migrate.min.js') }}"></script>
+    <script>jQuery.migrateMute = true; // set to false to see jQuery 3 migration warnings in the console</script>
     <script src="{{ url_for('static', filename='js/libs/bootstrap.min.js') }}"></script>
 
   <!-- Patch: Define global bootstrap object for plugins expecting Bootstrap 5+ -->
@@ -399,7 +463,6 @@
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     {% if g.current_theme == 1 %}
       <script src="{{ url_for('static', filename='js/libs/jquery.visible.min.js') }}"></script>
-      <script src="{{ url_for('static', filename='js/libs/compromise.min.js') }}"></script>
       <script src="{{ url_for('static', filename='js/libs/readmore.min.js') }}"></script>
       <script>
         // Make script root available for JS
@@ -435,7 +498,16 @@
         });
       }
       window.addEventListener('DOMContentLoaded', updateFilterHeaderFixed);
-      window.addEventListener('resize', updateFilterHeaderFixed);
+      var filterHeaderRafPending = false;
+      window.addEventListener('resize', function() {
+        // Throttle to at most one update per animation frame
+        if (filterHeaderRafPending) return;
+        filterHeaderRafPending = true;
+        window.requestAnimationFrame(function() {
+          filterHeaderRafPending = false;
+          updateFilterHeaderFixed();
+        });
+      });
       </script>
     {% if current_user.is_authenticated and (current_user.role_admin() or current_user.role_edit()) %}
     <!-- Duplicate Notification Modal -->

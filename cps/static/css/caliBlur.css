@@ -1512,13 +1512,13 @@ button#btn-book-convert {
     width: 150px !important;
 }
 
-#books > .cover > a, #books_rand > .cover > a, .book.isotope-item > .cover > a, body > div.container-fluid > div.row-fluid > div.col-sm-10 > div.discover > form > div.col-sm-12 > div.col-sm-12 > div.col-sm-2 > a {
+:is(#books,.books) > .cover > a, :is(#books_rand,.books_rand) > .cover > a, .book.isotope-item > .cover > a, body > div.container-fluid > div.row-fluid > div.col-sm-10 > div.discover > form > div.col-sm-12 > div.col-sm-12 > div.col-sm-2 > a {
     display: inline-block;
     width: auto;
     height: 100%
 }
 
-#books > .cover > a:before, #books_rand > .cover > a:before, .book.isotope-item > .cover > a:before, body > div.container-fluid > div.row-fluid > div.col-sm-10 > div.discover > form > div.col-sm-12 > div.col-sm-12 > div.col-sm-2 > a:before, #books .cover > a:before, #books_rand .cover > a:before {
+:is(#books,.books) > .cover > a:before, :is(#books_rand,.books_rand) > .cover > a:before, .book.isotope-item > .cover > a:before, body > div.container-fluid > div.row-fluid > div.col-sm-10 > div.discover > form > div.col-sm-12 > div.col-sm-12 > div.col-sm-2 > a:before, :is(#books,.books) .cover > a:before, :is(#books_rand,.books_rand) .cover > a:before {
     content: "\e352";
     font-family: Glyphicons Regular, serif;
     background: var(--color-secondary);
@@ -1545,14 +1545,14 @@ body > div.container-fluid > div.row-fluid > div.col-sm-10 > div.discover > form
     zoom: .8
 }
 
-#books > .cover > a:hover:before, #books_rand > .cover > a:hover:before, .book.isotope-item > .cover > a:hover:before, body > div.container-fluid > div.row-fluid > div.col-sm-10 > div.discover > form > div.col-sm-12 > div.col-sm-12 > div.col-sm-2 > a:hover:before, #books .cover > a:hover:before, #books_rand .cover > a:hover:before {
+:is(#books,.books) > .cover > a:hover:before, :is(#books_rand,.books_rand) > .cover > a:hover:before, .book.isotope-item > .cover > a:hover:before, body > div.container-fluid > div.row-fluid > div.col-sm-10 > div.discover > form > div.col-sm-12 > div.col-sm-12 > div.col-sm-2 > a:hover:before, :is(#books,.books) .cover > a:hover:before, :is(#books_rand,.books_rand) .cover > a:hover:before {
     -o-transition: all .2s;
     transition: all .2s;
     -webkit-transition: all .2s;
     opacity: 1;
 }
 
-#books > .cover > a:hover, #books_rand > .cover > a:hover, .book.isotope-item > .cover > a:hover, body > div.container-fluid > div.row-fluid > div.col-sm-10 > div.discover > form > div.col-sm-12 > div.col-sm-12 > div.col-sm-2 > a:hover, #books .cover > a:hover, #books_rand .cover > a:hover {
+:is(#books,.books) > .cover > a:hover, :is(#books_rand,.books_rand) > .cover > a:hover, .book.isotope-item > .cover > a:hover, body > div.container-fluid > div.row-fluid > div.col-sm-10 > div.discover > form > div.col-sm-12 > div.col-sm-12 > div.col-sm-2 > a:hover, :is(#books,.books) .cover > a:hover, :is(#books_rand,.books_rand) .cover > a:hover {
     /* outline: solid var(--color-secondary); */
     font-size: 50px;
     -o-transition: outline 0s;
@@ -1560,7 +1560,7 @@ body > div.container-fluid > div.row-fluid > div.col-sm-10 > div.discover > form
     -webkit-transition: outline 0s
 }
 
-#books > .cover > a:after, #books_rand > .cover > a:after, .book.isotope-item > .cover > a:after, #books .cover > a:after, #books_rand .cover > a:after {
+:is(#books,.books) > .cover > a:after, :is(#books_rand,.books_rand) > .cover > a:after, .book.isotope-item > .cover > a:after, :is(#books,.books) .cover > a:after, :is(#books_rand,.books_rand) .cover > a:after {
     position: absolute;
     content: '';
     width: 100%;
@@ -1613,7 +1613,7 @@ body > div.container-fluid > div.row-fluid > div.col-sm-10 > div.discover > form
     background: radial-gradient(farthest-corner at 50% 50%, rgba(50, 50, 50, .5) 50%, #323232 100%)
 }
 
-#books > .cover > a:hover:after, #books_rand > .cover > a:hover:after, .book.isotope-item > .cover > a:hover:after, body > div.container-fluid > div.row-fluid > div.col-sm-10 > div.discover > form > div.col-sm-12 > div.col-sm-12 > div.col-sm-2 > a:hover:after, #books .cover > a:hover:after, #books_rand .cover > a:hover:after {
+:is(#books,.books) > .cover > a:hover:after, :is(#books_rand,.books_rand) > .cover > a:hover:after, .book.isotope-item > .cover > a:hover:after, body > div.container-fluid > div.row-fluid > div.col-sm-10 > div.discover > form > div.col-sm-12 > div.col-sm-12 > div.col-sm-2 > a:hover:after, :is(#books,.books) .cover > a:hover:after, :is(#books_rand,.books_rand) .cover > a:hover:after {
     opacity: 1;
     -o-transition: opacity .1s;
     transition: opacity .1s;
@@ -1998,8 +1998,8 @@ body > div.container-fluid > div > div.col-sm-10 > div.discover > form > .btn.bt
     padding-right: 1.1em;
 }
 
-body > div.container-fluid > div > div.col-sm-10 > div.pagination .page-next > a,
-body > div.container-fluid > div > div.col-sm-10 > div.pagination .page-previous > a
+body > div.container-fluid > div > div.col-sm-10 > .pagination .page-next > a,
+body > div.container-fluid > div > div.col-sm-10 > .pagination .page-previous > a
 {
     top: 0;
     font-family: plex-icons-new, serif;
@@ -2029,13 +2029,13 @@ body > div.container-fluid > div > div.col-sm-10 > div.pagination .page-previous
     color: #fff !important
 }
 
-body > div.container-fluid > div > div.col-sm-10 > div.pagination > .page-item:not(.page-next):not(.page-previous)
+body > div.container-fluid > div > div.col-sm-10 > .pagination > .page-item:not(.page-next):not(.page-previous)
 {
     display: inline-flex
 }
 
-body > div.container-fluid > div > div.col-sm-10 > div.pagination > .page-next > a,
-body > div.container-fluid > div > div.col-sm-10 > div.pagination > .page-previous > a {
+body > div.container-fluid > div > div.col-sm-10 > .pagination > .page-next > a,
+body > div.container-fluid > div > div.col-sm-10 > .pagination > .page-previous > a {
     color: transparent;
     background-color:transparent;
     margin-left: 0;
@@ -2046,8 +2046,8 @@ body > div.container-fluid > div > div.col-sm-10 > div.pagination > .page-previo
     border: none;
 }
 
-body > div.container-fluid > div > div.col-sm-10 > div.pagination > .page-next > a:before,
-body > div.container-fluid > div > div.col-sm-10 > div.pagination > .page-previous > a:before {
+body > div.container-fluid > div > div.col-sm-10 > .pagination > .page-next > a:before,
+body > div.container-fluid > div > div.col-sm-10 > .pagination > .page-previous > a:before {
     visibility: visible;
     color: hsla(0, 0%, 100%, .35);
     height: 60px;
@@ -2058,16 +2058,16 @@ body > div.container-fluid > div > div.col-sm-10 > div.pagination > .page-previo
     margin-right: -27px;
 }
 
-body > div.container-fluid > div > div.col-sm-10 > div.pagination > .page-next > a:before {
+body > div.container-fluid > div > div.col-sm-10 > .pagination > .page-next > a:before {
     content: "\EA32";
 }
 
-body > div.container-fluid > div > div.col-sm-10 > div.pagination > .page-previous > a:before {
+body > div.container-fluid > div > div.col-sm-10 > .pagination > .page-previous > a:before {
     content: "\EA33";
 }
 
-body > div.container-fluid > div > div.col-sm-10 > div.pagination > .page-next > a:hover:before,
-body > div.container-fluid > div > div.col-sm-10 > div.pagination > .page-previous > a:hover:before {
+body > div.container-fluid > div > div.col-sm-10 > .pagination > .page-next > a:hover:before,
+body > div.container-fluid > div > div.col-sm-10 > .pagination > .page-previous > a:hover:before {
     color: #fff
 }
 
@@ -2507,7 +2507,7 @@ body > div.row-fluid {
     color: hsla(0, 0%, 100%, .45)
 }
 
-#books .cover img, #books_rand .cover img, .book .cover img {
+:is(#books,.books) .cover img, :is(#books_rand,.books_rand) .cover img, .book .cover img {
     width: auto
 }
 
@@ -5958,7 +5958,7 @@ body.authorlist .blur-wrapper:after {
     min-width: 180px !important
 }
 
-#books .cover img, #books_rand .cover img, .book.isotope-item .cover img {
+:is(#books,.books) .cover img, :is(#books_rand,.books_rand) .cover img, .book.isotope-item .cover img {
     width: 150px !important
 }
 
@@ -6510,7 +6510,7 @@ body.edituser.admin > div.container-fluid > div.row-fluid > div.col-sm-10 > div.
         min-height: 60px
     }
 
-    .pagination, .pagination:after, body > div.container-fluid > div > div.col-sm-10 > div.pagination > a.next, body > div.container-fluid > div > div.col-sm-10 > div.pagination > a.previous, body > div.container-fluid > div > div.col-sm-10 > div.pagination > a.previous:before {
+    .pagination, .pagination:after, body > div.container-fluid > div > div.col-sm-10 > .pagination > a.next, body > div.container-fluid > div > div.col-sm-10 > .pagination > a.previous, body > div.container-fluid > div > div.col-sm-10 > .pagination > a.previous:before {
         line-height: 42px;
         height: 42px
     }
@@ -6613,13 +6613,13 @@ body.edituser.admin > div.container-fluid > div.row-fluid > div.col-sm-10 > div.
         top: 48px
     }
 
-    body > div.container-fluid > div > div.col-sm-10 > div.pagination > a.next:before {
+    body > div.container-fluid > div > div.col-sm-10 > .pagination > a.next:before {
         height: 42px;
         line-height: 42px;
         padding: 11px 0 11px 20px
     }
 
-    body > div.container-fluid > div > div.col-sm-10 > div.pagination > a.previous:before {
+    body > div.container-fluid > div > div.col-sm-10 > .pagination > a.previous:before {
         padding: 11px 25px
     }
 
@@ -6653,11 +6653,11 @@ body.edituser.admin > div.container-fluid > div.row-fluid > div.col-sm-10 > div.
         max-height: 100%;
     }
 
-    #books .cover img, #books_rand .cover img, .book.isotope-item .cover img {
+    :is(#books,.books) .cover img, :is(#books_rand,.books_rand) .cover img, .book.isotope-item .cover img {
         width: 150px !important
     }
 
-    #books > .cover > a:before, #books_rand > .cover > a:before, .book.isotope-item > .cover > a:before, #books .cover > a:before, #books_rand .cover > a:before {
+    :is(#books,.books) > .cover > a:before, :is(#books_rand,.books_rand) > .cover > a:before, .book.isotope-item > .cover > a:before, :is(#books,.books) .cover > a:before, :is(#books_rand,.books_rand) .cover > a:before {
         line-height: 40px;
         width: 40px;
         height: 40px;
@@ -8610,22 +8610,22 @@ button.close {
 
 /* Disable direct reading functionality on mobile/touch devices */
 @media (max-width: 767px), (hover: none) {
-    #books > .cover > a:before, 
-    #books_rand > .cover > a:before, 
+    :is(#books,.books) > .cover > a:before, 
+    :is(#books_rand,.books_rand) > .cover > a:before, 
     .book.isotope-item > .cover > a:before, 
-    #books .cover > a:before, 
-    #books_rand .cover > a:before,
+    :is(#books,.books) .cover > a:before, 
+    :is(#books_rand,.books_rand) .cover > a:before,
     .read-toggle-btn,
     .edit-metadata-btn,
     .send-ereader-btn {
         display: none !important;
     }
     
-    #books > .cover > a:hover:before, 
-    #books_rand > .cover > a:hover:before, 
+    :is(#books,.books) > .cover > a:hover:before, 
+    :is(#books_rand,.books_rand) > .cover > a:hover:before, 
     .book.isotope-item > .cover > a:hover:before, 
-    #books .cover > a:hover:before, 
-    #books_rand .cover > a:hover:before {
+    :is(#books,.books) .cover > a:hover:before, 
+    :is(#books_rand,.books_rand) .cover > a:hover:before {
         display: none !important;
     }
 }
@@ -8725,18 +8725,18 @@ button.close {
 }
 
 /* Show additional elements on cover hover - buttons are now inside the link */
-#books > .cover > a:hover .read-toggle-btn,
-#books > .cover > a:hover .edit-metadata-btn,
-#books > .cover > a:hover .send-ereader-btn,
-#books_rand > .cover > a:hover .read-toggle-btn,
-#books_rand > .cover > a:hover .edit-metadata-btn,
-#books_rand > .cover > a:hover .send-ereader-btn,
+:is(#books,.books) > .cover > a:hover .read-toggle-btn,
+:is(#books,.books) > .cover > a:hover .edit-metadata-btn,
+:is(#books,.books) > .cover > a:hover .send-ereader-btn,
+:is(#books_rand,.books_rand) > .cover > a:hover .read-toggle-btn,
+:is(#books_rand,.books_rand) > .cover > a:hover .edit-metadata-btn,
+:is(#books_rand,.books_rand) > .cover > a:hover .send-ereader-btn,
 .book.isotope-item > .cover > a:hover .read-toggle-btn,
 .book.isotope-item > .cover > a:hover .edit-metadata-btn,
 .book.isotope-item > .cover > a:hover .send-ereader-btn,
-#books .cover > a:hover .read-toggle-btn,
-#books .cover > a:hover .edit-metadata-btn,
-#books .cover > a:hover .send-ereader-btn,
+:is(#books,.books) .cover > a:hover .read-toggle-btn,
+:is(#books,.books) .cover > a:hover .edit-metadata-btn,
+:is(#books,.books) .cover > a:hover .send-ereader-btn,
 .cover:hover .read-toggle-btn,
 .cover:hover .edit-metadata-btn,
 .cover:hover .send-ereader-btn {

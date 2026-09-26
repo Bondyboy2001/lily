@@ -484,8 +484,77 @@ def render_books_list(data, sort_param, book_id, page):
         except:
             title = _(f'Books ({cwa_get_num_books_in_library()})')
 
+        continue_reading = []
+        if website == "newest" and page == 1:
+            continue_reading = get_continue_reading_entries()
+
         return render_title_template('index.html', random=random, entries=entries, pagination=pagination,
-                                     title=title, page=website, order=order[1])
+                                     title=title, page=website, order=order[1],
+                                     continue_reading=continue_reading)
+
+
+CONTINUE_READING_LIMIT = 12
+
+
+def get_continue_reading_progress(session, user_id, limit=CONTINUE_READING_LIMIT):
+    """Return [(book_id, progress_percent or None), ...] for books the user is currently reading.
+
+    ReadBook.read_status == STATUS_IN_PROGRESS is the single source of truth: Kobo sync and
+    KOSync both write it (KOSync also mirrors its percentage into KoboBookmark.progress_percent),
+    so joining the Kobo bookmark gives a percentage without resolving KOSync document checksums.
+    Most recently touched first, using whichever of the ReadBook / bookmark timestamps is newer.
+    """
+    read_modified = coalesce(ub.ReadBook.last_modified, ub.KoboBookmark.last_modified)
+    bookmark_modified = coalesce(ub.KoboBookmark.last_modified, ub.ReadBook.last_modified)
+    rows = (session.query(ub.ReadBook.book_id, ub.KoboBookmark.progress_percent)
+            .outerjoin(ub.KoboReadingState,
+                       and_(ub.KoboReadingState.user_id == ub.ReadBook.user_id,
+                            ub.KoboReadingState.book_id == ub.ReadBook.book_id))
+            .outerjoin(ub.KoboBookmark, ub.KoboBookmark.kobo_reading_state_id == ub.KoboReadingState.id)
+            .filter(ub.ReadBook.user_id == user_id,
+                    ub.ReadBook.read_status == ub.ReadBook.STATUS_IN_PROGRESS)
+            .order_by(func.max(read_modified, bookmark_modified).desc(), ub.ReadBook.id.desc())
+            # headroom for duplicate rows and books hidden by the visibility filters
+            .limit(limit * 3)
+            .all())
+    result = []
+    seen = set()
+    for book_id, percent in rows:
+        if book_id in seen:
+            continue
+        seen.add(book_id)
+        if percent is not None:
+            try:
+                percent = max(0.0, min(100.0, float(percent)))
+            except (TypeError, ValueError):
+                percent = None
+        result.append((book_id, percent))
+    return result
+
+
+def get_continue_reading_entries(limit=CONTINUE_READING_LIMIT):
+    """Books the current user is reading, as index-style entries plus a 'progress' percentage."""
+    if current_user.is_anonymous or not current_user.is_authenticated:
+        return []
+    try:
+        progress = get_continue_reading_progress(ub.session, int(current_user.id), limit)
+        if not progress:
+            return []
+        rows = (calibre_db.generate_linked_query(config.config_read_column, db.Books)
+                .filter(calibre_db.common_filters())
+                .filter(db.Books.id.in_([book_id for book_id, __ in progress]))
+                .all())
+        by_id = {row.Books.id: row for row in rows}
+        entries = []
+        for book_id, percent in progress:
+            if book_id in by_id:
+                entries.append({'entry': by_id[book_id], 'progress': percent})
+                if len(entries) >= limit:
+                    break
+        return entries
+    except Exception as ex:
+        log.debug("Could not load continue reading row: %s", ex)
+        return []
 
 
 def render_rated_books(page, book_id, order):
