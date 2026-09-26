@@ -9,6 +9,13 @@ from types import SimpleNamespace, ModuleType
 import importlib.util
 import pathlib
 import sys
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _isolate_sys_modules(isolated_sys_modules):
+    """Every test here writes stubs into sys.modules; undo them afterwards."""
+    yield
 
 
 def _install_stub(name, attrs=None):
@@ -21,9 +28,6 @@ def _install_stub(name, attrs=None):
 
 
 def _load_duplicates_module():
-    if "cps.duplicates" in sys.modules:
-        return sys.modules["cps.duplicates"]
-
     _install_stub("cps")
     _install_stub("cps.db")
     _install_stub("cps.calibre_db")
@@ -55,6 +59,7 @@ def _load_duplicates_module():
 
     _install_stub("cps.admin", {"admin_required": lambda f: f})
     _install_stub("cps.usermanagement", {"login_required_if_no_ano": lambda f: f})
+    _install_stub("cps.internal_api", {"internal_only": lambda f: f})
     _install_stub("cps.render_template", {"render_title_template": lambda *args, **kwargs: ""})
 
     class _User:

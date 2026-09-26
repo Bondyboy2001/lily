@@ -143,8 +143,12 @@ def _routes(relpath):
             yield node.name, set(names)
 
 
+# cps/cwa_functions is a package split by responsibility; check every module in it.
+CWA_FUNCTIONS_MODULES = sorted(str(p.relative_to(REPO)) for p in (REPO / "cps/cwa_functions").glob("*.py"))
+
+
 @pytest.mark.unit
-@pytest.mark.parametrize("relpath", ["cps/cwa_functions.py", "cps/duplicates.py"])
+@pytest.mark.parametrize("relpath", CWA_FUNCTIONS_MODULES + ["cps/duplicates.py"])
 def test_every_route_has_an_auth_decorator(relpath):
     missing = [name for name, decos in _routes(relpath)
                if not decos & AUTH_DECORATORS and (relpath, name) not in PUBLIC_ROUTES]
@@ -156,6 +160,6 @@ def test_admin_services_require_admin():
     admin_only = {"show_convert_library_page", "show_convert_library_logs", "start_conversion",
                   "cancel_convert_library", "show_epub_fixer_page", "show_epub_fixer_logs",
                   "start_epub_fixer", "cancel_epub_fixer", "download_log", "read_log"}
-    routes = dict(_routes("cps/cwa_functions.py"))
+    routes = {name: decos for relpath in CWA_FUNCTIONS_MODULES for name, decos in _routes(relpath)}
     for name in admin_only:
         assert {"login_required_if_no_ano", "admin_required"} <= routes[name], name

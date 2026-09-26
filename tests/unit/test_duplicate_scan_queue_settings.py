@@ -5,6 +5,13 @@ from types import ModuleType, SimpleNamespace
 import importlib.util
 import pathlib
 import sys
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _isolate_sys_modules(isolated_sys_modules):
+    """Every test here writes stubs into sys.modules; undo them afterwards."""
+    yield
 
 
 def _install_stub(name, attrs=None):
@@ -21,6 +28,12 @@ class _Blueprint:
         return None
 
     def route(self, *args, **kwargs):
+        return lambda fn: fn
+
+    def app_template_global(self, *args, **kwargs):
+        return lambda fn: fn
+
+    def app_template_global(self, *args, **kwargs):
         return lambda fn: fn
 
 
@@ -94,6 +107,7 @@ def _load_cwa_functions(monkeypatch, request):
         {"login_required_if_no_ano": lambda fn: fn, "user_login_required": lambda fn: fn},
     )
     _install_stub("cps.admin", {"admin_required": lambda fn: fn})
+    _install_stub("cps.internal_api", {"internal_only": lambda fn: fn})
     _install_stub("cps.render_template", {"render_title_template": lambda *args, **kwargs: {"template": args[0]}})
     _install_stub("cps.cw_login", {"current_user": SimpleNamespace(id=7), "login_user": None, "logout_user": None})
     _install_stub("cps.web", {"cwa_get_num_books_in_library": lambda: 0})
@@ -124,8 +138,10 @@ def _load_cwa_functions(monkeypatch, request):
             "request": request,
             "send_from_directory": lambda *args, **kwargs: None,
             "abort": lambda *args, **kwargs: None,
+            "make_response": lambda *args, **kwargs: None,
             "jsonify": lambda payload=None, **kwargs: payload if payload is not None else kwargs,
             "current_app": SimpleNamespace(config={}),
+            "make_response": lambda *args, **kwargs: None,
         },
     )
     _install_stub(
@@ -153,14 +169,17 @@ def _load_cwa_functions(monkeypatch, request):
         },
     )
 
-    path = pathlib.Path(__file__).resolve().parents[2] / "cps" / "cwa_functions.py"
-    spec = importlib.util.spec_from_file_location("cps.cwa_functions", path)
+    # cps.cwa_functions is a package; its submodules are imported through its __path__.
+    package_dir = pathlib.Path(__file__).resolve().parents[2] / "cps" / "cwa_functions"
+    spec = importlib.util.spec_from_file_location(
+        "cps.cwa_functions", package_dir / "__init__.py", submodule_search_locations=[str(package_dir)]
+    )
     module = importlib.util.module_from_spec(spec)
-    module.__package__ = "cps"
     sys.modules["cps.cwa_functions"] = module
     spec.loader.exec_module(module)
-    module.WorkerThread = worker_module.WorkerThread
-    monkeypatch.setattr(module, "get_next_duplicate_scan_run", lambda settings: None)
+    module.ingest.WorkerThread = worker_module.WorkerThread
+    # Patch names where the functions look them up (the owning submodule).
+    monkeypatch.setattr(module.settings, "get_next_duplicate_scan_run", lambda settings: None)
     return module
 
 
@@ -194,8 +213,8 @@ def test_internal_duplicate_queue_passes_coalesced_book_ids(monkeypatch):
         get_json=lambda force=True, silent=True: {"delay_seconds": 5, "book_ids": [4, "5", 4]},
     )
     module = _load_cwa_functions(monkeypatch, request)
-    monkeypatch.setattr(module, "Timer", _ImmediateTimer)
-    module.WorkerThread.add = lambda username, task, hidden=False: added_tasks.append((username, task, hidden))
+    monkeypatch.setattr(module.ingest, "Timer", _ImmediateTimer)
+    module.ingest.WorkerThread.add = lambda username, task, hidden=False: added_tasks.append((username, task, hidden))
     _install_stub("cps.tasks.duplicate_scan", {"TaskDuplicateScan": _TaskDuplicateScan})
 
     response, status = module.cwa_internal_queue_duplicate_scan()
@@ -228,7 +247,7 @@ def test_internal_duplicate_queue_defaults_to_sixty_second_debounce(monkeypatch)
         get_json=lambda force=True, silent=True: {},
     )
     module = _load_cwa_functions(monkeypatch, request)
-    monkeypatch.setattr(module, "Timer", _ImmediateTimer)
+    monkeypatch.setattr(module.ingest, "Timer", _ImmediateTimer)
 
     response, status = module.cwa_internal_queue_duplicate_scan()
 
@@ -255,7 +274,7 @@ def test_direct_duplicate_queue_helper_defaults_to_settings(monkeypatch):
 
     request = SimpleNamespace(headers={}, remote_addr="127.0.0.1", get_json=lambda force=True, silent=True: {})
     module = _load_cwa_functions(monkeypatch, request)
-    monkeypatch.setattr(module, "Timer", _ImmediateTimer)
+    monkeypatch.setattr(module.ingest, "Timer", _ImmediateTimer)
 
     response = module.queue_debounced_duplicate_scan(book_ids=[9])
 

@@ -4,6 +4,13 @@ from unittest.mock import patch
 import importlib.util
 import pathlib
 import sys
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _isolate_sys_modules(isolated_sys_modules):
+    """Every test here writes stubs into sys.modules; undo them afterwards."""
+    yield
 
 
 def _install_stub(name, attrs=None):
@@ -270,6 +277,7 @@ def _load_duplicates_module(delete_key_calls):
     _install_stub("cps.csrf", {"exempt": _decorator})
     _install_stub("cps.admin", {"admin_required": _decorator})
     _install_stub("cps.usermanagement", {"login_required_if_no_ano": _decorator})
+    _install_stub("cps.internal_api", {"internal_only": _decorator})
     _install_stub("cps.render_template", {"render_title_template": lambda *args, **kwargs: ""})
     _install_stub("cps.cw_login", {"current_user": current_user})
     _install_stub(

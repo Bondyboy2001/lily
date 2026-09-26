@@ -44,6 +44,10 @@ uritemplate>=3.0.0,<4.2.0
 pyasn1-modules>=0.0.8,<0.7.0
 pyasn1>=0.1.9,<0.7.0
 PyDrive2>=1.3.1,<1.22.0
+# PyDrive2 accepts pyOpenSSL down to 19.1, and the resolver can otherwise settle on
+# pyOpenSSL 22.0.0, which breaks at import with the cryptography range pinned above.
+# pyOpenSSL 24.x supports cryptography 41.0.5-43 (and PyDrive2 caps it at 24.2.1).
+pyOpenSSL>=24.0.0,<25.0.0
 PyYAML>=3.12,<6.1
 rsa>=3.4.2,<4.10.0
 

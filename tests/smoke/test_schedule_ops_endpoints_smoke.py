@@ -16,6 +16,7 @@ import pytest
 import sys
 import os
 import ast
+import re
 from pathlib import Path
 
 # Mark all tests in this file as smoke tests
@@ -34,12 +35,61 @@ def _function_source(source_path, function_name):
     raise AssertionError(f"Function {function_name} not found in {source_path}")
 
 
+def _assert_schedule_forms(template_path, endpoint, route_path, library_ops_path):
+    """The schedule buttons must be CSRF-protected POST forms for 5 and 15 minutes.
+
+    They used to be plain GET links (``<a href="{{ url_for(endpoint, delay=5) }}">``);
+    scheduling is a state-changing admin action, so each delay is now a
+    ``<form method="post">`` targeting the same endpoint with a csrf_token field,
+    and the route only accepts POST.
+    """
+    content = template_path.read_text(encoding='utf-8')
+
+    action_re = re.escape("url_for('" + endpoint + "', delay=") + r"(?P<delay>\w+)\)"
+    form_re = re.compile(
+        r"<form\b(?P<attrs>[^>]*)>(?P<body>.*?)</form>",
+        re.DOTALL | re.IGNORECASE,
+    )
+    schedule_forms = []
+    for match in form_re.finditer(content):
+        action = re.search(action_re, match.group('attrs'))
+        if action:
+            schedule_forms.append((match, action.group('delay')))
+    assert schedule_forms, f"No schedule form posting to {endpoint} in {template_path.name}"
+
+    delays = set()
+    for match, delay in schedule_forms:
+        attrs, body = match.group('attrs'), match.group('body')
+        assert re.search(r'method\s*=\s*"post"', attrs, re.IGNORECASE), \
+            f"Schedule form in {template_path.name} must use method=\"post\""
+        assert re.search(
+            r'<input[^>]*type="hidden"[^>]*name="csrf_token"[^>]*value="\{\{\s*csrf_token\(\)\s*\}\}"',
+            body,
+        ), f"Schedule form in {template_path.name} is missing its csrf_token field"
+        assert 'type="submit"' in body
+        if delay.isdigit():
+            delays.add(int(delay))
+        else:
+            # delay comes from an enclosing Jinja loop, e.g. {% for delay in [5, 15] %}
+            loops = re.findall(
+                r"\{%\s*for\s+" + re.escape(delay) + r"\s+in\s+[\[(]([^\])]*)[\])]\s*%\}",
+                content[:match.start()],
+            )
+            assert loops, f"Loop variable {delay!r} is not defined by an enclosing for-loop"
+            delays.update(int(v) for v in re.findall(r"\d+", loops[-1]))
+    assert {5, 15} <= delays, f"Expected 5m and 15m schedule buttons, found {sorted(delays)}"
+
+    # The route behind the buttons must only accept POST (matches the form).
+    ops_source = library_ops_path.read_text(encoding='utf-8')
+    assert f"route('{route_path}', methods=[\"POST\"])" in ops_source
+
+
 class TestConvertLibraryScheduling:
     """Test Convert Library scheduling integration"""
     
     def test_convert_library_has_schedule_route(self):
         """Verify convert_library blueprint has schedule/<delay> route"""
-        cwa_functions_file = project_root / 'cps' / 'cwa_functions.py'
+        cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'library_ops.py'
         
         with open(cwa_functions_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -49,7 +99,7 @@ class TestConvertLibraryScheduling:
     
     def test_convert_library_schedule_uses_shared_scheduler(self):
         """Verify the admin schedule route schedules in-process (not via an HTTP call to itself)"""
-        cwa_functions_file = project_root / 'cps' / 'cwa_functions.py'
+        cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'library_ops.py'
         
         with open(cwa_functions_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -59,7 +109,7 @@ class TestConvertLibraryScheduling:
     
     def test_internal_convert_library_endpoint_exists(self):
         """Verify /cwa-internal/schedule-convert-library endpoint exists"""
-        cwa_functions_file = project_root / 'cps' / 'cwa_functions.py'
+        cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'library_ops.py'
         
         with open(cwa_functions_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -70,7 +120,7 @@ class TestConvertLibraryScheduling:
     
     def test_convert_library_persists_to_db(self):
         """Verify convert_library scheduling persists job to cwa.db"""
-        cwa_functions_file = project_root / 'cps' / 'cwa_functions.py'
+        cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'library_ops.py'
         
         with open(cwa_functions_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -86,9 +136,14 @@ class TestConvertLibraryScheduling:
         with open(template_file, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # Buttons link to the admin-only schedule route
-        assert "url_for('convert_library.schedule_convert_library', delay=5)" in content
-        assert "url_for('convert_library.schedule_convert_library', delay=15)" in content
+        # Buttons are CSRF-protected POST forms targeting the admin-only schedule route
+        assert "current_user.role_admin()" in content
+        _assert_schedule_forms(
+            template_file,
+            'convert_library.schedule_convert_library',
+            '/cwa-convert-library/schedule/<int:delay>',
+            project_root / 'cps' / 'cwa_functions' / 'library_ops.py',
+        )
     
     def test_convert_library_task_wrapper_exists(self):
         """Verify TaskConvertLibraryRun task wrapper exists"""
@@ -107,7 +162,7 @@ class TestEpubFixerScheduling:
     
     def test_epub_fixer_has_schedule_route(self):
         """Verify epub_fixer blueprint has schedule/<delay> route"""
-        cwa_functions_file = project_root / 'cps' / 'cwa_functions.py'
+        cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'library_ops.py'
         
         with open(cwa_functions_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -117,7 +172,7 @@ class TestEpubFixerScheduling:
     
     def test_epub_fixer_schedule_uses_shared_scheduler(self):
         """Verify the admin schedule route schedules in-process (not via an HTTP call to itself)"""
-        cwa_functions_file = project_root / 'cps' / 'cwa_functions.py'
+        cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'library_ops.py'
         
         with open(cwa_functions_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -127,7 +182,7 @@ class TestEpubFixerScheduling:
     
     def test_internal_epub_fixer_endpoint_exists(self):
         """Verify /cwa-internal/schedule-epub-fixer endpoint exists"""
-        cwa_functions_file = project_root / 'cps' / 'cwa_functions.py'
+        cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'library_ops.py'
         
         with open(cwa_functions_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -138,7 +193,7 @@ class TestEpubFixerScheduling:
     
     def test_epub_fixer_persists_to_db(self):
         """Verify epub_fixer scheduling persists job to cwa.db"""
-        cwa_functions_file = project_root / 'cps' / 'cwa_functions.py'
+        cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'library_ops.py'
         
         with open(cwa_functions_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -154,9 +209,14 @@ class TestEpubFixerScheduling:
         with open(template_file, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # Buttons link to the admin-only schedule route
-        assert "url_for('epub_fixer.schedule_epub_fixer', delay=5)" in content
-        assert "url_for('epub_fixer.schedule_epub_fixer', delay=15)" in content
+        # Buttons are CSRF-protected POST forms targeting the admin-only schedule route
+        assert "current_user.role_admin()" in content
+        _assert_schedule_forms(
+            template_file,
+            'epub_fixer.schedule_epub_fixer',
+            '/cwa-epub-fixer/schedule/<int:delay>',
+            project_root / 'cps' / 'cwa_functions' / 'library_ops.py',
+        )
     
     def test_epub_fixer_task_wrapper_exists(self):
         """Verify TaskEpubFixerRun task wrapper exists"""
@@ -174,7 +234,7 @@ class TestUpcomingOpsEndpoint:
     
     def test_upcoming_ops_endpoint_exists(self):
         """Verify /cwa-scheduled/upcoming-ops endpoint exists"""
-        cwa_functions_file = project_root / 'cps' / 'cwa_functions.py'
+        cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'stats.py'
         
         with open(cwa_functions_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -185,7 +245,7 @@ class TestUpcomingOpsEndpoint:
     
     def test_upcoming_ops_queries_both_types(self):
         """Verify upcoming-ops endpoint queries both convert_library and epub_fixer"""
-        cwa_functions_file = project_root / 'cps' / 'cwa_functions.py'
+        cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'stats.py'
         
         with open(cwa_functions_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -210,7 +270,7 @@ class TestNfsImportLifecycleHardening:
 
     def test_reconnect_db_logs_exceptions_with_stack(self):
         """Verify reconnect-db failures preserve exception stack details."""
-        cwa_functions_file = project_root / 'cps' / 'cwa_functions.py'
+        cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'ingest.py'
 
         function_body = _function_source(cwa_functions_file, 'cwa_internal_reconnect_db')
 

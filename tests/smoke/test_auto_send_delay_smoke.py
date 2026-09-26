@@ -51,8 +51,8 @@ class TestAutoSendDelayValidation:
         assert 'max="60"' in content
     
     def test_cwa_functions_validates_range(self):
-        """Verify cwa_functions.py validates 1-60 range"""
-        cwa_functions_file = project_root / 'cps' / 'cwa_functions.py'
+        """Verify the settings route validates 1-60 range"""
+        cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'settings.py'
         
         with open(cwa_functions_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -73,7 +73,7 @@ class TestAutoSendDelayValidation:
     
     def test_internal_endpoint_validates_delay(self):
         """Verify /cwa-internal/schedule-auto-send validates delay_minutes"""
-        cwa_functions_file = project_root / 'cps' / 'cwa_functions.py'
+        cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'ingest.py'
         
         with open(cwa_functions_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -127,7 +127,7 @@ class TestDelayUsageFlow:
     
     def test_schedule_endpoint_uses_delay(self):
         """Verify internal schedule endpoint uses delay_minutes parameter"""
-        cwa_functions_file = project_root / 'cps' / 'cwa_functions.py'
+        cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'ingest.py'
         
         with open(cwa_functions_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -137,7 +137,7 @@ class TestDelayUsageFlow:
     
     def test_task_receives_delay_parameter(self):
         """Verify TaskAutoSend receives delay_minutes parameter"""
-        cwa_functions_file = project_root / 'cps' / 'cwa_functions.py'
+        cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'ingest.py'
         
         with open(cwa_functions_file, 'r', encoding='utf-8') as f:
             content = f.read()

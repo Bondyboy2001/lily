@@ -28,7 +28,13 @@ class TestBasicFunctionality:
     
     def test_required_directories_exist(self):
         """Verify critical directories exist."""
-        # /config always should exist (we're running from workspace)
+        # /config exists in the container and is provisioned by the CI workflow
+        # ("Create test environment structure"). On a developer machine it
+        # normally does not exist, so only enforce it where it is guaranteed.
+        in_ci = os.environ.get('CI', '').lower() == 'true' or os.environ.get('GITHUB_ACTIONS') == 'true'
+        in_container = os.path.exists('/app/calibre-web-automated')
+        if not os.path.exists('/config') and not (in_ci or in_container):
+            pytest.skip("/config not provisioned (local run outside CI/Docker)")
         assert os.path.exists('/config'), "Missing critical directory: /config"
         
         # These are container-specific paths - skip if not in container

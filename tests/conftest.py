@@ -188,6 +188,140 @@ def check_container_available(port=None):
         return False
 
 
+# ---------------------------------------------------------------------------
+# sys.modules isolation
+# ---------------------------------------------------------------------------
+# Several unit tests load a single production module (e.g. cps/duplicates.py)
+# against hand-written stubs for ``cps``, ``flask``, ``sqlalchemy``, ``cwa_db``
+# and friends by writing them straight into ``sys.modules``. Left in place,
+# those stubs leak into every test that runs afterwards (``'cps' is not a
+# package``, broken SQLAlchemy imports, ...), so the suite only passed when
+# files were run one at a time. ``isolated_sys_modules`` snapshots
+# ``sys.modules`` and puts it back exactly as it was once the test finishes.
+
+def _is_stub_module(module) -> bool:
+    """True for modules that were not loaded from a real file (test stubs/mocks)."""
+    module_file = getattr(module, "__file__", None)
+    return not isinstance(module_file, str)
+
+
+def _module_root(name: str) -> str:
+    return name.partition(".")[0]
+
+
+def restore_sys_modules(snapshot: dict) -> None:
+    """Restore ``sys.modules`` to ``snapshot``.
+
+    * Entries the test replaced or removed are put back.
+    * New entries are dropped when they belong to a package tree the test
+      tampered with (stubbed/replaced/removed anything under the same root),
+      because they may have been executed against stubs. Genuine third-party
+      or stdlib modules imported as a side effect under untouched roots are
+      kept, so C extensions are never imported twice.
+    * Attributes on parent packages that point at removed/replaced
+      submodules are repaired so ``import a.b`` and ``a.b`` agree again.
+    """
+    current = sys.modules
+    tainted_roots = set()
+    for name, module in list(current.items()):
+        if name in snapshot:
+            if snapshot[name] is not module:
+                tainted_roots.add(_module_root(name))
+        elif _is_stub_module(module):
+            tainted_roots.add(_module_root(name))
+    for name in snapshot:
+        if name not in current:
+            tainted_roots.add(_module_root(name))
+
+    if not tainted_roots:
+        return
+
+    touched = []  # (name, module that the test left behind)
+    for name in list(current):
+        if name not in snapshot and _module_root(name) in tainted_roots:
+            touched.append((name, current.pop(name)))
+    for name, module in snapshot.items():
+        if current.get(name) is not module:
+            touched.append((name, current.get(name)))
+            current[name] = module
+
+    for name, leftover in touched:
+        parent_name, _, child = name.rpartition(".")
+        if not parent_name or leftover is None:
+            continue
+        parent = snapshot.get(parent_name)
+        if parent is None or _is_stub_module(parent):
+            continue
+        # Only touch the parent attribute when it still points at the module
+        # the test left behind; never clobber ordinary attributes (e.g. the
+        # real ``cps.calibre_db`` object when a test stubbed a module by that name).
+        if getattr(parent, "__dict__", {}).get(child) is not leftover:
+            continue
+        try:
+            if name in snapshot:
+                setattr(parent, child, snapshot[name])
+            else:
+                delattr(parent, child)
+        except (AttributeError, TypeError):
+            pass
+
+
+@pytest.fixture
+def isolated_sys_modules():
+    """Snapshot ``sys.modules`` for the duration of one test and restore it after.
+
+    Use it (typically via a module-level autouse fixture) in any test that
+    writes stubs into ``sys.modules``.
+    """
+    snapshot = dict(sys.modules)
+    try:
+        yield
+    finally:
+        restore_sys_modules(snapshot)
+
+
+@pytest.fixture(scope="module")
+def isolated_sys_modules_module():
+    """Module-scoped variant of ``isolated_sys_modules`` for test files that
+    import a production module once against stubs and share it between tests."""
+    snapshot = dict(sys.modules)
+    try:
+        yield
+    finally:
+        restore_sys_modules(snapshot)
+
+
+@pytest.fixture
+def isolated_script_locks(tmp_path_factory, monkeypatch):
+    """Import lock-taking CLI scripts (convert_library, kindle_epub_fixer) safely.
+
+    Those scripts take an exclusive, non-blocking flock on
+    ``<tempdir>/<name>.lock`` at import time and exit if it is held. With a
+    shared /tmp that collides with a real running instance and with other
+    pytest-xdist workers. This fixture points ``tempfile.gettempdir()`` at a
+    private per-test directory (separate from ``tmp_path``), forces a fresh import, and afterwards releases the
+    locks and forgets the modules again.
+    """
+    import tempfile
+
+    script_modules = ("convert_library", "kindle_epub_fixer")
+    lock_dir = tmp_path_factory.mktemp("script-locks")
+    monkeypatch.setattr(tempfile, "tempdir", str(lock_dir))
+    previous = {name: sys.modules.pop(name) for name in script_modules if name in sys.modules}
+    try:
+        yield lock_dir
+    finally:
+        for name in script_modules:
+            module = sys.modules.pop(name, None)
+            handle = getattr(module, "_lock_handle", None)
+            if handle is not None:
+                try:
+                    handle.close()
+                except OSError:
+                    pass
+        sys.modules.update(previous)
+
+
 @pytest.fixture(scope="session")
 def container_available():
     """
@@ -437,6 +571,7 @@ def pytest_configure(config):
     )
 
 
+@pytest.hookimpl(tryfirst=True)  # add directory markers before -m deselection
 def pytest_collection_modifyitems(config, items):
     """
     Automatically skip tests based on environment.
@@ -456,7 +591,17 @@ def pytest_collection_modifyitems(config, items):
     has_calibre = shutil.which('calibredb') is not None
     has_docker = shutil.which('docker') is not None
 
+    tests_root = Path(__file__).parent
+    dir_markers = {tests_root / "unit": "unit", tests_root / "smoke": "smoke"}
+
     for item in items:
+        # Tests under tests/unit and tests/smoke are unit/smoke tests by
+        # location. Several files there carry no explicit marker, so CI's
+        # `-m "smoke or unit"` silently skipped them; mark them here.
+        item_path = Path(str(item.fspath))
+        for directory, marker in dir_markers.items():
+            if directory in item_path.parents and item.get_closest_marker(marker) is None:
+                item.add_marker(getattr(pytest.mark, marker))
         if "requires_docker" in item.keywords and not in_docker:
             item.add_marker(skip_docker)
         if "requires_calibre" in item.keywords and not has_calibre:

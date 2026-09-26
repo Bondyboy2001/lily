@@ -15,6 +15,12 @@ import sys
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _isolate_sys_modules(isolated_sys_modules):
+    """Every test here writes stubs into sys.modules; undo them afterwards."""
+    yield
+
+
 def _install_stub(name, attrs=None):
     module = ModuleType(name)
     if attrs:

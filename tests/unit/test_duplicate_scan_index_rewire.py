@@ -8,6 +8,13 @@ from types import ModuleType, SimpleNamespace
 import importlib.util
 import pathlib
 import sys
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _isolate_sys_modules(isolated_sys_modules):
+    """Every test here writes stubs into sys.modules; undo them afterwards."""
+    yield
 
 
 def _install_stub(name, attrs=None):
@@ -541,6 +548,7 @@ def _load_duplicates_route_module(
     )
     _install_stub("cps.admin", {"admin_required": lambda fn: fn})
     _install_stub("cps.usermanagement", {"login_required_if_no_ano": lambda fn: fn})
+    _install_stub("cps.internal_api", {"internal_only": lambda fn: fn})
     def _render_title_template(*args, **kwargs):
         if render_calls is not None:
             render_calls.append((args, kwargs))
@@ -594,7 +602,7 @@ def _load_duplicates_route_module(
         {
             "rebuild_duplicate_index": _rebuild,
             "get_duplicate_groups_from_index": _groups,
-            "duplicate_index_needs_manual_full_scan": lambda settings: not baseline_valid,
+            "duplicate_index_needs_manual_full_scan": lambda settings, **kwargs: not baseline_valid,
             "has_valid_duplicate_index_baseline": lambda settings, candidate_book_ids=None: baseline_valid,
             "library_has_books": lambda: library_has_books,
             "ingest_batch_follow_up_pending": lambda: ingest_pending,

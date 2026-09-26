@@ -118,9 +118,13 @@ class MockBaseSession:
 mock_flask_dance_requests.OAuth2Session = MockBaseSession
 
 # Configure oauth_authorized signal mock to act as a transparent decorator
+# Signal handlers are defined inside oauth_bb.init_oauth_blueprints(); record
+# them by name so the tests can call the real handler functions.
+registered_handlers = {}
 mock_signal = MagicMock()
 def side_effect_connect_via(*args, **kwargs):
     def decorator(f):
+        registered_handlers[f.__name__] = f
         return f
     return decorator
 mock_signal.connect_via.side_effect = side_effect_connect_via
@@ -176,17 +180,28 @@ module_patches = {
     'cps.db': create_mock_module('cps.db'),
 }
 
-# We use patch.dict to temporarily replace modules during import
-with patch.dict(sys.modules, module_patches):
-    # Ensure project root is in sys.path
+# The stubbed import happens inside a module-scoped fixture (not at collection
+# time) and sys.modules is restored when this module's tests finish, so none of
+# the mocks above leak into other test files.
+oauth_bb = None
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _oauth_bb_module(isolated_sys_modules_module):
+    global oauth_bb
+    # Drop any real cps modules so ``import cps.oauth_bb`` executes against the
+    # mocked package; isolated_sys_modules_module puts them back afterwards.
+    for name in list(sys.modules):
+        if name == 'cps' or name.startswith('cps.'):
+            sys.modules.pop(name, None)
+    sys.modules.update(module_patches)
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
 
-    import cps.oauth_bb as oauth_bb
-
-# Keep oauth_bb in sys.modules so patch() can find it later
-# even after the patch.dict context manager exits
-sys.modules['cps.oauth_bb'] = oauth_bb
+    import cps.oauth_bb as imported_oauth_bb
+    oauth_bb = imported_oauth_bb
+    yield
+    oauth_bb = None
 
 
 class TestGenericOIDCSession:
@@ -261,7 +276,7 @@ class TestOAuthLogic:
         mock_generic_bp = MagicMock()
         mock_generic_bp.name = 'generic'
         
-        oauth_bb.oauthblueprints = [
+        blueprints = [
             {
                 'blueprint': mock_github_bp,
                 'id': 'github_id',
@@ -281,6 +296,14 @@ class TestOAuthLogic:
             }
         ]
 
+        # The login handlers are closures registered by init_oauth_blueprints()
+        registered_handlers.clear()
+        mock_cps_ub.oauth_support = True
+        with patch.object(oauth_bb, 'generate_oauth_blueprints', return_value=blueprints):
+            oauth_bb.init_oauth_blueprints()
+        assert oauth_bb.oauthblueprints is blueprints
+        self.handlers = dict(registered_handlers)
+
     def test_register_user_uses_manual_session(self):
         """
         Verify register_user_from_generic_oauth uses manual session instantiation
@@ -297,10 +320,12 @@ class TestOAuthLogic:
             assert call_args is not None
             assert call_args[1].get('token') == token
 
-    def test_generic_logged_in_aborts(self):
+    def test_generic_logged_in_returns_direct_login_response(self):
         """
-        Verify generic_logged_in calls abort() when a response is received.
-        This confirms the 'Direct Login' flow is active.
+        Verify generic_logged_in hands the Direct Login response back to
+        Flask-Dance when one is produced. Since af4ddd3e the generic handler
+        returns the response (Flask-Dance sends a Response returned by an
+        oauth_authorized receiver) instead of calling abort() with it.
         """
         token = {'access_token': 'test_token'}
         
@@ -317,12 +342,13 @@ class TestOAuthLogic:
             with patch.object(oauth_bb, 'abort') as mock_abort:
                 # Also patch log to see errors
                 with patch.object(oauth_bb, 'log') as mock_log:
-                    oauth_bb.generic_logged_in(mock_blueprint, token)
+                    result = self.handlers['generic_logged_in'](mock_blueprint, token)
                     
                     # Check if register was called
                     assert mock_reg.called, "register_user_from_generic_oauth was not called"
                     
-                    mock_abort.assert_called_once_with(mock_response)
+                    assert result is mock_response
+                    mock_abort.assert_not_called()
 
     def test_github_logged_in_aborts(self):
         """
@@ -337,7 +363,7 @@ class TestOAuthLogic:
         with patch.object(oauth_bb, 'bind_oauth_or_register', return_value=mock_response) as mock_bind:
             with patch.object(oauth_bb, 'abort') as mock_abort:
                 with patch.object(oauth_bb, 'oauth_update_token'):
-                    oauth_bb.github_logged_in(mock_blueprint, token)
+                    result = self.handlers['github_logged_in'](mock_blueprint, token)
                     
                     mock_bind.assert_called()
                     mock_abort.assert_called_once_with(mock_response)
@@ -355,7 +381,7 @@ class TestOAuthLogic:
         with patch.object(oauth_bb, 'bind_oauth_or_register', return_value=mock_response) as mock_bind:
             with patch.object(oauth_bb, 'abort') as mock_abort:
                 with patch.object(oauth_bb, 'oauth_update_token'):
-                    oauth_bb.google_logged_in(mock_blueprint, token)
+                    result = self.handlers['google_logged_in'](mock_blueprint, token)
                     
                     mock_bind.assert_called()
                     mock_abort.assert_called_once_with(mock_response)

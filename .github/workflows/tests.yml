@@ -62,6 +62,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
+          # Fail fast if the resolver produced an incompatible pyOpenSSL/cryptography pair
+          pip check
+          python -c "import OpenSSL, cryptography; print('pyOpenSSL', OpenSSL.__version__, 'cryptography', cryptography.__version__)"
       
       - name: Create test environment structure
         run: |
@@ -75,9 +78,10 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/scripts
         run: |
+          # No --maxfail: report every failing test, not just the first few.
+          # (tests under tests/unit and tests/smoke are auto-marked unit/smoke in conftest.py)
           pytest -m "smoke or unit" \
             -n auto \
-            --maxfail=3 \
             -v \
             --tb=short \
             --cov=cps \
