@@ -230,6 +230,30 @@ def cwa_update_notification() -> None:
     else:
         return
 
+# lang -> date the missing-translation notice is known to have been handled today
+_translation_notice_done_dates = {}
+# po_path -> (mtime, missing_count); avoids re-parsing the .po file on every render
+_missing_translation_count_memo = {}
+
+
+def _missing_translation_count(po_path) -> int:
+    try:
+        mtime = os.path.getmtime(po_path)
+    except OSError:
+        return 0
+    memo = _missing_translation_count_memo.get(po_path)
+    if memo is not None and memo[0] == mtime:
+        return memo[1]
+    missing_count = 0
+    try:
+        po = polib.pofile(po_path)
+        missing_count = sum(1 for entry in po if not entry.msgstr.strip())
+    except Exception as e:
+        print(f"[translation-notification-service] Error reading {po_path}: {e}", flush=True)
+    _missing_translation_count_memo[po_path] = (mtime, missing_count)
+    return missing_count
+
+
 # Checks if translations are missing for the current language
 def translations_missing_notification() -> None:
     db = get_request_cwa_db()
@@ -241,13 +265,19 @@ def translations_missing_notification() -> None:
         po_path = f"cps/translations/{lang}/LC_MESSAGES/messages.po"
         current_date = datetime.now().strftime("%Y-%m-%d")
         notice_file = f"/app/cwa_translation_notice_{lang}"
-        missing_count = 0
-        if os.path.isfile(po_path):
+        # Already notified today (in this process, or per the notice file): nothing to do,
+        # so skip parsing the .po file entirely.
+        if _translation_notice_done_dates.get(lang) == current_date:
+            return
+        if os.path.isfile(notice_file):
             try:
-                po = polib.pofile(po_path)
-                missing_count = sum(1 for entry in po if not entry.msgstr.strip())
-            except Exception as e:
-                print(f"[translation-notification-service] Error reading {po_path}: {e}", flush=True)
+                with open(notice_file, 'r') as f:
+                    if f.read().strip() == current_date:
+                        _translation_notice_done_dates[lang] = current_date
+                        return
+            except Exception:
+                pass
+        missing_count = _missing_translation_count(po_path)
         if missing_count > 0:
             if not os.path.isfile(notice_file):
                 with open(notice_file, 'w') as f:
@@ -262,6 +292,7 @@ def translations_missing_notification() -> None:
                 print(f"[translation-notification-service] {message}", flush=True)
                 with open(notice_file, 'w') as f:
                     f.write(current_date)
+            _translation_notice_done_dates[lang] = current_date
         return
     else:
         return

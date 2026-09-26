@@ -876,18 +876,18 @@ function initCharts() {
             updateAllVisualizations();
         });
     
-    // Responsive resize
+    // Responsive resize (debounced; only initialised charts that are currently visible)
+    let activityResizeTimer;
     window.addEventListener('resize', () => {
-        timelineChart.resize();
-        eventsChart.resize();
-        formatsChart.resize();
-        heatmapChart.resize();
-        velocityChart.resize();
-        formatPreferencesChart.resize();
-        discoveryChart.resize();
-        deviceChart.resize();
-        sessionDurationChart.resize();
-        searchSuccessChart.resize();
+        clearTimeout(activityResizeTimer);
+        activityResizeTimer = setTimeout(resizeActivityCharts, 150);
+    });
+}
+
+function resizeActivityCharts() {
+    [timelineChart, eventsChart, formatsChart, heatmapChart, velocityChart, formatPreferencesChart,
+     discoveryChart, deviceChart, sessionDurationChart, searchSuccessChart].forEach(chart => {
+        if (chart && chart.getDom().offsetWidth > 0) chart.resize();
     });
 }
 
@@ -2013,7 +2013,14 @@ document.addEventListener('DOMContentLoaded', function() {
     {% if show_warning %}
     document.getElementById('date-warning').style.display = 'block';
     {% endif %}
-    
-    initCharts();
 });
+
+// Charts are initialised lazily by the stats tab page the first time this tab is shown;
+// when rendered standalone (no registry), initialise once the DOM and echarts are ready.
+if (window.lilyStatsTabInit) {
+    window.lilyStatsTabInit.activity = initCharts;
+    window.lilyStatsTabResize.activity = resizeActivityCharts;
+} else {
+    document.addEventListener('DOMContentLoaded', initCharts);
+}
 </script>

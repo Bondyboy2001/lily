@@ -538,7 +538,13 @@ $(document).ready(function() {
             .text('Refresh Page');
     }
 
+    var duplicateScanPollInFlight = false;
     function pollDuplicateScanTask() {
+        // Avoid overlapping requests, and skip interval ticks while the tab is hidden
+        if (duplicateScanPollInFlight || (document.hidden && duplicateScanPollTimer)) {
+            return;
+        }
+        duplicateScanPollInFlight = true;
         $.getJSON(duplicateScanEndpoint('/ajax/emailstat'), function(tasks) {
             var runningTask = null;
             $.each(tasks || [], function(index, task) {
@@ -560,6 +566,8 @@ $(document).ready(function() {
                 clearInterval(duplicateScanPollTimer);
                 duplicateScanPollTimer = null;
             }
+        }).always(function() {
+            duplicateScanPollInFlight = false;
         });
     }
 

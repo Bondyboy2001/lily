@@ -872,8 +872,32 @@ def get_cover_on_failure():
 
 
 def get_book_cover(book_id, resolution=None):
-    book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+    # Only id/has_cover/path are needed to serve a cover; avoid building a full
+    # Books row with all its eager-loaded relationships. Same permission filter.
+    book = calibre_db.get_filtered_book_cover_info(book_id, allow_show_archived=True)
     return get_book_cover_internal(book, resolution=resolution)
+
+
+# One year; cover URLs carry a ?c=<last_modified> cache-buster (see jinjia.get_cover_srcset)
+_COVER_CACHE_MAX_AGE = 31536000
+
+
+def _apply_cover_cache_headers(resp):
+    """Mark a real (non-fallback) cover response as long-lived cacheable when
+    the request carries the ``c`` cache-buster param. Private, since covers are
+    served to authenticated users."""
+    try:
+        from flask import has_request_context, request
+        if (resp is not None and has_request_context()
+                and request.endpoint == 'web.get_cover' and request.args.get('c')):
+            resp.cache_control.no_cache = None
+            resp.cache_control.public = False
+            resp.cache_control.private = True
+            resp.cache_control.max_age = _COVER_CACHE_MAX_AGE
+            resp.expires = int(time.time() + _COVER_CACHE_MAX_AGE)
+    except Exception as ex:
+        log.debug('Failed to set cover cache headers: %s', ex)
+    return resp
 
 
 def get_book_cover_with_uuid(book_uuid, resolution=None):
@@ -895,8 +919,9 @@ def get_book_cover_internal(book, resolution=None):
         if resolution:
             cache = fs.FileSystem()
             # Check for both webp and jpg thumbnails, generate missing ones
-            webp_thumb = get_book_cover_thumbnail_by_format(book, resolution, 'webp')
-            jpg_thumb = get_book_cover_thumbnail_by_format(book, resolution, 'jpg')
+            thumbs = get_book_cover_thumbnails_by_formats(book, resolution, ('webp', 'jpg'))
+            webp_thumb = thumbs.get('webp')
+            jpg_thumb = thumbs.get('jpg')
 
             # Check if files actually exist on disk
             webp_exists = webp_thumb and cache.get_cache_file_exists(webp_thumb.filename, CACHE_TYPE_THUMBNAILS)
@@ -947,8 +972,13 @@ def get_book_cover_internal(book, resolution=None):
                 # Fallback if we can't determine request context
                 thumbnail_to_serve = webp_thumb if webp_exists else (jpg_thumb if jpg_exists else None)
             if thumbnail_to_serve:
-                return send_from_directory(cache.get_cache_file_dir(thumbnail_to_serve.filename, CACHE_TYPE_THUMBNAILS),
-                                           thumbnail_to_serve.filename)
+                return _apply_cover_cache_headers(
+                    send_from_directory(cache.get_cache_file_dir(thumbnail_to_serve.filename, CACHE_TYPE_THUMBNAILS),
+                                        thumbnail_to_serve.filename))
+
+        # When a thumbnail was requested but not available yet, it may be generated in the
+        # background; don't pin the full-size fallback in the browser cache for a year then.
+        cover_is_final = not (resolution and use_IM)
 
         # Send the book cover from Google Drive if configured
         if config.config_use_google_drive:
@@ -957,7 +987,8 @@ def get_book_cover_internal(book, resolution=None):
                     return get_cover_on_failure()
                 cover_file = gd.get_cover_via_gdrive(book.path)
                 if cover_file:
-                    return Response(cover_file, mimetype='image/jpeg')
+                    resp = Response(cover_file, mimetype='image/jpeg')
+                    return _apply_cover_cache_headers(resp) if cover_is_final else resp
                 else:
                     log.error('{}/cover.jpg not found on Google Drive'.format(book.path))
                     return get_cover_on_failure()
@@ -969,7 +1000,8 @@ def get_book_cover_internal(book, resolution=None):
         else:
             cover_file_path = os.path.join(config.get_book_path(), book.path)
             if os.path.isfile(os.path.join(cover_file_path, "cover.jpg")):
-                return send_from_directory(cover_file_path, "cover.jpg")
+                resp = send_from_directory(cover_file_path, "cover.jpg")
+                return _apply_cover_cache_headers(resp) if cover_is_final else resp
             else:
                 return get_cover_on_failure()
     else:
@@ -998,6 +1030,25 @@ def get_book_cover_thumbnail_by_format(book, resolution, format):
                 .filter(ub.Thumbnail.format == format)
                 .filter(or_(ub.Thumbnail.expiration.is_(None), ub.Thumbnail.expiration > datetime.now(timezone.utc)))
                 .first())
+
+
+def get_book_cover_thumbnails_by_formats(book, resolution, formats):
+    """Fetch the cover thumbnails of ``book`` at ``resolution`` for several formats
+    in a single query. Returns {format: Thumbnail}; the first matching row per
+    format wins (same as .first() on a per-format query)."""
+    result = {}
+    if book and book.has_cover:
+        rows = (ub.session
+                .query(ub.Thumbnail)
+                .filter(ub.Thumbnail.type == THUMBNAIL_TYPE_COVER)
+                .filter(ub.Thumbnail.entity_id == book.id)
+                .filter(ub.Thumbnail.resolution == resolution)
+                .filter(ub.Thumbnail.format.in_(list(formats)))
+                .filter(or_(ub.Thumbnail.expiration.is_(None), ub.Thumbnail.expiration > datetime.now(timezone.utc)))
+                .all())
+        for row in rows:
+            result.setdefault(row.format, row)
+    return result
 
 
 def get_series_thumbnail_on_failure(series_id, resolution):

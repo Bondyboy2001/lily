@@ -207,13 +207,15 @@ def get_opds_root_entries(user, allow_anonymous):
 def track_opds_access():
     """Track OPDS feed access for analytics"""
     try:
-        from scripts.cwa_db import CWA_DB
+        from .render_template import get_request_cwa_db
         from .cw_login import current_user
         import json as json_lib
-        
+
         # Only track if user is authenticated
         if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
-            cwa_db = CWA_DB()
+            # Per-request connection (closed at request teardown) instead of an unclosed CWA_DB() per hit.
+            # Cover/thumbnail hits are still logged: the API stats endpoint breakdown counts them.
+            cwa_db = get_request_cwa_db()
             cwa_db.log_activity(
                 user_id=int(current_user.id),
                 user_name=current_user.name,

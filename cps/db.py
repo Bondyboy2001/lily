@@ -33,6 +33,7 @@ except ImportError:
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.sql.expression import and_, true, false, text, func, or_
 from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.sql import select, table as sql_table, column as sql_column
 from .cw_login import current_user
 from flask_babel import gettext as _
 from flask_babel import get_locale
@@ -46,6 +47,14 @@ log = logger.create()
 
 cc_exceptions = ['composite', 'series']
 cc_classes = {}
+
+# Lightweight handle on app.db's archived_book table, reachable from the calibre
+# connection because app.db is ATTACHed there as schema "app_settings" (see setup_db).
+_app_archived_book = sql_table('archived_book',
+                               sql_column('book_id', Integer),
+                               sql_column('user_id', Integer),
+                               sql_column('is_archived', Boolean),
+                               schema='app_settings')
 
 Base = declarative_base()
 
@@ -877,6 +886,18 @@ class CalibreDB:
                 .filter(self.common_filters(allow_show_archived))
                 .first())
 
+    def get_filtered_book_cover_info(self, book_id, allow_show_archived=False):
+        """Lightweight variant of get_filtered_book for cover serving.
+
+        Returns a row exposing only ``id``, ``has_cover`` and ``path`` (or None),
+        with the same permission filtering (common_filters) as get_filtered_book.
+        """
+        self.ensure_session()
+        return (self.session.query(Books.id, Books.has_cover, Books.path)
+                .filter(Books.id == book_id)
+                .filter(self.common_filters(allow_show_archived))
+                .first())
+
     def get_book_read_archived(self, book_id, read_column, allow_show_archived=False):
         self.ensure_session()
         if not read_column:
@@ -941,11 +962,13 @@ class CalibreDB:
     # Language and content filters for displaying in the UI
     def common_filters(self, allow_show_archived=False, return_all_languages=False, viewing_tag_id=None):
         if not allow_show_archived:
-            archived_books = (ub.session.query(ub.ArchivedBook)
-                              .filter(ub.ArchivedBook.user_id==int(current_user.id))
-                              .filter(ub.ArchivedBook.is_archived==True)
-                              .all())
-            archived_book_ids = [archived_book.book_id for archived_book in archived_books]
+            # app.db is ATTACHed as "app_settings" on the calibre connection (see setup_db),
+            # so filter with a subquery instead of loading ArchivedBook rows through ub.session
+            # and inlining a (potentially huge) NOT IN literal list.
+            archived_book_ids = (select(_app_archived_book.c.book_id)
+                                 .where(_app_archived_book.c.user_id == int(current_user.id))
+                                 .where(_app_archived_book.c.is_archived == True)
+                                 .where(_app_archived_book.c.book_id.isnot(None)))
             archived_filter = Books.id.notin_(archived_book_ids)
         else:
             archived_filter = true()
@@ -1120,12 +1143,25 @@ class CalibreDB:
             else:
                 sort_authors = entry.author_sort.split('&')
                 ids = [a.id for a in entry.authors]
+            book_authors = entry.Books.authors if combined else entry.authors
+            authors_by_id = {a.id: a for a in book_authors}
             authors_ordered = list()
             # error = False
             for auth in sort_authors:
                 auth = strip_whitespaces(auth)
                 # Skip empty author strings to prevent spurious errors
                 if not auth:
+                    continue
+                # Fast path: match against the already loaded authors of this book instead of
+                # querying per author. Only taken when the exact match is unambiguous w.r.t.
+                # SQLite's (possibly NOCASE) comparison; otherwise fall back to the query.
+                auth_nocase = _ascii_lower(auth)
+                exact = [authors_by_id[i] for i in ids if authors_by_id[i].sort == auth]
+                nocase = [i for i in ids if _ascii_lower(authors_by_id[i].sort) == auth_nocase]
+                if exact and len(exact) == len(nocase):
+                    for r in sorted(exact, key=lambda a: a.id):
+                        authors_ordered.append(r)
+                        ids.remove(r.id)
                     continue
                 results = self.session.query(Authors).filter(Authors.sort == auth).all()
                 # ToDo: How to handle not found author name
@@ -1138,7 +1174,9 @@ class CalibreDB:
                         authors_ordered.append(r)
                         ids.remove(r.id)
             for author_id in ids:
-                result = self.session.query(Authors).filter(Authors.id == author_id).first()
+                result = authors_by_id.get(author_id)
+                if result is None:
+                    result = self.session.query(Authors).filter(Authors.id == author_id).first()
                 authors_ordered.append(result)
 
             if list_return:
@@ -1374,6 +1412,14 @@ def lcase(s):
         _log = logger.create()
         _log.error_or_exception(ex)
         return s.lower()
+
+
+_ASCII_LOWER_TABLE = str.maketrans('ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')
+
+
+def _ascii_lower(s):
+    """Lower-case ASCII letters only, mirroring SQLite's NOCASE collation."""
+    return s.translate(_ASCII_LOWER_TABLE) if s is not None else None
 
 
 class Category:

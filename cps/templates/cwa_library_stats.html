@@ -437,15 +437,18 @@ function initLibraryCharts() {
     
     updateAllLibraryCharts();
     
-    // Responsive resize
+    // Responsive resize (debounced; only initialised charts that are currently visible)
+    let libraryResizeTimer;
     window.addEventListener('resize', () => {
-        growthChart.resize();
-        libraryFormatsChart.resize();
-        seriesChart.resize();
-        publicationYearChart.resize();
-        ratingStatsChart.resize();
-        topEnforcedChart.resize();
-        importSankeyChart.resize();
+        clearTimeout(libraryResizeTimer);
+        libraryResizeTimer = setTimeout(resizeLibraryCharts, 150);
+    });
+}
+
+function resizeLibraryCharts() {
+    [growthChart, libraryFormatsChart, seriesChart, publicationYearChart,
+     ratingStatsChart, topEnforcedChart, importSankeyChart].forEach(chart => {
+        if (chart && chart.getDom().offsetWidth > 0) chart.resize();
     });
 }
 
@@ -1310,8 +1313,12 @@ function exportLibraryCSV() {
     window.location.href = '/cwa-stats-export-csv/library' + window.location.search;
 }
 
-// Initialize on page load
-if (document.getElementById('growth-chart')) {
-    initLibraryCharts();
+// Charts are initialised lazily by the stats tab page the first time this tab is shown;
+// when rendered standalone (no registry), initialise once the DOM and echarts are ready.
+if (window.lilyStatsTabInit) {
+    window.lilyStatsTabInit.library = initLibraryCharts;
+    window.lilyStatsTabResize.library = resizeLibraryCharts;
+} else if (document.getElementById('growth-chart')) {
+    document.addEventListener('DOMContentLoaded', initLibraryCharts);
 }
 </script>

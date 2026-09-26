@@ -299,10 +299,17 @@ function initApiCharts() {
     
     updateAllApiVisualizations();
     
-    // Responsive resize
+    // Responsive resize (debounced; only initialised charts that are currently visible)
+    let apiResizeTimer;
     window.addEventListener('resize', () => {
-        apiUsageChart.resize();
-        apiTimingChart.resize();
+        clearTimeout(apiResizeTimer);
+        apiResizeTimer = setTimeout(resizeApiCharts, 150);
+    });
+}
+
+function resizeApiCharts() {
+    [apiUsageChart, apiTimingChart].forEach(chart => {
+        if (chart && chart.getDom().offsetWidth > 0) chart.resize();
     });
 }
 
@@ -611,8 +618,12 @@ function exportApiCSV() {
     window.location.href = '/cwa-stats-export-csv/api' + window.location.search;
 }
 
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-    initApiCharts();
-});
+// Charts are initialised lazily by the stats tab page the first time this tab is shown;
+// when rendered standalone (no registry), initialise once the DOM and echarts are ready.
+if (window.lilyStatsTabInit) {
+    window.lilyStatsTabInit.api = initApiCharts;
+    window.lilyStatsTabResize.api = resizeApiCharts;
+} else {
+    document.addEventListener('DOMContentLoaded', initApiCharts);
+}
 </script>

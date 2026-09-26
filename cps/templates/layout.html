@@ -142,6 +142,19 @@
       }
 
     </script>
+    {% if current_user.is_authenticated %}
+      {% set avatar_version = lily_avatar_version(current_user.name) %}
+      {% if avatar_version %}
+        {% set avatar_url = url_for('profile_pictures.user_avatar', v=avatar_version) %}
+        <style>
+          .profileDrop > span:before,
+          body.me > div.container-fluid > div.row-fluid > div.col-sm-10:before,
+          .navbar > .container-fluid > .navbar-header > button.navbar-toggle:before {
+            background-image: url("{{ avatar_url }}") !important;
+          }
+        </style>
+      {% endif %}
+    {% endif %}
   </head>
   <body class="{{ page }} {{ bodyClass }}{% if g.current_theme == 1 %} blur{% endif %}{% if cwa_settings and cwa_settings.get('enable_mobile_blur') %} allow-mobile-blur{% endif %}" data-text="{{_('Home')}}" data-textback="{{_('Back')}}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -480,9 +493,6 @@
       <script src="{{ url_for('static', filename='js/caliBlur.js') }}"></script>
     {% endif %}
     {% block js %}{% endblock %}
-    {% if current_user.is_authenticated %}
-    <script src="{{ url_for('static', filename='user-profile-data/CWA-profile-updater.js') }}"></script>
-    {% endif %}
     <!-- Makes sure filter buttons are only on the title bar of the page when there is no pagination -->
     <script>
       function updateFilterHeaderFixed() {

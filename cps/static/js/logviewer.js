@@ -42,12 +42,14 @@ function init(logType) {
     })
         .done( function(data) {
             var text;
-            $("#renderer").text("");
+            var html = [];
             text = (data).split("\n");
             // console.log(text.length);
             for (var i = 0; i < text.length; i++) {
-                $("#renderer").append( "<div>" + _sanitize(text[i]) + "</div>" );
+                html.push("<div>" + _sanitize(text[i]) + "</div>");
             }
+            // Single DOM write instead of one append per line
+            d.innerHTML = html.join("");
         });
 }
 

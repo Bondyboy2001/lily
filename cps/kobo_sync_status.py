@@ -25,6 +25,27 @@ def add_synced_books(book_id):
         ub.session_commit()
 
 
+# Bulk variant of add_synced_books: one existence query and a single commit for all ids.
+# Ids already present for the current user (or repeated in book_ids) are skipped.
+def add_synced_books_bulk(book_ids):
+    book_ids = list(dict.fromkeys(book_ids))
+    if not book_ids:
+        return
+    user_id = current_user.id
+    present = set()
+    chunk = 500  # stay well below SQLite's bound-parameter limit
+    for i in range(0, len(book_ids), chunk):
+        present.update(row.book_id for row in
+                       ub.session.query(ub.KoboSyncedBooks.book_id)
+                       .filter(ub.KoboSyncedBooks.user_id == user_id)
+                       .filter(ub.KoboSyncedBooks.book_id.in_(book_ids[i:i + chunk])))
+    new_ids = [book_id for book_id in book_ids if book_id not in present]
+    if not new_ids:
+        return
+    ub.session.add_all([ub.KoboSyncedBooks(user_id=user_id, book_id=book_id) for book_id in new_ids])
+    ub.session_commit()
+
+
 # Select all entries of current book in kobo_synced_books table, which are from current user and delete them
 def remove_synced_book(book_id, all=False, session=None):
     if not all:

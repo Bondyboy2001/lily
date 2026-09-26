@@ -538,27 +538,54 @@ def ingest_batch_follow_up_pending():
     )
 
 
-def duplicate_index_needs_manual_full_scan(settings):
-    """Return True only when UI should ask for a manual full scan.
+_CACHE_NOT_PROVIDED = object()
 
-    During active imports, the debounced after-import scan is responsible for
-    indexing books newer than the last full baseline. Do not turn that temporary
-    lag into a manual full-scan requirement.
-    """
-    cwa_db = CWA_DB()
-    cache_data = cwa_db.get_duplicate_cache()
-    if not cache_data:
-        return library_has_books()
+# In-process memo of the (expensive) missing-book classification, keyed on cheap
+# aggregate fingerprints of the calibre library and the duplicate key index.
+# Holds a single (key, classification) tuple; replaced atomically.
+_MANUAL_SCAN_STATE_MEMO = None
+_MISSING_NONE = "none"
+_MISSING_EXISTING = "existing"
+_MISSING_NEW_ONLY = "new_only"
 
+
+def _scalar_or_none(query):
+    try:
+        return query.scalar()
+    except Exception:
+        return None
+
+
+def _library_id_aggregates():
+    """Cheap COUNT/MAX/SUM over Books.id used as a change fingerprint for the id set."""
+    session = calibre_db.session
+    count = _scalar_or_none(session.query(func.count(db.Books.id)))
+    max_id = _scalar_or_none(session.query(func.max(db.Books.id)))
+    sum_ids = _scalar_or_none(session.query(func.sum(db.Books.id)))
+    return int(count or 0), int(max_id or 0), sum_ids
+
+
+def _light_duplicate_cache_state(cwa_db):
+    """Return {'scan_timestamp', 'last_scanned_book_id'} when a cache with groups exists,
+    else None, without parsing duplicate_groups_json."""
+    try:
+        cwa_db.cur.execute(
+            """
+            SELECT scan_timestamp, last_scanned_book_id
+            FROM cwa_duplicate_cache
+            WHERE id = 1 AND duplicate_groups_json IS NOT NULL AND duplicate_groups_json != ''
+            """
+        )
+        row = cwa_db.cur.fetchone()
+    except Exception:
+        return cwa_db.get_duplicate_cache()
+    if not row:
+        return None
+    return {"scan_timestamp": row[0], "last_scanned_book_id": row[1]}
+
+
+def _classify_missing_book_ids(cwa_db, fingerprint, last_scanned_book_id):
     library_book_ids = _current_library_book_ids()
-    if not library_book_ids:
-        return False
-
-    last_scanned_book_id = int(cache_data.get("last_scanned_book_id") or 0)
-    if last_scanned_book_id <= 0:
-        return not ingest_batch_follow_up_pending()
-
-    fingerprint = get_criteria_fingerprint(settings)
     cwa_db.cur.execute(
         "SELECT book_id FROM cwa_duplicate_book_keys WHERE criteria_fingerprint = ?",
         (fingerprint,),
@@ -566,13 +593,76 @@ def duplicate_index_needs_manual_full_scan(settings):
     indexed_book_ids = {int(row[0]) for row in cwa_db.cur.fetchall()}
     missing_book_ids = library_book_ids - indexed_book_ids
     if not missing_book_ids:
-        return False
+        return _MISSING_NONE
+    if any(book_id <= last_scanned_book_id for book_id in missing_book_ids):
+        return _MISSING_EXISTING
+    return _MISSING_NEW_ONLY
 
-    missing_existing_books = {book_id for book_id in missing_book_ids if book_id <= last_scanned_book_id}
-    if missing_existing_books:
+
+def duplicate_index_needs_manual_full_scan(settings, cwa_db=None, cache_data=_CACHE_NOT_PROVIDED):
+    """Return True only when UI should ask for a manual full scan.
+
+    During active imports, the debounced after-import scan is responsible for
+    indexing books newer than the last full baseline. Do not turn that temporary
+    lag into a manual full-scan requirement.
+
+    ``cwa_db`` and an already-loaded ``cache_data`` (result of
+    ``CWA_DB.get_duplicate_cache()``) may be passed to avoid opening another
+    connection / re-parsing the cached groups JSON.
+    """
+    global _MANUAL_SCAN_STATE_MEMO
+    owns_db = cwa_db is None
+    if owns_db:
+        cwa_db = CWA_DB()
+    try:
+        if cache_data is _CACHE_NOT_PROVIDED:
+            cache_data = _light_duplicate_cache_state(cwa_db)
+        if not cache_data:
+            return library_has_books()
+
+        library_count, library_max_id, library_id_sum = _library_id_aggregates()
+        if library_count <= 0:
+            return False
+
+        last_scanned_book_id = int(cache_data.get("last_scanned_book_id") or 0)
+        if last_scanned_book_id <= 0:
+            return not ingest_batch_follow_up_pending()
+
+        fingerprint = get_criteria_fingerprint(settings)
+        cwa_db.cur.execute(
+            "SELECT COUNT(*), MAX(book_id), SUM(book_id) FROM cwa_duplicate_book_keys "
+            "WHERE criteria_fingerprint = ?",
+            (fingerprint,),
+        )
+        index_aggregates = tuple(cwa_db.cur.fetchone() or ())
+
+        memo_key = (
+            fingerprint,
+            last_scanned_book_id,
+            cache_data.get("scan_timestamp"),
+            library_count,
+            library_max_id,
+            library_id_sum,
+            index_aggregates,
+        )
+        memo = _MANUAL_SCAN_STATE_MEMO
+        if memo is not None and memo[0] == memo_key:
+            classification = memo[1]
+        else:
+            classification = _classify_missing_book_ids(cwa_db, fingerprint, last_scanned_book_id)
+            _MANUAL_SCAN_STATE_MEMO = (memo_key, classification)
+
+        if classification == _MISSING_NONE:
+            return False
+        if classification == _MISSING_EXISTING:
+            return True
+
+        if ingest_batch_follow_up_pending():
+            return False
+
         return True
-
-    if ingest_batch_follow_up_pending():
-        return False
-
-    return True
+    finally:
+        if owns_db:
+            close = getattr(cwa_db, "close", None)
+            if callable(close):
+                close()

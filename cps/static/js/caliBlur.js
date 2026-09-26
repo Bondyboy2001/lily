@@ -396,8 +396,17 @@ if($("body.advsearch").length > 0) {
 
   search_dropdownToggle();
 
+  var searchDropdownRafPending = false;
   $(window).on("resize", function () {
-      search_dropdownToggle();
+      // Throttle layout reads/style writes to once per animation frame
+      if (searchDropdownRafPending) {
+          return;
+      }
+      searchDropdownRafPending = true;
+      window.requestAnimationFrame(function () {
+          searchDropdownRafPending = false;
+          search_dropdownToggle();
+      });
   });
 
 }
@@ -818,9 +827,78 @@ function showPageFlashMessage(message, type) {
 
 // Handle clicks on book cover :before pseudo-elements for direct reading
 $(function() {
+    // Bumped on window resize/scroll to invalidate cached cover geometry
+    var directReadingGeomEpoch = 0;
+    $(window).on('resize.directReadingGeom scroll.directReadingGeom', function() {
+        directReadingGeomEpoch++;
+    });
+
+    function measureDirectReadingRect($link) {
+        var linkOffset = $link.offset();
+        return {
+            left: linkOffset.left,
+            top: linkOffset.top,
+            width: $link.outerWidth(),
+            height: $link.outerHeight(),
+            // Center read icon (50px circle on desktop, 40px on smaller screens)
+            readIconSize: ($(window).width() >= 768) ? 50 : 40,
+            epoch: directReadingGeomEpoch
+        };
+    }
+
+    // Returns 'read', 'toggle', 'edit', 'send' or null for a page-coordinate point
+    function getDirectReadingZone(rect, pageX, pageY) {
+        var x = pageX - rect.left;
+        var y = pageY - rect.top;
+        var linkWidth = rect.width;
+        var linkHeight = rect.height;
+
+        // Define the action areas
+        var actionSize = 35;
+        var margin = 8;
+        var actionRadius = actionSize / 2;
+        var actionY = linkHeight - margin - actionRadius;
+
+        var readIconRadius = rect.readIconSize / 2;
+        var centerX = linkWidth / 2;
+        var centerY = linkHeight / 2;
+
+        // Read toggle area (bottom-left)
+        var readToggleX = margin + actionRadius;
+        // Edit metadata button (center-bottom)
+        var editMetadataX = linkWidth / 2;
+        // Send to eReader area (bottom-right)
+        var sendEReaderX = linkWidth - margin - actionRadius;
+
+        function dist(cx, cy) {
+            return Math.sqrt(Math.pow(x - cx, 2) + Math.pow(y - cy, 2));
+        }
+
+        if (dist(centerX, centerY) <= readIconRadius) {
+            return 'read';
+        } else if (dist(readToggleX, actionY) <= actionRadius) {
+            return 'toggle';
+        } else if (dist(editMetadataX, actionY) <= actionRadius) {
+            return 'edit';
+        } else if (dist(sendEReaderX, actionY) <= actionRadius) {
+            return 'send';
+        }
+        return null;
+    }
+
+    function setDirectReadingZone($link, zone) {
+        $link.toggleClass('hovering-read-icon', zone === 'read');
+        $link.find('.read-toggle-btn').toggleClass('hovering', zone === 'toggle');
+        $link.find('.edit-metadata-btn').toggleClass('hovering', zone === 'edit');
+        $link.find('.send-ereader-btn').toggleClass('hovering', zone === 'send');
+        $link.data('drZone', zone);
+    }
+
     function initDirectReadingHandler() {
         // Remove any existing handlers first
-        $('.book-cover-link').off('click.directReading mousemove.directReading mouseleave.directReading');
+        $('.book-cover-link')
+            .off('click.directReading mousemove.directReading mouseleave.directReading mouseenter.directReading')
+            .removeData('drRect drZone');
         $('.read-toggle-btn, .edit-metadata-btn, .send-ereader-btn').off('click.quickActions');
         
         // Check if device supports hover (not a touch device)
@@ -874,145 +952,56 @@ $(function() {
                 handleSendToEReader($link);
             });
             
+            // Geometry is cached per link on mouseenter and invalidated whenever the
+            // window resizes or scrolls (layout may shift), so mousemove does no
+            // layout reads. Classes are only touched when the hovered zone changes.
+            $('.book-cover-link').on('mouseenter.directReading', function() {
+                var $link = $(this);
+                $link.data('drRect', measureDirectReadingRect($link));
+            });
+
             $('.book-cover-link').on('mousemove.directReading', function(e) {
                 var $link = $(this);
-                
-                // Calculate if mouse is over any of the action areas
-                var linkOffset = $link.offset();
-                var mouseX = e.pageX - linkOffset.left;
-                var mouseY = e.pageY - linkOffset.top;
-                
-                var linkWidth = $link.outerWidth();
-                var linkHeight = $link.outerHeight();
-                
-                // Define the action areas
-                var actionSize = 35;
-                var margin = 8;
-                
-                // Center read icon (50px circle on desktop, 40px on smaller screens)
-                var readIconSize = ($(window).width() >= 768) ? 50 : 40;
-                var centerX = linkWidth / 2;
-                var centerY = linkHeight / 2;
-                var readIconRadius = readIconSize / 2;
-                
-                // Read toggle area (bottom-left)
-                var readToggleX = margin + (actionSize / 2);
-                var readToggleY = linkHeight - margin - (actionSize / 2);
-                var readToggleRadius = actionSize / 2;
-                
-                // Send to eReader area (bottom-right)
-                var sendEReaderX = linkWidth - margin - (actionSize / 2);
-                var sendEReaderY = linkHeight - margin - (actionSize / 2);
-                var sendEReaderRadius = actionSize / 2;
-                
-                // Edit metadata button (center-bottom)
-                var editMetadataX = linkWidth / 2;
-                var editMetadataY = linkHeight - margin - (actionSize / 2);
-                var editMetadataRadius = actionSize / 2;
-                
-                // Calculate distances
-                var distanceFromReadIcon = Math.sqrt(
-                    Math.pow(mouseX - centerX, 2) + Math.pow(mouseY - centerY, 2)
-                );
-                var distanceFromReadToggle = Math.sqrt(
-                    Math.pow(mouseX - readToggleX, 2) + Math.pow(mouseY - readToggleY, 2)
-                );
-                var distanceFromEditMetadata = Math.sqrt(
-                    Math.pow(mouseX - editMetadataX, 2) + Math.pow(mouseY - editMetadataY, 2)
-                );
-                var distanceFromSendEReader = Math.sqrt(
-                    Math.pow(mouseX - sendEReaderX, 2) + Math.pow(mouseY - sendEReaderY, 2)
-                );
-                
-                // Reset all hover states
-                $link.removeClass('hovering-read-icon');
-                $link.find('.read-toggle-btn').removeClass('hovering');
-                $link.find('.edit-metadata-btn').removeClass('hovering');
-                $link.find('.send-ereader-btn').removeClass('hovering');
-                
-                // Apply hover state based on position
-                if (distanceFromReadIcon <= readIconRadius) {
-                    $link.addClass('hovering-read-icon');
-                } else if (distanceFromReadToggle <= readToggleRadius) {
-                    $link.find('.read-toggle-btn').addClass('hovering');
-                } else if (distanceFromEditMetadata <= editMetadataRadius) {
-                    $link.find('.edit-metadata-btn').addClass('hovering');
-                } else if (distanceFromSendEReader <= sendEReaderRadius) {
-                    $link.find('.send-ereader-btn').addClass('hovering');
+                var rect = $link.data('drRect');
+                if (!rect || rect.epoch !== directReadingGeomEpoch) {
+                    rect = measureDirectReadingRect($link);
+                    $link.data('drRect', rect);
+                }
+
+                var zone = getDirectReadingZone(rect, e.pageX, e.pageY);
+                if (zone !== $link.data('drZone')) {
+                    setDirectReadingZone($link, zone);
                 }
             });
-            
+
             $('.book-cover-link').on('mouseleave.directReading', function() {
                 var $link = $(this);
-                
+
                 // Remove all hover states
-                $link.removeClass('hovering-read-icon');
-                $link.find('.read-toggle-btn').removeClass('hovering');
-                $link.find('.edit-metadata-btn').removeClass('hovering');
-                $link.find('.send-ereader-btn').removeClass('hovering');
+                setDirectReadingZone($link, null);
+                $link.removeData('drRect');
             });
-            
+
             $('.book-cover-link').on('click.directReading', function(e) {
                 var $link = $(this);
-                var $cover = $link.closest('.cover');
-                
-                // Check click position
-                var linkOffset = $link.offset();
-                var clickX = e.pageX - linkOffset.left;
-                var clickY = e.pageY - linkOffset.top;
-                
-                var linkWidth = $link.outerWidth();
-                var linkHeight = $link.outerHeight();
-                
-                // Define the action areas (same as mousemove)
-                var actionSize = 35;
-                var margin = 8;
-                
-                var readIconSize = ($(window).width() >= 768) ? 50 : 40;
-                var centerX = linkWidth / 2;
-                var centerY = linkHeight / 2;
-                var readIconRadius = readIconSize / 2;
-                
-                var readToggleX = margin + (actionSize / 2);
-                var readToggleY = linkHeight - margin - (actionSize / 2);
-                var readToggleRadius = actionSize / 2;
-                
-                var sendEReaderX = linkWidth - margin - (actionSize / 2);
-                var sendEReaderY = linkHeight - margin - (actionSize / 2);
-                var sendEReaderRadius = actionSize / 2;
-                
-                // Edit metadata button (center-bottom)
-                var editMetadataX = linkWidth / 2;
-                var editMetadataY = linkHeight - margin - (actionSize / 2);
-                var editMetadataRadius = actionSize / 2;
-                
-                var distanceFromReadIcon = Math.sqrt(
-                    Math.pow(clickX - centerX, 2) + Math.pow(clickY - centerY, 2)
-                );
-                var distanceFromReadToggle = Math.sqrt(
-                    Math.pow(clickX - readToggleX, 2) + Math.pow(clickY - readToggleY, 2)
-                );
-                var distanceFromEditMetadata = Math.sqrt(
-                    Math.pow(clickX - editMetadataX, 2) + Math.pow(clickY - editMetadataY, 2)
-                );
-                var distanceFromSendEReader = Math.sqrt(
-                    Math.pow(clickX - sendEReaderX, 2) + Math.pow(clickY - sendEReaderY, 2)
-                );
-                
+
+                // Check click position (always measured fresh)
+                var zone = getDirectReadingZone(measureDirectReadingRect($link), e.pageX, e.pageY);
+
                 // Handle different click areas
-                if (distanceFromReadIcon <= readIconRadius) {
+                if (zone === 'read') {
                     // Direct reading functionality
                     e.preventDefault();
                     handleDirectReading($link);
-                } else if (distanceFromReadToggle <= readToggleRadius) {
+                } else if (zone === 'toggle') {
                     // Toggle read status
                     e.preventDefault();
                     handleReadStatusToggle($link);
-                } else if (distanceFromEditMetadata <= editMetadataRadius) {
+                } else if (zone === 'edit') {
                     // Edit metadata
                     e.preventDefault();
                     handleEditMetadata($link);
-                } else if (distanceFromSendEReader <= sendEReaderRadius) {
+                } else if (zone === 'send') {
                     // Send to eReader
                     e.preventDefault();
                     handleSendToEReader($link);

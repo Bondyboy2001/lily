@@ -74,3 +74,16 @@ def init_cache_busting(app):
     # Replace the default static file view with our debusting view.
     original_static_view = app.view_functions["static"]
     app.view_functions["static"] = debusting_static_view
+
+    @app.after_request
+    # pylint: disable=unused-variable
+    def cache_busted_static_headers(response):
+        """
+        A busted URL changes whenever the file does, so it can be cached for good.
+        Unbusted requests (e.g. fonts referenced from CSS) keep the default revalidation.
+        """
+        from flask import request
+        if (request.endpoint == "static" and request.args.get("q")
+                and response.status_code in (200, 304)):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response

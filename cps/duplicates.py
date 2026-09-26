@@ -1046,6 +1046,7 @@ def get_duplicate_status():
         - count: Number of unresolved duplicate groups
         - preview: List of up to 3 sample duplicate groups
     """
+    cwa_db = None
     try:
         # Check if duplicate detection is enabled
         cwa_db = CWA_DB()
@@ -1083,7 +1084,9 @@ def get_duplicate_status():
 
                 duplicate_index_needs_full_scan = (
                     duplicate_library_has_books
-                    and duplicate_index_needs_manual_full_scan(cwa_db.cwa_settings)
+                    and duplicate_index_needs_manual_full_scan(
+                        cwa_db.cwa_settings, cwa_db=cwa_db, cache_data=cache_data
+                    )
                     and not _duplicate_scan_transiently_pending()
                 )
             except Exception as index_ex:
@@ -1160,6 +1163,11 @@ def get_duplicate_status():
             'count': 0,
             'preview': []
         }), 500
+    finally:
+        if cwa_db is not None:
+            close = getattr(cwa_db, "close", None)
+            if callable(close):
+                close()
 
 
 @duplicates.route("/duplicates/dismiss-setup-notice", methods=['POST'])

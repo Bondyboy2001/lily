@@ -32,17 +32,56 @@ $(function() {
         striped: true
     });
     if ($('#tasktable').length) {
-        setInterval(function () {
+        // Chained polling: the next request is only scheduled once the current
+        // one completes, polling pauses while the tab is hidden, and the table
+        // is only re-rendered when the task data actually changed.
+        var taskPollDelay = 2000;
+        var taskPollTimer = null;
+        var taskPollInFlight = false;
+        var lastTaskData = null;
+
+        var scheduleTaskPoll = function (delay) {
+            clearTimeout(taskPollTimer);
+            taskPollTimer = setTimeout(pollTasks, delay);
+        };
+
+        var pollTasks = function () {
+            taskPollTimer = null;
+            if (document.hidden || taskPollInFlight) {
+                return;
+            }
+            taskPollInFlight = true;
             $.ajax({
                 method: "get",
                 url: getPath() + "/ajax/emailstat",
                 async: true,
-                timeout: 900,
+                timeout: 5000,
                 success: function (data) {
-                    $('#tasktable').bootstrapTable("load", data);
+                    var serialized = JSON.stringify(data);
+                    if (serialized !== lastTaskData) {
+                        lastTaskData = serialized;
+                        $('#tasktable').bootstrapTable("load", data);
+                    }
+                },
+                complete: function () {
+                    taskPollInFlight = false;
+                    if (!document.hidden) {
+                        scheduleTaskPoll(taskPollDelay);
+                    }
                 }
             });
-        }, 1000);
+        };
+
+        document.addEventListener("visibilitychange", function () {
+            if (document.hidden) {
+                clearTimeout(taskPollTimer);
+                taskPollTimer = null;
+            } else if (!taskPollInFlight) {
+                scheduleTaskPoll(0);
+            }
+        });
+
+        scheduleTaskPoll(taskPollDelay);
     }
     if ($('#upcomingtable').length) {
         $('#upcomingtable').bootstrapTable({

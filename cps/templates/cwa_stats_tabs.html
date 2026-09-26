@@ -1,7 +1,13 @@
 {% extends "layout.html" %}
 {% block body %}
 
-<script src="{{ url_for('static', filename='js/libs/echarts.min.js') }}"></script>
+<script>
+// Lazy chart init registry: each tab partial registers its init / resize function here
+// (instead of initialising on DOMContentLoaded) so charts are only built when their tab is shown.
+window.lilyStatsTabInit = {};
+window.lilyStatsTabResize = {};
+window.lilyStatsTabInitDone = {};
+</script>
 
 <style>
     .stats-tabs {
@@ -100,12 +106,29 @@
 </div>
 
 <script>
+// Initialise a tab's charts the first time it is visible; resize them on later visits.
+// Returns true if this call initialised the tab.
+function lilyStatsActivateTab(tabName) {
+    if (window.lilyStatsTabInitDone[tabName]) return false;
+    const init = window.lilyStatsTabInit[tabName];
+    if (typeof init !== 'function' || typeof echarts === 'undefined') return false;
+    window.lilyStatsTabInitDone[tabName] = true;
+    init();
+    return true;
+}
+
+// echarts is loaded with `defer`, so it is available by DOMContentLoaded.
+document.addEventListener('DOMContentLoaded', function() {
+    const active = document.querySelector('.tab-content.active');
+    if (active) lilyStatsActivateTab(active.id.replace(/-tab$/, ''));
+});
+
 function switchTab(tabName) {
     // Update tab buttons
     document.querySelectorAll('.stats-tab').forEach(tab => {
         tab.classList.remove('active');
     });
-    event.target.classList.add('active');
+    event.currentTarget.classList.add('active');
     
     // Update tab content
     document.querySelectorAll('.tab-content').forEach(content => {
@@ -118,36 +141,17 @@ function switchTab(tabName) {
     url.searchParams.set('tab', tabName);
     window.history.pushState({}, '', url);
     
-    // Resize charts after tab switch to fix layout issues
-    setTimeout(() => {
-        if (tabName === 'activity') {
-            // Resize User Activity charts
-            if (typeof timelineChart !== 'undefined' && timelineChart) timelineChart.resize();
-            if (typeof eventsChart !== 'undefined' && eventsChart) eventsChart.resize();
-            if (typeof formatsChart !== 'undefined' && formatsChart) formatsChart.resize();
-            if (typeof heatmapChart !== 'undefined' && heatmapChart) heatmapChart.resize();
-            if (typeof velocityChart !== 'undefined' && velocityChart) velocityChart.resize();
-            if (typeof formatPreferencesChart !== 'undefined' && formatPreferencesChart) formatPreferencesChart.resize();
-            if (typeof discoveryChart !== 'undefined' && discoveryChart) discoveryChart.resize();
-            if (typeof deviceChart !== 'undefined' && deviceChart) deviceChart.resize();
-            if (typeof sessionDurationChart !== 'undefined' && sessionDurationChart) sessionDurationChart.resize();
-            if (typeof searchSuccessChart !== 'undefined' && searchSuccessChart) searchSuccessChart.resize();
-        } else if (tabName === 'library') {
-            // Resize Library Stats charts
-            if (typeof growthChart !== 'undefined' && growthChart) growthChart.resize();
-            if (typeof libraryFormatsChart !== 'undefined' && libraryFormatsChart) libraryFormatsChart.resize();
-            if (typeof seriesChart !== 'undefined' && seriesChart) seriesChart.resize();
-            if (typeof publicationYearChart !== 'undefined' && publicationYearChart) publicationYearChart.resize();
-            if (typeof ratingStatsChart !== 'undefined' && ratingStatsChart) ratingStatsChart.resize();
-            if (typeof topEnforcedChart !== 'undefined' && topEnforcedChart) topEnforcedChart.resize();
-            if (typeof importSankeyChart !== 'undefined' && importSankeyChart) importSankeyChart.resize();
-        } else if (tabName === 'api') {
-            // Resize API Usage charts
-            if (typeof apiUsageChart !== 'undefined' && apiUsageChart) apiUsageChart.resize();
-            if (typeof apiTimingChart !== 'undefined' && apiTimingChart) apiTimingChart.resize();
-        }
-    }, 50); // Small delay to ensure DOM has updated
+    // First visit: build the charts now that the tab is visible (correct sizes).
+    // Later visits: resize charts in case the window changed size while hidden.
+    if (!lilyStatsActivateTab(tabName)) {
+        const resize = window.lilyStatsTabResize[tabName];
+        if (typeof resize === 'function') setTimeout(resize, 50); // Small delay to ensure DOM has updated
+    }
 }
 </script>
 
+{% endblock %}
+
+{% block js %}
+<script defer src="{{ url_for('static', filename='js/libs/echarts.min.js') }}"></script>
 {% endblock %}

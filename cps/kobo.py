@@ -7,6 +7,7 @@
 # See CONTRIBUTORS for full list of authors.
 
 import base64
+import logging
 from datetime import datetime, timezone
 from cps import cw_babel
 from kobo_sync_utils import get_kobo_created_ts
@@ -58,6 +59,38 @@ kobo_auth.disable_failed_auth_redirect_for_blueprint(kobo)
 kobo_auth.register_url_value_preprocessor(kobo)
 
 log = logger.create()
+
+# Signature (mtime/size of metadata.db and its WAL) seen at the last Kobo-sync reconnect.
+_kobo_last_db_signature = None
+
+
+def _calibre_db_signature():
+    calibre_dir = getattr(config, "config_calibre_dir", None)
+    if not calibre_dir:
+        return None
+    sig = []
+    for suffix in ("", "-wal"):
+        try:
+            st = os.stat(os.path.join(calibre_dir, "metadata.db" + suffix))
+            sig.append((st.st_mtime_ns, st.st_size))
+        except OSError:
+            sig.append(None)
+    return tuple(sig)
+
+
+def _refresh_calibre_db_for_sync():
+    """The sync used to call reconnect_db unconditionally so the device gets a fresh view of the
+    library after external changes (e.g. books/custom columns added through Calibre). Row-level
+    changes are already visible because the scoped session is removed after every request; only
+    schema changes (custom columns) need a full reconnect. Reconnecting disposes the shared engine
+    for every thread, so only do it when metadata.db (or its WAL) actually changed."""
+    global _kobo_last_db_signature
+    signature = _calibre_db_signature()
+    if signature is None or signature != _kobo_last_db_signature:
+        calibre_db.reconnect_db(config, ub.app_DB_path)
+        _kobo_last_db_signature = signature
+    else:
+        calibre_db.ensure_session()
 
 
 def get_store_url_for_current_request():
@@ -180,7 +213,7 @@ def HandleSyncRequest():
     new_archived_last_modified = datetime.min
     sync_results = []
 
-    calibre_db.reconnect_db(config, ub.app_DB_path)
+    _refresh_calibre_db_for_sync()
 
 
     # Two-Way-Sync Deletion Logic
@@ -292,11 +325,15 @@ def HandleSyncRequest():
                                     joinedload(db.Books.languages),
                                     joinedload(db.Books.comments),
                                     joinedload(db.Books.data)))
-    log.debug("Kobo Sync: changed entries: {}".format(changed_entries.count()))
+    debug_enabled = log.isEnabledFor(logging.DEBUG)
+    if debug_enabled:
+        log.debug("Kobo Sync: changed entries: {}".format(changed_entries.count()))
 
     reading_states_in_new_entitlements = []
-    books = changed_entries.limit(SYNC_ITEM_LIMIT)
-    log.debug("Kobo Sync: selected to sync: {}".format(len(books.all())))
+    books = changed_entries.limit(SYNC_ITEM_LIMIT).all()
+    if debug_enabled:
+        log.debug("Kobo Sync: selected to sync: {}".format(len(books)))
+    newly_synced_book_ids = []
     for book in books:
         formats = [data.format for data in book.Books.data]
 
@@ -324,7 +361,10 @@ def HandleSyncRequest():
         )
 
         new_books_last_created = max(ts_created, new_books_last_created)
-        kobo_sync_status.add_synced_books(book.Books.id)
+        newly_synced_book_ids.append(book.Books.id)
+
+    # Must be persisted before the queries below: changed_entries excludes already-synced books.
+    kobo_sync_status.add_synced_books_bulk(newly_synced_book_ids)
 
     max_change = changed_entries.filter(ub.ArchivedBook.is_archived)\
         .filter(ub.ArchivedBook.user_id == current_user.id) \
