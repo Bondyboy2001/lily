@@ -32,6 +32,12 @@ graphify-out
 DEV
 */REFERENCE
 cwa.db
+# Local runtime artefacts created next to the source tree on first run
+.key
+app.db
+gdrive.db
+.cwa_migrations/
+.lily_sidebar_trimmed
 *.epub
 # BUT allow test fixture ebooks
 !tests/fixtures/**/*.epub
