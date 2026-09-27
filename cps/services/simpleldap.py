@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-import base64
 
 from flask_simpleldap import LDAP, LDAPException
 from flask_simpleldap import ldap as pyLDAP
@@ -13,7 +12,7 @@ from flask import current_app
 from .. import constants, logger
 
 try:
-    from ldap.pkginfo import __version__ as ldapVersion
+    from ldap.pkginfo import __version__ as ldapVersion  # noqa: F401  # availability probe
 except ImportError:
     pass
 

@@ -6,7 +6,6 @@
 # See CONTRIBUTORS for full list of authors.
 
 import os
-from shutil import copyfile, copyfileobj
 from urllib.request import urlopen
 from io import BytesIO
 from datetime import datetime, timezone
@@ -20,7 +19,7 @@ from flask_babel import lazy_gettext as N_
 try:
     from wand.image import Image
     use_IM = True
-except (ImportError, RuntimeError) as e:
+except (ImportError, RuntimeError):
     use_IM = False
 
 
@@ -178,7 +177,6 @@ class TaskGenerateCoverThumbnails(CalibreTask):
 
                 # If any legacy condition matched, migrate: delete old file & regenerate with deterministic name
                 if legacy_naming or wrong_format:
-                    old_id = thumbnail.id
                     old_filename = thumbnail.filename
                     self.app_db_session.delete(thumbnail)
                     self.app_db_session.commit()
@@ -214,39 +212,6 @@ class TaskGenerateCoverThumbnails(CalibreTask):
         except Exception as ex:
             self.log.debug(f'Error creating {fmt.upper()} book thumbnail: ' + str(ex))
             self._handleError(f'Error creating {fmt.upper()} book thumbnail: ' + str(ex))
-            self.app_db_session.rollback()
-
-    def create_book_cover_single_thumbnail(self, book, resolution):
-        # Generate WebP thumbnail (for web UI)
-        thumbnail_webp = ub.Thumbnail()
-        thumbnail_webp.type = constants.THUMBNAIL_TYPE_COVER
-        thumbnail_webp.entity_id = book.id
-        thumbnail_webp.format = 'webp'
-        thumbnail_webp.resolution = resolution
-
-        self.app_db_session.add(thumbnail_webp)
-        try:
-            self.app_db_session.commit()
-            self.generate_book_thumbnail(book, thumbnail_webp)
-        except Exception as ex:
-            self.log.debug('Error creating WebP book thumbnail: ' + str(ex))
-            self._handleError('Error creating WebP book thumbnail: ' + str(ex))
-            self.app_db_session.rollback()
-
-        # Generate JPEG thumbnail (for Kobo/devices)
-        thumbnail_jpg = ub.Thumbnail()
-        thumbnail_jpg.type = constants.THUMBNAIL_TYPE_COVER
-        thumbnail_jpg.entity_id = book.id
-        thumbnail_jpg.format = 'jpg'
-        thumbnail_jpg.resolution = resolution
-
-        self.app_db_session.add(thumbnail_jpg)
-        try:
-            self.app_db_session.commit()
-            self.generate_book_thumbnail(book, thumbnail_jpg)
-        except Exception as ex:
-            self.log.debug('Error creating JPEG book thumbnail: ' + str(ex))
-            self._handleError('Error creating JPEG book thumbnail: ' + str(ex))
             self.app_db_session.rollback()
 
     def update_book_cover_thumbnail(self, book, thumbnail):

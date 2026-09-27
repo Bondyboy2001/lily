@@ -11,7 +11,6 @@ import shutil
 import chardet
 import ssl
 import sqlite3
-import mimetypes
 
 from werkzeug.datastructures import Headers
 from flask import Response, stream_with_context
@@ -45,7 +44,7 @@ try:
     from pydrive2.drive import GoogleDrive
     from pydrive2.auth import RefreshError
     from pydrive2.files import ApiRequestError
-except ImportError as err:
+except ImportError:
     try:
         from pydrive.auth import GoogleAuth
         from pydrive.drive import GoogleDrive
@@ -472,35 +471,6 @@ def watchChange(drive, channel_id, channel_type, channel_address,
     return drive.auth.service.changes().watch(body=body).execute()
 
 
-def watchFile(drive, file_id, channel_id, channel_type, channel_address,
-              channel_token=None, expiration=None):
-    """Watch for any changes to a specific file.
-    Args:
-    service: Drive API service instance.
-    file_id: ID of the file to watch.
-    channel_id: Unique string that identifies this channel.
-    channel_type: Type of delivery mechanism used for this channel.
-    channel_address: Address where notifications are delivered.
-    channel_token: An arbitrary string delivered to the target address with
-                   each notification delivered over this channel. Optional.
-    channel_address: Address where notifications are delivered. Optional.
-    Returns:
-    The created channel if successful
-    Raises:
-    apiclient.errors.HttpError: if http request to create channel fails.
-    """
-    body = {
-        'id': channel_id,
-        'type': channel_type,
-        'address': channel_address
-    }
-    if channel_token:
-        body['token'] = channel_token
-    if expiration:
-        body['expiration'] = expiration
-    return drive.auth.service.files().watch(fileId=file_id, body=body).execute()
-
-
 def stopChannel(drive, channel_id, resource_id):
     """Stop watching to a specific channel.
     Args:
@@ -624,29 +594,6 @@ def get_cover_via_gdrive(cover_path):
 
 
 # Gets cover file from gdrive
-def get_metadata_backup_via_gdrive(metadata_path):
-    df = getFileFromEbooksFolder(metadata_path, 'metadata.opf')
-    if df:
-        if not session.query(PermissionAdded).filter(PermissionAdded.gdrive_id == df['id']).first():
-            df.GetPermissions()
-            df.InsertPermission({
-                            'type': 'anyone',
-                            'value': 'anyone',
-                            'role': 'writer',       # ToDo needs write access
-                            'withLink': True})
-            permissionAdded = PermissionAdded()
-            permissionAdded.gdrive_id = df['id']
-            session.add(permissionAdded)
-            try:
-                session.commit()
-            except OperationalError as ex:
-                log.error_or_exception('Database error: {}'.format(ex))
-                session.rollback()
-        return df.metadata.get('webContentLink')
-    else:
-        return None
-
-
 # Creates chunks for downloading big files
 def partial(total_byte_len, part_size_limit):
     s = []

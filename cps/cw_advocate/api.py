@@ -141,7 +141,7 @@ class RequestsAPIWrapper:
         try:
             from .futures import FuturesSession
             have_requests_futures = True
-        except ImportError as e:
+        except ImportError:
             have_requests_futures = False
 
         self.validator = validator

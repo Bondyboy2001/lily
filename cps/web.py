@@ -8,16 +8,14 @@ import os
 import json
 import mimetypes
 import chardet  # dependency of requests
-import copy
 import importlib
 import re
 import zipfile
 import xml.etree.ElementTree as ET
 
 from flask import Blueprint, jsonify
-from flask import request, redirect, send_from_directory, send_file, make_response, flash, abort, url_for, Response, g
+from flask import request, redirect, send_from_directory, send_file, make_response, flash, abort, url_for, Response
 from flask import session as flask_session
-from markupsafe import Markup, escape
 from flask_babel import gettext as _
 from flask_babel import get_locale
 from .cw_login import login_user, logout_user, current_user
@@ -2056,7 +2054,7 @@ def change_profile(kobo_support, hardcover_support, local_oauth_check, oauth_sta
         if key.startswith('show'):
             try:
                 val += int(key[5:])
-            except (ValueError, IndexError) as e:
+            except (ValueError, IndexError):
                 log.warning(f"Skipping invalid sidebar checkbox key: {key}")
                 continue
     current_user.sidebar_view = val

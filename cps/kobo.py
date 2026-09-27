@@ -9,7 +9,6 @@
 import base64
 import logging
 from datetime import datetime, timezone
-from cps import cw_babel
 from kobo_sync_utils import get_kobo_created_ts
 import os
 import threading
@@ -36,7 +35,6 @@ from sqlalchemy import func
 from sqlalchemy.sql.expression import and_, or_
 from sqlalchemy.exc import StatementError
 from sqlalchemy.orm import joinedload
-from sqlalchemy.sql import select
 import requests
 
 from . import config, logger, kobo_auth, db, calibre_db, helper, shelf as shelf_lib, ub, csrf, kobo_sync_status
@@ -306,8 +304,6 @@ def HandleSyncRequest():
         log.debug("Kobo Sync: selected to sync: {}".format(len(books)))
     newly_synced_book_ids = []
     for book in books:
-        formats = [data.format for data in book.Books.data]
-
         kobo_reading_state = book.KoboReadingState  # None when no record exists yet
         entitlement = {
             "BookEntitlement": create_book_entitlement(book.Books, archived=(book.is_archived==True)),
@@ -439,7 +435,6 @@ def generate_sync_response(sync_token, sync_results, set_cont=False):
     except Exception as e:
         log.debug(f"Failed to log Kobo sync activity: {e}")
 
-    # log.debug("Kobo Sync Content: {}".format(sync_results))
     # jsonify decodes the unicode string different to what kobo expects
     response = make_response(json.dumps(sync_results), extra_headers)
     response.headers["Content-Type"] = "application/json; charset=utf-8"
@@ -504,10 +499,6 @@ def create_book_entitlement(book, archived):
         "RevisionId": book_uuid,
         "Status": "Active",
     }
-
-
-def current_time():
-    return strftime("%Y-%m-%dT%H:%M:%SZ", gmtime())
 
 
 def get_description(book):
@@ -605,7 +596,6 @@ def get_metadata(book):
         log.debug("Kobo Sync: cache-busting cover id for book %s: %s", book.id, cover_image_id)
     metadata = {
         "Categories": ["00000000-0000-0000-0000-000000000001", ],
-        # "Contributors": get_author(book),
         "CoverImageId": cover_image_id,
         "CrossRevisionId": book_uuid,
         "CurrentDisplayPrice": {"CurrencyCode": "USD", "TotalAmount": 0},

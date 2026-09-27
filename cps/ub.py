@@ -22,12 +22,12 @@ from .cw_login import user_logged_in
 try:
     from flask_dance.consumer.backend.sqla import OAuthConsumerMixin  # pyright: ignore[reportMissingImports]
     oauth_support = True
-except ImportError as e:
+except ImportError:
     # fails on flask-dance >1.3, due to renaming
     try:
         from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
         oauth_support = True
-    except ImportError as e:
+    except ImportError:
         OAuthConsumerMixin = BaseException
         oauth_support = False
 from sqlalchemy import create_engine, exc, exists, event, text
@@ -41,7 +41,7 @@ try:
 except ImportError:
     from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import backref, relationship, sessionmaker, Session, scoped_session
-from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.security import generate_password_hash
 
 from . import constants, logger
 from .string_helper import strip_whitespaces
@@ -143,12 +143,6 @@ def check_user_session(user_id, session_key, random):
 
 
 user_logged_in.connect(signal_store_user_session)
-
-def store_ids(result):
-    ids = list()
-    for element in result:
-        ids.append(element.id)
-    searched_ids[current_user.id] = ids
 
 def store_combo_ids(result):
     ids = list()

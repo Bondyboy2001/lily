@@ -11,7 +11,7 @@ import sys
 import os
 import mimetypes
 
-from flask import Flask, g, session
+from flask import Flask, g
 from .MyLoginManager import MyLoginManager
 from flask_principal import Principal
 from werkzeug.middleware.proxy_fix import ProxyFix

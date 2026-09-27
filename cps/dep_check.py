@@ -23,7 +23,7 @@ if not importlib:
         import pkg_resources
         from pkg_resources import DistributionNotFound as ImportNotFound
         pkgresources = True
-    except ImportError as e:
+    except ImportError:
         pkgresources = False
 
 

@@ -353,12 +353,6 @@ def set_cwa_settings():
                     flash(_("Invalid cron expression for duplicate scans. Changes were not saved."), category="error")
 
             # DEBUGGING
-            # with open("/config/post_request" ,"w") as f:
-            #     for key in result.keys():
-            #         if key == "auto_ingest_ignored_formats":
-            #             f.write(f"{key} - {', '.join(result[key])}\n")
-            #         else:
-            #             f.write(f"{key} - {result[key]}\n")
 
             duplicate_criteria_changed = False
             try:
