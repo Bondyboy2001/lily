@@ -1,424 +1,185 @@
-<img src="cps/static/icon.png" width="160" alt="Lily">
+<img src="cps/static/icon.png" width="120" alt="Lily">
 
 # Lily
 
-_A personal redesign of [Calibre-Web Automated](https://github.com/crocodilestick/calibre-web-automated) by crocodilestick._
+**A self-hosted digital library that gives you Calibre-Web's web UI with Calibre's full feature set.**
 
-## Making Calibre-Web your _dream_, all-in-one self-hosted digital library solution.
+[![Docker](https://img.shields.io/badge/docker-build--local-2496ed)](docker-compose.yml)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
+[![Upstream](https://img.shields.io/badge/fork%20of-Calibre--Web%20Automated-8a8a8a)](https://github.com/crocodilestick/calibre-web-automated)
 
+<img src="README_images/CWA-Homepage.png" alt="Lily home screen">
 
-## _Quick Access_
+Drop a book into the ingest folder. Lily imports it, fetches metadata, enforces your
+cover, backs it up, and can email it to your e-reader — automatically.
 
-- [Features](#features) 🪄
-- [How to Install](#how-to-install-): 📖
-  - [Quick Install](#quick-install-) 🚀
-  - [Docker-Compose](#using-docker-compose-recommended) 🐋⭐(Recommended)
-  - [Users Migrating from stock Calibre Web](#users-migrating-from-stock-calibre-web) 🔄
-  - [Post-Install Tasks](#post-install-tasks) 🏁
-    - [Default Login Credentials 🔑](#default-admin-login)
-- [Usage](#usage-) 🔧
-  - [Adding Books to Your Library](#adding-books-to-your-library)
-  - [KOReader Syncing (KOSync)](#koreader-syncing-kosync-) 📖⚡
-  - [OAuth Authentication Setup](#enhanced-oauth-20oidc-authentication-) 🔐
-- [For Developers](#for-developers---building-custom-docker-image) 🚀
-- [Credits](#credits-) 🙏
+---
 
-## Why does it exist? 🔓
+## Why
 
-Calibre, while a fantastic tool for its age, has several problems when containerised, including its reliance on a KasmVNC server instance for the UI, which is near impossible to use on mobile and is relatively resource-heavy if you're running a small, lower power server like I am.
+[Calibre](https://calibre-ebook.com/) is powerful but awkward to containerise: it leans
+on a KasmVNC server that is near-unusable on mobile and heavy on a small home server.
+[Calibre-Web](https://github.com/janeczku/calibre-web) is lightweight with a modern UI,
+but missing features that make many people run both in parallel.
 
-For many, Calibre-Web has really swooped in to save the day, offering an alternative to a containerised Calibre instance that's resource-light and with a much more modern UI to boot.
+Lily merges the two: Calibre-Web's interface, Calibre's capabilities, plus automation on
+top.
 
-However, when compared to full-fat Calibre, it unfortunately lacks a few core features leading many to run both services in parallel, each serving to fill in where the other lacks, resulting in an often clunky, imperfect solution.
+## Features
 
-## Goal of the Project 🎯
+Everything stock Calibre-Web does — per-user permissions, OPDS feeds, metadata editing,
+Kobo sync, in-browser reading, OAuth/OIDC, 20+ languages, content hiding — plus:
 
-Lily aims to be an all-in-one solution, combining the modern lightweight web UI from Calibre-Web with the robust, versatile feature set of Calibre, with a slew of extra features and automations thrown in on top.
+| | |
+|---|---|
+| **Automatic ingest** | Imports new books in the format they arrive in. 28 file types. |
+| **Cover & metadata enforcement** | Edits made in the web UI are written back to the book files, not just the database. |
+| **Library auto-detect** | No library? Lily creates one. Have one? Lily finds it and registers it. |
+| **Duplicate detection** | Hybrid SQL + fuzzy matching, with one-click merge and scheduled scans. |
+| **Automatic metadata fetch** | Optional on ingest, with provider fallback and fill-missing-only mode. |
+| **Auto-send to e-reader** | Emails new books after ingest, with a configurable delay. |
+| **Deep stats & analytics** | Activity, library and API usage, with CSV export. |
+| **Nightly backups** | Snapshots of all three databases, retention configurable. |
+| **KOReader sync** | Built-in, zero-config, with checksum generation. |
+| **Batch edit & delete** | Select many books, act once. |
+| **Update notifications** | In-app notice when a new release is available. |
+| **Manual library refresh** | Re-process anything stranded in the ingest folder. |
+| **Extra metadata providers** | ISBNDB, Hardcover, Kobo, LitRes. |
 
-![Lily Example Homepage](README_images/CWA-Homepage.png)
-![Lily Example Book Page](README_images/new-book-details-page.png)
-<p style="text-align:center;"><i>Lily allows you to keep your ebook library accessible & organised and looks good while doing it</i> 😎🦚</p>
+Most of these are toggleable in the Lily Settings panel.
 
-## _Affiliated Projects_ 👬
+## Install
 
-### Shelfmark: Book Downloader
+Lily is not published to Docker Hub — the image builds from this repo.
 
-- An intuitive web interface for searching and requesting book downloads, designed to work seamlessly with Lily. This project streamlines the process of downloading books and preparing them for integration into your Calibre library
-
-> [!IMPORTANT]  
-> Lily does not approve of or support piracy of copyrighted materials and is not responsible for user behaviour
-
-[<img src="https://raw.githubusercontent.com/vadret/android/master/assets/get-github.png" alt="Get it on GitHub" height="80">](https://github.com/calibrain/shelfmark)
-
-___
-
-### Calibre-Web Companion
-
-- Built with **Flutter** and using **Material You**, [**Calibre Web Companion**](https://github.com/doen1el/calibre-web-companion) is an **unofficial companion application** for **Calibre Web** & **Calibre Web Automated** that allows you to browse your book collection and download books directly on your device, providing a much **more modern, mobile-friendly UX** than either service can currently provide on its own
-
-<br>
-
-[![Calibre Web Companion Preview](README_images/cw-companion-screenshots.png)](https://github.com/doen1el/calibre-web-companion)
-
-[<img src="README_images/google-play.png" alt="Get it on Google Play" height="80">](https://play.google.com/store/apps/details?id=de.doen1el.calibreWebCompanion)
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="80">](https://f-droid.org/en/packages/de.doen1el.calibreWebCompanion/)
-[<img src="https://raw.githubusercontent.com/vadret/android/master/assets/get-github.png" alt="Get it on GitHub" height="80">](https://github.com/doen1el/calibre-web-companion)
-
-## 🚨 Deploying on Network Shares (NFS/SMB) 🚨
-
-- Lily now supports network-share deployments via `NETWORK_SHARE_MODE=true`
-  - This disables SQLite WAL on `metadata.db` and `app.db` to prevent locking issues
-  - Skips recursive ownership changes that often fail on NFS/SMB
-  - Switches ingest/metadata watchers to a polling-based watcher for reliability
-- Network shares are still slower than local disks, but are now fully supported with this mode enabled
-
-### Network shares and SQLite WAL mode
-
-- Lily optimizes SQLite concurrency by enabling Write-Ahead Logging (WAL) on local disks.
-- Some network filesystems (NFS/SMB) do not fully support WAL or reliable file locking, which can cause intermittent "database is locked" errors or corruption risks.
-- If you are deploying on a network share, set the following environment variable to disable WAL:
-
-  - `NETWORK_SHARE_MODE=true`
-
-This tells Lily to avoid enabling WAL on the Calibre `metadata.db` and the `app.db` settings database. It also disables recursive ownership changes (`chown`) performed by init/maintenance scripts to avoid permission issues on network filesystems. Default is `false` (WAL enabled) for better performance on local disks.
-
-#### File watching on network shares
-
-- By default, Lily uses Linux `inotify` (via `inotifywait`) to detect new files in the ingest folder with minimal latency and overhead.
-- On network shares (NFS/SMB), filesystem events can be unreliable or unavailable. When `NETWORK_SHARE_MODE=true` is set, Lily switches the ingest and metadata watcher services to a polling-based watcher that periodically scans for changes. This improves reliability on NAS/network mounts at the cost of slightly higher I/O and up to a few seconds of latency.
-- On Docker Desktop (Windows/macOS), the container runs on a LinuxKit/WSL2 VM and host-mounted paths may not propagate `inotify` events reliably. Lily auto-detects Docker Desktop at startup and prefers the same polling watcher for reliability.
-- Advanced: You can also force polling regardless of share mode by setting `CWA_WATCH_MODE=poll`.
-
-### Running behind a reverse proxy (nginx, Caddy, Traefik, Cloudflare Tunnel, ...)
-
-- Lily uses Werkzeug's ProxyFix middleware to handle `X-Forwarded-For`, `X-Forwarded-Proto`, and other proxy headers.
-- By default Lily trusts **no** proxy (`TRUSTED_PROXY_COUNT=0`) and ignores `X-Forwarded-*` headers, because trusting them while Lily is reachable directly lets any client spoof its IP address (bypassing login rate limits and polluting logs).
-- **If Lily sits behind a reverse proxy, set** `TRUSTED_PROXY_COUNT=1`. With multiple proxies (e.g., Cloudflare Tunnel → nginx → Lily) set it to the total number of proxies in the chain, e.g. `TRUSTED_PROXY_COUNT=2`.
-- **Why this matters**: Session protection validates requests based on the client's IP address, and rate limiting is keyed on it. If ProxyFix doesn't trust enough proxies, it may see different IPs between requests, causing "Session protection triggered" warnings and forcing re-login; if it trusts too many, clients can forge their IP.
-- **Troubleshooting**: If you see frequent session protection warnings in logs, check your proxy chain depth and adjust this variable accordingly.
-
-### Security-related environment variables
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `TRUSTED_PROXY_COUNT` | `0` | Number of reverse proxies whose `X-Forwarded-*` headers are trusted. Set to `1` behind a single reverse proxy. |
-| `TRUSTED_PROXY_IPS` | `127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7` | Comma-separated CIDRs allowed to send the *reverse proxy login header* (Admin → Configuration → "Allow Reverse Proxy Authentication"). The header is ignored from any other source address. The check uses the address of the socket that actually connected, not `X-Forwarded-For`. Narrow this to your proxy's address (e.g. `172.18.0.5/32`) where possible. |
-| `SESSION_COOKIE_SECURE` | `false` | Set to `true` when Lily is served over HTTPS so the session and remember-me cookies are only sent over HTTPS. |
-
-Other hardening defaults:
-
-- Failed KOReader sync (KOSync) logins are rate limited per username (5/minute, 60/hour) when the rate limiter is enabled; successful syncs are never throttled.
-
-## **_Features:_**
-
-### Lily supports all Stock CW Features:
-| | | |
-|     :---:    |     :---:      |     :---:     |
-| Modern & responsive Bootstrap 3 HTML5 interface | Comprehensive user management with per-user permissions | OPDS feed for ereader apps |
-| eBook metadata editing and deletion support | Metadata download from various sources (extensible via plugins) | eBook download restriction to logged-in users |
-| Public user registration support | Send eBooks to E-Readers with a single click | Sync Kobo devices with your Calibre library |
-| In-browser eBook reading support for multiple formats | Content hiding based on categories and Custom Column content per user | "Magic Link" login for easy access on eReaders |
-| Enhanced OAuth 2.0/OIDC authentication with auto-discovery | Advanced search and filtering options | Multilingual user interface supporting 20+ [languages](https://github.com/janeczku/calibre-web/wiki/Translation-Status) |
-
-## Plus these _**Lily Specific Features**_ on top:
-
-#### Click a feature below to read about it in more detail:
-
-| | | |
-|     :---:    |     :---:      |     :---:     |
-| [Automatic Ingest Service ✨](#automatic-ingest-service-) | [Automatic Enforcement of Covers & Metadata 👀📔](#automatic-enforcement-of-changes-made-to-covers--metadata-through-the-calibre-web-ui-) | [Library Auto-Detect 📚🕵️](#library-auto-detect-️) |
-| [Batch Editing & Deletion 🗂️](#batch-editing--deletion-️️) | [Automated Back Up Service 🔒](#automated-back-up-service-) | [Automated Setup Experience for New Users 🦮](#library-auto-detect-️) |
-| [Smart Duplicate Detection & Management 🔍](#smart-duplicate-detection--management-) | [Auto-Send to eReader 📧⚡](#auto-send-to-ereader-) |
-| [Automatic Metadata Fetch on Ingest 🏷️🤖](#automatic-metadata-fetch-on-ingest-) | [Deep Stats & Analytics 📊✨](#deep-stats--analytics-) | [Manual Library Refresh ♻️](#manual-library-refresh-️) |
-| [Internal Update Notification System 🛎️](#internal-update-notification-system-️) | [Auto-Compression of Backed Up Files 🤐](#auto-compression-of-backed-up-files-) | [Additional Metadata Providers 🗃️](#additional-metadata-providers-️) |
-| [KOReader Syncing (KOSync) 📖⚡](#koreader-syncing-kosync-) | [Enhanced OAuth 2.0/OIDC Authentication 🔐](#enhanced-oauth-20oidc-authentication-) | |
-| [Automatic Hardcover ID Fetch 💜🤖](#automatic-hardcover-id-fetch-) | [Nightly Database Backups 🗄️](#automated-back-up-service-) | [Enhanced Send-to-eReader Modal ✉️](#enhanced-send-to-ereader-modal-) |
-
-#### **Automatic Ingest Service** ✨
-- Lily imports new books in the format they arrive in; it does not convert them
-- The following **28 file types are currently supported:**
-  - _.acsm, .azw, .azw3, .azw4, .mobi, .cbz, .cbr, .cb7, .cbc, .chm, .djvu, .docx, .epub, .fb2, .fbz, .html, .htmlz, .lit, .lrf, .odt, .pdf, .prc, .pdb, .pml, .rb, .rtf, .snb, .tcr, .txtz_
-  - _Note: .acsm requires an additional Calibre plugin_
-- Users can tell the service to ignore certain formats in the Lily Settings page
-
-#### **Automatic Enforcement of Changes made to Covers & Metadata through the Calibre-Web UI!** 👀📔
-- In stock Calibre-Web, any changes made to a book's **Cover and/or Metadata** are only applied to how the book appears in the Calibre-Web UI, changing nothing in the ebook's files like you would expect
-- This results in a frustrating situation for many CW users who utilise CW's Send-To-Kindle function, and are disappointed to find that the High-Quality Covers they picked out and carefully chosen Metadata they sourced are completely absent on all their other devices! UGH!
-- Lily's **Automatic Cover & Metadata Enforcement Feature** makes it so that **WHATEVER** you changes you make to **YOUR** books, **_are made to the books themselves_**, as well as in the Web UI, **making what you see, what you get.**
-
-#### **Automated Back Up Service** 🔒
-- Worried what will happen if something goes wrong during one of Lily's automated functions? Don't be!
-- By default, the originals all files processed by Lily are stored in `/config/processed_books` though this can be toggled in the Lily Settings panel
-- Every night, at the start of the maintenance window, Lily takes consistent snapshots of `app.db`, `cwa.db` and your library's `metadata.db` into `/config/backup/db/<timestamp>/`, keeping the last 7 by default (set in Lily Settings)
-- Snapshots on the same volume as `/config` won't survive losing that volume. Set `DB_BACKUP_DIR=/backups` and mount a separate folder at `/backups` to keep them elsewhere (see `docker-compose.yml`)
-
-##### Restoring a database snapshot
-1. Stop the container: `docker compose stop lily`
-2. Pick a snapshot folder, e.g. `/config/backup/db/20260927_030000/`
-3. Keep a copy of the current files, then copy the snapshot over them:
-   - `app.db` and `cwa.db` go to `/config/`
-   - `metadata.db` goes to the root of your Calibre library
-4. Delete any leftover `app.db-wal`/`-shm`, `cwa.db-wal`/`-shm` and `metadata.db-wal`/`-shm` next to the restored files, as they belong to the old database
-5. Start the container again: `docker compose start lily`
-
-Snapshots are self-contained SQLite files (no `-wal` sidecar), so they can also be opened directly with `sqlite3` to check or recover individual rows.
-
-#### **Smart Duplicate Detection System & Management** 🔍
-- Hybrid SQL + fuzzy matching detects duplicates missed by traditional scans
-- Post-ingest checks and scheduled incremental scans
-- One-click merge, batch operations, and optional auto-resolution
-- Configurable matching rules, thresholds, and format awareness
-
-![](README_images/duplicate-detection-system.gif)
-
-#### **Auto-Send to eReader** 📧⚡
-- Automatically email new books after ingest
-- Configurable delay to allow metadata fetching and enforcement to finish first
-- Format selection and multi-recipient sending
-- Works with per-user settings and optional custom email subjects
-
-#### **Automatic Metadata Fetch on Ingest** 🏷️🤖
-- Optionally fetch and apply metadata automatically during ingest
-- Provider hierarchy is respected with smart fallback
-- Choose whether to overwrite existing fields or only fill missing data
-- Works seamlessly with Auto-Send
-
-#### **Deep Stats & Analytics** 📊✨
-- Full analytics center with user activity, library, API usage, and time-based insights
-- Export sections to CSV for offline analysis
-- User-specific filtering and custom date ranges
-- Interactive charts with dark-mode styling
-
-![](README_images/cwa-stats-showcse.gif)
-
-#### **Enhanced Send-to-eReader Modal** ✉️
-- Send to multiple devices at once
-- Ad-hoc email addresses supported for sharing with friends, family or even temporary devices
-
-![](README_images/new-send-to-ereader-modal.png)
-
-#### **Additional Metadata Providers** 🗃️
-- Users can now make use of [isbndb.com](https://isbndb.com/)'s huge database when fetching metadata for the books in their library!
-- Access is being provided via [ibdb.dev](https://ibdb.dev/) thanks to a generous donation to the community by [@chad3814](https://www.github.com/chad3814)
-- [Hardcover](https://hardcover.app/) and Kobo metadata providers are supported, alongside new LitRes support
-
-#### **KOReader Syncing (KOSync)** 📖⚡
-Built-in KOReader progress sync with automatic book identification:
-- **Book Identification:** Auto-generates KOReader-compatible partial MD5 checksums for all books
-- **Unified Progress:** Syncs KOReader → Lily reading status → Kobo devices
-- **Zero Config:** Checksums generated on startup and import, no manual setup
-- **Modern Auth:** RFC 7617 HTTP Basic Auth with existing Lily accounts
-- **Plugin Available:** Download from `/kosync` endpoint on your Lily instance
-
-#### **Enhanced OAuth 2.0/OIDC Authentication** 🔐
-- **Auto-Discovery:** Automatic endpoint configuration via OIDC metadata URLs for seamless setup with providers like Keycloak, Authentik, Google, and Azure AD
-- **Manual Override:** Full manual control over OAuth endpoints when auto-discovery isn't available
-- **Field Mapping:** Configurable JWT field extraction for usernames and emails to work with any provider's token structure
-- **Group-Based Roles:** Automatic admin role assignment based on OAuth provider groups
-- **Testing Tools:** Built-in connection testing and validation to ensure your configuration works before going live
-- **Enterprise Ready:** Support for custom scopes, multiple authentication methods, and comprehensive troubleshooting
-- **📖 [Full OAuth Configuration Guide](https://github.com/crocodilestick/Calibre-Web-Automated/wiki/OAuth-Configuration)** for detailed setup instructions
-
-#### **Automatic Hardcover ID Fetch** 💜🤖
-- Background task auto-populates missing Hardcover IDs
-- Configurable scheduling with progress tracking in Tasks
-- Graceful handling of invalid tokens
-
-#### **Library Auto-Detect** 📚🕵️
-  - Made to **MASSIVELY** simplify the setup process for both **new and existing users** alike
-  - **New Users without existing Libraries:** 🆕
-    - **No library? No problem!**
-    - New users without existing Calibre Libraries no longer need to copy and paste `metadata.db` files and point to their location in the Web UI, Lily will now automatically detect the lack of Library in your given bind and automatically create a new one for you! It will even automatically register it with the Web UI so you can really hit the ground running
-  - **New or Existing Users with Existing Libraries:**
-    - Simply bind a directory containing your Calibre Library (search is done recursively so it doesn't matter how deep in the directory it is) and Lily will now automatically find it and mount it to the Web UI
-    - Should you bind a directory with more than 1 Calibre Library in it, Lily will intelligently compare the disk sizes of all discovered libraries and mount the largest one
-      - _Lily supports only one library per instance though support for multiple libraries is being investigated for future releases_
-      - _In the meantime, users with multiple libraries who don't want to consolidate them are advised to run multiple, parallel instances_
-
-#### **Internal Update Notification System** 🛎️
-  - Users will now be automatically notified of the availability of new updates from within the Web UI
-  - Automatically triggered by a difference between the version number of the most recent [Lily release](https://github.com/Bondyboy2001/lily/releases) and the version installed
-  - Set to only show once per calendar day until updated as to not be annoying
-  - _Visible to Admin users only_
-
-#### **Manual Library Refresh** ♻️
-  - Ever had books get stuck in the ingest folder after an unexpected power-cut ect.? Well say goodbye to having to manually copy the books to be ingested back in and out of the ingest folder, simply press the `Refresh Library` button on the navbar of the Web UI and anything still sitting in the ingest folder will be automatically ingested!
-
-#### **Auto-Compression of Backed Up Files** 🤐
-  - Just before midnight each day, the Auto-Zipper service will automatically zip together all files processed that day.
-  - Minimises disk space usage and helps keep back up files as organised as possible
-  - __Enabled by default but can be disabled in the Lily Settings page in the Admin panel__
-
-#### **Batch Editing & Deletion!** 🗂️🗄️
-- Say goodbye to clicking that edit button again, and again, and again just to remove or edit a single series!
-- To use, simply navigate to the `Books List`page on the left hand side of the Web UI, select the books you wish to edit/ delete and use the buttons either above the table or within the headers to do whatever you need!
-- _Courtesy of [@jmarmstrong1207](https://github.com/jmarmstrong1207)_
-
-![](/README_images/cwa-bulk-editting-diagram.png)
-
-# How To Install 📖
-
-## Quick Install 🚀
-
-Lily isn't published to Docker Hub, so the image is built from this repo:
-
-```
+```bash
 git clone https://github.com/Bondyboy2001/lily.git
 cd lily
-```
-
-Edit `docker-compose.yml` using the comments to help, filling in your timezone (optional) and desired binds, then run:
-
-```
+$EDITOR docker-compose.yml    # set your timezone and bind paths
 docker compose up -d --build
 ```
 
-And that's you off to the races! 🥳 To avoid potential problems and ensure maximum functionality, we recommend carrying out these [Post-Install Tasks](#post-install-tasks).
+Then open <http://localhost:8083>.
 
----
-## Using Docker Compose 🐋⭐(Recommended)
+<details>
+<summary>Full <code>docker-compose.yml</code> template</summary>
 
-### 1. Setup the container using the Docker Compose template below: 🐋📜
-
-~~~ bash
----
+```yaml
 services:
   lily:
     image: lily:latest
     build: .
     container_name: lily
     environment:
-      # Only change these if you know what you're doing
       - PUID=1000
       - PGID=1000
-      # Edit to match your current timezone e.g. Europe/London, America/New_York - https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
       - TZ=Europe/London
-      # Hardcover API Key required for Hardcover as a Metadata Provider, get one here: https://docs.hardcover.app/api/getting-started/
+      # Hardcover API key, if you use Hardcover as a metadata provider
+      # https://docs.hardcover.app/api/getting-started/
       - HARDCOVER_TOKEN=your_hardcover_api_key_here
-      # If your library is on a network share (e.g., NFS/SMB), disable WAL to reduce locking issues
-      # Accepts: true/false (default: false)
       - NETWORK_SHARE_MODE=false
-      # Override the default port (8083) for the web server.
-      # Accepts any valid port number.
       - CWA_PORT_OVERRIDE=8083
     volumes:
-      # CW users migrating should stop their existing CW instance, make a copy of the config folder, and bind that here to carry over all of their user settings ect.
+      # Config, logs, backups. Use an empty folder for a fresh install;
+      # point at your existing /config to migrate from Calibre-Web.
       - /path/to/config/folder:/config
-      # This is an ingest dir, NOT a library one. Anything added here will be automatically added to your library according to the settings you have configured in Lily Settings page. All files placed here are REMOVED AFTER PROCESSING
-      - /path/to/the/folder/you/want/to/use/for/book/ingest:/cwa-book-ingest
-      # If you don't have an existing library, Lily will automatically create one at the bind provided here
-      - /path/to/your/calibre/library:/calibre-library
-      # If you use calibre plugins, you can bind your plugins folder here to have Lily attempt to add them to its workflow (WIP)
-      # If you are starting with a fresh install, you also need to copy customize.py.json to the Calibre config volume above, in /path/to/config/folder/.config/calibre/customize.py.json, see the note below for more info
-      - /path/to/your/calibre/plugins/folder:/config/.config/calibre/plugins
+      # Ingest folder. Contents are DELETED after processing.
+      - /path/to/ingest:/cwa-book-ingest
+      # Your Calibre library. Empty is fine — Lily creates one.
+      - /path/to/calibre/library:/calibre-library
+      # Optional: Calibre plugins
+      - /path/to/calibre/plugins:/config/.config/calibre/plugins
+      # Optional: keep database backups off the config volume
+      - /path/to/backups:/backups
     ports:
-      # Change the first number to change the port you want to access the Web UI, not the second
       - 8083:8083
-    # If you set CWA_PORT_OVERRIDE to a port below 1024, you may need to uncomment the following line:
-    # cap_add:
-    #   - NET_BIND_SERVICE
     restart: unless-stopped
-~~~
-
-### Explanation of the Container Bindings:
-
-Please make sure all 3 of the main volume bindings are separate directories, errors can occur when binds are made within other binds.
-
-- `/config` - This is used to store logs and other miscellaneous files that keep Lily running
-  -  **New Users** - Use any empty folder (if you run into any issues, make sure the ownership of said folder isn't `root:root` in your main os)
-  -  **Existing/ CW Users** - Those with existing Calibre-Web setups, map this to your existing `/config` directory containing `app.db` to ensure settings and users are pulled in
-- `/cwa-book-ingest` - **ATTENTION** ⚠️ - All files within this folder will be **DELETED** after being processed. This folder should only be used to dump new books into for import
-- `/calibre-library` - This should be bound to your Calibre library folder where the `metadata.db` & book(s) files reside.
-  - **New Users** - Use any empty folder (if you run into any issues, make sure the ownership of said folder isn't `root:root` in your main os)
-  - **Existing/ CW Users** - If there are multiple libraries in the mounted directory, Lily will automatically find and mount the largest one - check the logs for more details on which `metadata.db` was utilised
-- `/config/.config/calibre/plugins` - This should be bound to a directory containing a copy of your existing Calibre plugins. Configuration will be retained. (There is currently no way to configure plugins via Lily.)
-  - In order for plugins to be registered and work, you must also copy the `customize.py.json` file from the Calibre plugins' parent directory to the correct config folder above, e.g. `/path/to/config/folder/.config/calibre/customize.py.json`. See the section below if you don't know where to find this file.
-<!-- - `/books` _(Optional)_ Utilise if you have a separate collection of book files somewhere and want to be able to access within the container. For the majority of users, this is not required and mounting`/calibre-library' is sufficient -->
-- `/app/calibre-web-automated/gmail.json` _(Optional)_ - This is used to setup Calibre-Web and/or Lily with your gmail account for sending books via email. Follow the guide [here](https://github.com/janeczku/calibre-web/wiki/Setup-Mailserver#gmail) if this is something you're interested in but be warned it can be a very fiddly process, I would personally recommend a simple SMTP Server
-
-### Where can I find `customize.py.json`:
-
-- On macOS, this file is typically found at `~/Library/Preferences/calibre/customize.py.json`.
-- On Linux, it is usually located at `~/.config/calibre/customize.py.json`.
-- On Windows, it is usually located at `%APPDATA%\calibre\customize.py.json` (typically `C:\Users\<YourUsername>\AppData\Roaming\calibre\customize.py.json`). Older installations might have it in `C:\Program Files\Calibre\customize.py.json` or `C:\Program Files\Calibre2\customize.py.json`.
-
-**Note:** If you can't find this file, it means you haven't configured any Calibre plugins yet. You can skip the plugins volume binding if you don't use Calibre plugins.
-
-
-And just like that, Lily should be up and running! **HOWEVER** to avoid potential problems and ensure maximum functionality,we recommend carrying out these [Post-Install Tasks Here](#post-install-tasks).
-
-# Users migrating from stock Calibre-Web
-
-- Lily has been designed to make switching over as easy as possible. To migrate your CW instance to Lily, simply:
-  1. Stop your instance of CW if it's still running
-  2. Whatever your `/books` bind was in Calibre-Web, should be your `/calibre-library` bind for Lily
-  2. Mount the same `/config` folder in your Docker Compose that you were using for CW (or a copy of it to be extra safe)
-  3. Mount the same folder containing your Calibre Library (the Docker Compose for the Linuxserver image of Calibre Web has this as `/books` by default)
-- And then you're done! All of your users, settings ect. should be automatically carried over into your new Lily instance! Enjoy!
-- If you run into an issue where the Web UI won't load, trying using the same port as you did for CW and then reconfiguring if you want to once you've got everything set up
-
-# Post-Install Tasks:
-
-## _Calibre-Web Quick Start Guide_
-
-1. Open your browser and navigate to http://localhost:8083 or http://localhost:8083/opds for the OPDS catalog
-2. Log in with the default admin credentials (_below_)
-3. Configure your Lily instance via the Admin Page
-  - If you need help with any of the settings, consult the Calibre-Web Automated wiki [here](https://github.com/crocodilestick/Calibre-Web-Automated/wiki)
-  - Make sure `Enable Uploads` is enabled in `Settings -> Basic Configuration -> Feature Configuration`
-4. Configure Lily to behave as you would like it to in the Lily Settings panel
-  - Here you can turn certain features on and off and choose which file formats ingest should ignore
-6. Drop a book into your ingest folder to check everything is working and enjoy!
-
-## Default Admin Login:
-
-> **Username:** harry\
-> **Password:** harry10
-
-You will be asked to choose a new password the first time you log in with the default credentials.
-
-# Usage 🔧
-
-## Adding Books to Your Library
-
-- Simply move your newly downloaded or existing eBook files to the ingest folder which is `/cwa-book-ingest`
-- Anything you place in this folder will be automatically analysed and then imported into your Calibre-Web library if not in a format you have told Lily to ignore in the Lily Settings Panel
-  - **⚠️ ATTENTION ⚠️**
-    - _Downloading files directly into `/cwa-book-ingest` is not supported. It can cause duplicate imports and potentially a corrupt database. It is recommended to first download the books completely, then transfer them to `/cwa-book-ingest` to avoid any issues_
-    - Be sure that the books you are transferring to `/cwa-book-ingest` are owned by your user rather than root. Otherwise, permission errors may occur and may result in incomplete importing.
-    - In the event you're expecting a book to be ingested and it hasn't been, use the "Library Refresh" button on the Upper Navbar to manually trigger the ingest process
-
-## KOReader Syncing (KOSync) 📖⚡
-
-Lily now includes built-in KOReader syncing functionality, allowing you to sync your reading progress across devices using KOReader. This feature provides a modern, secure alternative to traditional KOReader sync servers. Navigate to `http://your-cwa-instance:8083/kosync` in your browser where you'll find download links and installation instructions for the Lily KOReader plugin.
-
----
-
-## Local Development Setup
-
-1. **Build the image**
-   Edit and run [`build.sh`](build.sh) to build a local Docker image of Lily.  See the script itself for usage details.
-
-2. **Edit [`docker-compose.yml.dev`](docker-compose.yml.dev)**
-   Update at minimum:
-   - `image:` → your image tag from step 1
-   - `volumes mounts` → paths for config, ingest, library, plugins
-
- To have the app refresh dynamically in response to code changes, see comments in the  [`docker-compose.yml.dev`](docker-compose.yml.dev)** for details and examples on "live-edit" mounts.
-
-3. **Start the service**
-```
-$ docker compose -f docker-compose.yml.dev up -d
 ```
 
-4. **Log in & configure**
-   - Sign in with the [default admin login](#default-admin-login)
-   - Optionally follow [Post-Install Tasks](#post-install-tasks)-
+</details>
 
----
+### The three required volumes
 
-# Credits 🙏
+Keep these as separate directories — nesting binds inside each other causes errors.
 
-Lily is a personal redesign of [Calibre-Web Automated](https://github.com/crocodilestick/calibre-web-automated) by crocodilestick and its contributors, which is itself built on [Calibre-Web](https://github.com/janeczku/calibre-web) and [Calibre](https://calibre-ebook.com/). All of the heavy lifting is theirs. Please support the original project on [Ko-fi](https://ko-fi.com/crocodilestick) or join its [Discord](https://discord.gg/EjgSeek94R).
+- **`/config`** — state that keeps Lily running. Any empty folder for a fresh install.
+  If migrating from Calibre-Web, point this at your existing `/config` to carry over
+  users and settings.
+- **`/cwa-book-ingest`** — **everything here is deleted after processing.** Only dump
+  finished downloads here; do not download directly into it.
+- **`/calibre-library`** — your Calibre library folder. If several are present, Lily
+  mounts the largest; check the logs to see which. One library per instance.
 
-Lily is licensed under the GPL-3.0, like the projects it's based on.
+### After installing
+
+1. Log in with the default credentials below and change the password when prompted.
+2. **Admin → Configuration**: enable uploads under *Basic Configuration → Feature
+   Configuration*. The [Calibre-Web wiki](https://github.com/crocodilestick/Calibre-Web-Automated/wiki)
+   documents individual settings.
+3. **Lily Settings**: toggle features and choose which formats to ignore.
+4. Drop a book in the ingest folder to confirm it works.
+
+> **Default login** — username `harry`, password `harry10`
+
+### Environment variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PUID` / `PGID` | `1000` | User and group IDs for file ownership |
+| `TZ` | — | Your timezone, e.g. `Europe/London` |
+| `HARDCOVER_TOKEN` | — | API key for the Hardcover metadata provider |
+| `NETWORK_SHARE_MODE` | `false` | Set `true` for NFS/SMB libraries |
+| `CWA_PORT_OVERRIDE` | `8083` | Change the web server port |
+| `TRUSTED_PROXY_COUNT` | `0` | Number of trusted reverse proxies — set to `1` behind nginx/Caddy |
+| `SESSION_COOKIE_SECURE` | `false` | Set `true` when serving over HTTPS |
+
+Behind a reverse proxy or on a network share? See **[docs/deployment.md](docs/deployment.md)**.
+
+## Migrating from Calibre-Web
+
+1. Stop your Calibre-Web instance.
+2. Map your old `/books` bind to Lily's `/calibre-library`, and mount the **same**
+   `/config` folder (copy it first if you want a safety net).
+3. `docker compose up -d --build`.
+
+Your users, shelves and settings carry over. If the web UI doesn't load, start on the
+same port Calibre-Web used.
+
+## Development
+
+```bash
+$EDITOR build.sh && ./build.sh            # build a local image
+$EDITOR docker-compose.yml.dev            # set image tag + bind paths
+docker compose -f docker-compose.yml.dev up -d
+```
+
+`docker-compose.yml.dev` documents live-edit mounts for auto-reload on code changes.
+See [pytest.ini](pytest.ini) and [`run_tests.sh`](run_tests.sh) for the test suite.
+
+## Affiliated projects
+
+- **[Shelfmark](https://github.com/calibrain/shelfmark)** — web interface for searching
+  and requesting book downloads, designed to work with Lily.
+- **[Calibre Web Companion](https://github.com/doen1el/calibre-web-companion)** — an
+  unofficial Flutter app for browsing and downloading from Calibre-Web and Lily.
+  [Google Play](https://play.google.com/store/apps/details?id=de.doen1el.calibreWebCompanion)
+  · [F-Droid](https://f-droid.org/en/packages/de.doen1el.calibreWebCompanion/)
+
+> Lily does not support or endorse piracy of copyrighted material, and is not
+> responsible for user behaviour.
+
+## Credits
+
+Lily is a personal redesign of
+[Calibre-Web Automated](https://github.com/crocodilestick/calibre-web-automated) by
+crocodilestick and contributors, which is itself built on
+[Calibre-Web](https://github.com/janeczku/calibre-web) and
+[Calibre](https://calibre-ebook.com/). All of the heavy lifting is theirs — please
+support the original project on
+[Ko-fi](https://ko-fi.com/crocodilestick) or their
+[Discord](https://discord.gg/EjgSeek94R).
+
+Batch editing courtesy of [@jmarmarsh1207](https://github.com/jmarmstrong1207).
+ibdb.dev access donated by [@chad3814](https://github.com/chad3814).
+
+Licensed under [GPL-3.0](LICENSE).
