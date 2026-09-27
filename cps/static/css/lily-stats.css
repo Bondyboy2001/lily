@@ -288,15 +288,6 @@ a.stats-row-title:focus { color: var(--accent); }
     text-align: right;
 }
 
-.stats-avatar {
-    flex: none;
-    width: 22px;
-    height: 22px;
-    border-radius: 999px;
-    background: var(--control-tint);
-    object-fit: cover;
-}
-
 .stats-row .label { flex: none; }
 
 /* A tiny bar behind a row value (shelf activity etc.): 4px, the guide's progress look. */

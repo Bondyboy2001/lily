@@ -47,6 +47,25 @@
 
 .lily-view-switch .icon-btn { font-size: 18px; }
 
+/* The same corner when a page adds its own ⋯ menu beside the Grid/List icons */
+.lily-list-toolbar:has(> .lily-toolbar-end) { padding-right: 112px; }
+
+.lily-list-toolbar > .lily-toolbar-end {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.lily-toolbar-end .lily-view-switch { display: flex; gap: 2px; }
+.lily-toolbar-end .dropdown > .icon-btn { font-size: 18px; }
+
+.dropdown-menu > li > a.lily-menu-danger,
+.dropdown-menu > li > a.lily-menu-danger:hover,
+.dropdown-menu > li > a.lily-menu-danger:focus { color: var(--danger); }
+
 .lily-actions {
     display: flex;
     flex-wrap: wrap;
@@ -583,8 +602,8 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
 
 .book-detail-main {
     display: grid;
-    grid-template-columns: 340px minmax(0, 1fr);
-    gap: 32px 48px;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 28px 40px;
     align-items: start;
 }
 
@@ -616,7 +635,7 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
 .book-detail-meta h2#title {
     margin: 0;
     font-family: var(--font-body);
-    font-size: 37px;
+    font-size: 30px;
     font-weight: 600;
     line-height: 1.2;
     color: var(--heading);
@@ -627,14 +646,14 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
 .book-detail-meta #book_of {
     margin: 0;
     color: var(--muted);
-    font-size: 20px;
+    font-size: 17px;
 }
 
 .book-detail-meta #detail-rating-block {
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 22px;
+    font-size: 19px;
 }
 
 .book-detail-actions { margin: 10px 0 8px; }
@@ -666,9 +685,9 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
 }
 
 .book-action-icons .icon-btn {
-    width: 44px;
-    height: 44px;
-    font-size: 25px;
+    width: 38px;
+    height: 38px;
+    font-size: 21px;
 }
 
 .book-action-icons .glyphicon { top: 0; }
@@ -681,9 +700,9 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
 dl.book-metadata {
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
-    gap: 12px 32px;
-    margin: 8px 0 6px;
-    padding-top: 20px;
+    gap: 8px 28px;
+    margin: 6px 0 6px;
+    padding-top: 16px;
     border-top: 1px solid var(--line-soft);
 }
 
@@ -691,7 +710,7 @@ dl.book-metadata {
 
 .book-metadata dt {
     color: var(--muted);
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 400;
 }
 
@@ -702,7 +721,7 @@ dl.book-metadata {
     gap: 0 4px;
     margin: 0;
     color: var(--ink);
-    font-size: 18px;
+    font-size: 15px;
     font-variant-numeric: tabular-nums;
     min-width: 0;
     overflow-wrap: anywhere;
@@ -712,52 +731,6 @@ dl.book-metadata {
     width: 28px;
     height: 28px;
     font-size: 16px;
-}
-
-/* Tags and shelves: rows of the metadata list, plain links like the values
-   above them. Remove appears on hover or focus; + sits at the end. */
-.book-metadata dd.lily-term-list { gap: 2px 12px; }
-
-/* The + hides while its input is open (icon-btn's display would override
-   the hidden attribute). */
-.book-metadata dd .lily-term-add[hidden] { display: none; }
-
-.lily-term {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-}
-
-.lily-term a { color: var(--ink); }
-
-.lily-term a:hover,
-.lily-term a:focus { color: var(--accent); }
-
-.book-metadata dd .lily-term-remove,
-.book-metadata dd .lily-term-add {
-    width: 20px;
-    height: 20px;
-    font-size: 12px;
-}
-
-.book-metadata dd .lily-term-add { font-size: 18px; }
-
-/* Tuck the remove button into the gap so tags keep word-like spacing. */
-.book-metadata dd .lily-term-remove { margin-right: -8px; }
-
-@media (hover: hover) {
-    .lily-term-remove { opacity: 0; }
-
-    .lily-term:hover .lily-term-remove,
-    .lily-term-remove:focus-visible { opacity: 1; }
-}
-
-.book-metadata dd .tag-add-input,
-.book-metadata dd .shelf-add-select {
-    width: 180px;
-    height: 26px;
-    padding: 0 8px;
-    font-size: 15px;
 }
 
 .book-detail-description {
@@ -1029,50 +1002,6 @@ form#search { max-width: 640px; }
 
 .editbook-form { min-width: 0; }
 
-/* Tag editor (Edit Metadata): the same plain names and × as the book page's Tags row. */
-.lily-tag-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin: 0 0 10px;
-    padding: 0;
-    list-style: none;
-}
-
-.lily-tag-chips:empty { display: none; }
-
-/* Bordered pill tinted with the accent */
-.lily-tag-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    padding: 2px 3px 2px 11px;
-    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line-soft));
-    border-radius: 999px;
-    background: var(--accent-soft);
-    color: var(--ink);
-    font-size: 14px;
-    line-height: 1.3;
-}
-
-.lily-tag-chip .lily-tag-remove {
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    font-size: 11px;
-    color: var(--muted);
-}
-
-.lily-tag-chip .lily-tag-remove:hover,
-.lily-tag-chip .lily-tag-remove:focus-visible {
-    background: var(--selected);
-    color: var(--accent);
-}
-
-.lily-tag-editor .twitter-typeahead { display: block !important; }
-.lily-chip-entry[hidden],
-.lily-chip-add[hidden] { display: none; }
-
 /* Fetch Metadata: results found by the book's ISBN/DOI/arXiv id rather than its title */
 .meta-exact-match {
     display: inline-block;
@@ -1085,8 +1014,8 @@ form#search { max-width: 640px; }
     font-weight: 600;
 }
 
-/* Author editor (Edit Metadata): one input per author, in order. */
-.lily-author-rows {
+/* Row editor (Edit Metadata authors, tags, shelves): one input per value, × beside it. */
+.lily-edit-rows {
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -1095,23 +1024,31 @@ form#search { max-width: 640px; }
     list-style: none;
 }
 
-.lily-author-row {
+.lily-edit-rows:empty { display: none; }
+
+/* Label on its own line, so "+ Add" sits under it even when there are no rows yet */
+.form-group:has(> .lily-edit-rows) > label { display: block; }
+
+.lily-edit-row {
     display: flex;
     align-items: center;
     gap: 4px;
 }
 
-.lily-author-field { flex: 1; min-width: 0; }
-.lily-author-field .twitter-typeahead { display: block !important; }
+.lily-edit-field { flex: 1; min-width: 0; }
+.lily-edit-field .twitter-typeahead { display: block !important; }
 
 /* typeahead copies the input's background onto its read-only hint only when the input is
    already on the page; rows are built detached, so the hint would keep the read-only look */
-.lily-author-field .tt-hint {
+.lily-edit-field .tt-hint {
     background: var(--paper) !important;
     opacity: 1;
 }
 
-.lily-author-row .icon-btn {
+/* A shelf name that doesn't match any of the user's shelves */
+.lily-edit-field .lily-edit-input.is-invalid { border-color: var(--danger); }
+
+.lily-edit-row .icon-btn {
     width: 30px;
     height: 30px;
     flex: none;

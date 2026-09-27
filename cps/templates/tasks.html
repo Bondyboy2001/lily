@@ -30,7 +30,7 @@
 
 {% if current_user.role_admin() %}
   <section class="lily-admin-section">
-  <h2 class="lily-admin-heading">{{ _('Upcoming scheduled sends') }}</h2>
+  <h2 class="lily-admin-heading">{{ _('Upcoming Scheduled Sends') }}</h2>
   <table class="table table-no-bordered" id="upcomingtable"
        data-url="{{ url_for('cwa_stats.cwa_scheduled_upcoming') }}"
        data-response-handler="upcomingResponse"

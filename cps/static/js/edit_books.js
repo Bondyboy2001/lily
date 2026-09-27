@@ -137,127 +137,178 @@ var authors = new Bloodhound({
     },
 });
 
-/* Author editor: one input per author over the hidden #authors field (" & "-separated,
-   what the server reads). Enter adds a row below, pasting "A & B" splits into rows, and
-   Fetch Metadata sets #authors and fires "change", which redraws the rows. Authors are
-   kept in alphabetical order: the saved value always, the rows once focus leaves the list. */
-(function () {
-    var $field = $("#authors");
-    var $rows = $("#author-rows");
+/* Row editor: one input per value over a hidden field, which is what the server reads
+   (opts.read / opts.write convert between the field and a list, opts.split splits one input's
+   text into values). Enter (or opts.splitKey) adds a row below, Backspace in an empty row
+   removes it, and pasting a list spreads it over several rows. Code that sets the field fires
+   "change", which redraws the rows (Fetch Metadata does this).
+   opts.accept, if given, maps a typed value to the one to keep, or null to refuse it: refused
+   rows stay on screen marked invalid and are left out of the field. Values that arrive through
+   the field are always kept.
+   opts.sort keeps the saved value alphabetical always, and the rows once focus leaves the list.
+   opts.minRows is how many rows to show when there are no values (0 or 1). */
+function lilyRowEditor(opts) {
+    var $field = opts.field, $rows = opts.rows;
     if (!$field.length || !$rows.length) { return; }
-    var placeholder = $rows.data("placeholder") || "Author name";
-    var removeLabel = $rows.data("remove-label") || "Remove author";
+    var placeholder = $rows.data("placeholder") || "";
+    var removeLabel = $rows.data("remove-label") || "Remove";
+    var invalidLabel = $rows.data("invalid-label") || "";
+    var minRows = opts.minRows || 0;
     // typeahead copies the input's classes onto its .tt-hint overlay; skip that copy
-    var AUTHOR_INPUT = "input.lily-author-input:not(.tt-hint)";
+    var INPUT = "input.lily-edit-input:not(.tt-hint)";
+    var fromField = [];
 
-    function split(raw) {
-        return raw.split("&").map(function (a) { return a.trim(); })
-            .filter(function (a) { return a.length > 0; });
-    }
+    function same(a, b) { return a.toLowerCase() === b.toLowerCase(); }
 
-    function sortNames(names) {
-        return names.sort(function (a, b) {
+    function sortValues(values) {
+        if (!opts.sort) { return values; }
+        return values.sort(function (a, b) {
             return a.localeCompare(b, undefined, {sensitivity: "base"});
         });
     }
 
     function inputs() {
-        return $rows.find(AUTHOR_INPUT);
+        return $rows.find(INPUT);
     }
 
-    function sync() {
-        var names = [];
-        inputs().each(function () { names = names.concat(split($(this).typeahead("val"))); });
-        $field.val(sortNames(names).join(" & "));
+    function keep(value) {
+        if (fromField.some(function (v) { return same(v, value); })) { return value; }
+        return opts.accept ? opts.accept(value) : value;
     }
 
-    function iconButton(cls, icon, label) {
-        return $("<button>", {type: "button", "class": "icon-btn " + cls, title: label, "aria-label": label})
-            .append($("<span>", {"class": "glyphicon " + icon, "aria-hidden": "true"}));
+    // Writes the field from the rows; markInvalid also flags refused rows (not while typing)
+    function sync(markInvalid) {
+        var values = [];
+        inputs().each(function () {
+            var refused = false;
+            opts.split($(this).typeahead("val")).forEach(function (raw) {
+                var value = keep(raw);
+                if (!value) { refused = true; return; }
+                if (!values.some(function (v) { return same(v, value); })) { values.push(value); }
+            });
+            if (markInvalid || !refused) {
+                $(this).toggleClass("is-invalid", refused)
+                    .attr({"aria-invalid": refused ? "true" : null, title: refused ? invalidLabel : null});
+            }
+        });
+        $field.val(opts.write(sortValues(values)));
     }
 
-    function makeRow(name) {
-        var $input = $("<input>", {type: "text", "class": "form-control typeahead lily-author-input",
+    function makeRow(value) {
+        var $input = $("<input>", {type: "text", "class": "form-control typeahead lily-edit-input",
             autocomplete: "off", placeholder: placeholder, "aria-label": placeholder});
-        var $row = $("<li>", {"class": "lily-author-row"}).append(
-            $("<div>", {"class": "lily-author-field"}).append($input),
-            iconButton("lily-author-remove", "glyphicon-remove", removeLabel)
-        );
+        var $remove = $("<button>", {type: "button", "class": "icon-btn lily-edit-remove",
+            title: removeLabel, "aria-label": removeLabel})
+            .append($("<span>", {"class": "glyphicon glyphicon-remove", "aria-hidden": "true"}));
+        var $row = $("<li>", {"class": "lily-edit-row"}).append(
+            $("<div>", {"class": "lily-edit-field"}).append($input), $remove);
         $input.typeahead(
-            {highlight: true, minLength: 1, hint: true},
-            {name: "authors", display: "name", source: authors}
+            {highlight: true, minLength: opts.minLength || 0, hint: true},
+            {name: opts.name, display: opts.display, source: opts.source}
         );
-        $input.typeahead("val", name || "");
+        $input.typeahead("val", value || "");
         return $row;
     }
 
     function render() {
         $rows.empty();
-        var names = sortNames(split($field.val()));
-        if (!names.length) { names = [""]; }
-        names.forEach(function (name) { $rows.append(makeRow(name)); });
+        var values = sortValues(opts.read($field.val()));
+        fromField = values.slice();
+        var shown = values.length ? values : new Array(minRows).fill("");
+        shown.forEach(function (value) { $rows.append(makeRow(value)); });
     }
 
-    function addAfter($row, name) {
-        var $new = makeRow(name);
+    function addAfter($row, value) {
+        var $new = makeRow(value);
         if ($row && $row.length) { $row.after($new); } else { $rows.append($new); }
-        $new.find(AUTHOR_INPUT).trigger("focus");
+        $new.find(INPUT).trigger("focus");
         return $new;
     }
 
-    $("#author-add").on("click", function () { addAfter(null, ""); });
+    function removeRow($row) {
+        var $next = $row.prev().length ? $row.prev() : $row.next();
+        $row.remove();
+        if ($next.length) {
+            $next.find(INPUT).trigger("focus");
+        } else {
+            opts.add.trigger("focus");
+        }
+        sync();
+    }
 
-    $rows.on("input typeahead:select typeahead:autocomplete", AUTHOR_INPUT, sync);
+    opts.add.on("click", function () { addAfter(null, ""); });
 
-    $rows.on("keydown", AUTHOR_INPUT, function (e) {
-        if (e.key === "Enter") {
+    $rows.on("input typeahead:select typeahead:autocomplete", INPUT, function () { sync(); });
+
+    $rows.on("keydown", INPUT, function (e) {
+        if (e.key === "Enter" || (opts.splitKey && e.key === opts.splitKey)) {
             e.preventDefault();
-            addAfter($(this).closest(".lily-author-row"), "");
-        } else if (e.key === "Backspace" && !$(this).val() && inputs().length > 1) {
+            addAfter($(this).closest(".lily-edit-row"), "");
+        } else if (e.key === "Backspace" && !$(this).val() && inputs().length > minRows) {
             e.preventDefault();
-            var $row = $(this).closest(".lily-author-row");
-            var $prev = $row.prev().length ? $row.prev() : $row.next();
-            $row.remove();
-            $prev.find(AUTHOR_INPUT).trigger("focus");
+            removeRow($(this).closest(".lily-edit-row"));
+        }
+    });
+
+    // Pasting a list ("A & B", "a, b") into one row spreads it over several
+    $rows.on("paste", INPUT, function (e) {
+        var text = (e.originalEvent.clipboardData || window.clipboardData).getData("text");
+        var values = opts.split(text || "");
+        if (values.length < 2) { return; }
+        e.preventDefault();
+        var $row = $(this).closest(".lily-edit-row");
+        $(this).typeahead("val", values.shift());
+        values.forEach(function (value) { $row = addAfter($row, value); });
+        sync();
+    });
+
+    $rows.on("click", ".lily-edit-remove", function () {
+        var $row = $(this).closest(".lily-edit-row");
+        if (inputs().length > minRows) {
+            removeRow($row);
+        } else {
+            $row.find(INPUT).typeahead("val", "").removeClass("is-invalid").removeAttr("aria-invalid title");
             sync();
         }
     });
 
-    // Pasting "A & B & C" into one row spreads it over several
-    $rows.on("paste", AUTHOR_INPUT, function (e) {
-        var text = (e.originalEvent.clipboardData || window.clipboardData).getData("text");
-        var names = split(text || "");
-        if (names.length < 2) { return; }
-        e.preventDefault();
-        var $row = $(this).closest(".lily-author-row");
-        $(this).typeahead("val", names.shift());
-        names.forEach(function (name) { $row = addAfter($row, name); });
-        sync();
-    });
-
-    $rows.on("click", ".lily-author-remove", function () {
-        var $row = $(this).closest(".lily-author-row");
-        if (inputs().length > 1) {
-            $row.remove();
-        } else {
-            $row.find(AUTHOR_INPUT).typeahead("val", "");
-        }
-        sync();
-    });
-
-    // Keep focus in the input when pressing ×, so the redraw below can't swallow the click
+    // Keep focus in the input when pressing ×, so the tidy-up below can't swallow the click
     $rows.on("mousedown", ".icon-btn", function (e) { e.preventDefault(); });
 
-    // Re-sort the rows once focus leaves the list, not while typing
+    // Once focus leaves the list: drop blank rows, flag refused ones, and re-sort if sorted
     $rows.on("focusout", function () {
         setTimeout(function () {
-            if (!$.contains($rows[0], document.activeElement)) { render(); }
+            if ($.contains($rows[0], document.activeElement)) { return; }
+            sync(true);
+            if (opts.sort) {
+                render();
+                return;
+            }
+            inputs().each(function () {
+                if (!$(this).typeahead("val").trim() && inputs().length > minRows) {
+                    $(this).closest(".lily-edit-row").remove();
+                }
+            });
         }, 0);
     });
 
     $field.on("change", render);
     render();
-})();
+}
+
+/* Authors: the hidden #authors field is the " & "-separated list the server reads,
+   kept in alphabetical order. */
+lilyRowEditor({
+    field: $("#authors"), rows: $("#author-rows"), add: $("#author-add"),
+    name: "authors", display: "name", source: authors, minLength: 1,
+    sort: true, minRows: 1,
+    split: function (raw) {
+        return raw.split("&").map(function (a) { return a.trim(); })
+            .filter(function (a) { return a.length > 0; });
+    },
+    read: function (val) { return this.split(val); },
+    write: function (values) { return values.join(" & "); }
+});
 
 
 var series = new Bloodhound({
@@ -305,127 +356,37 @@ var tags = new Bloodhound({
     }
 });
 
-/* Chip editor: one chip per value over a hidden field (read/write convert between the field
-   and a list). The "+ Add" button opens the entry; Enter (or a comma, with splitOnComma) adds
-   the typed value and keeps it open for another, Escape or leaving it closes it again, and
-   Backspace in an empty entry drops the last chip. Code that sets the field fires "change".
-   opts.accept, if given, maps a typed value to the one to add, or null to refuse it. */
-function lilyChipEditor(opts) {
-    var $field = opts.field, $chips = opts.chips, $entry = opts.entry;
-    if (!$field.length || !$chips.length) { return; }
-    var removeLabel = $chips.data("remove-label") || "Remove";
-    var $entryWrap = $entry.closest(".lily-chip-entry");
-    var $add = $entry.closest(".lily-tag-editor").find(".lily-chip-add");
-
-    function open() {
-        $add.prop("hidden", true);
-        $entryWrap.prop("hidden", false);
-        $entry.trigger("focus");
-    }
-    function close() {
-        $entryWrap.prop("hidden", true);
-        $add.prop("hidden", false);
-    }
-    $add.on("click", open);
-
-    function current() { return opts.read($field.val()); }
-    function save(values) { $field.val(opts.write(values)); render(); }
-
-    function render() {
-        $chips.empty();
-        current().forEach(function (value) {
-            var $remove = $("<button>", {type: "button", "class": "icon-btn lily-tag-remove",
-                title: removeLabel, "aria-label": removeLabel + " " + value})
-                .append($("<span>", {"class": "glyphicon glyphicon-remove", "aria-hidden": "true"}))
-                .data("value", value);
-            $chips.append($("<li>", {"class": "lily-tag-chip"}).append($("<span>").text(value), $remove));
-        });
-    }
-
-    function add(raw) {
-        var values = current();
-        (opts.splitOnComma ? raw.split(",") : [raw]).map(function (t) { return t.trim(); }).forEach(function (t) {
-            if (t && opts.accept) { t = opts.accept(t); }
-            if (!t) { return; }
-            var exists = values.some(function (x) { return x.toLowerCase() === t.toLowerCase(); });
-            if (t && !exists) { values.push(t); }
-        });
-        save(values);
-    }
-
-    function commitEntry() {
-        var value = $entry.typeahead("val") || $entry.val();
-        if (value.trim()) { add(value); }
-        $entry.typeahead("val", "");
-    }
-    $entry.on("input", function () { if (opts.onInput) { opts.onInput(); } });
-
-    $chips.on("click", ".lily-tag-remove", function () {
-        var gone = $(this).data("value");
-        save(current().filter(function (t) { return t !== gone; }));
-        $entry.trigger("focus");
-    });
-
-    $entry.typeahead(
-        {highlight: true, minLength: 0, hint: true},
-        {name: opts.name, display: opts.display, source: opts.source}
-    ).on("typeahead:select", function () {
-        commitEntry();
-    }).on("keydown", function (e) {
-        if (e.key === "Enter" || (opts.splitOnComma && e.key === ",")) {
-            e.preventDefault();
-            commitEntry();
-        } else if (e.key === "Escape") {
-            $entry.typeahead("val", "");
-            close();
-            $add.trigger("focus");
-        } else if (e.key === "Backspace" && !$entry.val()) {
-            var values = current();
-            values.pop();
-            save(values);
-        }
-    }).on("blur", function () {
-        // A value typed but not confirmed still counts when the form is saved
-        if ($entry.val().trim()) { commitEntry(); }
-        // Deferred: picking a suggestion blurs and refocuses the entry
-        setTimeout(function () {
-            if (document.activeElement !== $entry[0]) { close(); }
-        }, 150);
-    });
-
-    $field.on("change", render);
-    render();
-}
-
 /* Tags: the hidden #tags field is the comma-separated list the server reads. */
-lilyChipEditor({
-    field: $("#tags"), chips: $("#tag-chips"), entry: $("#tag-entry"),
-    name: "tags", display: "name", source: tags, splitOnComma: true,
-    read: function (val) {
-        return val.split(",").map(function (t) { return t.trim(); })
+lilyRowEditor({
+    field: $("#tags"), rows: $("#tag-rows"), add: $("#tag-add"),
+    name: "tags", display: "name", source: tags, splitKey: ",",
+    split: function (raw) {
+        return raw.split(",").map(function (t) { return t.trim(); })
             .filter(function (t) { return t.length > 0; });
     },
+    read: function (val) { return this.split(val); },
     write: function (values) { return values.join(", "); }
 });
 
 /* Shelves: the hidden #shelves field is a JSON list of names (shelf names may hold commas).
-   Only the user's existing shelves can be added; new shelves come from the sidebar's
-   Create Shelf, so an unknown name adds no chip. */
+   Only the user's existing shelves can be typed in; new shelves come from the sidebar's
+   Create Shelf, so an unknown name is flagged and not saved. */
 (function () {
-    var $entry = $("#shelf-entry");
-    if (!$entry.length) { return; }
-    var known = $entry.data("shelves") || [];
+    var $rows = $("#shelf-rows");
+    if (!$rows.length) { return; }
+    var known = $rows.data("shelves") || [];
     var shelfNames = new Bloodhound({
         datumTokenizer: Bloodhound.tokenizers.whitespace,
         queryTokenizer: Bloodhound.tokenizers.whitespace,
         local: known
     });
-    lilyChipEditor({
-        field: $("#shelves"), chips: $("#shelf-chips"), entry: $entry,
+    lilyRowEditor({
+        field: $("#shelves"), rows: $rows, add: $("#shelf-add"),
         name: "shelves",
         source: function (query, sync) {
             if (query) { shelfNames.search(query, sync); } else { sync(shelfNames.all()); }
         },
+        split: function (raw) { return raw.trim() ? [raw.trim()] : []; },
         read: function (val) {
             try { return JSON.parse(val || "[]"); } catch (e) { return []; }
         },

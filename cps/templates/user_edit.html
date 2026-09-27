@@ -1,11 +1,8 @@
 {% extends "layout.html" %}
 {% block body %}
 <div name="profile-page" class="discover lily-admin lily-profile">
-  <!-- Profile header: avatar and name -->
+  <!-- Profile header: name -->
   <div class="profile-header-container">
-    <div class="profile-picture" id="user-profile-picture">
-      <span class="glyphicon glyphicon-user fallback-icon" aria-hidden="true"></span>
-    </div>
     <div class="profile-title-section">
       {% if not new_user %}<h2>{{ content.name }}</h2>{% endif %}
       <p class="profile-subtitle">{% if profile %}{{_('Your Profile')}}{% else %}{{_('User Settings')}}{% endif %}</p>
@@ -453,37 +450,6 @@ document.addEventListener('DOMContentLoaded', function() {
 {{ delete_confirm_modal() }}
 {% endblock %}
 {% block js %}
-<script>
-  // Load custom profile picture if available
-  (function() {
-    const username = "{{ content.name }}";
-    const profilePictureElement = document.getElementById('user-profile-picture');
-    
-    if (username && profilePictureElement) {
-      // Fetch user profiles from the JSON endpoint
-      fetch('{{ url_for("profile_pictures.user_profiles_json") }}')
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('Failed to load profile pictures');
-          }
-          return response.json();
-        })
-        .then(userProfiles => {
-          if (userProfiles[username]) {
-            // User has a custom profile picture
-            profilePictureElement.style.backgroundImage = `url(${userProfiles[username]})`;
-          } else {
-            // No custom profile picture - keep default SVG
-            profilePictureElement.classList.add('no-custom-picture');
-          }
-        })
-        .catch(error => {
-          console.error('Could not load user profile picture:', error);
-          profilePictureElement.classList.add('no-custom-picture');
-        });
-    }
-  })();
-</script>
 <script src="{{ url_for('static', filename='js/libs/bootstrap-table/bootstrap-table.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/libs/bootstrap-table/bootstrap-table-editable.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/libs/bootstrap-table/bootstrap-editable.min.js') }}"></script>

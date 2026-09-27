@@ -453,7 +453,9 @@ def change_shelf_order(shelf_id, order):
 
 def render_show_shelf(shelf_type, shelf_id, page_no, sort_param):
     shelf = ub.session.query(ub.Shelf).filter(ub.Shelf.id == shelf_id).first()
-    status = current_user.get_view_property("shelf", 'man')
+    # The shelf page no longer offers the "Change order" lock, so a lock saved
+    # before it went must not freeze the sort menu.
+    status = 'off'
     # check user is allowed to access shelf
     if shelf and check_shelf_view_permissions(shelf):
         if shelf_type == 1:

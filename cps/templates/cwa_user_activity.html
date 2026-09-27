@@ -435,7 +435,6 @@ function generateDemoData() {
 
 let demoMode = false;
 let currentData = realData;  // Always start with real data, even if empty
-let userProfiles = {};
 
 // Charts: every colour comes from the Lily tokens through LilyCharts (static/js/lily-charts.js).
 let timelineChart, eventsChart, formatsChart, heatmapChart, velocityChart, formatPreferencesChart, discoveryChart, deviceChart, sessionDurationChart;
@@ -493,16 +492,7 @@ function initCharts() {
     deviceChart = LilyCharts.init('device-chart');
     sessionDurationChart = LilyCharts.init('session-duration-chart');
 
-    // Fetch user profiles first, then update visualizations
-    fetch(getPath() + '/user_profiles.json')
-        .then(response => response.json())
-        .then(data => {
-            userProfiles = data;
-            updateAllVisualizations();
-        })
-        .catch(() => {
-            updateAllVisualizations();
-        });
+    updateAllVisualizations();
 
     // Responsive resize (debounced; only initialised charts that are currently visible)
     let activityResizeTimer;
@@ -802,17 +792,12 @@ function updateTopLists() {
         const el = document.getElementById('top-users-list');
         el.innerHTML = currentData.topUsers.length > 0
             ? rowsHtml(currentData.topUsers.map(([userId, name, count], i) => {
-                const profileImage = userProfiles[name];
-                const avatar = profileImage
-                    ? `<img src="${escapeHtml(profileImage)}" class="stats-avatar" alt="">`
-                    : '<span class="stats-avatar" aria-hidden="true"></span>';
                 const nameDisplay = isAdmin
                     ? `<a class="stats-row-title" href="/admin/user/${encodeURIComponent(userId)}">${escapeHtml(name)}</a>`
                     : `<span class="stats-row-title">${escapeHtml(name)}</span>`;
                 return `
                     <li class="stats-row">
                         <span class="stats-rank">${i + 1}</span>
-                        ${avatar}
                         <span class="stats-row-main">${nameDisplay}</span>
                         <span class="stats-row-value">${count}</span>
                     </li>`;

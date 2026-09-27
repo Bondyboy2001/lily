@@ -12,7 +12,6 @@
     logs          service status check, log archive routes + helpers
     ingest        library refresh, ingest helpers, internal endpoints used by the
                   ingest process (auto-send, debounced duplicate scans, DB reconnect)
-    theme_profile profile picture routes
 
 Everything other modules import from ``cps.cwa_functions`` is re-exported here.
 Module-level state (e.g. the duplicate-scan debounce timer and lock) lives only in
@@ -20,7 +19,7 @@ its owning submodule; patch it there (``cps.cwa_functions.ingest``), not here.
 """
 
 from .common import (library_refresh, cwa_stats,
-                     cwa_check_status, cwa_settings, cwa_logs, profile_pictures, cwa_internal,
+                     cwa_check_status, cwa_settings, cwa_logs, cwa_internal,
                      log, LOG_ARCHIVE, DIRS_JSON)
 # Import order mirrors the old single module (web, scheduler, worker, tasks) to keep
 # circular-import behaviour the same.
@@ -36,4 +35,3 @@ from .ingest import (_duplicate_full_scan_running, get_ingest_dir, get_ingest_st
 from .logs import cwa_flash_status, download_log, read_log
 from .settings import (parse_metadata_providers_enabled, validate_and_cleanup_provider_enabled_map,
                        set_cwa_settings, get_next_duplicate_scan_run)
-from .theme_profile import user_profiles_json, set_profile_picture

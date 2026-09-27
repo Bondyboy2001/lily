@@ -794,23 +794,6 @@ $(function() {
         );
     });
 
-    $("#toggle_order_shelf").click(function() {
-        $("#toggle_order_shelf").toggleClass("dummy");
-        $(".lily-sort .dropdown-menu a").toggleClass("disabled");
-        var alternative_text = $("#toggle_order_shelf").data('alt-text');
-        var status = $("#toggle_order_shelf").hasClass("dummy") ? "on" : "off";
-        $("#toggle_order_shelf").data('alt-text', $("#toggle_order_shelf").html());
-        $("#toggle_order_shelf").html(alternative_text);
-
-        $.ajax({
-            method:"post",
-            contentType: "application/json; charset=utf-8",
-            dataType: "json",
-            url: getPath() + "/ajax/view",
-            data: "{\"shelf\": {\"man\": \"" + status + "\"}}",
-        });
-    });
-
     $("#btndeluser").click(function() {
         confirmDialog(
             $(this).attr('id'),

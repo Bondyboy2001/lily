@@ -122,19 +122,29 @@
             </div>
 
             <dl class="book-metadata">
-                {# Read-only here; shelves are changed on the edit page #}
+                {# Read-only here; shelves and tags are changed on the edit page #}
                 {% if current_user.is_authenticated and books_shelfs %}
                     {% set shelves = g.shelves_access|selectattr('id', 'in', books_shelfs)|list %}
                     {% if shelves %}
                     <div class="shelves" id="detail-shelves">
                         <dt>{{ _('Shelves') }}</dt>
-                        <dd class="lily-term-list">
+                        <dd>
                             {% for shelf in shelves %}
-                                <span class="lily-term"><a href="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}">{{ shelf.name }}{% if shelf.is_public == 1 %} {{ _('(Public)') }}{% endif %}</a></span>
+                                <span><a href="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}">{{ shelf.name }}{% if shelf.is_public == 1 %} {{ _('(Public)') }}{% endif %}</a>{% if not loop.last %},{% endif %}</span>
                             {% endfor %}
                         </dd>
                     </div>
                     {% endif %}
+                {% endif %}
+                {% if entry.tags|length > 0 %}
+                    <div class="tags" id="detail-tags">
+                        <dt>{{ _('Tags') }}</dt>
+                        <dd>
+                            {% for tag in entry.tags|sort(attribute='name') %}
+                                <span><a href="{{ url_for('web.books_list', data='category', sort_param='stored', book_id=tag.id) }}">{{ tag.name }}</a>{% if not loop.last %},{% endif %}</span>
+                            {% endfor %}
+                        </dd>
+                    </div>
                 {% endif %}
                 {% if entry.publishers|length > 0 %}
                     <div class="publishers">

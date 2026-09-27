@@ -62,9 +62,9 @@
     </div>
     {# One row per author over the hidden #authors field, which the server reads as an
        " & "-separated list; kept sorted alphabetically (edit_books.js) #}
-    <div id="author_div" class="form-group lily-author-editor">
+    <div id="author_div" class="form-group">
       <label id="authors-label">{{_('Authors')}}</label>
-      <ol class="lily-author-rows" id="author-rows" aria-labelledby="authors-label"
+      <ol class="lily-edit-rows" id="author-rows" aria-labelledby="authors-label"
           data-placeholder="{{_('Author name')}}" data-remove-label="{{_('Remove author')}}"></ol>
       <button type="button" class="btn btn-default btn-sm" id="author-add">
         <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> {{_('Add author')}}
@@ -116,14 +116,13 @@
     {% set editable_shelves = g.shelves_access|selectattr('id', 'in', shelf_ids_editable)|list %}
     <section class="editbook-section">
     <h3>{{_('Tags & Shelves')}}</h3>
-    {# Chips edit the hidden #tags field, which the server reads as a comma-separated list (edit_books.js) #}
-    <div class="form-group lily-tag-editor" id="tag-editor">
-      <label for="tag-entry">{{_('Tags')}}</label>
-      <ul class="lily-tag-chips" id="tag-chips" aria-label="{{_('Tags')}}" data-remove-label="{{_('Remove tag')}}"></ul>
-      <div class="lily-chip-entry" hidden>
-        <input type="text" class="form-control typeahead" autocomplete="off" id="tag-entry" placeholder="{{_('Add a tag')}}">
-      </div>
-      <button type="button" class="btn btn-default btn-sm lily-chip-add" aria-controls="tag-entry">
+    {# One row per tag over the hidden #tags field, which the server reads as a
+       comma-separated list (edit_books.js) #}
+    <div class="form-group" id="tag-editor">
+      <label id="tags-label">{{_('Tags')}}</label>
+      <ol class="lily-edit-rows" id="tag-rows" aria-labelledby="tags-label"
+          data-placeholder="{{_('Tag')}}" data-remove-label="{{_('Remove tag')}}"></ol>
+      <button type="button" class="btn btn-default btn-sm" id="tag-add">
         <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> {{_('Add tag')}}
       </button>
       <input type="hidden" name="tags" id="tags" value="{% for tag in book.tags %}{{tag.name.strip()}}{% if not loop.last %}, {% endif %}{% endfor %}">
@@ -139,17 +138,16 @@
   </tr>
   {% endfor %}
     </tbody></table>
-    {# Chips edit the hidden #shelves field, a JSON list of names; saving puts the book on exactly
-       those shelves (editbooks._update_shelves). Only existing shelves can be added here. #}
-    <div class="form-group lily-tag-editor" id="shelf-editor">
-      <label for="shelf-entry">{{_('Shelves')}}</label>
-      <ul class="lily-tag-chips" id="shelf-chips" aria-label="{{_('Shelves')}}" data-remove-label="{{_('Remove from shelf')}}"></ul>
-      <div class="lily-chip-entry" hidden>
-        <input type="text" class="form-control typeahead" autocomplete="off" id="shelf-entry" placeholder="{{_('Add to a shelf')}}"
-               data-shelves='{{ editable_shelves|map(attribute="name")|unique|list|tojson }}'>
-      </div>
+    {# One row per shelf over the hidden #shelves field, a JSON list of names; saving puts the
+       book on exactly those shelves (editbooks._update_shelves). Only existing shelves can be added. #}
+    <div class="form-group" id="shelf-editor">
+      <label id="shelves-label">{{_('Shelves')}}</label>
+      <ol class="lily-edit-rows" id="shelf-rows" aria-labelledby="shelves-label"
+          data-placeholder="{{_('Shelf name')}}" data-remove-label="{{_('Remove from shelf')}}"
+          data-invalid-label="{{_('No shelf with this name')}}"
+          data-shelves='{{ editable_shelves|map(attribute="name")|unique|list|tojson }}'></ol>
       {% if editable_shelves %}
-      <button type="button" class="btn btn-default btn-sm lily-chip-add" aria-controls="shelf-entry">
+      <button type="button" class="btn btn-default btn-sm" id="shelf-add">
         <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> {{_('Add to shelf')}}
       </button>
       {% else %}

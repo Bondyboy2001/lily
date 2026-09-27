@@ -11,7 +11,7 @@ TEMPLATES = REPO_ROOT / "cps/templates"
 ADMIN_TEMPLATES = [
     "admin.html", "config_db.html", "config_edit.html", "config_view_edit.html", "cwa_settings.html",
     "cwa_read_log.html", "logviewer.html", "email_edit.html", "schedule_edit.html", "user_edit.html",
-    "user_table.html", "profile_pictures.html", "kosync_plugin.html", "hardcover_review_matches.html",
+    "user_table.html", "kosync_plugin.html", "hardcover_review_matches.html",
     "generate_kobo_auth_url.html", "tasks.html", "remote_login.html", "http_error.html", "shelfdown.html",
 ]
 ADMIN_STYLESHEETS = ["lily-admin.css", "lily-settings.css"]

@@ -65,9 +65,12 @@ body {
 
 /* Everything is sized in px, so wide screens scale the whole page (type, icons
    and spacing together) rather than leaving it small in a sea of margin.
-   Breakpoints are measured before the zoom applies, so they don't feed back. */
-@media (min-width: 1400px) { html { zoom: 1.1; } }
-@media (min-width: 1700px) { html { zoom: 1.2; } }
+   Breakpoints are measured before the zoom applies, so they don't feed back.
+   vh units get zoomed too, so a full-height box is calc(100vh / var(--page-zoom)):
+   plain 100vh would overflow the window and scroll away (the sidebar did). */
+html { --page-zoom: 1; }
+@media (min-width: 1400px) { html { zoom: 1.1; --page-zoom: 1.1; } }
+@media (min-width: 1700px) { html { zoom: 1.2; --page-zoom: 1.2; } }
 
 h1, h2, h3,
 .h1, .h2, .h3 {
@@ -817,4 +820,13 @@ textarea:focus-visible {
         transition: none !important;
         animation: none !important;
     }
+}
+
+/* bootstrap-table hides its loading overlay with visibility, which leaves the dot
+   animation running and forces a style recalc every frame on table pages */
+.fixed-table-loading:not(.open),
+.fixed-table-loading:not(.open) *,
+.fixed-table-loading:not(.open) *::before,
+.fixed-table-loading:not(.open) *::after {
+    animation: none !important;
 }

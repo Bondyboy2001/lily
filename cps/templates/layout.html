@@ -46,12 +46,11 @@
   <body class="{{ page }} {{ bodyClass }}" data-book-view="{{ current_user.get_view_property('books', 'view') or 'grid' }}" data-text="{{_('Home')}}" data-textback="{{_('Back')}}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% set show_sidebar = current_user.is_authenticated or g.allow_anonymous %}
-    {% set avatar_version = lily_avatar_version(current_user.name) if current_user.is_authenticated else None %}
     <div class="lily-app">
       <script>try { if (localStorage.getItem("lily-sidebar-collapsed") === "1") { document.currentScript.parentNode.classList.add("sidebar-collapsed"); } } catch (e) {}</script>
       {% if show_sidebar %}
       <aside class="lily-sidebar" id="lily-sidebar" aria-label="{{_('Browse')}}">
-        <a class="lily-brand" href="{{url_for('web.index')}}"><img src="{{ url_for('static', filename='icon.svg') }}" alt="" width="44" height="44">{{instance}}</a>
+        <a class="lily-brand" href="{{url_for('web.index')}}">{{instance}}<img src="{{ url_for('static', filename='lily-mark.svg') }}" alt="" width="52" height="66"></a>
         <nav>
           <ul class="lily-nav" id="scnd-nav">
             <li class="nav-head">{{_('Browse')}}</li>
@@ -116,7 +115,7 @@
             {% endif %}
             <div class="dropdown">
               <button type="button" class="icon-btn dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="{{_('Account')}}" aria-label="{{_('Account')}}">
-                {% if avatar_version %}<img class="lily-avatar" src="{{ url_for('profile_pictures.user_avatar', v=avatar_version) }}" alt="">{% else %}<span class="glyphicon glyphicon-user" aria-hidden="true"></span>{% endif %}
+                <span class="glyphicon glyphicon-user" aria-hidden="true"></span>
               </button>
               <ul class="dropdown-menu dropdown-menu-right lily-profile-menu">
                 {% if current_user.is_anonymous %}

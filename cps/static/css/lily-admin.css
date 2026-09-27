@@ -401,30 +401,6 @@
     margin: 0 0 22px;
 }
 
-.lily-profile .profile-picture {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background-color: var(--sunk);
-    background-position: center;
-    background-repeat: no-repeat;
-    background-size: cover;
-}
-
-.lily-profile .profile-picture .fallback-icon {
-    display: none;
-    top: 0;
-    font-size: 25px;
-    color: var(--faint);
-}
-
-.lily-profile .profile-picture.no-custom-picture .fallback-icon { display: block; }
-
 .lily-profile .profile-title-section h2 {
     margin: 0;
     font-size: 25px;
@@ -525,10 +501,20 @@
     vertical-align: middle;
 }
 
-.lily-admin .bootstrap-table .table > tbody > tr:hover { background: var(--hover); }
+/* The hover highlight reaches past the text at both ends and has rounded
+   ends; the first column is inset to match so text and headers line up. */
+.lily-admin .bootstrap-table .table > tbody > tr > td:first-child,
+.lily-admin .bootstrap-table .fixed-table-container .table thead th:first-child .th-inner { padding-left: 12px; }
+.lily-admin .bootstrap-table .table > tbody > tr > td:last-child { padding-right: 12px; }
+
+.lily-admin .bootstrap-table .table > tbody > tr:hover { background: transparent; }
+.lily-admin .bootstrap-table .table > tbody > tr:not(.no-records-found):hover > td { background: var(--hover); }
+.lily-admin .bootstrap-table .table > tbody > tr > td:first-child { border-radius: 8px 0 0 8px; }
+.lily-admin .bootstrap-table .table > tbody > tr > td:last-child { border-radius: 0 8px 8px 0; }
 
 .lily-admin .bootstrap-table .fixed-table-container .table tbody tr.no-records-found > td {
-    padding: 14px 0;
+    padding: 14px 12px;
+    border-radius: 0;
     color: var(--muted);
     text-align: left;
 }
@@ -594,18 +580,6 @@
     position: absolute;
     top: 8px;
     right: 8px;
-}
-
-/* ------------------------------------------------------------------ */
-/* Profile pictures (profile_pictures.html)                             */
-/* ------------------------------------------------------------------ */
-.pp-content #preview {
-    display: none;
-    width: 120px;
-    height: 120px;
-    margin: 8px 0 14px;
-    border-radius: 50%;
-    object-fit: cover;
 }
 
 .lily-admin .lily-status-line {
@@ -775,7 +749,7 @@
 .lily-admin .lily-log,
 .lily-admin div.log.lily-log {
     height: auto;
-    max-height: calc(100vh - 220px);
+    max-height: calc(100vh / var(--page-zoom) - 220px);
     min-height: 200px;
     margin: 0;
     padding: 10px 12px;

@@ -4,24 +4,26 @@
 {% block body %}
 <div class="discover">
   <div class="lily-list-toolbar">
-    {# Grid/List icons, pinned to the toolbar's top right #}
-    {{ self.view_switch() }}
-  <div class="lily-actions">
-    {% if current_user.role_download() %}
-    <a id="shelf_down" href="{{ url_for('shelf.show_simpleshelf', shelf_id=shelf.id) }}" class="btn btn-default">{{ _('Download') }}</a>
-    {% endif %}
-    {% if current_user.is_authenticated and ((current_user.role_edit_shelfs() and shelf.is_public) or not shelf.is_public) %}
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <a id="edit_shelf" href="{{ url_for('shelf.edit_shelf', shelf_id=shelf.id) }}" class="btn btn-default">{{ _('Edit Shelf Properties') }}</a>
-    {% if entries.__len__() %}
-    <a id="order_shelf" href="{{ url_for('shelf.order_shelf', shelf_id=shelf.id) }}" class="btn btn-default">{{ _('Arrange books manually') }}</a>
-    <button id="toggle_order_shelf" type="button" data-alt-text="{% if status == "on" %}{{_('Disable Change order')}}{% else %}{{_('Enable Change order')}}{% endif %}" data-view="shelf" class="btn btn-default{% if status == 'on' %} dummy">{{ _('Enable Change order') }}{% else%}">{{ _('Disable Change order') }}{% endif %}</button>
-    {% endif %}
-    <button type="button" class="btn btn-danger" data-action="{{url_for('shelf.delete_shelf', shelf_id=shelf.id)}}" id="delete_shelf" data-value="{{ shelf.id }}">{{ _('Delete this Shelf') }}</button>
-    {% endif %}
-  </div>
-  {% if current_user.is_authenticated and ((current_user.role_edit_shelfs() and shelf.is_public) or not shelf.is_public) and entries.__len__() %}
-  {{ image.sort_menu(order, url_for('shelf.show_shelf', shelf_id=shelf.id, sort_param='SORT_PARAM'), ['added', 'title', 'author', 'published', 'shelf'], status == 'on') }}
+    {% set can_edit = current_user.is_authenticated and ((current_user.role_edit_shelfs() and shelf.is_public) or not shelf.is_public) %}
+    {# Top right: Grid/List icons, then the shelf's own actions behind a ⋯ menu #}
+    <div class="lily-toolbar-end">
+      {{ self.view_switch() }}
+      {% if can_edit %}
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="dropdown">
+        <button type="button" class="icon-btn dropdown-toggle" id="shelf-menu-toggle" data-toggle="dropdown"
+                aria-haspopup="true" aria-expanded="false" title="{{ _('Shelf Actions') }}" aria-label="{{ _('Shelf Actions') }}">
+          <span class="glyphicon glyphicon-option-horizontal" aria-hidden="true"></span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-right" aria-labelledby="shelf-menu-toggle">
+          <li><a id="edit_shelf" href="{{ url_for('shelf.edit_shelf', shelf_id=shelf.id) }}">{{ _('Edit Shelf') }}</a></li>
+          <li><a href="#" class="lily-menu-danger" data-action="{{url_for('shelf.delete_shelf', shelf_id=shelf.id)}}" id="delete_shelf" data-value="{{ shelf.id }}">{{ _('Delete Shelf') }}</a></li>
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+  {% if can_edit and entries.__len__() %}
+  {{ image.sort_menu(order, url_for('shelf.show_shelf', shelf_id=shelf.id, sort_param='SORT_PARAM'), ['added', 'title', 'author', 'published', 'shelf']) }}
   {% endif %}
   </div>
   <div class="row display-flex lily-grid">
