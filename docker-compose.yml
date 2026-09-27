@@ -13,7 +13,7 @@ services:
       # Sets the listening port for the application. Defaults to 8083.
       # - CWA_PORT_OVERRIDE=8083
       # Hardcover API Key required for Hardcover as a Metadata Provider, get one here: https://docs.hardcover.app/api/getting-started/
-      - HARDCOVER_TOKEN=your_hardcover_api_key_here
+      # - HARDCOVER_TOKEN=your_hardcover_api_key_here
       # If your library is on a network share (e.g., NFS/SMB), disables WAL and chown to reduce locking/permission issues,
       # and switches file watching to polling (more reliable on network mounts) instead of inotify.
       # Accepts: true/false (default: false)
@@ -32,6 +32,9 @@ services:
       # Skip the automatic library detection/mount at startup. When enabled, the auto-library service will not run.
       # Accepts: true/yes/1 to disable auto-mount (default: false)
       # - DISABLE_LIBRARY_AUTOMOUNT=false
+      # Where nightly database snapshots go (default: /config/backup/db). Point it at a separate volume, below,
+      # so a lost or corrupted /config volume doesn't take the backups with it.
+      # - DB_BACKUP_DIR=/backups
     volumes:
       # Calibre-Web / CWA users migrating should stop their existing CW instance, make a copy of the config folder, and bind that here to carry over all of their user settings etc.
       - /path/to/config/folder:/config
@@ -42,6 +45,8 @@ services:
       # If you use calibre plugins, you can bind your plugins folder here to have Lily attempt to add them to it's workflow (WIP)
       # If you are starting with a fresh install, you also need to copy customize.py.json to the Calibre config volume above, in /path/to/config/folder/.config/calibre/customize.py.json, see the README for more info
       - /path/to/your/calibre/plugins/folder:/config/.config/calibre/plugins
+      # Optional: separate volume for database snapshots, used with DB_BACKUP_DIR=/backups above
+      # - /path/to/your/backup/folder:/backups
     ports:
       # Change the first number to change the port you want to access the Web UI, not the second
       - 8083:8083

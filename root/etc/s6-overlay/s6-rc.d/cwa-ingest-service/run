@@ -43,6 +43,8 @@ except:
     print(15)
 " 2>/dev/null || echo "15")
     fi
+    # sqlite can hand back an empty string or "None"; anything non-numeric falls back to 15
+    [[ "$timeout_minutes" =~ ^[0-9]+$ ]] && [ "$timeout_minutes" -ge 1 ] || timeout_minutes=15
     echo $((timeout_minutes * 60))  # Convert to seconds
 }
 

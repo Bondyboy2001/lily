@@ -22,7 +22,7 @@ from flask_babel import get_locale
 from .cw_login import current_user, login_required
 from sqlalchemy.exc import OperationalError, IntegrityError, InterfaceError, InvalidRequestError
 from sqlalchemy.orm.exc import StaleDataError
-from sqlalchemy.sql.expression import func
+from sqlalchemy.sql.expression import func, or_
 
 from . import constants, logger, isoLanguages, gdriveutils, uploader, helper, kobo_sync_status
 from .clean_html import clean_string
@@ -32,6 +32,7 @@ from .tasks.upload import TaskUpload
 from .render_template import render_title_template
 from .kobo_sync_status import change_archived_books
 from .redirect import get_redirect_location
+from .shelf import check_shelf_edit_permissions
 from .file_helper import validate_mime_type
 from .cwa_functions import get_ingest_dir
 from .usermanagement import user_login_required, login_required_if_no_ano
@@ -185,31 +186,6 @@ def upload():
 
         return Response(json.dumps({"location": url_for('tasks.get_tasks_status')}), mimetype='application/json')
     abort(400)
-
-
-@editbook.route("/admin/book/convert/<int:book_id>", methods=['POST'])
-@login_required_if_no_ano
-@edit_required
-def convert_bookformat(book_id):
-    # check to see if we have form fields to work with -  if not send user back
-    book_format_from = request.form.get('book_format_from', None)
-    book_format_to = request.form.get('book_format_to', None)
-
-    if (book_format_from is None) or (book_format_to is None):
-        flash(_("Source or destination format for conversion missing"), category="error")
-        return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
-
-    log.info('converting: book id: %s from: %s to: %s', book_id, book_format_from, book_format_to)
-    rtn = helper.convert_book_format(book_id, config.get_book_path(), book_format_from.upper(),
-                                     book_format_to.upper(), current_user.name)
-
-    if rtn is None:
-        flash(_("Book successfully queued for converting to %(book_format)s",
-                book_format=book_format_to),
-              category="success")
-    else:
-        flash(_("There was an error converting this book: %(res)s", res=rtn), category="error")
-    return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
 
 
 @editbook.route("/ajax/getcustomenum/<int:c_id>")
@@ -829,6 +805,78 @@ def table_xchange_author_title():
     return ""
 
 
+PAPERS_SHELF = "Papers"
+
+
+def _editable_shelves():
+    return [shelf for shelf in ub.session.query(ub.Shelf).filter(
+                or_(ub.Shelf.is_public == 1, ub.Shelf.user_id == current_user.id)).order_by(ub.Shelf.name)
+            if check_shelf_edit_permissions(shelf)]
+
+
+def _book_shelf_ids(book_id):
+    return [link.shelf for link in ub.session.query(ub.BookShelf).filter(ub.BookShelf.book_id == book_id)]
+
+
+def _shelf_names(raw):
+    """The Shelves chip editor posts its names as a JSON list; drop blanks and repeats."""
+    try:
+        names = json.loads(raw or "[]")
+    except ValueError:
+        return []
+    if not isinstance(names, list):
+        return []
+    seen, result = set(), []
+    for name in names:
+        name = strip_whitespaces(str(name))
+        if name and name.lower() not in seen:
+            seen.add(name.lower())
+            result.append(name)
+    return result
+
+
+def _update_shelves(book_id, to_save):
+    """Put the book on exactly the shelves named in the edit form's Shelves chips. Names that
+    match none of the user's editable shelves are ignored (shelves are created from the
+    sidebar), except Papers, which Fetch Metadata creates the first time it files a paper."""
+    try:
+        shelves = _editable_shelves()
+        if not to_save.get("shelves_present"):
+            return
+        wanted = set()
+        for name in _shelf_names(to_save.get("shelves")):
+            matches = [shelf for shelf in shelves if shelf.name.lower() == name.lower()]
+            # Same name on a public shelf and the user's own: the user's own wins
+            shelf = next((m for m in matches if m.user_id == current_user.id), None) or \
+                next(iter(matches), None)
+            if not shelf:
+                if name.lower() != PAPERS_SHELF.lower():
+                    continue
+                shelf = ub.Shelf(name=PAPERS_SHELF, is_public=0, user_id=current_user.id)
+                ub.session.add(shelf)
+                ub.session.flush()
+                shelves.append(shelf)
+            wanted.add(shelf.id)
+
+        current = set(_book_shelf_ids(book_id))
+        now = datetime.now(timezone.utc)
+        for shelf in shelves:
+            if shelf.id in wanted and shelf.id not in current:
+                max_order = ub.session.query(func.max(ub.BookShelf.order)).filter(
+                    ub.BookShelf.shelf == shelf.id).scalar()
+                shelf.books.append(ub.BookShelf(shelf=shelf.id, book_id=book_id, order=(max_order or 0) + 1))
+                shelf.last_modified = now
+            elif shelf.id in current and shelf.id not in wanted:
+                ub.session.query(ub.BookShelf).filter(ub.BookShelf.shelf == shelf.id,
+                                                      ub.BookShelf.book_id == book_id).delete()
+                shelf.last_modified = now
+        ub.session.commit()
+    except (OperationalError, InvalidRequestError) as e:
+        ub.session.rollback()
+        log.error_or_exception("Could not update shelves for book %s: %s", book_id, e)
+        flash(_("Oops! Database Error: %(error)s.", error=e), category="error")
+
+
 def do_edit_book(book_id, upload_formats=None):
     request_start = time.monotonic()
     log.debug("[edit_book] start book_id=%s user=%s upload_formats=%s", book_id, getattr(current_user, "name", "unknown"), bool(upload_formats))
@@ -1022,6 +1070,8 @@ def do_edit_book(book_id, upload_formats=None):
                 log.debug(f"Skipped metadata change log for book {book.id} - no meaningful changes detected (modify_date={modify_date}, changes={list(meaningful_changes.keys())})")
         except Exception as e:
             log.error_or_exception(f"Failed to write metadata change log for book {book.id}: {e}")
+
+        _update_shelves(book.id, to_save)
 
         # Stage 4: Post-commit operations.
         if config.config_use_google_drive:
@@ -1463,37 +1513,16 @@ def render_edit_book(book_id):
     for authr in book.authors:
         author_names.append(authr.name.replace('|', ','))
 
-    # Option for showing convert_book button
-    valid_source_formats = list()
-    allowed_conversion_formats = list()
-    kepub_possible = None
-    if config.config_converterpath:
-        for file in book.data:
-            if file.format.lower() in constants.EXTENSIONS_CONVERT_FROM:
-                valid_source_formats.append(file.format.lower())
-    if config.config_kepubifypath and 'epub' in [file.format.lower() for file in book.data]:
-        kepub_possible = True
-        if not config.config_converterpath:
-            valid_source_formats.append('epub')
-
-    # Determine what formats don't already exist
-    if config.config_converterpath:
-        allowed_conversion_formats = constants.EXTENSIONS_CONVERT_TO[:]
-        for file in book.data:
-            if file.format.lower() in allowed_conversion_formats:
-                allowed_conversion_formats.remove(file.format.lower())
-    if kepub_possible:
-        allowed_conversion_formats.append('kepub')
     # Check for existing hardcover blacklist settings
     hardcover_blacklist = ub.session.query(ub.HardcoverBookBlacklist).filter(
         ub.HardcoverBookBlacklist.book_id == book.id
     ).first()
     return render_title_template('book_edit.html', book=book, authors=author_names, cc=cc,
-                                 title=_("edit metadata"), page="editbook",
-                                 conversion_formats=allowed_conversion_formats,
+                                 shelf_ids_editable=[shelf.id for shelf in _editable_shelves()],
+                                 book_shelf_ids=_book_shelf_ids(book.id),
+                                 title=_("Edit Metadata"), page="editbook",
                                  config=config,
-                                 hardcover_blacklist=hardcover_blacklist,
-                                 source_formats=valid_source_formats)
+                                 hardcover_blacklist=hardcover_blacklist)
 
 
 def edit_book_ratings(to_save, book):

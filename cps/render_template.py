@@ -5,11 +5,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-from flask import render_template, g, abort, request, flash, current_app
+from flask import render_template, g, abort, request, flash
 from flask import after_this_request, has_app_context, has_request_context
 from flask_babel import gettext as _
 from flask_babel import get_locale
-import polib
 from werkzeug.local import LocalProxy
 from .cw_login import current_user
 from sqlalchemy.sql.expression import or_
@@ -195,128 +194,44 @@ def cwa_update_available() -> tuple[bool, str, str]:
         print(f"[cwa-update-notification-service] Error checking for CWA updates: {e}", flush=True)
         return False, "0.0.0", "0.0.0"
 
-# Gets the date the last cwa update notification was displayed
-def get_cwa_last_notification() -> str:
-    current_date = datetime.now().strftime("%Y-%m-%d")
-    if not os.path.isfile('/app/cwa_update_notice'):
-        with open('/app/cwa_update_notice', 'w') as f:
-            f.write(current_date)
-        return "0001-01-01"
-    else:
-        with open('/app/cwa_update_notice', 'r') as f:
-            last_notification = f.read()
-    return last_notification
+UPDATE_NOTICE_FILE = '/app/cwa_update_notice'
+# Date the update notice was last handled in this process; saves a file read per render
+_update_notice_done_date = None
 
-# Displays a notification to the user that an update for CWA is available, no matter which page they're on
-# Currently set to only display once per calender day
+
+# Displays a notification to admins that an update for Lily is available, no matter which page they're on
+# Only displays once per calendar day
 def cwa_update_notification() -> None:
-    db = get_request_cwa_db()
-    if db.cwa_settings['cwa_update_notifications']:
-        current_date = datetime.now().strftime("%Y-%m-%d")
-        cwa_last_notification = get_cwa_last_notification()
-        
-        if cwa_last_notification == current_date:
-            return
-
+    global _update_notice_done_date
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    if _update_notice_done_date == current_date:
+        return
+    if not get_request_cwa_db().cwa_settings['cwa_update_notifications']:
+        return
+    try:
+        with open(UPDATE_NOTICE_FILE, 'r') as f:
+            last_notification = f.read().strip()
+    except OSError:
+        last_notification = ""
+    if last_notification != current_date:
         update_available, current_version, tag_name = cwa_update_available()
         if update_available:
-            message = _(f"⚡🚨 Lily UPDATE AVAILABLE! 🚨⚡ Current - {current_version} | Newest - {tag_name} | To update, rebuild or re-pull the image! This message will only display once per day |")
-            flash(_(message), category="cwa_update")
+            message = _("Lily update available: %(current)s → %(newest)s. Rebuild or re-pull the image to update.",
+                        current=current_version, newest=tag_name)
+            flash(message, category="cwa_update")
             print(f"[cwa-update-notification-service] {message}", flush=True)
-
-        with open('/app/cwa_update_notice', 'w') as f:
+        with open(UPDATE_NOTICE_FILE, 'w') as f:
             f.write(current_date)
-        return
-    else:
-        return
-
-# lang -> date the missing-translation notice is known to have been handled today
-_translation_notice_done_dates = {}
-# po_path -> (mtime, missing_count); avoids re-parsing the .po file on every render
-_missing_translation_count_memo = {}
-
-
-def _missing_translation_count(po_path) -> int:
-    try:
-        mtime = os.path.getmtime(po_path)
-    except OSError:
-        return 0
-    memo = _missing_translation_count_memo.get(po_path)
-    if memo is not None and memo[0] == mtime:
-        return memo[1]
-    missing_count = 0
-    try:
-        po = polib.pofile(po_path)
-        missing_count = sum(1 for entry in po if not entry.msgstr.strip())
-    except Exception as e:
-        print(f"[translation-notification-service] Error reading {po_path}: {e}", flush=True)
-    _missing_translation_count_memo[po_path] = (mtime, missing_count)
-    return missing_count
-
-
-# Checks if translations are missing for the current language
-def translations_missing_notification() -> None:
-    db = get_request_cwa_db()
-    if db.cwa_settings['contribute_translations_notifications']:
-        lang = str(get_locale())
-        # Skip English as it is the default language
-        if lang == 'en':
-            return
-        po_path = f"cps/translations/{lang}/LC_MESSAGES/messages.po"
-        current_date = datetime.now().strftime("%Y-%m-%d")
-        notice_file = f"/app/cwa_translation_notice_{lang}"
-        # Already notified today (in this process, or per the notice file): nothing to do,
-        # so skip parsing the .po file entirely.
-        if _translation_notice_done_dates.get(lang) == current_date:
-            return
-        if os.path.isfile(notice_file):
-            try:
-                with open(notice_file, 'r') as f:
-                    if f.read().strip() == current_date:
-                        _translation_notice_done_dates[lang] = current_date
-                        return
-            except Exception:
-                pass
-        missing_count = _missing_translation_count(po_path)
-        if missing_count > 0:
-            if not os.path.isfile(notice_file):
-                with open(notice_file, 'w') as f:
-                    f.write(current_date)
-                last_notification = "0001-01-01"
-            else:
-                with open(notice_file, 'r') as f:
-                    last_notification = f.read().strip()
-            if last_notification != current_date:
-                message = _(f"🌐 Help improve Lily's {constants.LANGUAGE_NAMES.get(lang, lang)} translations! {missing_count} strings in your language need translation. ")
-                flash(message, category="translation_missing")
-                print(f"[translation-notification-service] {message}", flush=True)
-                with open(notice_file, 'w') as f:
-                    f.write(current_date)
-            _translation_notice_done_dates[lang] = current_date
-        return
-    else:
-        return
+    _update_notice_done_date = current_date
 
 # Returns the template for rendering and includes the instance name
 def render_title_template(*args, **kwargs):
     sidebar, simple = get_sidebar_config(kwargs)
-    try:
-        magic_shelf_routes = {
-            "render": 'web.render_magic_shelf' in current_app.view_functions,
-            "create": 'web.create_magic_shelf' in current_app.view_functions,
-        }
-    except Exception:
-        magic_shelf_routes = {"render": False, "create": False}
     if current_user.role_admin():
         try:
             cwa_update_notification()
         except Exception as e:
             print(f"[cwa-update-notification-service] The following error occurred when checking for available updates:\n{e}", flush=True)
-    # Notify any user if translations are missing for their language
-    try:
-        translations_missing_notification()
-    except Exception as e:
-        print(f"[translation-notification-service] The following error occurred when checking for missing translations:\n{e}", flush=True)
     duplicate_notification = {
         "enabled": False,
         "count": 0,
@@ -393,7 +308,6 @@ def render_title_template(*args, **kwargs):
     try:
         return render_template(instance=config.config_calibre_web_title, sidebar=sidebar, simple=simple,
                        accept=config.config_upload_formats.split(','),
-                       magic_shelf_routes=magic_shelf_routes,
                        duplicate_notification=duplicate_notification,
                        *args, **kwargs)
     except PermissionError:

@@ -19,15 +19,15 @@ log = logger.create()
 def get_metadata_provider_hierarchy(cwa_settings: Dict[str, Any]) -> List[str]:
     """Get the configured metadata provider hierarchy"""
     try:
-        hierarchy_json = cwa_settings.get('metadata_provider_hierarchy', '["google","douban","dnb"]')
+        hierarchy_json = cwa_settings.get('metadata_provider_hierarchy', '["google","openlibrary","hardcover","googlescholar"]')
         if isinstance(hierarchy_json, str):
             hierarchy = json.loads(hierarchy_json)
         else:
             hierarchy = hierarchy_json
-        return hierarchy if isinstance(hierarchy, list) else ["google", "douban", "dnb"]
+        return hierarchy if isinstance(hierarchy, list) else ["google", "openlibrary", "hardcover", "googlescholar"]
     except (json.JSONDecodeError, TypeError):
         log.warning("Invalid metadata provider hierarchy config, using default")
-        return ["google", "douban", "dnb"]
+        return ["google", "openlibrary", "hardcover", "googlescholar"]
 
 
 def fetch_metadata_for_book(book_title: str, book_authors: str = "", user_id: Optional[int] = None) -> Optional[Dict[str, Any]]:
@@ -103,19 +103,20 @@ def fetch_metadata_for_book(book_title: str, book_authors: str = "", user_id: Op
             enabled_map_raw, list(available_providers.keys())
         )
         
+        # Saved order first, then any provider it doesn't name (the settings page does the same)
+        provider_hierarchy = [p for p in provider_hierarchy if p in available_providers] + \
+            [p for p in available_providers if p not in provider_hierarchy]
+
         # Try providers in order of preference
         for provider_id in provider_hierarchy:
-            # Check if explicitly disabled (default is enabled if not specified)
-            is_enabled = enabled_map.get(provider_id, True)
-            if not is_enabled:
-                log.debug(f"Provider {provider_id} is globally disabled")
-                continue
-                
             if provider_id not in available_providers:
                 log.debug(f"Provider {provider_id} not available or inactive")
                 continue
                 
             provider = available_providers[provider_id]
+            if not provider.is_globally_enabled(enabled_map):
+                log.debug(f"Provider {provider_id} is globally disabled")
+                continue
             log.debug(f"Trying metadata provider: {provider.__name__}")
             
             try:

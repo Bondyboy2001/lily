@@ -9,100 +9,33 @@ window.lilyStatsTabResize = {};
 window.lilyStatsTabInitDone = {};
 </script>
 
-<style>
-    .stats-tabs {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 30px;
-        border-bottom: 2px solid #3a4451;
-        padding-bottom: 0;
-    }
-    
-    .stats-tab {
-        background: none;
-        border: none;
-        padding: 15px 30px;
-        font-size: 1.1em;
-        font-weight: 600;
-        color: #aaa;
-        cursor: pointer;
-        border-bottom: 3px solid transparent;
-        transition: all 0.3s ease;
-        position: relative;
-        bottom: -2px;
-    }
-    
-    .stats-tab:hover {
-        color: #ff9800;
-        background: rgba(255, 152, 0, 0.05);
-    }
-    
-    .stats-tab.active {
-        color: #ff9800;
-        border-bottom-color: #ff9800;
-        background: rgba(255, 152, 0, 0.1);
-    }
-    
-    .tab-content {
-        display: none;
-    }
-    
-    .tab-content.active {
-        display: block;
-        animation: fadeIn 0.3s ease;
-    }
-    
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-</style>
+<div class="stats-page">
+    <p class="stats-intro">{{ _('How the library is used, how it has grown, and what the automations have done.') }}</p>
 
-<div class="discover" style="margin-top: 1rem !important;">
-    <h2>{{title}}</h2>
-    
-    <!-- Tab Navigation -->
-    <div class="stats-tabs">
-        <button class="stats-tab {{ 'active' if active_tab == 'activity' else '' }}" 
-                onclick="switchTab('activity')">
-            📊 User Activity
-        </button>
-        <button class="stats-tab {{ 'active' if active_tab == 'library' else '' }}" 
-                onclick="switchTab('library')">
-            📚 Library Stats
-        </button>
-        <button class="stats-tab {{ 'active' if active_tab == 'api' else '' }}" 
-                onclick="switchTab('api')">
-            📱 API Usage
-        </button>
-        <button class="stats-tab {{ 'active' if active_tab == 'system' else '' }}" 
-                onclick="switchTab('system')">
-            ⚙️ System Stats
-        </button>
+    <ul class="nav nav-pills stats-tabs" role="tablist" aria-label="{{ _('Stats sections') }}">
+        {% for key, label in [('activity', _('User activity')), ('library', _('Library')), ('api', _('API usage')), ('system', _('System'))] %}
+        <li role="presentation" class="{{ 'active' if active_tab == key else '' }}">
+            <a href="?tab={{ key }}" role="tab" id="{{ key }}-tab-link" aria-controls="{{ key }}-tab"
+               aria-selected="{{ 'true' if active_tab == key else 'false' }}" data-stats-tab="{{ key }}">{{ label }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <div id="activity-tab" class="tab-content stats-tab-panel {{ 'active' if active_tab == 'activity' else '' }}" role="tabpanel" aria-labelledby="activity-tab-link" {{ '' if active_tab == 'activity' else 'hidden' }}>
+        {% include 'cwa_user_activity.html' %}
     </div>
 
-    <div style="max-width: 1200px; margin: auto;">
-        <!-- User Activity Tab -->
-        <div id="activity-tab" class="tab-content {{ 'active' if active_tab == 'activity' else '' }}">
-            {% include 'cwa_user_activity.html' %}
-        </div>
-        
-        <!-- Library Stats Tab -->
-        <div id="library-tab" class="tab-content {{ 'active' if active_tab == 'library' else '' }}">
-            {% include 'cwa_library_stats.html' %}
-        </div>
-        
-        <!-- API Usage Tab -->
-        <div id="api-tab" class="tab-content {{ 'active' if active_tab == 'api' else '' }}">
-            {% include 'cwa_api_stats.html' %}
-        </div>
-        
-        <!-- System Logs Tab -->
-        <div id="system-tab" class="tab-content {{ 'active' if active_tab == 'system' else '' }}">
-            {% include 'cwa_stats_system.html' %}
-        </div>
+    <div id="library-tab" class="tab-content stats-tab-panel {{ 'active' if active_tab == 'library' else '' }}" role="tabpanel" aria-labelledby="library-tab-link" {{ '' if active_tab == 'library' else 'hidden' }}>
+        {% include 'cwa_library_stats.html' %}
     </div>
-    
+
+    <div id="api-tab" class="tab-content stats-tab-panel {{ 'active' if active_tab == 'api' else '' }}" role="tabpanel" aria-labelledby="api-tab-link" {{ '' if active_tab == 'api' else 'hidden' }}>
+        {% include 'cwa_api_stats.html' %}
+    </div>
+
+    <div id="system-tab" class="tab-content stats-tab-panel {{ 'active' if active_tab == 'system' else '' }}" role="tabpanel" aria-labelledby="system-tab-link" {{ '' if active_tab == 'system' else 'hidden' }}>
+        {% include 'cwa_stats_system.html' %}
+    </div>
 </div>
 
 <script>
@@ -124,34 +57,42 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function switchTab(tabName) {
-    // Update tab buttons
-    document.querySelectorAll('.stats-tab').forEach(tab => {
-        tab.classList.remove('active');
+    document.querySelectorAll('[data-stats-tab]').forEach(link => {
+        const on = link.dataset.statsTab === tabName;
+        link.parentElement.classList.toggle('active', on);
+        link.setAttribute('aria-selected', on ? 'true' : 'false');
     });
-    event.currentTarget.classList.add('active');
-    
-    // Update tab content
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.remove('active');
+    document.querySelectorAll('.stats-tab-panel').forEach(panel => {
+        const on = panel.id === tabName + '-tab';
+        panel.classList.toggle('active', on);
+        panel.hidden = !on;
     });
-    document.getElementById(tabName + '-tab').classList.add('active');
-    
+
     // Update URL without page reload
     const url = new URL(window.location);
     url.searchParams.set('tab', tabName);
     window.history.pushState({}, '', url);
-    
+
     // First visit: build the charts now that the tab is visible (correct sizes).
     // Later visits: resize charts in case the window changed size while hidden.
     if (!lilyStatsActivateTab(tabName)) {
         const resize = window.lilyStatsTabResize[tabName];
-        if (typeof resize === 'function') setTimeout(resize, 50); // Small delay to ensure DOM has updated
+        if (typeof resize === 'function') setTimeout(resize, 50);
     }
 }
+
+document.querySelectorAll('[data-stats-tab]').forEach(link => {
+    link.addEventListener('click', event => {
+        // Keep the other query parameters (date range, user filter) when switching tabs.
+        event.preventDefault();
+        switchTab(link.dataset.statsTab);
+    });
+});
 </script>
 
 {% endblock %}
 
 {% block js %}
 <script defer src="{{ url_for('static', filename='js/libs/echarts.min.js') }}"></script>
+<script defer src="{{ url_for('static', filename='js/lily-charts.js') }}"></script>
 {% endblock %}

@@ -42,10 +42,10 @@
 <div class="modal fade" id="deleteModal" role="dialog" aria-labelledby="metaDeleteLabel">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header bg-danger text-center">
-          <span>{{_('Are you really sure?')}}</span>
+      <div class="modal-header">
+          <h4 class="modal-title" id="metaDeleteLabel">{{_('Are you really sure?')}}</h4>
       </div>
-        <div class="modal-body text-center">
+        <div class="modal-body">
           <p>
           <span class="hidden" id="book_format">{{_('This book format will be permanently erased from database')}}</span>
           <span class="hidden" id="book_complete">{{_('This book will be permanently erased from database')}}</span>
@@ -60,8 +60,8 @@
         </div>
 
       <div class="modal-footer">
-        <input type="button" class="btn btn-danger" value="{{_('Delete')}}" name="delete_confirm" id="delete_confirm" data-dismiss="modal">
         <button type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
+        <input type="button" class="btn btn-danger" value="{{_('Delete')}}" name="delete_confirm" id="delete_confirm" data-dismiss="modal">
       </div>
     </div>
   </div>
@@ -72,8 +72,8 @@
 <div class="modal fade" id="fileModal" role="dialog" aria-labelledby="metafileLabel">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header bg-info text-center">
-          <span>{{_('Choose File Location')}}</span>
+      <div class="modal-header">
+          <h4 class="modal-title" id="metafileLabel">{{_('Choose File Location')}}</h4>
       </div>
         <div class="modal-body">
          <table id="file_table" class="table table-striped">
@@ -95,8 +95,8 @@
         </div>
       <div class="modal-footer">
         <div class="text-left" id="element_selected"></div>
-        <input type="button" class="btn btn-primary" data-path="" data-link=""  data-folderonly="" data-filefilter="" data-newfile="" value="{{_('Select')}}" name="file_confirm" id="file_confirm" data-dismiss="modal">
         <button type="button" id="file_abort" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
+        <input type="button" class="btn btn-primary" data-path="" data-link=""  data-folderonly="" data-filefilter="" data-newfile="" value="{{_('Select')}}" name="file_confirm" id="file_confirm" data-dismiss="modal">
       </div>
     </div>
   </div>
@@ -107,14 +107,14 @@
 <div id="GeneralDeleteModal" class="modal fade" role="Dialog">
   <div class="modal-dialog modal-sm">
     <div class="modal-content">
-      <div class="modal-header bg-danger text-center">
-      <span id="header-GeneralDeleteModal"></span>
+      <div class="modal-header">
+      <h4 class="modal-title" id="header-GeneralDeleteModal"></h4>
       </div>
-      <div class="modal-body text-center">
+      <div class="modal-body">
         <span id="text-GeneralDeleteModal"></span>
           <p></p>
-        <button id="btnConfirmYes-GeneralDeleteModal" type="button" class="btn btn btn-danger">{{_('Delete')}}</button>
         <button id="btnConfirmNo-GeneralDeleteModal" type="button" class="btn btn-default">{{_('Cancel')}}</button>
+        <button id="btnConfirmYes-GeneralDeleteModal" type="button" class="btn btn-danger">{{_('Delete')}}</button>
       </div>
     </div>
   </div>
@@ -125,14 +125,14 @@
 <div id="GeneralChangeModal" class="modal fade" role="Dialog">
   <div class="modal-dialog modal-sm">
     <div class="modal-content">
-      <div class="modal-header bg-info text-center">
-      <span id="header-GeneralChangeModal"></span>
+      <div class="modal-header">
+      <h4 class="modal-title" id="header-GeneralChangeModal"></h4>
       </div>
-      <div class="modal-body text-center">
+      <div class="modal-body">
         <span id="text-GeneralChangeModal"></span>
           <p></p>
-        <button id="btnConfirmYes-GeneralChangeModal" type="button" class="btn btn btn-default">{{_('Ok')}}</button>
         <button id="btnConfirmNo-GeneralChangeModal" type="button" class="btn btn-default">{{_('Cancel')}}</button>
+        <button id="btnConfirmYes-GeneralChangeModal" type="button" class="btn btn-primary">{{_('Confirm')}}</button>
       </div>
     </div>
   </div>

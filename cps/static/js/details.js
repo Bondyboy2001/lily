@@ -142,21 +142,7 @@ $("#archived_cb").on("change", function() {
     });
 })();
 
-// Ensure tooltip on single-format Read in Browser link
-$(function () {
-    var $rb = $("#readbtn");
-    if ($rb.length) {
-        // Fallback title if missing
-        if (!$.trim($rb.attr("title"))) {
-            $rb.attr("title", $.trim($rb.text()));
-        }
-        try {
-            $rb.tooltip({ container: "body", trigger: "hover focus", placement: "bottom", viewport: "body" });
-        } catch (e) { /* noop */ }
-    }
-});
-
-// Add tooltips for all toolbar buttons on book details page
+// Tooltips for the icon-only toolbar buttons on the book page; labelled buttons don't need one
 $(function () {
     var $toolbarButtons = $(".book-action-bar .action-icon-btn, .book-action-bar .dropdown-toggle");
     if (!$toolbarButtons.length) {
@@ -164,6 +150,9 @@ $(function () {
     }
     $toolbarButtons.each(function () {
         var $btn = $(this);
+        if ($.trim($btn.text())) {
+            return;
+        }
         var title = $.trim($btn.attr("title") || $btn.attr("aria-label") || $btn.text());
         if (!title) {
             return;

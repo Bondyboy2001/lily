@@ -302,9 +302,6 @@ class WebServer(object):
         self.stop()
 
     def stop(self, restart=False):
-        from . import updater_thread
-        updater_thread.stop()
-
         log.info("webserver stop (restart=%s)", restart)
         self.shutdown_scheduler()
         self.restart = restart

@@ -91,14 +91,6 @@ $(function() {
             striped: true
         });
     }
-    if ($('#upcomingopstable').length) {
-        $('#upcomingopstable').bootstrapTable({
-            formatNoMatches: function () {
-                return '';
-            },
-            striped: true
-        });
-    }
 
     $(document).on('click', '#select_all', function() {
         $('#books-table').bootstrapTable('checkAll');

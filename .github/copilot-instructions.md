@@ -1,7 +1,7 @@
 # Copilot Instructions for Calibre-Web Automated
 
 ## Project Overview
-Calibre-Web Automated (CWA) is a fork of Calibre-Web that adds automated ebook processing, conversion, and management. It's a Flask web application running in Docker with Python 3.13, combining a modern web UI with Calibre's command-line tools for ebook manipulation.
+Calibre-Web Automated (CWA) is a fork of Calibre-Web that adds automated ebook processing and management. It's a Flask web application running in Docker with Python 3.13, combining a modern web UI with Calibre's command-line tools for ebook manipulation.
 
 ## Architecture
 
@@ -9,7 +9,7 @@ Calibre-Web Automated (CWA) is a fork of Calibre-Web that adds automated ebook p
 CWA uses **s6-overlay** for process supervision. Services are defined in `/root/etc/s6-overlay/s6-rc.d/`:
 - **cwa-init**: One-time initialization (directory setup, permissions, Qt6 compatibility checks)
 - **svc-calibre-web-automated**: Main Flask application
-- **cwa-ingest-service**: File watcher that triggers ebook import/conversion via `ingest_processor.py`
+- **cwa-ingest-service**: File watcher that triggers ebook import via `ingest_processor.py`
 - **metadata-change-detector**: Monitors `metadata.db` for changes to trigger cover/metadata enforcement
 - **cwa-auto-zipper**: Daily compression of processed book backups
 - **cwa-auto-library**: Automatic library detection and mounting
@@ -26,7 +26,7 @@ Services communicate via filesystem locks (`/tmp/*.lock`), SQLite databases, and
 
 ### Flask Blueprint Organization
 Core blueprints in `cps/main.py`:
-- **CWA-specific**: `switch_theme`, `library_refresh`, `convert_library`, `epub_fixer`, `cwa_stats`, `cwa_settings`, `cwa_logs`, `profile_pictures`
+- **CWA-specific**: `switch_theme`, `library_refresh`, `cwa_stats`, `cwa_settings`, `cwa_logs`, `profile_pictures`
 - **Stock CW**: `web`, `opds`, `admin`, `editbook`, `shelf`, `kobo`, `oauth`, etc.
 
 Each blueprint is a self-contained module in `cps/` (e.g., `cps/web.py`, `cps/cwa_functions.py`).
@@ -40,10 +40,8 @@ Each blueprint is a self-contained module in `cps/` (e.g., `cps/web.py`, `cps/cw
 
 ### Automation Scripts
 Python scripts in `/app/calibre-web-automated/scripts/`:
-- **`ingest_processor.py`**: Core ingest logic - file validation, format conversion, Calibre import
+- **`ingest_processor.py`**: Core ingest logic - file validation, Calibre import (files are imported as-is, never converted)
 - **`cover_enforcer.py`**: Applies UI metadata changes to actual ebook files using `ebook-meta`
-- **`kindle_epub_fixer.py`**: EPUB sanitization for Kindle compatibility
-- **`convert_library.py`**: Bulk format conversion across library
 - **`cwa_db.py`**: Database wrapper class for CWA tracking database
 - **`auto_library.py`**: Library auto-detection and mounting logic
 
@@ -60,14 +58,14 @@ Scripts use **filesystem locks** to prevent concurrent execution (e.g., `ingest_
      - ./scripts:/app/calibre-web-automated/scripts
    ```
 3. **Start container**: `docker compose -f docker-compose.yml.dev up -d`
-4. **Default login**: admin/admin123 (change immediately)
+4. **Default login**: harry/harry10 (change immediately)
 
 ### Testing Strategy
 **No formal test suite exists** - manual testing workflow:
 1. Drop test ebooks into `/cwa-book-ingest` bind
 2. Monitor logs: `docker logs -f calibre-web-automated` or CWA Logs page in UI
-3. Check CWA Stats page for import/conversion/enforcement counts
-4. Verify `cwa.db` tables for audit trails: `cwa_import`, `cwa_conversions`, `cwa_enforcement`, `epub_fixes`
+3. Check CWA Stats page for import/enforcement counts
+4. Verify `cwa.db` tables for audit trails: `cwa_import`, `cwa_enforcement`
 
 ### Debugging Techniques
 - **Service-specific logs**: Check `/config/log_archive/` for timestamped logs from each service
@@ -114,7 +112,7 @@ calibre_db.ensure_session()  # Before each request
 ### File Path Conventions
 - **Ingest folder**: `/cwa-book-ingest` (DESTRUCTIVE - files deleted after processing)
 - **Calibre library**: `/calibre-library` (contains `metadata.db` and book folders)
-- **Processed backups**: `/config/processed_books/{converted,imported,fixed_originals,failed}/`
+- **Processed backups**: `/config/processed_books/{imported,failed}/`
 - **Config/settings**: `/config/` (contains all three SQLite databases)
 - **Temp files**: `/config/.cwa_conversion_tmp/` (cleaned by scheduled tasks)
 
@@ -171,8 +169,6 @@ Pluggable providers in `cps/metadata_provider/`:
 ## File Format Support
 **Import formats** (27 total): epub, mobi, azw, azw3, azw4, pdf, txt, cbz, cbr, cb7, cbc, fb2, fbz, docx, html, htmlz, lit, lrf, odt, prc, pdb, pml, rb, snb, tcr, txtz, kepub, acsm
 
-**Conversion targets**: EPUB (default), MOBI, AZW3, KEPUB, PDF
-
 **Special handling**:
 - **KEPUB**: Uses `/usr/bin/kepubify` for Kobo-specific format
 - **ACSM**: Requires DeDRM Calibre plugin (user-provided)
@@ -208,5 +204,5 @@ Pluggable providers in `cps/metadata_provider/`:
 - Follow SPDX headers in all Python files (use `scripts/update_spdx_headers.py`)
 - Update `CONTRIBUTORS` file for new contributors
 - Changelogs in `changelogs/` directory (semver naming)
-- Join Discord for feature discussions before major PRs
+- Open an issue on Bondyboy2001/lily to discuss major changes first
 - Test with both local disk and network share deployments

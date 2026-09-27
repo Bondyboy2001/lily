@@ -34,12 +34,13 @@ var $list = $("#list").isotope({
 });
 
 
-$("#desc").click(function() {
-    if (direction === 0) {
+// The options live in dropdowns (image.list_menu); lilyPickOption (lily.js) ticks the picked one
+// and returns false when it was already picked.
+$("#desc").click(function(e) {
+    e.preventDefault();
+    if (!lilyPickOption(this)) {
         return;
     }
-    $("#asc").removeClass("active");
-    $("#desc").addClass("active");
 
     var page = $(this).data("id");
     $.ajax({
@@ -50,19 +51,20 @@ $("#desc").click(function() {
         data: "{\"" + page + "\": {\"dir\": \"desc\"}}",
     });
     // invert sorting order to make already inverted start order working
-    $list.isotope({
-        sortBy: "name",
-        sortAscending: !$list.data('isotope').options.sortAscending
-    });
+    if ($list.data('isotope')) {  // no grid when the library has no series
+        $list.isotope({
+            sortBy: "name",
+            sortAscending: !$list.data('isotope').options.sortAscending
+        });
+    }
     direction = 0;
 });
 
-$("#asc").click(function() {
-    if (direction === 1) {
+$("#asc").click(function(e) {
+    e.preventDefault();
+    if (!lilyPickOption(this)) {
         return;
     }
-    $("#desc").removeClass("active");
-    $("#asc").addClass("active");
 
     var page = $(this).data("id");
     $.ajax({
@@ -72,16 +74,18 @@ $("#asc").click(function() {
         url: getPath() + "/ajax/view",
         data: "{\"" + page + "\": {\"dir\": \"asc\"}}",
     });
-    $list.isotope({
-        sortBy: "name",
-        sortAscending: !$list.data('isotope').options.sortAscending
-    });
+    if ($list.data('isotope')) {  // no grid when the library has no series
+        $list.isotope({
+            sortBy: "name",
+            sortAscending: !$list.data('isotope').options.sortAscending
+        });
+    }
     direction = 1;
 });
 
-$("#all").click(function() {
-    $(".char").removeClass("active");
-    $("#all").addClass("active");
+$("#all").click(function(e) {
+    e.preventDefault();
+    lilyPickOption(this);
     // go through all elements and make them visible
     $list.isotope({ filter: function() {
         return true;
@@ -89,10 +93,9 @@ $("#all").click(function() {
     });
 });
 
-$(".char").click(function() {
-    $(".char").removeClass("active");
-    $(this).addClass("active");
-    $("#all").removeClass("active");
+$(".char").click(function(e) {
+    e.preventDefault();
+    lilyPickOption(this);
     var character = this.innerText;
     $list.isotope({ filter: function() {
         return this.attributes["data-id"].value.charAt(0).toUpperCase() === character;

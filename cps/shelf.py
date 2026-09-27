@@ -129,7 +129,7 @@ def search_to_shelf(shelf_id):
         return redirect(url_for('web.index'))
 
     if not check_shelf_edit_permissions(shelf):
-        log.warning("You are not allowed to add a book to the shelf".format(shelf.name))
+        log.warning("You are not allowed to add a book to the shelf: {}".format(shelf.name))
         flash(_("You are not allowed to add a book to the shelf"), category="error")
         return redirect(url_for('web.index'))
 

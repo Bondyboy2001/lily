@@ -6,12 +6,6 @@ dd.meta_description {
     overflow: hidden;
 }
 
-body.admin h2 {
-    font-size: 28px !important;
-    font-weight: bold !important;
-    margin-bottom: 30px !important;
-}
-
 /* Fix z-index issues with specific elements that show through modals */
 body.modal-open .book-meta > .author > a:first-of-type:before,
 body.modal-open div.tags > p > span.glyphicon.glyphicon-tags,

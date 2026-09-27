@@ -56,23 +56,23 @@ def fetch_and_apply_metadata(book_id: int, user_enabled: bool = False) -> bool:
         
         # Get provider hierarchy
         try:
-            provider_hierarchy = json.loads(cwa_settings.get('metadata_provider_hierarchy', '["google","douban","dnb","ibdb","comicvine"]'))
+            provider_hierarchy = json.loads(cwa_settings.get('metadata_provider_hierarchy', '["google","openlibrary","hardcover","googlescholar"]'))
         except (json.JSONDecodeError, TypeError):
-            provider_hierarchy = ["google", "douban", "dnb", "ibdb", "comicvine"]
+            provider_hierarchy = ["google", "openlibrary", "hardcover", "googlescholar"]
 
         # Global provider enablement map
         enabled_map = _parse_metadata_providers_enabled(
             cwa_settings.get('metadata_providers_enabled', '{}')
         )
             
+        # Saved order first, then any provider it doesn't name (the settings page does the same)
+        available_ids = [p.__id__ for p in metadata_providers]
+        provider_hierarchy = [p for p in provider_hierarchy if p in available_ids] + \
+            [p for p in available_ids if p not in provider_hierarchy]
+
         # Try each provider in order
         metadata_found = False
         for provider_id in provider_hierarchy:
-            # Check if explicitly disabled (default is enabled if not specified)
-            is_enabled = enabled_map.get(provider_id, True)
-            if not is_enabled:
-                log.debug(f"Provider {provider_id} is globally disabled")
-                continue
             try:
                 # Find the provider
                 provider = None
@@ -82,6 +82,9 @@ def fetch_and_apply_metadata(book_id: int, user_enabled: bool = False) -> bool:
                         break
                         
                 if not provider or not provider.active:
+                    continue
+                if not provider.is_globally_enabled(enabled_map):
+                    log.debug(f"Provider {provider_id} is globally disabled")
                     continue
                     
                 log.debug(f"Trying metadata provider: {provider.__name__}")

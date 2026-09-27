@@ -35,9 +35,6 @@ alias cwa-change-dirs='nano /app/calibre-web-automated/dirs.json'
 cover-enforcer () {
     python3 /app/calibre-web-automated/scripts/cover_enforcer.py "$@"
 }
-convert-library () {
-    python3 /app/calibre-web-automated/scripts/convert_library.py "$@"
-}
 EOF
     
     source ~/.bashrc

@@ -26,7 +26,7 @@ fi
 
 # Get the latest version from GitHub releases
 echo "[i] Fetching latest version from GitHub..."
-VERSION=$(curl -s https://api.github.com/repos/crocodilestick/Calibre-Web-Automated/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "unknown")
+VERSION=$(curl -s https://api.github.com/repos/Bondyboy2001/lily/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || echo "unknown")
 if [ "$VERSION" = "unknown" ] || [ -z "$VERSION" ]; then
     echo "[!] Warning: Could not fetch version from GitHub, using fallback"
     VERSION="dev"
@@ -39,10 +39,10 @@ echo "[i] Project version: $VERSION"
 
 # 1. Extract messages
 "${PYBABEL_CMD[@]}" extract -F "$CONFIG" -o "$POT" \
-    --project="Calibre-Web Automated" \
+    --project="Lily" \
     --version="$VERSION" \
-    --msgid-bugs-address="https://github.com/crocodilestick/Calibre-Web-Automated" \
-    --copyright-holder="Calibre-Web Automated Contributors" \
+    --msgid-bugs-address="https://github.com/Bondyboy2001/lily/issues" \
+    --copyright-holder="Calibre-Web and Calibre-Web Automated contributors" \
     . || { echo "pybabel extract failed"; exit 1; }
 
 # 2. Merge updates

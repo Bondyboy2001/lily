@@ -17,7 +17,7 @@ from flask_babel import gettext as _
 from sqlalchemy.sql.expression import func, text, or_, and_, true
 from sqlalchemy.exc import InvalidRequestError, OperationalError
 
-from . import logger, config, db, calibre_db, ub, isoLanguages, constants, magic_shelf
+from . import logger, config, db, calibre_db, ub, isoLanguages, constants
 from .usermanagement import requires_basic_auth_if_no_ano, auth
 from .helper import get_download_link, get_book_cover
 from .pagination import Pagination
@@ -44,7 +44,6 @@ OPDS_ROOT_ORDER_DEFAULT = [
     'ratings',
     'formats',
     'shelves',
-    'magic_shelves',
 ]
 
 OPDS_ROOT_ENTRY_DEFS = {
@@ -136,12 +135,6 @@ OPDS_ROOT_ENTRY_DEFS = {
         'endpoint': 'opds.feed_shelfindex',
         'title': 'Shelves',
         'description': 'Books organized in shelves',
-        'visible': lambda user, allow_anonymous: user.is_authenticated or allow_anonymous,
-    },
-    'magic_shelves': {
-        'endpoint': 'opds.feed_magic_shelfindex',
-        'title': 'Magic Shelves',
-        'description': 'Books organized in magic shelves',
         'visible': lambda user, allow_anonymous: user.is_authenticated or allow_anonymous,
     },
 }
@@ -569,37 +562,6 @@ def feed_shelfindex():
     return render_xml_template('feed.xml', listelements=shelf, folder='opds.feed_shelf', pagination=pagination)
 
 
-@opds.route("/opds/magicshelfindex")
-@requires_basic_auth_if_no_ano
-def feed_magic_shelfindex():
-    if not (auth.current_user().is_authenticated or g.allow_anonymous):
-        abort(404)
-    off = request.args.get("offset") or 0
-
-    if auth.current_user().is_anonymous:
-        magic_shelves = ub.session.query(ub.MagicShelf).filter(
-            ub.MagicShelf.is_public == 1).order_by(ub.MagicShelf.name).all()
-    else:
-        magic_shelves = ub.session.query(ub.MagicShelf).filter(
-            or_(ub.MagicShelf.is_public == 1, ub.MagicShelf.user_id == auth.current_user().id)
-        ).order_by(ub.MagicShelf.name).all()
-
-    class OpdsMagicShelfEntry:
-        def __init__(self, magic):
-            self.id = magic.id
-            self.name = magic.name
-            self.is_public = magic.is_public
-            self.icon = magic.icon
-            self.is_magic_shelf = True
-            self.opds_url = url_for('opds.feed_magic_shelf', shelf_id=magic.id)
-
-    listelements = [OpdsMagicShelfEntry(magic) for magic in magic_shelves]
-    pagination = Pagination((int(off) / (int(config.config_books_per_page)) + 1),
-                            config.config_books_per_page,
-                            len(listelements))
-    return render_xml_template('feed.xml', listelements=listelements, folder='opds.feed_magic_shelf', pagination=pagination)
-
-
 @opds.route("/opds/shelf/<int:book_id>")
 @requires_basic_auth_if_no_ano
 def feed_shelf(book_id):
@@ -638,46 +600,6 @@ def feed_shelf(book_id):
                 ub.session.rollback()
                 log.error_or_exception("Settings Database error: {}".format(e))
     return render_xml_template('feed.xml', entries=result, pagination=pagination)
-
-
-@opds.route("/opds/magicshelf/<int:shelf_id>")
-@requires_basic_auth_if_no_ano
-def feed_magic_shelf(shelf_id):
-    if not (auth.current_user().is_authenticated or g.allow_anonymous):
-        abort(404)
-    off = request.args.get("offset") or 0
-
-    shelf = ub.session.query(ub.MagicShelf).get(shelf_id)
-    if not shelf:
-        abort(404)
-
-    if auth.current_user().is_anonymous:
-        if shelf.is_public != 1:
-            abort(404)
-    else:
-        if shelf.user_id != auth.current_user().id and shelf.is_public != 1:
-            abort(403)
-
-    per_page = int(config.config_books_per_page) if config.config_books_per_page else 20
-    page = int(off) // per_page + 1
-    sort_order = [db.Books.timestamp.desc()]
-
-    books, total_count = magic_shelf.get_books_for_magic_shelf(
-        shelf_id,
-        page=page,
-        page_size=per_page,
-        sort_order=sort_order,
-        sort_param='opds',
-        bypass_cache=True
-    )
-
-    class Entry:
-        def __init__(self, book):
-            self.Books = book
-
-    entries = [Entry(book) for book in books]
-    pagination = Pagination(page, per_page, total_count)
-    return render_xml_template('feed.xml', entries=entries, pagination=pagination)
 
 
 @opds.route("/opds/download/<book_id>/<book_format>/")

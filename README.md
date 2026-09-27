@@ -107,7 +107,6 @@ This tells Lily to avoid enabling WAL on the Calibre `metadata.db` and the `app.
 
 Other hardening defaults:
 
-- The default `admin` / `admin123` account must change its password on first web login (existing installs where an admin still uses `admin123` are flagged too). OPDS, Kobo and KOReader sync keep working in the meantime.
 - Failed KOReader sync (KOSync) logins are rate limited per username (5/minute, 60/hour) when the rate limiter is enabled; successful syncs are never throttled.
 
 ## **_Features:_**
@@ -127,26 +126,20 @@ Other hardening defaults:
 
 | | | |
 |     :---:    |     :---:      |     :---:     |
-| [Automatic Ingest Service ✨](#automatic-ingest-service-) | [Automatic Conversion Service 🔃](#automatic-conversion-service-) | [Automatic Enforcement of Covers & Metadata 👀📔](#automatic-enforcement-of-changes-made-to-covers--metadata-through-the-calibre-web-ui-) |
+| [Automatic Ingest Service ✨](#automatic-ingest-service-) | [Automatic Enforcement of Covers & Metadata 👀📔](#automatic-enforcement-of-changes-made-to-covers--metadata-through-the-calibre-web-ui-) | [Library Auto-Detect 📚🕵️](#library-auto-detect-️) |
 | [Batch Editing & Deletion 🗂️](#batch-editing--deletion-️️) | [Automated Back Up Service 🔒](#automated-back-up-service-) | [Automated Setup Experience for New Users 🦮](#library-auto-detect-️) |
-| [Automatic EPUB Fixer Service 🔨](#automatic-epub-fixer-service-) | [Multi-Format Conversion Service 🌌](#simple-to-use-multi-format-conversion-service-) | [Library Auto-Detect 📚🕵️](#library-auto-detect-️) |
-| [Smart Duplicate Detection & Management 🔍](#smart-duplicate-detection--management-) | [Magic Shelves 🪄📚](#magic-shelves-) | [Auto-Send to eReader 📧⚡](#auto-send-to-ereader-) |
-| [Automatic Metadata Fetch on Ingest 🏷️🤖](#automatic-metadata-fetch-on-ingest-) | [Deep Stats & Analytics 📊✨](#deep-stats--analytics-) | [Easy Dark/ Light Mode Switching ☀️🌙](#easy-dark-light-mode-switching-️) |
+| [Smart Duplicate Detection & Management 🔍](#smart-duplicate-detection--management-) | [Auto-Send to eReader 📧⚡](#auto-send-to-ereader-) |
+| [Automatic Metadata Fetch on Ingest 🏷️🤖](#automatic-metadata-fetch-on-ingest-) | [Deep Stats & Analytics 📊✨](#deep-stats--analytics-) | [Manual Library Refresh ♻️](#manual-library-refresh-️) |
 | [Internal Update Notification System 🛎️](#internal-update-notification-system-️) | [Auto-Compression of Backed Up Files 🤐](#auto-compression-of-backed-up-files-) | [Additional Metadata Providers 🗃️](#additional-metadata-providers-️) |
-| [KOReader Syncing (KOSync) 📖⚡](#koreader-syncing-kosync-) | [Enhanced OAuth 2.0/OIDC Authentication 🔐](#enhanced-oauth-20oidc-authentication-) | [EPUB Fixer 2.0 📧✅](#epub-fixer-20-) |
-| [Automatic Hardcover ID Fetch 💜🤖](#automatic-hardcover-id-fetch-) | [Server Stats Tracking Page 📍](#server-stats-tracking-page-) | [Enhanced Send-to-eReader Modal ✉️](#enhanced-send-to-ereader-modal-) |
+| [KOReader Syncing (KOSync) 📖⚡](#koreader-syncing-kosync-) | [Enhanced OAuth 2.0/OIDC Authentication 🔐](#enhanced-oauth-20oidc-authentication-) | |
+| [Automatic Hardcover ID Fetch 💜🤖](#automatic-hardcover-id-fetch-) | [Nightly Database Backups 🗄️](#automated-back-up-service-) | [Enhanced Send-to-eReader Modal ✉️](#enhanced-send-to-ereader-modal-) |
 
 #### **Automatic Ingest Service** ✨
-- Lily currently supports automatic ingest of 27 different popular ebook formats
-- Users can configure the services behavior to ignore and/or have certain formats automatically converted to other formats in the Admin Panel
-
-#### **Automatic Conversion Service** 🔃
-- On by default though can be toggled off in the Lily Settings page, with EPUB as the default target format
-  - _Available target formats include:_ **EPUB**, **MOBI**, **AZW3**, **KEPUB** & **PDF**
-- Upon detecting new files in the Ingest Directory, if any of the files are in formats the user has configured Lily to auto-convert to the current target format,
+- Lily imports new books in the format they arrive in; it does not convert them
 - The following **28 file types are currently supported:**
   - _.acsm, .azw, .azw3, .azw4, .mobi, .cbz, .cbr, .cb7, .cbc, .chm, .djvu, .docx, .epub, .fb2, .fbz, .html, .htmlz, .lit, .lrf, .odt, .pdf, .prc, .pdb, .pml, .rb, .rtf, .snb, .tcr, .txtz_
   - _Note: .acsm requires an additional Calibre plugin_
+- Users can tell the service to ignore certain formats in the Lily Settings page
 
 #### **Automatic Enforcement of Changes made to Covers & Metadata through the Calibre-Web UI!** 👀📔
 - In stock Calibre-Web, any changes made to a book's **Cover and/or Metadata** are only applied to how the book appears in the Calibre-Web UI, changing nothing in the ebook's files like you would expect
@@ -156,6 +149,19 @@ Other hardening defaults:
 #### **Automated Back Up Service** 🔒
 - Worried what will happen if something goes wrong during one of Lily's automated functions? Don't be!
 - By default, the originals all files processed by Lily are stored in `/config/processed_books` though this can be toggled in the Lily Settings panel
+- Every night, at the start of the maintenance window, Lily takes consistent snapshots of `app.db`, `cwa.db` and your library's `metadata.db` into `/config/backup/db/<timestamp>/`, keeping the last 7 by default (set in Lily Settings)
+- Snapshots on the same volume as `/config` won't survive losing that volume. Set `DB_BACKUP_DIR=/backups` and mount a separate folder at `/backups` to keep them elsewhere (see `docker-compose.yml`)
+
+##### Restoring a database snapshot
+1. Stop the container: `docker compose stop lily`
+2. Pick a snapshot folder, e.g. `/config/backup/db/20260927_030000/`
+3. Keep a copy of the current files, then copy the snapshot over them:
+   - `app.db` and `cwa.db` go to `/config/`
+   - `metadata.db` goes to the root of your Calibre library
+4. Delete any leftover `app.db-wal`/`-shm`, `cwa.db-wal`/`-shm` and `metadata.db-wal`/`-shm` next to the restored files, as they belong to the old database
+5. Start the container again: `docker compose start lily`
+
+Snapshots are self-contained SQLite files (no `-wal` sidecar), so they can also be opened directly with `sqlite3` to check or recover individual rows.
 
 #### **Smart Duplicate Detection System & Management** 🔍
 - Hybrid SQL + fuzzy matching detects duplicates missed by traditional scans
@@ -165,17 +171,9 @@ Other hardening defaults:
 
 ![](README_images/duplicate-detection-system.gif)
 
-#### **Magic Shelves** 🪄📚
-- Dynamic, rules-based shelves with rich filters and AND/OR logic
-- Pre-built templates (Recent, Highly Rated, No Cover, Incomplete Series, etc.)
-- Real-time updates with cached counts and tooltips
-- Kobo sync support and optional tag-based syncing
-
-![](README_images/magic-shelf-showcase.gif)
-
 #### **Auto-Send to eReader** 📧⚡
 - Automatically email new books after ingest
-- Configurable delay to allow metadata/enforcement/EPUB fixes first
+- Configurable delay to allow metadata fetching and enforcement to finish first
 - Format selection and multi-recipient sending
 - Works with per-user settings and optional custom email subjects
 
@@ -183,7 +181,7 @@ Other hardening defaults:
 - Optionally fetch and apply metadata automatically during ingest
 - Provider hierarchy is respected with smart fallback
 - Choose whether to overwrite existing fields or only fill missing data
-- Works seamlessly with Auto-Send and EPUB Fixer workflows
+- Works seamlessly with Auto-Send
 
 #### **Deep Stats & Analytics** 📊✨
 - Full analytics center with user activity, library, API usage, and time-based insights
@@ -198,27 +196,6 @@ Other hardening defaults:
 - Ad-hoc email addresses supported for sharing with friends, family or even temporary devices
 
 ![](README_images/new-send-to-ereader-modal.png)
-
-#### **Automatic EPUB Fixer Service** 📧✅
-- Ever had it where you're super excited to start reading your next book but for some reason, Amazon's Send-to-Kindle service just keeps rejecting it? Well no more!
-
-- Originally developed by [innocenat](https://github.com/innocenat/kindle-epub-fix), this tool corrects the following potential issues for every EPUB processed by Lily:
-  - Fixes UTF-8 encoding problem by adding UTF-8 declaration if no encoding is specified
-  - Fixes hyperlink problem (result in Amazon rejecting the EPUB) when NCX table of content link to `<body>` with ID hash.
-  - Detect invalid and/or missing language tag in metadata, and prompt user to select new language.
-  - Remove stray `<img>` tags with no source field.
-  - Resolves several EPUB compatibility issues, such as UTF-8 encoding, hyperlink problems, invalid/missing language tags, and stray image tags.
-  - Repairs malformed language tags, XML declarations, and UTF-8 headers
-  - Cleans invalid NCX links, broken CSS/fonts, and stray image tags
-- This **ensures maximum comparability** for each EPUB file with the Amazon **Send-to-Kindle** service and for those who don't use Amazon devices, has the side benefit of cleaning up your lower quality files!
-- Enabled by default, with per-run backups in `/config/processed_books`
-- Bulk processing of whole library with progress tracking available in the Admin Panel
-
-![Lily EPUB Fixer Service Web UI](README_images/CWA-new-process-ui.gif)
-
-#### **Simple to use Multi-Format Conversion Service** 🌌
-- This utility gives the user the option to either keep a copy of the original of all converted files in `/config/processed_books` or to trust the process and have Lily simply convert and replace those files (not recommended)
-- Full usage details can be found [here](#the-convert-library-tool)
 
 #### **Additional Metadata Providers** 🗃️
 - Users can now make use of [isbndb.com](https://isbndb.com/)'s huge database when fetching metadata for the books in their library!
@@ -258,13 +235,9 @@ Built-in KOReader progress sync with automatic book identification:
       - _Lily supports only one library per instance though support for multiple libraries is being investigated for future releases_
       - _In the meantime, users with multiple libraries who don't want to consolidate them are advised to run multiple, parallel instances_
 
-<!-- #### **Easy Dark/ Light Mode Switching** ☀️🌙
-  - **Switch between Light & Dark Modes in just one click from anywhere in the Web UI!**
-  - Simply click/tap the 🕶️ icon on the  Web UI's navbar and switch between themes at your leisure -->
-
 #### **Internal Update Notification System** 🛎️
   - Users will now be automatically notified of the availability of new updates from within the Web UI
-  - Automatically triggered by a difference between the version number of the most recent GitHub release and the version installed
+  - Automatically triggered by a difference between the version number of the most recent [Lily release](https://github.com/Bondyboy2001/lily/releases) and the version installed
   - Set to only show once per calendar day until updated as to not be annoying
   - _Visible to Admin users only_
 
@@ -354,7 +327,7 @@ Please make sure all 3 of the main volume bindings are separate directories, err
 - `/config` - This is used to store logs and other miscellaneous files that keep Lily running
   -  **New Users** - Use any empty folder (if you run into any issues, make sure the ownership of said folder isn't `root:root` in your main os)
   -  **Existing/ CW Users** - Those with existing Calibre-Web setups, map this to your existing `/config` directory containing `app.db` to ensure settings and users are pulled in
-- `/cwa-book-ingest` - **ATTENTION** ⚠️ - All files within this folder will be **DELETED** after being processed. This folder should only be used to dump new books into for import and automatic conversion
+- `/cwa-book-ingest` - **ATTENTION** ⚠️ - All files within this folder will be **DELETED** after being processed. This folder should only be used to dump new books into for import
 - `/calibre-library` - This should be bound to your Calibre library folder where the `metadata.db` & book(s) files reside.
   - **New Users** - Use any empty folder (if you run into any issues, make sure the ownership of said folder isn't `root:root` in your main os)
   - **Existing/ CW Users** - If there are multiple libraries in the mounted directory, Lily will automatically find and mount the largest one - check the logs for more details on which `metadata.db` was utilised
@@ -394,13 +367,13 @@ And just like that, Lily should be up and running! **HOWEVER** to avoid potentia
   - If you need help with any of the settings, consult the Calibre-Web Automated wiki [here](https://github.com/crocodilestick/Calibre-Web-Automated/wiki)
   - Make sure `Enable Uploads` is enabled in `Settings -> Basic Configuration -> Feature Configuration`
 4. Configure Lily to behave as you would like it to in the Lily Settings panel
-  - Here you can turn certain features on and off, set your Target Format, which file formats should be ignored and which should be auto-converted ect.
+  - Here you can turn certain features on and off and choose which file formats ingest should ignore
 6. Drop a book into your ingest folder to check everything is working and enjoy!
 
 ## Default Admin Login:
 
-> **Username:** admin\
-> **Password:** admin123
+> **Username:** harry\
+> **Password:** harry10
 
 You will be asked to choose a new password the first time you log in with the default credentials.
 
@@ -409,7 +382,7 @@ You will be asked to choose a new password the first time you log in with the de
 ## Adding Books to Your Library
 
 - Simply move your newly downloaded or existing eBook files to the ingest folder which is `/cwa-book-ingest`
-- Anything you place in this folder will be automatically analysed, converted if necessary and then imported into your Calibre-Web library if not in a format you have told Lily to ignore in the Lily Settings Panel
+- Anything you place in this folder will be automatically analysed and then imported into your Calibre-Web library if not in a format you have told Lily to ignore in the Lily Settings Panel
   - **⚠️ ATTENTION ⚠️**
     - _Downloading files directly into `/cwa-book-ingest` is not supported. It can cause duplicate imports and potentially a corrupt database. It is recommended to first download the books completely, then transfer them to `/cwa-book-ingest` to avoid any issues_
     - Be sure that the books you are transferring to `/cwa-book-ingest` are owned by your user rather than root. Otherwise, permission errors may occur and may result in incomplete importing.

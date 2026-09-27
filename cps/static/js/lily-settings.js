@@ -201,14 +201,14 @@
     var enabledList = document.getElementById("metadata_provider_enabled_list");
     var enabledInput = document.getElementById("metadata_providers_enabled_hidden");
 
-    var providerHierarchy = parseJsonAttr(form, "data-provider-hierarchy", ["ibdb", "google", "dnb"]);
+    var providerHierarchy = parseJsonAttr(form, "data-provider-hierarchy", ["google", "openlibrary", "hardcover", "googlescholar"]);
     try {
       if (typeof providerHierarchy === "string") { providerHierarchy = JSON.parse(providerHierarchy); }
     } catch (e) {
       console.error("Error parsing hierarchy:", e);
-      providerHierarchy = ["ibdb", "google", "dnb"];
+      providerHierarchy = ["google", "openlibrary", "hardcover", "googlescholar"];
     }
-    if (!Array.isArray(providerHierarchy)) { providerHierarchy = ["ibdb", "google", "dnb"]; }
+    if (!Array.isArray(providerHierarchy)) { providerHierarchy = ["google", "openlibrary", "hardcover", "googlescholar"]; }
 
     var globalEnabledMap = parseJsonAttr(form, "data-providers-enabled", {});
     try {
@@ -277,7 +277,7 @@
         var wrapper = document.createElement("div");
         wrapper.className = "provider_enable_item";
         var id = "global-provider-" + p.id;
-        var checked = Object.prototype.hasOwnProperty.call(globalEnabledMap, p.id) ? !!globalEnabledMap[p.id] : true;
+        var checked = Object.prototype.hasOwnProperty.call(globalEnabledMap, p.id) ? !!globalEnabledMap[p.id] : p.globally_enabled !== false;
         wrapper.innerHTML =
           '<input type="checkbox" id="' + escapeHtml(id) + '" data-provider-id="' + escapeHtml(p.id) + '"' + (checked ? " checked" : "") + ">" +
           '<label for="' + escapeHtml(id) + '">' + escapeHtml(p.name) + "</label>";
@@ -360,11 +360,10 @@
         .catch(function (error) {
           console.error("Error fetching providers:", error);
           initProviders([
-            { id: "google", name: "Google Books", active: true },
-            { id: "dnb", name: "DNB", active: true },
-            { id: "ibdb", name: "IBDb", active: true },
-            { id: "comicvine", name: "ComicVine", active: true },
-            { id: "douban", name: "Douban", active: true }
+            { id: "google", name: "Google", active: true },
+            { id: "openlibrary", name: "Open Library", active: true },
+            { id: "hardcover", name: "Hardcover", active: true },
+            { id: "googlescholar", name: "Scholar", active: true }
           ]);
         });
     }

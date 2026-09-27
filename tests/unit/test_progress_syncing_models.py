@@ -225,7 +225,7 @@ class TestBookFormatChecksumModel:
         checksum = BookFormatChecksum(book=1, format='EPUB', checksum='abc123')
         assert checksum.created is not None
         # Should be recent (within last minute)
-        from datetime import datetime, timezone, timedelta
+        from datetime import timezone, timedelta
         now = datetime.now(timezone.utc)
         assert now - checksum.created < timedelta(minutes=1)
 

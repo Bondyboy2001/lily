@@ -24,8 +24,6 @@ class StubImportDb:
 
 def build_processor(ingest_processor, tmp_path):
     processor = object.__new__(ingest_processor.NewBookProcessor)
-    processor.target_format = "epub"
-    processor.is_kindle_epub_fixer = False
     processor.cwa_settings = {
         "auto_ingest_automerge": "ignore",
         "auto_backup_imports": False,

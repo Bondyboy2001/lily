@@ -2,33 +2,10 @@
 {% block header %}
 <link href="{{ url_for('static', filename='css/libs/bootstrap-table.min.css') }}" rel="stylesheet">
 <link href="{{ url_for('static', filename='css/libs/bootstrap-editable.css') }}" rel="stylesheet">
-<style>
-  /* Mobile responsive styles for config_view_edit template - triggers below 768px */
-  @media (max-width: 768px) {
-    .settings-container {
-      padding-left: 1.5rem !important;
-      padding-right: 1.5rem !important;
-      margin-left: 0 !important;
-      margin-right: 0 !important;
-    }
-    
-    .form-control {
-      font-size: 16px; /* Prevents zoom on iOS */
-    }
-    
-    /* Stack buttons vertically on mobile */
-    .btn {
-      display: block;
-      width: 100%;
-      margin-bottom: 10px;
-    }
-  }
-</style>
 {% endblock %}
 {% block body %}
-<div class="discover">
-  <h2>{{title}}</h2>
-  <form role="form" method="POST" autocomplete="off" style="margin-top: 3rem;">
+<div class="discover lily-admin">
+  <form role="form" method="POST" autocomplete="off">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     
     <!-- View Configuration Card -->
@@ -58,8 +35,6 @@
         <input type="number" min="0" max="999" class="form-control" name="config_authors_max" id="config_authors_max" value="{% if conf.config_authors_max != None %}{{ conf.config_authors_max }}{% endif %}" autocomplete="off">
         <p class="settings-explanation">{{_('Maximum number of authors to show in book details before truncating. Set to 0 to disable.')}}</p>
       </div>
-      
-      <input type="hidden" name="config_theme" id="config_theme" value="1">
       
       <div class="form-group">
         <label for="config_columns_to_ignore">{{_('Regular Expression for Ignoring Columns')}}</label>
@@ -101,52 +76,52 @@
       <h4 class="settings-section-header">{{_('Default Settings for New Users')}}</h4>
       <p class="settings-explanation">{{_('These settings will be applied to all newly created user accounts.')}}</p>
       
-      <h5 style="color: #ffc200; margin-top: 25px; margin-bottom: 15px;">{{_('Permissions')}}</h5>
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; background: #202c34a3; padding: 2rem; border-radius: 4px;">
+      <h5 class="lily-section-label lily-mt">{{_('Permissions')}}</h5>
+      <div class="lily-check-grid">
         <div>
-          <input type="checkbox" name="admin_role" id="admin_role" {% if conf.role_admin() %}checked{% endif %} style="accent-color: var(--color-secondary);">
+          <input type="checkbox" name="admin_role" id="admin_role" {% if conf.role_admin() %}checked{% endif %}>
           <label for="admin_role">{{_('Admin User')}}</label>
         </div>
         
         <div>
-          <input type="checkbox" name="download_role" id="download_role" {% if conf.role_download() %}checked{% endif %} style="accent-color: var(--color-secondary);">
+          <input type="checkbox" name="download_role" id="download_role" {% if conf.role_download() %}checked{% endif %}>
           <label for="download_role">{{_('Allow Downloads')}}</label>
         </div>
         
         <div>
-          <input type="checkbox" name="viewer_role" id="viewer_role" {% if conf.role_viewer() %}checked{% endif %} style="accent-color: var(--color-secondary);">
+          <input type="checkbox" name="viewer_role" id="viewer_role" {% if conf.role_viewer() %}checked{% endif %}>
           <label for="viewer_role">{{_('Allow eBook Viewer')}}</label>
         </div>
         
         {% if conf.config_uploading %}
         <div>
-          <input type="checkbox" name="upload_role" id="upload_role" {% if conf.role_upload() %}checked{% endif %} style="accent-color: var(--color-secondary);">
+          <input type="checkbox" name="upload_role" id="upload_role" {% if conf.role_upload() %}checked{% endif %}>
           <label for="upload_role">{{_('Allow Uploads')}}</label>
         </div>
         {% endif %}
         
         <div>
-          <input type="checkbox" name="edit_role" data-control="edit_settings" id="edit_role" {% if conf.role_edit() %}checked{% endif %} style="accent-color: var(--color-secondary);">
+          <input type="checkbox" name="edit_role" data-control="edit_settings" id="edit_role" {% if conf.role_edit() %}checked{% endif %}>
           <label for="edit_role">{{_('Allow Edit')}}</label>
         </div>
         
         <div data-related="edit_settings">
-          <input type="checkbox" name="delete_role" id="delete_role" {% if conf.role_delete_books() %}checked{% endif %} style="accent-color: var(--color-secondary);">
+          <input type="checkbox" name="delete_role" id="delete_role" {% if conf.role_delete_books() %}checked{% endif %}>
           <label for="delete_role">{{_('Allow Delete Books')}}</label>
         </div>
         
         <div>
-          <input type="checkbox" name="passwd_role" id="passwd_role" {% if conf.role_passwd() %}checked{% endif %} style="accent-color: var(--color-secondary);">
+          <input type="checkbox" name="passwd_role" id="passwd_role" {% if conf.role_passwd() %}checked{% endif %}>
           <label for="passwd_role">{{_('Allow Changing Password')}}</label>
         </div>
         
         <div>
-          <input type="checkbox" name="edit_shelf_role" id="edit_shelf_role" {% if conf.role_edit_shelfs() %}checked{% endif %} style="accent-color: var(--color-secondary);">
+          <input type="checkbox" name="edit_shelf_role" id="edit_shelf_role" {% if conf.role_edit_shelfs() %}checked{% endif %}>
           <label for="edit_shelf_role">{{_('Allow Editing Public Shelves')}}</label>
         </div>
       </div>
       
-      <h5 style="color: #ffc200; margin-top: 25px; margin-bottom: 15px;">{{_('Language & Display')}}</h5>
+      <h5 class="lily-section-label lily-mt">{{_('Language & Display')}}</h5>
       <div class="form-group">
         <label for="config_default_locale">{{_('Default Language')}}</label>
         <select name="config_default_locale" id="config_default_locale" class="form-control">
@@ -174,39 +149,33 @@
       <h4 class="settings-section-header">{{_('Default Visibilities for New Users')}}</h4>
       <p class="settings-explanation">{{_('Choose which sidebar sections are visible by default for new users.')}}</p>
       
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; margin-top: 20px; background: #202c34a3; padding: 2rem; border-radius: 4px;">
+      <div class="lily-check-grid">
         {% for element in sidebar %}
           {% if element['config_show'] %}
           <div>
-            <input type="checkbox" name="show_{{element['visibility']}}" id="show_{{element['visibility']}}" {% if conf.show_element_new_user(element['visibility']) %}checked{% endif %} style="accent-color: var(--color-secondary);">
+            <input type="checkbox" name="show_{{element['visibility']}}" id="show_{{element['visibility']}}" {% if conf.show_element_new_user(element['visibility']) %}checked{% endif %}>
             <label for="show_{{element['visibility']}}">{{element['show_text']}}</label>
           </div>
           {% endif %}
         {% endfor %}
         <div>
-          <input type="checkbox" name="Show_detail_random" id="Show_detail_random" {% if conf.show_detail_random() %}checked{% endif %} style="accent-color: var(--color-secondary);">
+          <input type="checkbox" name="Show_detail_random" id="Show_detail_random" {% if conf.show_detail_random() %}checked{% endif %}>
           <label for="Show_detail_random">{{_('Show Random Books in Detail View')}}</label>
         </div>
       </div>
       
       {% if not simple %}
-      <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #5c6b74;">
+      <div class="lily-actions lily-divided">
         <a href="#" id="get_tags" data-id="0" class="btn btn-default" data-toggle="modal" data-target="#restrictModal">{{_('Add Allowed/Denied Tags')}}</a>
-        <a href="#" id="get_column_values" data-id="0" class="btn btn-default" data-toggle="modal" data-target="#restrictModal" style="margin-left: 10px;">{{_('Add Allowed/Denied custom column values')}}</a>
+        <a href="#" id="get_column_values" data-id="0" class="btn btn-default" data-toggle="modal" data-target="#restrictModal">{{_('Add Allowed/Denied custom column values')}}</a>
       </div>
       {% endif %}
     </div>
     
     <!-- Action Buttons -->
-    <div style="max-width: 900px;
-                margin-left: 2rem;
-                margin-right: 2rem;
-                margin-bottom: 4rem;
-                justify-self: center;
-                width: -webkit-fill-available;
-                display: flex;">
-      <button type="submit" name="submit" class="btn btn-default" style="width: -webkit-fill-available;">{{_('Save')}}</button>
-      <a href="{{ url_for('admin.admin') }}" class="btn btn-default" style="width: -webkit-fill-available;">{{_('Cancel')}}</a>
+    <div class="lily-form-actions">
+      <a href="{{ url_for('admin.admin') }}" class="btn btn-default">{{_('Cancel')}}</a>
+      <button type="submit" name="submit" class="btn btn-primary">{{_('Save')}}</button>
     </div>
   </form>
 </div>

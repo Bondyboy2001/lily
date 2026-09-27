@@ -13,10 +13,7 @@ from .. import logger
 import sys
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 
-switch_theme = Blueprint('switch_theme', __name__)
 library_refresh = Blueprint('library_refresh', __name__)
-convert_library = Blueprint('convert_library', __name__)
-epub_fixer = Blueprint('epub_fixer', __name__)
 cwa_stats = Blueprint('cwa_stats', __name__)
 cwa_check_status = Blueprint('cwa_check_status', __name__)
 cwa_settings = Blueprint('cwa_settings', __name__)

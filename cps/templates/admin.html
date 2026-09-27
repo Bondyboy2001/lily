@@ -1,27 +1,30 @@
 {% extends "layout.html" %}
 {% macro display_bool_setting(setting_value) -%}
-  {% if setting_value %}<span class="glyphicon glyphicon-ok"></span>{% else %}<span class="glyphicon glyphicon-remove"></span>{% endif %}
+  {% if setting_value %}<span class="glyphicon glyphicon-ok lily-bool is-on" aria-label="{{ _('Yes') }}"></span>{% else %}<span class="glyphicon glyphicon-remove lily-bool is-off" aria-label="{{ _('No') }}"></span>{% endif %}
 {%- endmacro %}
 {#- Section heading whose translated label ends with a decorative emoji: the
-    emoji is split off and hidden from screen readers, the msgid is unchanged. -#}
+    emoji is dropped from the page (Lily headings carry no decoration), the msgid is unchanged. -#}
 {% macro emoji_heading(label, emoji) -%}
-  <h2>{{ label|striptags|replace(emoji, '')|replace(emoji[:1], '')|trim }}&nbsp;&nbsp;<span aria-hidden="true">{{ emoji }}</span></h2>
+  <h2 class="lily-admin-heading">{{ label|striptags|replace(emoji, '')|replace(emoji[:1], '')|replace('\u00a0', ' ')|trim }}</h2>
+{%- endmacro %}
+{% macro fact(label) -%}
+  <div class="lily-fact"><dt>{{ label }}</dt><dd>{{ caller() }}</dd></div>
 {%- endmacro %}
 {% block body %}
-<div class="container-fluid">
-  <div class="row">
-    <div class="col">
-      {{ emoji_heading(_('Users&nbsp;&nbsp;👤'), '👤') }}
+<div class="lily-admin lily-admin-dashboard">
+  <section class="lily-admin-section">
+    {{ emoji_heading(_('Users&nbsp;&nbsp;👤'), '👤') }}
     {% if allUser.__len__() < 10 %}
-      <div class="table-responsive" style="margin-bottom: 1rem;">
-        <table style="margin-bottom: 0;" class="table table-striped" id="table_user">
+      <div class="table-responsive lily-admin-table">
+        <table class="table" id="table_user">
+          <thead>
           <tr>
               <th>{{_('Username')}}</th>
               <th>{{_('Email')}}</th>
-              <th>{{_('Send to eReader Email')}}</th>
-              <th>{{_('Send to eReader Subject')}}</th>
-              <th>{{_('Downloads')}}</th>
-              <th class="hidden-xs ">{{_('Admin')}}</th>
+              <th class="hidden-xs">{{_('Send to eReader Email')}}</th>
+              <th class="hidden-xs hidden-sm">{{_('Send to eReader Subject')}}</th>
+              <th class="hidden-xs">{{_('Downloads')}}</th>
+              <th class="hidden-xs">{{_('Admin')}}</th>
               <th class="hidden-xs hidden-sm">{{_('Password')}}</th>
             {% if config.config_uploading %}
               <th class="hidden-xs hidden-sm">{{_('Upload')}}</th>
@@ -32,14 +35,16 @@
               <th class="hidden-xs hidden-sm hidden-md">{{_('Delete')}}</th>
               <th class="hidden-xs hidden-sm hidden-md">{{_('Public Shelf')}}</th>
           </tr>
+          </thead>
+          <tbody>
           {% for user in allUser %}
             {% if not user.role_anonymous() or config.config_anonbrowse %}
             <tr>
               <td><a class="session" href="{{url_for('admin.edit_user', user_id=user.id)}}">{{user.name}}</a></td>
               <td>{{user.email}}</td>
-              <td>{{user.kindle_mail}}</td>
-              <td>{{user.kindle_mail_subject}}</td>
-              <td>{{user.downloads.count()}}</td>
+              <td class="hidden-xs">{{user.kindle_mail}}</td>
+              <td class="hidden-xs hidden-sm">{{user.kindle_mail_subject}}</td>
+              <td class="hidden-xs">{{user.downloads.count()}}</td>
               <td class="hidden-xs">{{ display_bool_setting(user.role_admin()) }}</td>
               <td class="hidden-xs hidden-sm">{{ display_bool_setting(user.role_passwd()) }}</td>
               {% if config.config_uploading %}
@@ -53,285 +58,193 @@
             </tr>
             {% endif %}
           {% endfor %}
+          </tbody>
         </table>
       </div>
     {% endif %}
-        {% if not simple %}
-          <a class="btn btn-default" id="admin_user_table" href="{{url_for('admin.edit_user_table')}}">{{_('Edit Users')}}</a>
-        {% endif %}
-        <a class="btn btn-default" id="admin_new_user" href="{{url_for('admin.new_user')}}">{{_('Add New User')}}</a>
-        <a class="btn btn-default" id="admin_profile_pictures" href="{{ url_for('profile_pictures.set_profile_picture') }}">{{ _('Manage Profile Pictures') }}</a>
+    <div class="lily-actions">
+      {% if not simple %}
+        <a class="btn btn-default" id="admin_user_table" href="{{url_for('admin.edit_user_table')}}">{{_('Edit Users')}}</a>
+      {% endif %}
+      <a class="btn btn-default" id="admin_new_user" href="{{url_for('admin.new_user')}}">{{_('Add New User')}}</a>
+      <a class="btn btn-default" id="admin_profile_pictures" href="{{ url_for('profile_pictures.set_profile_picture') }}">{{ _('Manage Profile Pictures') }}</a>
       {% if (config.config_login_type == 1) %}
         <button type="button" class="btn btn-default" id="import_ldap_users" data-toggle="modal" data-target="#StatusDialog">{{_('Import LDAP Users')}}</button>
       {% endif %}
     </div>
-  </div>
+  </section>
 
-  <div class="row">
-    <div class="col">
-      {{ emoji_heading(_('Email Server Settings&nbsp;&nbsp;📬'), '📬') }}
-      {% if config.get_mail_server_configured() %}
-        {% if config.mail_server_type == 0 %}
-        <div class="col-xs-12 col-sm-12">
-          <div class="row">
-            <div class="col-xs-6 col-sm-3">{{_('SMTP Hostname')}}</div>
-            <div class="col-xs-6 col-sm-3">{{config.mail_server}}</div>
-          </div>
-          <div class="row">
-            <div class="col-xs-6 col-sm-3">{{_('SMTP Port')}}</div>
-            <div class="col-xs-6 col-sm-3">{{config.mail_port}}</div>
-          </div>
-          <div class="row">
-            <div class="col-xs-6 col-sm-3">{{_('Encryption')}}</div>
-            <div class="col-xs-6 col-sm-3">{{ display_bool_setting(config.mail_use_ssl) }}</div>
-          </div>
-          <div class="row">
-            <div class="col-xs-6 col-sm-3">{{_('SMTP Login')}}</div>
-            <div class="col-xs-6 col-sm-3">{{config.mail_login}}</div>
-          </div>
-          <div class="row">
-            <div class="col-xs-6 col-sm-3">{{_('From Email')}}</div>
-            <div class="col-xs-6 col-sm-3">{{config.mail_from}}</div>
-          </div>
-        </div>
+  <section class="lily-admin-section">
+    {{ emoji_heading(_('Email Server Settings&nbsp;&nbsp;📬'), '📬') }}
+    {% if config.get_mail_server_configured() %}
+      <dl class="lily-facts">
+      {% if config.mail_server_type == 0 %}
+        {% call fact(_('SMTP Hostname')) %}{{config.mail_server}}{% endcall %}
+        {% call fact(_('SMTP Port')) %}{{config.mail_port}}{% endcall %}
+        {% call fact(_('Encryption')) %}{{ display_bool_setting(config.mail_use_ssl) }}{% endcall %}
+        {% call fact(_('SMTP Login')) %}{{config.mail_login}}{% endcall %}
+        {% call fact(_('From Email')) %}{{config.mail_from}}{% endcall %}
       {% else %}
-        <div class="col-xs-12 col-sm-12">
-          <div class="row">
-            <div class="col-xs-6 col-sm-3">{{_('Email Service')}}</div>
-            <div class="col-xs-6 col-sm-3">{{_('Gmail via Oauth2')}}</div>
-          </div>
-          <div class="row">
-            <div class="col-xs-6 col-sm-3">{{_('From Email')}}</div>
-            <div class="col-xs-6 col-sm-3">{{config.mail_gmail_token['email']}}</div>
-          </div>
-        </div>
+        {% call fact(_('Email Service')) %}{{_('Gmail via Oauth2')}}{% endcall %}
+        {% call fact(_('From Email')) %}{{config.mail_gmail_token['email']}}{% endcall %}
       {% endif %}
+      </dl>
     {% endif %}
+    <div class="lily-actions">
       <a class="btn btn-default emailconfig" id="admin_edit_email" href="{{url_for('admin.edit_mailsettings')}}">{{_('Edit Email Server Settings')}}</a>
     </div>
-  </div>
+  </section>
 
-  <div class="row">
-    <div class="col">
-      {{ emoji_heading(_('Configuration&nbsp;&nbsp;⚙️'), '⚙️') }}
-      <div class="col-xs-12 col-sm-6">
-        <div class="row">
-            <div class="col-xs-6 col-sm-6">{{_('Calibre Database Directory')}}</div>
-            <div class="col-xs-6 col-sm-6">{{config.config_calibre_dir}}</div>
-        </div>
-        <div class="row">
-            <div class="col-xs-6 col-sm-6">{{_('Log Level')}}</div>
-            <div class="col-xs-6 col-sm-6">{{config.get_log_level()}}</div>
-        </div>
-        <div class="row">
-            <div class="col-xs-6 col-sm-6">{{_('External Port')}}</div>
-            <div class="col-xs-6 col-sm-6">{% if config.config_external_port %}{{ config.config_external_port }}{% elif is_proxied %}<em>{{ _('Not set — reverse proxy detected') }}</em>{% else %}8083{% endif %}</div>
-        </div>
-        {% if kobo_support and config.config_external_port != config.config_external_port %}
-        <div class="row">
-          <div class="col-xs-6 col-sm-6">{{_('External Port')}}</div>
-          <div class="col-xs-6 col-sm-6">{{config.config_external_port}}</div>
-        </div>
-        {% endif %}
-      </div>
-      <div class="col-xs-12 col-sm-6">
-        <div class="row">
-            <div class="col-xs-6 col-sm-7">{{_('Books per Page')}}</div>
-            <div class="col-xs-6 col-sm-5">{{config.config_books_per_page}}</div>
-        </div>
-        <div class="row">
-            <div class="col-xs-6 col-sm-7">{{_('Uploads')}}</div>
-            <div class="col-xs-6 col-sm-5">{{ display_bool_setting(config.config_uploading) }}</div>
-        </div>
-        <div class="row">
-            <div class="col-xs-6 col-sm-7">{{_('Anonymous Browsing')}}</div>
-            <div class="col-xs-6 col-sm-5">{{ display_bool_setting(config.config_anonbrowse) }}</div>
-        </div>
-        <div class="row">
-            <div class="col-xs-6 col-sm-7">{{_('Public Registration')}}</div>
-            <div class="col-xs-6 col-sm-5">{{ display_bool_setting(config.config_public_reg) }}</div>
-        </div>
-        <div class="row">
-            <div class="col-xs-6 col-sm-7">{{_('Magic Link Remote Login')}}</div>
-            <div class="col-xs-6 col-sm-5">{{ display_bool_setting(config.config_remote_login) }}</div>
-        </div>
-        <div class="row">
-            <div class="col-xs-6 col-sm-7">{{_('Reverse Proxy Login')}}</div>
-            <div class="col-xs-6 col-sm-5">{{ display_bool_setting(config.config_allow_reverse_proxy_header_login) }}</div>
-        </div>
-        {% if config.config_allow_reverse_proxy_header_login %}
-        <div class="row">
-            <div class="col-xs-6 col-sm-7">{{_('Reverse Proxy Header Name')}}</div>
-            <div class="col-xs-6 col-sm-5">{{ config.config_reverse_proxy_login_header_name }}</div>
-        </div>
-        {% endif %}
-      </div>
+  <section class="lily-admin-section">
+    {{ emoji_heading(_('Configuration&nbsp;&nbsp;⚙️'), '⚙️') }}
+    <dl class="lily-facts">
+      {% call fact(_('Calibre Database Directory')) %}<span class="lily-mono">{{config.config_calibre_dir}}</span>{% endcall %}
+      {% call fact(_('Log Level')) %}{{config.get_log_level()}}{% endcall %}
+      {% call fact(_('External Port')) %}{% if config.config_external_port %}{{ config.config_external_port }}{% elif is_proxied %}<span class="lily-fact-note">{{ _('Not set — reverse proxy detected') }}</span>{% else %}8083{% endif %}{% endcall %}
+      {% call fact(_('Books per Page')) %}{{config.config_books_per_page}}{% endcall %}
+      {% call fact(_('Uploads')) %}{{ display_bool_setting(config.config_uploading) }}{% endcall %}
+      {% call fact(_('Anonymous Browsing')) %}{{ display_bool_setting(config.config_anonbrowse) }}{% endcall %}
+      {% call fact(_('Public Registration')) %}{{ display_bool_setting(config.config_public_reg) }}{% endcall %}
+      {% call fact(_('Magic Link Remote Login')) %}{{ display_bool_setting(config.config_remote_login) }}{% endcall %}
+      {% call fact(_('Reverse Proxy Login')) %}{{ display_bool_setting(config.config_allow_reverse_proxy_header_login) }}{% endcall %}
+      {% if config.config_allow_reverse_proxy_header_login %}
+      {% call fact(_('Reverse Proxy Header Name')) %}<span class="lily-mono">{{ config.config_reverse_proxy_login_header_name }}</span>{% endcall %}
+      {% endif %}
+    </dl>
+    <div class="lily-actions">
       <a class="btn btn-default" id="cwa-settings" href="{{url_for('cwa_settings.set_cwa_settings')}}">{{_('Lily Settings')}}</a>
       <a class="btn btn-default" id="basic_config" href="{{url_for('admin.configuration')}}">{{_('Edit Basic Configuration')}}</a>
       <a class="btn btn-default" id="view_config" href="{{url_for('admin.view_configuration')}}">{{_('Edit UI Configuration')}}</a>
       <a class="btn btn-default" id="db_config" href="{{url_for('admin.db_configuration')}}">{{_('Edit Calibre Database Configuration')}}</a>
     </div>
-  </div>
+  </section>
 {%  if feature_support['scheduler'] %}
-  <div class="row">
-    <div class="col">
-      {{ emoji_heading(_('Scheduled Tasks&nbsp;&nbsp;⌛'), '⌛') }}
-        <div class="col-xs-12 col-sm-12 scheduled_tasks_details">
-          <div class="row">
-            <div class="col-xs-6 col-sm-3">{{_('Start Time')}}</div>
-            <div class="col-xs-6 col-sm-3">{{schedule_time}}</div>
-          </div>
-          <div class="row">
-            <div class="col-xs-6 col-sm-3">{{_('Maximum Duration')}}</div>
-            <div class="col-xs-6 col-sm-3">{{schedule_duration}}</div>
-          </div>
-          <div class="row">
-            <div class="col-xs-6 col-sm-3">{{_('Scheduled Thumbnail Refresh')}}</div>
-            <div class="col-xs-6 col-sm-3">{{ display_bool_setting(config.schedule_generate_book_covers) }}</div>
-          </div>
-          <!--div class="row">
-            <div class="col-xs-6 col-sm-3">{{_('Generate series cover thumbnails')}}</div>
-            <div class="col-xs-6 col-sm-3">{{ display_bool_setting(config.schedule_generate_series_covers) }}</div>
-          </div-->
-          <div class="row">
-            <div class="col-xs-6 col-sm-3">{{_('Reconnect Calibre Database')}}</div>
-            <div class="col-xs-6 col-sm-3">{{ display_bool_setting(config.schedule_reconnect) }}</div>
-          </div>
-          <div class="row">
-            <div class="col-xs-6 col-sm-3">{{_('Generate Metadata Backup Files')}}</div>
-            <div class="col-xs-6 col-sm-3">{{ display_bool_setting(config.schedule_metadata_backup) }}</div>
-          </div>
-
-        </div>
+  <section class="lily-admin-section">
+    {{ emoji_heading(_('Scheduled Tasks&nbsp;&nbsp;⌛'), '⌛') }}
+    <dl class="lily-facts scheduled_tasks_details">
+      {% call fact(_('Start Time')) %}{{schedule_time}}{% endcall %}
+      {% call fact(_('Maximum Duration')) %}{{schedule_duration}}{% endcall %}
+      {% call fact(_('Scheduled Thumbnail Refresh')) %}{{ display_bool_setting(config.schedule_generate_book_covers) }}{% endcall %}
+      {% call fact(_('Reconnect Calibre Database')) %}{{ display_bool_setting(config.schedule_reconnect) }}{% endcall %}
+      {% call fact(_('Generate Metadata Backup Files')) %}{{ display_bool_setting(config.schedule_metadata_backup) }}{% endcall %}
+    </dl>
+    <div class="lily-actions">
       <a class="btn btn-default scheduledtasks" id="admin_edit_scheduled_tasks" href="{{url_for('admin.edit_scheduledtasks')}}">{{_('Edit Scheduled Tasks Settings')}}</a>
       <button type="button" class="btn btn-default" id="admin_refresh_cover_cache">{{_('Refresh Thumbnail Cache')}}</button>
     </div>
-  </div>
+  </section>
 {%  endif %}
 
-  <div class="row form-group">
+  <section class="lily-admin-section">
     {{ emoji_heading(_('Lily Admin Functions&nbsp;&nbsp;⚡'), '⚡') }}
-    <a class="btn btn-default" id="cwa_stats" href="{{url_for('cwa_stats.cwa_stats_show')}}">{{_('Show Lily Stats')}}</a>
-    <a class="btn btn-default" id="check_mon_srvs" href="{{url_for('cwa_check_status.cwa_flash_status')}}">{{_('Check Lily Status')}}</a>
-    <a class="btn btn-default" id="kosync" href="{{url_for('kosync.kosync_plugin_page')}}">{{_('Setup KOReader Sync')}}</a>
-  </div>
-  <div class="row form-group">
-    <a class="btn btn-default" id="library_convert" href="{{url_for('convert_library.show_convert_library_page')}}">{{_('Lily Library Conversion Service')}}</a>
-    <a class="btn btn-default" id="epub_fixer" href="{{url_for('epub_fixer.show_epub_fixer_page')}}">{{_('Lily EPUB Fixer Service')}}</a>
-  </div>
-  <div class="row form-group">
-    <a class="btn btn-default github" id="cwa_github_link" href="https://github.com/Bondyboy2001/lily/">{{_('Lily GitHub')}}</a>
-  </div>
-  <div class="row form-group">
-    <button type="button" class="btn btn-primary" id="hardcover_auto_fetch" data-toggle="modal" data-target="#StatusDialog" style="background-color: var(--color-primary); border-color: var(--color-primary); margin-left: 8px;"><span aria-hidden="true">🔖</span> {{_('Run Hardcover Auto-Fetch')}}</button>
-    <a href="{{url_for('admin.hardcover_review_matches')}}" class="btn btn-info" id="hardcover_review_matches" style="margin-left: 10px;"><span aria-hidden="true">📋</span> {{_('Review Hardcover Matches')}}</a>
-  </div>
+    <div class="lily-actions">
+      <a class="btn btn-default" id="cwa_stats" href="{{url_for('cwa_stats.cwa_stats_show')}}">{{_('Show Lily Stats')}}</a>
+      <a class="btn btn-default" id="check_mon_srvs" href="{{url_for('cwa_check_status.cwa_flash_status')}}">{{_('Check Lily Status')}}</a>
+      <a class="btn btn-default" id="kosync" href="{{url_for('kosync.kosync_plugin_page')}}">{{_('Setup KOReader Sync')}}</a>
+      <a class="btn btn-default" id="admin_duplicates" href="{{url_for('duplicates.show_duplicates')}}">{{_('Find Duplicate Books')}}</a>
+    </div>
+    <div class="lily-actions">
+      <button type="button" class="btn btn-default" id="hardcover_auto_fetch" data-toggle="modal" data-target="#StatusDialog">{{_('Run Hardcover Auto-Fetch')}}</button>
+      <a href="{{url_for('admin.hardcover_review_matches')}}" class="btn btn-default" id="hardcover_review_matches">{{_('Review Hardcover Matches')}}</a>
+      <a class="btn btn-default github" id="cwa_github_link" href="https://github.com/Bondyboy2001/lily/">{{_('Lily GitHub')}}</a>
+    </div>
+  </section>
 
-  <div class="row form-group">
+  <section class="lily-admin-section">
     {{ emoji_heading(_('Administration&nbsp;&nbsp;🚀'), '🚀') }}
-    <a class="btn btn-default" id="debug" href="{{url_for('admin.download_debug')}}">{{_('Download Debug Package')}}</a>
-    <!-- <a class="btn btn-default" id="logfile" href="{{url_for('admin.view_logfile')}}">{{_('View Logs')}}</a> -->
-  </div>
-  <div class="row form-group">
-    <button type="button" class="btn btn-default" id="restart_database" data-toggle="modal" data-target="#StatusDialog">{{_('Reconnect Calibre Database')}}</button>
-  </div>
-  <div class="row form-group">
-    <button type="button" class="btn btn-default" id="admin_restart" data-toggle="modal" data-target="#RestartDialog">{{_('Restart')}}</button>
-    <button type="button" class="btn btn-default" id="admin_stop" data-toggle="modal" data-target="#ShutdownDialog">{{_('Shutdown')}}</button>
-  </div>
-{% if config.schedule_metadata_backup %}
-  <div class="row form-group">
-    <button type="button" class="btn btn-default" id="metadata_backup" data-toggle="modal" data-target="#StatusDialog">{{_('Queue all books for metadata backup')}}</button>
-  </div>
-{%  endif %}
-  <div class="row">
-    <div class="col">
-      {{ emoji_heading(_('Version Information&nbsp;&nbsp;📜'), '📜') }}
-      <div class="table-responsive">
-      <table class="table table-striped" id="update_table">
+    <div class="lily-actions">
+      <a class="btn btn-default" id="debug" href="{{url_for('admin.download_debug')}}">{{_('Download Debug Package')}}</a>
+      <button type="button" class="btn btn-default" id="restart_database" data-toggle="modal" data-target="#StatusDialog">{{_('Reconnect Calibre Database')}}</button>
+    {% if config.schedule_metadata_backup %}
+      <button type="button" class="btn btn-default" id="metadata_backup" data-toggle="modal" data-target="#StatusDialog">{{_('Queue all books for metadata backup')}}</button>
+    {%  endif %}
+    </div>
+    <div class="lily-actions">
+      <button type="button" class="btn btn-default" id="admin_restart" data-toggle="modal" data-target="#RestartDialog">{{_('Restart')}}</button>
+      <button type="button" class="btn btn-danger" id="admin_stop" data-toggle="modal" data-target="#ShutdownDialog">{{_('Shutdown')}}</button>
+    </div>
+  </section>
+
+  <section class="lily-admin-section">
+    {{ emoji_heading(_('Version Information&nbsp;&nbsp;📜'), '📜') }}
+    <div class="table-responsive lily-admin-table">
+      <table class="table" id="update_table">
         <thead>
           <tr>
-              <th class="col-xl-3">Distribution</th>
-              <th class="col-xs-3">{{_('Version')}}</th>
-              <th class="col-xl-8">{{_('Details')}}</th>
+              <th>{{_('Distribution')}}</th>
+              <th>{{_('Version')}}</th>
+              <th>{{_('Details')}}</th>
           </tr>
         </thead>
         <tbody>
           <tr id="current_version">
             <td>Lily</td>
-            <td>{{cwa_version}} </td>
-            <td><i>{{_('Current Version')}}</i></td>
+            <td class="lily-mono">{{cwa_version}}</td>
+            <td class="lily-fact-note">{{_('Current Version')}}</td>
           </tr>
           <tr id="current_version">
             <td>Calibre</td>
-            <td>{{calibre_version}} </td>
-            <td><i>{{_('-')}}</i></td>
+            <td class="lily-mono">{{calibre_version}}</td>
+            <td class="lily-fact-note">{{_('-')}}</td>
           </tr>
           <tr id="current_version">
             <td>Kepubify</td>
-            <td>{{kepubify_version}} </td>
-            <td><i>{{_('-')}}</i></td>
+            <td class="lily-mono">{{kepubify_version}}</td>
+            <td class="lily-fact-note">{{_('-')}}</td>
           </tr>
         </tbody>
       </table>
-      </div>
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      {%  if feature_support['updater'] %}
-      <div class="hidden" id="update_error"> <span>{{update_error}}</span></div>
-      <button type="button" class="btn btn-primary" id="check_for_update">{{_('Check for Update')}}</button>
-      <button type="button" class="btn btn-primary hidden" id="perform_update" data-toggle="modal" data-target="#StatusDialog">{{_('Perform Update')}}</button>
-      {%  endif %}
     </div>
-  </div>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  </section>
 </div>
 
 <!-- Modal -->
-<div id="RestartDialog" class="modal fade" role="dialog">
+<div id="RestartDialog" class="modal fade" role="dialog" aria-labelledby="RestartDialogTitle">
   <div class="modal-dialog modal-sm">
-    <!-- Modal content-->
     <div class="modal-content">
-      <div class="modal-header bg-info"></div>
-      <div class="modal-body text-center">
+      <div class="modal-header"><h4 class="modal-title" id="RestartDialogTitle">{{_('Restart')}}</h4></div>
+      <div class="modal-body">
         <p>{{_('Are you sure you want to restart?')}}</p>
-          <div id="spinner" class="spinner"  style="display:none;">
-                <img id="img-spinner" src="{{ url_for('static', filename='css/libs/images/loading-icon.gif') }}" alt="" aria-hidden="true"/>
-          </div>
-          <p></p>
-        <button type="button" class="btn btn-default" id="restart" >{{_('OK')}}</button>
+        <div id="spinner" class="spinner" style="display:none;">
+          <img id="img-spinner" src="{{ url_for('static', filename='css/libs/images/loading-icon.gif') }}" alt="" aria-hidden="true"/>
+        </div>
+      </div>
+      <div class="modal-footer">
         <button type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
+        <button type="button" class="btn btn-primary" id="restart">{{_('Restart')}}</button>
       </div>
     </div>
   </div>
 </div>
-<div id="ShutdownDialog" class="modal fade" role="dialog">
+<div id="ShutdownDialog" class="modal fade" role="dialog" aria-labelledby="ShutdownDialogTitle">
   <div class="modal-dialog modal-sm">
-    <!-- Modal content-->
     <div class="modal-content">
-      <div class="modal-header bg-info">
-      </div>
-      <div class="modal-body text-center">
+      <div class="modal-header"><h4 class="modal-title" id="ShutdownDialogTitle">{{_('Shutdown')}}</h4></div>
+      <div class="modal-body">
         <p>{{_('Are you sure you want to shutdown?')}}</p>
-        <button type="button" class="btn btn-default" id="shutdown" data-dismiss="modal">{{_('OK')}}</button>
+      </div>
+      <div class="modal-footer">
         <button type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
+        <button type="button" class="btn btn-danger" id="shutdown" data-dismiss="modal">{{_('Shutdown')}}</button>
       </div>
     </div>
   </div>
 </div>
 <div id="StatusDialog" class="modal fade" role="dialog" aria-labelledby="DialogHeader">
   <div class="modal-dialog modal-sm">
-    <!-- Modal content-->
     <div class="modal-content">
-      <div class="modal-header bg-info text-center">
-      <span id="DialogHeader">{{_('Updating, please do not reload this page')}}</span>
+      <div class="modal-header">
+        <h4 class="modal-title" id="DialogHeader">{{_('Updating, please do not reload this page')}}</h4>
       </div>
-      <div class="modal-body text-center">
-          <div id="spinner2" class="spinner2"  style="display:none;">
-                <img id="img-spinner2" src="{{ url_for('static', filename='css/libs/images/loading-icon.gif') }}" alt="" aria-hidden="true"/>
-          </div>
-          <p></p>
+      <div class="modal-body">
+        <div id="spinner2" class="spinner2" style="display:none;">
+          <img id="img-spinner2" src="{{ url_for('static', filename='css/libs/images/loading-icon.gif') }}" alt="" aria-hidden="true"/>
+        </div>
         <div id="DialogContent"></div>
-          <p></p>
-        <button type="button" class="btn btn-default hidden" id="DialogFinished" data-dismiss="modal">{{_('OK')}}</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default hidden" id="DialogFinished" data-dismiss="modal">{{_('Close')}}</button>
       </div>
     </div>
   </div>

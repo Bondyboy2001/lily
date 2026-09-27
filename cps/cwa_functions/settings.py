@@ -133,7 +133,6 @@ def set_cwa_settings():
                         'prc', 'pdb', 'pml', 'rb',
                         'rtf', 'snb', 'tcr', 'txt', 'txtz',
                         'kfx', 'kfx-zip']
-    target_formats = ['epub', 'azw3', 'kepub', 'mobi', 'pdf']
     automerge_options = ['ignore', 'overwrite', 'new_record']
     autoingest_options = ['ignore', 'overwrite', 'new_record']
 
@@ -143,7 +142,7 @@ def set_cwa_settings():
     integer_settings = ['ingest_timeout_minutes', 'ingest_stale_temp_minutes', 'ingest_stale_temp_interval', 'auto_send_delay_minutes', 'hardcover_auto_fetch_batch_size', 'hardcover_auto_fetch_schedule_hour', 'duplicate_scan_hour', 'duplicate_scan_chunk_size', 'duplicate_scan_debounce_seconds', 'duplicate_auto_resolve_cooldown_minutes', 'archived_cleanup_schedule_hour', 'cover_download_max_mb', 'db_backup_keep_count']  # Special handling for integer settings
     float_settings = ['hardcover_auto_fetch_min_confidence', 'hardcover_auto_fetch_rate_limit']  # Special handling for float settings
     json_settings = ['metadata_provider_hierarchy', 'metadata_providers_enabled', 'duplicate_format_priority']  # Special handling for JSON settings
-    skip_settings = ['auto_convert_ignored_formats', 'auto_ingest_ignored_formats', 'auto_convert_retained_formats']  # Handled through individual format checkboxes
+    skip_settings = ['auto_ingest_ignored_formats']  # Handled through individual format checkboxes
     
     for setting in cwa_default_settings:
         if setting in integer_settings or setting in float_settings or setting in json_settings or setting in skip_settings:
@@ -167,14 +166,12 @@ def set_cwa_settings():
 
     for format in ignorable_formats:
         string_settings.append(f"ignore_ingest_{format}")
-        string_settings.append(f"ignore_convert_{format}")
-        string_settings.append(f"convert_retained_{format}")
 
     if request.method == 'POST':
         saved_message = None
         # Anything other than the reset button (including a missing value) is a normal save
         if request.form.get('submit_button') != "Apply Default Settings":
-            result = {"auto_convert_ignored_formats":[], "auto_ingest_ignored_formats":[], "auto_convert_retained_formats":[]}
+            result = {"auto_ingest_ignored_formats":[]}
             # set boolean_settings
             for setting in boolean_settings:
                 value = request.form.get(setting)
@@ -186,21 +183,10 @@ def set_cwa_settings():
             # set string settings
             for setting in string_settings:
                 value = request.form.get(setting)
-                if setting[:14] == "ignore_convert":
-                    if value is not None:
-                        result["auto_convert_ignored_formats"].append(value)
-                    continue
-                elif setting[:13] == "ignore_ingest":
+                if setting[:13] == "ignore_ingest":
                     if value is not None:
                         result["auto_ingest_ignored_formats"].append(value)
                     continue
-                elif setting.startswith("convert_retained"):
-                    if value is not None:
-                        result["auto_convert_retained_formats"].append(value)
-                    continue
-                elif setting == "auto_convert_target_format":
-                    if value is None:
-                        value = cwa_db.cwa_settings['auto_convert_target_format']
 
                 result |= {setting:value}
 
@@ -211,21 +197,6 @@ def set_cwa_settings():
                     result[day_setting] = _monthly_schedule_day(request.form.getlist(day_setting),
                                                                 cwa_settings.get(day_setting))
             
-            # Prevent ignoring of target format
-            if result['auto_convert_target_format'] in result['auto_convert_ignored_formats']:
-                result['auto_convert_ignored_formats'].remove(result['auto_convert_target_format'])
-            if result['auto_convert_target_format'] in result['auto_ingest_ignored_formats']:
-                result['auto_ingest_ignored_formats'].remove(result['auto_convert_target_format'])
-
-            # Prevent retaining of ignored ingest formats (create a copy to avoid modification during iteration)
-            for ignored_format in result['auto_ingest_ignored_formats'][:]:
-                if ignored_format in result['auto_convert_retained_formats']:
-                    result['auto_convert_retained_formats'].remove(ignored_format)
-
-            # Force target format to be retained (ensure it's not already there to avoid duplicates)
-            if result['auto_convert_target_format'] not in result['auto_convert_retained_formats']:
-                result['auto_convert_retained_formats'].append(result['auto_convert_target_format'])
-
             # Handle integer settings
             for setting in integer_settings:
                 value = request.form.get(setting)
@@ -337,7 +308,7 @@ def set_cwa_settings():
                                 result[setting] = json.dumps(json_value)  # Store as JSON string
                             else:
                                 # Use current value if validation fails
-                                result[setting] = cwa_db.cwa_settings.get(setting, '["ibdb","google","dnb"]')
+                                result[setting] = cwa_db.cwa_settings.get(setting, '["google","openlibrary","hardcover","googlescholar"]')
                         elif setting == 'metadata_providers_enabled':
                             # Validate dict mapping provider_id -> bool
                             if isinstance(json_value, dict):
@@ -354,7 +325,7 @@ def set_cwa_settings():
                     except (json.JSONDecodeError, ValueError, TypeError):
                         # Use current value if JSON parsing fails
                         if setting == 'metadata_provider_hierarchy':
-                            result[setting] = cwa_db.cwa_settings.get(setting, '["ibdb","google","dnb"]')
+                            result[setting] = cwa_db.cwa_settings.get(setting, '["google","openlibrary","hardcover","googlescholar"]')
                         elif setting == 'metadata_providers_enabled':
                             result[setting] = cwa_db.cwa_settings.get(setting, '{}')
                         else:
@@ -362,7 +333,7 @@ def set_cwa_settings():
                 else:
                     # Use current value if not provided
                     if setting == 'metadata_provider_hierarchy':
-                        result[setting] = cwa_db.cwa_settings.get(setting, '["ibdb","google","dnb"]')
+                        result[setting] = cwa_db.cwa_settings.get(setting, '["google","openlibrary","hardcover","googlescholar"]')
                     elif setting == 'metadata_providers_enabled':
                         result[setting] = cwa_db.cwa_settings.get(setting, '{}')
                     else:
@@ -384,14 +355,10 @@ def set_cwa_settings():
             # DEBUGGING
             # with open("/config/post_request" ,"w") as f:
             #     for key in result.keys():
-            #         if key == "auto_convert_ignored_formats" or key == "auto_ingest_ignored_formats":
+            #         if key == "auto_ingest_ignored_formats":
             #             f.write(f"{key} - {', '.join(result[key])}\n")
             #         else:
             #             f.write(f"{key} - {result[key]}\n")
-
-            # Save Kobo Sync Magic Shelves setting (stored in app.db, not cwa.db)
-            config.config_kobo_sync_magic_shelves = 'config_kobo_sync_magic_shelves' in request.form
-            config.save()
 
             duplicate_criteria_changed = False
             try:
@@ -486,7 +453,7 @@ def set_cwa_settings():
     next_scan_run = get_next_duplicate_scan_run(cwa_settings)
 
     return render_title_template("cwa_settings.html", title=_("Lily User Settings"), page="cwa-settings",
-                                    cwa_settings=cwa_settings, ignorable_formats=ignorable_formats, target_formats=target_formats,
+                                    cwa_settings=cwa_settings, ignorable_formats=ignorable_formats,
                                     automerge_options=automerge_options, autoingest_options=autoingest_options,
                                     hardcover_token_available=hardcover_token_available,
                                     next_duplicate_scan_run=next_scan_run, config=config)

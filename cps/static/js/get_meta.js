@@ -14,7 +14,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-/* global _, i18nMsg, tinymce, getPath */
+/* global _, i18nMsg, getPath */
 
 $(function () {
   var msg = i18nMsg;
@@ -23,8 +23,22 @@ $(function () {
   var metaSelectionCache = null;
   var metaAlertTimer = null;
 
+  // Provider results are third-party data: the template escapes every value (<%- %>),
+  // shows descriptions as plain text and only links to http(s) URLs.
+  function safeUrl(url) {
+    return /^https?:\/\//i.test(String(url || "")) ? String(url) : "";
+  }
+
+  function htmlToText(html) {
+    // DOMParser documents run no scripts and load no images
+    return new DOMParser().parseFromString(String(html || ""), "text/html").body.textContent || "";
+  }
+
+  var bookResultTemplate = _.template($("#template-book-result").html());
   var templates = {
-    bookResult: _.template($("#template-book-result").html()),
+    bookResult: function (data) {
+      return bookResultTemplate(_.extend({ safeUrl: safeUrl, htmlToText: htmlToText }, data));
+    },
   };
 
   function isLocalStorageAvailable() {
@@ -107,21 +121,16 @@ $(function () {
     );
     if (updateItems.description) {
       var description = book.description || "";
-      if (typeof tinymce !== "undefined" && tinymce.get("comments")) {
-        tinymce.get("comments").setContent(description);
-        tinymce.get("comments").save();
-      } else {
-        $("#comments").val(description);
-      }
+      $("#comments").val(description).trigger("lily:set-html");
     }
     if (updateItems.tags) {
       var uniqueTags = getUniqueValues("tags", book);
-      $("#tags").val(uniqueTags.join(", "));
+      $("#tags").val(uniqueTags.join(", ")).trigger("change");
     }
     var uniqueLanguages = getUniqueValues("languages", book);
     if (updateItems.authors) {
       var ampSeparatedAuthors = (book.authors || []).join(" & ");
-      $("#authors").val(ampSeparatedAuthors);
+      $("#authors").val(ampSeparatedAuthors).trigger("change");
     }
     if (updateItems.title) {
       $("#title").val(book.title);
@@ -175,6 +184,25 @@ $(function () {
         }, 250);
       }, 2000);
     }
+  }
+
+  // Apply fills the form and saves straight away, landing on the book page.
+  // Scholar results (arXiv/Crossref) are papers: add a Papers chip to the Shelves editor,
+  // which the save turns into the shelf (creating it the first time).
+  function applyAndSave(book, idx) {
+    populateForm(book, idx);
+    var $shelves = $("#shelves");
+    if (book.source && book.source.id === "googlescholar" && $shelves.length) {
+      var names;
+      try { names = JSON.parse($shelves.val() || "[]"); } catch (e) { names = []; }
+      if (!names.some(function (n) { return n.toLowerCase() === "papers"; })) {
+        names.push("Papers");
+        $shelves.val(JSON.stringify(names)).trigger("change");
+      }
+    }
+    $('#book_edit_frm input[name="detail_view"]').prop("checked", true);
+    $("#metaModal").modal("hide");
+    $("#submit").trigger("click");
   }
 
   function findIdentifierRow(type) {
@@ -234,6 +262,17 @@ $(function () {
     $("#identifier-table").append(line);
   }
 
+  // The book's identifiers (ISBN, DOI, arXiv...) from the edit form, for exact lookups
+  function currentIdentifiers() {
+    var ids = {};
+    $("#identifier-table tr").each(function () {
+      var type = $.trim($(this).find(".identifier-type").val() || "");
+      var val = $.trim($(this).find(".identifier-val").val() || "");
+      if (type && val) { ids[type.toLowerCase()] = val; }
+    });
+    return ids;
+  }
+
   function doSearch(keyword) {
     if (keyword) {
       $("#meta-info").text(msg.loading);
@@ -242,6 +281,7 @@ $(function () {
         type: "POST",
         data: {
           query: keyword,
+          identifiers: JSON.stringify(currentIdentifiers()),
           'csrf_token': $('input[name="csrf_token"]').val()
         },
         dataType: "json",
@@ -251,7 +291,7 @@ $(function () {
             data.forEach(function (book, idx) {
               var $book = $(templates.bookResult({ book: book, index: idx }));
               $book.find("button").on("click", function () {
-                populateForm(book, idx);
+                applyAndSave(book, idx);
               });
               applyMetaSelections($book);
               $("#book-list").append($book);
@@ -284,14 +324,10 @@ $(function () {
       type: "get",
       dataType: "json",
       success: function success(data) {
-        var anyDisabled = false;
-        var disabledNames = [];
         data.forEach(function (provider) {
-          // Hide globally disabled providers but collect their names for a note
+          // Globally disabled providers aren't offered here
           if (provider.hasOwnProperty('globally_enabled') && !provider.globally_enabled) {
-            anyDisabled = true;
-            disabledNames.push(provider.name);
-            return; // Skip rendering this provider
+            return;
           }
 
           var checked = provider.active ? "checked" : "";
@@ -304,13 +340,6 @@ $(function () {
             '</label>';
           $("#metadata_provider").append($provider_button);
         });
-        if (anyDisabled) {
-          var disabledList = disabledNames.join(', ');
-          var note = $('<div class="text-muted" style="margin-bottom:8px;">' +
-                       '<span class="glyphicon glyphicon-lock" aria-hidden="true"></span> ' +
-                       'Some providers are disabled: ' + disabledList + '</div>');
-          $("#metadata_provider").prepend(note);
-        }
       },
     });
   }
@@ -336,7 +365,7 @@ $(function () {
         data.forEach(function (book, idx) {
           var $book = $(templates.bookResult({ book: book, index: idx }));
           $book.find("button").on("click", function () {
-            populateForm(book, idx);
+            applyAndSave(book, idx);
           });
           applyMetaSelections($book);
           $("#book-list").append($book);

@@ -4,9 +4,9 @@
 <link href="{{ url_for('static', filename='css/libs/bootstrap-editable.css') }}" rel="stylesheet">
 {% endblock %}
 {% block body %}
-<div class="discover">
-  <h1>{{title}}</h1>
-  <form role="form" class="col-md-10 col-lg-6" method="POST" autocomplete="off">
+<div class="discover lily-admin">
+  <form role="form" method="POST" autocomplete="off">
+  <div class="settings-container">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
       <label for="schedule_start_time">{{_('Start Time')}}</label>
@@ -42,8 +42,11 @@
       <label for="schedule_metadata_backup">{{_('Generate Metadata Backup Files')}}</label>
     </div>
 
-    <button type="submit" name="submit" value="submit" class="btn btn-default">{{_('Save')}}</button>
-    <a href="{{ url_for('admin.admin') }}" id="email_back" class="btn btn-default">{{_('Cancel')}}</a>
+  </div>
+    <div class="lily-form-actions">
+      <a href="{{ url_for('admin.admin') }}" id="email_back" class="btn btn-default">{{_('Cancel')}}</a>
+      <button type="submit" name="submit" value="submit" class="btn btn-primary">{{_('Save')}}</button>
+    </div>
   </form>
 </div>
 {% endblock %}

@@ -26,15 +26,15 @@ $(document).ready(function() {
     function updateSelectionCount() {
         var count = selectedBooks.length;
         if (count === 0) {
-            $('#selection_count').text('0 BOOKS SELECTED');
+            $('#selection_count').text('No books selected');
             $('#delete_selected').addClass('disabled').attr('aria-disabled', true);
             $('.merge-selected-btn').addClass('disabled').attr('aria-disabled', true);
         } else if (count === 1) {
-            $('#selection_count').text('1 BOOK SELECTED');
+            $('#selection_count').text('1 book selected');
             $('#delete_selected').removeClass('disabled').attr('aria-disabled', false);
             $('.merge-selected-btn').addClass('disabled').attr('aria-disabled', true);
         } else {
-            $('#selection_count').text(count + ' BOOKS SELECTED');
+            $('#selection_count').text(count + ' books selected');
             $('#delete_selected').removeClass('disabled').attr('aria-disabled', false);
             $('.merge-selected-btn').removeClass('disabled').attr('aria-disabled', false);
         }
@@ -179,11 +179,11 @@ $(document).ready(function() {
 
                     // First book is the target (kept)
                     if (response.books && response.books.length > 0) {
-                        $("<span>✓ " + response.books[0] + "</span>").appendTo('#display-merge-target-book');
+                        $('<div class="dup-modal-item">').text(response.books[0]).appendTo('#display-merge-target-book');
 
                         // Rest are source books (merged and deleted)
                         for (var i = 1; i < response.books.length; i++) {
-                            $("<span>- " + response.books[i] + "</span><p></p>").appendTo('#display-merge-source-books');
+                            $('<div class="dup-modal-item">').text(response.books[i]).appendTo('#display-merge-source-books');
                         }
                     }
                 },
@@ -233,7 +233,7 @@ $(document).ready(function() {
                 success: function(response) {
                     $('#display-delete-selected-books').empty();
                     $.each(response.books, function(i, item) {
-                        $("<span>- " + item + "</span><p></p>").appendTo("#display-delete-selected-books");
+                        $('<div class="dup-modal-item">').text(item).appendTo('#display-delete-selected-books');
                     });
                 },
                 error: function(xhr, status, error) {
@@ -379,8 +379,6 @@ $(document).ready(function() {
                         btn.data('dismissed', true);
                         btn.html('<span class="glyphicon glyphicon-eye-open"></span> Show');
                         btn.attr('title', 'Show this duplicate group');
-                        btn.css('background', 'rgba(46, 204, 113, 0.2)');
-                        btn.css('border-color', 'rgba(46, 204, 113, 0.4)');
                         
                         // Fade out the group
                         groupContainer.fadeOut(300);
@@ -388,8 +386,6 @@ $(document).ready(function() {
                         btn.data('dismissed', false);
                         btn.html('<span class="glyphicon glyphicon-eye-close"></span> Dismiss');
                         btn.attr('title', 'Dismiss this duplicate group');
-                        btn.css('background', 'rgba(255,255,255,0.15)');
-                        btn.css('border-color', 'rgba(255,255,255,0.3)');
                     }
                     
                     // Update badge count in real-time
@@ -641,7 +637,7 @@ $(document).ready(function() {
             },
             complete: function() {
                 btn.prop('disabled', false);
-                btn.html('<span class="glyphicon glyphicon-refresh"></span> Scan for Duplicates Now');
+                btn.html('<span class="glyphicon glyphicon-refresh"></span> Scan for duplicates');
             }
         });
     });
@@ -706,53 +702,47 @@ $(document).ready(function() {
                 } else {
                     var errors = data.errors || ['Unknown error occurred during resolution'];
                     showResolutionError('Errors occurred:<br>' + errors.map(escapeHtml).join('<br>'));
-                    btn.removeClass('disabled').html('<span class="glyphicon glyphicon-flash"></span> Execute Resolution');
+                    btn.removeClass('disabled').html('<span class="glyphicon glyphicon-flash"></span> Apply resolution');
                 }
             },
             error: function(xhr, status, error) {
                 console.error('[CWA Duplicates] Failed to execute resolution:', error);
                 var response = xhr.responseJSON || {};
                 showResolutionError(response.message || response.error || 'Failed to execute resolution. Check browser console for details.');
-                btn.removeClass('disabled').html('<span class="glyphicon glyphicon-flash"></span> Execute Resolution');
+                btn.removeClass('disabled').html('<span class="glyphicon glyphicon-flash"></span> Apply resolution');
             }
         });
     });
     
     function showResolutionPreview(data) {
-        var html = '<div style="margin-bottom: 20px; padding: 15px; background: #6d6d6d66; border-left: 4px solid #4caf50; border-radius: 4px; color: white">' +
-            '<h4 style="color: #98f99c; margin-top: 0;">Summary</h4>' +
-            '<p><strong>Groups to resolve:</strong> ' + data.resolved_count + '</p>' +
-            '<p><strong>Books to keep:</strong> ' + data.kept_count + '</p>' +
-            '<p><strong>Books to delete:</strong> ' + data.deleted_count + '</p>' +
+        var html = '<div class="dup-preview-summary">' +
+            '<div class="resolution-success-stat"><span class="resolution-success-value">' + data.resolved_count + '</span><span class="resolution-success-label">Groups to resolve</span></div>' +
+            '<div class="resolution-success-stat"><span class="resolution-success-value">' + data.kept_count + '</span><span class="resolution-success-label">Books to keep</span></div>' +
+            '<div class="resolution-success-stat"><span class="resolution-success-value">' + data.deleted_count + '</span><span class="resolution-success-label">Books to delete</span></div>' +
             '</div>';
-        
+
         if (data.preview && data.preview.length > 0) {
-            html += '<div style="margin-top: 20px;"><h4>Preview:</h4>';
-            
             data.preview.forEach(function(group) {
-                html += '<div style="padding: 15px; border: none; border-radius: 6px; background: #6d6d6d66;">' +
-                    '<h5 style="color: white; margin-top: 0;">' + escapeHtml(group.title) + ' <small>by ' + escapeHtml(group.author) + '</small></h5>' +
-                    '<div style="margin-bottom: 15px; padding: 10px; background: #d4edda; border-left: 3px solid #28a745; border-radius: 4px; color: #1c2832">' +
-                    '<strong style="color: #155724;">✓ KEEP:</strong> Book ID ' + group.kept_book_id + ' ' +
-                    '<small style="color: #666;">(Added: ' + group.kept_book_timestamp + ', Formats: ' + group.kept_book_formats.join(', ') + ')</small>' +
-                    '</div>' +
-                    '<div style="padding: 10px; background: #f8d7da; border-left: 3px solid #dc3545; border-radius: 4px;">' +
-                    '<strong style="color: #721c24;">✗ DELETE:</strong>' +
-                    '<ul style="margin: 5px 0 0 20px; padding: 0; color: #1c2832">';
-                
+                html += '<div class="dup-preview-group">' +
+                    '<div class="dup-preview-title">' + escapeHtml(group.title) + ' <span class="dup-preview-author">' + escapeHtml(group.author) + '</span></div>' +
+                    '<div class="dup-preview-row">' +
+                    '<span class="label label-success">Keep</span> ' +
+                    '<span>Book ID ' + group.kept_book_id + '</span> ' +
+                    '<span class="dup-preview-meta">Added ' + escapeHtml(group.kept_book_timestamp) + ' · ' + escapeHtml(group.kept_book_formats.join(', ')) + '</span>' +
+                    '</div>';
+
                 group.deleted_books_info.forEach(function(book) {
-                    html += '<li style="margin: 5px 0;">' +
-                        'Book ID ' + book.id + ' ' +
-                        '<small style="color: #666;">(Added: ' + book.timestamp + ', Formats: ' + book.formats.join(', ') + ')</small>' +
-                        '</li>';
+                    html += '<div class="dup-preview-row">' +
+                        '<span class="label label-danger">Delete</span> ' +
+                        '<span>Book ID ' + book.id + '</span> ' +
+                        '<span class="dup-preview-meta">Added ' + escapeHtml(book.timestamp) + ' · ' + escapeHtml(book.formats.join(', ')) + '</span>' +
+                        '</div>';
                 });
-                
-                html += '</ul></div></div>';
+
+                html += '</div>';
             });
-            
-            html += '</div>';
         }
-        
+
         $('#resolution_preview_body').html(html);
         $('#resolution_preview_modal').modal('show');
     }

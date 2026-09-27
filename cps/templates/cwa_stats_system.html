@@ -1,193 +1,75 @@
-<!-- System Logs Content (formerly cwa_stats.html) -->
+<!-- System stats tab (styles: static/css/lily-stats.css) -->
+{% macro history_table(title, headers, rows, more_url, long_cells=False, level=3) %}
+<section class="stats-section">
+  <div class="stats-section-head">
+    {% if level == 3 %}<h3 class="stats-panel-title">{{ title }}</h3>{% else %}<h4>{{ title }}</h4>{% endif %}
+    <a class="btn btn-default" href="{{ more_url }}">{{ _('Show all') }}</a>
+  </div>
+  {% if rows %}
+  <div class="stats-table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          {% for header in headers %}<th>{{ header }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows|reverse %}
+        <tr>
+          {% for cell in row %}
+          <td>{% if long_cells %}<div class="stats-cell">{{ cell }}</div>{% else %}{{ cell }}{% endif %}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="stats-none">{{ _('Nothing recorded yet') }}</p>
+  {% endif %}
+</section>
+{% endmacro %}
 
-<div class="stats-hero">
-    <h1>⚙️ Server Activity Dashboard</h1>
-    <p>Track server activity, file conversions, automatic fixes ect.</p>
+<div class="stats-tiles">
+  <div class="stats-tile">
+    <div class="stats-tile-label">{{ _('Total books') }}</div>
+    <div class="stats-tile-value">{{ cwa_stats["total_books"] }}</div>
+  </div>
+  <div class="stats-tile">
+    <div class="stats-tile-label">{{ _('Books enforced') }}</div>
+    <div class="stats-tile-value">{{ cwa_stats["cwa_enforcement"] }}</div>
+  </div>
 </div>
 
-<div>
-    <h3>Lily - Server Stats</h3>
-    <div class="cwa_stats_container">
-      <div class="cwa_stats_section">
-        <div class="cwa_stats_header">Total Books</div>
-        <div class="cwa_stats_value">{{cwa_stats["total_books"]}}</div>
-      </div>
-      <div class="cwa_stats_section">
-        <div class="cwa_stats_header">Books Enforced</div>
-        <div class="cwa_stats_value">{{cwa_stats["cwa_enforcement"]}}</div>
-      </div>
-      <div class="cwa_stats_section">
-        <div class="cwa_stats_header">Books Converted</div>
-        <div class="cwa_stats_value">{{cwa_stats["cwa_conversions"]}}</div>
-      </div>
-      <div class="cwa_stats_section">
-        <div class="cwa_stats_header">Books Fixed</div>
-        <div class="cwa_stats_value">{{cwa_stats["epub_fixes"]}}</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Hardcover Auto-Fetch Stats -->
-  {% if hardcover_stats %}
-  <hr style="width: 85%;text-align: center;margin-bottom: 36px;border-width: medium;border-color: #96a2a9;border-radius: 8px;">
-  
-  <div>
-    <h3>🔖 Hardcover Auto-Fetch Statistics</h3>
-    <div class="cwa_stats_container">
-      <div class="cwa_stats_section">
-        <div class="cwa_stats_header">Total Processed</div>
-        <div class="cwa_stats_value">{{hardcover_stats.total_processed}}</div>
-      </div>
-      <div class="cwa_stats_section">
-        <div class="cwa_stats_header">Auto-Matched</div>
-        <div class="cwa_stats_value" style="color: #5cb85c;">{{hardcover_stats.total_auto_matched}}</div>
-      </div>
-      <div class="cwa_stats_section">
-        <div class="cwa_stats_header">Pending Review</div>
-        <div class="cwa_stats_value" style="color: #f0ad4e;">{{hardcover_stats.pending_review}}</div>
-      </div>
-      <div class="cwa_stats_section">
-        <div class="cwa_stats_header">Manually Reviewed</div>
-        <div class="cwa_stats_value" style="color: #5bc0de;">{{hardcover_stats.manually_reviewed}}</div>
-      </div>
-    </div>
-    
+{% if hardcover_stats %}
+<section class="stats-section">
+  <div class="stats-section-head">
+    <h3 class="stats-panel-title">{{ _('Hardcover Auto-Fetch') }}</h3>
     {% if hardcover_stats.pending_review > 0 %}
-    <div style="margin-top: 15px; text-align: center;">
-      <a href="{{url_for('admin.hardcover_review_matches')}}" class="btn btn-warning" style="font-size: 1.1em; padding: 10px 20px;">
-        📋 {{_('Review %(count)s Pending Match(es)', count=hardcover_stats.pending_review)}}
-      </a>
-    </div>
+    <a href="{{ url_for('admin.hardcover_review_matches') }}" class="btn btn-primary">{{ _('Review %(count)s pending match(es)', count=hardcover_stats.pending_review) }}</a>
     {% endif %}
   </div>
-  {% endif %}
-
-  <hr style="width: 85%;text-align: center;margin-bottom: 36px;border-width: medium;border-color: #96a2a9;border-radius: 8px;">
-
-    <div>
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0;">Lily Conversion History</h3>
-        <a class="btn btn-default stats_see_more_btn" href="{{ url_for('cwa_stats.show_full_conversions') }}">{{_('Click to See More')}}</a>
-      </div>
-      <br>
-      <table class="table table-striped">
-        <tr>
-          {% for header in headers_conversion %}
-          <th>{{ header }}</th>
-          {% endfor %}
-        </tr>
-        {% for row in data_conversions|reverse %}
-        <tr>
-          {% for cell in row %}
-          <td>{{ cell }}</td>
-          {% endfor %}
-        </tr>
-        {% endfor %}
-      </table>
+  <div class="stats-tiles">
+    <div class="stats-tile">
+      <div class="stats-tile-label">{{ _('Processed') }}</div>
+      <div class="stats-tile-value">{{ hardcover_stats.total_processed }}</div>
     </div>
-
-    <div>
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0;">Lily Import History</h3>
-        <a class="btn btn-default stats_see_more_btn" href="{{ url_for('cwa_stats.show_full_imports') }}">{{_('Click to See More')}}</a>
-      </div>
-      <br>
-      <table class="table table-striped">
-        <tr>
-          {% for header in headers_import %}
-          <th>{{ header }}</th>
-          {% endfor %}
-        </tr>
-        {% for row in data_imports|reverse %}
-        <tr>
-          {% for cell in row %}
-          <td>{{ cell }}</td>
-          {% endfor %}
-        </tr>
-        {% endfor %}
-      </table>
+    <div class="stats-tile">
+      <div class="stats-tile-label">{{ _('Auto-matched') }}</div>
+      <div class="stats-tile-value">{{ hardcover_stats.total_auto_matched }}</div>
     </div>
-
-    <div>
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0;">Lily EPUB Fixer History</h3>
-        <a class="btn btn-default stats_see_more_btn" href="{{ url_for('cwa_stats.show_full_epub_fixer') }}">{{_('Click to See More')}}</a>
-      </div>
-      <br>
-      <table class="table table-striped">
-        <tr>
-          {% for header in headers_epub_fixer %}
-          <th>{{ header }}</th>
-          {% endfor %}
-        </tr>
-        {% for row in data_epub_fixer|reverse %}
-        <tr>
-          {% for cell in row %}
-          <td>{{ cell }}</td>
-          {% endfor %}
-        </tr>
-        {% endfor %}
-      </table>
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h4 style="margin: 0;"><i>EPUB Fixer History with Paths & Fixes</i></h4>
-        <a class="btn btn-default stats_see_more_btn" href="{{ url_for('cwa_stats.show_full_epub_fixer_with_paths_fixes') }}">{{_('Click to See More')}}</a>
-      </div>
-      <br>
-      <table class="table table-striped">
-        <tr>
-          {% for header in headers_epub_fixer_with_fixes %}
-          <th>{{ header }}</th>
-          {% endfor %}
-        </tr>
-        {% for row in data_epub_fixer_with_fixes|reverse %}
-        <tr>
-          {% for cell in row %}
-          <td>
-            <div style="max-height: 20rem; overflow-y: auto; white-space: pre-line;">{{ cell }}</div>
-          </td>
-          {% endfor %}
-        </tr>
-        {% endfor %}
-      </table>
+    <div class="stats-tile">
+      <div class="stats-tile-label">{{ _('Pending review') }}</div>
+      <div class="stats-tile-value">{{ hardcover_stats.pending_review }}</div>
     </div>
-
-    <div>
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3 style="margin: 0;">Lily Enforcement History</h3>
-        <a class="btn btn-default stats_see_more_btn" href="{{url_for('cwa_stats.show_full_enforcement')}}">{{_('Click to See More')}}</a>
-      </div>
-      <br>
-      <table class="table table-striped">
-        <tr>
-          {% for header in headers_enforcement %}
-          <th>{{ header }}</th>
-          {% endfor %}
-        </tr>
-        {% for row in data_enforcement|reverse %}
-        <tr>
-          {% for cell in row %}
-          <td>{{ cell }}</td>
-          {% endfor %}
-        </tr>
-        {% endfor %}
-      </table>
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h4 style="margin: 0;"><i>Enforcement History with Paths</i></h4>
-        <a class="btn btn-default stats_see_more_btn" href="{{ url_for('cwa_stats.show_full_enforcement_path') }}">{{_('Click to See More')}}</a>
-      </div>
-      <br>
-      <table class="table table-striped">
-        <tr>
-          {% for header in headers_enforcement_with_paths %}
-          <th>{{ header }}</th>
-          {% endfor %}
-        </tr>
-        {% for row in data_enforcement_with_paths|reverse %}
-        <tr>
-          {% for cell in row %}
-          <td>{{ cell }}</td>
-          {% endfor %}
-        </tr>
-        {% endfor %}
-      </table>
+    <div class="stats-tile">
+      <div class="stats-tile-label">{{ _('Manually reviewed') }}</div>
+      <div class="stats-tile-value">{{ hardcover_stats.manually_reviewed }}</div>
     </div>
+  </div>
+</section>
+{% endif %}
+
+{{ history_table(_('Imports'), headers_import, data_imports, url_for('cwa_stats.show_full_imports')) }}
+{{ history_table(_('Enforcement'), headers_enforcement, data_enforcement, url_for('cwa_stats.show_full_enforcement')) }}
+{{ history_table(_('Enforcement with paths'), headers_enforcement_with_paths, data_enforcement_with_paths, url_for('cwa_stats.show_full_enforcement_path'), level=4) }}

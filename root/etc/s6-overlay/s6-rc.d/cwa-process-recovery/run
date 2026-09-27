@@ -114,7 +114,7 @@ cleanup_orphaned_processes() {
     echo "[cwa-process-recovery] Checking for orphaned CWA processes..."
     
     # Look for Python processes running CWA scripts
-    local cwa_processes=$(pgrep -f "python.*ingest_processor.py\|python.*convert_library.py\|python.*kindle_epub_fixer.py" 2>/dev/null || true)
+    local cwa_processes=$(pgrep -f "python.*ingest_processor.py" 2>/dev/null || true)
     
     if [ -n "$cwa_processes" ]; then
         echo "[cwa-process-recovery] Found potential orphaned CWA processes:"

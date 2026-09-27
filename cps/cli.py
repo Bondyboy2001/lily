@@ -61,8 +61,8 @@ class CliParameter(object):
         parser.add_argument('-s', metavar='user:pass',
                             help='Sets specific username to new password and exits Lily')
         parser.add_argument('-l', action='store_true', help='Allow loading covers from localhost')
-        parser.add_argument('-d', action='store_true', help='Dry run of updater to check file permissions '
-                                                            'in advance and exits Lily')
+        parser.add_argument('-d', action='store_true', help='Create the settings and user databases '
+                                                            'if missing, then exit Lily (used by the Docker first run)')
         parser.add_argument('-r', action='store_true', help='Enable public database reconnect '
                                                             'route under /reconnect')
         args = parser.parse_args()
@@ -106,7 +106,7 @@ class CliParameter(object):
 
         # overwrite limiter backend
         self.memory_backend = args.m or None
-        # dry run updater
+        # initialise the databases and exit
         self.dry_run = args.d or None
         # enable reconnect endpoint for docker database reconnect
         self.reconnect_enable = args.r or os.environ.get("CALIBRE_RECONNECT", None)

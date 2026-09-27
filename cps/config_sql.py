@@ -88,7 +88,6 @@ class _Settings(_Base):
     config_remote_login = Column(Boolean, default=False)
     config_use_https = Column(Boolean, default=False)
     config_kobo_sync = Column(Boolean, default=False)
-    config_kobo_sync_magic_shelves = Column(Boolean, default=False)
 
     # Sync read progress to Hardcover - should this be renamed?
     config_hardcover_sync = Column(Boolean, default=False) 
@@ -114,6 +113,7 @@ class _Settings(_Base):
     config_use_goodreads = Column(Boolean, default=False)
     config_goodreads_api_key = Column(String)
     config_hardcover_token = Column(String)
+    config_google_books_api_key = Column(String)
     
     config_register_email = Column(Boolean, default=False)
     config_login_type = Column(Integer, default=0)

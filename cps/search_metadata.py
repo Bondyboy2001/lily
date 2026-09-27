@@ -10,6 +10,7 @@ import importlib
 import inspect
 import json
 import os
+import re
 import sys
 
 from flask import Blueprint, request, url_for, make_response, jsonify, copy_current_request_context
@@ -107,7 +108,7 @@ def metadata_provider():
                 "active": ac,
                 "initial": ac,
                 "id": c.__id__,
-                "globally_enabled": bool(global_enabled.get(c.__id__, True)),
+                "globally_enabled": c.is_globally_enabled(global_enabled),
             }
         )
     return make_response(jsonify(provider))
@@ -136,7 +137,7 @@ def metadata_change_active_provider(prov_name):
         # Respect global disablement for preview search as well
         global_enabled = _get_global_provider_enabled_map()
         if provider is not None:
-            if bool(global_enabled.get(provider.__id__, True)):
+            if provider.is_globally_enabled(global_enabled):
                 try:
                     data = provider.search(new_state.get("query", ""))
                 except Exception as exc:
@@ -150,32 +151,67 @@ def metadata_change_active_provider(prov_name):
     return ""
 
 
+ISBN_RE = re.compile(r"^(97[89])?\d{9}[\dX]$")
+
+
+def _normalise_identifiers(raw_json, query):
+    """Identifiers worth an exact lookup, from the edit form's identifier table plus the
+    query itself when it is a bare ISBN. Keys are lower-case identifier types."""
+    identifiers = {}
+    try:
+        raw = json.loads(raw_json) if raw_json else {}
+    except (TypeError, ValueError):
+        raw = {}
+    if isinstance(raw, dict):
+        for key, value in raw.items():
+            if isinstance(key, str) and isinstance(value, str) and value.strip():
+                identifiers[key.strip().lower()] = value.strip()
+    compact = re.sub(r"[\s-]", "", query or "").upper()
+    if ISBN_RE.match(compact):
+        identifiers.setdefault("isbn", compact)
+    if "isbn" in identifiers:
+        identifiers["isbn"] = re.sub(r"[\s-]", "", identifiers["isbn"]).upper()
+    return identifiers
+
+
 @meta.route("/metadata/search", methods=["POST"])
 @user_login_required
 def metadata_search():
-    query = request.form.to_dict().get("query")
-    data = list()
+    form = request.form.to_dict()
+    query = form.get("query")
+    identifiers = _normalise_identifiers(form.get("identifiers"), query)
     active = current_user.view_settings.get("metadata", {})
     locale = get_locale()
     global_enabled = _get_global_provider_enabled_map()
-    if query:
+    exact, fuzzy = [], []
+    if query or identifiers:
         static_cover = url_for("static", filename="generic_cover.svg")
-        # ret = cl[0].search(query, static_cover, locale)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            meta = {
-                executor.submit(copy_current_request_context(c.search), query, static_cover, locale): c
-                for c in cl
-                if active.get(c.__id__, True) and bool(global_enabled.get(c.__id__, True))
-            }
-            for future in concurrent.futures.as_completed(meta):
+        providers = [c for c in cl if active.get(c.__id__, True) and c.is_globally_enabled(global_enabled)]
+        # Every provider's text search and identifier lookup run at once; the slowest sets the pace
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            jobs = {}
+            for c in providers:
+                if query:
+                    jobs[executor.submit(copy_current_request_context(c.search), query, static_cover, locale)] = (c, fuzzy)
+                if identifiers:
+                    jobs[executor.submit(copy_current_request_context(c.search_identifiers),
+                                         identifiers, static_cover, locale)] = (c, exact)
+            for future in concurrent.futures.as_completed(jobs):
+                provider, bucket = jobs[future]
                 try:
                     result = future.result()
                 except Exception as exc:
-                    provider = meta.get(future)
-                    provider_name = provider.__class__.__name__ if provider else "Unknown"
-                    log.warning("Metadata provider %s failed: %s", provider_name, exc)
+                    log.warning("Metadata provider %s failed: %s", provider.__class__.__name__, exc)
                     continue
-                if not result:
-                    continue
-                data.extend([asdict(x) for x in result if x])
-    return  make_response(jsonify(data))
+                bucket.extend(x for x in (result or []) if x)
+    # Exact identifier matches first, then text results they don't already cover
+    data, seen = [], set()
+    for record in exact + fuzzy:
+        key = (record.source.description, str(record.id))
+        if key in seen:
+            continue
+        seen.add(key)
+        item = asdict(record)
+        item["exact_match"] = record in exact
+        data.append(item)
+    return make_response(jsonify(data))

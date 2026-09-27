@@ -4,53 +4,23 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Theme switch and profile picture routes."""
+"""Profile picture routes."""
 
 from flask import redirect, flash, url_for, request, jsonify, abort, make_response
 from flask_babel import gettext as _
 
-from ..usermanagement import login_required_if_no_ano, user_login_required
+from ..usermanagement import user_login_required
 from ..render_template import render_title_template
 from ..cw_login import current_user
 
 import json
 import base64
 import os
+import tempfile
 import threading
 import zlib
 
-from .common import switch_theme, profile_pictures, log
-
-@switch_theme.route("/cwa-switch-theme", methods=["GET", "POST"])
-@login_required_if_no_ano
-def cwa_switch_theme():
-    # Theme switching temporarily disabled for v5.0.0 frontend development
-    flash(_("Theme switching is temporarily disabled until v5.0.0"), category="warning")
-    target = request.referrer or url_for("web.index")
-    # Basic safety: only allow same-host redirects
-    try:
-        from urllib.parse import urlparse
-        ref_p = urlparse(target)
-        if ref_p.netloc and ref_p.netloc != request.host:
-            target = url_for("web.index")
-    except Exception:
-        target = url_for("web.index")
-    return redirect(target, code=302)
-    
-    # Original theme switching logic (disabled)
-    # try:
-    #     # current_user.theme may not exist for old sessions before migration; default to 1 (caliBlur)
-    #     current = getattr(current_user, 'theme', 1)
-    #     new_theme = 0 if current == 1 else 1
-    #     from . import ub
-    #     user = ub.session.query(ub.User).filter(ub.User.id == current_user.id).first()
-    #     if user:
-    #         user.theme = new_theme
-    #         ub.session_commit()
-    #     else:
-    #         log.error("Theme switch: user not found in DB")
-    # except Exception as e:
-    #     log.error(f"Error switching theme: {e}")
+from .common import profile_pictures, log
 
 # ################################### Profile Pictures ###################################################
 
@@ -109,11 +79,38 @@ def user_avatar():
     return response.make_conditional(request)
 
 
+def _save_profile_picture(username, image_data):
+    """Set one user's picture, replacing the JSON file atomically so a crash can't truncate it."""
+    with _profiles_lock:
+        try:
+            with open(PROFILES_JSON_PATH, "r") as file:
+                user_data = json.load(file)
+        except FileNotFoundError:
+            user_data = {}
+        user_data[username] = image_data
+        directory = os.path.dirname(PROFILES_JSON_PATH)
+        fd, tmp_path = tempfile.mkstemp(dir=directory, prefix=".user_profiles.", suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w") as file:
+                json.dump(user_data, file, indent=4)
+                file.flush()
+                os.fsync(file.fileno())
+            os.replace(tmp_path, PROFILES_JSON_PATH)
+        except BaseException:
+            os.unlink(tmp_path)
+            raise
+
+
 @profile_pictures.route("/user_profiles.json")
 @user_login_required
 def user_profiles_json():
+    """All pictures for admins; everyone else only sees their own."""
     try:
-        return jsonify(_load_profiles())
+        profiles = _load_profiles()
+        if current_user.role_admin():
+            return jsonify(profiles)
+        own = profiles.get(current_user.name)
+        return jsonify({current_user.name: own} if own else {})
     except Exception as e:
         log.error(f"Error reading user_profiles.json: {str(e)}")
         return jsonify({}), 500
@@ -186,17 +183,7 @@ def set_profile_picture():
             return redirect(url_for('profile_pictures.set_profile_picture'))
 
         try:
-            # Path to the JSON file
-            json_path = PROFILES_JSON_PATH
-            log.debug(f"Opening JSON file at: {json_path}")
-
-            # Read the existing data from the JSON file and update it
-            with open(json_path, "r+") as file:
-                user_data = json.load(file)
-                user_data[username] = image_data  # Add new or update existing entry
-                file.seek(0)  # Move to the start of the file for writing
-                json.dump(user_data, file, indent=4)  # Write back the updated data
-                file.truncate()  # Ensure there is no leftover content
+            _save_profile_picture(username, image_data)
 
             # Success feedback and logging
             flash(_("Profile picture updated successfully."), category="success")

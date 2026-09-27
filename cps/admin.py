@@ -33,7 +33,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError, InvalidRequestError
 from sqlalchemy.sql.expression import func, or_, text
 
 from . import constants, logger, helper, services, cli_param
-from . import db, calibre_db, ub, web_server, config, updater_thread, gdriveutils, \
+from . import db, calibre_db, ub, web_server, config, gdriveutils, \
     kobo_sync_status, schedule
 from .helper import check_valid_domain, send_test_mail, reset_password, generate_password_hash, check_email, \
     valid_email, check_username
@@ -50,10 +50,8 @@ log = logger.create()
 
 feature_support = {
     'ldap': bool(services.ldap),
-    'goodreads': bool(services.goodreads_support),
     'kobo': bool(services.kobo),
     'hardcover' : bool(services.hardcover),
-    'updater': constants.UPDATER_AVAILABLE,
     'gmail': bool(services.gmail),
     'scheduler': schedule.use_APScheduler,
     'gdrive': gdrive_support
@@ -138,11 +136,6 @@ def before_request():
     g.allow_registration = config.config_public_reg
     g.allow_anonymous = config.config_anonbrowse
     g.allow_upload = config.config_uploading
-    # caliBlur is the only server-side theme the Lily UI is built for (the plain Bootstrap theme 0 is
-    # missing most of the CWA/Lily layout), so it is always used. Light/dark/system colour modes are a
-    # per-browser choice layered on top of caliBlur (see static/css/lily-light.css and the inline
-    # script in layout.html); stored user.theme / config_theme values are left untouched.
-    g.current_theme = 1
     g.config_authors_max = config.config_authors_max
     if '/static/' not in request.path and not config.db_configured and \
         request.endpoint not in ('admin.ajax_db_config',
@@ -151,7 +144,6 @@ def before_request():
                                  'web.login',
                                  'web.login_post',
                                  'web.logout',
-                                 'web.change_password',
                                  'admin.load_dialogtexts',
                                  'admin.ajax_pathchooser'):
         return redirect(url_for('admin.db_configuration'))
@@ -896,7 +888,6 @@ def update_view_configuration():
         return view_configuration()
     _config_int(to_save, "config_restricted_column")
 
-    _config_int(to_save, "config_theme")
     _config_int(to_save, "config_random_books")
     _config_int(to_save, "config_books_per_page")
     _config_int(to_save, "config_authors_max")
@@ -906,7 +897,7 @@ def update_view_configuration():
     config.config_default_role = constants.selected_roles(to_save)
     config.config_default_role &= ~constants.ROLE_ANONYMOUS
 
-    config.config_default_show = sum(int(k[5:]) for k in to_save if k.startswith('show_') and not k.startswith('show_magic_shelf_') and not k.startswith('show_custom_shelf_'))
+    config.config_default_show = sum(int(k[5:]) for k in to_save if k.startswith('show_'))
     if "Show_detail_random" in to_save:
         config.config_default_show |= constants.DETAIL_RANDOM
 
@@ -1683,17 +1674,13 @@ def new_user():
         content.locale = config.config_default_locale
         content.default_language = config.config_default_language
     opds_context = _build_opds_context(content)
-    magic_shelf_context = _build_magic_shelf_order_context(content)
     return render_title_template("user_edit.html", new_user=1, content=content,
                                  config=config, translations=translations,
                                  languages=languages, title=_("Add New User"), page="newuser",
                                  kobo_support=kobo_support, registered_oauth=oauth_bb.oauth_check,
                                  opds_root_order_string=opds_context["opds_root_order_string"],
                                  opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
-                                 opds_root_labels=opds_context["opds_root_labels"],
-                                 magic_shelf_order_string=magic_shelf_context["magic_shelf_order_string"],
-                                 magic_shelf_order_labels=magic_shelf_context["magic_shelf_order_labels"],
-                                 magic_shelf_order_mode=magic_shelf_context["magic_shelf_order_mode"])
+                                 opds_root_labels=opds_context["opds_root_labels"])
 
 
 @admi.route("/admin/mailsettings", methods=["GET"])
@@ -1852,38 +1839,6 @@ def _build_opds_context(user):
     }
 
 
-def _build_magic_shelf_order_context(user):
-    from . import magic_shelf
-    if not user or not getattr(user, 'id', None):
-        return {
-            "magic_shelf_order_string": "",
-            "magic_shelf_order_labels": [],
-            "magic_shelf_order_mode": magic_shelf.DEFAULT_MAGIC_SHELF_ORDER_MODE,
-        }
-
-    shelves = magic_shelf.get_visible_magic_shelves_for_user(user.id)
-    magic_shelf_order_labels = [
-        {
-            "key": str(shelf.id),
-            "label": shelf.name,
-            "icon": shelf.icon,
-        }
-        for shelf in shelves
-    ]
-    settings = (user.view_settings or {}).get('magic_shelves', {})
-    order_mode = settings.get('order_mode', magic_shelf.DEFAULT_MAGIC_SHELF_ORDER_MODE)
-    if order_mode not in magic_shelf.MAGIC_SHELF_ORDER_MODES:
-        order_mode = magic_shelf.DEFAULT_MAGIC_SHELF_ORDER_MODE
-    available_ids = [shelf.id for shelf in shelves]
-    normalized = magic_shelf.normalize_magic_shelf_order(settings.get('order', []), available_ids)
-    order_string = ",".join(str(sid) for sid in normalized)
-    return {
-        "magic_shelf_order_string": order_string,
-        "magic_shelf_order_labels": magic_shelf_order_labels,
-        "magic_shelf_order_mode": order_mode,
-    }
-
-
 @admi.route("/admin/user/<int:user_id>", methods=["GET", "POST"])
 @user_login_required
 @admin_required
@@ -1896,36 +1851,12 @@ def edit_user(user_id):
     translations = get_available_locale()
     kobo_support = feature_support['kobo'] and config.config_kobo_sync
     
-    # Get system shelf templates and hidden templates for this user
-    from . import magic_shelf
-    system_shelf_templates = magic_shelf.SYSTEM_SHELF_TEMPLATES
-    hidden_items = ub.session.query(
-        ub.HiddenMagicShelfTemplate.template_key,
-        ub.HiddenMagicShelfTemplate.shelf_id
-    ).filter(
-        ub.HiddenMagicShelfTemplate.user_id == content.id
-    ).all()
-    hidden_shelf_templates = {item.template_key for item in hidden_items if item.template_key}
-    hidden_custom_shelf_ids = {item.shelf_id for item in hidden_items if item.shelf_id}
-    
-    # Get ALL public custom shelves that user doesn't own (both hidden and visible)
-    all_public_shelves = ub.session.query(ub.MagicShelf).filter(
-        ub.MagicShelf.is_public == 1,
-        ub.MagicShelf.user_id != content.id,
-        ub.MagicShelf.is_system == False
-    ).all()
-    
-    # Separate into hidden and visible
-    hidden_custom_shelves = [s for s in all_public_shelves if s.id in hidden_custom_shelf_ids]
-    visible_public_shelves = [s for s in all_public_shelves if s.id not in hidden_custom_shelf_ids]
-    
     if request.method == "POST":
         to_save = request.form.to_dict()
         resp = _handle_edit_user(to_save, content, languages, translations, kobo_support)
         if resp:
             return resp
     opds_context = _build_opds_context(content)
-    magic_shelf_context = _build_magic_shelf_order_context(content)
     return render_title_template("user_edit.html",
                                  translations=translations,
                                  languages=languages,
@@ -1935,17 +1866,9 @@ def edit_user(user_id):
                                  registered_oauth=oauth_bb.oauth_check,
                                  mail_configured=config.get_mail_server_configured(),
                                  kobo_support=kobo_support,
-                                 system_shelf_templates=system_shelf_templates,
-                                 hidden_shelf_templates=hidden_shelf_templates,
-                                 hidden_custom_shelf_ids=hidden_custom_shelf_ids,
-                                 hidden_custom_shelves=hidden_custom_shelves,
-                                 visible_public_shelves=visible_public_shelves,
                                  opds_root_order_string=opds_context["opds_root_order_string"],
                                  opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
                                  opds_root_labels=opds_context["opds_root_labels"],
-                                 magic_shelf_order_string=magic_shelf_context["magic_shelf_order_string"],
-                                 magic_shelf_order_labels=magic_shelf_context["magic_shelf_order_labels"],
-                                 magic_shelf_order_mode=magic_shelf_context["magic_shelf_order_mode"],
                                  title=_("Edit User %(nick)s", nick=content.name),
                                  page="edituser")
 
@@ -2018,56 +1941,6 @@ def download_log(logtype):
 @admin_required
 def download_debug():
     return debug_info.send_debug()
-
-
-@admi.route("/get_update_status", methods=['GET'])
-@user_login_required
-@admin_required
-def get_update_status():
-    if feature_support['updater']:
-        log.info("Update status requested")
-        return updater_thread.get_available_updates(request.method)
-    else:
-        return ''
-
-
-@admi.route("/get_updater_status", methods=['GET', 'POST'])
-@user_login_required
-@admin_required
-def get_updater_status():
-    status = {}
-    if feature_support['updater']:
-        if request.method == "POST":
-            commit = request.form.to_dict()
-            if "start" in commit and commit['start'] == 'True':
-                txt = {
-                    "1": _(u'Requesting update package'),
-                    "2": _(u'Downloading update package'),
-                    "3": _(u'Unzipping update package'),
-                    "4": _(u'Replacing files'),
-                    "5": _(u'Database connections are closed'),
-                    "6": _(u'Stopping server'),
-                    "7": _(u'Update finished, please press okay and reload page'),
-                    "8": _(u'Update failed:') + u' ' + _(u'HTTP Error'),
-                    "9": _(u'Update failed:') + u' ' + _(u'Connection error'),
-                    "10": _(u'Update failed:') + u' ' + _(u'Timeout while establishing connection'),
-                    "11": _(u'Update failed:') + u' ' + _(u'General error'),
-                    "12": _(u'Update failed:') + u' ' + _(u'Update file could not be saved in temp dir'),
-                    "13": _(u'Update failed:') + u' ' + _(u'Files could not be replaced during update')
-                }
-                status['text'] = txt
-                updater_thread.status = 0
-                updater_thread.resume()
-                status['status'] = updater_thread.get_update_status()
-        elif request.method == "GET":
-            try:
-                status['status'] = updater_thread.get_update_status()
-                if status['status'] == -1:
-                    status['status'] = 7
-            except Exception:
-                status['status'] = 11
-        return json.dumps(status)
-    return ''
 
 
 def ldap_import_create_user(user, user_data):
@@ -2344,19 +2217,11 @@ def _configuration_update_helper():
         if not config.config_remote_login:
             ub.session.query(ub.RemoteAuthToken).filter(ub.RemoteAuthToken.token_type == 0).delete()
 
-        # Goodreads configuration
-        _config_checkbox(to_save, "config_use_goodreads")
-        _config_string(to_save, "config_goodreads_api_key")
-        if services.goodreads_support:
-            services.goodreads_support.connect(config.config_goodreads_api_key,
-                                               config.config_use_goodreads)
-
         # Hardcover configuration
         _config_checkbox(to_save, "config_hardcover_sync")
         _config_checkbox(to_save, "config_hardcover_annotations_sync")
         _config_string(to_save, "config_hardcover_token")
-
-        _config_int(to_save, "config_updatechannel")
+        _config_string(to_save, "config_google_books_api_key")
 
         # Reverse proxy login configuration
         _config_checkbox(to_save, "config_allow_reverse_proxy_header_login")
@@ -2506,11 +2371,6 @@ def _handle_new_user(to_save, content, languages, translations, kobo_support):
         content.sidebar_view |= constants.DETAIL_RANDOM
 
     content.role = constants.selected_roles(to_save)
-    # Force dark theme (caliBlur = 1) for new users
-    try:
-        content.theme = 1
-    except Exception:
-        pass
     try:
         if not to_save["name"] or not to_save["email"] or not to_save["password"]:
             log.info("Missing entries on new user")
@@ -2527,7 +2387,6 @@ def _handle_new_user(to_save, content, languages, translations, kobo_support):
     except Exception as ex:
         flash(str(ex), category="error")
         opds_context = _build_opds_context(content)
-        magic_shelf_context = _build_magic_shelf_order_context(content)
         return render_title_template("user_edit.html", new_user=1, content=content,
                                      config=config,
                                      translations=translations,
@@ -2535,10 +2394,7 @@ def _handle_new_user(to_save, content, languages, translations, kobo_support):
                                      kobo_support=kobo_support, registered_oauth=oauth_bb.oauth_check,
                                      opds_root_order_string=opds_context["opds_root_order_string"],
                                      opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
-                                     opds_root_labels=opds_context["opds_root_labels"],
-                                     magic_shelf_order_string=magic_shelf_context["magic_shelf_order_string"],
-                                     magic_shelf_order_labels=magic_shelf_context["magic_shelf_order_labels"],
-                                     magic_shelf_order_mode=magic_shelf_context["magic_shelf_order_mode"])
+                                     opds_root_labels=opds_context["opds_root_labels"])
     try:
         content.allowed_tags = config.config_allowed_tags
         content.denied_tags = config.config_denied_tags
@@ -2601,20 +2457,13 @@ def _handle_edit_user(to_save, content, languages, translations, kobo_support):
             log.error(ex)
             flash(str(ex), category="error")
         return redirect(url_for('admin.admin'))
-    # Theme update for admin editing user (force dark)
-    if 'theme' in to_save:
-        try:
-            content.theme = 1
-        except Exception:
-            pass
-    # Proceed with remaining updates (previously skipped when 'theme' in to_save)
     if not ub.session.query(ub.User).filter(ub.User.role.op('&')(constants.ROLE_ADMIN) == constants.ROLE_ADMIN,
                                             ub.User.id != content.id).count() and 'admin_role' not in to_save:
         log.warning("No admin user remaining, can't remove admin role from {}".format(content.name))
         flash(_("No admin user remaining, can't remove admin role"), category="error")
         return redirect(url_for('admin.admin'))
 
-    val = [int(k[5:]) for k in to_save if k.startswith('show_') and not k.startswith('show_magic_shelf_') and not k.startswith('show_custom_shelf_')]
+    val = [int(k[5:]) for k in to_save if k.startswith('show_')]
     sidebar, __ = get_sidebar_config()
     for element in sidebar:
         value = element['visibility']
@@ -2673,97 +2522,6 @@ def _handle_edit_user(to_save, content, languages, translations, kobo_support):
                 content.view_settings.pop('opds', None)
             flag_modified(content, "view_settings")
 
-    # Magic shelf order settings
-    from . import magic_shelf
-    magic_shelf_order_raw = to_save.get("magic_shelf_order", "").strip()
-    magic_shelf_order_mode = to_save.get("magic_shelf_order_mode", magic_shelf.DEFAULT_MAGIC_SHELF_ORDER_MODE)
-    if magic_shelf_order_mode not in magic_shelf.MAGIC_SHELF_ORDER_MODES:
-        magic_shelf_order_mode = magic_shelf.DEFAULT_MAGIC_SHELF_ORDER_MODE
-
-    accessible_shelves = ub.session.query(ub.MagicShelf).filter(
-        or_(
-            ub.MagicShelf.is_public == 1,
-            ub.MagicShelf.user_id == content.id
-        )
-    ).all()
-    accessible_ids = {s.id for s in accessible_shelves}
-    magic_shelf_order_list = []
-    if magic_shelf_order_raw:
-        for item in [item.strip() for item in magic_shelf_order_raw.split(',') if item.strip()]:
-            try:
-                shelf_id = int(item)
-            except ValueError:
-                continue
-            if shelf_id in accessible_ids and shelf_id not in magic_shelf_order_list:
-                magic_shelf_order_list.append(shelf_id)
-
-    if content.view_settings is None:
-        content.view_settings = {}
-    magic_shelf_settings = content.view_settings.setdefault('magic_shelves', {})
-    magic_shelf_settings['order_mode'] = magic_shelf_order_mode
-    if magic_shelf_order_list:
-        magic_shelf_settings['order'] = magic_shelf_order_list
-    else:
-        magic_shelf_settings.pop('order', None)
-    flag_modified(content, "view_settings")
-    
-    # Handle hidden magic shelf templates and custom shelves
-    if not content.is_anonymous:
-        # Get all system template keys
-        all_template_keys = set(magic_shelf.SYSTEM_SHELF_TEMPLATES.keys())
-        # Get currently hidden items for this user
-        current_hidden = ub.session.query(ub.HiddenMagicShelfTemplate).filter(
-            ub.HiddenMagicShelfTemplate.user_id == content.id
-        ).all()
-        current_hidden_template_keys = {h.template_key for h in current_hidden if h.template_key}
-        current_hidden_shelf_ids = {h.shelf_id for h in current_hidden if h.shelf_id}
-        
-        # Handle system templates
-        visible_template_keys = {key for key in all_template_keys if to_save.get(f"show_magic_shelf_{key}") == "on"}
-        should_be_hidden_templates = all_template_keys - visible_template_keys
-        
-        # Add newly hidden templates
-        for key in should_be_hidden_templates:
-            if key not in current_hidden_template_keys:
-                new_hidden = ub.HiddenMagicShelfTemplate(
-                    user_id=content.id,
-                    template_key=key
-                )
-                ub.session.add(new_hidden)
-                log.info(f"User {content.id} hid system shelf template '{key}'")
-        
-        # Remove templates that should no longer be hidden
-        for hidden in current_hidden:
-            if hidden.template_key and hidden.template_key in visible_template_keys:
-                ub.session.delete(hidden)
-                log.info(f"User {content.id} unhid system shelf template '{hidden.template_key}'")
-        
-        # Handle custom public shelves - get all available ones
-        all_public_shelves = ub.session.query(ub.MagicShelf).filter(
-            ub.MagicShelf.is_public == 1,
-            ub.MagicShelf.user_id != content.id,
-            ub.MagicShelf.is_system == False
-        ).all()
-        
-        # Check which ones should be visible (checked)
-        visible_shelf_ids = {s.id for s in all_public_shelves if to_save.get(f"show_custom_shelf_{s.id}") == "on"}
-        
-        # Hide shelves that are unchecked but not currently hidden
-        for shelf in all_public_shelves:
-            if shelf.id not in visible_shelf_ids and shelf.id not in current_hidden_shelf_ids:
-                new_hidden = ub.HiddenMagicShelfTemplate(
-                    user_id=content.id,
-                    shelf_id=shelf.id
-                )
-                ub.session.add(new_hidden)
-                log.info(f"User {content.id} hid custom shelf {shelf.id}")
-        
-        # Unhide shelves that are checked but currently hidden
-        for hidden in current_hidden:
-            if hidden.shelf_id and hidden.shelf_id in visible_shelf_ids:
-                ub.session.delete(hidden)
-                log.info(f"User {content.id} unhid custom shelf {hidden.shelf_id}")
-    
     if to_save.get("default_language"):
         content.default_language = to_save["default_language"]
     if to_save.get("locale"):
@@ -2801,7 +2559,6 @@ def _handle_edit_user(to_save, content, languages, translations, kobo_support):
         log.error(ex)
         flash(str(ex), category="error")
         opds_context = _build_opds_context(content)
-        magic_shelf_context = _build_magic_shelf_order_context(content)
         return render_title_template("user_edit.html",
                                      translations=translations,
                                      languages=languages,
@@ -2814,9 +2571,6 @@ def _handle_edit_user(to_save, content, languages, translations, kobo_support):
                                      opds_root_order_string=opds_context["opds_root_order_string"],
                                      opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
                                      opds_root_labels=opds_context["opds_root_labels"],
-                                     magic_shelf_order_string=magic_shelf_context["magic_shelf_order_string"],
-                                     magic_shelf_order_labels=magic_shelf_context["magic_shelf_order_labels"],
-                                     magic_shelf_order_mode=magic_shelf_context["magic_shelf_order_mode"],
                                      title=_("Edit User %(nick)s", nick=content.name),
                                      page="edituser")
     try:
@@ -3109,7 +2863,7 @@ def restore_calibre_db():
         book_tables = [
             "book_shelf_link", "book_read_link", "bookmark", "archived_book", "kobo_synced_books",
             "kobo_reading_state", "kobo_bookmark", "kobo_statistics", "kobo_annotation_sync",
-            "hardcover_book_blacklist", "hardcover_match_queue", "downloads", "magic_shelf_cache"
+            "hardcover_book_blacklist", "hardcover_match_queue", "downloads"
         ]
         try:
             for table in book_tables:

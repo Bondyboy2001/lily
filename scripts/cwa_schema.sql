@@ -13,45 +13,19 @@ CREATE TABLE IF NOT EXISTS cwa_import(
     filename TEXT NOT NULL,
     original_backed_up TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS cwa_conversions(
-    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-    timestamp TEXT NOT NULL,
-    filename TEXT NOT NULL,
-    original_format TEXT NOT NULL,
-    original_backed_up TEXT NOT NULL,
-    end_format TEXT DEFAULT "" NOT NULL
-);
-CREATE TABLE IF NOT EXISTS epub_fixes(
-    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-    timestamp TEXT NOT NULL,
-    filename TEXT NOT NULL,
-    manually_triggered TEXT NOT NULL,
-    num_of_fixes_applied TEXT NOT NULL,
-    original_backed_up TEXT NOT NULL,
-    file_path TEXT NOT NULL,
-    fixes_applied TEXT DEFAULT ""
-);
 CREATE TABLE IF NOT EXISTS cwa_settings(
     default_settings SMALLINT DEFAULT 1 NOT NULL,
     auto_backup_imports SMALLINT DEFAULT 1 NOT NULL,
-    auto_backup_conversions SMALLINT DEFAULT 1 NOT NULL,
     auto_zip_backups SMALLINT DEFAULT 1 NOT NULL,
     cwa_update_notifications SMALLINT DEFAULT 1 NOT NULL,
     contribute_translations_notifications SMALLINT DEFAULT 1 NOT NULL,
-    auto_convert SMALLINT DEFAULT 1 NOT NULL,
-    auto_convert_target_format TEXT DEFAULT "epub" NOT NULL,
-    auto_convert_ignored_formats TEXT DEFAULT "" NOT NULL,
     auto_ingest_ignored_formats TEXT DEFAULT "" NOT NULL,
-    auto_convert_retained_formats TEXT DEFAULT "" NOT NULL,
     auto_ingest_automerge TEXT DEFAULT "new_record" NOT NULL,
     ingest_timeout_minutes INTEGER DEFAULT 15 NOT NULL,
     ingest_stale_temp_minutes INTEGER DEFAULT 120 NOT NULL,
     ingest_stale_temp_interval INTEGER DEFAULT 600 NOT NULL,
     auto_metadata_enforcement SMALLINT DEFAULT 1 NOT NULL,
-    kindle_epub_fixer SMALLINT DEFAULT 1 NOT NULL,
-    kindle_epub_fixer_aggressive SMALLINT DEFAULT 0 NOT NULL,
     koreader_sync_enabled SMALLINT DEFAULT 0 NOT NULL,
-    auto_backup_epub_fixes SMALLINT DEFAULT 1 NOT NULL,
     archived_cleanup_enabled SMALLINT DEFAULT 1 NOT NULL,
     archived_cleanup_schedule TEXT DEFAULT 'daily' NOT NULL,
     archived_cleanup_schedule_day TEXT DEFAULT 'sunday' NOT NULL,
@@ -70,7 +44,7 @@ CREATE TABLE IF NOT EXISTS cwa_settings(
     auto_metadata_update_identifiers SMALLINT DEFAULT 1 NOT NULL,
     auto_metadata_update_cover SMALLINT DEFAULT 1 NOT NULL,
     cover_download_max_mb INTEGER DEFAULT 15 NOT NULL,
-    metadata_provider_hierarchy TEXT DEFAULT '["ibdb","google","dnb"]' NOT NULL,
+    metadata_provider_hierarchy TEXT DEFAULT '["google","openlibrary","hardcover","googlescholar"]' NOT NULL,
     metadata_providers_enabled TEXT DEFAULT '{}' NOT NULL,
     auto_send_delay_minutes INTEGER DEFAULT 5 NOT NULL,
     duplicate_detection_title SMALLINT DEFAULT 1 NOT NULL,

@@ -440,70 +440,57 @@ class TestValidEmail:
 # Tests for valid_password()
 # ============================================================================
 
+POLICY_FLAGS = ("config_password_number", "config_password_lower", "config_password_upper",
+                "config_password_character", "config_password_special")
+
+
+@pytest.fixture
+def password_policy(monkeypatch):
+    """Turns the policy on with every rule off; each test enables the rule it checks.
+
+    raising=False because unit tests run without a loaded settings table."""
+    import cps.helper
+    monkeypatch.setattr(cps.helper, "_", lambda message, **kwargs: message)  # Babel isn't initialised here
+    monkeypatch.setattr(config, "config_password_policy", True, raising=False)
+    monkeypatch.setattr(config, "config_password_min_length", 0, raising=False)
+    for flag in POLICY_FLAGS:
+        monkeypatch.setattr(config, flag, False, raising=False)
+    return lambda **rules: [monkeypatch.setattr(config, k, v) for k, v in rules.items()]
+
+
 class TestValidPassword:
     """Test password validation logic"""
-    
-    @pytest.mark.skip(reason="Password validation not modified in CWA - inherited from Calibre-Web")
-    def test_no_policy_allows_any_password(self):
-        """Test any password allowed when policy disabled"""
-        # Temporarily disable policy
-        original = config.config_password_policy
-        try:
-            config.config_password_policy = False
-            result = valid_password("abc")
-            assert result == "abc"
-        finally:
-            config.config_password_policy = original
-    
-    @pytest.mark.skip(reason="Password validation not modified in CWA - inherited from Calibre-Web")
-    def test_min_length_enforced(self):
-        """Test minimum length requirement"""
-        # Valid: meets 8 char minimum
-        assert valid_password("abcdefgh") == "abcdefgh"
-        
-        # Invalid: too short
+
+    def test_no_policy_allows_any_password(self, password_policy, monkeypatch):
+        monkeypatch.setattr(config, "config_password_policy", False)
+        monkeypatch.setattr(config, "config_password_min_length", 99)
+        assert valid_password("abc") == "abc"
+
+    @pytest.mark.parametrize("rule, good, bad", [
+        ({"config_password_min_length": 8}, "abcdefgh", "abc"),
+        ({"config_password_number": True}, "abc123", "abcdef"),
+        ({"config_password_lower": True}, "ABCabc", "ABC123"),
+        ({"config_password_upper": True}, "abcABC", "abc123"),
+        ({"config_password_character": True}, "123abc", "123456"),
+        ({"config_password_special": True}, "abc@123", "abc123"),
+    ], ids=["min-length", "number", "lowercase", "uppercase", "letter", "special"])
+    def test_each_rule_is_enforced(self, password_policy, rule, good, bad):
+        password_policy(**rule)
+        assert valid_password(good) == good
         with pytest.raises(Exception, match="Password doesn't comply"):
-            valid_password("abc")
-    
-    @pytest.mark.skip(reason="Password validation not modified in CWA - inherited from Calibre-Web")
-    def test_number_requirement(self):
-        """Test digit requirement"""
-        # Valid: contains digit
-        assert valid_password("abc123") == "abc123"
-        
-        # Invalid: no digit
-        with pytest.raises(Exception, match="Password doesn't comply"):
-            valid_password("abcdef")
-    
-    @pytest.mark.skip(reason="Password validation not modified in CWA - inherited from Calibre-Web")
-    def test_lowercase_requirement(self):
-        """Test lowercase letter requirement"""
-        # Valid: contains lowercase
-        assert valid_password("ABCabc") == "ABCabc"
-        
-        # Invalid: no lowercase
-        with pytest.raises(Exception, match="Password doesn't comply"):
-            valid_password("ABC123")
-    
-    @pytest.mark.skip(reason="Password validation not modified in CWA - inherited from Calibre-Web")
-    def test_uppercase_requirement(self):
-        """Test uppercase letter requirement"""
-        # Valid: contains uppercase
-        assert valid_password("abcABC") == "abcABC"
-        
-        # Invalid: no uppercase
-        with pytest.raises(Exception, match="Password doesn't comply"):
-            valid_password("abc123")
-    
-    @pytest.mark.skip(reason="Password validation not modified in CWA - inherited from Calibre-Web")
-    def test_special_char_requirement(self):
-        """Test special character requirement"""
-        # Valid: contains special char
-        assert valid_password("abc@123") == "abc@123"
-        
-        # Invalid: no special char
-        with pytest.raises(Exception, match="Password doesn't comply"):
-            valid_password("abc123")
+            valid_password(bad)
+
+    def test_rules_combine(self, password_policy):
+        password_policy(config_password_min_length=8, config_password_number=True,
+                        config_password_upper=True, config_password_special=True)
+        assert valid_password("Tulips!2026") == "Tulips!2026"
+        for bad in ("Tul!2", "tulips!2026", "Tulips!here", "Tulips2026"):
+            with pytest.raises(Exception, match="Password doesn't comply"):
+                valid_password(bad)
+
+    def test_unicode_letters_count_as_cased(self, password_policy):
+        password_policy(config_password_lower=True, config_password_upper=True)
+        assert valid_password("Ångström") == "Ångström"
 
 
 # ============================================================================

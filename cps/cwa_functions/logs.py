@@ -14,12 +14,8 @@ from ..admin import admin_required
 from ..render_template import render_title_template
 
 import subprocess
-from pathlib import Path
 
 import os
-from datetime import datetime
-import re
-import shutil
 from werkzeug.utils import secure_filename
 
 from .common import cwa_check_status, cwa_logs, LOG_ARCHIVE
@@ -111,26 +107,12 @@ def read_log(log_filename):
             log = (f"[... earlier lines omitted - showing the last {READ_LOG_MAX_LINES} lines. "
                    f"Use Download Log for the full file ...]\n\n") + log
 
-        return render_title_template('cwa_read_log.html', title=_(f"Lily - Log Archive - Read Log - {log_filename}"), page="cwa-log-read",
+        return render_title_template('cwa_read_log.html', title=_("Lily - Log Archive - Read Log - %(filename)s", filename=log_filename), page="cwa-log-read",
                                     log_filename=log_filename, log=log)
     
     except Exception as e:
         # Handle any other errors
         abort(400)  # Bad request for malformed or unsafe file paths
-
-##——————————————LOG ARCHIVE HELPERS (used by Convert Library / EPUB Fixer)——————————————##
-
-def extract_progress(log_content):
-    """Analyses a log's given contents & returns the processes current progress as a dict"""
-    # Regex to find all progress matches (e.g., "n/n")
-    matches = re.findall(r'(\d+)/(\d+)', log_content)
-    if matches:
-        # Convert the matches to integers and take the last one
-        current, total = map(int, matches[-1])
-        return {"current": current, "total": total}
-    return {"current": 0, "total": 0}
-
-_PROGRESS_RE = re.compile(r'(\d+)/(\d+)')
 
 def read_log_tail(log_path, max_lines):
     """Return (tail_text, truncated) with at most the last max_lines lines of log_path.
@@ -158,49 +140,3 @@ def read_log_tail(log_path, max_lines):
         lines = lines[-(max_lines + trailing):]
         truncated = True
     return '\n'.join(lines), truncated
-
-def extract_progress_from_file(log_path, tail_text=None, truncated=False):
-    """extract_progress() for a log file without loading it all.
-
-    The last "n/n" match in the file is the last match in its tail when the tail has one; only
-    when it doesn't (and the tail isn't the whole file) is the file scanned line by line.
-    A match can't span lines (\\d never matches a newline), so the per-line scan is equivalent.
-    """
-    if tail_text is not None and (not truncated or _PROGRESS_RE.search(tail_text)):
-        return extract_progress(tail_text)
-    last = None
-    with open(log_path, 'r', errors='replace') as f:
-        for line in f:
-            matches = _PROGRESS_RE.findall(line)
-            if matches:
-                last = matches[-1]
-    if last:
-        current, total = map(int, last)
-        return {"current": current, "total": total}
-    return {"current": 0, "total": 0}
-
-def archive_run_log(log_path):
-    try:
-        log_name = Path(log_path).stem + f"-{datetime.now().strftime('%Y-%m-%d-%H%M%S')}.log"
-        shutil.copy2(log_path, f"{LOG_ARCHIVE}/{log_name}")
-        print(f"[cwa-functions] Log '{log_path}' has been successfully archived as {log_name} in '{LOG_ARCHIVE}'")
-    except Exception as e:
-        print(f"[cwa-functions] The following error occurred when trying to back up {log_path} at {datetime.now()}:\n{e}")
-
-def get_logs_from_archive(log_name) -> dict[str,str]:
-    logs = {}
-    logs_in_archive = [os.path.join(dirpath,f) for (dirpath, dirnames, filenames) in os.walk(LOG_ARCHIVE) for f in filenames]
-    for log in logs_in_archive:
-        if log_name in log:
-            logs |= {os.path.basename(log):log}
-
-    return logs
-
-def get_log_dates(logs) -> dict[str,str]:
-    log_dates = {}
-    for log in logs:
-        log_date, time = re.findall(r"([0-9]{4}-[0-9]{2}-[0-9]{2})-([0-9]+)+", log)[0]
-        log_time = f"{time[:2]}:{time[2:4]}:{time[-2:]}"
-        log_dates |= {log:{"date":log_date,
-                            "time":log_time}}
-    return log_dates

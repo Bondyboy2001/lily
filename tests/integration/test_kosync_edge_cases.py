@@ -18,7 +18,7 @@ class TestKOSyncValidationEdgeCases:
 
     def test_document_id_at_max_length(self, cwa_api_client):
         """Test document ID at maximum allowed length (255 chars)"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -44,7 +44,7 @@ class TestKOSyncValidationEdgeCases:
 
     def test_document_id_exceeds_max_length(self, cwa_api_client):
         """Test document ID exceeding maximum length is rejected"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -70,7 +70,7 @@ class TestKOSyncValidationEdgeCases:
 
     def test_progress_string_at_max_length(self, cwa_api_client):
         """Test progress string at maximum length (255 chars)"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -95,7 +95,7 @@ class TestKOSyncValidationEdgeCases:
 
     def test_progress_string_exceeds_max_length(self, cwa_api_client):
         """Test progress string exceeding maximum length is rejected"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -120,7 +120,7 @@ class TestKOSyncValidationEdgeCases:
 
     def test_device_name_at_max_length(self, cwa_api_client):
         """Test device name at maximum length (100 chars)"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -145,7 +145,7 @@ class TestKOSyncValidationEdgeCases:
 
     def test_device_name_exceeds_max_length(self, cwa_api_client):
         """Test device name exceeding maximum length is rejected"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -170,7 +170,7 @@ class TestKOSyncValidationEdgeCases:
 
     def test_percentage_at_zero(self, cwa_api_client):
         """Test percentage at exactly 0.0"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -194,7 +194,7 @@ class TestKOSyncValidationEdgeCases:
 
     def test_percentage_at_one_hundred(self, cwa_api_client):
         """Test percentage at exactly 100.0 (as 1.0 decimal)"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -218,7 +218,7 @@ class TestKOSyncValidationEdgeCases:
 
     def test_percentage_negative(self, cwa_api_client):
         """Test negative percentage is rejected"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -242,7 +242,7 @@ class TestKOSyncValidationEdgeCases:
 
     def test_percentage_above_one_hundred(self, cwa_api_client):
         """Test percentage above 100 is rejected"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -266,7 +266,7 @@ class TestKOSyncValidationEdgeCases:
 
     def test_document_id_with_colon_rejected(self, cwa_api_client):
         """Test document ID containing colon is rejected"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'

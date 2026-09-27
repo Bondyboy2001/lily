@@ -1,0 +1,206 @@
+/*
+ * Lily login page: a bookplate beside the sign-in form.
+ *
+ * Left: an ex-libris plate on `sunk` with the lily mark. Right: the form on `paper`.
+ * The page covers the viewport with a fixed layer, so the shell's top bar is hidden here.
+ * Controls are the shared ones from lily.css (.btn-primary, .form-control, .alert, .icon-btn).
+ */
+
+.lily-login {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    overflow-y: auto;
+    background: var(--paper);
+    color: var(--ink);
+}
+
+/* The page's own messages replace the shell's flash notices. */
+body.login .lily-sidebar,
+body.login .lily-scrim,
+body.login .lily-topbar,
+body.login .lily-topbar ~ .row-fluid {
+    display: none;
+}
+
+/* ---- The plate ---- */
+.lily-plate {
+    display: flex;
+    min-height: 100vh;
+    padding: 24px;
+    border-right: 1px solid var(--line);
+    background: var(--sunk);
+}
+
+.lily-plate-frame {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    border: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+    outline: 1px solid color-mix(in srgb, var(--accent) 38%, transparent);
+    outline-offset: -7px;
+    text-align: center;
+}
+
+.lily-login .lily-plate-flower {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    height: min(46vh, 420px);
+    margin: 0 0 24px;
+}
+
+.lily-plate-exlibris {
+    margin: 0 0 4px;
+    color: var(--accent);
+    font-family: var(--font-body);
+    font-size: 17px;
+    font-style: italic;
+}
+
+.lily-plate-name {
+    max-width: 12em;
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: clamp(40px, 5vw, 64px);
+    font-weight: 600;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+}
+
+/* ---- The desk ---- */
+.lily-desk {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 48px 24px;
+}
+
+.lily-desk-inner {
+    width: 100%;
+    max-width: 320px;
+}
+
+.lily-desk-title {
+    margin: 0 0 22px;
+    font-size: 22px;
+}
+
+.lily-login-form { margin: 0; }
+
+.lily-login-form .form-control { width: 100%; }
+
+.lily-login-password { position: relative; }
+
+.lily-login-password .form-control { padding-right: 38px; }
+
+.lily-login-password .icon-btn {
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
+.lily-login-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 22px;
+}
+
+.lily-login-remember {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-weight: 400;
+    cursor: pointer;
+}
+
+.lily-login-form .alert { margin: 0 0 14px; }
+
+.lily-login-note { color: var(--muted); }
+
+/* ---- Other ways in ---- */
+.lily-login-alt {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 22px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+}
+
+.lily-login-alt .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.lily-login-alt .btn + .btn { margin-top: 0; }
+
+.lily-login-alt svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    fill: currentColor;
+}
+
+.lily-login-links {
+    display: flex;
+    justify-content: center;
+    gap: 22px;
+    margin: 8px 0 0;
+}
+
+/* ---- Phone: the plate becomes a band across the top ---- */
+@media (max-width: 860px) {
+    .lily-login {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .lily-plate {
+        flex: none;
+        min-height: 0;
+        padding: 14px;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .lily-plate-frame {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        column-gap: 14px;
+        padding: 14px 22px;
+        outline-offset: -6px;
+        text-align: left;
+    }
+
+    .lily-login .lily-plate-flower {
+        grid-row: 1 / span 2;
+        height: 72px;
+        margin: 0;
+    }
+
+    .lily-plate-exlibris { align-self: end; margin: 0; font-size: 13px; }
+
+    .lily-plate-name { align-self: start; font-size: 32px; }
+
+    .lily-desk {
+        flex: 1 0 auto;
+        min-height: 0;
+        align-items: flex-start;
+        padding: 24px 16px 48px;
+    }
+}

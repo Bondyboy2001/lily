@@ -46,6 +46,8 @@ class MetaRecord:
 class Metadata:
     __name__ = "Generic"
     __id__ = "generic"
+    # Whether the provider is on when the admin hasn't switched it either way
+    default_enabled = True
 
     def __init__(self):
         self.active = True
@@ -53,11 +55,22 @@ class Metadata:
     def set_status(self, state):
         self.active = state
 
+    def is_globally_enabled(self, enabled_map: Dict[str, bool]) -> bool:
+        return bool(enabled_map.get(self.__id__, self.default_enabled))
+
     @abc.abstractmethod
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
     ) -> Optional[List[MetaRecord]]:
         pass
+
+    def search_identifiers(
+        self, identifiers: Dict[str, str], generic_cover: str = "", locale: str = "en"
+    ) -> List[MetaRecord]:
+        """Exact lookup by the book's identifiers (lower-case type -> value, e.g.
+        {"isbn": ..., "doi": ..., "arxiv": ...}). Providers that can't look up by id
+        return nothing."""
+        return []
 
     @staticmethod
     def get_title_tokens(

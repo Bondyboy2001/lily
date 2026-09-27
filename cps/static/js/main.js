@@ -130,23 +130,14 @@ $(".container-fluid").bind('drop', function (e) {
             }
         });
         if (dt.files.length) {
-            if($("#btn-upload-format").length) {
-                $("#btn-upload-format")[0].files = dt.files;
-                $("#form-upload-format").submit();
-            } else {
-                $("#btn-upload")[0].files = dt.files;
-                $("#form-upload").submit();
-            }
+            $("#btn-upload")[0].files = dt.files;
+            $("#form-upload").submit();
         }
     }
 });
 
 $("#btn-upload").change(function() {
     $("#form-upload").submit();
-});
-
-$("#btn-upload-format").change(function() {
-    $("#form-upload-format").submit();
 });
 
 
@@ -156,14 +147,6 @@ $("#form-upload").uploadprogress({
     modalTitle: $("#form-upload").data("title"),
     modalFooter: $("#form-upload").data("footer"),
     modalTitleFailed: $("#form-upload").data("failed")
-});
-
-$("#form-upload-format").uploadprogress({
-    redirect_url: getPath() + "/",
-    uploadedMsg: $("#form-upload-format").data("message"),
-    modalTitle: $("#form-upload-format").data("title"),
-    modalFooter: $("#form-upload-format").data("footer"),
-    modalTitleFailed: $("#form-upload-format").data("failed")
 });
 
 $(document).ready(function() {
@@ -411,7 +394,8 @@ $(function() {
         selectedLayoutMode = "fitRows";
     }
 
-    $(".discover .row").filter(function() {
+    // Lily's cover grids (.lily-grid) are CSS grids; Isotope only lays out the older rows.
+    $(".discover .row").not(".lily-grid").filter(function() {
         return $(this).find(".book").length > 0;
     }).isotope({
         // options
@@ -812,16 +796,7 @@ $(function() {
 
     $("#toggle_order_shelf").click(function() {
         $("#toggle_order_shelf").toggleClass("dummy");
-        $("#new").toggleClass("disabled");
-        $("#old").toggleClass("disabled");
-        $("#asc").toggleClass("disabled");
-        $("#desc").toggleClass("disabled");
-        $("#auth_az").toggleClass("disabled");
-        $("#auth_za").toggleClass("disabled");
-        $("#pub_new").toggleClass("disabled");
-        $("#pub_old").toggleClass("disabled");
-        $("#shelf_new").toggleClass("disabled");
-        $("#shelf_old").toggleClass("disabled");
+        $(".lily-sort .dropdown-menu a").toggleClass("disabled");
         var alternative_text = $("#toggle_order_shelf").data('alt-text');
         var status = $("#toggle_order_shelf").hasClass("dummy") ? "on" : "off";
         $("#toggle_order_shelf").data('alt-text', $("#toggle_order_shelf").html());
@@ -1050,74 +1025,30 @@ $(function() {
         }).isotope("layout");
     });
 
-    $(".update-view").click(function(e) {
-        var view = $(this).data("view");
+    // Grid/List icons in the list toolbar. Book pages switch in place; the series
+    // page renders a different template per view, so it reloads.
+    $(".lily-view-switch [data-view]").click(function(e) {
+        var $btn = $(this);
+        var view = $btn.data("view");
+        var kind = $btn.closest(".lily-view-switch").data("kind");
         e.preventDefault();
-        e.stopPropagation();
+        if ($btn.attr("aria-pressed") === "true") { return; }
+        var settings = kind === "series" ? {series: {series_view: view}} : {books: {view: view}};
+        if (kind !== "series") {
+            document.body.setAttribute("data-book-view", view);
+            $btn.siblings("[data-view]").addBack().each(function() {
+                $(this).attr("aria-pressed", $(this).data("view") === view ? "true" : "false");
+            });
+        }
         $.ajax({
-            method:"post",
+            method: "post",
             contentType: "application/json; charset=utf-8",
             dataType: "json",
             url: getPath() + "/ajax/view",
-            data: "{\"series\": {\"series_view\": \""+ view +"\"}}",
+            data: JSON.stringify(settings),
             success: function success() {
-                location.reload();
+                if (kind === "series") { location.reload(); }
             }
         });
     });
 });
-
-// Lily colour theme toggle (dark -> light -> system). The initial attributes are set by an
-// inline script in layout.html <head> so the page never flashes the wrong theme.
-(function () {
-    var STORAGE_KEY = "lily-theme";
-    var ORDER = ["dark", "light", "system"];
-    var root = document.documentElement;
-    var mql = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
-
-    function readPref() {
-        var pref = root.getAttribute("data-theme-pref") || "dark";
-        return ORDER.indexOf(pref) === -1 ? "dark" : pref;
-    }
-
-    function effectiveFor(pref) {
-        if (pref === "system") {
-            return (mql && mql.matches) ? "light" : "dark";
-        }
-        return pref;
-    }
-
-    function apply(pref) {
-        var effective = effectiveFor(pref);
-        root.setAttribute("data-theme-pref", pref);
-        root.setAttribute("data-theme", effective);
-        var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) { meta.setAttribute("content", effective === "light" ? "#f5f2ed" : "#1f1f1f"); }
-        var $btn = $("#cwa-switch-theme");
-        if ($btn.length) {
-            var label = $btn.attr("data-label-" + pref) || pref;
-            $btn.attr("aria-label", label).attr("data-original-title", label).attr("title", label);
-            $btn.find(".theme-label").text(label);
-            if ($btn.data("bs.tooltip")) { $btn.tooltip("fixTitle"); }
-        }
-    }
-
-    $(function () {
-        apply(readPref());
-        $("#cwa-switch-theme").on("click", function (e) {
-            e.preventDefault();
-            var next = ORDER[(ORDER.indexOf(readPref()) + 1) % ORDER.length];
-            try { window.localStorage.setItem(STORAGE_KEY, next); } catch (err) { /* storage blocked: theme lasts for this page only */ }
-            apply(next);
-            var $btn = $(this);
-            if ($btn.data("bs.tooltip")) { $btn.tooltip("show"); }
-        });
-        if (mql) {
-            var onSystemChange = function () {
-                if (readPref() === "system") { apply("system"); }
-            };
-            if (mql.addEventListener) { mql.addEventListener("change", onSystemChange); }
-            else if (mql.addListener) { mql.addListener(onSystemChange); }
-        }
-    });
-})();

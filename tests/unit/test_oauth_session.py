@@ -175,7 +175,6 @@ module_patches = {
     'cps.reverseproxy': create_mock_module('cps.reverseproxy'),
     'cps.server': create_mock_module('cps.server'),
     'cps.dep_check': create_mock_module('cps.dep_check'),
-    'cps.updater': create_mock_module('cps.updater'),
     'cps.config_sql': create_mock_module('cps.config_sql'),
     'cps.db': create_mock_module('cps.db'),
 }

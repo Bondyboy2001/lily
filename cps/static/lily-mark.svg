@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="660" viewBox="252 160 520 660">
+  <defs>
+    <radialGradient id="throat">
+      <stop offset="0" stop-color="#F3EFC4"/><stop offset="1" stop-color="#F3EFC4" stop-opacity="0"/>
+    </radialGradient>
+    </defs>
+  <g>
+
+    <!-- stem and two narrow lily leaves, drawn first so the bloom sits over them -->
+    <path d="M512,420 Q520,650 512,805" fill="none" stroke="#4F6B4B"
+          stroke-width="27" stroke-linecap="round"/>
+    <path d="M515,750 C452,740 372,700 322,625
+             C402,645 472,685 515,750 Z" fill="#4F6B4B"/>
+    <path d="M516,710 C572,700 642,665 687,600
+             C612,615 552,650 516,710 Z" fill="#5E7D59"/>
+
+    <!-- back row of petals, a shade deeper -->
+    <g transform="translate(512,420) rotate(-90)"><path d="M0,0 C 58.75,-58 145.7,-64 202.1,-30 C 223.25,-16 235,-4 239.70000000000002,6 C 211.5,30 141.0,62 65.80000000000001,52 C 28.2,40 9.4,20 0,0 Z" fill="#D9708F"/><path d="M18.8,2 C 82.25,4 152.75,0 220.89999999999998,2" fill="none" stroke="#C25478" stroke-width="7" stroke-linecap="round"/></g>
+    <g transform="translate(512,420) rotate(30)"><path d="M0,0 C 58.75,-58 145.7,-64 202.1,-30 C 223.25,-16 235,-4 239.70000000000002,6 C 211.5,30 141.0,62 65.80000000000001,52 C 28.2,40 9.4,20 0,0 Z" fill="#D9708F"/><path d="M18.8,2 C 82.25,4 152.75,0 220.89999999999998,2" fill="none" stroke="#C25478" stroke-width="7" stroke-linecap="round"/></g>
+    <g transform="translate(512,420) rotate(150)"><path d="M0,0 C 58.75,-58 145.7,-64 202.1,-30 C 223.25,-16 235,-4 239.70000000000002,6 C 211.5,30 141.0,62 65.80000000000001,52 C 28.2,40 9.4,20 0,0 Z" fill="#D9708F"/><path d="M18.8,2 C 82.25,4 152.75,0 220.89999999999998,2" fill="none" stroke="#C25478" stroke-width="7" stroke-linecap="round"/></g>
+    <!-- front row -->
+    <g transform="translate(512,420) rotate(-30)"><path d="M0,0 C 58.75,-58 145.7,-64 202.1,-30 C 223.25,-16 235,-4 239.70000000000002,6 C 211.5,30 141.0,62 65.80000000000001,52 C 28.2,40 9.4,20 0,0 Z" fill="#EC9AB1"/><path d="M18.8,2 C 82.25,4 152.75,0 220.89999999999998,2" fill="none" stroke="#D9708F" stroke-width="7" stroke-linecap="round"/></g>
+    <g transform="translate(512,420) rotate(90)"><path d="M0,0 C 58.75,-58 145.7,-64 202.1,-30 C 223.25,-16 235,-4 239.70000000000002,6 C 211.5,30 141.0,62 65.80000000000001,52 C 28.2,40 9.4,20 0,0 Z" fill="#EC9AB1"/><path d="M18.8,2 C 82.25,4 152.75,0 220.89999999999998,2" fill="none" stroke="#D9708F" stroke-width="7" stroke-linecap="round"/></g>
+    <g transform="translate(512,420) rotate(210)"><path d="M0,0 C 58.75,-58 145.7,-64 202.1,-30 C 223.25,-16 235,-4 239.70000000000002,6 C 211.5,30 141.0,62 65.80000000000001,52 C 28.2,40 9.4,20 0,0 Z" fill="#EC9AB1"/><path d="M18.8,2 C 82.25,4 152.75,0 220.89999999999998,2" fill="none" stroke="#D9708F" stroke-width="7" stroke-linecap="round"/></g>
+
+    <circle cx="512" cy="420" r="70" fill="url(#throat)"/>
+    <circle cx="507.6" cy="358.2" r="5" fill="#9E2F55"/><circle cx="518.3" cy="340.2" r="5" fill="#9E2F55"/><circle cx="508.9" cy="322.0" r="5" fill="#9E2F55"/><circle cx="523.3" cy="348.9" r="5" fill="#9E2F55"/><circle cx="496.9" cy="333.3" r="5" fill="#9E2F55"/><circle cx="563.4" cy="385.3" r="5" fill="#9E2F55"/><circle cx="584.2" cy="385.6" r="5" fill="#9E2F55"/><circle cx="595.3" cy="368.4" r="5" fill="#9E2F55"/><circle cx="579.2" cy="394.2" r="5" fill="#9E2F55"/><circle cx="579.5" cy="363.6" r="5" fill="#9E2F55"/><circle cx="567.7" cy="447.1" r="5" fill="#9E2F55"/><circle cx="577.9" cy="465.3" r="5" fill="#9E2F55"/><circle cx="598.4" cy="466.3" r="5" fill="#9E2F55"/><circle cx="568.0" cy="465.3" r="5" fill="#9E2F55"/><circle cx="594.6" cy="450.2" r="5" fill="#9E2F55"/><circle cx="516.4" cy="481.8" r="5" fill="#9E2F55"/><circle cx="505.7" cy="499.8" r="5" fill="#9E2F55"/><circle cx="515.1" cy="518.0" r="5" fill="#9E2F55"/><circle cx="500.7" cy="491.1" r="5" fill="#9E2F55"/><circle cx="527.1" cy="506.7" r="5" fill="#9E2F55"/><circle cx="460.6" cy="454.7" r="5" fill="#9E2F55"/><circle cx="439.8" cy="454.4" r="5" fill="#9E2F55"/><circle cx="428.7" cy="471.6" r="5" fill="#9E2F55"/><circle cx="444.8" cy="445.8" r="5" fill="#9E2F55"/><circle cx="444.5" cy="476.4" r="5" fill="#9E2F55"/><circle cx="456.3" cy="392.9" r="5" fill="#9E2F55"/><circle cx="446.1" cy="374.7" r="5" fill="#9E2F55"/><circle cx="425.6" cy="373.7" r="5" fill="#9E2F55"/><circle cx="456.0" cy="374.7" r="5" fill="#9E2F55"/><circle cx="429.4" cy="389.8" r="5" fill="#9E2F55"/>
+    <path d="M512,420 Q484.0,370.1 485.1,319.5" fill="none" stroke="#E9D9A6" stroke-width="6" stroke-linecap="round"/><ellipse cx="485.1" cy="319.5" rx="16" ry="8" fill="#C8662C" transform="rotate(-15 485.1 319.5)"/><path d="M512,420 Q545.1,364.2 595.4,336.6" fill="none" stroke="#E9D9A6" stroke-width="6" stroke-linecap="round"/><ellipse cx="595.4" cy="336.6" rx="16" ry="8" fill="#C8662C" transform="rotate(45 595.4 336.6)"/><path d="M512,420 Q569.2,420.7 612.5,446.9" fill="none" stroke="#E9D9A6" stroke-width="6" stroke-linecap="round"/><ellipse cx="612.5" cy="446.9" rx="16" ry="8" fill="#C8662C" transform="rotate(105 612.5 446.9)"/><path d="M512,420 Q543.8,476.6 542.5,534.0" fill="none" stroke="#E9D9A6" stroke-width="6" stroke-linecap="round"/><ellipse cx="542.5" cy="534.0" rx="16" ry="8" fill="#C8662C" transform="rotate(165 542.5 534.0)"/><path d="M512,420 Q482.8,469.2 438.5,493.5" fill="none" stroke="#E9D9A6" stroke-width="6" stroke-linecap="round"/><ellipse cx="438.5" cy="493.5" rx="16" ry="8" fill="#C8662C" transform="rotate(225 438.5 493.5)"/><path d="M512,420 Q447.1,419.2 398.0,389.5" fill="none" stroke="#E9D9A6" stroke-width="6" stroke-linecap="round"/><ellipse cx="398.0" cy="389.5" rx="16" ry="8" fill="#C8662C" transform="rotate(285 398.0 389.5)"/>
+    <circle cx="512" cy="420" r="11" fill="#7E9C58"/>
+  </g>
+</svg>

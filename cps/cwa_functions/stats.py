@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Stats pages, CSV export and scheduled-job (auto-send / ops) listing and cancel routes."""
+"""Stats pages, CSV export and scheduled auto-send listing and cancel routes."""
 
 from flask import request, jsonify
 from flask_babel import gettext as _
@@ -83,16 +83,8 @@ headers = {
         "with_paths":[
             _("Timestamp"), _("Book ID"), _("Filepath")]
         },
-    "epub_fixer":{
-        "no_fixes":[
-            _("Timestamp"), _("Filename"), _("Manual?"), _("No. Fixes"), _("Original Backed Up?")],
-        "with_fixes":[
-            _("Timestamp"), _("Filename"), _("Filepath"), _("Fixes Applied")]
-        },
     "imports":[
         _("Timestamp"), _("Filename"), _("Original Backed Up?")],
-    "conversions":[
-        _("Timestamp"), _("Filename"), _("Original Format"), _("End Format"), _("Original Backed Up?")],
 }
 
 @cwa_stats.route("/cwa-stats-show", methods=["GET", "POST"])
@@ -227,18 +219,15 @@ def cwa_stats_show():
     if start_date and end_date:
         library_growth = cwa_db.get_library_growth(start_date=start_date, end_date=end_date)
         library_formats = cwa_db.get_library_formats(start_date=start_date, end_date=end_date)
-        conversion_stats = cwa_db.get_conversion_success_rate(start_date=start_date, end_date=end_date)
         books_added_stats = cwa_db.get_books_added_count(start_date=start_date, end_date=end_date)
     else:
         library_growth = cwa_db.get_library_growth(days=days)
         library_formats = cwa_db.get_library_formats(days=days)
-        conversion_stats = cwa_db.get_conversion_success_rate(days=days)
         books_added_stats = cwa_db.get_books_added_count(days=days)
     
     # Get additional library stats (not time-dependent)
     series_completion = cwa_db.get_series_completion_stats(limit=10)
     publication_years = cwa_db.get_publication_year_distribution()
-    most_fixed_books = cwa_db.get_most_fixed_books(limit=10)
     
     # Get Sprint 6 advanced library metrics
     if start_date and end_date:
@@ -247,7 +236,6 @@ def cwa_stats_show():
         rating_statistics = cwa_db.get_rating_statistics(days=days)
     
     top_enforced_books = cwa_db.get_top_enforced_books(limit=10)
-    import_source_flows = cwa_db.get_import_source_flows(limit=15)
     
     # Get Sprint 5 user activity enhancements
     if start_date and end_date:
@@ -269,9 +257,6 @@ def cwa_stats_show():
     data_enforcement = cwa_db.enforce_show(paths=False, verbose=False, web_ui=True)
     data_enforcement_with_paths = cwa_db.enforce_show(paths=True, verbose=False, web_ui=True)
     data_imports = cwa_db.get_import_history(verbose=False)
-    data_conversions = cwa_db.get_conversion_history(verbose=False)
-    data_epub_fixer = cwa_db.get_epub_fixer_history(fixes=False, verbose=False)
-    data_epub_fixer_with_fixes = cwa_db.get_epub_fixer_history(fixes=True, verbose=False)
 
     # Get Hardcover auto-fetch stats
     hardcover_stats = None
@@ -323,14 +308,11 @@ def cwa_stats_show():
                                 api_timing=api_timing,
                                 library_growth=library_growth,
                                 library_formats=library_formats,
-                                conversion_stats=conversion_stats,
                                 books_added_stats=books_added_stats,
                                 series_completion=series_completion,
                                 publication_years=publication_years,
-                                most_fixed_books=most_fixed_books,
                                 rating_statistics=rating_statistics,
                                 top_enforced_books=top_enforced_books,
-                                import_source_flows=import_source_flows,
                                 date_range_label=date_range_label,
                                 show_warning=show_warning,
                                 start_date=start_date,
@@ -344,10 +326,7 @@ def cwa_stats_show():
                                 hardcover_stats=hardcover_stats,
                                 data_enforcement=data_enforcement, headers_enforcement=headers["enforcement"]["no_paths"], 
                                 data_enforcement_with_paths=data_enforcement_with_paths, headers_enforcement_with_paths=headers["enforcement"]["with_paths"], 
-                                data_imports=data_imports, headers_import=headers["imports"],
-                                data_conversions=data_conversions, headers_conversion=headers["conversions"],
-                                data_epub_fixer=data_epub_fixer, headers_epub_fixer=headers["epub_fixer"]["no_fixes"],
-                                data_epub_fixer_with_fixes=data_epub_fixer_with_fixes, headers_epub_fixer_with_fixes=headers["epub_fixer"]["with_fixes"])
+                                data_imports=data_imports, headers_import=headers["imports"])
 
 @cwa_stats.route("/cwa-stats-export-csv/<tab_name>", methods=["GET"])
 @login_required_if_no_ano
@@ -444,12 +423,9 @@ def export_stats_csv(tab_name):
             writer.writerow(['Total Books', cwa_stats['total_books']])
             if start_date and end_date:
                 books_added = cwa_db.get_books_added_count(start_date=start_date, end_date=end_date)
-                conversions = cwa_db.get_conversion_success_rate(start_date=start_date, end_date=end_date)
             else:
                 books_added = cwa_db.get_books_added_count(days=days)
-                conversions = cwa_db.get_conversion_success_rate(days=days)
             writer.writerow(['Books Added', books_added.get('total', 0)])
-            writer.writerow(['Conversions', conversions.get('total', 0)])
             writer.writerow([])
             
             # Library growth
@@ -563,96 +539,6 @@ def export_stats_csv(tab_name):
         return response
 
 
-@cwa_stats.route("/cwa-stats-debug", methods=["GET"])
-@login_required_if_no_ano
-@admin_required
-def debug_stats_data():
-    """Debug endpoint to inspect raw activity data and diagnose parsing issues."""
-    try:
-        cwa_db = CWA_DB()
-        import json as json_module
-        
-        # Get sample of recent activity records WITHOUT json_extract to avoid errors
-        cwa_db.cur.execute("""
-            SELECT 
-                timestamp,
-                user_name,
-                event_type,
-                item_title,
-                extra_data
-            FROM cwa_user_activity
-            WHERE event_type IN ('DOWNLOAD', 'READ', 'EMAIL', 'LOGIN')
-            ORDER BY timestamp DESC
-            LIMIT 100
-        """)
-        
-        records = []
-        json_valid = 0
-        json_invalid = 0
-        
-        for row in cwa_db.cur.fetchall():
-            extra_data_raw = row[4]
-            is_valid_json = False
-            parsed_data = None
-            error_msg = None
-            
-            # Try to parse as JSON
-            if extra_data_raw:
-                try:
-                    parsed_data = json_module.loads(extra_data_raw)
-                    is_valid_json = True
-                    json_valid += 1
-                except Exception as e:
-                    is_valid_json = False
-                    json_invalid += 1
-                    error_msg = str(e)
-            
-            records.append({
-                'timestamp': row[0],
-                'user': row[1],
-                'event': row[2],
-                'item': row[3],
-                'raw_extra_data': extra_data_raw,
-                'is_valid_json': is_valid_json,
-                'parsed_data': parsed_data,
-                'parse_error': error_msg
-            })
-        
-        # Get basic counts
-        cwa_db.cur.execute("""
-            SELECT 
-                event_type,
-                COUNT(*) as count,
-                COUNT(extra_data) as with_extra_data
-            FROM cwa_user_activity
-            GROUP BY event_type
-            ORDER BY count DESC
-        """)
-        
-        event_counts = [{'event_type': row[0], 'total': row[1], 'with_extra_data': row[2]} 
-                       for row in cwa_db.cur.fetchall()]
-        
-        # Try to get valid JSON count (might fail, that's okay)
-        json_stats = {
-            'valid_in_sample': json_valid,
-            'invalid_in_sample': json_invalid,
-            'sample_size': len(records)
-        }
-        
-        return jsonify({
-            'event_counts': event_counts,
-            'json_stats': json_stats,
-            'sample_records': records[:20]  # Only return first 20 to keep response size manageable
-        })
-        
-    except Exception as e:
-        import traceback
-        return jsonify({
-            'error': str(e),
-            'traceback': traceback.format_exc()
-        }), 500
-
-
 @cwa_stats.route('/cwa-scheduled/upcoming', methods=["GET"])
 @login_required_if_no_ano
 @admin_required
@@ -666,23 +552,6 @@ def cwa_scheduled_upcoming():
         log.error(f"Error fetching upcoming scheduled sends: {e}")
         return jsonify({"items": []}), 200
 
-@cwa_stats.route('/cwa-scheduled/upcoming-ops', methods=["GET"])
-@login_required_if_no_ano
-@admin_required
-def cwa_scheduled_upcoming_ops():
-    """Return upcoming scheduled operations (non auto-send), e.g., convert_library, epub_fixer."""
-    try:
-        db = CWA_DB()
-        ops = []
-        for jt in ('convert_library', 'epub_fixer'):
-            ops.extend(db.scheduled_get_upcoming_by_type(jt, limit=100))
-        # sort by time ascending
-        ops.sort(key=lambda r: r.get('run_at_utc') or '')
-        return jsonify({"items": ops}), 200
-    except Exception as e:
-        log.error(f"Error fetching upcoming scheduled ops: {e}")
-        return jsonify({"items": []}), 200
-                                    
 @cwa_stats.route("/cwa-stats-show/full-enforcement", methods=["GET", "POST"])
 @login_required_if_no_ano
 @admin_required
@@ -709,30 +578,3 @@ def show_full_imports():
     data = cwa_db.get_import_history(verbose=True)
     return render_title_template("cwa_stats_full.html", title=_("Lily - Full Import History"), page="cwa-stats-full",
                                     table_headers=headers["imports"], data=data)
-
-@cwa_stats.route("/cwa-stats-show/full-conversions", methods=["GET", "POST"])
-@login_required_if_no_ano
-@admin_required
-def show_full_conversions():
-    cwa_db = CWA_DB()
-    data = cwa_db.get_conversion_history(verbose=True)
-    return render_title_template("cwa_stats_full.html", title=_("Lily - Full Conversion History"), page="cwa-stats-full",
-                                    table_headers=headers["conversions"], data=data)
-
-@cwa_stats.route("/cwa-stats-show/full-epub-fixer", methods=["GET", "POST"])
-@login_required_if_no_ano
-@admin_required
-def show_full_epub_fixer():
-    cwa_db = CWA_DB()
-    data = cwa_db.get_epub_fixer_history(fixes=False, verbose=True)
-    return render_title_template("cwa_stats_full.html", title=_("Lily - Full EPUB Fixer History (w/out Paths & Fixes)"), page="cwa-stats-full",
-                                    table_headers=headers["epub_fixer"]["no_fixes"], data=data)
-
-@cwa_stats.route("/cwa-stats-show/full-epub-fixer-with-paths-fixes", methods=["GET", "POST"])
-@login_required_if_no_ano
-@admin_required
-def show_full_epub_fixer_with_paths_fixes():
-    cwa_db = CWA_DB()
-    data = cwa_db.get_epub_fixer_history(fixes=True, verbose=True)
-    return render_title_template("cwa_stats_full.html", title=_("Lily - Full EPUB Fixer History (w/ Paths & Fixes)"), page="cwa-stats-full",
-                                    table_headers=headers["epub_fixer"]["with_fixes"], data=data)

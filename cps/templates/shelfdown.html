@@ -14,17 +14,17 @@
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link href="{{ url_for('static', filename='css/libs/bootstrap.min.css') }}" rel="stylesheet" media="screen">
+    <link href="{{ url_for('static', filename='css/lily-icons.css') }}" rel="stylesheet" media="screen">
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" media="screen">
-    {% if g.current_theme == 1 %}
-       <link href="{{ url_for('static', filename='css/caliBlur.css') }}" rel="stylesheet" media="screen">
-       <link href="{{ url_for('static', filename='css/caliBlur_override.css') }}" rel="stylesheet" media="screen">
-    {% endif %}
+    <link href="{{ url_for('static', filename='css/lily.css') }}" rel="stylesheet" media="screen">
+    <link href="{{ url_for('static', filename='css/lily-admin.css') }}" rel="stylesheet" media="screen">
+    <meta name="theme-color" content="#FDFCFA">
     {% block header %}{% endblock %}
   </head>
-  <body class="{{ page }} shelf-down">
+  <body class="{{ page }} shelf-down lily-standalone">
 {% block body %}
-<div class="discover">
-  <h2>{{title}}</h2>
+<main class="discover lily-standalone-main lily-shelfdown">
+  <h1>{{title}}</h1>
   <div class="row display-flex">
 
     {% for entry in entries %}
@@ -50,13 +50,13 @@
         {% endif %}
       </div>
 
-	  <div class="btn-group" role="group" aria-label="Download, send to eReader, reading">
+	  <div class="btn-group lily-actions" role="group" aria-label="Download, send to eReader, reading">
           {% if current_user.role_download() %}
             {% if entry.Books.data|length %}
             <div class="btn-group" role="group">
                 {% for format in entry.Books.data %}
-                <a href="{{ url_for('web.download_link', book_id=entry.Books.id, book_format=format.format|lower, anyname=entry.Books.id|string+'.'+format.format|lower|replace('kepub', 'kepub.epub')) }}" id="btnGroupDrop{{entry.Books.id}}{{format.format|lower}}" class="btn btn-primary" role="button">
-                  <span class="glyphicon glyphicon-download"></span>{{format.format}} ({{ format.uncompressed_size|filesizeformat_binary }})
+                <a href="{{ url_for('web.download_link', book_id=entry.Books.id, book_format=format.format|lower, anyname=entry.Books.id|string+'.'+format.format|lower|replace('kepub', 'kepub.epub')) }}" id="btnGroupDrop{{entry.Books.id}}{{format.format|lower}}" class="btn btn-default" role="button">
+                  <span class="glyphicon glyphicon-download" aria-hidden="true"></span> {{format.format}} ({{ format.uncompressed_size|filesizeformat_binary }})
                 </a>
                 {% endfor %}
             </div>
@@ -66,7 +66,7 @@
     </div>
     {% endfor %}
   </div>
-</div>
+</main>
     <script src="{{ url_for('static', filename='js/libs/jquery.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/libs/jquery-migrate.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/libs/bootstrap.min.js') }}"></script>

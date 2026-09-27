@@ -1,24 +1,36 @@
 {% extends "layout.html" %}
 {% block body %}
-<div class="discover">
-  <h2>Lily Stats</h2>
-    <div>
-      <h3>{{title}}</h3><br>
-      <table class="table table-striped">
+<div class="stats-page">
+  <div class="stats-section-head">
+    <p class="stats-intro">{{ _('Every recorded entry, newest first.') }}</p>
+    <a class="btn btn-default" href="{{ url_for('cwa_stats.cwa_stats_show', tab='system') }}">{{ _('Back to stats') }}</a>
+  </div>
+  {% if data %}
+  <div class="stats-table-wrap">
+    <table class="table">
+      <thead>
         <tr>
-          {% for header in table_headers %}
-          <th>{{ header }}</th>
-          {% endfor %}
+          {% for header in table_headers %}<th>{{ header }}</th>{% endfor %}
         </tr>
+      </thead>
+      <tbody>
         {% for row in data|reverse %}
         <tr>
           {% for cell in row %}
-          <td>
-            <div style="max-height: 20rem; overflow-y: auto; white-space: pre-line;">{{ cell }}</div>
-          </td>
+          <td><div class="stats-cell">{{ cell }}</div></td>
           {% endfor %}
         </tr>
         {% endfor %}
-      </table>
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="stats-panel stats-empty">
+    <span class="stats-empty-glyph glyphicon glyphicon-list-alt" aria-hidden="true"></span>
+    <h3 class="stats-empty-title">{{ _('Nothing recorded yet') }}</h3>
+    <p>{{ _('Entries appear here once the automations have processed some books.') }}</p>
+    <a class="btn btn-default" href="{{ url_for('cwa_stats.cwa_stats_show', tab='system') }}">{{ _('Back to stats') }}</a>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

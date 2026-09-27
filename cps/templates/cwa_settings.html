@@ -10,11 +10,10 @@
 {% endblock %}
 
 {% block body %}
-<div class="discover lily-settings">
-  <h2>{{title}}</h2>
+<div class="discover lily-settings lily-admin">
   <form id="cwa_settings_form" action="{{ url_for('cwa_settings.set_cwa_settings')}}" method="post"
         data-provider-url="{{ url_for('metadata.metadata_provider') }}"
-        data-provider-hierarchy='{{ cwa_settings.get("metadata_provider_hierarchy", "[\"ibdb\",\"google\",\"dnb\"]") | tojson }}'
+        data-provider-hierarchy='{{ cwa_settings.get("metadata_provider_hierarchy", "[\"google\",\"openlibrary\",\"hardcover\",\"googlescholar\"]") | tojson }}'
         data-providers-enabled='{{ cwa_settings.get("metadata_providers_enabled", "{}") | tojson }}'
         data-i18n-priority="{{ _('Priority') }}"
         data-i18n-no-format-data="{{ _('No format data available. Please save settings to initialize.') }}"
@@ -26,7 +25,6 @@
       <ul class="nav nav-tabs lily-settings-tabs" role="tablist" aria-label="{{ _('Settings sections') }}">
         <li role="presentation" class="active"><a href="#services" id="lily-tablink-services" data-lily-tab="services" role="tab" aria-controls="lily-tab-services" aria-selected="true">{{ _('Services') }}</a></li>
         <li role="presentation"><a href="#ingest" id="lily-tablink-ingest" data-lily-tab="ingest" role="tab" aria-controls="lily-tab-ingest" aria-selected="false" tabindex="-1">{{ _('Ingest') }}</a></li>
-        <li role="presentation"><a href="#conversion" id="lily-tablink-conversion" data-lily-tab="conversion" role="tab" aria-controls="lily-tab-conversion" aria-selected="false" tabindex="-1">{{ _('Conversion') }}</a></li>
         <li role="presentation"><a href="#metadata" id="lily-tablink-metadata" data-lily-tab="metadata" role="tab" aria-controls="lily-tab-metadata" aria-selected="false" tabindex="-1">{{ _('Metadata & Covers') }}</a></li>
         <li role="presentation"><a href="#hardcover" id="lily-tablink-hardcover" data-lily-tab="hardcover" role="tab" aria-controls="lily-tab-hardcover" aria-selected="false" tabindex="-1">{{ _('Hardcover') }}</a></li>
         <li role="presentation"><a href="#duplicates" id="lily-tablink-duplicates" data-lily-tab="duplicates" role="tab" aria-controls="lily-tab-duplicates" aria-selected="false" tabindex="-1">{{ _('Duplicates') }}</a></li>
@@ -44,13 +42,6 @@
     <div class="settings-container">
       <h4 class="settings-section-header">{{_('Enable/Disable Lily Services')}}</h4>
 
-      <input type="checkbox" id="auto_convert" name="auto_convert" value="True" {% if cwa_settings['auto_convert'] %}checked{% endif %}>
-      <label for="auto_convert" class="lily-check-label">{{_('Enable Lily Auto-Convert')}}</label><br>
-      <p class="cwa-settings-tooltip">
-        {{_('On by default, when active all ingested books will automatically be converted to the target format specified below (epub by default)
-        <em>EXCEPT</em> those you have specifically told Lily to ignore below.') | safe }}
-      </p>
-
       <input type="checkbox" id="auto_metadata_enforcement" name="auto_metadata_enforcement" value="True" {% if cwa_settings['auto_metadata_enforcement'] %}checked{% endif %}>
       <label for="auto_metadata_enforcement" class="lily-check-label">{{_('Enable Lily Automatic Cover & Metadata Enforcement Service')}}</label><br>
       <p class="cwa-settings-tooltip">
@@ -58,23 +49,6 @@
         will then apply those changes the ebook files themselves. Normally in Stock CW or when this setting is disabled, the changes made
         are only applied to what you see in the Web UI, not the ebook files themselves. This feature currently only supports files in EPUB
         or AZW3 format.')}}
-      </p>
-
-      <input type="checkbox" id="kindle_epub_fixer" name="kindle_epub_fixer" value="True" {% if cwa_settings['kindle_epub_fixer'] %}checked{% endif %} data-toggle="tooltip" data-placement="right" title="{{ _('Does NOT require restart for changes to take effect') }}">
-      <label for="kindle_epub_fixer" class="lily-check-label">{{_('Enable Lily Kindle EPUB Fixer')}}</label><br>
-      <p class="cwa-settings-tooltip">
-        {{_("When active, the encoding among other attributes of all EPUB files processed by Lily will be checked and fixed to ensure maximum
-        compatibility with Amazon's Send-to-Kindle Service. This feature is particularly useful for users who frequently send EPUB files to their Kindle devices and have experienced issues with
-        file rejections or formatting problems.")}}
-      </p>
-      <div class="cwa-settings-tip">
-        <small>{{_('This tool was adapted from the <a href=\"https://kindle-epub-fix.netlify.app/\">kindle-epub-fix.netlify.app</a> tool made by <a href=\"https://github.com/innocenat\">innocenat</a>.') | safe }}</small>
-      </div>
-
-      <input type="checkbox" id="kindle_epub_fixer_aggressive" name="kindle_epub_fixer_aggressive" value="True" {% if cwa_settings.get('kindle_epub_fixer_aggressive') %}checked{% endif %} data-toggle="tooltip" data-placement="right" title="{{ _('Riskier transformations; use only if safe mode fails') }}">
-      <label for="kindle_epub_fixer_aggressive" class="lily-check-label">{{_('Enable Aggressive EPUB Fixer Mode (riskier)')}}</label><br>
-      <p class="cwa-settings-tooltip">
-        {{_("Aggressive mode applies more invasive fixes and will attempt lower-confidence encoding conversions. Safe mode is recommended for most libraries.")}}
       </p>
 
       <input type="checkbox" id="koreader_sync_enabled" name="koreader_sync_enabled" value="True" {% if cwa_settings.get('koreader_sync_enabled') %}checked{% endif %} data-toggle="tooltip" data-placement="right" title="{{ _('Does NOT require restart for changes to take effect') }}">
@@ -109,7 +83,7 @@
 
         <div class="cwa-settings-tip lily-mt-sm">
           <small class="settings-explanation">
-            <span aria-hidden="true">💡</span> <strong>{{_('Stale temp cleanup')}}:</strong>
+            <strong>{{_('Stale temp cleanup')}}:</strong>
             {{_('Ignored temporary upload files (.uploading, .part, etc.) can be cleaned after a set age. Setting either value to 0 disables cleanup. Changes apply on the next cleanup cycle.')}}
           </small>
         </div>
@@ -164,7 +138,7 @@
         {{_('setting. It can be set to delete either instance of a duplicated book or keep both (default).')}}
       </p>
       <label for="auto_ingest_automerge" class="settings-section-header lily-inline-header">{{_('Choose how to handle duplicates:')}}</label>
-      <select style="width: fit-content;" class="cwa-settings-select" name="auto_ingest_automerge" id="auto_ingest_automerge">
+      <select class="cwa-settings-select" name="auto_ingest_automerge" id="auto_ingest_automerge">
         {% for option in autoingest_options -%}
           <option value="{{ option }}" {% if cwa_settings['auto_ingest_automerge'] == option %}selected{% endif %}>{{ option }}</option>
         {% endfor %}
@@ -172,7 +146,7 @@
 
       <h4>{{_('Possible Values:')}}</h4>
       <div class="table-responsive">
-      <table style="width: -webkit-fill-available; margin-bottom: 2rem;">
+      <table class="table lily-values-table">
         <tbody>
         <tr>
             <td><code class="lily-code">ignore</code></td>
@@ -198,79 +172,7 @@
       <div class="lily-format-grid">
         {% for format in ignorable_formats -%}
           <label for="ignore_ingest_{{ format }}" class="lily-format-option">
-            {% if format == cwa_settings['auto_convert_target_format'] %}
-              <input type="checkbox" id="ignore_ingest_{{ format }}" name="ignore_ingest_{{ format }}" value="{{ format }}" disabled>
-            {% else %}
-              <input type="checkbox" id="ignore_ingest_{{ format }}" name="ignore_ingest_{{ format }}" value="{{ format }}" {% if format in cwa_settings['auto_ingest_ignored_formats'] %}checked{% endif %}>
-            {% endif %}
-            <span>{{ format }}</span>
-          </label>
-        {% endfor %}
-      </div>
-    </div>
-    </div>
-
-    {# ================================================================== #}
-    {# Conversion                                                         #}
-    {# ================================================================== #}
-    <div role="tabpanel" class="tab-pane" id="lily-tab-conversion" data-lily-pane="conversion" aria-labelledby="lily-tablink-conversion">
-    <div class="settings-container">
-      <h4 class="settings-section-header">{{_('Lily Auto-Conversion Target Format - EPUB by Default')}}</h4>
-
-      <p class="cwa-settings-explanation settings-explanation">
-        {{_('When the Auto-Convert feature is active, all ingested books will be automatically converted to the format chosen here (except those formats selected in the ignore list below)')}}
-      </p>
-      <label for="auto_convert_target_format" class="lily-inline-header">{{_('Choose a target format:')}}</label>
-      <select class="cwa-settings-select" name="auto_convert_target_format" id="auto_convert_target_format">
-        {% for format in target_formats -%}
-          <option value="{{ format }}" {% if cwa_settings['auto_convert_target_format'] == format %}selected{% endif %}>{{ format }}</option>
-        {% endfor %}
-      </select>
-      <div class="cwa-settings-tip lily-mt-lg">
-        <small class="lily-info-text">
-          <span aria-hidden="true">💡</span> {{_("Note: Lily's Metadata Enforcement service can currently only support file in either EPUB and AZW3 format. Files in other formats will simply be ignored by the service")}}
-        </small>
-      </div>
-    </div>
-
-    <div class="settings-container">
-      <h4 class="settings-section-header">{{_('Lily Auto-Convert - Ignored Formats')}}</h4>
-      <p class="cwa-settings-explanation settings-explanation">
-        {{_("The formats selected here will be ignored by Lily's Auto-Conversion feature when it's active, meaning they will be imported as is.")}}
-      </p>
-      <div class="lily-format-grid">
-        {% for format in ignorable_formats -%}
-          <label for="ignore_convert_{{ format }}" class="lily-format-option">
-            {% if format == cwa_settings['auto_convert_target_format'] %}
-              <input type="checkbox" id="ignore_convert_{{ format }}" name="ignore_convert_{{ format }}" value="{{ format }}" disabled>
-            {% else %}
-              <input type="checkbox" id="ignore_convert_{{ format }}" name="ignore_convert_{{ format }}" value="{{ format }}" {% if format in cwa_settings['auto_convert_ignored_formats'] %}checked{% endif %}>
-            {% endif %}
-            <span>{{ format }}</span>
-          </label>
-        {% endfor %}
-      </div>
-    </div>
-
-    <div class="settings-container">
-      <h4 class="settings-section-header">{{_('Lily Auto-Convert - Retained Formats')}}</h4>
-      <p class="cwa-settings-explanation settings-explanation">
-        {{_('The formats selected here will always be added to the library, even after they have been converted to the target format. However, if the format is in the "Lily Auto-Ingest - Ignored Formats" list, it will not be imported. Note that the target format is always retained.')}}
-      </p>
-      <div class="lily-format-grid">
-        {% for format in ignorable_formats -%}
-          <label for="convert_retained_{{ format }}" class="lily-format-option">
-            {% if format in cwa_settings.get('auto_convert_retained_formats', []) or format == cwa_settings['auto_convert_target_format'] %}
-              {% if format in cwa_settings['auto_ingest_ignored_formats'] %}
-                <input type="checkbox" id="convert_retained_{{ format }}" name="convert_retained_{{ format }}" value="{{ format }}" disabled>
-              {% elif format == cwa_settings['auto_convert_target_format'] %}
-                <input type="checkbox" id="convert_retained_{{ format }}" name="convert_retained_{{ format }}" value="{{ format }}" checked disabled title="{{ _('Target format is always retained') }}">
-              {% else %}
-                <input type="checkbox" id="convert_retained_{{ format }}" name="convert_retained_{{ format }}" value="{{ format }}" checked>
-              {% endif %}
-            {% else %}
-              <input type="checkbox" id="convert_retained_{{ format }}" name="convert_retained_{{ format }}" value="{{ format }}" {% if format in cwa_settings['auto_ingest_ignored_formats'] %}disabled{% endif %}>
-            {% endif %}
+            <input type="checkbox" id="ignore_ingest_{{ format }}" name="ignore_ingest_{{ format }}" value="{{ format }}" {% if format in cwa_settings['auto_ingest_ignored_formats'] %}checked{% endif %}>
             <span>{{ format }}</span>
           </label>
         {% endfor %}
@@ -299,33 +201,33 @@
 
       <!-- Metadata Field Selection -->
       <div id="metadata-field-selection" class="lily-panel">
-        <h5 class="lily-panel-title"><span aria-hidden="true">📝</span> {{_('Metadata Fields to Update')}}</h5>
-        <p class="cwa-settings-tooltip" style="margin-bottom: 15px; margin-left: 0px !important;">
+        <h5 class="lily-panel-title">{{_('Metadata Fields to Update')}}</h5>
+        <p class="settings-description">
           {{_('Select which metadata fields should be updated when auto-fetching. Unchecked fields will never be modified during automatic metadata fetching, preserving your existing data.')}}
         </p>
 
         <div class="lily-field-grid">
-          <div><input type="checkbox" id="auto_metadata_update_title" name="auto_metadata_update_title" value="True" {% if cwa_settings['auto_metadata_update_title'] %}checked{% endif %}> <label for="auto_metadata_update_title"><span aria-hidden="true">📖</span> {{_('Title')}}</label></div>
-          <div><input type="checkbox" id="auto_metadata_update_authors" name="auto_metadata_update_authors" value="True" {% if cwa_settings['auto_metadata_update_authors'] %}checked{% endif %}> <label for="auto_metadata_update_authors"><span aria-hidden="true">✍️</span> {{_('Authors')}}</label></div>
-          <div><input type="checkbox" id="auto_metadata_update_description" name="auto_metadata_update_description" value="True" {% if cwa_settings['auto_metadata_update_description'] %}checked{% endif %}> <label for="auto_metadata_update_description"><span aria-hidden="true">📝</span> {{_('Description')}}</label></div>
-          <div><input type="checkbox" id="auto_metadata_update_publisher" name="auto_metadata_update_publisher" value="True" {% if cwa_settings['auto_metadata_update_publisher'] %}checked{% endif %}> <label for="auto_metadata_update_publisher"><span aria-hidden="true">🏢</span> {{_('Publisher')}}</label></div>
-          <div><input type="checkbox" id="auto_metadata_update_tags" name="auto_metadata_update_tags" value="True" {% if cwa_settings['auto_metadata_update_tags'] %}checked{% endif %}> <label for="auto_metadata_update_tags"><span aria-hidden="true">🏷️</span> {{_('Tags/Genres')}}</label></div>
-          <div><input type="checkbox" id="auto_metadata_update_series" name="auto_metadata_update_series" value="True" {% if cwa_settings['auto_metadata_update_series'] %}checked{% endif %}> <label for="auto_metadata_update_series"><span aria-hidden="true">📚</span> {{_('Series')}}</label></div>
-          <div><input type="checkbox" id="auto_metadata_update_rating" name="auto_metadata_update_rating" value="True" {% if cwa_settings['auto_metadata_update_rating'] %}checked{% endif %}> <label for="auto_metadata_update_rating"><span aria-hidden="true">⭐</span> {{_('Rating')}}</label></div>
-          <div><input type="checkbox" id="auto_metadata_update_published_date" name="auto_metadata_update_published_date" value="True" {% if cwa_settings['auto_metadata_update_published_date'] %}checked{% endif %}> <label for="auto_metadata_update_published_date"><span aria-hidden="true">📅</span> {{_('Publication Date')}}</label></div>
-          <div><input type="checkbox" id="auto_metadata_update_identifiers" name="auto_metadata_update_identifiers" value="True" {% if cwa_settings['auto_metadata_update_identifiers'] %}checked{% endif %}> <label for="auto_metadata_update_identifiers"><span aria-hidden="true">🔢</span> {{_('Identifiers (ISBN, etc.)')}}</label></div>
-          <div><input type="checkbox" id="auto_metadata_update_cover" name="auto_metadata_update_cover" value="True" {% if cwa_settings['auto_metadata_update_cover'] %}checked{% endif %}> <label for="auto_metadata_update_cover"><span aria-hidden="true">🖼️</span> {{_('Cover Image')}}</label></div>
+          <div><input type="checkbox" id="auto_metadata_update_title" name="auto_metadata_update_title" value="True" {% if cwa_settings['auto_metadata_update_title'] %}checked{% endif %}> <label for="auto_metadata_update_title">{{_('Title')}}</label></div>
+          <div><input type="checkbox" id="auto_metadata_update_authors" name="auto_metadata_update_authors" value="True" {% if cwa_settings['auto_metadata_update_authors'] %}checked{% endif %}> <label for="auto_metadata_update_authors">{{_('Authors')}}</label></div>
+          <div><input type="checkbox" id="auto_metadata_update_description" name="auto_metadata_update_description" value="True" {% if cwa_settings['auto_metadata_update_description'] %}checked{% endif %}> <label for="auto_metadata_update_description">{{_('Description')}}</label></div>
+          <div><input type="checkbox" id="auto_metadata_update_publisher" name="auto_metadata_update_publisher" value="True" {% if cwa_settings['auto_metadata_update_publisher'] %}checked{% endif %}> <label for="auto_metadata_update_publisher">{{_('Publisher')}}</label></div>
+          <div><input type="checkbox" id="auto_metadata_update_tags" name="auto_metadata_update_tags" value="True" {% if cwa_settings['auto_metadata_update_tags'] %}checked{% endif %}> <label for="auto_metadata_update_tags">{{_('Tags/Genres')}}</label></div>
+          <div><input type="checkbox" id="auto_metadata_update_series" name="auto_metadata_update_series" value="True" {% if cwa_settings['auto_metadata_update_series'] %}checked{% endif %}> <label for="auto_metadata_update_series">{{_('Series')}}</label></div>
+          <div><input type="checkbox" id="auto_metadata_update_rating" name="auto_metadata_update_rating" value="True" {% if cwa_settings['auto_metadata_update_rating'] %}checked{% endif %}> <label for="auto_metadata_update_rating">{{_('Rating')}}</label></div>
+          <div><input type="checkbox" id="auto_metadata_update_published_date" name="auto_metadata_update_published_date" value="True" {% if cwa_settings['auto_metadata_update_published_date'] %}checked{% endif %}> <label for="auto_metadata_update_published_date">{{_('Publication Date')}}</label></div>
+          <div><input type="checkbox" id="auto_metadata_update_identifiers" name="auto_metadata_update_identifiers" value="True" {% if cwa_settings['auto_metadata_update_identifiers'] %}checked{% endif %}> <label for="auto_metadata_update_identifiers">{{_('Identifiers (ISBN, etc.)')}}</label></div>
+          <div><input type="checkbox" id="auto_metadata_update_cover" name="auto_metadata_update_cover" value="True" {% if cwa_settings['auto_metadata_update_cover'] %}checked{% endif %}> <label for="auto_metadata_update_cover">{{_('Cover Image')}}</label></div>
         </div>
 
         <div class="cwa-settings-tip">
           <small class="lily-info-text">
-            <span aria-hidden="true">💡</span> <strong>{{_('Tip')}}:</strong> {{_('These field selections apply to both Smart and Direct replacement modes. Smart mode will additionally apply quality criteria to selected fields, while Direct mode will replace all selected fields with provider data.')}}
+            <strong>{{_('Tip')}}:</strong> {{_('These field selections apply to both Smart and Direct replacement modes. Smart mode will additionally apply quality criteria to selected fields, while Direct mode will replace all selected fields with provider data.')}}
           </small>
         </div>
       </div>
 
       <div class="form-group lily-mt">
-        <label for="cover_download_max_mb" class="settings-section-header lily-inline-header" style="font-weight: 600;">{{_('Cover File Max Size (MB):')}}</label>
+        <label for="cover_download_max_mb" class="settings-section-header lily-inline-header">{{_('Cover File Max Size (MB):')}}</label>
         <input type="number" class="lily-input lily-input-md"
                name="cover_download_max_mb"
                id="cover_download_max_mb"
@@ -334,9 +236,9 @@
                max="200"
                step="1">
         <small class="lily-hint">{{_('Range: 1-200 MB (default: 15)')}}</small>
-        <div class="cwa-settings-tip" style="margin-top: 8px;">
+        <div class="cwa-settings-tip">
           <small class="lily-info-text">
-            <span aria-hidden="true">💡</span> <strong>{{_('Tip')}}:</strong> {{_('Limits the maximum size of cover images downloaded from metadata providers or URLs to prevent slow or stalled saves.')}}
+            <strong>{{_('Tip')}}:</strong> {{_('Limits the maximum size of cover images downloaded from metadata providers or URLs to prevent slow or stalled saves.')}}
           </small>
         </div>
       </div>
@@ -360,7 +262,7 @@
           <input type="hidden" name="metadata_provider_hierarchy" id="metadata_provider_hierarchy_hidden" value="">
         </div>
         <div class="cwa-settings-tip">
-          <small class="settings-explanation"><span aria-hidden="true">💡</span> <strong>{{_('Tip')}}:</strong> {{_('Providers are tried in order from top to bottom. Drag to reorder.')}}</small>
+          <small class="settings-explanation"><strong>{{_('Tip')}}:</strong> {{_('Providers are tried in order from top to bottom. Drag to reorder.')}}</small>
         </div>
       </div>
     </div>
@@ -387,15 +289,15 @@
     {# ================================================================== #}
     <div role="tabpanel" class="tab-pane" id="lily-tab-hardcover" data-lily-pane="hardcover" aria-labelledby="lily-tablink-hardcover">
     <div class="settings-container">
-      <h4 class="settings-section-header"><span aria-hidden="true">🔖</span> {{_('Hardcover Auto-Fetch Settings')}}</h4>
+      <h4 class="settings-section-header">{{_('Hardcover Auto-Fetch Settings')}}</h4>
       <p class="settings-description">
         {{_('Automatically fetch and assign Hardcover IDs to books in your library. Hardcover IDs enable reading progress sync and annotation sync with Hardcover.app when using compatible eReaders.')}}
       </p>
 
       {% if not hardcover_token_available %}
       <div class="alert alert-warning lily-token-warning" role="alert">
-        <strong><span aria-hidden="true">⚠️</span> {{_('Hardcover Token Required')}}</strong><br>
-        <span style="font-size: 0.9em;">{{_('To enable Hardcover auto-fetch, you must set a valid HARDCOVER_TOKEN in your docker-compose environment variables or configure a global token in Basic Configuration. Without a valid token, this feature will remain disabled.')}}</span>
+        <strong>{{_('Hardcover Token Required')}}</strong><br>
+        <span>{{_('To enable Hardcover auto-fetch, you must set a valid HARDCOVER_TOKEN in your docker-compose environment variables or configure a global token in Basic Configuration. Without a valid token, this feature will remain disabled.')}}</span>
       </div>
       {% endif %}
 
@@ -409,7 +311,7 @@
 
         <!-- Schedule Interval -->
         <div class="form-group lily-mt">
-          <label for="hardcover_auto_fetch_schedule" class="settings-section-header" style="padding-right: 10px;">{{_('Run Schedule:')}}</label>
+          <label for="hardcover_auto_fetch_schedule" class="settings-section-header">{{_('Run Schedule:')}}</label>
           <select class="lily-select lily-select-wide"
                   name="hardcover_auto_fetch_schedule"
                   id="hardcover_auto_fetch_schedule"
@@ -482,7 +384,7 @@
 
         <!-- Minimum Confidence Threshold -->
         <div class="form-group lily-mt">
-          <label for="hardcover_auto_fetch_min_confidence" class="settings-section-header" style="padding-right: 10px;">{{_('Minimum Confidence Threshold:')}}</label>
+          <label for="hardcover_auto_fetch_min_confidence" class="settings-section-header">{{_('Minimum Confidence Threshold:')}}</label>
           <input type="number" class="lily-input lily-input-sm"
                  name="hardcover_auto_fetch_min_confidence"
                  id="hardcover_auto_fetch_min_confidence"
@@ -499,7 +401,7 @@
 
         <!-- Batch Size -->
         <div class="form-group lily-mt">
-          <label for="hardcover_auto_fetch_batch_size" class="settings-section-header" style="padding-right: 10px;">{{_('Batch Size:')}}</label>
+          <label for="hardcover_auto_fetch_batch_size" class="settings-section-header">{{_('Batch Size:')}}</label>
           <input type="number" class="lily-input lily-input-sm"
                  name="hardcover_auto_fetch_batch_size"
                  id="hardcover_auto_fetch_batch_size"
@@ -516,7 +418,7 @@
 
         <!-- Rate Limit Delay -->
         <div class="form-group lily-mt">
-          <label for="hardcover_auto_fetch_rate_limit" class="settings-section-header" style="padding-right: 10px;">{{_('Rate Limit Delay (seconds):')}}</label>
+          <label for="hardcover_auto_fetch_rate_limit" class="settings-section-header">{{_('Rate Limit Delay (seconds):')}}</label>
           <input type="number" class="lily-input lily-input-sm"
                  name="hardcover_auto_fetch_rate_limit"
                  id="hardcover_auto_fetch_rate_limit"
@@ -533,7 +435,7 @@
 
         <div class="cwa-settings-tip lily-mt">
           <small class="lily-info-text">
-            <span aria-hidden="true">💡</span> <strong>{{_('Tip')}}:</strong> {{_('You can manually trigger the Hardcover auto-fetch task from the Admin panel at any time. Check the Lily Stats page to see progress and review queued matches that need manual approval.')}}
+            <strong>{{_('Tip')}}:</strong> {{_('You can manually trigger the Hardcover auto-fetch task from the Admin panel at any time. Check the Lily Stats page to see progress and review queued matches that need manual approval.')}}
           </small>
         </div>
       </div>
@@ -551,9 +453,9 @@
         {{_('Enable or disable the duplicate detection system. When disabled, duplicate scanning will not run and no notifications will be shown.')}}
       </p>
 
-      <div class="checkbox-wrapper" style="margin-bottom: 1.5rem;">
+      <div class="checkbox-wrapper">
         <input type="checkbox" id="duplicate_detection_enabled" name="duplicate_detection_enabled" value="1" {% if cwa_settings['duplicate_detection_enabled'] %} checked {% endif %}>
-        <label for="duplicate_detection_enabled" style="margin-left: 1rem;">{{_('Enable Duplicate Detection')}}</label>
+        <label for="duplicate_detection_enabled">{{_('Enable Duplicate Detection')}}</label>
       </div>
       <div class="cwa-settings-tip">
         <small>
@@ -564,8 +466,8 @@
       <!-- Detection Method (Hybrid default) -->
       {% set scan_method = cwa_settings.get('duplicate_scan_method')|default('hybrid', true) %}
       <div class="form-group lily-flex-row">
-        <label for="duplicate_scan_method" class="settings-section-header" style="margin-top: 8px;">{{_('Duplicate Detection Method')}}</label>
-        <select class="cwa-settings-select" name="duplicate_scan_method" id="duplicate_scan_method" style="width: fit-content;">
+        <label for="duplicate_scan_method" class="settings-section-header">{{_('Duplicate Detection Method')}}</label>
+        <select class="cwa-settings-select" name="duplicate_scan_method" id="duplicate_scan_method">
           <option value="hybrid" {% if scan_method == 'hybrid' %}selected{% endif %}>
             {{_('Hybrid (SQL prefilter + Python validation)')}}
           </option>
@@ -594,14 +496,14 @@
         {{_('Configure background duplicate scans. These run automatically without blocking the UI.') }}
       </p>
 
-      <div class="checkbox-wrapper" style="margin-bottom: 1rem;">
+      <div class="checkbox-wrapper">
         <input type="checkbox" id="duplicate_scan_enabled" name="duplicate_scan_enabled" value="1" {% if cwa_settings['duplicate_scan_enabled'] %} checked {% endif %}>
-        <label for="duplicate_scan_enabled" style="margin-left: 1rem;">{{_('Enable automatic duplicate scans')}}</label>
+        <label for="duplicate_scan_enabled">{{_('Enable automatic duplicate scans')}}</label>
       </div>
 
       <div class="form-group lily-flex-row">
         <label for="duplicate_scan_frequency">{{_('After import scans')}}</label>
-        <select class="cwa-settings-select" name="duplicate_scan_frequency" id="duplicate_scan_frequency" style="width: fit-content;">
+        <select class="cwa-settings-select" name="duplicate_scan_frequency" id="duplicate_scan_frequency">
           <option value="after_import" {% if cwa_settings.get('duplicate_scan_frequency', 'after_import') == 'after_import' %}selected{% endif %}>
             {{_('Run after each import (debounced)')}}
           </option>
@@ -695,7 +597,7 @@
 
       <div class="cwa-settings-tip lily-mt-lg">
         <small class="settings-explanation">
-          <span aria-hidden="true">💡</span> <strong>{{_('Note:')}}</strong> {{_('At least one criterion must be selected. Title and Author are recommended as core criteria.')}}
+          <strong>{{_('Note:')}}</strong> {{_('At least one criterion must be selected. Title and Author are recommended as core criteria.')}}
         </small>
       </div>
     </div>
@@ -709,7 +611,7 @@
 
       <input type="hidden" id="duplicate_format_priority" name="duplicate_format_priority" value='{{ cwa_settings.get("duplicate_format_priority", "{\"EPUB\":100,\"KEPUB\":95,\"AZW3\":90,\"MOBI\":80,\"AZW\":75,\"PDF\":60,\"TXT\":40,\"CBZ\":35,\"CBR\":35,\"FB2\":30,\"DJVU\":25,\"HTML\":20,\"RTF\":15,\"DOC\":10,\"DOCX\":10}") }}'>
 
-      <div id="format_priority_container" style="margin-top: 1rem;">
+      <div id="format_priority_container" class="lily-mt-sm">
         <ul id="format_priority_list">
           <!-- Will be populated by JavaScript -->
         </ul>
@@ -717,7 +619,7 @@
 
       <div class="cwa-settings-tip lily-mt-lg">
         <small class="settings-explanation">
-          <span aria-hidden="true">💡</span> <strong>{{_('Tip:')}}</strong> {{_('When resolving duplicates with "Highest Quality Format" strategy, books with higher-ranked formats will be kept. Lower priority formats will be deleted.')}}
+          <strong>{{_('Tip:')}}</strong> {{_('When resolving duplicates with "Highest Quality Format" strategy, books with higher-ranked formats will be kept. Lower priority formats will be deleted.')}}
         </small>
       </div>
     </div>
@@ -731,13 +633,13 @@
 
       <div class="checkbox-wrapper">
         <input type="checkbox" id="duplicate_notifications_enabled" name="duplicate_notifications_enabled" value="1" {% if cwa_settings['duplicate_notifications_enabled'] %} checked {% endif %}>
-        <label for="duplicate_notifications_enabled" style="margin-left: 1rem;">{{_('Enable Duplicate Notifications')}}</label>
+        <label for="duplicate_notifications_enabled">{{_('Enable Duplicate Notifications')}}</label>
       </div>
-      <p class="cwa-settings-tip" style="font-size: small;">{{_('Show popup notifications when unresolved duplicates are detected. Admins and users with edit rights will see a badge on the Duplicates sidebar button and a notification popup when they login.')}}</p>
+      <p class="cwa-settings-tip">{{_('Show popup notifications when unresolved duplicates are detected. Admins and users with edit rights will see a badge on the Duplicates sidebar button and a notification popup when they login.')}}</p>
 
       <div class="checkbox-wrapper">
         <input type="checkbox" id="duplicate_auto_resolve_enabled" name="duplicate_auto_resolve_enabled" value="1" {% if cwa_settings['duplicate_auto_resolve_enabled'] %} checked {% endif %}>
-        <label for="duplicate_auto_resolve_enabled" style="margin-left: 1rem;">{{_('Enable Automatic Duplicate Resolution')}} <span aria-hidden="true">⚠️</span></label>
+        <label for="duplicate_auto_resolve_enabled">{{_('Enable Automatic Duplicate Resolution')}} </label>
       </div>
       <p class="cwa-settings-tip lily-tip-danger">
         <strong>{{_('Warning:')}}</strong> {{_('This will automatically delete books based on the strategy below. Original files will be backed up to')}} <code>/config/processed_books/</code>
@@ -765,7 +667,7 @@
             {{_('Keep Largest File Size')}} - {{_('Keep book with largest total file size')}}
           </option>
         </select>
-        <p class="cwa-settings-explanation settings-explanation" style="margin-top: 2rem !important;">{{_('Choose which book to keep when duplicates are automatically resolved.')}}</p>
+        <p class="cwa-settings-explanation settings-explanation lily-mt">{{_('Choose which book to keep when duplicates are automatically resolved.')}}</p>
       </div>
 
       <div class="form-group lily-inset">
@@ -774,12 +676,12 @@
         <input type="number" class="form-control" id="duplicate_auto_resolve_cooldown_minutes"
                name="duplicate_auto_resolve_cooldown_minutes" min="0" max="1440"
                value="{{ cwa_settings.get('duplicate_auto_resolve_cooldown_minutes', 0) if cwa_settings.get('duplicate_auto_resolve_cooldown_minutes') not in [False, None, ''] else 0 }}">
-        <p class="cwa-settings-explanation settings-explanation" style="margin-top: 2rem !important;">{{_('Minimum time between automatic resolutions (0 to disable). Prevents rapid-fire deletions during batch imports.')}}</p>
+        <p class="cwa-settings-explanation settings-explanation lily-mt">{{_('Minimum time between automatic resolutions (0 to disable). Prevents rapid-fire deletions during batch imports.')}}</p>
       </div>
 
       <div class="cwa-settings-tip lily-mt-lg">
         <small class="settings-explanation">
-          <span aria-hidden="true">💡</span> <strong>{{_('Note:')}}</strong> {{_('Auto-resolution runs after duplicate scans detect new duplicates. Dismissed duplicate groups are never auto-resolved.')}}
+          <strong>{{_('Note:')}}</strong> {{_('Auto-resolution runs after duplicate scans detect new duplicates. Dismissed duplicate groups are never auto-resolved.')}}
         </small>
       </div>
     </div>
@@ -798,24 +700,12 @@
         {{_('When active, a copy of all imported files will be stored in <i>/config/processed_books/imported</i>') | safe }}
       </p>
 
-      <input type="checkbox" id="auto_backup_conversions" name="auto_backup_conversions" value="True" {% if cwa_settings['auto_backup_conversions'] %}checked{% endif %} data-toggle="tooltip" data-placement="right" title="{{ _('If deactivated, the originals of converted files will not be stored (except in the case of a failed conversion)') }}">
-      <label for="auto_backup_conversions" class="lily-check-label">{{_('Enable Lily Conversion Auto-Backup')}}</label><br>
-      <p class="cwa-settings-tooltip">
-        {{_('When active, the originals of ingested files that undergo conversion will be stored in /config/processed_books/converted')}}
-      </p>
-
-      <input type="checkbox" id="auto_backup_epub_fixes" name="auto_backup_epub_fixes" value="True" {% if cwa_settings['auto_backup_epub_fixes'] %}checked{% endif %} data-toggle="tooltip" data-placement="right" title="{{ _('If deactivated, the originals of EPUBs that have been fixed will not be stored (except in the case of a process failure)') }}">
-      <label for="auto_backup_epub_fixes" class="lily-check-label">{{_('Enable Lily EPUB Fixer Auto-Backup')}}</label><br>
-      <p class="cwa-settings-tooltip">
-        {{_('When active, the originals of EPUBs processed by the Lily Kindle EPUB Fixer service will be stored in /config/processed_books/fixed_originals')}}
-      </p>
-
       <hr class="settings-divider">
 
       <input type="checkbox" id="auto_zip_backups" name="auto_zip_backups" value="True" {% if cwa_settings['auto_zip_backups'] %}checked{% endif %} data-toggle="tooltip" data-placement="right" title="{{ _('If deactivated, backed up files will be left alone in their respective folders') }}">
       <label for="auto_zip_backups" class="lily-check-label">{{_('Enable Lily Auto-Zip Backups')}}</label><br>
       <p class="cwa-settings-tooltip">
-        {{_('When active, just before midnight each day, the cwa-auto-zipper service will make zip archives of all the backed up converted, imported and failed files from that day. This is to help keep the subdirectories of /config/processed_books organised and to minimise disk space usage.')}}
+        {{_('When active, just before midnight each day, the cwa-auto-zipper service will make zip archives of all the backed up imported and failed files from that day. This is to help keep the subdirectories of /config/processed_books organised and to minimise disk space usage.')}}
       </p>
 
       <hr class="settings-divider">
@@ -830,7 +720,7 @@
                step="1">
         <small class="lily-hint">{{_('Minimum: 1 (default: 7)')}}</small>
         <p class="cwa-settings-tooltip">
-          {{_('Snapshots of app.db, cwa.db and metadata.db are taken nightly at the start of the maintenance window and stored in /config/backup/db/. Older snapshots beyond this number are removed.')}}
+          {{_('Snapshots of app.db, cwa.db and metadata.db are taken nightly at the start of the maintenance window and stored in /config/backup/db/ (or DB_BACKUP_DIR if set). Older snapshots beyond this number are removed.')}}
         </p>
       </div>
     </div>
@@ -845,7 +735,7 @@
       </p>
 
       <div class="form-group lily-mt-sm">
-        <label for="archived_cleanup_schedule" class="settings-section-header" style="padding-right: 10px;">{{_('Cleanup Schedule:')}}</label>
+        <label for="archived_cleanup_schedule" class="settings-section-header">{{_('Cleanup Schedule:')}}</label>
         <select class="lily-select lily-select-wide"
                 name="archived_cleanup_schedule"
                 id="archived_cleanup_schedule"
@@ -924,23 +814,7 @@
         {{_('When active, you will receive notifications in the Web UI when a new version of Lily is released')}}
       </p>
 
-      <input type="checkbox" id="contribute_translations_notifications" name="contribute_translations_notifications" value="True" {% if cwa_settings['contribute_translations_notifications'] %}checked{% endif %} data-toggle="tooltip" data-placement="right" title="{{ _('Does NOT require restart for changes to take effect') }}">
-      <label for="contribute_translations_notifications" class="lily-check-label">{{_('Enable Contribute Translations Notifications')}}</label><br>
-      <p class="cwa-settings-tooltip">
-        {{_('When disabled, you will no longer receive notifications in the Web UI when using a language other than English if the translations for your chosen language are not complete.')}}
-      </p>
 
-      <input type="checkbox" id="config_kobo_sync_magic_shelves" name="config_kobo_sync_magic_shelves" value="True" {% if config['config_kobo_sync_magic_shelves'] %}checked{% endif %} data-toggle="tooltip" data-placement="right" title="{{ _('Requires Kobo Sync to be enabled in Basic Configuration') }}">
-      <label for="config_kobo_sync_magic_shelves" class="lily-check-label">{{_('Sync Magic Shelves to Kobo')}}</label><br>
-      <p class="cwa-settings-tooltip">
-        {{_('When active, your Magic Shelves will be synced to your Kobo device as collections. Note: You must also enable Kobo Sync in Basic Configuration.')}}
-      </p>
-
-      <input type="checkbox" id="enable_mobile_blur" name="enable_mobile_blur" value="True" {% if cwa_settings['enable_mobile_blur'] %}checked{% endif %} data-toggle="tooltip" data-placement="right" title="{{ _('May impact performance on low-end mobile devices') }}">
-      <label for="enable_mobile_blur" class="lily-check-label">{{_('Enable Blurred Backgrounds on Mobile (&lt;768px)')}}</label><br>
-      <p class="cwa-settings-tooltip">
-        {{_('When active, the blurred cover background effect is also rendered on small screens. Disable if you notice scrolling or animation lag.')}}
-      </p>
     </div>
     </div>
 
@@ -948,14 +822,10 @@
 
     <!-- Sticky save bar: the submit_button values are what the backend matches on, the labels are translatable -->
     <div class="lily-savebar" role="region" aria-label="{{ _('Save settings') }}">
-      <button type="button" class="btn btn-default lily-btn-reset" data-toggle="modal" data-target="#lilyResetDefaultsModal">
-        <span class="glyphicon glyphicon-repeat" aria-hidden="true"></span> {{ _('Reset to defaults') }}
-      </button>
+      <button type="button" class="btn btn-default lily-btn-reset" data-toggle="modal" data-target="#lilyResetDefaultsModal">{{ _('Reset to defaults') }}</button>
       <div class="lily-savebar-primary">
         <span id="lily_savebar_status" class="lily-savebar-status" role="status" aria-live="polite"></span>
-        <button type="submit" name="submit_button" value="Submit" class="btn btn-primary lily-btn-save">
-          <span class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span> {{ _('Save settings') }}
-        </button>
+        <button type="submit" name="submit_button" value="Submit" class="btn btn-primary lily-btn-save">{{ _('Save settings') }}</button>
       </div>
     </div>
   </form>
@@ -966,13 +836,15 @@
 <div id="lilyResetDefaultsModal" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="lilyResetDefaultsTitle">
   <div class="modal-dialog modal-sm" role="document">
     <div class="modal-content">
-      <div class="modal-header text-center">
+      <div class="modal-header">
         <h4 class="modal-title" id="lilyResetDefaultsTitle">{{ _('Reset all Lily settings?') }}</h4>
       </div>
-      <div class="modal-body text-center">
+      <div class="modal-body">
         <p>{{ _('Every setting on every tab will be restored to its default value. Unsaved changes will be lost. This cannot be undone.') }}</p>
-        <button type="submit" form="cwa_settings_form" name="submit_button" value="Apply Default Settings" formnovalidate class="btn btn-danger">{{ _('Reset to defaults') }}</button>
+      </div>
+      <div class="modal-footer">
         <button type="button" class="btn btn-default" data-dismiss="modal">{{ _('Cancel') }}</button>
+        <button type="submit" form="cwa_settings_form" name="submit_button" value="Apply Default Settings" formnovalidate class="btn btn-danger">{{ _('Reset to defaults') }}</button>
       </div>
     </div>
   </div>

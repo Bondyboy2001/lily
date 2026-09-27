@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
 {% block body %}
+<div class="stats-page">
   <h3>{{_('About')}} {{instance}}</h3>
 <p>{{instance}} {{_('is powered by')}}
 <a href="https://github.com/Bondyboy2001/lily" title="Lily" target="_blank" rel="noopener">Lily</a>.
@@ -9,29 +10,29 @@
 <a href="https://github.com/janeczku/calibre-web" target="_blank" rel="noopener">Calibre-Web</a>, {{_('licensed under the GNU GPL v3.')}}
 </p>
   <h3>{{_('Library Statistics')}}</h3>
-<table id="stats" class="table">
+<div class="stats-table-wrap"><table id="stats" class="table">
   <tbody>
     <tr>
-      <th>{{bookcounter}}</th>
+      <th class="stats-mono">{{bookcounter}}</th>
       <td>{{_('Books in this Library')}}</td>
     </tr>
     <tr>
-      <th>{{authorcounter}}</th>
+      <th class="stats-mono">{{authorcounter}}</th>
       <td>{{_('Authors in this Library')}}</td>
     </tr>
     <tr>
-      <th>{{categorycounter}}</th>
+      <th class="stats-mono">{{categorycounter}}</th>
       <td>{{_('Categories in this Library')}}</td>
     </tr>
     <tr>
-      <th>{{seriecounter}}</th>
+      <th class="stats-mono">{{seriecounter}}</th>
       <td>{{_('Series in this Library')}}</td>
     </tr>
   </tbody>
-</table>
+</table></div>
 {% if current_user.role_admin() %}
   <h3>{{_('System Statistics')}}</h3>
-<table id="libs" class="table">
+<div class="stats-table-wrap"><table id="libs" class="table">
   <thead>
     <tr>
       <th>{{_('Program')}}</th>
@@ -43,11 +44,12 @@
   {% if version %}
     <tr>
       <th>{{library}}</th>
-      <td>{{version}}</td>
+      <td class="stats-mono">{{version}}</td>
     </tr>
   {% endif %}
   {% endfor %}
   </tbody>
-</table>
+</table></div>
 {% endif %}
+</div>
 {% endblock %}

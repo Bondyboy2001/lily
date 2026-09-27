@@ -28,7 +28,7 @@ class TestUpdateBookReadStatusThresholds:
 
     def test_sets_finished_at_99_percent(self, cwa_api_client):
         """Status FINISHED when percentage >= 99.0"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {'Authorization': f'Basic {credentials}'}
 
         # Update progress to 99%
@@ -50,7 +50,7 @@ class TestUpdateBookReadStatusThresholds:
 
     def test_sets_finished_at_100_percent(self, cwa_api_client):
         """Status FINISHED when percentage = 100.0"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {'Authorization': f'Basic {credentials}'}
 
         payload = {
@@ -69,7 +69,7 @@ class TestUpdateBookReadStatusThresholds:
 
     def test_sets_in_progress_at_50_percent(self, cwa_api_client):
         """Status IN_PROGRESS when 0 < percentage < 99"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {'Authorization': f'Basic {credentials}'}
 
         payload = {
@@ -88,7 +88,7 @@ class TestUpdateBookReadStatusThresholds:
 
     def test_sets_in_progress_at_one_percent(self, cwa_api_client):
         """Status IN_PROGRESS at minimum positive percentage"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {'Authorization': f'Basic {credentials}'}
 
         payload = {
@@ -107,7 +107,7 @@ class TestUpdateBookReadStatusThresholds:
 
     def test_sets_in_progress_at_98_percent(self, cwa_api_client):
         """Status IN_PROGRESS just below FINISHED threshold"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {'Authorization': f'Basic {credentials}'}
 
         payload = {
@@ -126,7 +126,7 @@ class TestUpdateBookReadStatusThresholds:
 
     def test_sets_unread_at_zero_percent(self, cwa_api_client):
         """Status UNREAD when percentage = 0"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {'Authorization': f'Basic {credentials}'}
 
         payload = {
@@ -151,7 +151,7 @@ class TestUpdateBookReadStatusRecordManagement:
 
     def test_creates_new_record_for_first_sync(self, cwa_api_client):
         """First sync creates a new progress record"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {'Authorization': f'Basic {credentials}'}
 
         unique_doc = f'test-doc-new-{pytest.__version__}'
@@ -178,7 +178,7 @@ class TestUpdateBookReadStatusRecordManagement:
 
     def test_updates_existing_record(self, cwa_api_client):
         """Subsequent syncs update the existing record"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {'Authorization': f'Basic {credentials}'}
 
         doc_id = 'test-doc-update'
@@ -219,7 +219,7 @@ class TestUpdateBookReadStatusEdgeCases:
 
     def test_handles_decimal_percentage(self, cwa_api_client):
         """Handles fractional percentages correctly"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {'Authorization': f'Basic {credentials}'}
 
         payload = {
@@ -238,7 +238,7 @@ class TestUpdateBookReadStatusEdgeCases:
 
     def test_handles_threshold_boundary_99_point_0(self, cwa_api_client):
         """Exact 99.0% threshold triggers FINISHED status"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {'Authorization': f'Basic {credentials}'}
 
         payload = {
@@ -257,7 +257,7 @@ class TestUpdateBookReadStatusEdgeCases:
 
     def test_handles_threshold_boundary_98_point_9(self, cwa_api_client):
         """98.9% stays IN_PROGRESS, doesn't trigger FINISHED"""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {'Authorization': f'Basic {credentials}'}
 
         payload = {

@@ -117,12 +117,10 @@
 <link href="{{ url_for('static', filename='css/libs/bootstrap-select.min.css') }}" rel="stylesheet" >
 {% endblock %}
 {% block body %}
-<h2 class="{{page}}">{{_(title)}}</h2>
+<div class="lily-admin lily-admin-wide lily-user-table">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="col-xs-12 col-sm-12">
-        <div class="row">
-          <div class="btn btn-default disabled" id="user_delete_selection" aria-disabled="true">{{_('Remove Selections')}}</div>
-        </div>
+    <div class="lily-actions lily-mb">
+      <div class="btn btn-default disabled" id="user_delete_selection" aria-disabled="true">{{_('Remove Selections')}}</div>
     </div>
     <table id="user-table" class="table table-no-bordered table-striped"
            data-url="{{url_for('admin.list_users')}}"  data-locale="{{ current_user.locale }}" data-classes="table table-no-bordered table-hover">
@@ -171,9 +169,10 @@
         </tr>
       </thead>
     </table>
-    <div class="errorlink">
-      <div class="btn btn-default" data-back="{{ url_for('admin.admin') }}" id="back">{{_('Back')}}</div>
+    <div class="lily-actions errorlink">
+      <div class="btn btn-default" data-back="{{ url_for('admin.admin') }}" id="back" role="button" tabindex="0">{{_('Back')}}</div>
     </div>
+</div>
 {% endblock %}
 {% block modal %}
 {{ delete_confirm_modal() }}

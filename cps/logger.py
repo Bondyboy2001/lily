@@ -21,6 +21,9 @@ ACCESS_FORMATTER_TORNADO = Formatter("[%(asctime)s] %(message)s")
 FORMATTER           = Formatter("[%(asctime)s] %(levelname)5s {%(name)s:%(lineno)d} %(message)s")
 DEFAULT_LOG_LEVEL   = logging.INFO
 DEFAULT_LOG_FILE    = os.path.join(_CONFIG_DIR, "calibre-web.log")
+# About 12MB of history: enough to cover a night of ingest and backup runs
+LOG_MAX_BYTES = 2 * 1024 * 1024
+LOG_BACKUP_COUNT = 5
 DEFAULT_ACCESS_LOG  = os.path.join(_CONFIG_DIR, "access.log")
 LOG_TO_STDERR       = '/dev/stderr'
 LOG_TO_STDOUT       = '/dev/stdout'
@@ -139,11 +142,11 @@ def setup(log_file, log_level=None):
             file_handler.baseFilename = log_file
     else:
         try:
-            file_handler = RotatingFileHandler(log_file, maxBytes=100000, backupCount=2, encoding='utf-8')
+            file_handler = RotatingFileHandler(log_file, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT, encoding='utf-8')
         except (IOError, PermissionError):
             if log_file == DEFAULT_LOG_FILE:
                 raise
-            file_handler = RotatingFileHandler(DEFAULT_LOG_FILE, maxBytes=100000, backupCount=2, encoding='utf-8')
+            file_handler = RotatingFileHandler(DEFAULT_LOG_FILE, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT, encoding='utf-8')
             log_file = ""
     file_handler.setFormatter(FORMATTER)
 

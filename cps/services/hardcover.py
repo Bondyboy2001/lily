@@ -526,7 +526,7 @@ class HardcoverClient:
 
     def execute(self, query, variables=None):
         payload = {"query": query, "variables": variables or {}}
-        response = requests.post(self.endpoint, json=payload, headers=self.headers)
+        response = requests.post(self.endpoint, json=payload, headers=self.headers, timeout=REQUEST_TIMEOUT)
         try:
             response.raise_for_status()
         except requests.exceptions.HTTPError as e:

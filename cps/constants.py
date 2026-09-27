@@ -17,8 +17,6 @@ APP_MODE            = os.environ.get('APP_MODE', 'production')
 # if installed via pip this variable is set to true (empty file with name .HOMEDIR present)
 HOME_CONFIG = os.path.isfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.HOMEDIR'))
 
-# In executables updater is not available, so variable is set to False there
-UPDATER_AVAILABLE = False
 
 # Base dir is parent of current file, necessary if called from different folder
 BASE_DIR            = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir))
@@ -112,7 +110,11 @@ sidebar_settings = {
 
 
 ADMIN_USER_ROLES        = sum(r for r in ALL_ROLES.values()) & ~ROLE_ANONYMOUS
-ADMIN_USER_SIDEBAR      = (SIDEBAR_DUPLICATES << 1) - 1
+# Lily's default sidebar: the core browse views only. The other entries stay available
+# to switch on per user in the profile's sidebar settings.
+DEFAULT_SIDEBAR         = (SIDEBAR_RECENT | SIDEBAR_CATEGORY | SIDEBAR_SERIES | SIDEBAR_AUTHOR
+                           | SIDEBAR_READ_AND_UNREAD | SIDEBAR_ARCHIVED)
+ADMIN_USER_SIDEBAR      = DEFAULT_SIDEBAR
 
 UPDATE_STABLE       = 0 << 0
 AUTO_UPDATE_STABLE  = 1 << 0
@@ -129,7 +131,8 @@ LDAP_AUTH_SIMPLE         = 0
 
 DEFAULT_MAIL_SERVER = "mail.example.org"
 
-DEFAULT_PASSWORD    = "admin123"  # nosec
+DEFAULT_ADMIN_NAME  = "harry"
+DEFAULT_PASSWORD    = "harry10"  # nosec
 DEFAULT_PORT        = 8083
 env_CWA_PORT_OVERRIDE = os.environ.get("CWA_PORT_OVERRIDE")
 if env_CWA_PORT_OVERRIDE:
@@ -179,7 +182,7 @@ def _read_text(path: str, default: str = "") -> str:
 INSTALLED_VERSION = os.environ.get("CWA_INSTALLED_VERSION") or _read_text("/app/CWA_RELEASE", "v0.0.0")
 STABLE_VERSION = os.environ.get("CWA_STABLE_VERSION") or _read_text("/app/CWA_STABLE_RELEASE", "v0.0.0")
 
-USER_AGENT = f"Calibre-Web-Automated/{INSTALLED_VERSION}"
+USER_AGENT = f"Lily/{INSTALLED_VERSION}"
 
 NIGHTLY_VERSION = dict()
 NIGHTLY_VERSION[0] = '0af52f205358b0147ee3430f9e6c8fe007c0ea77'

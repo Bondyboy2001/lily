@@ -36,8 +36,6 @@ class TestCWADBInitialization:
         expected_tables = {
             'cwa_enforcement',
             'cwa_import', 
-            'cwa_conversions',
-            'epub_fixes',
             'cwa_settings'
         }
         
@@ -73,7 +71,7 @@ class TestCWADBSettings:
         """Verify all expected settings keys are present"""
         settings = temp_cwa_db.get_cwa_settings()
         
-        expected_keys = ['auto_backup_imports', 'auto_convert', 'auto_convert_target_format']
+        expected_keys = ['auto_backup_imports', 'auto_ingest_automerge', 'auto_ingest_ignored_formats']
         for key in expected_keys:
             assert key in settings, f"Missing expected setting: {key}"
     
@@ -85,10 +83,10 @@ class TestCWADBSettings:
     
     def test_setting_persists_across_queries(self, temp_cwa_db):
         """Test that settings persist between queries"""
-        temp_cwa_db.update_cwa_settings({'auto_convert_target_format': 'mobi'})
+        temp_cwa_db.update_cwa_settings({'auto_ingest_automerge': 'ignore'})
         settings1 = temp_cwa_db.get_cwa_settings()
         settings2 = temp_cwa_db.get_cwa_settings()
-        assert settings1['auto_convert_target_format'] == settings2['auto_convert_target_format'] == 'mobi'
+        assert settings1['auto_ingest_automerge'] == settings2['auto_ingest_automerge'] == 'ignore'
 
 
 @pytest.mark.unit  
@@ -194,44 +192,6 @@ class TestCWADBImportLogging:
 
 
 @pytest.mark.unit
-class TestCWADBConversionLogging:
-    """Test format conversion logging."""
-    
-    def test_can_insert_conversion_log(self, temp_cwa_db):
-        """Verify conversion operations can be logged."""
-        temp_cwa_db.conversion_add_entry(
-            filename="test_book.azw3",
-            original_format="AZW3",
-            end_format="EPUB",
-            original_backed_up="true"
-        )
-        
-        # Verify entry exists
-        temp_cwa_db.cur.execute("SELECT * FROM cwa_conversions WHERE filename='test_book.azw3'")
-        result = temp_cwa_db.cur.fetchone()
-        assert result is not None
-        assert result[3] == "AZW3"  # original_format column
-        assert result[4] == "true"  # original_backed_up column
-    
-    def test_conversion_failure_logged(self, temp_cwa_db):
-        """Verify conversion operations are logged."""
-        temp_cwa_db.conversion_add_entry(
-            filename="test_book.pdf",
-            original_format="PDF",
-            end_format="EPUB",
-            original_backed_up="false"
-        )
-        
-        # Verify entry with timestamp
-        temp_cwa_db.cur.execute("SELECT * FROM cwa_conversions WHERE filename='test_book.pdf'")
-        result = temp_cwa_db.cur.fetchone()
-        assert result is not None
-        assert result[1] is not None  # timestamp column
-        assert result[3] == "PDF"  # original_format
-
-
-
-@pytest.mark.unit
 class TestCWADBUserFilters:
     """Test user filter handling in CWA_DB queries."""
 
@@ -277,25 +237,6 @@ class TestCWADBStatistics:
         final_count = temp_cwa_db.cur.fetchone()[0]
         assert final_count == initial_count + 10
     
-    def test_can_get_total_conversions(self, temp_cwa_db):
-        """Verify total conversions count is calculated correctly."""
-        # Get initial count (may have data from other tests in same worker)
-        totals_initial = temp_cwa_db.get_stat_totals()
-        initial_count = totals_initial['cwa_conversions']
-        
-        # Insert conversion logs using actual production method
-        for i in range(5):
-            temp_cwa_db.conversion_add_entry(
-                filename=f"stats_book_{i}.mobi",
-                original_format="MOBI",
-                end_format="EPUB",
-                original_backed_up="true"
-            )
-        
-        # Verify count increased by exactly 5
-        totals_final = temp_cwa_db.get_stat_totals()
-        assert totals_final['cwa_conversions'] == initial_count + 5
-    
     def test_statistics_reflect_all_operations(self, temp_cwa_db):
         """Verify statistics aggregate across all operation types."""
         # Get initial counts
@@ -305,7 +246,6 @@ class TestCWADBStatistics:
         
         # Mix of operations using actual production methods with correct dict structure
         temp_cwa_db.import_add_entry(filename="Book1.epub", original_backed_up="true")
-        temp_cwa_db.conversion_add_entry(filename="Book1.mobi", original_format="EPUB", end_format="MOBI", original_backed_up="true")
         
         # enforce_add_entry_from_log requires: timestamp, book_id, title, authors, file_path
         from datetime import datetime
@@ -320,7 +260,6 @@ class TestCWADBStatistics:
         
         # Verify counts increased by 1 each
         totals_final = temp_cwa_db.get_stat_totals()
-        assert totals_final['cwa_conversions'] == totals_initial['cwa_conversions'] + 1
         assert totals_final['cwa_enforcement'] == totals_initial['cwa_enforcement'] + 1
         
         # cwa_import is not in get_stat_totals(), use direct SQL

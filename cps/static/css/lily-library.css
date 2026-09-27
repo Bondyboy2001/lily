@@ -1,0 +1,1372 @@
+/*
+ * Lily design language: library pages (book grids, lists, book detail, author, shelves, search).
+ * Tokens and base components live in lily.css (~/projects/DESIGN.md). Nothing here sets a colour
+ * by value; every colour is a token.
+ */
+
+/* ------------------------------------------------------------------ */
+/* Content column                                                       */
+/* ------------------------------------------------------------------ */
+.container-fluid .discover { margin-bottom: 22px; }
+
+.lily-content .discover > h2,
+.lily-content > h1,
+.lily-content > h2,
+.lily-content .discover > h3 {
+    margin: 0 0 14px;
+    font-family: var(--font-body);
+    font-weight: 600;
+    color: var(--heading);
+}
+
+.lily-content .discover > h3 { font-size: 19px; margin-top: 22px; }
+
+/* ------------------------------------------------------------------ */
+/* Toolbars above a list: actions, then sort/filter chips               */
+/* ------------------------------------------------------------------ */
+.lily-list-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0 0 22px;
+}
+
+/* Grid/List icons: the toolbar's top right, with room kept so the
+   toolbar's own controls never run underneath. */
+.lily-list-toolbar { position: relative; }
+
+.lily-list-toolbar:has(> .lily-view-switch) { padding-right: 76px; }
+
+.lily-list-toolbar > .lily-view-switch {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: flex;
+    gap: 2px;
+}
+
+.lily-view-switch .icon-btn { font-size: 18px; }
+
+.lily-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.lily-actions .btn { margin: 0; }
+
+.lily-actions .btn .glyphicon {
+    top: 1px;
+    margin-right: 4px;
+    font-size: 14px;
+}
+
+/* A row of separate chips (§5 Chips). It never wraps; it scrolls when it runs out of room. */
+.lily-chips,
+.filterheader.lily-chips {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    margin: -4px;
+    padding: 4px; /* room for the focus ring inside the scroller */
+    overflow-x: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+}
+
+.lily-chips > input[type="hidden"] { display: none; }
+
+.lily-chips-gap {
+    flex: none;
+    width: 1px;
+    height: 18px;
+    margin: 0 4px;
+    background: var(--line);
+}
+
+.btn.lily-chip {
+    flex: none;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.btn.lily-chip.active,
+.btn.lily-chip[aria-current="true"],
+.btn.lily-chip.active:focus {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.btn.lily-chip.active:hover,
+.btn.lily-chip[aria-current="true"]:hover {
+    background: var(--selected);
+    color: var(--accent);
+}
+
+.btn.lily-chip.disabled {
+    opacity: .4;
+    pointer-events: none;
+}
+
+@media (forced-colors: active) {
+    .btn.lily-chip.active,
+    .btn.lily-chip[aria-current="true"] { outline: 2px solid Highlight; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Book grid (index, author, search, shelf)                             */
+/* ------------------------------------------------------------------ */
+.row.lily-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 22px;
+    margin: 0;
+}
+
+.row.lily-grid::before,
+.row.lily-grid::after { display: none; }
+
+.lily-grid > .book,
+.container-fluid .lily-grid > .book {
+    width: auto;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    float: none;
+    min-width: 0;
+}
+
+.container-fluid .lily-book .cover,
+.lily-book .cover,
+.continue-reading-item .cover {
+    position: relative;
+    height: auto;
+    margin: 0 0 8px;
+    aspect-ratio: 2 / 3;
+    border-radius: 8px;
+    background: var(--sunk);
+    overflow: hidden;
+}
+
+.lily-book .cover > a,
+.lily-book .cover .img,
+.continue-reading-item .cover > a,
+.continue-reading-item .cover .img {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.container-fluid .lily-book .cover img,
+.container-fluid .lily-book .cover span img,
+.continue-reading-item .cover img {
+    position: static;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    object-fit: cover;
+    border: 0;
+    box-shadow: none;
+}
+
+/* A hairline so pale covers do not melt into the paper. */
+.lily-book .cover::after,
+.continue-reading-item .cover::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    outline: 1px solid var(--line-soft);
+    outline-offset: -1px;
+    pointer-events: none;
+}
+
+.lily-book .cover > a:focus-visible,
+.continue-reading-item .cover > a:focus-visible { outline-offset: -2px; }
+
+/* Read mark and series count: small pills on the cover's corner. */
+.lily-book .cover .badge,
+.container-fluid .lily-book .cover .badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+}
+
+.lily-book .cover .badge.read {
+    width: 20px;
+    padding: 0;
+    color: var(--success);
+    font-family: "Glyphicons Halflings";
+    font-size: 11px;
+}
+
+.lily-book .cover .lily-cover-count { left: auto; right: 6px; }
+
+.container-fluid .lily-book .meta,
+.lily-book .meta {
+    margin: 0;
+    min-width: 0;
+}
+
+.container-fluid .lily-book .meta p,
+.lily-book .meta p { margin: 0; }
+
+.container-fluid .lily-book .meta .title,
+.lily-book .meta .title,
+.continue-reading-item .meta .title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    margin: 0 0 2px;
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.35;
+    overflow-wrap: break-word;
+    white-space: normal;
+}
+
+.lily-book .meta > a,
+.continue-reading-item .meta > a { text-decoration: none; }
+
+.lily-book .meta > a:hover .title,
+.continue-reading-item .meta > a:hover .title { color: var(--accent); }
+
+.container-fluid .lily-book .meta .author,
+.container-fluid .lily-book .meta .series,
+.lily-book .meta .author,
+.lily-book .meta .series,
+.continue-reading-item .meta .author {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.4;
+}
+
+.lily-book .meta .author a,
+.lily-book .meta .series a { color: var(--muted); }
+
+.lily-book .meta .author a:hover,
+.lily-book .meta .series a:hover { color: var(--accent); }
+
+.container-fluid .lily-book .author .author-hidden,
+.container-fluid .lily-book .author .author-hidden-divider { display: none; }
+
+.lily-book .meta .author .glyphicon-music {
+    margin-left: 4px;
+    font-size: 11px;
+}
+
+/* Stars: filled in the accent, empty in the line colour (decorative; the count is in the title). */
+.rating .glyphicon-star.good,
+.rating .glyphicon-star { color: var(--accent); }
+.rating .glyphicon-star-empty { color: var(--line); }
+
+.container-fluid .lily-book .meta .rating,
+.lily-book .meta .rating {
+    margin-top: 4px;
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+
+/* Quick actions: bare icon buttons under the text, shown on hover or keyboard focus. */
+.lily-cover-actions {
+    display: flex;
+    gap: 2px;
+    margin: 4px 0 0 -7px;
+}
+
+.lily-cover-actions .icon-btn .glyphicon { font-size: 15px; }
+
+.lily-cover-actions .icon-btn[aria-pressed="true"] { color: var(--success); }
+
+.lily-cover-actions .icon-btn.is-busy { opacity: .4; pointer-events: none; }
+
+@media (hover: hover) {
+    .lily-cover-actions {
+        opacity: 0;
+        transition: opacity .12s ease-out;
+    }
+
+    .lily-book:hover .lily-cover-actions,
+    .lily-book:focus-within .lily-cover-actions { opacity: 1; }
+}
+
+@media (hover: none) {
+    .lily-cover-actions { display: none; }
+}
+
+/* List view (the top bar's List icon sets body[data-book-view]): one row per
+   book, a small cover, the text in a column, rating and actions at the end. */
+body[data-book-view="list"] .row.lily-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+}
+
+body[data-book-view="list"] .lily-book {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    column-gap: 14px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line-soft);
+}
+
+body[data-book-view="list"] .lily-book .cover {
+    margin: 0;
+    border-radius: 4px;
+}
+
+body[data-book-view="list"] .lily-book .cover::after { border-radius: 4px; }
+
+body[data-book-view="list"] .lily-book .cover .badge {
+    top: 3px;
+    left: 3px;
+    min-width: 14px;
+    width: 14px;
+    height: 14px;
+    font-size: 9px;
+}
+
+body[data-book-view="list"] .lily-book .meta {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    column-gap: 16px;
+    align-items: center;
+}
+
+body[data-book-view="list"] .lily-book .meta > :not(.rating):not(.lily-cover-actions) { grid-column: 1; }
+
+body[data-book-view="list"] .lily-book .meta .title,
+body[data-book-view="list"] .lily-book .meta .author,
+body[data-book-view="list"] .lily-book .meta .series { -webkit-line-clamp: 1; }
+
+body[data-book-view="list"] .lily-book .meta .rating {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    margin: 0;
+}
+
+body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
+    grid-column: 3;
+    grid-row: 1 / span 3;
+    margin: 0;
+}
+
+/* Series grid (grid.html): Isotope lays the items out, so they need a fixed width. */
+.row.lily-series-grid { margin: 0; }
+
+.lily-series-grid > .book,
+.container-fluid .lily-series-grid > .book {
+    width: 160px;
+    max-width: none;
+    margin: 0 22px 22px 0;
+    padding: 0;
+    float: left;
+}
+
+@media (max-width: 767px) {
+    .row.lily-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 22px 14px;
+    }
+
+    .lily-series-grid > .book,
+    .container-fluid .lily-series-grid > .book {
+        width: calc(50% - 7px);
+        margin-right: 14px;
+    }
+
+    .lily-series-grid > .book:nth-child(2n) { margin-right: 0; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Continue reading row and empty library (index.html)                  */
+/* ------------------------------------------------------------------ */
+.continue-reading { margin: 0 0 22px; }
+
+.continue-reading-row {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 22px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 2px 2px 8px;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+}
+
+.continue-reading-row > .continue-reading-item {
+    flex: 0 0 140px;
+    width: 140px;
+    margin: 0;
+    padding: 0;
+    float: none;
+    scroll-snap-align: start;
+}
+
+.continue-reading-item .meta .title { -webkit-line-clamp: 1; }
+.continue-reading-item .meta .author { -webkit-line-clamp: 1; }
+
+.continue-reading-progress { margin: 6px 0 0; }
+
+@media (max-width: 767px) {
+    .continue-reading-row > .continue-reading-item {
+        flex-basis: 112px;
+        width: 112px;
+    }
+}
+
+.library-empty-state {
+    max-width: 560px;
+    margin: 48px auto;
+    text-align: center;
+}
+
+.library-empty-state .library-empty-icon {
+    display: block;
+    margin-bottom: 14px;
+    color: var(--faint);
+    font-size: 44px;
+}
+
+.library-empty-state h3 {
+    color: var(--muted);
+    font-family: var(--font-body);
+    font-size: 19px;
+}
+
+.library-empty-state p { color: var(--muted); }
+
+/* ------------------------------------------------------------------ */
+/* Category / series / publisher lists (list.html)                     */
+/* ------------------------------------------------------------------ */
+.lily-list-columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 8px 22px;
+    max-width: 1000px;
+}
+
+.lily-list-columns > h2 { grid-column: 1 / -1; }
+
+.lily-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+/* Every entry is a bordered card of identical height, whatever it holds. */
+.lily-list > .row.lily-list-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    margin: 0;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--surface);
+    transition: background-color .12s ease-out, border-color .12s ease-out;
+}
+
+.lily-list > .row.lily-list-row::before,
+.lily-list > .row.lily-list-row::after { display: none; }
+
+.lily-list > .row.lily-list-row:hover { background: var(--hover); border-color: var(--faint); }
+
+.lily-list-row > a {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    padding: 10px 12px;
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 22px;
+    text-decoration: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lily-list-row > a:hover,
+.lily-list-row > a:focus { color: var(--ink); text-decoration: none; }
+
+.lily-list-row > a:focus-visible { outline-offset: -2px; border-radius: 5px; }
+
+.lily-list-count {
+    flex: none;
+    padding-right: 12px;
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+
+.lily-list-row .rating { font-size: 12px; letter-spacing: 1px; }
+
+/* ------------------------------------------------------------------ */
+/* Author page                                                           */
+/* ------------------------------------------------------------------ */
+.author-bio {
+    display: flow-root;
+    max-width: 720px;
+    margin: 0 0 22px;
+    font-family: var(--font-body);
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--ink);
+}
+
+.author-bio .author-photo {
+    float: left;
+    width: 96px;
+    height: auto;
+    margin: 0 22px 8px 0;
+    border-radius: 10px;
+}
+
+.author-source {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Search results and shelves                                           */
+/* ------------------------------------------------------------------ */
+#shelf-actions.btn-toolbar { margin: 0 0 14px; }
+
+.discover > h2 + p { color: var(--muted); }
+
+/* shelf_order.html */
+#sortTrue.list-group { margin: 14px 0 22px; }
+
+#sortTrue .list-group-item {
+    border: 0;
+    border-bottom: 1px solid var(--line-soft);
+    border-radius: 0;
+    cursor: grab;
+}
+
+#sortTrue .list-group-item:hover { background: var(--hover); }
+
+#sortTrue .cover-height {
+    max-height: 72px;
+    border-radius: 5px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Book detail (detail.html)                                             */
+/* ------------------------------------------------------------------ */
+.lily-book-detail { max-width: 1400px; }
+
+.book-detail-main {
+    display: grid;
+    grid-template-columns: 340px minmax(0, 1fr);
+    gap: 32px 48px;
+    align-items: start;
+}
+
+.container-fluid .book-detail-cover.cover,
+.book-detail-cover {
+    height: auto;
+    margin: 0;
+}
+
+.container-fluid .book-detail-cover img,
+.book-detail-cover img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 0;
+    border-radius: 10px;
+    box-shadow: none;
+    outline: 1px solid var(--line-soft);
+    outline-offset: -1px;
+}
+
+.book-detail-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+}
+
+.book-detail-meta h2#title {
+    margin: 0;
+    font-family: var(--font-body);
+    font-size: 37px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--heading);
+    overflow-wrap: break-word;
+}
+
+.book-detail-meta .author,
+.book-detail-meta #book_of {
+    margin: 0;
+    color: var(--muted);
+    font-size: 20px;
+}
+
+.book-detail-meta #detail-rating-block {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 22px;
+}
+
+.book-detail-actions { margin: 10px 0 8px; }
+
+.book-action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.book-action-bar > .btn,
+.book-action-bar > .btn-group { margin: 0; }
+
+.book-action-bar .btn .glyphicon {
+    top: 1px;
+    margin-right: 4px;
+    font-size: 14px;
+}
+
+.book-action-bar .btn .caret { margin-left: 4px; }
+
+.book-action-icons {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-left: -7px;
+}
+
+.book-action-icons .icon-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 25px;
+}
+
+.book-action-icons .glyphicon { top: 0; }
+
+/* Read is the page's main action: same icon, in the accent colour. */
+.book-action-icons .icon-btn.is-primary { color: var(--accent); }
+.book-action-icons .icon-btn.is-danger { color: var(--accent); }
+
+/* Label / value list for the book's facts. */
+dl.book-metadata {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 12px 32px;
+    margin: 8px 0 6px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line-soft);
+}
+
+.book-metadata > div { display: contents; }
+
+.book-metadata dt {
+    color: var(--muted);
+    font-size: 18px;
+    font-weight: 400;
+}
+
+.book-metadata dd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 4px;
+    margin: 0;
+    color: var(--ink);
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.book-metadata dd .icon-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+}
+
+/* Tags and shelves: rows of the metadata list, plain links like the values
+   above them. Remove appears on hover or focus; + sits at the end. */
+.book-metadata dd.lily-term-list { gap: 2px 12px; }
+
+/* The + hides while its input is open (icon-btn's display would override
+   the hidden attribute). */
+.book-metadata dd .lily-term-add[hidden] { display: none; }
+
+.lily-term {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.lily-term a { color: var(--ink); }
+
+.lily-term a:hover,
+.lily-term a:focus { color: var(--accent); }
+
+.book-metadata dd .lily-term-remove,
+.book-metadata dd .lily-term-add {
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+}
+
+.book-metadata dd .lily-term-add { font-size: 18px; }
+
+/* Tuck the remove button into the gap so tags keep word-like spacing. */
+.book-metadata dd .lily-term-remove { margin-right: -8px; }
+
+@media (hover: hover) {
+    .lily-term-remove { opacity: 0; }
+
+    .lily-term:hover .lily-term-remove,
+    .lily-term-remove:focus-visible { opacity: 1; }
+}
+
+.book-metadata dd .tag-add-input,
+.book-metadata dd .shelf-add-select {
+    width: 180px;
+    height: 26px;
+    padding: 0 8px;
+    font-size: 15px;
+}
+
+.book-detail-description {
+    margin-top: 32px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line-soft);
+}
+
+.book-detail-description h3 {
+    margin: 0 0 14px;
+    font-family: var(--font-body);
+    font-size: 19px;
+}
+
+.book-detail-description .comments {
+    font-family: var(--font-body);
+    font-size: 19px;
+    line-height: 1.6;
+    color: var(--ink);
+}
+
+.book-detail-description .comments p { margin: 0 0 14px; }
+
+#shelf-action-errors:empty { display: none; }
+
+#modal-validation-message { display: none; }
+
+/* A short confirmation next to the control that caused it. */
+.action-toast {
+    position: fixed;
+    z-index: 1055;
+    display: none;
+    padding: 4px 8px;
+    border-radius: 5px;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+    .book-detail-main {
+        grid-template-columns: 1fr;
+        gap: 22px;
+    }
+
+    .book-detail-cover {
+        width: 200px;
+    }
+
+    .book-detail-meta h2#title { font-size: 29px; }
+
+    dl.book-metadata { gap: 4px 14px; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Advanced search (search_form.html) and shared pickers                */
+/* ------------------------------------------------------------------ */
+#search.lily-search-form,
+form#search { max-width: 640px; }
+
+.lily-search-page { max-width: 640px; }
+
+.lily-search-page .row { margin-left: -8px; margin-right: -8px; }
+
+.lily-search-page .row > [class*="col-"] { padding-left: 8px; padding-right: 8px; }
+
+.lily-search-page .rating-input { font-size: 18px; }
+
+.lily-form-actions-left {
+    display: flex;
+    gap: 8px;
+    margin-top: 22px;
+}
+
+/* bootstrap-select renders a button; it should read as a Field (§5 Fields). */
+.bootstrap-select.form-control,
+.bootstrap-select:not([class*="col-"]):not([class*="form-control"]):not(.input-group-btn) {
+    width: 100%;
+}
+
+.bootstrap-select > .dropdown-toggle,
+.bootstrap-select > .dropdown-toggle.btn,
+.bootstrap-select > .dropdown-toggle.btn-default,
+.bootstrap-select > .dropdown-toggle.btn-primary,
+.bootstrap-select > .dropdown-toggle.btn-danger {
+    height: 30px;
+    padding: 0 28px 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 28px;
+    box-shadow: none;
+    filter: none;
+}
+
+.bootstrap-select > .dropdown-toggle:hover,
+.bootstrap-select > .dropdown-toggle:focus,
+.bootstrap-select.open > .dropdown-toggle,
+.bootstrap-select > .dropdown-toggle:active {
+    border-color: var(--faint);
+    background: var(--paper);
+    color: var(--ink);
+    filter: none;
+}
+
+.bootstrap-select > .dropdown-toggle.bs-placeholder,
+.bootstrap-select > .dropdown-toggle.bs-placeholder:hover,
+.bootstrap-select > .dropdown-toggle.bs-placeholder:focus { color: var(--faint); }
+
+.bootstrap-select > .dropdown-toggle:focus {
+    outline: none !important; /* bootstrap-select sets a thin dotted outline with !important */
+}
+
+.bootstrap-select > .dropdown-toggle:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent) !important;
+    outline-offset: 2px !important;
+}
+
+.bootstrap-select .dropdown-toggle .caret {
+    right: 10px;
+    border-top-color: var(--muted);
+}
+
+.bootstrap-select .dropdown-menu li a span.check-mark { color: var(--accent); }
+
+.bootstrap-select .dropdown-menu li.selected a { background: var(--selected); color: var(--ink); }
+
+.bootstrap-select .bs-searchbox,
+.bootstrap-select .bs-actionsbox { padding: 4px 4px 6px; }
+
+.bootstrap-select .bs-actionsbox .btn-group { display: flex; gap: 6px; }
+
+.bootstrap-select .bs-actionsbox .btn-group > .btn {
+    flex: 1;
+    width: auto;
+    margin: 0;
+}
+
+/* Date pickers: a Field with its clear glyph inside the same row. */
+.input-group .form-control:first-child { border-radius: 7px; }
+
+.input-group-btn:last-child > .btn.datepicker_delete {
+    width: 30px;
+    margin-left: 4px;
+    padding: 0;
+    border-radius: var(--control-radius);
+    background: transparent;
+    color: var(--muted);
+}
+
+.input-group-btn:last-child > .btn.datepicker_delete:hover {
+    background: var(--control-tint);
+    color: var(--ink);
+}
+
+.datepicker.dropdown-menu { padding: 8px; }
+
+.datepicker table tr td.active,
+.datepicker table tr td.active:hover,
+.datepicker table tr td.active.active,
+.datepicker table tr td span.active,
+.datepicker table tr td span.active:hover {
+    background: var(--accent);
+    color: var(--paper);
+    text-shadow: none;
+}
+
+.datepicker table tr td.day:hover,
+.datepicker table tr td span:hover,
+.datepicker .datepicker-switch:hover,
+.datepicker .prev:hover,
+.datepicker .next:hover { background: var(--hover); }
+
+.datepicker table tr td.today {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+/* Typeahead suggestions are a menu. */
+.tt-menu {
+    padding: 6px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: var(--menu-shadow);
+}
+
+.tt-suggestion {
+    padding: 7px 11px;
+    border-radius: 6px;
+    color: var(--ink-soft);
+}
+
+.tt-suggestion:hover,
+.tt-suggestion.tt-cursor {
+    background: var(--hover);
+    color: var(--ink);
+}
+
+/* Rating input (bootstrap-rating-input) */
+.rating-input .glyphicon-star { color: var(--accent); }
+.rating-input .glyphicon-star-empty { color: var(--line); }
+.rating-input .rating-clear { color: var(--muted); }
+
+/* Pushes the following items in a flex row to the far end. */
+.lily-spacer { flex: 1; }
+
+.lily-shelf-order { max-width: 720px; }
+
+/* ------------------------------------------------------------------ */
+/* Book editor (book_edit.html) and books table (book_table.html)       */
+/* ------------------------------------------------------------------ */
+/* Three columns, centred: cover and its tools | fields | Save panel. The Save
+   panel runs the height of the fields in its own column, so it sticks under the
+   top bar and saving never needs a scroll to the bottom. Below 1100px it drops
+   back under the cover (a 1fr row keeps the fields' height out of the cover's row). */
+#book_edit_frm {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 760px) 220px;
+    grid-template-rows: auto 1fr;
+    gap: 0 32px;
+    justify-content: center;
+    align-items: start;
+}
+
+.editbook-cover-section { grid-column: 1; grid-row: 1; min-width: 0; }
+.editbook-form { grid-column: 2; grid-row: 1 / span 2; }
+
+.editbook-cover-section .cover img {
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    outline: 1px solid var(--line-soft);
+    outline-offset: -1px;
+}
+
+.editbook-fetch { margin-top: 14px; }
+
+.editbook-side-group { margin-top: 22px; }
+
+.editbook-side-group h4 {
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--heading);
+}
+
+.editbook-cover-section .form-group { margin-bottom: 8px; }
+
+/* Delete sits under Fetch Metadata, quiet until hovered */
+#book_edit_frm .editbook-delete { margin-top: 8px; color: var(--danger); }
+
+#book_edit_frm .editbook-delete:hover,
+#book_edit_frm .editbook-delete:focus-visible {
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+    color: var(--danger);
+}
+
+/* Per-format deletes, shown only when the book has more than one file. */
+.editbook-delete-link {
+    display: block;
+    padding: 4px 0;
+    color: var(--danger);
+}
+
+.editbook-form { min-width: 0; }
+
+/* Tag editor (Edit Metadata): the same plain names and × as the book page's Tags row. */
+.lily-tag-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 10px;
+    padding: 0;
+    list-style: none;
+}
+
+.lily-tag-chips:empty { display: none; }
+
+/* Bordered pill tinted with the accent */
+.lily-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 3px 2px 11px;
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line-soft));
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.3;
+}
+
+.lily-tag-chip .lily-tag-remove {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.lily-tag-chip .lily-tag-remove:hover,
+.lily-tag-chip .lily-tag-remove:focus-visible {
+    background: var(--selected);
+    color: var(--accent);
+}
+
+.lily-tag-editor .twitter-typeahead { display: block !important; }
+.lily-chip-entry[hidden],
+.lily-chip-add[hidden] { display: none; }
+
+/* Fetch Metadata: results found by the book's ISBN/DOI/arXiv id rather than its title */
+.meta-exact-match {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--success) 14%, transparent);
+    color: var(--success);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Author editor (Edit Metadata): one input per author, in order. */
+.lily-author-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0 0 8px;
+    padding: 0;
+    list-style: none;
+}
+
+.lily-author-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.lily-author-field { flex: 1; min-width: 0; }
+.lily-author-field .twitter-typeahead { display: block !important; }
+
+/* typeahead copies the input's background onto its read-only hint only when the input is
+   already on the page; rows are built detached, so the hint would keep the read-only look */
+.lily-author-field .tt-hint {
+    background: var(--paper) !important;
+    opacity: 1;
+}
+
+.lily-author-row .icon-btn {
+    width: 30px;
+    height: 30px;
+    flex: none;
+    font-size: 12px;
+}
+
+/* Each section: a heading, then plainly labelled fields */
+.editbook-section { padding: 22px 0 6px; }
+
+.editbook-section:first-child { padding-top: 0; }
+
+.editbook-section h3 {
+    margin: 0 0 14px;
+    font-size: 17px;
+    font-weight: 600;
+}
+
+/* Description's heading is also its textarea's label */
+.editbook-section h3 label {
+    margin: 0;
+    font: inherit;
+    color: inherit;
+}
+
+/* Height follows the text (edit_books.js fit()) */
+.editbook-form .lily-description {
+    min-height: 80px;
+    line-height: 1.55;
+    resize: vertical;
+    overflow: hidden;
+}
+
+.editbook-section .row { margin-left: -8px; margin-right: -8px; }
+.editbook-section .row > [class*="col-"] { padding-left: 8px; padding-right: 8px; }
+
+/* Edit form checkboxes: a larger box in the accent colour, label clickable beside it */
+#book_edit_frm .checkbox { margin: 0; }
+#book_edit_frm .checkbox label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 36px;
+    padding-left: 0;
+    font-size: 16px;
+    color: var(--ink);
+    cursor: pointer;
+}
+#book_edit_frm .checkbox input[type="checkbox"] {
+    position: static;
+    flex: none;
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1.5px solid var(--line);
+    border-radius: 5px;
+    background: var(--surface) center / 14px 14px no-repeat;
+    cursor: pointer;
+    transition: background-color .12s, border-color .12s;
+}
+#book_edit_frm .checkbox input[type="checkbox"]:hover { border-color: var(--accent); }
+#book_edit_frm .checkbox input[type="checkbox"]:checked {
+    border-color: var(--accent);
+    background-color: var(--accent);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+#book_edit_frm .checkbox input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.editbook-actions {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    position: sticky;
+    top: calc(var(--topbar-height) + 20px);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    border: 1px solid var(--line-soft);
+    border-radius: 12px;
+    background: var(--surface);
+}
+.editbook-actions .btn { width: 100%; margin: 0; }
+#book_edit_frm .editbook-actions .checkbox { margin: 4px 0 0; }
+#book_edit_frm .editbook-actions .checkbox label { font-size: 14px; }
+
+@media (min-width: 768px) and (max-width: 1099px) {
+    #book_edit_frm { grid-template-columns: 220px minmax(0, 720px); }
+    .editbook-actions { grid-column: 1; grid-row: 2; margin-top: 18px; }
+}
+
+#identifier-table > tbody > tr > td {
+    padding: 4px 8px 4px 0;
+    border-top: 0;
+}
+
+@media (max-width: 767px) {
+    #book_edit_frm {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 22px;
+    }
+
+    /* Cover beside its buttons, so the fields start on the first screen */
+    .editbook-cover-section {
+        display: grid;
+        grid-template-columns: 112px minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+    }
+
+    .editbook-cover-tools .editbook-fetch { margin-top: 0; }
+    .editbook-cover-tools .editbook-side-group { margin-top: 14px; }
+
+    /* One column: the fields, then the Save panel as a bar pinned to the bottom of
+       the viewport (same pattern as Settings) */
+    .editbook-cover-section,
+    .editbook-form { grid-column: 1; grid-row: auto; }
+    .editbook-actions {
+        grid-column: 1;
+        grid-row: auto;
+        top: auto;
+        bottom: 0;
+        z-index: 20;
+        margin-top: 0;
+        flex-direction: row-reverse;
+        flex-wrap: wrap;
+        align-items: center;
+        padding: 14px 0;
+        border: 0;
+        border-top: 1px solid var(--line);
+        border-radius: 0;
+        background: var(--paper);
+    }
+    .editbook-actions .btn { width: auto; }
+    #book_edit_frm .editbook-actions .checkbox { margin: 0 auto 0 0; }
+}
+
+.lily-table-actions { margin-bottom: 14px; }
+
+.lily-table-actions .btn { margin: 0; }
+
+.lily-inline-checks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 22px;
+}
+
+.lily-inline-checks .checkbox { margin: 0; }
+
+.lily-inline-checks label { display: inline-flex; align-items: center; gap: 6px; padding-left: 0; }
+
+.lily-inline-checks input[type="checkbox"] { position: static; margin: 0; }
+
+.lily-table-note { margin-top: 8px; }
+
+body.book_table .pagination {
+    position: static;
+    margin-top: 8px;
+}
+
+/* bootstrap-rating-input copies .input-lg onto its star row, which pads and sizes it like a field. */
+.rating-input.input-lg {
+    height: auto;
+    padding: 0;
+    border: 0;
+    font-size: 27px;
+    line-height: 1;
+}
+
+/* Book page stars (editable and read-only): larger, with room between them */
+.rating-input > .glyphicon,
+#detail-rating-block .glyphicon {
+    font-size: 27px;
+    margin-right: 8px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Sort controls (image.sort_menu): a field chip and a direction chip */
+/* ------------------------------------------------------------------ */
+.lily-sort-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-self: flex-start;
+}
+
+.lily-sort > .btn.lily-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.lily-sort > .btn.lily-chip .glyphicon {
+    top: 0;
+    font-size: 14px;
+    color: var(--muted);
+}
+
+.lily-sort-label {
+    color: var(--muted);
+}
+
+.lily-sort .caret {
+    margin-left: 2px;
+}
+
+.lily-sort .dropdown-menu {
+    min-width: 200px;
+}
+
+/* Tick the chosen order so it reads without relying on colour */
+.lily-sort .dropdown-menu > li > a {
+    position: relative;
+    padding-left: 30px;
+}
+
+.lily-sort .dropdown-menu > .active > a::before {
+    content: "\2713";
+    position: absolute;
+    left: 11px;
+    color: var(--accent);
+}
+
+/* Initials filter on name lists (image.list_menu): a compact grid of letters, "All" across the top */
+.lily-sort.open > .dropdown-menu.lily-letter-menu {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(36px, 1fr));
+    min-width: 0;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.lily-sort .dropdown-menu.lily-letter-menu > li > a {
+    padding: 6px 0;
+    text-align: center;
+}
+
+.lily-sort .dropdown-menu.lily-letter-menu > li.lily-letter-all { grid-column: 1 / -1; }
+
+.lily-sort .dropdown-menu.lily-letter-menu > li.lily-letter-all > a { padding-left: 30px; text-align: left; }
+
+.lily-sort .dropdown-menu.lily-letter-menu > li:not(.lily-letter-all).active > a::before { content: none; }
+
+.lily-sort .dropdown-menu.lily-letter-menu > li.active > a {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.lily-list-toolbar > .filterheader { margin-bottom: 0; }
+
+/* main.js disables the options while a shelf is being reordered */
+.lily-sort .dropdown-menu > li > a.disabled {
+    opacity: .4;
+    pointer-events: none;
+}

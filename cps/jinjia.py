@@ -172,7 +172,7 @@ def get_cover_srcset(book):
 
 
 @jinjia.app_template_filter('get_series_srcset')
-def get_cover_srcset(series):
+def get_series_srcset(series):
     srcset = list()
     resolutions = {
         constants.COVER_THUMBNAIL_SMALL: 'sm',

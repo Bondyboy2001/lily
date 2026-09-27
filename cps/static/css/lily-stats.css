@@ -1,0 +1,718 @@
+/*
+ * Lily design language: stats and duplicates pages.
+ * Tokens and base components live in lily.css (~/projects/DESIGN.md). Nothing here sets a colour
+ * that is not a token, and nothing sets a button's box (lily.css owns .btn, .nav-pills chips, fields).
+ * Charts read the same tokens at runtime through static/js/lily-charts.js.
+ */
+
+/* ------------------------------------------------------------------ */
+/* Page frame and tabs                                                  */
+/* ------------------------------------------------------------------ */
+.stats-page {
+    max-width: 1200px;
+    min-width: 0;
+    /* Size from the column, never from content: a long chip row or table scrolls inside instead. */
+    contain: inline-size;
+}
+
+/* `hidden` must win over the flex/inline-block displays below and in lily.css (.label). */
+.stats-page [hidden] { display: none !important; }
+
+.stats-intro {
+    margin: -8px 0 14px;
+    color: var(--muted);
+}
+
+/* Tabs are chips (lily.css .nav-pills); a bar that runs out of room scrolls, it never wraps. */
+.stats-page .stats-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-bottom: 22px;
+    padding: 2px;
+}
+
+.stats-page .stats-tabs::-webkit-scrollbar { display: none; }
+
+.stats-tab-panel[hidden] { display: none; }
+
+/* ------------------------------------------------------------------ */
+/* Toolbar: filter fields in a row, then quiet actions                  */
+/* ------------------------------------------------------------------ */
+.stats-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px 14px;
+    margin-bottom: 22px;
+}
+
+.stats-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.stats-field > label,
+.stats-field-label {
+    margin: 0;
+    color: var(--faint);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+}
+
+.stats-field .form-control,
+.stats-field select,
+.stats-field input {
+    width: auto;
+    min-width: 150px;
+    max-width: 100%;
+}
+
+.stats-field-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.stats-field-row[hidden] { display: none; }
+
+.stats-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.stats-note {
+    margin: -14px 0 22px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.stats-note[hidden] { display: none; }
+
+/* ------------------------------------------------------------------ */
+/* Stat tiles: flat, a label, a number                                  */
+/* ------------------------------------------------------------------ */
+.stats-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+}
+
+.stats-tile {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+}
+
+.stats-panel .stats-tile {
+    margin-bottom: 14px;
+    border-color: var(--line-soft);
+}
+
+.stats-tile-label {
+    color: var(--faint);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+}
+
+.stats-tile-value {
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 31px;
+    font-weight: 600;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums lining-nums;
+    overflow-wrap: anywhere;
+}
+
+.stats-tile-note {
+    color: var(--muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* A trend is a fact with a sign: the arrow carries direction, the tone only supports it. */
+.stats-trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.stats-trend.is-up { color: var(--success); }
+.stats-trend.is-down { color: var(--danger); }
+
+/* ------------------------------------------------------------------ */
+/* Panels and chart grid                                                */
+/* ------------------------------------------------------------------ */
+.stats-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.stats-grid > .stats-panel { margin-bottom: 0; }
+
+@media (min-width: 900px) {
+    .stats-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .stats-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.stats-panel {
+    min-width: 0;
+    margin-bottom: 14px;
+    padding: 14px 14px 8px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+}
+
+.stats-panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.stats-panel-title {
+    margin: 0 0 8px;
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.stats-panel-head .stats-panel-title { margin: 0; }
+
+.stats-panel-sub {
+    margin: -4px 0 8px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.stats-chart {
+    width: 100%;
+    height: 320px;
+}
+
+.stats-chart-sm { height: 240px; }
+.stats-chart-lg { height: 380px; }
+
+.stats-scroll {
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.stats-scroll-sm { max-height: 220px; }
+
+/* ------------------------------------------------------------------ */
+/* Lists and rows inside panels                                         */
+/* ------------------------------------------------------------------ */
+.stats-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.stats-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 6px 4px;
+    border-top: 1px solid var(--line-soft);
+}
+
+.stats-row:first-child { border-top: 0; }
+
+.stats-row-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.stats-row-title {
+    display: block;
+    overflow: hidden;
+    color: var(--ink);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+a.stats-row-title:hover,
+a.stats-row-title:focus { color: var(--accent); }
+
+.stats-row-meta {
+    display: block;
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stats-row-value {
+    flex: none;
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+}
+
+.stats-rank {
+    flex: none;
+    width: 18px;
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-align: right;
+}
+
+.stats-avatar {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--control-tint);
+    object-fit: cover;
+}
+
+.stats-row .label { flex: none; }
+
+/* A tiny bar behind a row value (shelf activity etc.): 4px, the guide's progress look. */
+.stats-meter {
+    height: 4px;
+    margin-top: 4px;
+    border-radius: 999px;
+    background: var(--control-tint);
+    overflow: hidden;
+}
+
+.stats-meter > span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--accent);
+}
+
+/* Inline "empty" line inside a panel (no data yet). */
+.stats-none {
+    margin: 0;
+    padding: 22px 8px;
+    color: var(--muted);
+    text-align: center;
+}
+
+/* ------------------------------------------------------------------ */
+/* Empty state (§5): faint glyph, muted title, one sentence, next action */
+/* ------------------------------------------------------------------ */
+.stats-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 40px 22px;
+    text-align: center;
+}
+
+.stats-empty[hidden] { display: none; }
+
+.stats-empty-glyph {
+    color: var(--faint);
+    font-size: 35px;
+    line-height: 1;
+    opacity: .6;
+}
+
+.stats-empty-title {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-family: var(--font-body);
+    font-size: 19px;
+    font-weight: 600;
+}
+
+.stats-empty p {
+    max-width: 440px;
+    margin: 0 0 6px;
+    color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Tables (system tab, full-history pages)                              */
+/* ------------------------------------------------------------------ */
+.stats-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.stats-table-wrap .table { margin-bottom: 8px; }
+
+/* Long paths wrap inside their cell rather than widening the table. */
+.stats-table-wrap td { overflow-wrap: anywhere; }
+
+.stats-cell {
+    max-height: 20rem;
+    overflow-y: auto;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.stats-mono {
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+}
+
+.stats-section {
+    margin-bottom: 22px;
+}
+
+.stats-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.stats-section-head h3 { margin: 0; }
+
+/* ------------------------------------------------------------------ */
+/* Phone                                                                */
+/* ------------------------------------------------------------------ */
+@media (max-width: 600px) {
+    .stats-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .stats-tile-value { font-size: 25px; }
+    .stats-actions { margin-left: 0; }
+    .stats-field { flex: 1 1 140px; }
+    .stats-field .form-control,
+    .stats-field select { width: 100%; min-width: 0; }
+    .stats-chart { height: 260px; }
+    .stats-chart-lg { height: 300px; }
+}
+
+/* === Activity tab === */
+
+/* === Library tab === */
+
+/* === API tab === */
+#endpoint-table td { vertical-align: middle; }
+
+/* The table scrolls inside its panel instead of widening the page on phones. */
+#api-tab .stats-table-wrap { contain: inline-size; }
+
+/* === Duplicates === */
+/* templates/duplicates.html + static/js/duplicates.js. One Primary (Scan), everything else Quiet;
+   groups are flat cards with rows; notices are tone at 7% (lily.css .alert). */
+.dup-page { max-width: 1100px; }
+
+.dup-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 22px;
+}
+
+.dup-toolbar .selection-info {
+    color: var(--muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.dup-next-scan {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Notice: tone icon, title, sentence, the way out. */
+.dup-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 22px;
+}
+
+.dup-notice > div { flex: 1; min-width: 0; }
+.dup-notice p { margin: 4px 0 0; color: var(--ink-soft); }
+.dup-notice-title { display: block; color: var(--ink); font-weight: 600; }
+.dup-notice-icon { top: 2px; flex: none; color: var(--accent); }
+.alert-warning .dup-notice-icon { color: var(--warning); }
+.alert-danger .dup-notice-icon { color: var(--danger); }
+.dup-notice-compact { margin: 14px 0 0; padding: 10px 14px; }
+
+#duplicate_scan_results_status { display: none; }
+#duplicate_scan_task_notice a { display: inline-block; margin-top: 8px; }
+
+.duplicate-scan-progress-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.duplicate-scan-progress { margin: 4px 0; }
+
+.dup-path {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--control-tint);
+    color: var(--ink-soft);
+    overflow-wrap: anywhere;
+}
+
+.dup-mono {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Cards: auto-resolve and each duplicate group. */
+.dup-card,
+.duplicate-group {
+    margin-bottom: 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+}
+
+.dup-card { padding: 14px 14px 14px; margin-bottom: 22px; }
+
+.dup-card-title {
+    margin: 0 0 4px;
+    color: var(--ink);
+    font-size: 18px;
+}
+
+.dup-card-text { margin: 0 0 14px; color: var(--muted); }
+
+.dup-resolve-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px 14px;
+}
+
+.dup-field {
+    display: flex;
+    flex: 1 1 320px;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.dup-field label {
+    margin: 0;
+    color: var(--faint);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+}
+
+.dup-field .form-control { width: 100%; }
+
+.dup-resolve-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.duplicate-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 14px;
+    padding: 14px;
+    border-bottom: 1px solid var(--line-soft);
+}
+
+.duplicate-heading { flex: 1 1 240px; min-width: 0; }
+
+.duplicate-title {
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.duplicate-author { color: var(--muted); }
+
+.duplicate-count {
+    margin-left: 6px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--warning) 12%, transparent);
+    color: var(--warning);
+    font-size: 10px;
+    font-weight: 500;
+    vertical-align: 1px;
+}
+
+.duplicate-group-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.books-grid { padding: 4px 8px 8px; }
+
+.book-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 6px;
+    border-top: 1px solid var(--line-soft);
+    border-radius: 5px;
+    transition: background-color .12s ease-out;
+}
+
+.book-item:first-child { border-top: 0; }
+.book-item:hover { background: var(--hover); }
+.book-item.selected { background: var(--selected); }
+
+.book-checkbox { flex: none; margin: 0; }
+
+.book-cover { flex: none; width: 44px; }
+
+.book-cover img {
+    display: block;
+    width: 44px;
+    height: 64px;
+    border-radius: 3px;
+    background: var(--sunk);
+    object-fit: cover;
+}
+
+.book-details { flex: 1; min-width: 0; }
+
+.book-title-link {
+    display: block;
+    overflow: hidden;
+    color: var(--ink);
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.book-title-link:hover,
+.book-title-link:focus { color: var(--accent); }
+
+.book-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px 14px;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.book-actions { display: flex; flex: none; gap: 2px; }
+
+/* Modals: lists of books, the kept book, and the danger line. */
+.dup-modal-list { margin: 4px 0 14px; }
+
+.dup-modal-item {
+    padding: 6px 0;
+    border-top: 1px solid var(--line-soft);
+    color: var(--ink);
+}
+
+.dup-modal-item:first-child { border-top: 0; }
+.dup-keep .dup-modal-item { font-weight: 600; }
+
+#execute_resolution_modal .danger-note,
+#delete_selected_modal .danger-note {
+    margin: 0;
+    color: var(--danger);
+    font-weight: 500;
+}
+
+.strategy-summary { color: var(--ink-soft); }
+
+/* Resolution summary (success modal and preview). */
+.resolution-success-summary,
+.dup-preview-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.resolution-success-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+}
+
+.resolution-success-value {
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 25px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums lining-nums;
+}
+
+.resolution-success-label {
+    color: var(--faint);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+}
+
+.dup-preview-body { max-height: 60vh; overflow-y: auto; }
+
+.dup-preview-group {
+    padding: 10px 0;
+    border-top: 1px solid var(--line-soft);
+}
+
+.dup-preview-title { color: var(--ink); font-weight: 600; }
+.dup-preview-author { color: var(--muted); font-weight: 400; }
+
+.dup-preview-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 8px;
+    margin-top: 6px;
+}
+
+.dup-preview-meta { color: var(--muted); font-size: 12px; }
+
+@media (max-width: 600px) {
+    .dup-next-scan { margin-left: 0; flex-basis: 100%; }
+    .duplicate-group-actions,
+    .dup-resolve-actions { width: 100%; }
+    .book-item { gap: 10px; }
+    .book-actions { flex-direction: column; }
+    .resolution-success-summary,
+    .dup-preview-summary { grid-template-columns: minmax(0, 1fr); }
+}

@@ -130,8 +130,6 @@ class TestDatabaseAccess:
         expected_tables = [
             'cwa_enforcement',
             'cwa_import',
-            'cwa_conversions',
-            'epub_fixes',
             'cwa_settings'
         ]
         

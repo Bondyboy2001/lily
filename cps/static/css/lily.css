@@ -1,0 +1,820 @@
+/*
+ * Lily design language — tokens and base components.
+ *
+ * Source of truth: ~/projects/DESIGN.md (palette "Lily", §2; components §5; tokens §7).
+ * Lily has one theme, so the tokens live directly on :root. Bootstrap 3 classes are restyled here
+ * into the guide's components, so existing markup picks them up without template changes:
+ *   .btn / .btn-default → Quiet    .btn-primary → Primary    .btn-danger → Danger
+ *   .form-control → Field          .dropdown-menu → Menu     .modal → Sheet
+ *   .alert → Notice                .label / .badge → Pill    .pagination / .nav-tabs → Chips
+ * Loaded after bootstrap.min.css, style.css, upload.css and cwa.css in layout.html.
+ */
+
+:root {
+    color-scheme: light;
+    --paper: #FDFCFA;
+    --surface: #FFFFFF;
+    --sunk: #F4EFE7;
+    --ink: #2B2326;
+    --ink-soft: #473C40;
+    --muted: #62575B;
+    --faint: #6B6064;
+    /* Darkened so dividers and field edges read clearly (≈2:1 and 1.6:1 on paper). */
+    --line: #C2B3A6;
+    --line-soft: #D6CABE;
+    --accent: #9E2F55;
+    --heading: #9E2F55;
+    --success: #4F6B4B;
+    --warning: #A13F0E;
+    --danger: #B3261E;
+
+    --hover: color-mix(in srgb, var(--accent) 10%, transparent);
+    --selected: color-mix(in srgb, var(--accent) 17%, transparent);
+    --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+    --control-tint: color-mix(in srgb, var(--ink) 6%, transparent);
+    --control-tint-strong: color-mix(in srgb, var(--ink) 10%, transparent);
+    --row-hover: color-mix(in srgb, var(--ink) 5%, transparent);
+    --row-active: color-mix(in srgb, var(--ink) 9%, transparent);
+    --control-radius: 8px;
+    /* Categorical chart series, validated for contrast and colour-blind separation on paper and surface.
+       Not in DESIGN.md yet; move them there if another app charts. */
+    --series-1: #9E2F55;
+    --series-2: #2A78C6;
+    --series-3: #B07A0C;
+    --series-4: #2E8B6A;
+    --series-5: #7A52B8;
+    --menu-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent), 0 8px 24px color-mix(in srgb, var(--ink) 10%, transparent);
+
+    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-body: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --font-mono: "SF Mono", ui-monospace, Menlo, monospace;
+}
+
+/* ------------------------------------------------------------------ */
+/* Page and type                                                        */
+/* ------------------------------------------------------------------ */
+html,
+body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Everything is sized in px, so wide screens scale the whole page (type, icons
+   and spacing together) rather than leaving it small in a sea of margin.
+   Breakpoints are measured before the zoom applies, so they don't feed back. */
+@media (min-width: 1400px) { html { zoom: 1.1; } }
+@media (min-width: 1700px) { html { zoom: 1.2; } }
+
+h1, h2, h3,
+.h1, .h2, .h3 {
+    margin: 0 0 14px;
+    font-family: var(--font-body);
+    font-weight: 600;
+    color: var(--heading);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+h1, .h1, h2, .h2 { font-size: 25px; line-height: 1.25; }
+h3, .h3 { font-size: 19px; line-height: 1.3; }
+
+h4, h5, h6,
+.h4, .h5, .h6 {
+    margin: 0 0 8px;
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    text-transform: none;
+}
+
+p { margin: 0 0 14px; }
+
+a { color: var(--accent); }
+a:hover,
+a:focus { color: var(--accent); }
+
+small, .small, .text-muted, .help-block { color: var(--muted); }
+
+code, kbd, pre, samp { font-family: var(--font-mono); font-size: 14px; }
+
+code {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--sunk);
+    color: var(--ink);
+}
+
+hr { border-top: 1px solid var(--line); }
+
+.lily-section-label,
+.dropdown-header {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: var(--faint);
+}
+
+/* ------------------------------------------------------------------ */
+/* Buttons (§5 Buttons)                                                 */
+/* ------------------------------------------------------------------ */
+.btn {
+    height: 30px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--control-radius);
+    background: var(--control-tint);
+    color: var(--ink-soft);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 30px;
+    text-transform: none;
+    text-shadow: none;
+    box-shadow: none;
+    transition: background-color .12s ease-out, color .12s ease-out, filter .12s ease-out;
+}
+
+.btn-default,
+.btn-success,
+.btn-info,
+.btn-warning {
+    border: 0;
+    background: var(--control-tint);
+    color: var(--ink-soft);
+}
+
+.btn:hover,
+.btn:focus,
+.btn:active,
+.btn.active,
+.open > .dropdown-toggle.btn,
+.btn-default:hover,
+.btn-default:focus,
+.btn-default:active,
+.btn-default.active,
+.btn-success:hover,
+.btn-info:hover,
+.btn-warning:hover {
+    border: 0;
+    background: var(--control-tint-strong);
+    color: var(--ink);
+    box-shadow: none;
+}
+
+.btn-primary,
+.btn-primary:focus {
+    background: var(--accent);
+    color: var(--paper);
+    font-weight: 600;
+}
+
+.btn-primary:hover,
+.btn-primary:active,
+.btn-primary.active,
+.btn-primary:active:hover,
+.btn-primary:active:focus {
+    background: var(--accent);
+    color: var(--paper);
+    filter: brightness(1.08);
+}
+
+.btn-primary:active,
+.btn-primary.active { filter: brightness(.94); }
+
+.btn-danger,
+.btn-danger:focus,
+.btn-danger:hover,
+.btn-danger:active,
+.btn-danger.active,
+.btn-danger:active:focus {
+    background: var(--accent);
+    color: #fff;
+}
+
+.btn-danger:hover { filter: brightness(1.08); }
+.btn-danger:active,
+.btn-danger.active { filter: brightness(.94); }
+
+/* Icon-only destructive actions (trash icons) use the accent, like the primary button. */
+.icon-btn.is-danger,
+.icon-btn.is-danger:hover,
+.icon-btn.is-danger:focus,
+.danger.remove,
+.book-remove,
+.user-remove { color: var(--accent); }
+
+.icon-btn.is-danger:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+.btn-link,
+.btn-link:focus {
+    background: transparent;
+    color: var(--accent);
+}
+
+.btn-link:hover,
+.btn-link:active {
+    background: transparent;
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+/* Every button is one size (§4); Bootstrap's size modifiers do not change it. */
+.btn-sm,
+.btn-xs,
+.btn-lg,
+.btn-group-sm > .btn,
+.btn-group-xs > .btn,
+.btn-group-lg > .btn {
+    height: 30px;
+    padding: 0 14px;
+    font-size: 15px;
+    line-height: 30px;
+    border-radius: var(--control-radius);
+}
+
+.btn-block + .btn-block { margin-top: 8px; }
+
+.btn-group > .btn + .btn,
+.btn-toolbar > .btn + .btn { margin-left: 8px; }
+
+.btn-group > .btn,
+.btn-group > .btn:first-child:not(:last-child):not(.dropdown-toggle),
+.btn-group > .btn:last-child:not(:first-child),
+.btn-group > .dropdown-toggle:not(:first-child) {
+    border-radius: var(--control-radius);
+}
+
+.btn.disabled,
+.btn[disabled],
+fieldset[disabled] .btn,
+button:disabled {
+    opacity: .4;
+    box-shadow: none;
+}
+
+/* A toggle button that is on reads as a chosen chip (§5 Chips). */
+.btn[aria-pressed="true"],
+.btn[aria-pressed="true"]:focus {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.btn[aria-pressed="true"]:hover { background: var(--selected); color: var(--accent); }
+
+/* Icon button: bare glyph, a tint only under the pointer. */
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--control-radius);
+    background: transparent;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color .12s ease-out, color .12s ease-out;
+}
+
+.icon-btn:hover,
+.icon-btn:focus {
+    background: var(--control-tint);
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.icon-btn[aria-pressed="true"],
+.icon-btn[aria-expanded="true"] {
+    background: var(--control-tint-strong);
+    color: var(--ink);
+}
+
+.icon-btn .glyphicon { top: 0; }
+
+/* Touch: 44pt hit target, same drawn size. */
+@media (pointer: coarse) {
+    .icon-btn::after {
+        content: "";
+        position: absolute;
+        inset: -7px;
+    }
+}
+
+.close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--control-radius);
+    color: var(--muted);
+    font-size: 22px;
+    font-weight: 400;
+    text-shadow: none;
+    opacity: 1;
+}
+
+.close:hover,
+.close:focus {
+    background: var(--control-tint);
+    color: var(--ink);
+    opacity: 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* Fields (§5 Fields)                                                   */
+/* ------------------------------------------------------------------ */
+label,
+.control-label {
+    margin-bottom: 4px;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.form-group { margin-bottom: 14px; }
+
+.form-control,
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="search"],
+input[type="url"],
+input[type="tel"],
+input[type="date"],
+select,
+textarea {
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    box-shadow: none;
+    transition: border-color .12s ease-out;
+}
+
+textarea,
+textarea.form-control,
+select[multiple],
+select[size] {
+    height: auto;
+    padding: 6px 10px;
+}
+
+.form-control:focus,
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--faint);
+    box-shadow: none;
+    outline: none;
+}
+
+.form-control::placeholder,
+input::placeholder,
+textarea::placeholder {
+    color: var(--faint);
+    opacity: 1;
+}
+
+.has-error .form-control,
+.form-control:user-invalid {
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+    box-shadow: none;
+}
+
+.has-error .control-label,
+.has-error .help-block { color: var(--ink-soft); }
+
+.form-control[disabled],
+.form-control[readonly],
+fieldset[disabled] .form-control {
+    background: var(--sunk);
+    opacity: .4;
+}
+
+.input-group-addon {
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--sunk);
+    color: var(--muted);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--accent);
+}
+
+@media (pointer: coarse) {
+    /* 16px stops iOS zooming into a field on focus. */
+    .form-control, input, select, textarea { font-size: 18px; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Menus, popovers, tooltips (§5 Menus and popovers, Tooltips)          */
+/* ------------------------------------------------------------------ */
+.dropdown-menu {
+    margin-top: 4px;
+    padding: 6px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: var(--menu-shadow);
+    font-size: 15px;
+}
+
+.dropdown-menu > li > a {
+    padding: 7px 11px;
+    border-radius: 6px;
+    color: var(--ink-soft);
+}
+
+.dropdown-menu > li > a:hover,
+.dropdown-menu > li > a:focus {
+    background: var(--hover);
+    color: var(--ink);
+}
+
+.dropdown-menu > .active > a,
+.dropdown-menu > .active > a:hover,
+.dropdown-menu > .active > a:focus {
+    background: var(--selected);
+    color: var(--ink);
+}
+
+.dropdown-menu .divider {
+    margin: 6px 0;
+    background: var(--line-soft);
+}
+
+.dropdown-header { padding: 8px 11px 4px; }
+
+.popover {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: var(--menu-shadow);
+    color: var(--ink);
+    font-family: var(--font-ui);
+}
+
+.popover-title {
+    border-bottom: 1px solid var(--line-soft);
+    background: transparent;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.tooltip { font-family: var(--font-ui); font-size: 12px; }
+
+/* .tooltip.bottom matches style.css's legacy white-on-#ddd tooltip, which outranks a bare .tooltip-inner. */
+.tooltip-inner,
+.tooltip.bottom .tooltip-inner {
+    margin-top: 0 !important;
+    padding: 4px 8px;
+    border-radius: 5px;
+    background: var(--ink);
+    box-shadow: none;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--paper);
+}
+
+.tooltip.top .tooltip-arrow { border-top-color: var(--ink); }
+.tooltip.bottom .tooltip-arrow { border-bottom-color: var(--ink); }
+.tooltip.left .tooltip-arrow { border-left-color: var(--ink); }
+.tooltip.right .tooltip-arrow { border-right-color: var(--ink); }
+
+/* ------------------------------------------------------------------ */
+/* Sheets and dialogs (§5)                                              */
+/* ------------------------------------------------------------------ */
+.modal-backdrop.in { opacity: .35; }
+.modal-backdrop { background: var(--ink); }
+
+.modal-content {
+    border: 0;
+    border-radius: 10px;
+    background: var(--paper);
+    box-shadow: none;
+}
+
+.modal-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 24px 24px 8px;
+    border-bottom: 0;
+}
+
+.modal-header .close { order: 2; margin: -4px -8px 0 auto; }
+
+/* Bootstrap's clearfix pseudo-elements become flex items and push the title right. */
+.modal-header::before,
+.modal-header::after { display: none; }
+
+.modal-title {
+    font-family: var(--font-body);
+    font-size: 25px;
+    font-weight: 600;
+    color: var(--heading);
+}
+
+.modal-body { padding: 8px 24px 14px; }
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 24px 24px;
+    border-top: 0;
+}
+
+.modal-footer .btn + .btn { margin-left: 0; }
+
+/* ------------------------------------------------------------------ */
+/* Notices, pills (§5 Notices, Pills)                                   */
+/* ------------------------------------------------------------------ */
+.alert {
+    padding: 14px;
+    border: 0;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+    color: var(--ink);
+    text-align: left;
+}
+
+.alert-info { background: color-mix(in srgb, var(--accent) 7%, transparent); color: var(--ink); }
+.alert-success { background: color-mix(in srgb, var(--success) 7%, transparent); color: var(--ink); }
+.alert-warning { background: color-mix(in srgb, var(--warning) 7%, transparent); color: var(--ink); }
+.alert-danger { background: color-mix(in srgb, var(--danger) 7%, transparent); color: var(--ink); }
+
+.alert a:not(.btn),
+.alert .alert-link { color: var(--accent); font-weight: 500; }
+
+.label,
+.badge {
+    display: inline-block;
+    padding: 3px 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ink) 12%, transparent);
+    color: var(--ink-soft);
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.2;
+    text-shadow: none;
+    vertical-align: middle;
+}
+
+.label-primary, .label-info { background: var(--accent-soft); color: var(--accent); }
+.label-success { background: color-mix(in srgb, var(--success) 12%, transparent); color: var(--success); }
+.label-warning { background: color-mix(in srgb, var(--warning) 12%, transparent); color: var(--warning); }
+.label-danger { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+
+/* ------------------------------------------------------------------ */
+/* Chips: pagination, tabs, pills (§5 Chips)                            */
+/* ------------------------------------------------------------------ */
+.pagination,
+.nav-tabs,
+.nav-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 22px 0;
+    padding: 0;
+    border: 0;
+}
+
+.nav-tabs,
+.nav-pills { margin: 0 0 22px; }
+
+.pagination > li,
+.nav-tabs > li,
+.nav-pills > li {
+    float: none;
+    display: block;
+    margin: 0;
+}
+
+.pagination > li > a,
+.pagination > li > span,
+.pagination > li:first-child > a,
+.pagination > li:last-child > a,
+.nav-tabs > li > a,
+.nav-pills > li > a {
+    float: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    margin: 0;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--control-radius);
+    background: var(--control-tint);
+    color: var(--ink-soft);
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 30px;
+    white-space: nowrap;
+    transition: background-color .12s ease-out, color .12s ease-out;
+}
+
+.pagination > li > a:hover,
+.pagination > li > a:focus,
+.nav-tabs > li > a:hover,
+.nav-tabs > li > a:focus,
+.nav-pills > li > a:hover,
+.nav-pills > li > a:focus {
+    border: 0;
+    background: var(--control-tint-strong);
+    color: var(--ink);
+}
+
+.pagination > .active > a,
+.pagination > .active > a:focus,
+.pagination > .active > span,
+.nav-tabs > li.active > a,
+.nav-tabs > li.active > a:focus,
+.nav-pills > li.active > a,
+.nav-pills > li.active > a:focus {
+    border: 0;
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.pagination > .active > a:hover,
+.nav-tabs > li.active > a:hover,
+.nav-pills > li.active > a:hover {
+    border: 0;
+    background: var(--selected);
+    color: var(--accent);
+}
+
+/* ------------------------------------------------------------------ */
+/* Cards, rows, progress                                                */
+/* ------------------------------------------------------------------ */
+.well,
+.panel {
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: none;
+}
+
+.panel { padding: 0; }
+.panel-body { padding: 22px; }
+
+.panel-heading,
+.panel-default > .panel-heading {
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--line-soft);
+    border-radius: 10px 10px 0 0;
+    background: transparent;
+    color: var(--ink);
+    font-weight: 600;
+}
+
+.panel-footer {
+    border-top: 1px solid var(--line-soft);
+    background: transparent;
+}
+
+.list-group-item {
+    border-color: var(--line-soft);
+    background: transparent;
+    color: var(--ink);
+}
+
+.table > thead > tr > th {
+    border-bottom: 1px solid var(--line);
+    color: var(--faint);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+}
+
+.table > tbody > tr > td,
+.table > tbody > tr > th {
+    padding: 8px 10px;
+    border-top: 1px solid var(--line-soft);
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) { background: transparent; }
+.table-hover > tbody > tr:hover { background: var(--hover); }
+.table > tbody > tr.active > td,
+.table > tbody > tr.selected > td { background: var(--selected); }
+
+.table-bordered,
+.table-bordered > thead > tr > th,
+.table-bordered > tbody > tr > td {
+    border-left: 0;
+    border-right: 0;
+}
+
+.progress {
+    height: 4px;
+    margin: 8px 0;
+    border-radius: 999px;
+    background: var(--control-tint);
+    box-shadow: none;
+}
+
+.progress-bar {
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: none;
+    font-size: 0;
+}
+
+.progress-bar-success { background: var(--success); }
+.progress-bar-warning { background: var(--warning); }
+.progress-bar-danger { background: var(--danger); }
+
+/* ------------------------------------------------------------------ */
+/* Layout helpers used by simple form pages                             */
+/* ------------------------------------------------------------------ */
+.lily-narrow {
+    max-width: 560px;
+}
+
+.lily-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 22px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Focus, forced colours, reduced motion                                */
+/* ------------------------------------------------------------------ */
+.btn:focus,
+.btn:active:focus,
+.btn.active:focus,
+a:focus {
+    outline: none;
+}
+
+:focus-visible,
+.btn:focus-visible,
+a:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+    outline-offset: 2px;
+}
+
+.form-control:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+    outline-offset: 2px;
+}
+
+@media (forced-colors: active) {
+    .btn,
+    .icon-btn,
+    .close {
+        border: 1px solid ButtonText;
+    }
+
+    .pagination > .active > a,
+    .nav-tabs > li.active > a,
+    .nav-pills > li.active > a {
+        outline: 2px solid Highlight;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        transition: none !important;
+        animation: none !important;
+    }
+}

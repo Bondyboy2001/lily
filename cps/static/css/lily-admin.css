@@ -1,0 +1,918 @@
+/*
+ * Lily design language: admin, configuration and settings pages.
+ * Source of truth: ~/projects/DESIGN.md. Tokens and base components (buttons, fields, chips, notices,
+ * sheets) live in lily.css; this file only lays out the admin pages and restyles their legacy classes
+ * (settings-container, settings-section-header, cwa-settings-*) on those tokens.
+ * Every rule is scoped to .lily-admin, the wrapper each admin template puts round its body, so the
+ * library and stats pages that share some of these class names are untouched.
+ * No hex colours here: colours come from lily.css tokens.
+ */
+
+/* ------------------------------------------------------------------ */
+/* Page frame                                                           */
+/* ------------------------------------------------------------------ */
+.lily-admin {
+    max-width: 880px;
+    padding-bottom: 24px;
+    font-size: 15px;
+    color: var(--ink);
+}
+
+.lily-admin.lily-admin-wide { max-width: none; }
+
+/* Legacy headings inside admin pages: guide sizes, no decoration. */
+.lily-admin h2,
+.lily-admin-heading {
+    margin: 0 0 14px;
+    font-family: var(--font-body);
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--heading);
+}
+
+.lily-admin h3 {
+    margin: 0 0 14px;
+    font-family: var(--font-body);
+    font-size: 19px;
+    color: var(--heading);
+}
+
+.lily-admin h4,
+.lily-admin h5 {
+    margin: 0 0 8px;
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+/* Section label (§3): 10 semibold uppercase, faint. */
+.lily-admin .settings-section-header,
+.lily-admin .lily-section-label,
+.lily-admin h4.settings-section-header,
+.lily-admin h5.lily-section-label {
+    display: block;
+    margin: 0 0 14px;
+    padding: 0;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: var(--faint);
+}
+
+/* A section label used as a field's label keeps the field's own look. */
+.lily-admin label.settings-section-header {
+    display: inline-block;
+    margin: 0 8px 4px 0;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--ink-soft);
+}
+
+/* Groups: a flat surface card, 1px line, radius 10 (§4, §5). */
+.lily-admin .settings-container {
+    max-width: none;
+    margin: 0 0 22px;
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: none;
+    justify-self: auto;
+}
+
+.lily-admin .settings-container .settings-container {
+    margin: 14px 0 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.lily-admin .settings-container > :last-child { margin-bottom: 0; }
+
+.lily-admin hr,
+.lily-admin .settings-divider {
+    margin: 22px 0;
+    border: 0;
+    border-top: 1px solid var(--line-soft);
+}
+
+/* ------------------------------------------------------------------ */
+/* Form rows                                                            */
+/* ------------------------------------------------------------------ */
+.lily-admin .form-group { margin-bottom: 14px; }
+
+.lily-admin .form-group label,
+.lily-admin label {
+    display: inline-block;
+    margin: 0 0 4px;
+    padding: 0;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink-soft);
+}
+
+.lily-admin .form-control { width: 100%; }
+.lily-admin select.form-control { padding-right: 24px; }
+
+/* Checkbox followed by its label on one line. */
+.lily-admin input[type="checkbox"],
+.lily-admin input[type="radio"] {
+    margin: 0 8px 0 0;
+    vertical-align: -2px;
+    accent-color: var(--accent);
+}
+
+.lily-admin input[type="checkbox"] + label,
+.lily-admin input[type="radio"] + label {
+    margin-bottom: 0;
+    padding-left: 0;
+    cursor: pointer;
+}
+
+.lily-admin .checkbox label,
+.lily-admin .radio label {
+    padding-left: 0;
+}
+
+.lily-admin .checkbox input[type="checkbox"],
+.lily-admin .radio input[type="radio"] {
+    position: static;
+    margin-left: 0;
+}
+
+/* A row that starts with a checkbox: box and label side by side, anything after on its own line. */
+.lily-admin div:has(> input[type="checkbox"]:first-child) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+}
+
+.lily-admin div:has(> input[type="checkbox"]:first-child) > input[type="checkbox"] { flex: none; }
+.lily-admin div:has(> input[type="checkbox"]:first-child) > label { flex: 1 1 0; min-width: 0; }
+.lily-admin div:has(> input[type="checkbox"]:first-child) > label ~ * { flex: 1 0 100%; }
+
+/* Explanations under a setting: 13 muted, aligned under the label text. */
+.lily-admin .cwa-settings-tooltip,
+.lily-admin p.cwa-settings-tooltip,
+.lily-admin .cwa-settings-explanation,
+.lily-admin p.cwa-settings-explanation,
+.lily-admin .settings-explanation,
+.lily-admin .settings-description,
+.lily-admin .cwa-settings-disclaimer,
+.lily-admin p.cwa-settings-disclaimer,
+.lily-admin .help-block {
+    max-width: 68ch;
+    margin: 4px 0 14px 22px;
+    padding: 0;
+    font-size: 15px;
+    font-style: normal;
+    line-height: 1.5;
+    color: var(--muted);
+}
+
+/* Only a checkbox's explanation is indented, to sit under the label text. */
+.lily-admin .cwa-settings-explanation,
+.lily-admin .settings-explanation,
+.lily-admin .settings-description,
+.lily-admin .cwa-settings-disclaimer,
+.lily-admin .help-block { margin-left: 0; }
+
+/* Tip or warning under a setting: a notice (§5), tone at 7%, radius 10, no border. */
+.lily-admin .cwa-settings-tip {
+    margin: 8px 0 14px;
+    padding: 10px 14px;
+    border: 0;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
+    color: var(--ink-soft);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.lily-admin .cwa-settings-tip small { font-size: 14px; }
+
+.lily-admin .lily-notice-warning {
+    background: color-mix(in srgb, var(--warning) 7%, transparent);
+}
+
+.lily-admin .lily-notice-danger,
+.lily-admin .cwa-settings-tip.lily-tip-danger {
+    background: color-mix(in srgb, var(--danger) 7%, transparent);
+    color: var(--ink);
+}
+
+/* Settings that only apply when their parent is on: indented under a 1px line. */
+.lily-admin [data-related],
+.lily-admin .intend-form,
+.lily-admin .lily-indent {
+    margin: 0 0 14px 6px;
+    padding-left: 16px;
+    border-left: 1px solid var(--line);
+}
+
+/* Field with a trailing control (folder picker, unit, test button). */
+.lily-admin .input-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+}
+
+.lily-admin .input-group > .form-control {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    border-radius: 7px;
+}
+
+.lily-admin .input-group-btn {
+    display: flex;
+    width: auto;
+    gap: 8px;
+    font-size: 15px;
+    white-space: nowrap;
+}
+
+.lily-admin .input-group-btn > .btn { margin: 0; border-radius: var(--control-radius); }
+
+.lily-admin .input-group-addon {
+    width: auto;
+    padding: 0 8px;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+}
+
+/* Grids of checkboxes (permissions, visibilities). */
+.lily-admin .lily-check-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px 22px;
+    margin: 0 0 14px;
+}
+
+.lily-admin .lily-check-grid > div,
+.lily-admin .lily-check-grid > label {
+    display: flex;
+    align-items: center;
+    min-height: 22px;
+    margin: 0;
+}
+
+.lily-admin .lily-check-grid label { margin: 0; }
+
+.lily-admin .lily-check-grid > [data-related] {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.lily-admin .form-text {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Actions                                                              */
+/* ------------------------------------------------------------------ */
+.lily-admin .lily-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.lily-admin .lily-actions + .lily-actions { margin-top: 8px; }
+
+.lily-admin .lily-actions .btn,
+.lily-admin .lily-form-actions .btn,
+.lily-admin .discover .btn { margin: 0; }
+
+.lily-admin .lily-form-actions { margin-top: 22px; }
+
+/* Primary last, on the right; a lone Cancel or Back sits to its left. */
+.lily-admin .lily-form-actions .lily-spacer { margin-right: auto; }
+
+/* ------------------------------------------------------------------ */
+/* Admin dashboard (admin.html)                                         */
+/* ------------------------------------------------------------------ */
+.lily-admin-dashboard { max-width: 1080px; }
+
+.lily-admin-section {
+    padding: 22px 0;
+    border-top: 1px solid var(--line-soft);
+}
+
+.lily-admin-section:first-child {
+    padding-top: 0;
+    border-top: 0;
+}
+
+/* Label / value facts with tabular figures. */
+.lily-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    column-gap: 24px;
+    margin: 0;
+}
+
+.lily-fact {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    min-width: 0;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--line-soft);
+}
+
+.lily-fact dt {
+    flex: none;
+    font-weight: 400;
+    color: var(--muted);
+}
+
+.lily-fact dd {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+    text-align: right;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.lily-bool { top: 1px; font-size: 12px; }
+.lily-bool.is-on { color: var(--success); }
+.lily-bool.is-off { color: var(--faint); }
+
+.lily-mono {
+    font-family: var(--font-mono);
+    font-size: 14px;
+}
+
+.lily-fact-note {
+    color: var(--muted);
+    font-style: normal;
+}
+
+.lily-admin-table { margin: 0; border: 0; }
+.lily-admin-table .table { margin-bottom: 0; }
+.lily-admin-table .table > thead > tr > th { vertical-align: bottom; }
+.lily-admin-table .table > thead > tr > th,
+.lily-admin-table .table > tbody > tr > td { padding: 8px 10px 8px 0; vertical-align: middle; }
+
+/* ------------------------------------------------------------------ */
+/* Small helpers shared by admin templates                              */
+/* ------------------------------------------------------------------ */
+.lily-admin .lily-mt { margin-top: 14px; }
+.lily-admin .lily-mb { margin-bottom: 14px; }
+.lily-admin .lily-block-label { display: block; }
+
+.lily-admin .lily-divided {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line-soft);
+}
+
+.lily-admin .lily-owner { color: var(--muted); }
+
+.lily-admin .settings-disclaimer {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Profile (user_edit.html)                                             */
+/* ------------------------------------------------------------------ */
+.lily-profile .profile-header-container {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 0 0 22px;
+}
+
+.lily-profile .profile-picture {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: var(--sunk);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+
+.lily-profile .profile-picture .fallback-icon {
+    display: none;
+    top: 0;
+    font-size: 25px;
+    color: var(--faint);
+}
+
+.lily-profile .profile-picture.no-custom-picture .fallback-icon { display: block; }
+
+.lily-profile .profile-title-section h2 {
+    margin: 0;
+    font-size: 25px;
+    color: var(--heading);
+}
+
+.lily-profile .profile-subtitle {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+/* Drag-to-reorder lists (OPDS order): list rows (§5). */
+.lily-admin .lily-order-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.lily-admin .opds-order-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 30px;
+    margin: 0;
+    padding: 0 10px;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--ink);
+    cursor: move;
+    transition: background-color .12s ease-out;
+}
+
+.lily-admin .opds-order-item + .opds-order-item { border-top: 1px solid var(--line-soft); }
+.lily-admin .opds-order-item:hover { background: var(--hover); }
+.lily-admin .opds-order-item.dragging { background: var(--selected); opacity: .8; }
+
+.lily-admin .opds-order-drag-handle {
+    top: 0;
+    font-size: 12px;
+    color: var(--faint);
+    user-select: none;
+}
+
+.lily-admin .opds-order-label { font-weight: 400; color: var(--ink); }
+
+.lily-admin .opds-order-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 0 0 0 auto;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--muted);
+}
+
+.lily-admin .order-list-disabled .opds-order-item {
+    opacity: .4;
+    cursor: default;
+}
+
+/* ------------------------------------------------------------------ */
+/* Tables built by bootstrap-table (tasks, users, domains): list rows   */
+/* ------------------------------------------------------------------ */
+.lily-admin .bootstrap-table .fixed-table-container,
+.lily-admin .bootstrap-table .fixed-table-container.fixed-height {
+    border: 0;
+    border-radius: 0;
+}
+
+.lily-admin .bootstrap-table .table,
+.lily-admin .bootstrap-table .table > thead > tr > th {
+    border-left: 0;
+    border-right: 0;
+}
+
+.lily-admin .bootstrap-table .fixed-table-container .table thead th .th-inner {
+    padding: 8px 10px 8px 0;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+/* No resting sort arrows; the sorted column shows one small arrow. */
+.lily-admin .bootstrap-table .fixed-table-container .table thead th .sortable,
+.lily-admin .bootstrap-table .fixed-table-container .table thead th .sortable.both,
+.lily-admin .bootstrap-table .fixed-table-container .table thead th .sortable.asc,
+.lily-admin .bootstrap-table .fixed-table-container .table thead th .sortable.desc {
+    padding-right: 14px !important;
+    background-image: none;
+}
+
+.lily-admin .bootstrap-table .table thead th .sortable.asc::after { content: " \2191"; color: var(--muted); }
+.lily-admin .bootstrap-table .table thead th .sortable.desc::after { content: " \2193"; color: var(--muted); }
+.lily-admin .bootstrap-table .table thead th .sortable:hover { color: var(--ink); }
+
+.lily-admin .bootstrap-table .table > tbody > tr > td {
+    padding: 8px 10px 8px 0;
+    vertical-align: middle;
+}
+
+.lily-admin .bootstrap-table .table > tbody > tr:hover { background: var(--hover); }
+
+.lily-admin .bootstrap-table .fixed-table-container .table tbody tr.no-records-found > td {
+    padding: 14px 0;
+    color: var(--muted);
+    text-align: left;
+}
+
+.lily-admin .fixed-table-toolbar .btn,
+.lily-admin .fixed-table-toolbar .form-control { margin: 0 0 8px; }
+
+/* The user table is far wider than the page: it scrolls inside its own box. */
+.lily-user-table { contain: inline-size; }
+.lily-user-table .fixed-table-body { overflow-x: auto; }
+.lily-user-table .table thead th { vertical-align: bottom; }
+.lily-user-table .form-check { font-size: 12px; font-weight: 400; color: var(--muted); }
+
+/* Inline-editable cells (bootstrap-editable): quiet dotted underline, empty cells faint. */
+.lily-admin a.editable-click,
+.lily-admin a.editable-click:hover {
+    border-bottom: 1px dotted var(--line);
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.lily-admin a.editable-click:hover { border-bottom-color: var(--faint); }
+
+.lily-admin a.editable-empty,
+.lily-admin a.editable-empty:hover,
+.lily-admin a.editable-empty:focus {
+    color: var(--faint);
+    font-style: normal;
+}
+
+/* Row actions drawn by table.js as bare glyphs: icon buttons. */
+.lily-admin .task-cancel,
+.lily-admin .bootstrap-table td .danger[data-toggle] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--control-radius);
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.lily-admin .task-cancel:hover,
+.lily-admin .bootstrap-table td .danger[data-toggle]:hover {
+    background: var(--control-tint);
+    color: var(--ink);
+}
+
+.lily-admin .bootstrap-table .progress { min-width: 80px; }
+
+/* Transient notice (tasks page): a Notice pinned top right. */
+.lily-toast {
+    position: fixed;
+    top: 64px;
+    right: 24px;
+    z-index: 1060;
+    max-width: min(480px, calc(100vw - 32px));
+    padding-right: 44px;
+}
+
+.lily-toast .close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Profile pictures (profile_pictures.html)                             */
+/* ------------------------------------------------------------------ */
+.pp-content #preview {
+    display: none;
+    width: 120px;
+    height: 120px;
+    margin: 8px 0 14px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.lily-admin .lily-status-line {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.lily-admin input[type="file"] {
+    max-width: 100%;
+    font-size: 15px;
+    color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------------ */
+/* Guides (kosync_plugin.html)                                          */
+/* ------------------------------------------------------------------ */
+.lily-admin .lily-steps {
+    margin: 0 0 14px;
+    padding-left: 22px;
+}
+
+.lily-admin .lily-steps > li { padding: 4px 0; }
+.lily-admin .lily-steps > li::marker { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.lily-admin .lily-inline-glyph { vertical-align: -3px; color: var(--ink); }
+
+.lily-facts.lily-facts-single { grid-template-columns: minmax(0, 1fr); max-width: 560px; }
+
+.lily-admin .lily-values-table.table { margin: 0; }
+.lily-admin .lily-values-table.table > tbody > tr > td,
+.lily-admin .lily-values-table.table > thead > tr > th { padding: 8px 14px 8px 0; }
+
+/* ------------------------------------------------------------------ */
+/* Empty state (§5): large light glyph, muted title, one sentence, the next action */
+/* ------------------------------------------------------------------ */
+.lily-admin .lily-empty {
+    max-width: 480px;
+    margin: 48px auto;
+    text-align: center;
+    color: var(--muted);
+}
+
+.lily-admin .lily-empty-glyph {
+    display: block;
+    margin: 0 0 14px;
+    font-size: 44px;
+    color: var(--faint);
+    opacity: .6;
+}
+
+.lily-admin h2.lily-empty-title {
+    margin: 0 0 8px;
+    font-family: var(--font-body);
+    font-size: 19px;
+    color: var(--muted);
+}
+
+.lily-admin .lily-empty .lily-actions { justify-content: center; }
+
+/* ------------------------------------------------------------------ */
+/* Hardcover match review (hardcover_review_matches.html)               */
+/* ------------------------------------------------------------------ */
+.lily-review-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 22px;
+    margin: 0 0 22px;
+}
+
+.lily-review-head .help-block { margin: 0; }
+
+.lily-review-book {
+    margin: 0 0 14px;
+    padding: 0 0 14px;
+    border-bottom: 1px solid var(--line-soft);
+}
+
+.lily-review-book h3 { margin: 0 0 4px; font-size: 19px; }
+.lily-review-book p { margin: 0 0 4px; color: var(--ink-soft); }
+.lily-review-book small { font-size: 12px; color: var(--muted); }
+
+.lily-review-id {
+    margin-left: 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--faint);
+}
+
+.hardcover-match-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+}
+
+.match-candidate {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+    border-radius: 7px;
+    background: var(--sunk);
+    transition: background-color .12s ease-out;
+}
+
+.match-candidate:hover { background: var(--hover); }
+
+.lily-review-score { align-self: flex-start; }
+
+.match-candidate .hardcover-cover-image {
+    width: 100%;
+    max-height: 180px;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+.lily-admin .match-candidate h5 { margin: 0; font-size: 15px; }
+
+.lily-review-meta {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 2px 8px;
+    margin: 0;
+    font-size: 14px;
+}
+
+.lily-review-meta dt { font-weight: 400; color: var(--muted); }
+.lily-review-meta dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+
+.match-candidate .btn { margin-top: auto; }
+
+/* ------------------------------------------------------------------ */
+/* Logs (§5 Code blocks): sunk well, 1px line, radius 4, 12px mono      */
+/* ------------------------------------------------------------------ */
+.lily-admin .lily-code-block {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--sunk);
+    overflow: hidden;
+}
+
+.lily-admin .lily-code-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 36px;
+    padding: 0 3px 0 12px;
+    border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+
+.lily-admin .lily-code-title {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lily-admin .lily-log,
+.lily-admin div.log.lily-log {
+    height: auto;
+    max-height: calc(100vh - 220px);
+    min-height: 200px;
+    margin: 0;
+    padding: 10px 12px;
+    overflow: auto;
+    border: 0;
+    background: var(--sunk);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.62;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.lily-admin div.log.lily-log {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    white-space: normal;
+}
+
+.lily-admin .lily-log:empty { display: none; }
+
+.lily-admin .lily-log p { margin: 0; font-size: 14px; color: var(--ink); white-space: pre-wrap; }
+
+.lily-admin .lily-log-choice {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0 0 14px;
+}
+
+.lily-admin .lily-log-choice label { margin: 0; }
+
+/* Magic link (remote_login.html) */
+.lily-remote-login { max-width: 560px; }
+.lily-admin .lily-remote-url { font-family: var(--font-mono); font-size: 14px; overflow-wrap: anywhere; }
+.lily-admin .lily-remote-qr { display: block; margin: 14px 0; border-radius: 4px; }
+
+/* ------------------------------------------------------------------ */
+/* Kobo auth URL (generate_kobo_auth_url.html, loaded into a sheet)      */
+/* ------------------------------------------------------------------ */
+.lily-kobo-auth p { color: var(--ink); }
+
+.lily-kobo-auth .lily-code-line {
+    display: block;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--sunk);
+    color: var(--ink);
+    font-size: 14px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------ */
+/* Stand-alone pages without the app shell (http_error, shelfdown)     */
+/* ------------------------------------------------------------------ */
+.lily-standalone { margin: 0; background: var(--paper); }
+
+.lily-standalone-main {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 48px 24px;
+}
+
+.lily-standalone .lily-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 22px;
+}
+
+.lily-standalone .lily-actions .btn { margin: 0; }
+
+.lily-standalone-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 48px;
+    font-family: var(--font-body);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.lily-error-code {
+    margin: 0 0 4px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--faint);
+}
+
+.lily-error-details {
+    margin: 14px 0;
+    color: var(--muted);
+}
+
+.lily-error-details summary { cursor: pointer; }
+
+.lily-error-details pre {
+    margin: 8px 0 0;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--sunk);
+    color: var(--ink);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.lily-shelfdown { max-width: 1080px; }
+.lily-shelfdown .book .meta .title { color: var(--ink); font-weight: 500; }
+.lily-shelfdown .btn-group.lily-actions { float: none; margin-top: 8px; }
+.lily-shelfdown .btn-group.lily-actions > .btn-group { display: flex; flex-wrap: wrap; gap: 8px; float: none; }
+.lily-shelfdown .btn-group > .btn-group > .btn { float: none; margin: 0; }
+
+/* Buttons inside a notice keep the Quiet label colour (lily.css tints links in notices). */
+.lily-admin .alert .btn,
+.lily-admin .alert .btn:hover { color: var(--ink-soft); font-weight: 500; }
+
+/* Text tables wrap on a phone instead of scrolling sideways. */
+.lily-admin .table-responsive { border: 0; }
+.lily-admin .table-responsive > .lily-values-table > tbody > tr > td { white-space: normal; }
+
+/* ------------------------------------------------------------------ */
+/* Phone                                                                */
+/* ------------------------------------------------------------------ */
+@media (max-width: 767px) {
+    .lily-admin .settings-container { padding: 14px; }
+
+    .lily-facts { grid-template-columns: minmax(0, 1fr); }
+
+    .lily-admin .cwa-settings-tooltip,
+    .lily-admin .cwa-settings-explanation,
+    .lily-admin .settings-explanation { margin-left: 0; }
+
+    .lily-admin .lily-form-actions { justify-content: stretch; }
+    .lily-admin .lily-form-actions .btn { flex: 1 1 auto; }
+}

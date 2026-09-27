@@ -286,6 +286,11 @@ def create_sync_response(data: Dict[str, Any], status_code: int = 200) -> tuple:
     return jsonify(data), status_code
 
 
+def _as_utc(value: datetime) -> datetime:
+    """Timestamps are stored as UTC but SQLite hands them back naive; mark them UTC again."""
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+
+
 def handle_sync_error(error: KOSyncError) -> tuple:
     """
     Handle sync errors and return appropriate response.
@@ -294,13 +299,15 @@ def handle_sync_error(error: KOSyncError) -> tuple:
         error: KOSyncError with error code and message
 
     Returns:
-        JSON error response with 400 status code
+        JSON error response: 401 for bad credentials (as the other KOSync
+        endpoints and the reference server do), 400 otherwise
     """
     log.error(f"KOSync Error {error.error_code}: {error.message}")
+    status = 401 if error.error_code == ERROR_UNAUTHORIZED_USER else 400
     return create_sync_response({
         "error": error.error_code,
         "message": error.message
-    }, 400)
+    }, status)
 
 
 def get_book_by_checksum(document_checksum: str, version: str = None):
@@ -649,7 +656,7 @@ def get_progress(document: str):
             "percentage": percentage_decimal,
             "device": progress_record.device,
             "device_id": progress_record.device_id,
-            "timestamp": int(progress_record.timestamp.timestamp())
+            "timestamp": int(_as_utc(progress_record.timestamp).timestamp())
         }
 
         response_data = {**response_data, **response_updates}

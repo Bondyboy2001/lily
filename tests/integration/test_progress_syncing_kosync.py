@@ -39,7 +39,7 @@ class TestKOSyncChecksumLookup:
     def test_authenticate_with_basic_auth(self, cwa_api_client):
         """Test KOSync authentication with HTTP Basic Auth."""
         # Create Basic Auth header
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {'Authorization': f'Basic {credentials}'}
 
         response = cwa_api_client.get('/kosync/users/auth', headers=headers)
@@ -51,7 +51,7 @@ class TestKOSyncChecksumLookup:
 
     def test_get_progress_for_unknown_document(self, cwa_api_client):
         """Test retrieving progress for a document with no sync data."""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {'Authorization': f'Basic {credentials}'}
 
         # Use a fake checksum that doesn't exist
@@ -70,7 +70,7 @@ class TestKOSyncChecksumLookup:
 
     def test_put_progress_creates_sync_record(self, cwa_api_client):
         """Test creating a sync progress record."""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -105,7 +105,7 @@ class TestKOSyncChecksumLookup:
         Integration test verifying full sync cycle (PUT -> GET).
         Multiple assertions are acceptable for end-to-end flow validation.
         """
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -158,7 +158,7 @@ class TestKOSyncBookEnrichment:
 
     def test_enriched_response_includes_book_info(self, cwa_api_client, book_with_checksum):
         """Test that sync responses include Calibre book metadata."""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -194,7 +194,7 @@ class TestKOSyncBookEnrichment:
 
     def test_non_calibre_book_sync_still_works(self, cwa_api_client):
         """Test that sync works for books not in Calibre library."""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -306,7 +306,7 @@ class TestKOSyncDataValidation:
 
     def test_invalid_progress_value_rejected(self, cwa_api_client):
         """Test that invalid progress values are rejected."""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -333,7 +333,7 @@ class TestKOSyncDataValidation:
 
     def test_missing_required_fields_rejected(self, cwa_api_client):
         """Test that requests missing required fields are rejected."""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'
@@ -356,7 +356,7 @@ class TestKOSyncDataValidation:
 
     def test_empty_document_checksum_rejected(self, cwa_api_client):
         """Test that empty document checksums are rejected."""
-        credentials = base64.b64encode(b"admin:admin123").decode('ascii')
+        credentials = base64.b64encode(b"harry:harry10").decode('ascii')
         headers = {
             'Authorization': f'Basic {credentials}',
             'Content-Type': 'application/json'

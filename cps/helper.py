@@ -507,7 +507,7 @@ def rename_all_files_on_change(one_book, new_path, old_path, all_new_name, gdriv
                 gd.updateDatabaseOnEdit(g_file['id'], all_new_name + '.' + file_format.format.lower())
             else:
                 log.error("File {} not found on gdrive"
-                          .format(old_path, file_format.name + '.' + file_format.format.lower()))
+                          .format(file_format.name + '.' + file_format.format.lower()))
 
         # change name in Database
         file_format.name = all_new_name
@@ -1114,12 +1114,23 @@ def save_cover_from_url(url, book_path):
     download_start = time.monotonic()
     try:
         if cli_param.allow_localhost:
-            img = requests.get(url, timeout=(10, 30), allow_redirects=False, stream=True)  # ToDo: Error Handling
+            fetch = requests.get
         elif use_advocate:
-            img = cw_advocate.get(url, timeout=(10, 30), allow_redirects=False, stream=True)      # ToDo: Error Handling
+            fetch = cw_advocate.get
         else:
             log.error("python module advocate is not installed but is needed")
             return False, _("Python module 'advocate' is not installed but is needed for cover uploads")
+        # Follow redirects by hand so every hop goes back through advocate's address check
+        # (e.g. covers.openlibrary.org answers with a 302 to archive.org)
+        for _hop in range(6):
+            img = fetch(url, timeout=(10, 30), allow_redirects=False, stream=True)
+            if not img.is_redirect:
+                break
+            url = requests.compat.urljoin(url, img.headers["location"])
+            img.close()
+        else:
+            log.error("Cover download exceeded redirect limit")
+            return False, _("Error Downloading Cover")
         img.raise_for_status()
 
         content_length = img.headers.get("content-length")

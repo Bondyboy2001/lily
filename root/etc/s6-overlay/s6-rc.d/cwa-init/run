@@ -87,10 +87,8 @@ fi
 #  Make sure required directories exist
 #------------------------------------------------------------------------------------------------------------------------
 
-install -d -o abc -g abc /config/processed_books/converted
 install -d -o abc -g abc /config/processed_books/imported
 install -d -o abc -g abc /config/processed_books/failed
-install -d -o abc -g abc /config/processed_books/fixed_originals
 install -d -o abc -g abc /config/processed_books/duplicate_resolutions
 install -d -o abc -g abc /config/log_archive
 install -d -o abc -g abc /config/.cwa_conversion_tmp
@@ -128,7 +126,7 @@ install -d -o abc -g abc /config/.config/calibre/plugins
 #  Remove any leftover lock files
 #------------------------------------------------------------------------------------------------------------------------
 
-declare -a lockFiles=("ingest_processor.lock" "convert_library.lock" "cover_enforcer.lock" "kindle_epub_fixer.lock" "restore_calibre_db.lock")
+declare -a lockFiles=("ingest_processor.lock" "cover_enforcer.lock" "restore_calibre_db.lock")
 
 echo "[cwa-init] Checking for leftover lock files from previous instance..."
 
@@ -394,7 +392,7 @@ CWA_STABLE_VERSION=""
 
 if command -v jq >/dev/null 2>&1; then
   echo "[cwa-init] Using jq for JSON parsing..."
-  if CWA_STABLE_VERSION="$(timeout 5 curl -sS --max-time 3 --connect-timeout 2 https://api.github.com/repos/crocodilestick/calibre-web-automated/releases/latest 2>/dev/null | timeout 2 jq -r '.tag_name' 2>/dev/null)"; then
+  if CWA_STABLE_VERSION="$(timeout 5 curl -sS --max-time 3 --connect-timeout 2 https://api.github.com/repos/Bondyboy2001/lily/releases/latest 2>/dev/null | timeout 2 jq -r '.tag_name' 2>/dev/null)"; then
     echo "[cwa-init] Successfully fetched stable version via jq: $CWA_STABLE_VERSION"
   else
     echo "[cwa-init] Failed to fetch stable version via jq (network/timeout issue)"
@@ -402,7 +400,7 @@ if command -v jq >/dev/null 2>&1; then
   fi
 else
   echo "[cwa-init] jq not available, using fallback parsing..."
-  if CWA_STABLE_VERSION="$(timeout 5 curl -sS --max-time 3 --connect-timeout 2 https://api.github.com/repos/crocodilestick/calibre-web-automated/releases/latest 2>/dev/null | timeout 2 sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"; then
+  if CWA_STABLE_VERSION="$(timeout 5 curl -sS --max-time 3 --connect-timeout 2 https://api.github.com/repos/Bondyboy2001/lily/releases/latest 2>/dev/null | timeout 2 sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"; then
     echo "[cwa-init] Successfully fetched stable version via sed: $CWA_STABLE_VERSION"
   else
     echo "[cwa-init] Failed to fetch stable version via sed (network/timeout issue)"

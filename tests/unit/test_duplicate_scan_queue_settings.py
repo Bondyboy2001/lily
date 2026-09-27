@@ -33,9 +33,6 @@ class _Blueprint:
     def app_template_global(self, *args, **kwargs):
         return lambda fn: fn
 
-    def app_template_global(self, *args, **kwargs):
-        return lambda fn: fn
-
 
 class _Logger:
     def debug(self, *args, **kwargs):
@@ -54,7 +51,6 @@ class _Logger:
 class _SettingsCwaDB:
     instances = []
     default_settings = {
-        "auto_convert_target_format": "epub",
         "duplicate_detection_title": 1,
         "duplicate_detection_author": 1,
         "duplicate_detection_language": 0,
@@ -96,7 +92,6 @@ def _load_cwa_functions(monkeypatch, request):
     for name in ("config", "constants", "csrf", "helper", "ub", "calibre_db"):
         module = _install_stub(f"cps.{name}")
         setattr(cps, name, module)
-    cps.config.config_kobo_sync_magic_shelves = False
     cps.config.save = lambda: None
     cps.helper.get_internal_api_url = lambda path: f"http://localhost{path}"
     cps.logger = _install_stub("cps.logger", {"create": lambda: _Logger()})
@@ -126,7 +121,6 @@ def _load_cwa_functions(monkeypatch, request):
     _install_stub("cps.tasks")
     _install_stub("cps.tasks.database", {"TaskReconnectDatabase": object})
     _install_stub("cps.tasks.auto_send", {"TaskAutoSend": object})
-    _install_stub("cps.tasks.ops", {"TaskConvertLibraryRun": object, "TaskEpubFixerRun": object})
     _install_stub("cwa_db", {"CWA_DB": _SettingsCwaDB})
     _install_stub(
         "flask",
@@ -141,7 +135,6 @@ def _load_cwa_functions(monkeypatch, request):
             "make_response": lambda *args, **kwargs: None,
             "jsonify": lambda payload=None, **kwargs: payload if payload is not None else kwargs,
             "current_app": SimpleNamespace(config={}),
-            "make_response": lambda *args, **kwargs: None,
         },
     )
     _install_stub(
@@ -286,7 +279,7 @@ def test_cwa_settings_criteria_change_marks_duplicate_index_pending(monkeypatch)
     pending_reasons.clear()
     request = SimpleNamespace(
         method="POST",
-        form={"submit_button": "Submit", "auto_convert_target_format": "epub", "duplicate_detection_title": "on"},
+        form={"submit_button": "Submit", "duplicate_detection_title": "on"},
     )
     module = _load_cwa_functions(monkeypatch, request)
     _SettingsCwaDB.instances = []
@@ -302,7 +295,6 @@ def test_cwa_settings_unchanged_criteria_does_not_mark_pending(monkeypatch):
         method="POST",
         form={
             "submit_button": "Submit",
-            "auto_convert_target_format": "epub",
             "duplicate_detection_title": "on",
             "duplicate_detection_author": "on",
         },

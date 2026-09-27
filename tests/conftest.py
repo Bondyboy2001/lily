@@ -291,37 +291,6 @@ def isolated_sys_modules_module():
         restore_sys_modules(snapshot)
 
 
-@pytest.fixture
-def isolated_script_locks(tmp_path_factory, monkeypatch):
-    """Import lock-taking CLI scripts (convert_library, kindle_epub_fixer) safely.
-
-    Those scripts take an exclusive, non-blocking flock on
-    ``<tempdir>/<name>.lock`` at import time and exit if it is held. With a
-    shared /tmp that collides with a real running instance and with other
-    pytest-xdist workers. This fixture points ``tempfile.gettempdir()`` at a
-    private per-test directory (separate from ``tmp_path``), forces a fresh import, and afterwards releases the
-    locks and forgets the modules again.
-    """
-    import tempfile
-
-    script_modules = ("convert_library", "kindle_epub_fixer")
-    lock_dir = tmp_path_factory.mktemp("script-locks")
-    monkeypatch.setattr(tempfile, "tempdir", str(lock_dir))
-    previous = {name: sys.modules.pop(name) for name in script_modules if name in sys.modules}
-    try:
-        yield lock_dir
-    finally:
-        for name in script_modules:
-            module = sys.modules.pop(name, None)
-            handle = getattr(module, "_lock_handle", None)
-            if handle is not None:
-                try:
-                    handle.close()
-                except OSError:
-                    pass
-        sys.modules.update(previous)
-
-
 @pytest.fixture(scope="session")
 def container_available():
     """
@@ -392,10 +361,8 @@ def temp_config_dir(tmp_path):
     config_dir.mkdir()
 
     # Create subdirectories
-    (config_dir / "processed_books" / "converted").mkdir(parents=True)
     (config_dir / "processed_books" / "imported").mkdir(parents=True)
     (config_dir / "processed_books" / "failed").mkdir(parents=True)
-    (config_dir / "processed_books" / "fixed_originals").mkdir(parents=True)
     (config_dir / "log_archive").mkdir()
     (config_dir / ".cwa_conversion_tmp").mkdir()
 
@@ -642,10 +609,8 @@ def test_volumes(tmp_path_factory) -> dict:
 
     # Create minimal config structure
     config_dir = volumes["config"]
-    (config_dir / "processed_books" / "converted").mkdir(parents=True, exist_ok=True)
     (config_dir / "processed_books" / "imported").mkdir(parents=True, exist_ok=True)
     (config_dir / "processed_books" / "failed").mkdir(parents=True, exist_ok=True)
-    (config_dir / "processed_books" / "fixed_originals").mkdir(parents=True, exist_ok=True)
     (config_dir / "log_archive").mkdir(exist_ok=True)
     (config_dir / ".cwa_conversion_tmp").mkdir(exist_ok=True)
 
@@ -895,11 +860,11 @@ def cwa_api_client(cwa_container) -> dict:
     # Create session with default credentials
     session = requests.Session()
 
-    # Login to CWA (default credentials: admin/admin123)
+    # Login to Lily (default credentials: harry/harry10)
     try:
         login_response = session.post(
             f"{base_url}/login",
-            data={"username": "admin", "password": "admin123"},
+            data={"username": "harry", "password": "harry10"},
             allow_redirects=False,
             timeout=5
         )
@@ -982,17 +947,17 @@ if USE_DOCKER_VOLUMES:
 
     # Override fixtures to use volume versions
     @pytest.fixture(scope="session")
-    def cwa_container(cwa_container_dind):
+    def cwa_container(cwa_container_dind):  # noqa: F811 - pytest injects the imported fixture
         """Redirect to Docker volume container implementation."""
         yield cwa_container_dind
 
     @pytest.fixture(scope="session")
-    def ingest_folder(ingest_folder_dind):
+    def ingest_folder(ingest_folder_dind):  # noqa: F811 - pytest injects the imported fixture
         """Redirect to VolumeHelper for ingest folder."""
         return ingest_folder_dind
 
     @pytest.fixture(scope="session")
-    def library_folder(library_folder_dind):
+    def library_folder(library_folder_dind):  # noqa: F811 - pytest injects the imported fixture
         """Redirect to VolumeHelper for library folder."""
         return library_folder_dind
 

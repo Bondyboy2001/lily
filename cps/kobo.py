@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from cps import cw_babel
 from kobo_sync_utils import get_kobo_created_ts
 import os
+import threading
 import uuid
 import zipfile
 from time import gmtime, strftime
@@ -38,7 +39,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import select
 import requests
 
-from . import config, logger, kobo_auth, db, calibre_db, helper, shelf as shelf_lib, ub, csrf, kobo_sync_status, magic_shelf
+from . import config, logger, kobo_auth, db, calibre_db, helper, shelf as shelf_lib, ub, csrf, kobo_sync_status
 from . import isoLanguages
 from .epub import get_epub_layout
 from .constants import COVER_THUMBNAIL_SMALL, COVER_THUMBNAIL_MEDIUM, COVER_THUMBNAIL_LARGE, DEFAULT_PORT
@@ -163,28 +164,6 @@ def convert_to_kobo_timestamp_string(timestamp):
         return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def get_magic_shelf_book_ids_for_kobo(user_id):
-    if not config.config_kobo_sync_magic_shelves:
-        return set()
-
-    magic_shelves = ub.session.query(ub.MagicShelf).filter_by(user_id=user_id, kobo_sync=True).all()
-    if not magic_shelves:
-        return set()
-
-    book_ids = set()
-    for shelf in magic_shelves:
-        books, _ = magic_shelf.get_books_for_magic_shelf(
-            shelf.id, page=1, page_size=None
-        )
-        for book in books:
-            book_ids.add(book.id)
-
-    if book_ids:
-        log.debug("Kobo Sync: magic shelf allowed books: %s", len(book_ids))
-
-    return book_ids
-
-
 @kobo.route("/v1/library/sync")
 @requires_kobo_auth
 # @download_required
@@ -217,9 +196,7 @@ def HandleSyncRequest():
 
 
     # Two-Way-Sync Deletion Logic
-    magic_shelf_book_ids = set()
     if current_user.kobo_only_shelves_sync:
-        magic_shelf_book_ids = get_magic_shelf_book_ids_for_kobo(current_user.id)
         try:
             # Check all books that are on Kobo according to the database
             synced_books_query = ub.session.query(ub.KoboSyncedBooks.book_id).filter(ub.KoboSyncedBooks.user_id == current_user.id)
@@ -230,8 +207,6 @@ def HandleSyncRequest():
                                    .join(ub.Shelf, ub.BookShelf.shelf == ub.Shelf.id)
                                    .filter(ub.Shelf.user_id == current_user.id, ub.Shelf.kobo_sync == True))
             allowed_book_ids = {item.book_id for item in allowed_books_query}
-            if magic_shelf_book_ids:
-                allowed_book_ids |= magic_shelf_book_ids
 
             # Spot the difference: books that need to be deleted
             books_to_delete_ids = synced_book_ids - allowed_book_ids
@@ -284,8 +259,7 @@ def HandleSyncRequest():
                                                       .filter(ub.KoboSyncedBooks.user_id == current_user.id)))
                           .filter(or_(
                               ub.BookShelf.date_added > sync_token.books_last_modified,
-                              db.Books.last_modified > sync_token.books_last_modified,
-                              db.Books.id.in_(magic_shelf_book_ids) if magic_shelf_book_ids else False
+                              db.Books.last_modified > sync_token.books_last_modified
                           ))
                            .filter(db.Data.format.in_(KOBO_FORMATS))
                            .filter(calibre_db.common_filters(allow_show_archived=True))
@@ -293,10 +267,7 @@ def HandleSyncRequest():
                            .order_by(db.Books.id)
                            .outerjoin(ub.BookShelf, db.Books.id == ub.BookShelf.book_id)
                            .outerjoin(ub.Shelf, ub.Shelf.id == ub.BookShelf.shelf)
-                           .filter(or_(
-                               and_(ub.Shelf.user_id == current_user.id, ub.Shelf.kobo_sync == True),
-                               db.Books.id.in_(magic_shelf_book_ids) if magic_shelf_book_ids else False
-                           ))
+                           .filter(and_(ub.Shelf.user_id == current_user.id, ub.Shelf.kobo_sync == True))
                            .options(joinedload(db.Books.authors),
                                     joinedload(db.Books.publishers),
                                     joinedload(db.Books.series),
@@ -388,10 +359,7 @@ def HandleSyncRequest():
                                                                   ub.KoboReadingState.book_id == ub.BookShelf.book_id)\
             .outerjoin(ub.Shelf, ub.Shelf.id == ub.BookShelf.shelf)\
             .filter(ub.KoboReadingState.last_modified > sync_token.reading_state_last_modified)\
-            .filter(or_(
-                and_(current_user.id == ub.Shelf.user_id, ub.Shelf.kobo_sync == True),
-                ub.KoboReadingState.book_id.in_(magic_shelf_book_ids) if magic_shelf_book_ids else False
-            ))\
+            .filter(and_(current_user.id == ub.Shelf.user_id, ub.Shelf.kobo_sync == True))\
             .distinct()
     else:
         changed_reading_states = changed_reading_states.filter(
@@ -401,65 +369,28 @@ def HandleSyncRequest():
         and_(ub.KoboReadingState.user_id == current_user.id,
              ub.KoboReadingState.book_id.notin_(reading_states_in_new_entitlements)))\
         .order_by(ub.KoboReadingState.last_modified)
-    log.debug("Kobo Sync: changed states: {}".format(changed_reading_states.count()))
-    cont_sync |= bool(changed_reading_states.count() > SYNC_ITEM_LIMIT)
-    for kobo_reading_state in changed_reading_states.limit(SYNC_ITEM_LIMIT).all():
-        book = calibre_db.session.query(db.Books).filter(db.Books.id == kobo_reading_state.book_id).one_or_none()
+    # Fetch one extra row to learn whether more remain, instead of running COUNT.
+    changed_states = changed_reading_states.limit(SYNC_ITEM_LIMIT + 1).all()
+    cont_sync |= len(changed_states) > SYNC_ITEM_LIMIT
+    changed_states = changed_states[:SYNC_ITEM_LIMIT]
+    log.debug("Kobo Sync: changed states: %d", len(changed_states))
+    # Load all the books in one query rather than one per reading state.
+    state_book_ids = {state.book_id for state in changed_states}
+    books_by_id = {
+        book.id: book for book in calibre_db.session.query(db.Books).filter(db.Books.id.in_(state_book_ids)).all()
+    } if state_book_ids else {}
+    for kobo_reading_state in changed_states:
+        book = books_by_id.get(kobo_reading_state.book_id)
         if book:
             sync_results.append({
                 "ChangedReadingState": {
                     "ReadingState": get_kobo_reading_state_response(book, kobo_reading_state)
                 }
             })
-            new_reading_state_last_modified = max(new_reading_state_last_modified, kobo_reading_state.last_modified)
+        # Advance past states of deleted books too, or a page of them would repeat forever
+        new_reading_state_last_modified = max(new_reading_state_last_modified, kobo_reading_state.last_modified)
 
     sync_shelves(sync_token, sync_results, only_kobo_shelves)
-
-    # Add magic shelves as collections
-    if config.config_kobo_sync_magic_shelves:
-
-        for shelf in ub.session.query(ub.MagicShelf)\
-            .filter_by(user_id=current_user.id, kobo_sync=False)\
-            .all():
-
-            sync_results.append({
-                "DeletedTag": {
-                    "Tag": {
-                        "Id": shelf.uuid,
-                        "LastModified": convert_to_kobo_timestamp_string(shelf.last_modified)
-                    }
-                }
-            })
-
-        magic_shelves = ub.session.query(ub.MagicShelf)\
-            .filter_by(user_id=current_user.id, kobo_sync=True)\
-            .all()
-
-        new_tags_last_modified = sync_token.tags_last_modified
-            
-        for shelf in magic_shelves:
-            books, _ = magic_shelf.get_books_for_magic_shelf(
-                shelf.id, page=1, page_size=1000
-            )
-
-            new_tags_last_modified = max(shelf.last_modified, new_tags_last_modified)
-
-            tag = create_kobo_tag_magic(shelf, books)
-            if not tag:
-                continue
-
-            if shelf.created > sync_token.tags_last_modified:
-                log.debug("Syncing new magic shelf %s to Kobo device", shelf.name)
-                sync_results.append({
-                    "NewTag": tag
-                })
-            else:
-                log.debug("Syncing changed magic shelf %s to Kobo device", shelf.name)
-                sync_results.append({
-                    "ChangedTag": tag
-                })
-
-        sync_token.tags_last_modified = new_tags_last_modified
 
     # update last created timestamp to distinguish between new and changed entitlements
     if not cont_sync:
@@ -965,26 +896,6 @@ def create_kobo_tag(shelf):
         )
     return {"Tag": tag}
 
-# Creates a Kobo "Tag" object from a ub.MagicShelf object
-def create_kobo_tag_magic(shelf, books):
-    tag = {
-        "Created": convert_to_kobo_timestamp_string(shelf.created),
-        "Id": shelf.uuid,
-        "Items": [],
-        "LastModified": convert_to_kobo_timestamp_string(shelf.last_modified),
-        "Name": shelf.name,
-        "Type": "UserTag"
-    }
-    for book in books:
-        tag["Items"].append(
-            {
-                "RevisionId": book.uuid,
-                "Type": "ProductRevisionTagItem"
-            }
-        )
-    return {"Tag": tag}
-
-
 @csrf.exempt
 @kobo.route("/v1/library/<book_uuid>/state", methods=["GET", "PUT"])
 @requires_kobo_auth
@@ -1082,10 +993,19 @@ def push_reading_state_to_hardcover(user, book: db.Books, progress_percentage: i
         log.error(f"Failed to create Hardcover client for user {user.name}: {e}")
         return
 
-    try:
-        hardcoverClient.update_reading_progress(book.identifiers, progress_percentage)
-    except Exception as e:
-        log.error(f"Failed to update reading progress for book {book.id} in Hardcover: {e}")
+    # Hardcover makes several round trips per update; run them off the request
+    # thread so a slow API never holds up the Kobo's sync. Identifiers are copied
+    # into a plain dict because ORM objects must not cross threads.
+    identifiers = hardcoverClient.parse_identifiers(book.identifiers)
+    book_id = book.id
+
+    def _push():
+        try:
+            hardcoverClient.update_reading_progress(identifiers, progress_percentage)
+        except Exception as e:
+            log.error(f"Failed to update reading progress for book {book_id} in Hardcover: {e}")
+
+    threading.Thread(target=_push, name="hardcover-progress", daemon=True).start()
 
 
 def get_read_status_for_kobo(ub_book_read):

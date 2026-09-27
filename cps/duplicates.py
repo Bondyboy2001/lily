@@ -396,7 +396,6 @@ def find_duplicate_books(include_dismissed=False, user_id=None):
     Returns:
         List of duplicate group dictionaries
     """
-    import time
     start_time = time.perf_counter()
     
     if user_id is None:
@@ -1307,7 +1306,6 @@ def invalidate_cache():
 
 
 @duplicates.route("/duplicates/trigger-scan", methods=['POST'])
-@csrf.exempt
 @login_required_if_no_ano
 @admin_or_edit_required
 def trigger_scan():

@@ -3,34 +3,34 @@
 <link href="{{ url_for('static', filename='css/libs/bootstrap-table.min.css') }}" rel="stylesheet">
 {% endblock %}
 {% block body %}
-<div class="discover" style="padding-inline: 2rem !important;">
-    <h2>{{_('Tasks')}}</h2>
-    <h3>{{ _('Background Tasks Overview') }}</h3>
+<div class="discover lily-admin lily-admin-wide lily-tasks">
+  <section class="lily-admin-section">
+    <h2 class="lily-admin-heading">{{ _('Background Tasks Overview') }}</h2>
     <table class="table table-no-bordered" id="tasktable" data-url="{{  url_for('tasks.get_email_status_json') }}"  data-sort-name="starttime" data-sort-order="asc" data-locale="{{ current_user.locale }}" data-classes="table table-no-bordered table-hover">
       <thead>
         <tr>
             {% if current_user.role_admin() %}
-            <th data-halign="right" data-align="right" data-field="user" data-sortable="true">{{_('User')}}</th>
+            <th data-halign="left" data-align="left" data-field="user" data-sortable="true">{{_('User')}}</th>
             {% endif %}
-            <th data-halign="right" data-align="right" data-field="taskMessage" data-sortable="true">{{_('Task')}}</th>
-            <th data-halign="right" data-align="right" data-field="status" data-sortable="true">{{_('Status')}}</th>
-            <th data-halign="right" data-align="right" data-field="progress" data-sortable="true" data-sorter="elementSorter">{{_('Progress')}}</th>
-            <th data-halign="right" data-align="right" data-field="runtime" data-sortable="true" data-sort-name="rt">{{_('Run Time')}}</th>
-            <th data-halign="right" data-align="right" data-field="starttime" data-sortable="true" data-sort-name="id">{{_('Start Time')}}</th>
-            <th data-halign="right" data-align="right" data-field="error" data-sortable="true">{{_('Message')}}</th>
+            <th data-halign="left" data-align="left" data-field="taskMessage" data-sortable="true">{{_('Task')}}</th>
+            <th data-halign="left" data-align="left" data-field="status" data-sortable="true">{{_('Status')}}</th>
+            <th data-halign="left" data-align="left" data-field="progress" data-sortable="true" data-sorter="elementSorter">{{_('Progress')}}</th>
+            <th data-halign="left" data-align="left" data-field="runtime" data-sortable="true" data-sort-name="rt">{{_('Run Time')}}</th>
+            <th data-halign="left" data-align="left" data-field="starttime" data-sortable="true" data-sort-name="id">{{_('Start Time')}}</th>
+            <th data-halign="left" data-align="left" data-field="error" data-sortable="true">{{_('Message')}}</th>
             {% if current_user.role_admin() %}
-            <th data-halign="right" data-align="right" data-formatter="TaskActions" data-switchable="false">{{_('Actions')}}</th>
+            <th data-halign="left" data-align="left" data-formatter="TaskActions" data-switchable="false">{{_('Actions')}}</th>
             {% endif %}
             <th data-field="id" data-visible="false"></th>
             <th data-field="rt" data-visible="false"></th>
         </tr>
       </thead>
     </table>
-</div>
+  </section>
 
 {% if current_user.role_admin() %}
-<div class="discover" style="padding-inline: 2rem !important;">
-  <h3>{{ _('Upcoming scheduled sends') }}</h3>
+  <section class="lily-admin-section">
+  <h2 class="lily-admin-heading">{{ _('Upcoming scheduled sends') }}</h2>
   <table class="table table-no-bordered" id="upcomingtable"
        data-url="{{ url_for('cwa_stats.cwa_scheduled_upcoming') }}"
        data-response-handler="upcomingResponse"
@@ -38,41 +38,20 @@
        data-classes="table table-no-bordered table-hover">
     <thead>
     <tr>
-      <th data-halign="right" data-align="right" data-field="title" data-sortable="true">{{ _('Title') }}</th>
-      <th data-halign="right" data-align="right" data-field="username" data-sortable="true">{{ _('User') }}</th>
-      <th data-halign="right" data-align="right" data-field="book_id" data-sortable="true">{{ _('Book ID') }}</th>
-      <th data-halign="right" data-align="right" data-field="run_at_utc" data-formatter="utcToLocal" data-sortable="true">{{ _('Scheduled Time') }}</th>
-      <th data-halign="right" data-align="right" data-field="state" data-sortable="true">{{ _('State') }}</th>
-      <th data-halign="right" data-align="right" data-formatter="UpcomingActions" data-switchable="false">{{ _('Actions') }}</th>
+      <th data-halign="left" data-align="left" data-field="title" data-sortable="true">{{ _('Title') }}</th>
+      <th data-halign="left" data-align="left" data-field="username" data-sortable="true">{{ _('User') }}</th>
+      <th data-halign="left" data-align="left" data-field="book_id" data-sortable="true">{{ _('Book ID') }}</th>
+      <th data-halign="left" data-align="left" data-field="run_at_utc" data-formatter="utcToLocal" data-sortable="true">{{ _('Scheduled Time') }}</th>
+      <th data-halign="left" data-align="left" data-field="state" data-sortable="true">{{ _('State') }}</th>
+      <th data-halign="left" data-align="left" data-formatter="UpcomingActions" data-switchable="false">{{ _('Actions') }}</th>
     </tr>
     </thead>
   </table>
-  <p class="text-muted" style="margin-top: .5rem;">{{ _('Upcoming sends are persisted and will enqueue as tasks at the scheduled time. You can cancel a pending send before it runs.') }}</p>
-    
-</div>
+  <p class="help-block">{{ _('Upcoming sends are persisted and will enqueue as tasks at the scheduled time. You can cancel a pending send before it runs.') }}</p>
+  </section>
 
-<div class="discover" style="padding-inline: 2rem !important;">
-  <h3>{{ _('Upcoming scheduled operations') }}</h3>
-  <table class="table table-no-bordered" id="upcomingopstable"
-       data-url="{{ url_for('cwa_stats.cwa_scheduled_upcoming_ops') }}"
-       data-response-handler="upcomingOpsResponse"
-       data-locale="{{ current_user.locale }}"
-       data-classes="table table-no-bordered table-hover">
-    <thead>
-    <tr>
-      <th data-halign="right" data-align="right" data-field="job_type" data-sortable="true">{{ _('Type') }}</th>
-      <th data-halign="right" data-align="right" data-field="title" data-sortable="true">{{ _('Title') }}</th>
-      <th data-halign="right" data-align="right" data-field="username" data-sortable="true">{{ _('User') }}</th>
-      <th data-halign="right" data-align="right" data-field="run_at_utc" data-formatter="utcToLocal" data-sortable="true">{{ _('Scheduled Time') }}</th>
-      <th data-halign="right" data-align="right" data-field="state" data-sortable="true">{{ _('State') }}</th>
-      <th data-halign="right" data-align="right" data-formatter="UpcomingOpsActions" data-switchable="false">{{ _('Actions') }}</th>
-    </tr>
-    </thead>
-  </table>
-  <p class="text-muted" style="margin-top: .5rem;">{{ _('Convert Library and EPUB Fixer runs scheduled here will persist across restarts. Cancel to prevent them from triggering.') }}</p>
-    
-</div>
 {% endif %}
+</div>
 {% endblock %}
 {% block modal %}
 {{ delete_book(current_user.role_delete_books()) }}
@@ -80,18 +59,15 @@
 <div class="modal fade" id="cancelTaskModal" role="dialog" aria-labelledby="metaCancelTaskLabel">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header bg-danger text-center">
-          <span>{{_('Are you really sure?')}}</span>
+      <div class="modal-header">
+        <h4 class="modal-title" id="metaCancelTaskLabel">{{_('Are you really sure?')}}</h4>
       </div>
-        <div class="modal-body text-center">
-          <p>
-            <span>{{_('This task will be cancelled. Any progress made by this task will be saved.')}}</span>
-            <span>{{_('If this is a scheduled task, it will be re-ran during the next scheduled time.')}}</span>
-          </p>
-        </div>
+      <div class="modal-body">
+        <p>{{_('This task will be cancelled. Any progress made by this task will be saved.')}} {{_('If this is a scheduled task, it will be re-ran during the next scheduled time.')}}</p>
+      </div>
       <div class="modal-footer">
-        <input type="button" class="btn btn-danger" value="{{_('Ok')}}" name="cancel_task_confirm" id="cancel_task_confirm" data-dismiss="modal">
         <button type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
+        <input type="button" class="btn btn-danger" value="{{_('Cancel task')}}" name="cancel_task_confirm" id="cancel_task_confirm" data-dismiss="modal">
       </div>
     </div>
   </div>
@@ -109,28 +85,10 @@
   function showNotification(message, type) {
     type = type || 'info'; // info, success, warning, danger
     const alertDiv = $('<div>')
-      .addClass(`alert alert-${type} alert-dismissible fade in`)
+      .addClass(`alert alert-${type} alert-dismissible fade in lily-toast`)
       .attr('role', 'alert')
-      .css({
-        'position': 'fixed',
-        'top': '70px',
-        'right': '20px',
-        'z-index': '9999',
-        'min-width': '300px',
-        'max-width': '500px',
-        'height': 'fit-content',
-        'overflow': 'auto',
-        'padding': '15px',
-        'margin-bottom': '20px',
-        'border': '1px solid transparent',
-        'border-radius': '4px',
-        'box-shadow': '0 4px 8px rgba(0,0,0,0.2)',
-        'background-color': type === 'success' ? '#dff0d8' : type === 'danger' ? '#f2dede' : type === 'warning' ? '#fcf8e3' : '#d9edf7',
-        'border-color': type === 'success' ? '#d6e9c6' : type === 'danger' ? '#ebccd1' : type === 'warning' ? '#faebcc' : '#bce8f1',
-        'color': type === 'success' ? '#3c763d' : type === 'danger' ? '#a94442' : type === 'warning' ? '#8a6d3b' : '#31708f'
-      })
       .html(`
-        <button type="button" class="close" data-dismiss="alert" aria-label="Close" style="position: relative; top: -2px; right: -21px; color: inherit; opacity: 0.5;">
+        <button type="button" class="close" data-dismiss="alert" aria-label="{{ _('Close') }}">
           <span aria-hidden="true">&times;</span>
         </button>
         ${message}
@@ -147,9 +105,6 @@
   function upcomingResponse(res) {
     try { return res.items || []; } catch (e) { return []; }
   }
-  function upcomingOpsResponse(res) {
-    try { return res.items || []; } catch (e) { return []; }
-  }
   function utcToLocal(value) {
     if (!value) return '';
     try {
@@ -163,14 +118,7 @@
     if (!row || row.state !== 'scheduled') return '';
     const id = row.id;
     return `
-      <button class="btn btn-xs btn-danger" onclick="cancelScheduled(${id})">{{ _("Cancel") }}</button>
-    `;
-  }
-  function UpcomingOpsActions(value, row) {
-    if (!row || row.state !== 'scheduled') return '';
-    const id = row.id;
-    return `
-      <button class="btn btn-xs btn-danger" onclick="cancelScheduled(${id})">{{ _("Cancel") }}</button>
+      <button type="button" class="btn btn-danger" onclick="cancelScheduled(${id})">{{ _("Cancel") }}</button>
     `;
   }
   function cancelScheduled(id) {
@@ -195,13 +143,11 @@
     .then(data => {
       showNotification('{{ _("Scheduled item cancelled successfully") }}', 'success');
       $('#upcomingtable').bootstrapTable('refresh');
-      $('#upcomingopstable').bootstrapTable('refresh');
     })
     .catch(err => {
       showNotification('{{ _("Error cancelling scheduled item") }}: ' + err.message, 'danger');
       // Refresh anyway to sync state
       $('#upcomingtable').bootstrapTable('refresh');
-      $('#upcomingopstable').bootstrapTable('refresh');
     });
   }
 </script>

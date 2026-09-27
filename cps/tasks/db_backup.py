@@ -23,6 +23,11 @@ def get_config_dir() -> str:
     return os.environ.get("CWA_DB_PATH", "/config")
 
 
+def get_backup_root() -> str:
+    """DB_BACKUP_DIR if set (e.g. a separate volume), otherwise /config/backup/db."""
+    return os.environ.get("DB_BACKUP_DIR") or os.path.join(get_config_dir(), BACKUP_SUBDIR)
+
+
 def get_backup_sources() -> dict:
     """{file name in snapshot: live path} for app.db, cwa.db and the library's metadata.db."""
     config_dir = get_config_dir()
@@ -45,14 +50,14 @@ def get_keep_count() -> int:
 
 
 class TaskBackupDatabases(CalibreTask):
-    """Nightly consistent snapshots of app.db, cwa.db and metadata.db into /config/backup/db/<timestamp>/."""
+    """Nightly consistent snapshots of app.db, cwa.db and metadata.db into <backup root>/<timestamp>/."""
 
     def __init__(self, task_message=N_('Backing up databases')):
         super(TaskBackupDatabases, self).__init__(task_message)
         self.log = logger.create()
 
     def run(self, worker_thread):
-        backup_root = os.path.join(get_config_dir(), BACKUP_SUBDIR)
+        backup_root = get_backup_root()
         keep = get_keep_count()
         snapshot_dir, done, errors = backup_databases(get_backup_sources(), backup_root, keep)
         for name, err in errors.items():

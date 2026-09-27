@@ -209,3 +209,9 @@ pr-analysis-*
 
 # macOS
 .DS_Store
+
+# Playwright MCP browser session output
+.playwright-mcp/
+
+# Personal local deploy config
+docker-compose.local.yml

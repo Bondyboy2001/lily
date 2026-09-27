@@ -1,20 +1,20 @@
-/* Calibre-Web Automated – Modern Duplicates Notification System
+/* Lily – duplicates notification (the dialog opened by static/js/duplicate-notifier.js).
  * Copyright (C) 2024-2025 Calibre-Web Automated contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * DESIGN.md §5 Sheets and dialogs: paper, radius 10, 24 padding, 22 Charter title, one sentence,
+ * Quiet on the left and the one Primary on the right. Colours are tokens from lily.css only.
+ * The sidebar count pill is styled in lily-shell.css (.lily-nav .duplicate-badge).
  */
 
-/* Backdrop Overlay */
 .duplicate-notification-backdrop {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.7);
+    inset: 0;
     z-index: 9998;
+    background: color-mix(in srgb, var(--ink) 35%, transparent);
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
+    transition: opacity .12s ease-out, visibility .12s ease-out;
 }
 
 .duplicate-notification-backdrop.active {
@@ -22,333 +22,206 @@
     visibility: visible;
 }
 
-/* Modal Container */
 .duplicate-notification-modal {
     position: fixed;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%) scale(0.9);
-    width: 90%;
-    max-width: 550px;
-    background: #1c2832ed;
-    border-radius: 16px;
-    box-shadow: 
-        0 20px 60px rgba(0, 0, 0, 0.3),
-        0 0 0 1px rgba(255, 255, 255, 0.1);
     z-index: 9999;
+    width: calc(100% - 32px);
+    max-width: 520px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    border-radius: 10px;
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: var(--menu-shadow);
     opacity: 0;
     visibility: hidden;
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    overflow: hidden;
+    transform: translate(-50%, -50%);
+    transition: opacity .12s ease-out, visibility .12s ease-out;
 }
 
 .duplicate-notification-modal.active {
     opacity: 1;
     visibility: visible;
-    transform: translate(-50%, -50%) scale(1);
 }
 
-/* Dark theme adjustments */
-body.caliblur-theme .duplicate-notification-modal {
-    background: rgba(30, 30, 35, 0.98);
-    box-shadow: 
-        0 20px 60px rgba(0, 0, 0, 0.6),
-        0 0 0 1px rgba(255, 255, 255, 0.05);
-}
-
-/* Modal Header */
 .duplicate-notification-header {
-    background: linear-gradient(135deg, #ff9800 0%, #ff6f00 100%);
-    color: white;
-    padding: 28px 32px;
     position: relative;
+    padding: 24px 56px 8px 24px;
 }
 
 .duplicate-notification-header h2 {
-    margin: 0 0 8px 0;
-    font-size: 24px;
+    margin: 0 0 4px;
+    color: var(--heading);
+    font-family: var(--font-body);
+    font-size: 22px;
     font-weight: 600;
-    line-height: 1.3;
+    line-height: 1.25;
 }
 
 .duplicate-notification-header p {
     margin: 0;
-    opacity: 0.95;
-    font-size: 14px;
-    line-height: 1.5;
+    color: var(--muted);
+    font-size: 13px;
 }
 
-/* Close Button */
+/* Close: an Icon button. */
 .duplicate-notification-close {
     position: absolute;
-    top: 20px;
-    right: 20px;
-    background: rgba(255, 255, 255, 0.2);
-    border: none;
-    color: white;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 20px;
-    line-height: 1;
-    transition: all 0.2s ease;
-    display: flex;
+    top: 18px;
+    right: 18px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--control-radius);
+    background: transparent;
+    color: var(--muted);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color .12s ease-out, color .12s ease-out;
 }
 
 .duplicate-notification-close:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: rotate(90deg);
+    background: var(--control-tint);
+    color: var(--ink);
 }
 
-/* Modal Body */
 .duplicate-notification-body {
-    padding: 32px;
+    padding: 8px 24px 14px;
 }
 
+/* The count reads as a Notice: the warning tone at 7%, radius 10, no border. */
 .duplicate-count-section {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 24px;
-    margin-bottom: 24px;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 14px;
+    padding: 14px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--warning) 7%, transparent);
 }
 
 .duplicate-count-badge {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, #ff9800 0%, #ff6f00 100%);
-    color: white;
-    font-size: 32px;
-    font-weight: 700;
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    box-shadow: 0 8px 24px rgba(255, 152, 0, 0.4);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
 }
 
 .duplicate-notification-body h3 {
     margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-    color: white;
-    text-align: left;
-}
-
-body.caliblur-theme .duplicate-notification-body h3 {
-    color: #e2e8f0;
+    color: var(--ink-soft);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 500;
 }
 
 .duplicate-preview-list {
-    list-style: none;
+    margin: 0;
     padding: 0;
-    margin: 0 0 24px 0;
+    list-style: none;
 }
 
 .duplicate-preview-item {
-    padding: 12px 16px;
-    margin-bottom: 8px;
-    background: #34455185;
-    border-radius: 8px;
-    border-left: 3px solid #ff9800;
-    transition: all 0.2s ease;
+    padding: 8px 4px;
+    border-top: 1px solid var(--line-soft);
 }
 
-body.caliblur-theme .duplicate-preview-item {
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.duplicate-preview-item:hover {
-    background: #edf2f7;
-    transform: translateX(4px);
-}
-
-body.caliblur-theme .duplicate-preview-item:hover {
-    background: rgba(255, 255, 255, 0.08);
-}
+.duplicate-preview-item:first-child { border-top: 0; }
 
 .duplicate-preview-item strong {
     display: block;
-    color: white;
-    font-size: 15px;
-    margin-bottom: 4px;
-}
-
-body.caliblur-theme .duplicate-preview-item strong {
-    color: #e2e8f0;
+    overflow: hidden;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .duplicate-preview-item small {
-    color: #718096;
-    font-size: 13px;
+    color: var(--muted);
+    font-size: 11px;
 }
 
-body.caliblur-theme .duplicate-preview-item small {
-    color: #a0aec0;
-}
-
-/* Modal Footer */
 .duplicate-notification-footer {
-    padding: 0 32px 32px 32px;
     display: flex;
-    gap: 12px;
-    justify-content: stretch;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 24px 24px;
 }
 
+/* Buttons: same box as lily.css .btn (30 tall, 14 padding, 13 label, no border). */
 .duplicate-notification-btn {
-    flex: 1;
-    padding: 14px 24px;
-    border: none;
-    border-radius: 8px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--control-radius);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
     text-decoration: none;
-    display: inline-block;
-}
-
-.duplicate-notification-btn-primary {
-    background: linear-gradient(135deg, #ff9800 0%, #ff6f00 100%);
-    color: white;
-    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
-}
-
-.duplicate-notification-btn-primary:hover {
-    box-shadow: 0 6px 20px rgba(255, 152, 0, 0.4);
-    transform: translateY(-2px);
-    color: white;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color .12s ease-out, color .12s ease-out, filter .12s ease-out;
 }
 
 .duplicate-notification-btn-secondary {
-    background: #34455185;
-    color: white;
-}
-
-body.caliblur-theme .duplicate-notification-btn-secondary {
-    background: rgba(255, 255, 255, 0.1);
-    color: #cbd5e0;
+    background: var(--control-tint);
+    color: var(--ink-soft);
 }
 
 .duplicate-notification-btn-secondary:hover {
-    background: #cbd5e0;
-    color: #2d3748;
+    background: var(--control-tint-strong);
+    color: var(--ink);
 }
 
-body.caliblur-theme .duplicate-notification-btn-secondary:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: #e2e8f0;
+.duplicate-notification-btn-primary,
+.duplicate-notification-btn-primary:hover,
+.duplicate-notification-btn-primary:focus {
+    background: var(--accent);
+    color: var(--paper);
+    font-weight: 600;
+    text-decoration: none;
 }
 
-/* Sidebar Badge */
-.duplicate-badge {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    background: linear-gradient(135deg, #ff9800 0%, #ff6f00 100%);
-    color: white;
-    font-size: 11px;
-    font-weight: 700;
-    padding: 4px 7px;
-    border-radius: 12px;
-    line-height: 1;
-    box-shadow: 2px 2px 2px rgb(0 0 0 / 18%);
-    animation: pulse 2s ease-in-out infinite;
-}
+.duplicate-notification-btn-primary:hover { filter: brightness(1.08); }
 
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-    50% {
-        opacity: 0.9;
-        transform: scale(1.05);
-    }
-}
+.duplicate-notification-modal:focus { outline: none; }
 
-/* Responsive Design */
-@media (max-width: 600px) {
-    .duplicate-notification-modal {
-        width: 95%;
-        max-width: none;
-    }
-    
-    .duplicate-notification-header {
-        padding: 24px 20px;
-    }
-    
-    .duplicate-notification-body {
-        padding: 24px 20px;
-    }
-    
-    .duplicate-notification-footer {
-        padding: 0 20px 24px 20px;
-        flex-direction: column;
-    }
-    
-    .duplicate-notification-header h2 {
-        font-size: 20px;
-    }
-    
-    .duplicate-count-badge {
-        width: 64px;
-        height: 64px;
-        font-size: 26px;
-    }
-}
-
-/* Animations */
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translate(-50%, -48%) scale(0.95);
-    }
-    to {
-        opacity: 1;
-        transform: translate(-50%, -50%) scale(1);
-    }
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-/* Accessibility */
-.duplicate-notification-modal:focus {
-    outline: 2px solid #ff9800;
+.duplicate-notification-modal:focus-visible,
+.duplicate-notification-btn:focus-visible,
+.duplicate-notification-close:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
     outline-offset: 2px;
 }
 
-.duplicate-notification-btn:focus {
-    outline: 2px solid #ff9800;
-    outline-offset: 2px;
-}
-
-/* Loading State */
 .duplicate-notification-loading {
-    text-align: center;
     padding: 40px;
-    color: #718096;
+    color: var(--muted);
+    text-align: center;
 }
 
-.duplicate-notification-loading::after {
-    content: "...";
-    animation: ellipsis 1.5s infinite;
+@media (max-width: 600px) {
+    .duplicate-notification-header { padding: 22px 52px 8px 16px; }
+    .duplicate-notification-body { padding: 8px 16px 14px; }
+    .duplicate-notification-footer { padding: 14px 16px 16px; }
 }
 
-@keyframes ellipsis {
-    0%, 20% { content: "."; }
-    40% { content: ".."; }
-    60%, 100% { content: "..."; }
+@media (forced-colors: active) {
+    .duplicate-notification-btn,
+    .duplicate-notification-close { border: 1px solid ButtonText; }
 }

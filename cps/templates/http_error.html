@@ -14,54 +14,43 @@
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link href="{{ url_for('static', filename='css/libs/bootstrap.min.css') }}" rel="stylesheet" media="screen">
-    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" media="screen">
-    {% if g.current_theme == 1 %}
-       <link href="{{ url_for('static', filename='css/caliBlur.css') }}" rel="stylesheet" media="screen">
-    {% endif %}
+    <link href="{{ url_for('static', filename='css/lily-icons.css') }}" rel="stylesheet" media="screen">
+    <link href="{{ url_for('static', filename='css/lily.css') }}" rel="stylesheet" media="screen">
+    <link href="{{ url_for('static', filename='css/lily-admin.css') }}" rel="stylesheet" media="screen">
+    <meta name="theme-color" content="#FDFCFA">
   </head>
-  <body>
-  <div class="container-fluid" style="overflow-y: auto">
-  <div class="row">
-    <div class="col">
-        <h1  class="text-center">{{instance}}</h1>
-        <h1  class="text-center">{{ error_code }}</h1>
-        <h3>{{ error_name }}</h3>
-    </div>
-  </div>
-  <div class="row">
-    <div class="col-md-offset-4 text-left">
-        {% if unconfigured %}
-            <div>{{_('Lily Instance is unconfigured, please contact your administrator')}}</div>
-        {% endif %}
-      {% if error_id %}
-        <p>{{_('An unexpected error occurred. The details have been written to the server log.')}}</p>
-        <p>{{_('Error ID')}}: <code>{{ error_id }}</code></p>
-      {% endif %}
-      {% if error_stack %}
-        <details>
-          <summary>{{_('Technical details (visible to admins only)')}}</summary>
-          <pre style="white-space: pre-wrap; text-align: left;">{% for element in error_stack %}{{ element }}
-{% endfor %}</pre>
-        </details>
-      {% endif %}
-    </div>
-   </div>
-  {% if issue %}
-    <div class="row">
-    <div class="col errorlink">{{_('If this keeps happening, please report it and include the error ID:')}}
-        <a href="https://github.com/Bondyboy2001/lily/issues/new" target="_blank" rel="noopener">{{_('Create Issue')}}</a>
-    </div>
-      </div>
+  <body class="lily-standalone">
+  <main class="lily-standalone-main lily-error">
+    <p class="lily-standalone-brand"><img src="{{ url_for('static', filename='lily-mark.svg') }}" alt="" width="22" height="22"> {{instance}}</p>
+    <p class="lily-error-code">{{ error_code }}</p>
+    <h1>{{ error_name }}</h1>
+    {% if unconfigured %}
+      <p>{{_('Lily Instance is unconfigured, please contact your administrator')}}</p>
     {% endif %}
-    <div class="row">
-      <div class="col errorlink">
-      {% if not unconfigured %}
-        <a href="{{url_for('web.index')}}" title="{{ _('Return to Home') }}">{{_('Return to Home')}}</a>
-      {% else %}
-        <a href="{{url_for('web.logout')}}" title="{{ _('Logout User') }}">{{ _('Logout User') }}</a>
-      {% endif %}
-      </div>
+    {% if error_id %}
+      <p>{{_('An unexpected error occurred. The details have been written to the server log.')}}</p>
+      <p>{{_('Error ID')}}: <code>{{ error_id }}</code></p>
+    {% endif %}
+    {% if error_stack %}
+      <details class="lily-error-details">
+        <summary>{{_('Technical details (visible to admins only)')}}</summary>
+        <pre>{% for element in error_stack %}{{ element }}
+{% endfor %}</pre>
+      </details>
+    {% endif %}
+    {% if issue %}
+      <p class="help-block">{{_('If this keeps happening, please report it and include the error ID:')}}</p>
+    {% endif %}
+    <div class="lily-actions errorlink">
+    {% if not unconfigured %}
+      <a class="btn btn-primary" href="{{url_for('web.index')}}">{{_('Return to Home')}}</a>
+    {% else %}
+      <a class="btn btn-primary" href="{{url_for('web.logout')}}">{{ _('Logout User') }}</a>
+    {% endif %}
+    {% if issue %}
+      <a class="btn btn-default" href="https://github.com/Bondyboy2001/lily/issues/new" target="_blank" rel="noopener">{{_('Create Issue')}}</a>
+    {% endif %}
     </div>
-  </div>
+  </main>
   </body>
 </html>

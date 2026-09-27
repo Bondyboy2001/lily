@@ -49,7 +49,6 @@ class TestBookIngestInContainer:
         print(f"📥 Dropped {sample_ebook_path.name} into ingest folder")
         
         # Debug: Check if container can see the file
-        import subprocess
         result = subprocess.run(
             ["docker", "exec", container_name, "ls", "-la", "/cwa-book-ingest"],
             capture_output=True, text=True
@@ -729,7 +728,6 @@ class TestMetadataAndDatabase:
         print(f"📤 Copied {sample_ebook_path.name} to ingest folder")
         
         # Debug: Check if container can see the file
-        import subprocess
         result = subprocess.run(
             ["docker", "exec", container_name, "ls", "-la", "/cwa-book-ingest"],
             capture_output=True, text=True

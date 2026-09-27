@@ -47,14 +47,9 @@ def env(ingest_processor, monkeypatch, tmp_path):
         nbp.filename = os.path.basename(filepath)
         nbp.ingest_folder = os.path.normpath(str(ingest_dir))
         nbp.ingest_ignored_formats = ["crdownload", "download", "part", "uploading", "temp"]
-        nbp.convert_ignored_formats = []
-        nbp.convert_retained_formats = []
+        nbp.supported_book_formats = {"epub", "mobi"}
         nbp.cwa_settings = {"ingest_timeout_minutes": 1}
         nbp.input_format = Path(filepath).suffix[1:].lower()
-        nbp.target_format = "epub"
-        nbp.is_target_format = nbp.input_format == "epub"
-        nbp.can_convert = nbp.input_format in {"epub", "mobi"}
-        nbp.auto_convert_on = True
         nbp.tmp_conversion_dir = str(tmp_path / "conversion") + "/"
         nbp.last_added_book_id = None
         nbp.is_file_in_use = lambda timeout=None: True
@@ -173,20 +168,6 @@ def test_backup_failed_uses_unique_names(ingest_processor, monkeypatch, tmp_path
         src.write_bytes(payload)
         nbp.backup(str(src), backup_type="failed")
     assert sorted(p.read_bytes() for p in failed_dir.iterdir()) == [b"a", b"b"]
-
-
-def test_convert_to_kepub_returns_tuple_on_unexpected_error(ingest_processor, monkeypatch, tmp_path):
-    nbp = object.__new__(ingest_processor.NewBookProcessor)
-    nbp.input_format = "epub"
-    nbp.filepath = str(tmp_path / "book.epub")
-    nbp.filename = "book.epub"
-    nbp.tmp_conversion_dir = str(tmp_path) + "/"
-
-    def explode(*args, **kwargs):
-        raise OSError("kepubify missing")
-
-    monkeypatch.setattr(ingest_processor.subprocess, "run", explode)
-    assert nbp.convert_to_kepub() == (False, "")
 
 
 # ── ProcessLock ────────────────────────────────────────────────────────────

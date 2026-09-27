@@ -1,585 +1,173 @@
-<!-- User Activity Dashboard Content -->
+<!-- User Activity Dashboard Content (styles: static/css/lily-stats.css) -->
 
-<style>
-    .stats-hero {
-        background: linear-gradient(135deg, #2a3441 30%, #cc7b19 100%);
-        padding: 40px 20px;
-        border-radius: 8px;
-        margin-bottom: 30px;
-        color: white;
-        text-align: center;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-        border: 1px solid #3a4451;
-    }
-    
-    .stats-hero h1 {
-        margin: 0 0 10px 0;
-        font-size: 2.5em;
-        font-weight: 700;
-        text-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    }
-    
-    .stats-hero p {
-        margin: 0;
-        font-size: 1.1em;
-        opacity: 0.85;
-        color: #aaa;
-    }
-    
-    .metrics-container {
-        display: flex;
-        gap: 20px;
-        margin-bottom: 30px;
-    }
-    
-    .metric-card {
-        background: #2a3441;
-        border-radius: 8px;
-        padding: 25px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        transition: all 0.3s ease;
-        border: 1px solid #3a4451;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        min-height: 140px;
-    }
-    
-    .metric-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 25px rgba(255, 152, 0, 0.2);
-        border-color: #ff9800;
-    }
-    
-    .metric-value {
-        font-size: 2.8em;
-        font-weight: 700;
-        margin: 10px 0;
-        background: linear-gradient(135deg, #ff9800 0%, #ffc107 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    
-    .metric-label {
-        font-size: 0.9em;
-        color: #aaa;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        font-weight: 600;
-    }
-    
-    .metric-icon {
-        font-size: 2em;
-        opacity: 0.8;
-        float: right;
-        color: #ff9800;
-    }
-    
-    .chart-container {
-        background: #2a3441;
-        border-radius: 8px;
-        padding: 25px;
-        margin-bottom: 20px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        border: 1px solid #3a4451;
-    }
-    
-    .chart-title {
-        font-size: 1.3em;
-        font-weight: 600;
-        margin-bottom: 20px;
-        color: #fff;
-    }
-    
-    .empty-state {
-        text-align: center;
-        padding: 60px 20px;
-        color: #777;
-        background: #2a3441;
-        border-radius: 8px;
-        border: 1px solid #3a4451;
-    }
-    
-    .empty-state-icon {
-        font-size: 4em;
-        margin-bottom: 20px;
-        opacity: 0.3;
-        color: #ff9800;
-    }
-    
-    .empty-state h3 {
-        color: #ccc;
-        margin-bottom: 10px;
-    }
-    
-    .empty-state p {
-        color: #888;
-        margin-bottom: 30px;
-    }
-    
-    /* Loading Spinner */
-    .chart-loading {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 50px;
-        height: 50px;
-        border: 4px solid #3a4451;
-        border-top-color: #ff9800;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        z-index: 10;
-    }
-    
-    .chart-loading-overlay {
-        position: relative;
-        min-height: 300px;
-    }
-    
-    @keyframes spin {
-        0% { transform: translate(-50%, -50%) rotate(0deg); }
-        100% { transform: translate(-50%, -50%) rotate(360deg); }
-    }
-    
-    .demo-toggle {
-        background: linear-gradient(135deg, #ff9800 0%, #ff6f00 100%);
-        color: white;
-        border: none;
-        padding: 15px 40px;
-        border-radius: 6px;
-        font-size: 1.1em;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
-    }
-    
-    .demo-toggle:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(255, 152, 0, 0.5);
-        background: linear-gradient(135deg, #ffa726 0%, #ff8a00 100%);
-    }
-    
-    .demo-toggle.active {
-        background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
-    }
-    
-    .demo-badge {
-        display: inline-block;
-        background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
-        color: white;
-        padding: 5px 15px;
-        border-radius: 4px;
-        font-size: 0.85em;
-        margin-left: 10px;
-        font-weight: 600;
-        animation: pulse 2s infinite;
-    }
-    
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.7; }3a4451;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .top-item:last-child {
-        border-bottom: none;
-    }
-    
-    .top-item-name {
-        font-weight: 500;
-        color: #ddd;
-        flex: 1;
-        display: flex;
-        flex-direction: row;
-        justify-content: flex-start;
-        align-items: center;
-    }
-    
-    .top-item-value {
-        font-weight: 700;
-        color: #ff9800;
-        font-size: 1.1em;
-    }
-    
-    .search-term {
-        background: #1a2332;
-        padding: 10px 15px;
-        margin-bottom: 8px;
-        border-radius: 6px;
-        border-left: 3px solid #ff9800;
-        font-size: 0.95em;
-        color: #ccc;
-    }
-    
-    .search-term .timestamp {
-        float: right;
-        color: #7770.95em;
-    }
-    
-    .search-term .timestamp {
-        float: right;
-        color: #999;
-        font-size: 0.85em;
-    }
-    
-    @media (max-width: 768px) {
-        .stats-hero h1 {
-            font-size: 1.8em;
-        }
-        .metric-value {
-            font-size: 2em;
-        }
-        .metrics-container {
-            flex-direction: column;
-        }
-    }
-
-    div#top-users-list {
-        width: -webkit-fill-available;
-    }
-
-    div.top-item {
-        width: -webkit-fill-available;
-        display: flex;
-    }
-
-    span.top-item-name > img.user-avatar {
-        width: 1.5rem;
-        margin: 0;
-        margin-right: 1rem;
-        border-radius: 50%;
-        height: 1.5rem;
-    }
-
-    span.top-item-name > a {
-        margin-left: 1rem;
-    }
-
-    .cwa-stats-row {
-        height: auto !important;
-    }
-
-    .col-md-6 {
-        padding-left: 10px;
-        padding-right: 10px;
-    }
-
-    .col-md-4 {
-        padding-left: 10px;
-        padding-right: 10px;
-    }
-
-    .date-range-controls {
-        display: flex;
-        gap: 15px;
-        justify-content: center;
-        align-items: center;
-        margin-bottom: 30px;
-        flex-wrap: wrap;
-    }
-
-    .date-range-picker {
-        background: #2a3441;
-        border: 1px solid #3a4451;
-        border-radius: 8px;
-        padding: 10px 20px;
-        display: flex;
-        gap: 10px;
-        align-items: center;
-    }
-
-    .date-range-picker select,
-    .date-range-picker input[type="date"] {
-        background: #1a2332;
-        color: #ddd;
-        border: 1px solid #3a4451;
-        border-radius: 4px;
-        padding: 8px 12px;
-        font-size: 0.95em;
-        color-scheme: dark;
-    }
-
-    .date-range-picker select {
-        cursor: pointer;
-        min-width: 150px;
-    }
-
-    .date-range-picker input[type="date"] {
-        min-width: 140px;
-        cursor: pointer;
-    }
-
-    .date-range-picker input[type="date"]::-webkit-calendar-picker-indicator {
-        background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23ff9800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>') no-repeat center;
-        cursor: pointer;
-        opacity: 0.8;
-        transition: opacity 0.2s;
-    }
-
-    .date-range-picker input[type="date"]::-webkit-calendar-picker-indicator:hover {
-        opacity: 1;
-    }
-
-    .date-range-picker input[type="date"]:focus {
-        outline: none;
-        border-color: #ff9800;
-        box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.2);
-    }
-
-    .date-range-picker select:focus {
-        outline: none;
-        border-color: #ff9800;
-        box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.2);
-    }
-
-    .date-range-picker label {
-        color: #aaa;
-        font-size: 0.9em;
-        margin: 0;
-    }
-
-    .date-warning {
-        background: rgba(255, 152, 0, 0.1);
-        border: 1px solid #ff9800;
-        border-radius: 6px;
-        padding: 8px 15px;
-        color: #ffc107;
-        font-size: 0.9em;
-        display: none;
-        margin-bottom: 3rem;
-    }
-
-</style>
-
-<!-- Hero Section -->
-<div class="stats-hero">
-    <h1>📊 User Activity Dashboard</h1>
-    <p>Track library usage, downloads, and user engagement</p>
+<!-- Filters and actions -->
+<div class="stats-toolbar">
+    <div class="stats-field">
+        <label for="user-filter">{{ _('User') }}</label>
+        <select id="user-filter" class="form-control" onchange="handleUserChange()">
+            <option value="" {{ 'selected' if not selected_user_id else '' }}>{{ _('All users') }}</option>
+            {% for user_id, user_name in active_users %}
+            <option value="{{ user_id }}" {{ 'selected' if selected_user_id == user_id else '' }}>{{ user_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="stats-field">
+        <label for="date-preset">{{ _('Period') }}</label>
+        <select id="date-preset" class="form-control" onchange="handlePresetChange()">
+            <option value="7" {{ 'selected' if days == 7 else '' }}>{{ _('Last 7 days') }}</option>
+            <option value="30" {{ 'selected' if days == 30 or not days else '' }}>{{ _('Last 30 days') }}</option>
+            <option value="90" {{ 'selected' if days == 90 else '' }}>{{ _('Last 90 days') }}</option>
+            <option value="180" {{ 'selected' if days == 180 else '' }}>{{ _('Last 6 months') }}</option>
+            <option value="365" {{ 'selected' if days == 365 else '' }}>{{ _('Last year') }}</option>
+            <option value="custom" {{ 'selected' if start_date and end_date else '' }}>{{ _('Custom range') }}</option>
+        </select>
+    </div>
+    <div class="stats-field" id="custom-dates" {{ '' if start_date and end_date else 'hidden' }}>
+        <span class="stats-field-label">{{ _('From – to') }}</span>
+        <div class="stats-field-row">
+            <input type="date" id="start-date" class="form-control" aria-label="{{ _('From') }}" value="{{ start_date or '' }}" onchange="handleCustomDateChange()">
+            <input type="date" id="end-date" class="form-control" aria-label="{{ _('To') }}" value="{{ end_date or '' }}" max="{{ today }}" onchange="handleCustomDateChange()">
+        </div>
+    </div>
+    <div class="stats-actions">
+        <span class="label label-warning" id="demo-badge" hidden>{{ _('Demo data') }}</span>
+        <button type="button" class="btn btn-default" onclick="toggleDemoMode()" id="demo-button" aria-pressed="false">{{ _('Show demo data') }}</button>
+        <button type="button" class="btn btn-default" onclick="resetDateRange()" id="reset-button">{{ _('Reset') }}</button>
+        <button type="button" class="btn btn-default" onclick="exportActivityCSV()">{{ _('Export CSV') }}</button>
+    </div>
 </div>
-    
-    <!-- Date Range & Demo Controls -->
-    <div class="date-range-controls">
-        <div class="date-range-picker">
-            <label>🕵️ Filter by User:</label>
-            <select id="user-filter" onchange="handleUserChange()">
-                <option value="" {{ 'selected' if not selected_user_id else '' }}>All Users</option>
-                {% for user_id, user_name in active_users %}
-                <option value="{{ user_id }}" {{ 'selected' if selected_user_id == user_id else '' }}>{{ user_name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="date-range-picker">
-            <label>📅 Time Period:</label>
-            <select id="date-preset" onchange="handlePresetChange()">
-                <option value="7" {{ 'selected' if days == 7 else '' }}>Last 7 Days</option>
-                <option value="30" {{ 'selected' if days == 30 or not days else '' }}>Last 30 Days</option>
-                <option value="90" {{ 'selected' if days == 90 else '' }}>Last 90 Days</option>
-                <option value="180" {{ 'selected' if days == 180 else '' }}>Last 6 Months</option>
-                <option value="365" {{ 'selected' if days == 365 else '' }}>Last Year</option>
-                <option value="custom" {{ 'selected' if start_date and end_date else '' }}>Custom Range</option>
-            </select>
-            <div id="custom-dates" style="display: {{ 'flex' if start_date and end_date else 'none' }}; gap: 10px; align-items: center;">
-                <label>From:</label>
-                <input type="date" id="start-date" value="{{ start_date or '' }}" onchange="handleCustomDateChange()">
-                <label>To:</label>
-                <input type="date" id="end-date" value="{{ end_date or '' }}" max="{{ today }}" onchange="handleCustomDateChange()">
-            </div>
-        </div>
-        <button class="demo-toggle" onclick="resetDateRange()" id="reset-button">
-            🔄 Reset
-        </button>
-        <button class="demo-toggle" onclick="exportActivityCSV()" style="margin-left: 10px; background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%); box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);">
-            📥 Export CSV
-        </button>
-        <button class="demo-toggle" onclick="toggleDemoMode()" id="demo-button" style="margin-left: 10px;">
-            🎨 Show Demo Data
-        </button>
-        <span class="demo-badge" id="demo-badge" style="display: none;">DEMO MODE</span>
-    </div>
-    <div class="date-warning" id="date-warning">
-        ⚠️ Large date ranges may take longer to load
-    </div>
-    
-    <!-- Top Metrics Cards -->
-    <div class="metrics-container" id="metrics-row">
-        <div class="metric-card">
-            {% if selected_user_id %}
-                <div class="metric-icon">🔑</div>
-                <div class="metric-label">No of Logins</div>
-                <div class="metric-value" id="metric-users">{{ dashboard_stats.totals.total_logins }}</div>
-            {% else %}
-                <div class="metric-icon">👥</div>
-                <div class="metric-label">Active Users</div>
-                <div class="metric-value" id="metric-users">{{ dashboard_stats.totals.active_users }}</div>
-            {% endif %}
-                <small style="color: #999;" class="date-range-label">{{ date_range_label }}</small>
-        </div>
-        <div class="metric-card">
-            <div class="metric-icon">📥</div>
-            <div class="metric-label">Total Downloads</div>
-            <div class="metric-value" id="metric-downloads">{{ dashboard_stats.totals.total_downloads }}</div>
-            <small style="color: #999;" class="date-range-label">{{ date_range_label }}</small>
-        </div>
-        <div class="metric-card">
-            <div class="metric-icon">📖</div>
-            <div class="metric-label">Books Read</div>
-            <div class="metric-value" id="metric-reads">{{ dashboard_stats.totals.total_reads }}</div>
-            <small style="color: #999;" class="date-range-label">{{ date_range_label }}</small>
-        </div>
-        <div class="metric-card">
-            <div class="metric-icon">🔍</div>
-            <div class="metric-label">Searches</div>
-            <div class="metric-value" id="metric-searches">{{ dashboard_stats.totals.total_searches }}</div>
-            <small style="color: #999;" class="date-range-label">{{ date_range_label }}</small>
-        </div>
-    </div>
-    
-    <!-- Activity Timeline Chart -->
-    <div class="chart-container">
-        <div class="chart-title">📈 Activity Timeline</div>
-        <div id="timeline-chart" style="width: 100%; height: 400px;"></div>
-    </div>
-    
-    <!-- Peak Usage Hours Heatmap -->
-    <div class="chart-container">
-        <div class="chart-title">🔥 Peak Usage Hours</div>
-        <div id="heatmap-chart" style="width: 100%; height: 350px;"></div>
-    </div>
-    
-    <!-- Event Breakdown & Format Distribution -->
-    <div class="row cwa-stats-row">
-        <div class="col-md-6">
-            <div class="chart-container">
-                <div class="chart-title">🎯 Event Types</div>
-                <div id="events-chart" style="width: 100%; height: 350px;"></div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="chart-container">
-                <div class="chart-title">📊 Format Preferences by User</div>
-                <div id="format-preferences-chart" style="width: 100%; height: 350px;"></div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Discovery Sources, Device Breakdown, Security -->
-    <div class="row cwa-stats-row">
-        <div class="col-md-4">
-            <div class="chart-container">
-                <div class="chart-title">📍 Discovery Sources</div>
-                <div id="discovery-chart" style="width: 100%; height: 350px;"></div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="chart-container">
-                <div class="chart-title">📱 Device Breakdown</div>
-                <div id="device-chart" style="width: 100%; height: 350px;"></div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="chart-container">
-                <div class="chart-title">🔒 Security</div>
-                <div class="metric-card" style="margin-bottom: 15px;">
-                    <div class="metric-icon">🛡️</div>
-                    <div class="metric-label">Failed Login Attempts</div>
-                    <div class="metric-value" id="failed-logins-count">0</div>
-                </div>
-                <div id="failed-logins-list" style="max-height: 200px; overflow-y: auto;"></div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Top Lists -->
-    <div class="row cwa-stats-row">
-        <div class="col-md-4">
-            <div class="chart-container">
-                {% if selected_user_id %}
-                <div class="chart-title">📅 Most Active Days</div>
-                <div id="most-active-days-list"></div>
-                {% else %}
-                <div class="chart-title">🏆 Top Users</div>
-                <div id="top-users-list"></div>
-                {% endif %}
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="chart-container">
-                <div class="chart-title">⭐ Popular Books</div>
-                <div id="top-books-list"></div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="chart-container">
-                <div class="chart-title">🔎 Recent Searches</div>
-                <div id="recent-searches-list"></div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Sprint 5: Enhanced User Activity Metrics -->
-    <div class="row cwa-stats-row">
-        <div class="col-md-4">
-            <div class="chart-container" style="min-height: 520px;">
-                <div class="chart-title">⏱️ Average Session Duration</div>
-                <div class="metric-card" style="margin-bottom: 15px;">
-                    <div class="metric-icon">⏰</div>
-                    <div class="metric-label">Avg Session Length</div>
-                    <div class="metric-value" id="avg-session-duration">0 min</div>
-                </div>
-                <div id="session-duration-chart" style="width: 100%; height: 250px;"></div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="chart-container" style="min-height: 520px;">
-                <div class="chart-title">🎯 Search Success Rate</div>
-                <div class="metric-card" style="margin-bottom: 15px;">
-                    <div class="metric-icon">🔍</div>
-                    <div class="metric-label">Searches Leading to Actions</div>
-                    <div class="metric-value" id="search-success-rate">0%</div>
-                    <div style="font-size: 0.9em; color: #aaa; margin-top: 5px;">
-                        <span id="search-success-count">0</span> of <span id="total-searches">0</span> searches
-                    </div>
-                </div>
-                <div id="search-success-chart" style="width: 100%; height: 250px;"></div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="chart-container" style="min-height: 520px;">
-                <div class="chart-title">📚 Shelf Activity</div>
-                <div id="shelf-activity-list" style="max-height: 420px; overflow-y: auto;"></div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Empty State (hidden by default) -->
-    <div class="empty-state" id="empty-state" style="display: none;">
-        <div class="empty-state-icon">📊</div>
-        <h3>No Activity Data Yet</h3>
-        <p>Start using your library to see beautiful visualizations and insights!</p>
-        <p style="color: #bbb; font-size: 0.9em;">Downloads, reading sessions, and searches will be tracked here.</p>
-    </div>
+<p class="stats-note" id="date-warning" hidden>{{ _('Large date ranges can take a while to load.') }}</p>
 
-    <!-- Download Formats Pie Chart -->
-    <div class="row cwa-stats-row">
-        <div class="col-md-12">
-            <div class="chart-container">
-                <div class="chart-title">📦 Download Formats Distribution</div>
-                <div id="formats-chart" style="width: 100%; height: 350px;"></div>
-            </div>
-        </div>
+<!-- Top metrics -->
+<div class="stats-tiles" id="metrics-row">
+    <div class="stats-tile">
+        {% if selected_user_id %}
+        <div class="stats-tile-label">{{ _('Logins') }}</div>
+        <div class="stats-tile-value" id="metric-users">{{ dashboard_stats.totals.total_logins }}</div>
+        {% else %}
+        <div class="stats-tile-label">{{ _('Active users') }}</div>
+        <div class="stats-tile-value" id="metric-users">{{ dashboard_stats.totals.active_users }}</div>
+        {% endif %}
+        <div class="stats-tile-note date-range-label">{{ date_range_label }}</div>
     </div>
+    <div class="stats-tile">
+        <div class="stats-tile-label">{{ _('Downloads') }}</div>
+        <div class="stats-tile-value" id="metric-downloads">{{ dashboard_stats.totals.total_downloads }}</div>
+        <div class="stats-tile-note date-range-label">{{ date_range_label }}</div>
+    </div>
+    <div class="stats-tile">
+        <div class="stats-tile-label">{{ _('Books read') }}</div>
+        <div class="stats-tile-value" id="metric-reads">{{ dashboard_stats.totals.total_reads }}</div>
+        <div class="stats-tile-note date-range-label">{{ date_range_label }}</div>
+    </div>
+    <div class="stats-tile">
+        <div class="stats-tile-label">{{ _('Searches') }}</div>
+        <div class="stats-tile-value" id="metric-searches">{{ dashboard_stats.totals.total_searches }}</div>
+        <div class="stats-tile-note date-range-label">{{ date_range_label }}</div>
+    </div>
+</div>
 
-    <!-- Reading Velocity Trend -->
-    <div class="chart-container">
-        <div class="chart-title">📚 Reading Velocity (Books per Week)</div>
-        <div id="velocity-chart" style="width: 100%; height: 350px;"></div>
+<!-- Empty state (shown by JS when there is no activity at all) -->
+<div class="stats-panel stats-empty" id="empty-state" hidden>
+    <span class="stats-empty-glyph glyphicon glyphicon-stats" aria-hidden="true"></span>
+    <h3 class="stats-empty-title">{{ _('No activity yet') }}</h3>
+    <p>{{ _('Downloads, reading sessions and searches show up here as people use the library.') }}</p>
+    <button type="button" class="btn btn-default" onclick="toggleDemoMode()">{{ _('Preview with demo data') }}</button>
+</div>
+
+<div class="stats-panel">
+    <h3 class="stats-panel-title">{{ _('Activity over Time') }}</h3>
+    <div id="timeline-chart" class="stats-chart stats-chart-lg"></div>
+</div>
+
+<div class="stats-panel">
+    <h3 class="stats-panel-title">{{ _('Busiest Hours') }}</h3>
+    <div id="heatmap-chart" class="stats-chart"></div>
+</div>
+
+<div class="stats-grid stats-grid-2">
+    <div class="stats-panel">
+        <h3 class="stats-panel-title">{{ _('Event Types') }}</h3>
+        <div id="events-chart" class="stats-chart"></div>
     </div>
+    <div class="stats-panel">
+        <h3 class="stats-panel-title">{{ _('Formats by User') }}</h3>
+        <div id="format-preferences-chart" class="stats-chart"></div>
+    </div>
+</div>
+
+<div class="stats-grid stats-grid-3">
+    <div class="stats-panel">
+        <h3 class="stats-panel-title">{{ _('Discovery Sources') }}</h3>
+        <div id="discovery-chart" class="stats-chart"></div>
+    </div>
+    <div class="stats-panel">
+        <h3 class="stats-panel-title">{{ _('Devices') }}</h3>
+        <div id="device-chart" class="stats-chart"></div>
+    </div>
+    <div class="stats-panel">
+        <h3 class="stats-panel-title">{{ _('Security') }}</h3>
+        <div class="stats-tile">
+            <div class="stats-tile-label">{{ _('Failed logins') }}</div>
+            <div class="stats-tile-value" id="failed-logins-count">0</div>
+        </div>
+        <div id="failed-logins-list" class="stats-scroll stats-scroll-sm"></div>
+    </div>
+</div>
+
+<div class="stats-grid stats-grid-3">
+    <div class="stats-panel">
+        {% if selected_user_id %}
+        <h3 class="stats-panel-title">{{ _('Most Active Days') }}</h3>
+        <div id="most-active-days-list"></div>
+        {% else %}
+        <h3 class="stats-panel-title">{{ _('Top Users') }}</h3>
+        <div id="top-users-list"></div>
+        {% endif %}
+    </div>
+    <div class="stats-panel">
+        <h3 class="stats-panel-title">{{ _('Popular Books') }}</h3>
+        <div id="top-books-list"></div>
+    </div>
+    <div class="stats-panel">
+        <h3 class="stats-panel-title">{{ _('Recent Searches') }}</h3>
+        <div id="recent-searches-list"></div>
+    </div>
+</div>
+
+<div class="stats-grid stats-grid-3">
+    <div class="stats-panel">
+        <h3 class="stats-panel-title">{{ _('Session Length') }}</h3>
+        <div class="stats-tile">
+            <div class="stats-tile-label">{{ _('Average session') }}</div>
+            <div class="stats-tile-value" id="avg-session-duration">0 min</div>
+        </div>
+        <div id="session-duration-chart" class="stats-chart stats-chart-sm"></div>
+    </div>
+    <div class="stats-panel">
+        <h3 class="stats-panel-title">{{ _('Search Success') }}</h3>
+        <div class="stats-tile">
+            <div class="stats-tile-label">{{ _('Searches leading to an action') }}</div>
+            <div class="stats-tile-value" id="search-success-rate">0%</div>
+            <div class="stats-tile-note"><span id="search-success-count">0</span> of <span id="total-searches">0</span> searches</div>
+        </div>
+        <div class="stats-meter" role="presentation"><span id="search-success-meter" style="width: 0%"></span></div>
+    </div>
+    <div class="stats-panel">
+        <h3 class="stats-panel-title">{{ _('Shelf Activity') }}</h3>
+        <div id="shelf-activity-list" class="stats-scroll"></div>
+    </div>
+</div>
+
+<div class="stats-panel">
+    <h3 class="stats-panel-title">{{ _('Download Formats') }}</h3>
+    <div id="formats-chart" class="stats-chart"></div>
+</div>
+
+<div class="stats-panel">
+    <h3 class="stats-panel-title">{{ _('Reading Pace (Books per Week)') }}</h3>
+    <div id="velocity-chart" class="stats-chart"></div>
+</div>
 
 <script>
 // Data from backend
@@ -849,21 +437,62 @@ let demoMode = false;
 let currentData = realData;  // Always start with real data, even if empty
 let userProfiles = {};
 
-// Initialize charts
-let timelineChart, eventsChart, formatsChart, heatmapChart, velocityChart, formatPreferencesChart, discoveryChart, deviceChart, sessionDurationChart, searchSuccessChart;
+// Charts: every colour comes from the Lily tokens through LilyCharts (static/js/lily-charts.js).
+let timelineChart, eventsChart, formatsChart, heatmapChart, velocityChart, formatPreferencesChart, discoveryChart, deviceChart, sessionDurationChart;
+
+function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[ch]);
+}
+
+function prettyLabel(value) {
+    const s = String(value || '').replace(/_/g, ' ').toLowerCase();
+    return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function noneHtml(text) {
+    return `<p class="stats-none">${escapeHtml(text)}</p>`;
+}
+
+// Colour follows the entity, never its rank: each known event type and format keeps its slot.
+const EVENT_ORDER = ['DOWNLOAD', 'READ', 'EMAIL', 'SEARCH', 'LOGIN'];
+const FORMAT_ORDER = ['EPUB', 'PDF', 'KEPUB', 'MOBI', 'AZW3'];
+function slotColour(order, key) {
+    // A failed login is a status, not a series: it wears the danger tone.
+    if (String(key).toUpperCase() === 'LOGIN_FAILED') return LilyCharts.t.danger;
+    const i = order.indexOf(String(key).toUpperCase());
+    return i === -1 ? LilyCharts.t.faint : LilyCharts.series(i);
+}
+
+// One horizontal bar per category, sorted, in the accent: the job is magnitude, not identity.
+function rankedBarOption(pairs, valueName) {
+    const sorted = pairs.slice().sort((a, b) => a[1] - b[1]);
+    return {
+        tooltip: { trigger: 'item', formatter: p => `${escapeHtml(p.name)}: ${p.value} ${valueName}` },
+        grid: { left: 8, right: 40, top: 8, bottom: 8, containLabel: true },
+        xAxis: { type: 'value', minInterval: 1 },
+        yAxis: { type: 'category', data: sorted.map(d => d[0]) },
+        series: [{
+            type: 'bar',
+            data: sorted.map(d => d[1]),
+            itemStyle: Object.assign({ color: LilyCharts.t.accent }, LilyCharts.barItem(true)),
+            label: { show: true, position: 'right', color: LilyCharts.t.muted, fontSize: 11 }
+        }]
+    };
+}
 
 function initCharts() {
-    timelineChart = echarts.init(document.getElementById('timeline-chart'));
-    eventsChart = echarts.init(document.getElementById('events-chart'));
-    formatsChart = echarts.init(document.getElementById('formats-chart'));
-    heatmapChart = echarts.init(document.getElementById('heatmap-chart'));
-    velocityChart = echarts.init(document.getElementById('velocity-chart'));
-    formatPreferencesChart = echarts.init(document.getElementById('format-preferences-chart'));
-    discoveryChart = echarts.init(document.getElementById('discovery-chart'));
-    deviceChart = echarts.init(document.getElementById('device-chart'));
-    sessionDurationChart = echarts.init(document.getElementById('session-duration-chart'));
-    searchSuccessChart = echarts.init(document.getElementById('search-success-chart'));
-    
+    timelineChart = LilyCharts.init('timeline-chart');
+    eventsChart = LilyCharts.init('events-chart');
+    formatsChart = LilyCharts.init('formats-chart');
+    heatmapChart = LilyCharts.init('heatmap-chart');
+    velocityChart = LilyCharts.init('velocity-chart');
+    formatPreferencesChart = LilyCharts.init('format-preferences-chart');
+    discoveryChart = LilyCharts.init('discovery-chart');
+    deviceChart = LilyCharts.init('device-chart');
+    sessionDurationChart = LilyCharts.init('session-duration-chart');
+
     // Fetch user profiles first, then update visualizations
     fetch(getPath() + '/user_profiles.json')
         .then(response => response.json())
@@ -871,11 +500,10 @@ function initCharts() {
             userProfiles = data;
             updateAllVisualizations();
         })
-        .catch(error => {
-            console.log('Could not load user profiles, using default avatars');
+        .catch(() => {
             updateAllVisualizations();
         });
-    
+
     // Responsive resize (debounced; only initialised charts that are currently visible)
     let activityResizeTimer;
     window.addEventListener('resize', () => {
@@ -886,7 +514,7 @@ function initCharts() {
 
 function resizeActivityCharts() {
     [timelineChart, eventsChart, formatsChart, heatmapChart, velocityChart, formatPreferencesChart,
-     discoveryChart, deviceChart, sessionDurationChart, searchSuccessChart].forEach(chart => {
+     discoveryChart, deviceChart, sessionDurationChart].forEach(chart => {
         if (chart && chart.getDom().offsetWidth > 0) chart.resize();
     });
 }
@@ -906,1021 +534,391 @@ function updateAllVisualizations() {
     updateSessionDuration();
     updateSearchSuccess();
     updateShelfActivity();
+    document.getElementById('empty-state').hidden = demoMode || hasRealData;
 }
 
 function updateMetrics() {
-    // Check if we're in single user mode
-    const urlParams = new URLSearchParams(window.location.search);
-    const selectedUserId = urlParams.get('user_id');
-    
-    if (selectedUserId) {
-        // Show total logins for single user
-        document.getElementById('metric-users').textContent = currentData.totals.total_logins || 0;
-    } else {
-        // Show active users for all users
-        document.getElementById('metric-users').textContent = currentData.totals.active_users || 0;
-    }
-    
+    const selectedUserId = new URLSearchParams(window.location.search).get('user_id');
+    document.getElementById('metric-users').textContent = selectedUserId
+        ? (currentData.totals.total_logins || 0)
+        : (currentData.totals.active_users || 0);
     document.getElementById('metric-downloads').textContent = currentData.totals.total_downloads;
     document.getElementById('metric-reads').textContent = currentData.totals.total_reads;
     document.getElementById('metric-searches').textContent = currentData.totals.total_searches;
 }
 
 function updateTimelineChart() {
-    const timelineData = currentData.timeline;
-    
-    // Group by date and event type
+    const timelineData = currentData.timeline || [];
+    if (timelineData.length === 0) {
+        LilyCharts.empty(timelineChart, 'No activity in this period');
+        return;
+    }
+
     const dateMap = {};
     timelineData.forEach(([date, event, count]) => {
         if (!dateMap[date]) dateMap[date] = {};
         dateMap[date][event] = count;
     });
-    
     const dates = Object.keys(dateMap).sort();
     const eventTypes = [...new Set(timelineData.map(d => d[1]))];
-    
+    eventTypes.sort((a, b) => {
+        const ia = EVENT_ORDER.indexOf(a), ib = EVENT_ORDER.indexOf(b);
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+
     const series = eventTypes.map(event => ({
-        name: event,
+        name: prettyLabel(event),
         type: 'line',
-        smooth: true,
+        showSymbol: dates.length === 1,
+        symbolSize: 8,
         data: dates.map(date => dateMap[date][event] || 0),
-        areaStyle: {
-            opacity: 0.3
-        },
-        emphasis: {
-            focus: 'series'
-        }
+        itemStyle: { color: slotColour(EVENT_ORDER, event) },
+        lineStyle: { width: 2, color: slotColour(EVENT_ORDER, event) },
+        emphasis: { focus: 'series' }
     }));
-    
-    const option = {
-        tooltip: {
-            trigger: 'axis',
-            axisPointer: {
-                type: 'cross'
-            }
-        },
-        legend: {
-            data: eventTypes,
-            bottom: 0,
-            textStyle: {
-                color: '#fff'
-            }
-        },
-        grid: {
-            left: '3%',
-            right: '4%',
-            bottom: '15%',
-            top: '3%',
-            containLabel: true
-        },
+
+    timelineChart.setOption({
+        tooltip: { trigger: 'axis' },
+        legend: { data: series.map(s => s.name), top: 0, left: 0, type: 'scroll' },
+        grid: { left: 8, right: 16, top: 36, bottom: 8, containLabel: true },
         xAxis: {
             type: 'category',
             boundaryGap: false,
             data: dates,
-            axisLabel: {
-                rotate: 45,
-                color: '#fff',
-                formatter: function(value) {
-                    return value.split('-').slice(1).join('/');
-                }
-            },
-            axisLine: {
-                lineStyle: { color: '#3a4451' }
-            }
+            axisLabel: { formatter: value => value.split('-').slice(1).join('/') }
         },
-        yAxis: {
-            type: 'value',
-            axisLabel: {
-                color: '#fff'
-            },
-            axisLine: {
-                lineStyle: { color: '#3a4451' }
-            },
-            splitLine: {
-                lineStyle: { color: '#3a4451' }
-            }
-        },
-        series: series,
-        color: ['#ff9800', '#ffc107', '#4caf50', '#2196f3', '#9c27b0']
-    };
-    
-    timelineChart.setOption(option, true);
+        yAxis: { type: 'value', minInterval: 1 },
+        series: series
+    }, true);
 }
 
 function updateEventsChart() {
-    const data = currentData.eventBreakdown.map(([name, value]) => ({
-        name: name,
-        value: value
-    }));
-    
-    const option = {
-        tooltip: {
-            trigger: 'item',
-            backgroundColor: 'rgba(0,0,0,0.8)',
-            textStyle: { color: '#fff' },
-            formatter: '{b}: {c} ({d}%)'
-        },
-        legend: {
-            orient: 'horizontal',
-            bottom: '5%',
-            textStyle: { color: '#fff' }
-        },
-        series: [{
-            type: 'pie',
-            radius: ['40%', '70%'],
-            center: ['50%', '40%'],
-            itemStyle: {
-                borderRadius: 10,
-                borderColor: '#2a3441',
-                borderWidth: 2
-            },
-            label: {
-                color: '#fff',
-                formatter: '{b}\n{d}%'
-            },
-            emphasis: {
-                itemStyle: {
-                    shadowBlur: 10,
-                    shadowOffsetX: 0,
-                    shadowColor: 'rgba(0, 0, 0, 0.5)'
-                }
-            },
-            data: data
-        }],
-        color: ['#ff9800', '#ffc107', '#4caf50', '#2196f3', '#9c27b0', '#00bcd4', '#8bc34a']
-    };
-    
-    eventsChart.setOption(option, true);
+    const data = currentData.eventBreakdown || [];
+    if (data.length === 0) {
+        LilyCharts.empty(eventsChart, 'No events yet');
+        return;
+    }
+    eventsChart.setOption(rankedBarOption(data.map(([name, value]) => [prettyLabel(name), value]), 'events'), true);
 }
 
 function updateFormatsChart() {
-    const data = currentData.formatDistribution;
-    
+    const data = currentData.formatDistribution || [];
     if (data.length === 0) {
-        formatsChart.setOption({
-            title: {
-                text: 'No format data yet',
-                left: 'center',
-                top: 'center',
-                textStyle: {
-                    color: '#999',
-                    fontSize: 14
-                }
-            }
-        }, true);
+        LilyCharts.empty(formatsChart, 'No downloads yet');
         return;
     }
-    
-    const option = {
-        tooltip: {
-            trigger: 'axis',
-            axisPointer: {
-                type: 'shadow'
-            }
-        },
-        grid: {
-            left: '3%',
-            right: '4%',
-            bottom: '3%',
-            top: '3%',
-            containLabel: true
-        },
-        xAxis: {
-            type: 'value',
-            axisLabel: {
-                color: '#fff'
-            },
-            axisLine: {
-                lineStyle: { color: '#3a4451' }
-            },
-            splitLine: {
-                lineStyle: { color: '#3a4451' }
-            }
-        },
-        yAxis: {
-            type: 'category',
-            data: data.map(d => d[0]),
-            axisLabel: {
-                color: '#fff'
-            },
-            axisLine: {
-                lineStyle: { color: '#3a4451' }
-            }
-        },
-        series: [{
-            type: 'bar',
-            data: data.map(d => d[1]),
-            itemStyle: {
-                borderRadius: [0, 6, 6, 0],
-                color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-                    { offset: 0, color: '#ff9800' },
-                    { offset: 1, color: '#ff6f00' }
-                ])
-            },
-            emphasis: {
-                itemStyle: {
-                    color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-                        { offset: 0, color: '#ffa726' },
-                        { offset: 1, color: '#ff8a00' }
-                    ])
-                }
-            }
-        }]
-    };
-    
-    formatsChart.setOption(option, true);
+    formatsChart.setOption(rankedBarOption(data, 'downloads'), true);
 }
 
 function updateHeatmapChart() {
     const data = currentData.heatmap || [];
-    
     if (data.length === 0) {
-        heatmapChart.setOption({
-            title: {
-                text: 'No activity data yet',
-                left: 'center',
-                top: 'center',
-                textStyle: {
-                    color: '#999',
-                    fontSize: 14
-                }
-            }
-        }, true);
+        LilyCharts.empty(heatmapChart, 'No activity yet');
         return;
     }
-    
+
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const hours = Array.from({length: 24}, (_, i) => i + ':00');
-    
-    // Transform data to [hour, day, value] format
     const heatmapData = data.map(([day, hour, count]) => [hour, day, count]);
-    
-    const option = {
+
+    heatmapChart.setOption({
         tooltip: {
             position: 'top',
-            formatter: (params) => {
-                const hour = params.data[0];
-                const day = days[params.data[1]];
-                const count = params.data[2];
-                return `${day} ${hour}:00<br/>Activity: ${count}`;
-            }
+            formatter: params => `${days[params.data[1]]} ${params.data[0]}:00 · ${params.data[2]} events`
         },
-        grid: {
-            height: '70%',
-            top: '10%',
-            left: '10%',
-            right: '5%'
-        },
-        xAxis: {
-            type: 'category',
-            data: hours,
-            splitArea: {
-                show: true
-            },
-            axisLabel: {
-                color: '#fff',
-                interval: 2
-            },
-            axisLine: {
-                lineStyle: { color: '#3a4451' }
-            }
-        },
-        yAxis: {
-            type: 'category',
-            data: days,
-            splitArea: {
-                show: true
-            },
-            axisLabel: {
-                color: '#fff'
-            },
-            axisLine: {
-                lineStyle: { color: '#3a4451' }
-            }
-        },
+        grid: { left: 8, right: 8, top: 8, bottom: 48, containLabel: true },
+        xAxis: { type: 'category', data: hours, axisLine: { show: false }, axisLabel: { interval: 2 } },
+        yAxis: { type: 'category', data: days, axisLine: { show: false } },
         visualMap: {
             min: 0,
             max: Math.max(...data.map(d => d[2])) || 1,
-            calculable: true,
+            calculable: false,
             orient: 'horizontal',
             left: 'center',
-            bottom: '0%',
-            inRange: {
-                color: ['#2c3e50', '#ff9800', '#ff5722']
-            },
-            textStyle: { color: '#fff' }
+            bottom: 0,
+            itemHeight: 120,
+            itemWidth: 10,
+            inRange: { color: LilyCharts.ramp() }
         },
         series: [{
             name: 'Activity',
             type: 'heatmap',
             data: heatmapData,
-            label: {
-                show: false
-            },
-            emphasis: {
-                itemStyle: {
-                    shadowBlur: 10,
-                    shadowColor: 'rgba(255, 152, 0, 0.5)'
-                }
-            }
+            itemStyle: { borderColor: LilyCharts.t.surface, borderWidth: 2, borderRadius: 3 },
+            emphasis: { itemStyle: { borderColor: LilyCharts.t.ink, borderWidth: 1 } }
         }]
-    };
-    
-    heatmapChart.setOption(option, true);
+    }, true);
 }
 
 function updateVelocityChart() {
     const data = currentData.velocity || [];
-    
     if (data.length === 0) {
-        velocityChart.setOption({
-            title: {
-                text: 'No reading data yet',
-                left: 'center',
-                top: 'center',
-                textStyle: {
-                    color: '#999',
-                    fontSize: 14
-                }
-            }
-        }, true);
+        LilyCharts.empty(velocityChart, 'No finished books yet');
         return;
     }
-    
-    // Calculate 4-week moving average
-    const movingAvg = [];
+
+    // 4-week moving average
     const windowSize = 4;
-    for (let i = 0; i < data.length; i++) {
-        const start = Math.max(0, i - windowSize + 1);
-        const window = data.slice(start, i + 1);
-        const avg = window.reduce((sum, d) => sum + d[1], 0) / window.length;
-        movingAvg.push(avg.toFixed(1));
-    }
-    
-    const option = {
-        tooltip: {
-            trigger: 'axis',
-            axisPointer: {
-                type: 'cross'
-            }
-        },
-        legend: {
-            data: ['Books Read', '4-Week Avg'],
-            textStyle: {
-                color: '#fff'
-            },
-            top: '5%'
-        },
-        grid: {
-            left: '3%',
-            right: '4%',
-            bottom: '3%',
-            top: '15%',
-            containLabel: true
-        },
-        xAxis: {
-            type: 'category',
-            data: data.map(d => d[0]),
-            axisLabel: {
-                color: '#fff',
-                rotate: 45
-            },
-            axisLine: {
-                lineStyle: { color: '#3a4451' }
-            }
-        },
-        yAxis: {
-            type: 'value',
-            name: 'Books',
-            nameTextStyle: {
-                color: '#fff'
-            },
-            axisLabel: {
-                color: '#fff'
-            },
-            axisLine: {
-                lineStyle: { color: '#3a4451' }
-            },
-            splitLine: {
-                lineStyle: { color: '#3a4451' }
-            }
-        },
+    const movingAvg = data.map((_, i) => {
+        const win = data.slice(Math.max(0, i - windowSize + 1), i + 1);
+        return (win.reduce((sum, d) => sum + d[1], 0) / win.length).toFixed(1);
+    });
+
+    velocityChart.setOption({
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['Books read', '4-week average'], top: 0, left: 0 },
+        grid: { left: 8, right: 16, top: 36, bottom: 8, containLabel: true },
+        xAxis: { type: 'category', data: data.map(d => d[0]) },
+        yAxis: { type: 'value', minInterval: 1 },
         series: [
             {
-                name: 'Books Read',
+                name: 'Books read',
                 type: 'bar',
                 data: data.map(d => d[1]),
-                itemStyle: {
-                    color: new echarts.graphic.LinearGradient(0, 1, 0, 0, [
-                        { offset: 0, color: '#ff6f00' },
-                        { offset: 1, color: '#ff9800' }
-                    ]),
-                    borderRadius: [6, 6, 0, 0]
-                }
+                itemStyle: Object.assign({ color: LilyCharts.t.accent }, LilyCharts.barItem(false))
             },
             {
-                name: '4-Week Avg',
+                name: '4-week average',
                 type: 'line',
                 data: movingAvg,
-                smooth: true,
-                lineStyle: {
-                    color: '#2196f3',
-                    width: 3
-                },
-                itemStyle: {
-                    color: '#2196f3'
-                }
+                showSymbol: false,
+                itemStyle: { color: LilyCharts.t.inkSoft },
+                lineStyle: { width: 2, color: LilyCharts.t.inkSoft }
             }
         ]
-    };
-    
-    velocityChart.setOption(option, true);
+    }, true);
 }
 
 function updateFormatPreferencesChart() {
     const data = currentData.formatPreferences || [];
-    
     if (data.length === 0) {
-        formatPreferencesChart.setOption({
-            title: {
-                text: 'No format preference data yet',
-                left: 'center',
-                top: 'center',
-                textStyle: {
-                    color: '#999',
-                    fontSize: 14
-                }
-            }
-        }, true);
+        LilyCharts.empty(formatPreferencesChart, 'No format preferences yet');
         return;
     }
-    
-    // Group data by user
+
     const userMap = {};
     data.forEach(([user, format, count]) => {
         if (!userMap[user]) userMap[user] = {};
         userMap[user][format] = count;
     });
-    
-    const users = Object.keys(userMap).slice(0, 10); // Top 10 users
+    const users = Object.keys(userMap).slice(0, 10);
     const formats = [...new Set(data.map(d => d[1]))];
-    
-    // Define format colors
-    const formatColors = {
-        'EPUB': '#ff9800',
-        'PDF': '#2196f3',
-        'MOBI': '#4caf50',
-        'AZW3': '#9c27b0',
-        'KEPUB': '#f44336',
-        'TXT': '#795548',
-        'CBZ': '#00bcd4',
-        'CBR': '#ff5722',
-        'UNKNOWN': '#999'
-    };
-    
-    const series = formats.map(format => ({
-        name: format,
-        type: 'bar',
-        stack: 'total',
-        data: users.map(user => userMap[user][format] || 0),
-        itemStyle: {
-            color: formatColors[format] || '#999'
-        },
-        emphasis: {
-            focus: 'series'
-        }
-    }));
-    
-    const option = {
-        tooltip: {
-            trigger: 'axis',
-            axisPointer: {
-                type: 'shadow'
-            }
-        },
-        legend: {
-            data: formats,
-            textStyle: {
-                color: '#fff'
-            },
-            top: '5%'
-        },
-        grid: {
-            left: '3%',
-            right: '4%',
-            bottom: '3%',
-            top: '15%',
-            containLabel: true
-        },
-        xAxis: {
-            type: 'value',
-            axisLabel: {
-                color: '#fff'
-            },
-            axisLine: {
-                lineStyle: { color: '#3a4451' }
-            },
-            splitLine: {
-                lineStyle: { color: '#3a4451' }
-            }
-        },
-        yAxis: {
-            type: 'category',
-            data: users,
-            axisLabel: {
-                color: '#fff'
-            },
-            axisLine: {
-                lineStyle: { color: '#3a4451' }
-            }
-        },
-        series: series
-    };
-    
-    formatPreferencesChart.setOption(option, true);
+    formats.sort((a, b) => {
+        const ia = FORMAT_ORDER.indexOf(String(a).toUpperCase()), ib = FORMAT_ORDER.indexOf(String(b).toUpperCase());
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+
+    formatPreferencesChart.setOption({
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        legend: { data: formats, top: 0, left: 0, type: 'scroll' },
+        grid: { left: 8, right: 16, top: 36, bottom: 8, containLabel: true },
+        xAxis: { type: 'value', minInterval: 1 },
+        yAxis: { type: 'category', data: users },
+        series: formats.map(format => ({
+            name: format,
+            type: 'bar',
+            stack: 'total',
+            barMaxWidth: 24,
+            data: users.map(user => userMap[user][format] || 0),
+            // A 2px surface gap between stacked segments, not a stroke.
+            itemStyle: { color: slotColour(FORMAT_ORDER, format), borderColor: LilyCharts.t.surface, borderWidth: 1, borderRadius: 0 },
+            emphasis: { focus: 'series' }
+        }))
+    }, true);
 }
 
 function updateDiscoveryChart() {
     const data = currentData.discoverySources || [];
-    
     if (data.length === 0) {
-        discoveryChart.setOption({
-            title: {
-                text: 'No discovery data yet',
-                left: 'center',
-                top: 'center',
-                textStyle: {
-                    color: '#999',
-                    fontSize: 14
-                }
-            }
-        }, true);
+        LilyCharts.empty(discoveryChart, 'No discovery data yet');
         return;
     }
-    
     const sourceLabels = {
-        'search': 'Search',
-        'book_detail': 'Book Detail',
-        'series': 'Series Page',
-        'author': 'Author Page',
-        'browse': 'Browse',
-        'shelf': 'Shelf',
-        'category': 'Category',
-        'direct': 'Direct Link'
+        'search': 'Search', 'book_detail': 'Book detail', 'series': 'Series page', 'author': 'Author page',
+        'browse': 'Browse', 'shelf': 'Shelf', 'category': 'Category', 'direct': 'Direct link'
     };
-    
-    const option = {
-        tooltip: {
-            trigger: 'item',
-            backgroundColor: 'rgba(0,0,0,0.8)',
-            textStyle: { color: '#fff' },
-            formatter: '{b}: {c} ({d}%)'
-        },
-        legend: {
-            orient: 'horizontal',
-            bottom: '5%',
-            textStyle: { color: '#fff' }
-        },
-        series: [{
-            type: 'pie',
-            radius: ['40%', '70%'],
-            center: ['50%', '40%'],
-            data: data.map(([source, count]) => ({
-                name: sourceLabels[source] || source,
-                value: count
-            })),
-            emphasis: {
-                itemStyle: {
-                    shadowBlur: 10,
-                    shadowOffsetX: 0,
-                    shadowColor: 'rgba(255, 152, 0, 0.5)'
-                }
-            },
-            itemStyle: {
-                borderRadius: 8,
-                borderColor: '#1a2332',
-                borderWidth: 2
-            },
-            label: {
-                color: '#fff',
-                formatter: '{b}\n{d}%'
-            }
-        }]
-    };
-    
-    discoveryChart.setOption(option, true);
+    discoveryChart.setOption(rankedBarOption(
+        data.map(([source, count]) => [sourceLabels[source] || prettyLabel(source), count]), 'visits'), true);
 }
 
 function updateDeviceChart() {
     const data = currentData.deviceBreakdown || [];
-    
     if (data.length === 0) {
-        deviceChart.setOption({
-            title: {
-                text: 'No device data yet',
-                left: 'center',
-                top: 'center',
-                textStyle: {
-                    color: '#999',
-                    fontSize: 14
-                }
-            }
-        }, true);
+        LilyCharts.empty(deviceChart, 'No device data yet');
         return;
     }
-    
-    const deviceIcons = {
-        'desktop': '🖥️',
-        'mobile': '📱',
-        'tablet': '📱',
-        'unknown': '❓'
-    };
-    
-    const deviceColors = {
-        'desktop': '#2196f3',
-        'mobile': '#ff9800',
-        'tablet': '#4caf50',
-        'unknown': '#999'
-    };
-    
-    const option = {
-        tooltip: {
-            trigger: 'item',
-            backgroundColor: 'rgba(0,0,0,0.8)',
-            textStyle: { color: '#fff' },
-            formatter: (params) => {
-                const icon = deviceIcons[params.name] || '❓';
-                return `${icon} ${params.name.charAt(0).toUpperCase() + params.name.slice(1)}: ${params.value} (${params.percent}%)`;
-            }
-        },
-        legend: {
-            orient: 'horizontal',
-            bottom: '5%',
-            textStyle: { color: '#fff' },
-            formatter: (name) => {
-                const icon = deviceIcons[name] || '❓';
-                return `${icon} ${name.charAt(0).toUpperCase() + name.slice(1)}`;
-            }
-        },
-        series: [{
-            type: 'pie',
-            radius: ['40%', '70%'],
-            center: ['50%', '40%'],
-            data: data.map(([device, count]) => ({
-                name: device,
-                value: count,
-                itemStyle: {
-                    color: deviceColors[device] || '#999'
-                }
-            })),
-            emphasis: {
-                itemStyle: {
-                    shadowBlur: 10,
-                    shadowOffsetX: 0,
-                    shadowColor: 'rgba(0, 0, 0, 0.5)'
-                }
-            },
-            label: {
-                color: '#fff',
-                formatter: '{b}\n{d}%'
-            }
-        }]
-    };
-    
-    deviceChart.setOption(option, true);
+    deviceChart.setOption(rankedBarOption(data.map(([device, count]) => [prettyLabel(device), count]), 'sessions'), true);
 }
 
 function updateFailedLogins() {
     const data = currentData.failedLogins || [];
-    const count = data.length > 0 ? data.reduce((sum, d) => sum + d[3], 0) : 0;
-    
+    const count = data.reduce((sum, d) => sum + d[3], 0);
     document.getElementById('failed-logins-count').textContent = count;
-    
+
+    const list = document.getElementById('failed-logins-list');
     if (data.length === 0) {
-        document.getElementById('failed-logins-list').innerHTML = '<p style="text-align: center; color: #4caf50; padding: 20px;">✓ No failed attempts</p>';
+        list.innerHTML = noneHtml('No failed logins in this period');
         return;
     }
-    
-    const listHtml = data.map(([ip, username, timestamp, attempts]) => {
-        const date = new Date(timestamp);
-        const formattedDate = date.toLocaleString('en-US', { 
-            month: 'short', 
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+    list.innerHTML = '<ul class="stats-list">' + data.map(([ip, username, timestamp, attempts]) => {
+        const formattedDate = new Date(timestamp).toLocaleString(undefined, {
+            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
         });
-        const badgeColor = attempts > 5 ? '#f44336' : attempts > 2 ? '#ff9800' : '#999';
-        
+        const tone = attempts > 5 ? 'label-danger' : attempts > 2 ? 'label-warning' : 'label-default';
         return `
-            <div style="padding: 8px; border-bottom: 1px solid #3a4451; font-size: 0.85em;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="color: #fff; font-weight: 500;">${ip}</span>
-                    <span style="background: ${badgeColor}; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 0.9em;">${attempts}×</span>
+            <li class="stats-row">
+                <div class="stats-row-main">
+                    <span class="stats-row-title stats-mono">${escapeHtml(ip)}</span>
+                    <span class="stats-row-meta">${escapeHtml(username)} · ${escapeHtml(formattedDate)}</span>
                 </div>
-                <div style="color: #999; font-size: 0.9em; margin-top: 4px;">
-                    ${username} • ${formattedDate}
-                </div>
-            </div>
-        `;
-    }).join('');
-    
-    document.getElementById('failed-logins-list').innerHTML = listHtml;
+                <span class="label ${tone}">${attempts} ${attempts === 1 ? 'attempt' : 'attempts'}</span>
+            </li>`;
+    }).join('') + '</ul>';
+}
+
+function rowsHtml(items) {
+    return '<ul class="stats-list">' + items.join('') + '</ul>';
 }
 
 function updateTopLists() {
-    // Check if we're in single user mode
-    const urlParams = new URLSearchParams(window.location.search);
-    const selectedUserId = urlParams.get('user_id');
-    
+    const selectedUserId = new URLSearchParams(window.location.search).get('user_id');
+
     if (selectedUserId) {
-        // Show Most Active Days instead of Top Users
-        const daysHtml = currentData.topUsers.length > 0 
-            ? currentData.topUsers.map(([date, count]) => {
-                // Format date nicely
-                const dateObj = new Date(date + 'T00:00:00');
-                const formattedDate = dateObj.toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric',
-                    year: 'numeric'
+        const el = document.getElementById('most-active-days-list');
+        el.innerHTML = currentData.topUsers.length > 0
+            ? rowsHtml(currentData.topUsers.map(([date, count], i) => {
+                const formattedDate = new Date(date + 'T00:00:00').toLocaleDateString(undefined, {
+                    month: 'short', day: 'numeric', year: 'numeric'
                 });
-                
                 return `
-                    <div class="top-item">
-                        <span class="top-item-name">📆 ${formattedDate}</span>
-                        <span class="top-item-value">${count}</span>
-                    </div>
-                `;
-            }).join('')
-            : '<p style="text-align: center; color: #999; padding: 20px;">No activity data yet</p>';
-        document.getElementById('most-active-days-list').innerHTML = daysHtml;
+                    <li class="stats-row">
+                        <span class="stats-rank">${i + 1}</span>
+                        <span class="stats-row-main"><span class="stats-row-title">${escapeHtml(formattedDate)}</span></span>
+                        <span class="stats-row-value">${count}</span>
+                    </li>`;
+            }))
+            : noneHtml('No activity in this period');
     } else {
-        // Show Top Users
-        const usersHtml = currentData.topUsers.length > 0 
-            ? currentData.topUsers.map(([userId, name, count]) => {
+        const el = document.getElementById('top-users-list');
+        el.innerHTML = currentData.topUsers.length > 0
+            ? rowsHtml(currentData.topUsers.map(([userId, name, count], i) => {
                 const profileImage = userProfiles[name];
-                const avatar = profileImage 
-                    ? `<img src="${profileImage}" class="user-avatar" alt="${name}">` 
-                    : '👤';
-                
-                // Make username clickable for admins
-                const nameDisplay = isAdmin 
-                    ? `<a href="/admin/user/${userId}">${name}</a>` 
-                    : name;
-                
+                const avatar = profileImage
+                    ? `<img src="${escapeHtml(profileImage)}" class="stats-avatar" alt="">`
+                    : '<span class="stats-avatar" aria-hidden="true"></span>';
+                const nameDisplay = isAdmin
+                    ? `<a class="stats-row-title" href="/admin/user/${encodeURIComponent(userId)}">${escapeHtml(name)}</a>`
+                    : `<span class="stats-row-title">${escapeHtml(name)}</span>`;
                 return `
-                    <div class="top-item">
-                        <span class="top-item-name">${avatar} ${nameDisplay}</span>
-                        <span class="top-item-value">${count}</span>
-                    </div>
-                `;
-            }).join('')
-            : '<p style="text-align: center; color: #999; padding: 20px;">No user activity yet</p>';
-        document.getElementById('top-users-list').innerHTML = usersHtml;
+                    <li class="stats-row">
+                        <span class="stats-rank">${i + 1}</span>
+                        ${avatar}
+                        <span class="stats-row-main">${nameDisplay}</span>
+                        <span class="stats-row-value">${count}</span>
+                    </li>`;
+            }))
+            : noneHtml('No user activity yet');
     }
-    
-    // Top Books
-    const booksHtml = currentData.topBooks.length > 0
-        ? currentData.topBooks.map(([title, id, count]) => `
-            <div class="top-item">
-                <span class="top-item-name">📚 <a href="/book/${id}">${title}</a></span>
-                <span class="top-item-value">${count}</span>
-            </div>
-        `).join('')
-        : '<p style="text-align: center; color: #999; padding: 20px;">No popular books yet</p>';
-    document.getElementById('top-books-list').innerHTML = booksHtml;
-    
-    // Recent Searches
-    const searchesHtml = currentData.recentSearches.length > 0
-        ? currentData.recentSearches.map(([term, timestamp, user]) => `
-            <div class="search-term">
-                "${term}"
-                <span class="timestamp">${timestamp.split('T')[0]}</span>
-            </div>
-        `).join('')
-        : '<p style="text-align: center; color: #999; padding: 20px;">No searches yet</p>';
-    document.getElementById('recent-searches-list').innerHTML = searchesHtml;
+
+    document.getElementById('top-books-list').innerHTML = currentData.topBooks.length > 0
+        ? rowsHtml(currentData.topBooks.map(([title, id, count], i) => `
+            <li class="stats-row">
+                <span class="stats-rank">${i + 1}</span>
+                <span class="stats-row-main"><a class="stats-row-title" href="/book/${encodeURIComponent(id)}" title="${escapeHtml(title)}">${escapeHtml(title)}</a></span>
+                <span class="stats-row-value">${count}</span>
+            </li>`))
+        : noneHtml('No popular books yet');
+
+    document.getElementById('recent-searches-list').innerHTML = currentData.recentSearches.length > 0
+        ? rowsHtml(currentData.recentSearches.map(([term, timestamp, user]) => `
+            <li class="stats-row">
+                <span class="stats-row-main">
+                    <span class="stats-row-title" title="${escapeHtml(term)}">“${escapeHtml(term)}”</span>
+                    <span class="stats-row-meta">${user ? escapeHtml(user) + ' · ' : ''}${escapeHtml(String(timestamp).split('T')[0])}</span>
+                </span>
+            </li>`))
+        : noneHtml('No searches yet');
 }
 
 function updateSessionDuration() {
     const data = currentData.sessionDuration || { average_minutes: 0, distribution: [] };
-    
-    // Update metric card
     const avgMin = data.average_minutes || 0;
-    document.getElementById('avg-session-duration').textContent = avgMin > 0 ? `${avgMin} min` : '0 min';
-    
-    // Update histogram chart
-    if (data.distribution && data.distribution.length > 0) {
-        const buckets = data.distribution.map(d => d[0]);
-        const counts = data.distribution.map(d => d[1]);
-        
-        sessionDurationChart.setOption({
-            tooltip: {
-                trigger: 'axis',
-                backgroundColor: 'rgba(0,0,0,0.8)',
-                textStyle: { color: '#fff' },
-                formatter: (params) => {
-                    const p = params[0];
-                    return `${p.name}-${p.name + 5} min: ${p.value} sessions`;
-                }
-            },
-            grid: {
-                left: '10%',
-                right: '5%',
-                bottom: '15%',
-                top: '10%'
-            },
-            xAxis: {
-                type: 'category',
-                data: buckets,
-                name: 'Minutes',
-                nameLocation: 'middle',
-                nameGap: 30,
-                axisLabel: {
-                    color: '#fff',
-                    rotate: 45
-                },
-                axisLine: { lineStyle: { color: '#3a4451' } }
-            },
-            yAxis: {
-                type: 'value',
-                name: 'Sessions',
-                axisLabel: { color: '#fff' },
-                splitLine: { lineStyle: { color: '#3a4451' } }
-            },
-            series: [{
-                type: 'bar',
-                data: counts,
-                itemStyle: {
-                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                        { offset: 0, color: '#ff9800' },
-                        { offset: 1, color: '#ff5722' }
-                    ])
-                }
-            }]
-        }, true);
-    } else {
-        sessionDurationChart.setOption({
-            title: {
-                text: 'No session data available',
-                left: 'center',
-                top: 'center',
-                textStyle: { color: '#999', fontSize: 14 }
-            }
-        }, true);
-    }
-}
+    document.getElementById('avg-session-duration').textContent = `${avgMin} min`;
 
-function updateSearchSuccess() {
-    const data = currentData.searchSuccess || { 
-        total_searches: 0, 
-        successful_searches: 0, 
-        success_rate: 0, 
-        trend: 0 
-    };
-    
-    // Update metric card
-    document.getElementById('search-success-rate').textContent = `${data.success_rate}%`;
-    document.getElementById('search-success-count').textContent = data.successful_searches;
-    document.getElementById('total-searches').textContent = data.total_searches;
-    
-    // Determine color based on success rate
-    let color = '#f44336'; // Red for low
-    if (data.success_rate >= 60) color = '#4caf50'; // Green for high
-    else if (data.success_rate >= 40) color = '#ff9800'; // Orange for medium
-    
-    // Update gauge chart
-    searchSuccessChart.setOption({
+    if (!data.distribution || data.distribution.length === 0) {
+        LilyCharts.empty(sessionDurationChart, 'No sessions yet');
+        return;
+    }
+    sessionDurationChart.setOption({
         tooltip: {
-            formatter: '{b}: {c}%'
+            trigger: 'axis',
+            axisPointer: { type: 'shadow' },
+            formatter: params => {
+                const p = params[0];
+                return `${p.name}–${Number(p.name) + 5} min: ${p.value} sessions`;
+            }
         },
+        grid: { left: 8, right: 8, top: 16, bottom: 24, containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: data.distribution.map(d => d[0]),
+            name: 'Minutes',
+            nameLocation: 'middle',
+            nameGap: 26
+        },
+        yAxis: { type: 'value', minInterval: 1 },
         series: [{
-            type: 'gauge',
-            startAngle: 180,
-            endAngle: 0,
-            min: 0,
-            max: 100,
-            splitNumber: 10,
-            axisLine: {
-                lineStyle: {
-                    width: 15,
-                    color: [
-                        [0.4, '#f44336'],
-                        [0.6, '#ff9800'],
-                        [1, '#4caf50']
-                    ]
-                }
-            },
-            pointer: {
-                width: 5,
-                length: '60%'
-            },
-            axisTick: {
-                distance: -15,
-                length: 5,
-                lineStyle: { color: '#fff', width: 1 }
-            },
-            splitLine: {
-                distance: -15,
-                length: 10,
-                lineStyle: { color: '#fff', width: 2 }
-            },
-            axisLabel: {
-                color: '#fff',
-                distance: 20,
-                fontSize: 12
-            },
-            detail: {
-                valueAnimation: true,
-                formatter: '{value}%',
-                color: color,
-                fontSize: 24,
-                offsetCenter: [0, '80%']
-            },
-            data: [{ value: data.success_rate, name: 'Success Rate' }]
+            type: 'bar',
+            data: data.distribution.map(d => d[1]),
+            itemStyle: Object.assign({ color: LilyCharts.t.accent }, LilyCharts.barItem(false))
         }]
     }, true);
 }
 
+function updateSearchSuccess() {
+    const data = currentData.searchSuccess || { total_searches: 0, successful_searches: 0, success_rate: 0, trend: 0 };
+    document.getElementById('search-success-rate').textContent = `${data.success_rate}%`;
+    document.getElementById('search-success-count').textContent = data.successful_searches;
+    document.getElementById('total-searches').textContent = data.total_searches;
+    document.getElementById('search-success-meter').style.width = Math.max(0, Math.min(100, data.success_rate)) + '%';
+}
+
 function updateShelfActivity() {
     const data = currentData.shelfActivity || [];
-    
-    const html = data.length > 0
-        ? data.map(([shelfName, addCount, removeCount, netChange, viewCount, shelfType], index) => {
-            const isMagic = shelfType === 'magic';
-            const icon = isMagic ? '🪄' : '📚';
-            const netColor = netChange >= 0 ? '#4caf50' : '#f44336';
-            const netSymbol = netChange >= 0 ? '+' : '';
-            const views = viewCount || 0;
-            
-            const statsHtml = isMagic 
-                ? `
-                    <span style="color: #2196f3; display: flex; align-items: center; gap: 4px;" title="Views">
-                        <span style="font-size: 1.1em;">👁️</span> ${views}
-                    </span>
-                  `
-                : `
-                    <span style="color: #4caf50; display: flex; align-items: center; gap: 4px;" title="Added">
-                        <span style="font-size: 1.1em;">▲</span> ${addCount}
-                    </span>
-                    <span style="color: #f44336; display: flex; align-items: center; gap: 4px;" title="Removed">
-                        <span style="font-size: 1.1em;">▼</span> ${removeCount}
-                    </span>
-                    <span style="color: #2196f3; display: flex; align-items: center; gap: 4px;" title="Views">
-                        <span style="font-size: 1.1em;">👁️</span> ${views}
-                    </span>
-                  `;
-
-            return `
-                <div style="
-                    background: rgba(255,255,255,0.03);
-                    border-left: 3px solid ${netColor};
-                    padding: 12px 15px;
-                    margin-bottom: 10px;
-                    border-radius: 4px;
-                    transition: all 0.2s ease;"
-                    onmouseover="this.style.background='rgba(255,255,255,0.05)'"
-                    onmouseout="this.style.background='rgba(255,255,255,0.03)'">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <span style="font-weight: 600; color: #fff; font-size: 0.95em;">${icon} ${shelfName}</span>
-                        <span style="
-                            color: ${netColor};
-                            font-weight: 700;
-                            font-size: 1.1em;
-                            min-width: 45px;
-                            text-align: right;">${netSymbol}${netChange}</span>
-                    </div>
-                    <div style="
-                        display: flex;
-                        gap: 15px;
-                        font-size: 0.8em;
-                        padding-left: 22px;">
-                        ${statsHtml}
-                    </div>
-                </div>
-            `;
-        }).join('')
-        : '<p style="text-align: center; color: #999; padding: 40px 20px;">No shelf activity yet</p>';
-    
-    document.getElementById('shelf-activity-list').innerHTML = html;
+    const el = document.getElementById('shelf-activity-list');
+    if (data.length === 0) {
+        el.innerHTML = noneHtml('No shelf activity yet');
+        return;
+    }
+    el.innerHTML = rowsHtml(data.map(([shelfName, addCount, removeCount, netChange]) => {
+        const trendClass = netChange > 0 ? 'is-up' : netChange < 0 ? 'is-down' : '';
+        const arrow = netChange > 0 ? '▲' : netChange < 0 ? '▼' : '';
+        return `
+            <li class="stats-row">
+                <span class="stats-row-main">
+                    <span class="stats-row-title">${escapeHtml(shelfName)}</span>
+                    <span class="stats-row-meta">${addCount} added · ${removeCount} removed</span>
+                </span>
+                <span class="stats-trend ${trendClass}" title="Net change"><span aria-hidden="true">${arrow}</span>${netChange > 0 ? '+' : ''}${netChange}</span>
+            </li>`;
+    }));
 }
 
 function toggleDemoMode() {
     demoMode = !demoMode;
     const button = document.getElementById('demo-button');
     const badge = document.getElementById('demo-badge');
-    
+
     if (demoMode) {
         currentData = generateDemoData();
-        button.textContent = '📊 Show Real Data';
-        button.classList.add('active');
-        badge.style.display = 'inline-block';
+        button.textContent = 'Show real data';
     } else {
-        currentData = hasRealData ? realData : generateDemoData();
-        button.textContent = '🎨 Show Demo Data';
-        button.classList.remove('active');
-        badge.style.display = 'none';
+        currentData = realData;
+        button.textContent = 'Show demo data';
     }
-    
+    button.setAttribute('aria-pressed', demoMode ? 'true' : 'false');
+    badge.hidden = !demoMode;
+
     updateAllVisualizations();
 }
 
@@ -1933,13 +931,11 @@ function exportActivityCSV() {
 function handleUserChange() {
     const userId = document.getElementById('user-filter').value;
     const url = new URL(window.location);
-    
     if (userId) {
         url.searchParams.set('user_id', userId);
     } else {
         url.searchParams.delete('user_id');
     }
-    
     window.location.href = url.toString();
 }
 
@@ -1948,20 +944,12 @@ function handlePresetChange() {
     const preset = document.getElementById('date-preset').value;
     const customDates = document.getElementById('custom-dates');
     const warning = document.getElementById('date-warning');
-    
+
     if (preset === 'custom') {
-        customDates.style.display = 'flex';
+        customDates.hidden = false;
     } else {
-        customDates.style.display = 'none';
-        
-        // Show warning for ranges > 1 year
-        if (parseInt(preset) > 365) {
-            warning.style.display = 'block';
-        } else {
-            warning.style.display = 'none';
-        }
-        
-        // Reload page with new days parameter
+        customDates.hidden = true;
+        warning.hidden = !(parseInt(preset) > 365);
         const url = new URL(window.location);
         url.searchParams.delete('start_date');
         url.searchParams.delete('end_date');
@@ -1974,21 +962,10 @@ function handleCustomDateChange() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
     const warning = document.getElementById('date-warning');
-    
+
     if (startDate && endDate) {
-        // Date inputs already provide YYYY-MM-DD format
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        const days = Math.floor((end - start) / (1000 * 60 * 60 * 24));
-        
-        // Show warning for ranges > 1 year
-        if (days > 365) {
-            warning.style.display = 'block';
-        } else {
-            warning.style.display = 'none';
-        }
-        
-        // Reload page with custom date range
+        const days = Math.floor((new Date(endDate) - new Date(startDate)) / (1000 * 60 * 60 * 24));
+        warning.hidden = !(days > 365);
         const url = new URL(window.location);
         url.searchParams.delete('days');
         url.searchParams.set('start_date', startDate);
@@ -2007,13 +984,11 @@ function resetDateRange() {
     window.location.href = url.toString();
 }
 
-// Initialize on page load
+{% if show_warning %}
 document.addEventListener('DOMContentLoaded', function() {
-    // Show warning if present
-    {% if show_warning %}
-    document.getElementById('date-warning').style.display = 'block';
-    {% endif %}
+    document.getElementById('date-warning').hidden = false;
 });
+{% endif %}
 
 // Charts are initialised lazily by the stats tab page the first time this tab is shown;
 // when rendered standalone (no registry), initialise once the DOM and echarts are ready.

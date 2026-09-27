@@ -28,18 +28,11 @@
 <link href="{{ url_for('static', filename='css/libs/bootstrap-table.min.css') }}" rel="stylesheet">
 <link href="{{ url_for('static', filename='css/libs/bootstrap-editable.css') }}" rel="stylesheet">
 <link href="{{ url_for('static', filename='css/libs/bootstrap-wysihtml5-0.0.3.css') }}" rel="stylesheet">
-<style>
-  .pagination {
-      position: static !important;
-      margin-top: 0.8rem !important;
-  }
-</style>
 {% endblock %}
 {% block body %}
 <div class="discover">
-  <h2 class="{{page}}">{{_(title)}}</h2>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="row form-group" style="display: inline-block;">
+    <div class="lily-actions lily-table-actions">
       <div class="btn btn-default disabled" id="merge_books" aria-disabled="true">
         {{_('Merge')}}
       </div>
@@ -64,7 +57,7 @@
       <div class="btn btn-default disabled" id="add_to_shelf_btn" aria-disabled="true">
         {{_('Add to Shelf')}}
       </div>
-        <div class="btn btn-default disabled" id="table_xchange" ><span class="glyphicon glyphicon-arrow-up"></span><span class="glyphicon glyphicon-arrow-down"></span>{{_(' Exchange author & title')}}
+        <div class="btn btn-default disabled" id="table_xchange">{{_('Exchange author & title')}}
       </div>
       <!-- New Select all button -->
       {% if current_user.role_edit() %}
@@ -77,15 +70,14 @@
       {% endif %}
     </div>
     <div>
-      <br>
-      <div class="filterhead" style="display: inline-block;">
-        <div style="display: inline-block; padding-inline-start: 10px;">
+      <div class="filterhead lily-inline-checks">
+        <div class="checkbox">
           <input type="checkbox" id="autoupdate_titlesort" name="autoupdate_titlesort" checked>
-          <label for="autoupdate_titlesort" style="padding-left: 0.4em">{{_('Update Title Sort automatically  ')}}</label>
+          <label for="autoupdate_titlesort">{{_('Update Title Sort automatically  ')}}</label>
         </div>
-        <div style="display: inline-block; padding-inline-start: 10px;">
+        <div class="checkbox">
           <input type="checkbox" id="autoupdate_authorsort" name="autoupdate_authorsort" checked>
-          <label for="autoupdate_authorsort" style="padding-left: 0.4em">{{_('Update Author Sort automatically')}}</label>
+          <label for="autoupdate_authorsort">{{_('Update Author Sort automatically')}}</label>
         </div>
       </div>
     </div>
@@ -227,7 +219,7 @@
         <p></p>
           <div class="text-left" id="display-unarchive-selected-books"></div>
       <div class="modal-footer">
-        <input id="unarchive_selected_confirm" type="button" class="btn btn-danger" value="{{_('Unarchive')}}" name="unarchive_selected_confirm" data-dismiss="modal">
+        <input id="unarchive_selected_confirm" type="button" class="btn btn-primary" value="{{_('Unarchive')}}" name="unarchive_selected_confirm" data-dismiss="modal">
         <button id="unarchive_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
       </div>
       </div>
@@ -247,7 +239,7 @@
         <p></p>
           <div class="text-left" id="display-read-selected-books"></div>
       <div class="modal-footer">
-        <input id="read_selected_confirm" type="button" class="btn btn-danger" value="{{_('Mark as read')}}" name="read_selected_confirm" data-dismiss="modal">
+        <input id="read_selected_confirm" type="button" class="btn btn-primary" value="{{_('Mark as read')}}" name="read_selected_confirm" data-dismiss="modal">
         <button id="read_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
       </div>
       </div>
@@ -267,7 +259,7 @@
         <p></p>
           <div class="text-left" id="display-unread-selected-books"></div>
       <div class="modal-footer">
-        <input id="unread_selected_confirm" type="button" class="btn btn-danger" value="{{_('Mark as unread')}}" name="unread_selected_confirm" data-dismiss="modal">
+        <input id="unread_selected_confirm" type="button" class="btn btn-primary" value="{{_('Mark as unread')}}" name="unread_selected_confirm" data-dismiss="modal">
         <button id="read_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
       </div>
       </div>
@@ -283,7 +275,7 @@
       </div>
       <div class="modal-body">
         <div class="text-left">{{_('Edit the fields you want changed. Blank fields will be ignored:')}}</div>
-        <div class="text-left text-muted" style="margin-top: 6px;">
+        <div class="text-left text-muted lily-table-note">
           {{_('Multiple values are supported for Authors, Tags/Categories, Languages, and Publishers. Use comma-separated values (e.g., "Name1, Name2").')}}
         </div>
           <br>
@@ -325,7 +317,7 @@
         </div>
 
       <div class="modal-footer">
-        <input id="edit_selected_confirm" type="button" class="btn btn-danger" value="{{_('Edit')}}" name="edit_selected_confirm" id="edit_selected_confirm" data-dismiss="modal">
+        <input id="edit_selected_confirm" type="button" class="btn btn-primary" value="{{_('Edit')}}" name="edit_selected_confirm" id="edit_selected_confirm" data-dismiss="modal">
         <button id="edit_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
       </div>
       </div>
