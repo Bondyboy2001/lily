@@ -6,7 +6,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-import sys
 from base64 import b64decode, b64encode
 from jsonschema import validate, exceptions
 from datetime import datetime

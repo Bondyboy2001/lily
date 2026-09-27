@@ -8,14 +8,15 @@
 import datetime
 
 from . import config, constants
-from .services.background_scheduler import BackgroundScheduler, CronTrigger, IntervalTrigger, use_APScheduler, DateTrigger
+from .services.background_scheduler import BackgroundScheduler, CronTrigger, IntervalTrigger, DateTrigger
+# Re-exported: cps.admin reads the feature flag as `schedule.use_APScheduler`.
+from .services.background_scheduler import use_APScheduler  # noqa: F401
 from .tasks.database import TaskReconnectDatabase, TaskCleanArchivedBooks
 from .tasks.clean import TaskClean
 from .tasks.thumbnail import TaskGenerateCoverThumbnails, TaskGenerateSeriesThumbnails, TaskClearCoverThumbnailCache
 from .tasks.thumbnail_migration import check_and_migrate_thumbnails
 from .services.worker import WorkerThread
 from .tasks.metadata_backup import TaskBackupMetadata
-from .tasks.auto_hardcover_id import TaskAutoHardcoverID
 
 def get_scheduled_tasks(reconnect=True):
     tasks = list()
@@ -88,7 +89,7 @@ def register_startup_tasks():
         # Run thumbnail migration on startup (one-time operation)
         try:
             check_and_migrate_thumbnails()
-        except Exception as ex:
+        except Exception:
             # Don't let migration failures stop the application
             pass
 
@@ -100,7 +101,7 @@ def register_startup_tasks():
             from cwa_db import CWA_DB
             from .tasks.auto_send import TaskAutoSend
             from .services.worker import WorkerThread
-            from datetime import datetime, timezone
+            from datetime import datetime
 
             db = CWA_DB()
             delay_minutes = int(db.cwa_settings.get('auto_send_delay_minutes', 0) or 0)

@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-# from .__about__ import __version__
 from .config import AUTH_HEADER_NAME
 from .config import COOKIE_DURATION
 from .config import COOKIE_HTTPONLY
@@ -27,7 +26,6 @@ from .signals import user_logged_out
 from .signals import user_login_confirmed
 from .signals import user_needs_refresh
 from .signals import user_unauthorized
-# from .test_client import FlaskLoginClient
 from .utils import confirm_login
 from .utils import current_user
 from .utils import decode_cookie

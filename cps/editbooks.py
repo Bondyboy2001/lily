@@ -19,7 +19,7 @@ from flask import Blueprint, request, flash, redirect, url_for, abort, Response
 from flask_babel import gettext as _
 from flask_babel import lazy_gettext as N_
 from flask_babel import get_locale
-from .cw_login import current_user, login_required
+from .cw_login import current_user
 from sqlalchemy.exc import OperationalError, IntegrityError, InterfaceError, InvalidRequestError
 from sqlalchemy.orm.exc import StaleDataError
 from sqlalchemy.sql.expression import func, or_
@@ -1146,7 +1146,6 @@ def prepare_authors(authr, calibre_path, gdrive=False):
         calibre_path = ""
     # handle authors
     input_authors = authr.split('&')
-    # handle_authors(input_authors)
     input_authors = list(map(lambda it: it.strip().replace(',', '|'), input_authors))
     # Remove duplicates in authors list
     input_authors = helper.uniq(input_authors)
@@ -1195,148 +1194,6 @@ def prepare_authors(authr, calibre_path, gdrive=False):
                     helper.rename_all_files_on_change(one_book, new_path, new_path, all_new_name, gdrive)
 
     return input_authors
-
-
-def prepare_authors_on_upload(title, authr):
-    if title != _('Unknown') and authr != _('Unknown'):
-        entry = calibre_db.check_exists_book(authr, title)
-        if entry:
-            log.info("Uploaded book probably exists in library")
-            flash(_("Uploaded book probably exists in the library, consider to change before upload new: ")
-                  + Markup(render_title_template('book_exists_flash.html', entry=entry)), category="warning")
-
-    input_authors = prepare_authors(authr, config.get_book_path(), config.config_use_google_drive)
-
-    sort_authors_list = list()
-    db_author = None
-    for inp in input_authors:
-        # stored_author = calibre_db.session.query(db.Authors).filter(db.Authors.name == inp).first()
-        stored_author = calibre_db.session.query(db.Authors).filter(func.lower(db.Authors.name).ilike(inp)).first()
-        if not stored_author:
-            if not db_author:
-                db_author = db.Authors(inp, helper.get_sorted_author(inp), "")
-                calibre_db.session.add(db_author)
-                calibre_db.session.commit()
-            sort_author = helper.get_sorted_author(inp)
-        else:
-            if not db_author:
-                db_author = stored_author
-            sort_author = stored_author.sort
-        sort_authors_list.append(sort_author)
-    sort_authors = ' & '.join(sort_authors_list)
-    return sort_authors, input_authors, db_author
-
-
-def create_book_on_upload(modify_date, meta):
-    title = meta.title
-    authr = meta.author
-    sort_authors, input_authors, db_author = prepare_authors_on_upload(title, authr)
-
-    title_dir = helper.get_valid_filename(title, chars=96)
-    author_dir = helper.get_valid_filename(db_author.name, chars=96)
-
-    # combine path and normalize path from Windows systems
-    path = os.path.join(author_dir, title_dir).replace('\\', '/')
-
-    try:
-        pubdate = datetime.strptime(meta.pubdate[:10], "%Y-%m-%d")
-    except ValueError:
-        pubdate = datetime(101, 1, 1)
-
-    # Calibre adds books with utc as timezone
-    db_book = db.Books(title, "", sort_authors, datetime.now(timezone.utc), pubdate,
-                       '1', datetime.now(timezone.utc), path, meta.cover, db_author, [], "")
-
-    modify_date |= modify_database_object(input_authors, db_book.authors, db.Authors, calibre_db.session,
-                                          'author')
-
-    # Add series_index to book
-    modify_date |= edit_book_series_index(meta.series_id, db_book)
-
-    # add languages
-    invalid = []
-    modify_date |= edit_book_languages(meta.languages, db_book, upload_mode=True, invalid=invalid)
-    if invalid:
-        for lang in invalid:
-            flash(_("'%(langname)s' is not a valid language", langname=lang), category="warning")
-
-    # handle tags
-    modify_date |= edit_book_tags(meta.tags, db_book)
-
-    # handle publisher
-    modify_date |= edit_book_publisher(meta.publisher, db_book)
-
-    # handle series
-    modify_date |= edit_book_series(meta.series, db_book)
-
-    # Add file to book
-    file_size = os.path.getsize(meta.file_path)
-    db_data = db.Data(db_book, meta.extension.upper()[1:], file_size, title_dir)
-    db_book.data.append(db_data)
-    calibre_db.session.add(db_book)
-
-    # flush content, get db_book.id available
-    calibre_db.session.flush()
-
-    # Handle identifiers now that db_book.id is available
-    identifier_list = []
-    for type_key, type_value in meta.identifiers:
-        identifier_list.append(db.Identifiers(type_value, type_key, db_book.id))
-    modification, warning = modify_identifiers(identifier_list, db_book.identifiers, calibre_db.session)
-    if warning:
-        flash(_("Identifiers are not Case Sensitive, Overwriting Old Identifier"), category="warning")
-    modify_date |= modification
-
-    return db_book, input_authors, title_dir
-
-
-def file_handling_on_upload(requested_file):
-    # check if file extension is correct
-    allowed_extensions = config.config_upload_formats.split(',')
-    if requested_file:
-        if config.config_check_extensions and allowed_extensions != ['']:
-            if not validate_mime_type(requested_file, allowed_extensions):
-                flash(_("File type isn't allowed to be uploaded to this server"), category="error")
-                return None, Response(json.dumps({"location": url_for("web.index")}), mimetype='application/json')
-    if '.' in requested_file.filename:
-        file_ext = requested_file.filename.rsplit('.', 1)[-1].lower()
-        if file_ext not in allowed_extensions and '' not in allowed_extensions:
-            flash(
-                _("File extension '%(ext)s' is not allowed to be uploaded to this server",
-                  ext=file_ext), category="error")
-            return None, Response(json.dumps({"location": url_for("web.index")}), mimetype='application/json')
-    else:
-        flash(_('File to be uploaded must have an extension'), category="error")
-        return None, Response(json.dumps({"location": url_for("web.index")}), mimetype='application/json')
-
-    # extract metadata from file
-    try:
-        meta = uploader.upload(requested_file, config.config_rarfile_location)
-    except (IOError, OSError):
-        log.error("File %s could not saved to temp dir", requested_file.filename)
-        flash(_("File %(filename)s could not saved to temp dir",
-                filename=requested_file.filename), category="error")
-        return None, Response(json.dumps({"location": url_for("web.index")}), mimetype='application/json')
-    return meta, None
-
-
-def move_coverfile(meta, db_book):
-    # move cover to final directory, including book id
-    if meta.cover:
-        cover_file = meta.cover
-    else:
-        cover_file = os.path.join(constants.STATIC_DIR, 'generic_cover.svg')
-    new_cover_path = os.path.join(config.get_book_path(), db_book.path)
-    try:
-        os.makedirs(new_cover_path, exist_ok=True)
-        copyfile(cover_file, os.path.join(new_cover_path, "cover.jpg"))
-        if meta.cover:
-            os.unlink(meta.cover)
-    except OSError as e:
-        log.error("Failed to move cover file %s: %s", new_cover_path, e)
-        flash(_("Failed to Move Cover File %(file)s: %(error)s", file=new_cover_path,
-                error=e),
-              category="error")
 
 
 def delete_whole_book(book_id, book):
@@ -1871,11 +1728,6 @@ def upload_book_formats(requested_files, book, book_id, no_cover=True):
                 rar_executable=config.config_rarfile_location,
                 no_cover=no_cover)
             merge_metadata(book, meta, to_save)
-    #if to_save.get('languages'):
-    #    langs = []
-    #    for lang_code in to_save['languages'].split(','):
-    #        langs.append(isoLanguages.get_language_name(get_locale(), lang_code))
-    #    to_save['languages'] = ",".join(langs)
     return to_save, error
 
 

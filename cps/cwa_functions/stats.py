@@ -91,7 +91,7 @@ headers = {
 @login_required_if_no_ano
 @admin_required
 def cwa_stats_show():
-    from datetime import datetime, timedelta
+    from datetime import datetime
     
     # Check which tab to show (default to user activity)
     active_tab = request.args.get('tab', 'activity')

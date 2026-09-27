@@ -24,7 +24,6 @@ from cps.embed_helper import do_calibre_export
 from cps import logger, config
 from cps import gdriveutils
 from cps.string_helper import strip_whitespaces
-import uuid
 
 log = logger.create()
 

@@ -73,10 +73,6 @@ def is_debug_enabled():
     return logging.root.level <= logging.DEBUG
 
 
-def is_info_enabled(logger):
-    return logging.getLogger(logger).level <= logging.INFO
-
-
 def get_level_name(level):
     return logging.getLevelName(level)
 
@@ -182,21 +178,5 @@ def create_access_log(log_file, log_name, formatter):
 
 
 # Enable logging of smtp lib debug output
-class StderrLogger(object):
-    def __init__(self, name=None):
-        self.log = get(name or self.__class__.__name__)
-        self.buffer = ''
-
-    def write(self, message):
-        try:
-            if message == '\n':
-                self.log.debug(self.buffer.replace('\n', '\\n'))
-                self.buffer = ''
-            else:
-                self.buffer += message
-        except Exception:
-            self.log.debug("Logging Error")
-
-
 # default configuration, before application settings are applied
 setup(LOG_TO_STDERR, logging.DEBUG if os.environ.get('FLASK_DEBUG') else DEFAULT_LOG_LEVEL)

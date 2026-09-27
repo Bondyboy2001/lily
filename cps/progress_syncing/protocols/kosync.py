@@ -39,9 +39,9 @@ Reference: https://github.com/koreader/koreader-sync-server
 
 import base64
 from datetime import datetime, timezone
-from typing import Dict, Optional, Any, Tuple
+from typing import Dict, Optional, Any
 
-from ...services import SyncToken as SyncToken, hardcover
+from ...services import SyncToken as SyncToken
 from ...kobo import push_reading_state_to_hardcover
 
 from flask import Blueprint, request, jsonify

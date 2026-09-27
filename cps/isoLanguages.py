@@ -29,7 +29,7 @@ try:
             return _copy_fields(pyc_languages.get(alpha_2=part1))
         if name is not None:
             return _copy_fields(pyc_languages.get(name=name))
-except ImportError as ex:
+except ImportError:
     if sys.version_info >= (3, 12):
         print("Python 3.12 isn't compatible with iso-639. Please install pycountry.")
     from iso639 import languages

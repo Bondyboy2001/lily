@@ -20,13 +20,13 @@ import re
 from datetime import datetime, timezone
 from functools import wraps
 from typing import TypedDict, NotRequired
-from flask import Blueprint, request, make_response, jsonify, abort
+from flask import Blueprint, request, make_response, jsonify
 from werkzeug.datastructures import Headers
 import requests
 from lxml import etree
 
 from . import logger, calibre_db, db, config, ub, csrf
-from .cw_login import current_user, login_required
+from .cw_login import current_user
 from .services import hardcover
 
 log = logger.create()

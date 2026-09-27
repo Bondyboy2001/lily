@@ -164,10 +164,6 @@ def _enabled_key_values(parts: BookKeyParts, settings):
     return values
 
 
-def build_duplicate_key(book, settings):
-    return _hash_json(_enabled_key_values(build_book_key_parts(book, settings), settings))
-
-
 def _book_query(book_ids=None):
     query = (
         calibre_db.session.query(db.Books)

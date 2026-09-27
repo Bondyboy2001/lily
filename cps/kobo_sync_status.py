@@ -14,17 +14,6 @@ from sqlalchemy.sql.expression import or_, and_, true
 
 # Add the current book id to kobo_synced_books table for current user, if entry is already present,
 # do nothing (safety precaution)
-def add_synced_books(book_id):
-    is_present = ub.session.query(ub.KoboSyncedBooks).filter(ub.KoboSyncedBooks.book_id == book_id)\
-        .filter(ub.KoboSyncedBooks.user_id == current_user.id).count()
-    if not is_present:
-        synced_book = ub.KoboSyncedBooks()
-        synced_book.user_id = current_user.id
-        synced_book.book_id = book_id
-        ub.session.add(synced_book)
-        ub.session_commit()
-
-
 # Bulk variant of add_synced_books: one existence query and a single commit for all ids.
 # Ids already present for the current user (or repeated in book_ids) are skipped.
 def add_synced_books_bulk(book_ids):

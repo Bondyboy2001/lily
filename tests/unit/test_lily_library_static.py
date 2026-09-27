@@ -103,7 +103,9 @@ def test_quick_actions_are_markup_not_injected():
 
 def test_lily_js_keeps_the_caliblur_behaviours_that_are_still_needed():
     js = read(JS / "lily.js")
-    for needle in ("shown.bs.dropdown", "dropdown-menu-right", "readmore", ".tooltip(", 'target: "_blank"'):
+    # "readmore" was dropped on purpose when lily.js replaced caliblur.js, so it is
+    # deliberately not in this list.
+    for needle in ("shown.bs.dropdown", "dropdown-menu-right", ".tooltip(", 'target: "_blank"'):
         assert needle in js, needle
     # The shell behaviour is still there.
     assert "drawer-open" in js

@@ -22,7 +22,10 @@
 # Source: https://github.com/JordanMilne/Advocate
 
 
-from .adapters import ValidatingHTTPAdapter
+# Vendored from https://github.com/JordanMilne/Advocate (Apache-2.0).
+# These are the package's public surface, re-exported for callers of
+# `cps.cw_advocate`; they are intentionally not referenced inside this module.
+from .adapters import ValidatingHTTPAdapter  # noqa: F401
 from .api import *
-from .addrvalidator import AddrValidator
-from .exceptions import UnacceptableAddressException
+from .addrvalidator import AddrValidator  # noqa: F401
+from .exceptions import UnacceptableAddressException  # noqa: F401
