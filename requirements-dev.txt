@@ -23,7 +23,7 @@ faker>=22.0.0
 # Code quality
 ruff>=0.1.0                  # Fast Python linter
 black>=23.0.0                # Code formatter
-isort>=5.12.0                # Import sorting
+isort>=9.0.1                # Import sorting
 
 # Optional: E2E testing (Phase 3)
 # playwright>=1.40.0         # Uncomment for browser automation tests
