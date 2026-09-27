@@ -79,5 +79,5 @@ natsort>=2.2.0,<8.5.0
 comicapi>=2.2.0,<3.3.0
 
 # Kobo integration
-jsonschema>=3.2.0,<4.24.0
+jsonschema>=4.26.0,<4.27.0
 curl-cffi>=0.6.0,<0.7.0
