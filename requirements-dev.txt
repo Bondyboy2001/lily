@@ -18,7 +18,7 @@ freezegun>=1.4.0
 
 # Database testing
 factory-boy>=3.3.0
-faker>=22.0.0
+faker>=40.39.0
 
 # Code quality
 ruff>=0.1.0                  # Fast Python linter
