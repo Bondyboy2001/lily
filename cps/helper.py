@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-import glob
 import os
 import random
 import io
@@ -37,7 +36,7 @@ try:
     from . import cw_advocate
     from .cw_advocate.exceptions import UnacceptableAddressException
     use_advocate = True
-except ImportError as e:
+except ImportError:
     use_advocate = False
     advocate = requests
     UnacceptableAddressException = MissingSchema = BaseException
@@ -49,7 +48,7 @@ from . import logger, config, db, ub, fs
 from . import gdriveutils as gd
 from .constants import (STATIC_DIR as _STATIC_DIR, CACHE_TYPE_THUMBNAILS, THUMBNAIL_TYPE_COVER, THUMBNAIL_TYPE_SERIES,
                         SUPPORTED_CALIBRE_BINARIES)
-from .subproc_wrapper import process_wait, process_open
+from .subproc_wrapper import process_wait
 
 # Track books with pending thumbnail generation to prevent duplicate tasks
 _pending_thumbnail_books = set()
@@ -576,23 +575,11 @@ def update_dir_structure_file(book_id, calibre_path, original_filepath, new_auth
     return False
 
 
-def upload_new_file_gdrive(book_id, first_author, title, title_dir, original_filepath, filename_ext):
-    book = calibre_db.get_book(book_id)
-    file_name = get_valid_filename(title, chars=42) + ' - ' + \
-        get_valid_filename(first_author, chars=42) + filename_ext
-    gdrive_path = os.path.join(get_valid_filename(first_author, chars=96),
-                               title_dir + " (" + str(book_id) + ")")
-    book.path = gdrive_path.replace("\\", "/")
-    gd.uploadFileToEbooksFolder(os.path.join(gdrive_path, file_name).replace("\\", "/"), original_filepath)
-    return False
-
-
 def update_dir_structure_gdrive(book_id, first_author):
     book = calibre_db.get_book(book_id)
 
     authordir = book.path.split('/')[0]
     titledir = book.path.split('/')[1]
-    # new_authordir = rename_all_authors(first_author, renamed_author, gdrive=True)
     new_authordir = get_valid_filename(first_author, chars=96)
     new_titledir = get_valid_filename(book.title, chars=96) + " (" + str(book_id) + ")"
 
@@ -692,26 +679,6 @@ def move_files_on_change(calibre_path, new_author_dir, new_titledir, localbook, 
         log.error_or_exception("Rename title from {} to {} failed with error: {}".format(path, new_path, ex))
         return _("Rename title from: '%(src)s' to '%(dest)s' failed with error: %(error)s",
                  src=path, dest=new_path, error=str(ex))
-    return False
-
-
-def rename_files_on_change(first_author,
-                           renamed_author,
-                           local_book,
-                           original_filepath="",
-                           path="",
-                           calibre_path="",
-                           gdrive=False):
-    # Rename all files from old names to new names
-    #try:
-        #clean_author_database(renamed_author, calibre_path, gdrive=gdrive)
-        #if first_author and first_author not in renamed_author:
-        #    clean_author_database([first_author], calibre_path, local_book, gdrive)
-        #if not gdrive and not renamed_author and not original_filepath and len(os.listdir(os.path.dirname(path))) == 0:
-        #    shutil.rmtree(os.path.dirname(path))
-    #except (OSError, FileNotFoundError) as ex:
-    #    log.error_or_exception("Error in rename file in path {}".format(ex))
-    #    return _("Error in rename file in path: {}".format(str(ex)))
     return False
 
 
@@ -1008,30 +975,6 @@ def get_book_cover_internal(book, resolution=None):
         return get_cover_on_failure()
 
 
-def get_book_cover_thumbnail(book, resolution):
-    if book and book.has_cover:
-        return (ub.session
-                .query(ub.Thumbnail)
-                .filter(ub.Thumbnail.type == THUMBNAIL_TYPE_COVER)
-                .filter(ub.Thumbnail.entity_id == book.id)
-                .filter(ub.Thumbnail.resolution == resolution)
-                .filter(or_(ub.Thumbnail.expiration.is_(None), ub.Thumbnail.expiration > datetime.now(timezone.utc)))
-                .first())
-
-
-def get_book_cover_thumbnail_by_format(book, resolution, format):
-    """Get thumbnail for specific book, resolution, and format (webp/jpg)"""
-    if book and book.has_cover:
-        return (ub.session
-                .query(ub.Thumbnail)
-                .filter(ub.Thumbnail.type == THUMBNAIL_TYPE_COVER)
-                .filter(ub.Thumbnail.entity_id == book.id)
-                .filter(ub.Thumbnail.resolution == resolution)
-                .filter(ub.Thumbnail.format == format)
-                .filter(or_(ub.Thumbnail.expiration.is_(None), ub.Thumbnail.expiration > datetime.now(timezone.utc)))
-                .first())
-
-
 def get_book_cover_thumbnails_by_formats(book, resolution, formats):
     """Fetch the cover thumbnails of ``book`` at ``resolution`` for several formats
     in a single query. Returns {format: Thumbnail}; the first matching row per
@@ -1158,7 +1101,7 @@ def save_cover_from_url(url, book_path):
     except MissingDelegateError as ex:
         log.info(u'File Format Error %s', ex)
         return False, _("Cover Format Error")
-    except UnacceptableAddressException as e:
+    except UnacceptableAddressException:
         log.error("Localhost or local network was accessed for cover upload")
         return False, _("You are not allowed to access localhost or the local network for cover uploads")
     finally:
@@ -1243,29 +1186,6 @@ def save_cover(img, book_path):
         return save_cover_from_filestorage(os.path.join(config.get_book_path(), book_path), "cover.jpg", img)
 
 
-def trigger_thumbnail_generation_for_book(book_id):
-    """Trigger thumbnail generation for a book after cover changes."""
-    try:
-        from .tasks.thumbnail import TaskGenerateCoverThumbnails
-
-        if use_IM:
-            # Skip if already pending (prevents duplicate tasks)
-            if book_id not in _pending_thumbnail_books:
-                # Queue thumbnail generation task
-                thumbnail_task = TaskGenerateCoverThumbnails(book_id=book_id, task_message="Generating thumbnails after cover update")
-                try:
-                    WorkerThread.add(current_user.name, thumbnail_task, hidden=True)
-                    # CRITICAL: Only add to pending set AFTER successful queue
-                    # Task's finally block will discard when complete
-                    _pending_thumbnail_books.add(book_id)
-                    log.debug(f'Queued thumbnail generation for book {book_id}')
-                except Exception as queue_ex:
-                    log.error(f'Failed to queue thumbnail task for book {book_id}: {queue_ex}')
-                    # If queueing fails, don't add to pending set
-    except Exception as ex:
-        log.error(f'Failed to prepare thumbnail generation for book {book_id}: {ex}')
-
-
 def save_cover_with_thumbnail_update(img, book_path, book_id=None):
     """Save cover and force thumbnail regeneration."""
     result, message = save_cover(img, book_path)
@@ -1284,9 +1204,7 @@ def do_download_file(book, book_format, client, data, headers):
     metadata_was_embedded = False  # Track if we embedded metadata
 
     if config.config_use_google_drive:
-        # startTime = time.time()
         df = gd.getFileFromEbooksFolder(book.path, data.name + "." + book_format)
-        # log.debug('%s', time.time() - startTime)
         if df:
             if config.config_embed_metadata and (
                  (book_format == "kepub" and config.config_kepubifypath) or
@@ -1465,21 +1383,6 @@ def check_calibre(calibre_location):
         return _('Error executing Calibre')
 
 
-def json_serial(obj):
-    """JSON serializer for objects not serializable by default json code"""
-
-    if isinstance(obj, datetime):
-        return obj.isoformat()
-    if isinstance(obj, timedelta):
-        return {
-            '__type__': 'timedelta',
-            'days': obj.days,
-            'seconds': obj.seconds,
-            'microseconds': obj.microseconds,
-        }
-    raise TypeError("Type %s not serializable" % type(obj))
-
-
 def tags_filters():
     negtags_list = current_user.list_denied_tags()
     postags_list = current_user.list_allowed_tags()
@@ -1611,18 +1514,6 @@ def replace_cover_thumbnail_cache(book_id, book_path=None, last_modified=None):
 
 def delete_thumbnail_cache():
     WorkerThread.add(None, TaskClearCoverThumbnailCache(-1))
-
-
-def add_book_to_thumbnail_cache(book_id):
-    # Always generate thumbnails for new books
-    # Ensure not in pending set (shouldn't be for new books, but defensive)
-    _pending_thumbnail_books.discard(book_id)
-    # Queue generation task and add to pending set only if successful
-    try:
-        WorkerThread.add(None, TaskGenerateCoverThumbnails(book_id), hidden=True)
-        _pending_thumbnail_books.add(book_id)
-    except Exception as e:
-        log.error(f'Failed to queue thumbnail generation for book {book_id}: {e}')
 
 
 def update_thumbnail_cache():

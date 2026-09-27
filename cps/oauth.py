@@ -15,7 +15,6 @@ try:
 except ImportError:
     pass
 
-import logging
 def debug_log(msg):
     try:
         # Try writing to a location we know exists and is writable in the container

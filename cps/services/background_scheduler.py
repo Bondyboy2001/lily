@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-import atexit
 import threading
 
 from .. import logger
@@ -13,11 +12,11 @@ from .worker import WorkerThread
 
 try:
     from apscheduler.schedulers.background import BackgroundScheduler as BScheduler
-    from apscheduler.triggers.cron import CronTrigger
+    from apscheduler.triggers.cron import CronTrigger  # noqa: F401  # re-exported via cps.schedule
     from apscheduler.triggers.date import DateTrigger
-    from apscheduler.triggers.interval import IntervalTrigger
+    from apscheduler.triggers.interval import IntervalTrigger  # noqa: F401  # re-exported via cps.schedule
     use_APScheduler = True
-except (ImportError, RuntimeError) as e:
+except (ImportError, RuntimeError):
     use_APScheduler = False
     log = logger.create()
     log.info('APScheduler not found. Unable to schedule tasks.')

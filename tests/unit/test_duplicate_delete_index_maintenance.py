@@ -200,6 +200,7 @@ def _load_editbooks_module(delete_key_calls):
     _install_stub("cps.tasks.upload", {"TaskUpload": object})
     _install_stub("cps.render_template", {"render_title_template": lambda *args, **kwargs: ""})
     _install_stub("cps.redirect", {"get_redirect_location": lambda location, endpoint: location or f"/{endpoint}"})
+    _install_stub("cps.shelf", {"check_shelf_edit_permissions": lambda shelf: True})
     _install_stub("cps.file_helper", {"validate_mime_type": lambda *args, **kwargs: True})
     _install_stub("cps.cwa_functions", {"get_ingest_dir": lambda: "/ingest"})
     _install_stub(
@@ -229,7 +230,10 @@ def _load_editbooks_module(delete_key_calls):
     _install_stub("sqlalchemy.orm")
     _install_stub("sqlalchemy.orm.exc", {"StaleDataError": Exception})
     _install_stub("sqlalchemy.sql")
-    _install_stub("sqlalchemy.sql.expression", {"func": SimpleNamespace()})
+    _install_stub(
+        "sqlalchemy.sql.expression",
+        {"func": SimpleNamespace(), "or_": lambda *args: ("or", args)},
+    )
 
     editbooks_path = pathlib.Path(__file__).resolve().parents[2] / "cps" / "editbooks.py"
     spec = importlib.util.spec_from_file_location("cps.editbooks", editbooks_path)

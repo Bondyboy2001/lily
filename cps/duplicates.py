@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-from flask import Blueprint, jsonify, request, abort
+from flask import Blueprint, jsonify, abort
 from flask_babel import gettext as _
 from sqlalchemy import func, and_, case
 from sqlalchemy.sql.expression import true, false
@@ -12,7 +12,6 @@ from sqlalchemy.orm import joinedload
 from datetime import datetime, timezone
 from functools import wraps
 import hashlib
-import json
 import os
 import time
 from shutil import copyfile

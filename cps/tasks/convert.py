@@ -8,7 +8,7 @@
 import os
 import re
 import glob
-from shutil import copyfile, copyfileobj
+from shutil import copyfile
 from markupsafe import escape
 from time import time
 from uuid import uuid4
