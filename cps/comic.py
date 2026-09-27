@@ -11,9 +11,9 @@ from . import logger, isoLanguages, cover
 from .constants import BookMeta
 
 try:
-    from wand.image import Image
+    from wand.image import Image  # noqa: F401  # availability probe -> use_IM
     use_IM = True
-except (ImportError, RuntimeError) as e:
+except (ImportError, RuntimeError):
     use_IM = False
 
 log = logger.create()

@@ -28,7 +28,6 @@ import argparse
 import os
 import sqlite3
 import sys
-from pathlib import Path
 from datetime import datetime, timezone
 
 # Import the centralized partial MD5 calculation function

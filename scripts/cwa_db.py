@@ -5,7 +5,6 @@
 # See CONTRIBUTORS for full list of authors.
 
 import sqlite3
-import sys
 import os
 import threading
 from sqlite3 import Error as sqlError

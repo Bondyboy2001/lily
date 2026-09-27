@@ -258,13 +258,3 @@ def get_magick_version():
     return ret
 
 
-def upload(uploadfile, rar_excecutable):
-    tmp_dir = get_temp_dir()
-
-    filename = uploadfile.filename
-    filename_root, file_extension = os.path.splitext(filename)
-    md5 = hashlib.md5(filename.encode('utf-8')).hexdigest()  # nosec
-    tmp_file_path = os.path.join(tmp_dir, md5)
-    log.debug("Temporary file: %s", tmp_file_path)
-    uploadfile.save(tmp_file_path)
-    return process(tmp_file_path, filename_root, file_extension, rar_excecutable)

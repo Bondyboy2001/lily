@@ -265,17 +265,6 @@ class Enforcer:
         except Exception:
             self.unicode_filename = False
 
-    def _ascii_transliterate(self, s: str) -> str:
-        """Transliterate non-English characters to ASCII when configured.
-        Prefer unidecode if available; otherwise use NFKD normalization and drop diacritics."""
-        if not s:
-            return s
-        if unidecode is not None:
-            return unidecode(s)
-        # Fallback transliteration
-        return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode('ascii')
-
-
     def get_split_library(self) -> dict[str, str] | None:
         """Checks whether or not the user has split library enabled. Returns None if they don't and the path of the Split Library location if True."""
         con = sqlite3.connect("/config/app.db", timeout=60)

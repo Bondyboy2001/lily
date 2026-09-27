@@ -9,7 +9,6 @@ import os
 import re
 import json
 import operator
-import time
 import sys
 import string
 import requests
@@ -17,7 +16,6 @@ from datetime import datetime, timedelta
 from datetime import time as datetime_time
 from functools import wraps
 from urllib.parse import urlparse
-import shutil
 import subprocess
 import tempfile
 import fcntl
@@ -26,7 +24,7 @@ from flask import Blueprint, current_app, flash, redirect, url_for, abort, reque
 from markupsafe import Markup
 from .cw_login import current_user
 from flask_babel import gettext as _
-from flask_babel import get_locale, format_time, format_datetime, format_timedelta
+from flask_babel import get_locale, format_time, format_timedelta
 from sqlalchemy import and_
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.exc import IntegrityError, OperationalError, InvalidRequestError
@@ -58,7 +56,7 @@ feature_support = {
 }
 
 try:
-    import rarfile  # pylint: disable=unused-import
+    import rarfile  # noqa: F401  # availability probe for feature_support['rar']
 
     feature_support['rar'] = True
 except (ImportError, SyntaxError):
@@ -124,13 +122,6 @@ def before_request():
             log.error("Calibre DB session unavailable; redirecting to DB configuration")
             config.db_configured = False
             flash(_("Calibre database unavailable. Please reconfigure the library path."), category="error")
-    #try:
-        #if not ub.check_user_session(current_user.id,
-        #                             flask_session.get('_id')) and 'opds' not in request.path \
-        #  and config.config_session == 1:
-        #    logout_user()
-    #except AttributeError:
-    #    pass    # ? fails on requesting /ajax/emailstat during restart ?
     g.constants = constants
     g.google_site_verification = os.getenv('GOOGLE_SITE_VERIFICATION', '')
     g.allow_registration = config.config_public_reg
@@ -147,12 +138,6 @@ def before_request():
                                  'admin.load_dialogtexts',
                                  'admin.ajax_pathchooser'):
         return redirect(url_for('admin.db_configuration'))
-
-
-#@admi.route("/admin")
-#@user_login_required
-#def admin_forbidden():
-#    abort(403)
 
 
 @admi.route("/shutdown", methods=["POST"])
@@ -516,7 +501,6 @@ def admin():
     cwa_version, kepubify_version, calibre_version = cwa_get_package_versions()
 
     all_user = ub.session.query(ub.User).all()
-    # email_settings = mail_config.get_mail_settings()
     schedule_time = format_time(datetime_time(hour=config.schedule_start_time), format="short")
     t = timedelta(hours=config.schedule_duration // 60, minutes=config.schedule_duration % 60)
     schedule_duration = format_timedelta(t, threshold=.99)

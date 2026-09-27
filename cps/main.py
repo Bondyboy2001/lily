@@ -9,7 +9,7 @@ import sys
 
 from . import create_app, limiter
 from .jinjia import jinjia
-from flask import request, g
+from flask import request
 
 
 def request_username():

@@ -10,8 +10,6 @@ Mixed into CWA_DB (scripts/cwa_db.py), which provides the cursor (self.cur)
 and the user-filter helpers (self._build_user_filter, self._has_user_filter).
 """
 
-import sqlite3
-from datetime import datetime
 
 
 class CWAStatsQueries:
@@ -568,7 +566,6 @@ class CWAStatsQueries:
         Returns: List of tuples: (shelf_name, add_count, remove_count, net_change)
         """
         try:
-            import json
             
             # Build date filter
             if start_date and end_date:
@@ -669,7 +666,6 @@ class CWAStatsQueries:
         Returns: List of tuples: (endpoint, category, count, last_accessed)
         """
         try:
-            import json
             
             # Build date filter
             if start_date and end_date:

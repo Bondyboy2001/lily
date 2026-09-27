@@ -6,8 +6,7 @@
 # See CONTRIBUTORS for full list of authors.
 
 import os
-import shutil
-from .. import logger, ub, fs, config_sql
+from .. import logger, ub, fs
 from ..constants import CACHE_TYPE_THUMBNAILS
 
 log = logger.create()

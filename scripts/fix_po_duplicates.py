@@ -14,7 +14,6 @@ Handles:
 """
 
 import sys
-import re
 
 class POEntry:
     def __init__(self, msgid, msgstr, line_start, line_end, is_obsolete=False, is_fuzzy=False):
