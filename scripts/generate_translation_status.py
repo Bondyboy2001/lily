@@ -5,7 +5,6 @@
 # See CONTRIBUTORS for full list of authors.
 
 import polib
-import glob
 from pathlib import Path
 import re
 import sys

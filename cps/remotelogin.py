@@ -26,7 +26,7 @@ try:
     import qrcode
     from base64 import b64encode
     from io import BytesIO
-    from flask import send_file
+    from flask import send_file  # noqa: F401  # availability probe -> has_qrcode
     has_qrcode = True
     log.info("Magic Link QRCode is enabled")
 except ImportError:

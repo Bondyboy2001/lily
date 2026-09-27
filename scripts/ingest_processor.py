@@ -953,7 +953,7 @@ class NewBookProcessor:
 
         added = False
         try:
-            result = subprocess.run([
+            subprocess.run([
                 "calibredb", "add_format", str(book_id), str(staged_path), f"--library-path={self.library_dir}"
             ], env=self.calibre_env, check=True, capture_output=True, text=True)
             added = True

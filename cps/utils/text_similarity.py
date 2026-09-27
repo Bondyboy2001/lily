@@ -92,25 +92,6 @@ def tokenize(s: str) -> Set[str]:
     return set(normalized.split())
 
 
-def jaccard_similarity(s1: str, s2: str) -> float:
-    """
-    Calculate Jaccard similarity coefficient between two strings (0.0 to 1.0).
-    Based on word-level token overlap.
-    """
-    tokens1 = tokenize(s1)
-    tokens2 = tokenize(s2)
-    
-    if not tokens1 and not tokens2:
-        return 1.0
-    if not tokens1 or not tokens2:
-        return 0.0
-    
-    intersection = tokens1.intersection(tokens2)
-    union = tokens1.union(tokens2)
-    
-    return len(intersection) / len(union)
-
-
 def author_list_similarity(authors1: List[str], authors2: List[str]) -> tuple[float, bool]:
     """
     Calculate similarity between two author lists.

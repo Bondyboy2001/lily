@@ -8,7 +8,6 @@
 import os
 import re
 import json
-import time
 import threading
 from datetime import datetime, timezone
 from urllib.parse import quote
@@ -17,7 +16,6 @@ from weakref import WeakSet
 from uuid import uuid4
 
 from sqlite3 import OperationalError as sqliteOperationalError
-import sqlite3
 from sqlalchemy import create_engine
 from sqlalchemy import Table, Column, ForeignKey, CheckConstraint
 from sqlalchemy import String, Integer, Boolean, TIMESTAMP, Float
@@ -1192,30 +1190,16 @@ class CalibreDB:
         self.ensure_session()
         query = query or ''
         self.create_functions()
-        # self.session.connection().connection.connection.create_function("lower", 1, lcase)
         entries = self.session.query(database).filter(tag_filter). \
             filter(func.lower(database.name).ilike("%" + query + "%")).all()
         # json_dumps = json.dumps([dict(name=escape(r.name.replace(*replace))) for r in entries])
         json_dumps = json.dumps([dict(name=r.name.replace(*replace)) for r in entries])
         return json_dumps
 
-    def check_exists_book(self, authr, title):
-        self.ensure_session()
-        self.create_functions()
-        # self.session.connection().connection.connection.create_function("lower", 1, lcase)
-        q = list()
-        author_terms = re.split(r'\s*&\s*', authr)
-        for author_term in author_terms:
-            q.append(Books.authors.any(func.lower(Authors.name).ilike("%" + author_term + "%")))
-
-        return self.session.query(Books) \
-            .filter(and_(Books.authors.any(and_(*q)), func.lower(Books.title).ilike("%" + title + "%"))).first()
-
     def search_query(self, term, config, *join):
         self.ensure_session()
         strip_whitespaces(term).lower()
         self.create_functions()
-        # self.session.connection().connection.connection.create_function("lower", 1, lcase)
         q = list()
         author_terms = re.split("[, ]+", term)
         for author_term in author_terms:

@@ -7,7 +7,6 @@
 # This file is is mostly taken from audio.py from Ozzieisaacs at calibre-web
 
 import base64
-import os
 from collections import namedtuple
 
 import mutagen
@@ -16,7 +15,7 @@ try:
     from wand.image import Image
 
     use_IM = True
-except (ImportError, RuntimeError) as e:
+except (ImportError, RuntimeError):
     use_IM = False
 
 BookMeta = namedtuple(

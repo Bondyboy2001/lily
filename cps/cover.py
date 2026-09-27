@@ -10,7 +10,7 @@ import os
 try:
     from wand.image import Image
     use_IM = True
-except (ImportError, RuntimeError) as e:
+except (ImportError, RuntimeError):
     use_IM = False
 
 
