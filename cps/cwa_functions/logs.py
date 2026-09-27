@@ -78,7 +78,7 @@ def download_log(log_filename):
         # Send the file as an attachment (to trigger a download)
         return send_from_directory(LOG_ARCHIVE, safe_filename, as_attachment=True)
     
-    except Exception as e:
+    except Exception:
         # Handle any other errors
         abort(400)  # Bad request for malformed or unsafe file paths
 
@@ -110,7 +110,7 @@ def read_log(log_filename):
         return render_title_template('cwa_read_log.html', title=_("Lily - Log Archive - Read Log - %(filename)s", filename=log_filename), page="cwa-log-read",
                                     log_filename=log_filename, log=log)
     
-    except Exception as e:
+    except Exception:
         # Handle any other errors
         abort(400)  # Bad request for malformed or unsafe file paths
 

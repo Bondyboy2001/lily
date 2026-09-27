@@ -9,8 +9,8 @@ from datetime import datetime
 
 from flask_babel import lazy_gettext as N_
 
-from cps.services.worker import CalibreTask, STAT_FINISH_SUCCESS
-from cps import helper, ub, db, calibre_db, config, logger
+from cps.services.worker import CalibreTask
+from cps import helper, ub, db, config, logger
 
 log = logger.create()
 

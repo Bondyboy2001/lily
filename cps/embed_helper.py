@@ -73,7 +73,7 @@ def get_calibre_binarypath(binary):
     if binariesdir:
         try:
             return os.path.join(binariesdir, SUPPORTED_CALIBRE_BINARIES[binary])
-        except KeyError as ex:
+        except KeyError:
             log.error("Binary not supported by Lily: %s", SUPPORTED_CALIBRE_BINARIES[binary])
             pass
     return ""

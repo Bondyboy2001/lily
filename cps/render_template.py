@@ -8,7 +8,6 @@
 from flask import render_template, g, abort, request, flash
 from flask import after_this_request, has_app_context, has_request_context
 from flask_babel import gettext as _
-from flask_babel import get_locale
 from werkzeug.local import LocalProxy
 from .cw_login import current_user
 from sqlalchemy.sql.expression import or_

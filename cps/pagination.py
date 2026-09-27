@@ -24,13 +24,6 @@ class Pagination(object):
         return int((self.page - 2) * self.per_page)
 
     @property
-    def last_offset(self):
-        last = int(self.total_count) - int(self.per_page)
-        if last < 0:
-            last = 0
-        return int(last)
-
-    @property
     def pages(self):
         return int(ceil(self.total_count / float(self.per_page)))
 

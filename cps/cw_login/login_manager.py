@@ -487,7 +487,6 @@ class LoginManager:
             duration = config.get("REMEMBER_COOKIE_DURATION", COOKIE_DURATION)
 
         # prepare data
-        max_age = int(current_app.permanent_session_lifetime.total_seconds())
         signer_kwargs = dict(
             key_derivation="hmac", digest_method=hashlib.sha1
         )

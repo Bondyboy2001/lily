@@ -14,7 +14,6 @@ from typing import List, Optional
 from cps import config, db, logger, ub
 from cps.services.worker import CalibreTask, STAT_FAIL, STAT_FINISH_SUCCESS, STAT_CANCELLED, STAT_ENDED
 from flask_babel import lazy_gettext as N_
-from sqlalchemy import not_
 
 # Import the Hardcover provider
 try:

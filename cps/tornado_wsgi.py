@@ -19,7 +19,6 @@ import typing
 
 if typing.TYPE_CHECKING:
     from typing import Type  # noqa: F401
-    from wsgiref.types import WSGIApplication as WSGIAppType  # noqa: F4
 
 class MyWSGIContainer(WSGIContainer):
 
@@ -83,7 +82,7 @@ class MyWSGIContainer(WSGIContainer):
     def environ(self, request: httputil.HTTPServerRequest) -> Dict[Text, Any]:
         try:
             environ = WSGIContainer.environ(self, request)
-        except TypeError as e:
+        except TypeError:
             environ = WSGIContainer.environ(request)
         environ['RAW_URI'] = request.path
         self.env = environ
