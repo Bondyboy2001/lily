@@ -5,7 +5,7 @@ docker-compose.yml
 .gitignore
 .github/workflows
 .gitattributes
-.po~
+**/*.po~
 build.sh
 README.md
 LICENSE
@@ -26,3 +26,14 @@ requirements-dev.txt
 TEST*.md
 TESTING*.md
 .pytest_cache/
+# Local development files (a local .venv alone is ~450MB)
+.venv/
+venv/
+**/__pycache__/
+**/*.pyc
+.ruff_cache/
+docs/
+.playwright-mcp/
+.superpowers/
+.claude/
+docker-compose.local.yml
