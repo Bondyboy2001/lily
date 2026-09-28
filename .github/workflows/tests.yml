@@ -101,7 +101,7 @@ jobs:
             --cov-report=term-missing
       
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         if: always()
         with:
           files: ./coverage.xml
