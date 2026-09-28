@@ -51,12 +51,6 @@
           <span class="hidden" id="book_complete">{{_('This book will be permanently erased from database')}}</span>
           <span>{{_('and hard disk')}}</span>
 		  </p>
-          {% if config.config_kobo_sync %}
-          <p>
-            <span>{{_('Important Kobo Note: deleted books will remain on any paired Kobo device.')}}</span>
-            <span>{{_('Books must first be archived and the device synced before a book can safely be deleted.')}}</span>
-          </p>
-          {% endif %}
         </div>
 
       <div class="modal-footer">

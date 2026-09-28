@@ -12,7 +12,6 @@ import json
 from sqlalchemy import Column, String, Integer, SmallInteger, Boolean, BLOB, JSON
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql.expression import text
-from sqlalchemy import exists
 from cryptography.fernet import Fernet
 import cryptography.exceptions
 from base64 import urlsafe_b64decode
@@ -41,28 +40,16 @@ class _Flask_Settings(_Base):
         self.flask_session_key = key
 
 
-# Baseclass for representing settings in app.db with email server settings and Calibre database settings
+# Baseclass for representing settings in app.db with Calibre database settings
 # (application settings)
 class _Settings(_Base):
     __tablename__ = 'settings'
 
     id = Column(Integer, primary_key=True)
-    mail_server = Column(String, default=constants.DEFAULT_MAIL_SERVER)
-    mail_port = Column(Integer, default=25)
-    mail_use_ssl = Column(SmallInteger, default=0)
-    mail_login = Column(String, default='mail@example.com')
-    mail_password_e = Column(String)
-    mail_password = Column(String)
-    mail_from = Column(String, default='automailer <mail@example.com>')
-    mail_size = Column(Integer, default=25*1024*1024)
-    mail_server_type = Column(SmallInteger, default=0)
-    mail_gmail_token = Column(JSON, default={})
-
     config_calibre_dir = Column(String)
     config_calibre_uuid = Column(String)
     config_calibre_split = Column(Boolean, default=False)
     config_calibre_split_dir = Column(String)
-    config_external_port = Column(Integer, default=None)
     config_certfile = Column(String)
     config_keyfile = Column(String)
     config_trustedhosts = Column(String, default='')
@@ -84,15 +71,7 @@ class _Settings(_Base):
     # Enable uploads by default on brand-new instances
     config_uploading = Column(SmallInteger, default=1)
     config_anonbrowse = Column(SmallInteger, default=0)
-    config_public_reg = Column(SmallInteger, default=0)
-    config_remote_login = Column(Boolean, default=False)
     config_use_https = Column(Boolean, default=False)
-    config_kobo_sync = Column(Boolean, default=False)
-
-    # Sync read progress to Hardcover - should this be renamed?
-    config_hardcover_sync = Column(Boolean, default=False) 
-    # Sync annotations to Hardcover
-    config_hardcover_annotations_sync = Column(Boolean, default=False)
 
     config_default_role = Column(SmallInteger, default=0)
     config_default_show = Column(SmallInteger, default=constants.ADMIN_USER_SIDEBAR)
@@ -115,28 +94,8 @@ class _Settings(_Base):
     config_hardcover_token = Column(String)
     config_google_books_api_key = Column(String)
     
-    config_register_email = Column(Boolean, default=False)
-    config_login_type = Column(Integer, default=0)
 
-    config_kobo_proxy = Column(Boolean, default=False)
 
-    config_ldap_provider_url = Column(String, default='example.org')
-    config_ldap_port = Column(SmallInteger, default=389)
-    config_ldap_authentication = Column(SmallInteger, default=constants.LDAP_AUTH_SIMPLE)
-    config_ldap_serv_username = Column(String, default='cn=admin,dc=example,dc=org')
-    config_ldap_serv_password_e = Column(String)
-    config_ldap_serv_password = Column(String)
-    config_ldap_encryption = Column(SmallInteger, default=0)
-    config_ldap_cacert_path = Column(String, default="")
-    config_ldap_cert_path = Column(String, default="")
-    config_ldap_key_path = Column(String, default="")
-    config_ldap_dn = Column(String, default='dc=example,dc=org')
-    config_ldap_user_object = Column(String, default='uid=%s')
-    config_ldap_member_user_object = Column(String, default='')
-    config_ldap_openldap = Column(Boolean, default=True)
-    config_ldap_group_object_filter = Column(String, default='(&(objectclass=posixGroup)(cn=%s))')
-    config_ldap_group_members_field = Column(String, default='memberUid')
-    config_ldap_group_name = Column(String, default='calibreweb')
 
     config_kepubifypath = Column(String, default=None)
     config_converterpath = Column(String, default=None)
@@ -149,13 +108,6 @@ class _Settings(_Base):
 
     config_updatechannel = Column(Integer, default=constants.UPDATE_STABLE)
 
-    config_reverse_proxy_login_header_name = Column(String)
-    config_allow_reverse_proxy_header_login = Column(Boolean, default=False)
-    config_reverse_proxy_auto_create_users = Column(Boolean, default=False)
-    config_ldap_auto_create_users = Column(Boolean, default=True)
-    config_oauth_redirect_host = Column(String, default='')
-    config_disable_standard_login = Column(Boolean, default=False)
-    config_enable_oauth_group_admin_management = Column(Boolean, default=True)
 
     schedule_start_time = Column(Integer, default=4)
     schedule_duration = Column(Integer, default=10)
@@ -307,16 +259,6 @@ class ConfigSQL(object):
         mct = self.config_allowed_column_value or ""
         return [strip_whitespaces(t) for t in mct.split(",")]
 
-    def get_log_level(self):
-        return logger.get_level_name(self.config_log_level)
-
-    def get_mail_settings(self):
-        return {k: v for k, v in self.__dict__.items() if k.startswith('mail_')}
-
-    def get_mail_server_configured(self):
-        return bool((self.mail_server != constants.DEFAULT_MAIL_SERVER and self.mail_server_type == 0)
-                    or (self.mail_gmail_token != {} and self.mail_server_type == 1))
-
     def get_scheduled_task_settings(self):
         return {k: v for k, v in self.__dict__.items() if k.startswith('schedule_')}
 
@@ -467,28 +409,7 @@ class ConfigSQL(object):
         self.__dict__["dirty"].append(attr_name)
 
 
-def _encrypt_fields(session, secret_key):
-    try:
-        session.query(exists().where(_Settings.mail_password_e)).scalar()
-    except OperationalError:
-        with session.bind.connect() as conn:
-            conn.execute(text("ALTER TABLE settings ADD column 'mail_password_e' String"))
-            conn.execute(text("ALTER TABLE settings ADD column 'config_ldap_serv_password_e' String"))
-        session.commit()
-        crypter = Fernet(secret_key)
-        settings = session.query(_Settings.mail_password, _Settings.config_ldap_serv_password).first()
-        if settings.mail_password:
-            session.query(_Settings).update(
-                {_Settings.mail_password_e: crypter.encrypt(settings.mail_password.encode())})
-        if settings.config_ldap_serv_password:
-            session.query(_Settings).update(
-                {_Settings.config_ldap_serv_password_e: crypter.encrypt(settings.config_ldap_serv_password.encode())})
-        session.commit()
-
-
 def _migrate_table(session, orm_class, secret_key=None):
-    if secret_key:
-        _encrypt_fields(session, secret_key)
     changed = False
 
     for column_name, column in orm_class.__dict__.items():

@@ -239,27 +239,6 @@
     </section>
       {% endif %}
 
-      {% if config.config_kobo_sync and (config.config_hardcover_sync or config.config_hardcover_annotations_sync) %}
-    <section class="editbook-section">
-      <h3>{{_('Hardcover Sync')}}</h3>
-      <div class="form-group">
-        {% if config.config_hardcover_annotations_sync %}
-        <div class="checkbox">
-          <label>
-            <input name="blacklist_annotations" type="checkbox" {% if hardcover_blacklist and hardcover_blacklist.blacklist_annotations %}checked{% endif %}> {{_('Blacklist annotations from syncing to Hardcover')}}
-          </label>
-        </div>
-        {% endif %}
-        {% if config.config_hardcover_sync %}
-        <div class="checkbox">
-          <label>
-            <input name="blacklist_reading_progress" type="checkbox" {% if hardcover_blacklist and hardcover_blacklist.blacklist_reading_progress %}checked{% endif %}> {{_('Blacklist reading progress from syncing to Hardcover')}}
-          </label>
-        </div>
-        {% endif %}
-      </div>
-    </section>
-      {% endif %}
 
 
   </div>

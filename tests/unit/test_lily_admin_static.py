@@ -10,9 +10,9 @@ TEMPLATES = REPO_ROOT / "cps/templates"
 
 ADMIN_TEMPLATES = [
     "admin.html", "config_db.html", "config_edit.html", "config_view_edit.html", "cwa_settings.html",
-    "cwa_read_log.html", "logviewer.html", "email_edit.html", "schedule_edit.html", "user_edit.html",
-    "user_table.html", "kosync_plugin.html", "hardcover_review_matches.html",
-    "generate_kobo_auth_url.html", "tasks.html", "remote_login.html", "http_error.html", "shelfdown.html",
+    "schedule_edit.html", "user_edit.html",
+    "user_table.html", "hardcover_review_matches.html",
+    "tasks.html", "http_error.html",
     "lily_form.html",
 ]
 ADMIN_STYLESHEETS = ["lily-admin.css", "lily-settings.css"]
@@ -47,7 +47,7 @@ def test_admin_stylesheets_use_tokens_not_hex(name):
         assert banned not in css, (name, banned)
 
 
-@pytest.mark.parametrize("name", ["http_error.html", "shelfdown.html"])
+@pytest.mark.parametrize("name", ["http_error.html"])
 def test_standalone_pages_use_lily_css_not_caliblur(name):
     html = read(TEMPLATES / name)
     assert "caliBlur" not in html
@@ -87,7 +87,7 @@ def test_folder_pickers_are_labelled_icon_buttons():
 
 
 SETTINGS_FORMS = ["admin.html", "config_edit.html", "config_view_edit.html", "config_db.html",
-                  "email_edit.html", "schedule_edit.html", "user_edit.html", "cwa_settings.html"]
+                  "schedule_edit.html", "user_edit.html", "cwa_settings.html"]
 
 
 @pytest.mark.parametrize("name", SETTINGS_FORMS)

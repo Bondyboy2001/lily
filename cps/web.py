@@ -16,13 +16,11 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify
-from flask import request, redirect, send_from_directory, send_file, make_response, flash, abort, url_for, Response
+from flask import request, redirect, send_from_directory, send_file, make_response, flash, abort, url_for
 from flask import session as flask_session
 from flask_babel import gettext as _
 from flask_babel import get_locale
 from .cw_login import login_user, logout_user, current_user
-from flask_limiter import RateLimitExceeded
-from flask_limiter.util import get_remote_address
 from sqlalchemy.exc import IntegrityError, InvalidRequestError, OperationalError
 from sqlalchemy.sql.expression import text, func, false, not_, and_, or_
 from sqlalchemy.orm.attributes import flag_modified
@@ -30,24 +28,22 @@ from sqlalchemy.sql.functions import coalesce
 from werkzeug.datastructures import Headers
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from . import constants, logger, isoLanguages, services, helper
+from . import constants, logger, isoLanguages, helper
 from . import db, ub, config, app
-from . import calibre_db, kobo_sync_status
+from . import calibre_db
 from .search import render_search_results, render_adv_search_results
 from .gdriveutils import getFileFromEbooksFolder, do_gdrive_download
-from .helper import check_valid_domain, check_email, check_username, \
-    get_book_cover, get_series_cover_thumbnail, get_download_link, send_mail, generate_random_password, \
-    send_registration_mail, check_send_to_ereader, check_read_formats, tags_filters, reset_password, valid_email, \
+from .helper import check_email, check_username, \
+    get_book_cover, get_series_cover_thumbnail, get_download_link, check_read_formats, tags_filters, valid_email, \
     edit_book_read_status, valid_password
 from .pagination import Pagination
 from .redirect import get_redirect_location
 from .cw_babel import get_available_locale
 from .usermanagement import login_required_if_no_ano
-from .kobo_sync_status import remove_synced_book
 from .render_template import render_title_template
 from . import list_filters
 from .setup_checklist import setup_checklist
-from .kobo_sync_status import change_archived_books
+from .helper import change_archived_books
 from . import limiter
 from .services.worker import WorkerThread
 from .tasks_status import render_task_status
@@ -61,40 +57,6 @@ import time
 import sys
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB
-
-feature_support = {
-    'ldap': bool(services.ldap),
-    'kobo': bool(services.kobo),
-    'hardcover' : bool(services.hardcover)
-}
-
-try:
-    from . import oauth_bb
-    # Import functions directly since they don't change
-    register_user_with_oauth = oauth_bb.register_user_with_oauth
-    logout_oauth_user = oauth_bb.logout_oauth_user
-    get_oauth_status = oauth_bb.get_oauth_status
-
-    feature_support['oauth'] = True
-except ImportError:
-    feature_support['oauth'] = False
-    # Create a mock oauth_bb module for when OAuth is not available
-    class MockOAuth:
-        oauth_check = {}
-        oauthblueprints = []
-        @staticmethod
-        def register_user_with_oauth(*args, **kwargs):
-            return None
-        @staticmethod  
-        def logout_oauth_user(*args, **kwargs):
-            return None
-        @staticmethod
-        def get_oauth_status(*args, **kwargs):
-            return None
-    oauth_bb = MockOAuth()
-    register_user_with_oauth = oauth_bb.register_user_with_oauth
-    logout_oauth_user = oauth_bb.logout_oauth_user
-    get_oauth_status = oauth_bb.get_oauth_status
 
 from functools import wraps
 
@@ -225,11 +187,6 @@ def _update_read_status_from_web_progress(user_id, book_id, percent):
         read_book.times_started_reading = (read_book.times_started_reading or 0) + 1
         read_book.last_time_started_reading = datetime.now(timezone.utc)
     read_book.last_modified = datetime.now(timezone.utc)
-    if not read_book.kobo_reading_state:
-        kobo_reading_state = ub.KoboReadingState(user_id=user_id, book_id=book_id)
-        kobo_reading_state.current_bookmark = ub.KoboBookmark()
-        kobo_reading_state.statistics = ub.KoboStatistics()
-        read_book.kobo_reading_state = kobo_reading_state
 
 
 @web.route("/ajax/progress/<int:book_id>", methods=['GET', 'POST'])
@@ -290,8 +247,6 @@ def toggle_read(book_id):
 @user_login_required
 def toggle_archived(book_id):
     change_archived_books(book_id, message="Book {} archive bit toggled".format(book_id))
-    # Remove book from syncd books list to force resync (?)
-    remove_synced_book(book_id)
     return ""
 
 
@@ -307,55 +262,6 @@ def update_view():
         log.error("Could not save view_settings: %r %r: %e", request, to_save, ex)
         return "Invalid request", 400
     return "1", 200
-
-
-'''
-@web.route("/ajax/getcomic/<int:book_id>/<book_format>/<int:page>")
-@user_login_required
-def get_comic_book(book_id, book_format, page):
-    book = calibre_db.get_book(book_id)
-    if not book:
-        return "", 204
-    else:
-        for bookformat in book.data:
-            if bookformat.format.lower() == book_format.lower():
-                cbr_file = os.path.join(config.config_calibre_dir, book.path, bookformat.name) + "." + book_format
-                if book_format in ("cbr", "rar"):
-                    if feature_support['rar'] == True:
-                        rarfile.UNRAR_TOOL = config.config_rarfile_location
-                        try:
-                            rf = rarfile.RarFile(cbr_file)
-                            names = sort(rf.namelist())
-                            extract = lambda page: rf.read(names[page])
-                        except:
-                            # rarfile not valid
-                            log.error('Unrar binary not found, or unable to decompress file %s', cbr_file)
-                            return "", 204
-                    else:
-                        log.info('Unrar is not supported please install python rarfile extension')
-                        # no support means return nothing
-                        return "", 204
-                elif book_format in ("cbz", "zip"):
-                    zf = zipfile.ZipFile(cbr_file)
-                    names=sort(zf.namelist())
-                    extract = lambda page: zf.read(names[page])
-                elif book_format in ("cbt", "tar"):
-                    tf = tarfile.TarFile(cbr_file)
-                    names=sort(tf.getnames())
-                    extract = lambda page: tf.extractfile(names[page]).read()
-                else:
-                    log.error('unsupported comic format')
-                    return "", 204
-
-                b64 = codecs.encode(extract(page), 'base64').decode()
-                ext = names[page].rpartition('.')[-1]
-                if ext not in ('png', 'gif', 'jpg', 'jpeg', 'webp'):
-                    ext = 'png'
-                extractedfile="data:image/" + ext + ";base64," + b64
-                fileData={"name": names[page], "page":page, "last":len(names)-1, "content": extractedfile}
-                return make_response(json.dumps(fileData))
-        return "", 204
-'''
 
 
 # ################################### Typeahead ##################################################################
@@ -601,56 +507,35 @@ CONTINUE_READING_LIMIT = 12
 def get_continue_reading_progress(session, user_id, limit=CONTINUE_READING_LIMIT):
     """Return [(book_id, progress_percent or None), ...] for books the user is currently reading.
 
-    ReadBook.read_status == STATUS_IN_PROGRESS is the single source of truth: Kobo sync, KOSync and
-    the web reader all write it. The percentage comes from whichever source was updated last: the
-    Kobo bookmark (KOSync mirrors its percentage into KoboBookmark.progress_percent, so this covers
-    KOSync without resolving document checksums) or the web reader's saved position.
-    Most recently touched first, using the newest of the ReadBook / bookmark / web reader timestamps.
+    ReadBook.read_status == STATUS_IN_PROGRESS is the source of truth; the percentage is the web
+    reader's saved position. Most recently touched first.
     """
-    read_modified = coalesce(ub.ReadBook.last_modified, ub.KoboBookmark.last_modified)
-    bookmark_modified = coalesce(ub.KoboBookmark.last_modified, ub.ReadBook.last_modified)
-    web_modified = coalesce(ub.WebReaderProgress.last_modified, ub.ReadBook.last_modified)
-    rows = (session.query(ub.ReadBook.book_id,
-                          ub.KoboBookmark.progress_percent, ub.KoboBookmark.last_modified,
-                          ub.WebReaderProgress.percent, ub.WebReaderProgress.last_modified)
-            .outerjoin(ub.KoboReadingState,
-                       and_(ub.KoboReadingState.user_id == ub.ReadBook.user_id,
-                            ub.KoboReadingState.book_id == ub.ReadBook.book_id))
-            .outerjoin(ub.KoboBookmark, ub.KoboBookmark.kobo_reading_state_id == ub.KoboReadingState.id)
+    last_touched = func.max(ub.ReadBook.last_modified,
+                            coalesce(ub.WebReaderProgress.last_modified, ub.ReadBook.last_modified))
+    rows = (session.query(ub.ReadBook.book_id, ub.WebReaderProgress.percent)
             .outerjoin(ub.WebReaderProgress,
                        and_(ub.WebReaderProgress.user_id == ub.ReadBook.user_id,
                             ub.WebReaderProgress.book_id == ub.ReadBook.book_id))
             .filter(ub.ReadBook.user_id == user_id,
                     ub.ReadBook.read_status == ub.ReadBook.STATUS_IN_PROGRESS)
-            .order_by(func.max(read_modified, bookmark_modified, web_modified).desc(), ub.ReadBook.id.desc())
+            .order_by(last_touched.desc(), ub.ReadBook.id.desc())
             # headroom for duplicate rows and books hidden by the visibility filters
             .limit(limit * 3)
             .all())
     result = []
     seen = set()
-    for book_id, kobo_percent, kobo_modified, web_percent, web_modified_at in rows:
+    for book_id, web_percent in rows:
         if book_id in seen:
             continue
         seen.add(book_id)
-        percent = kobo_percent
+        percent = None
         if web_percent is not None:
-            # web reader stores 0..1; prefer it when newer than the Kobo/KOSync bookmark (or the only one)
-            if kobo_percent is None or kobo_modified is None or \
-                    (web_modified_at is not None and _naive_utc(web_modified_at) >= _naive_utc(kobo_modified)):
-                percent = web_percent * 100.0
-        if percent is not None:
             try:
-                percent = max(0.0, min(100.0, float(percent)))
+                percent = max(0.0, min(100.0, float(web_percent) * 100.0))
             except (TypeError, ValueError):
                 percent = None
         result.append((book_id, percent))
     return result
-
-
-def _naive_utc(value):
-    if value.tzinfo is not None:
-        return value.astimezone(timezone.utc).replace(tzinfo=None)
-    return value
 
 
 def get_continue_reading_entries(limit=CONTINUE_READING_LIMIT):
@@ -1498,15 +1383,6 @@ def get_series_cover(series_id, resolution=None):
 
 
 
-@web.route("/robots.txt")
-def get_robots():
-    try:
-        return send_from_directory(constants.STATIC_DIR, "robots.txt")
-    except PermissionError:
-        log.error("No permission to access robots.txt file.")
-        abort(403)
-
-
 def _is_valid_container_xml(container_bytes):
     try:
         ET.fromstring(container_bytes)
@@ -1657,177 +1533,7 @@ def download_link(book_id, book_format, anyname):
     return get_download_link(book_id, book_format, client)
 
 
-@web.route('/send/<int:book_id>/<book_format>/<int:convert>', methods=["POST"])
-@login_required_if_no_ano
-@download_required
-def send_to_ereader(book_id, book_format, convert):
-    if not config.get_mail_server_configured():
-        response = [{'type': "danger", 'message': _("Please configure the SMTP mail settings first...")}]
-        return Response(json.dumps(response), mimetype='application/json')
-
-    if not current_user.kindle_mail:
-        response = [{'type': "danger", 'message': _("Oops! Please update your profile with a valid eReader Email.")}]
-        return Response(json.dumps(response), mimetype='application/json')
-
-    result = send_mail(book_id, book_format, convert, current_user.kindle_mail, config.get_book_path(),
-                       current_user.name, current_user.kindle_mail_subject)
-    if result is None:
-        ub.update_download(book_id, int(current_user.id))
-        # Track email/send activity
-        try:
-            from scripts.cwa_db import CWA_DB
-            book = calibre_db.get_book(book_id)
-            cwa_db = CWA_DB()
-            cwa_db.log_activity(
-                user_id=int(current_user.id),
-                user_name=current_user.name,
-                event_type='EMAIL',
-                item_id=book_id,
-                item_title=book.title if book else 'Unknown',
-                extra_data=book_format.upper()
-            )
-        except Exception as e:
-            log.debug(f"Failed to log email activity: {e}")
-        response = [{'type': "success", 'message': _("Success! Book queued for sending to %(eReadermail)s",
-                                                   eReadermail=current_user.kindle_mail)}]
-    else:
-        response = [{'type': "danger", 'message': _("Oops! There was an error sending book: %(res)s", res=result)}]
-    return Response(json.dumps(response), mimetype='application/json')
-
-
-@web.route('/send_selected/<int:book_id>', methods=["POST"])
-@login_required_if_no_ano
-@download_required
-def send_to_selected_ereaders(book_id):
-    if not config.get_mail_server_configured():
-        response = [{'type': "danger", 'message': _("Please configure the SMTP mail settings first...")}]
-        return Response(json.dumps(response), mimetype='application/json')
-
-    selected_emails_raw = request.form.get('selected_emails', '')
-    book_format = request.form.get('book_format', '')
-    convert = request.form.get('convert', '0')
-
-    if not selected_emails_raw:
-        response = [{'type': "danger", 'message': _("No email addresses selected")}]
-        return Response(json.dumps(response), mimetype='application/json')
-
-    try:
-        selected_emails = valid_email(selected_emails_raw)
-    except Exception as ex:
-        response = [{'type': "danger", 'message': str(ex)}]
-        return Response(json.dumps(response), mimetype='application/json')
-
-    if not selected_emails:
-        response = [{'type': "danger", 'message': _("No email addresses selected")}]
-        return Response(json.dumps(response), mimetype='application/json')
-
-    if not getattr(current_user, 'allow_additional_ereader_emails', True):
-        allowed = [email.strip().lower() for email in (current_user.kindle_mail or "").split(',') if email.strip()]
-        selected_list = [email.strip().lower() for email in selected_emails.split(',') if email.strip()]
-        if any(email not in allowed for email in selected_list):
-            response = [{'type': "danger", 'message': _("Additional email addresses are disabled for your account.")}]
-            return Response(json.dumps(response), mimetype='application/json')
-
-    result = send_mail(book_id, book_format, int(convert), selected_emails, config.get_book_path(), current_user.name, current_user.kindle_mail_subject)
-
-    if result is None:
-        ub.update_download(book_id, int(current_user.id))
-        # Track email/send activity
-        try:
-            from scripts.cwa_db import CWA_DB
-            book = calibre_db.get_book(book_id)
-            cwa_db = CWA_DB()
-            cwa_db.log_activity(
-                user_id=int(current_user.id),
-                user_name=current_user.name,
-                event_type='EMAIL',
-                item_id=book_id,
-                item_title=book.title if book else 'Unknown',
-                extra_data=book_format.upper()
-            )
-        except Exception as e:
-            log.debug(f"Failed to log email activity: {e}")
-        response = [{'type': "success", 'message': _("Success! Book queued for sending to the selected address(es)!")}]
-    else:
-        response = [{'type': "danger", 'message': _("Oops! There was an error sending book: %(res)s", res=result)}]
-
-    return Response(json.dumps(response), mimetype='application/json')
-
-
 # ################################### Login Logout ##################################################################
-
-@web.route('/register', methods=['POST'])
-@limiter.limit("40/day", key_func=get_remote_address)
-@limiter.limit("3/minute", key_func=get_remote_address)
-def register_post():
-    if not config.config_public_reg:
-        abort(404)
-    to_save = request.form.to_dict()
-    try:
-        limiter.check()
-    except RateLimitExceeded:
-        flash(_(u"Please wait one minute to register next user"), category="error")
-        return render_title_template('register.html', config=config, title=_("Register"), page="register")
-    except (ConnectionError, Exception) as e:
-        log.error("Connection error to limiter backend: %s", e)
-        flash(_("Connection error to limiter backend, please contact your administrator"), category="error")
-        return render_title_template('register.html', config=config, title=_("Register"), page="register")
-    if current_user is not None and current_user.is_authenticated:
-        return redirect(url_for('web.index'))
-    if not config.get_mail_server_configured():
-        flash(_("Oops! Email server is not configured, please contact your administrator."), category="error")
-        return render_title_template('register.html', title=_("Register"), page="register")
-    nickname = strip_whitespaces(to_save.get("email", "")) if config.config_register_email else to_save.get('name')
-    if not nickname or not to_save.get("email"):
-        flash(_("Oops! Please complete all fields."), category="error")
-        return render_title_template('register.html', title=_("Register"), page="register")
-    try:
-        nickname = check_username(nickname)
-        email = check_email(to_save.get("email", ""))
-    except Exception as ex:
-        flash(str(ex), category="error")
-        return render_title_template('register.html', title=_("Register"), page="register")
-
-    content = ub.User()
-    if check_valid_domain(email):
-        content.name = nickname
-        content.email = email
-        password = generate_random_password(config.config_password_min_length)
-        content.password = generate_password_hash(password)
-        content.role = config.config_default_role
-        content.locale = config.config_default_locale
-        content.sidebar_view = config.config_default_show
-        try:
-            ub.session.add(content)
-            ub.session.commit()
-            if feature_support['oauth']:
-                register_user_with_oauth(content)
-            send_registration_mail(strip_whitespaces(to_save.get("email", "")), nickname, password)
-        except Exception:
-            ub.session.rollback()
-            flash(_("Oops! An unknown error occurred. Please try again later."), category="error")
-            return render_title_template('register.html', title=_("Register"), page="register")
-    else:
-        flash(_("Oops! Your Email is not allowed."), category="error")
-        log.warning('Registering failed for user "{}" Email: {}'.format(nickname, to_save.get("email","")))
-        return render_title_template('register.html', title=_("Register"), page="register")
-    flash(_("Success! Confirmation Email has been sent."), category="success")
-    return redirect(url_for('web.login'))
-
-
-@web.route('/register', methods=['GET'])
-def register():
-    if not config.config_public_reg:
-        abort(404)
-    if current_user is not None and current_user.is_authenticated:
-        return redirect(url_for('web.index'))
-    if not config.get_mail_server_configured():
-        flash(_("Oops! Email server is not configured, please contact your administrator."), category="error")
-        return render_title_template('register.html', title=_("Register"), page="register")
-    if feature_support['oauth']:
-        register_user_with_oauth()
-    return render_title_template('register.html', config=config, title=_("Register"), page="register")
-
 
 def handle_login_user(user, remember, message, category):
     login_user(user, remember=remember)
@@ -1867,197 +1573,60 @@ def render_login(username="", password=""):
     if url_for("web.logout") == next_url:
         next_url = url_for("web.index")
 
-    # Get OAuth check status
-    oauth_check = oauth_bb.oauth_check if feature_support['oauth'] else {}
-
-    # Get generic OAuth login button text for display
-    generic_login_button = None
-    if feature_support['oauth']:
-        try:
-            # oauth_bb is already imported at module level, access oauthblueprints from it
-            # oauthblueprints[2] is the generic OIDC provider (index 0=github, 1=google, 2=generic)
-            if hasattr(oauth_bb, 'oauthblueprints') and len(oauth_bb.oauthblueprints) > 2:
-                generic_login_button = oauth_bb.oauthblueprints[2].get('login_button') or 'OpenID Connect'
-        except (AttributeError, IndexError):
-            # Silently fall back to default if oauthblueprints not available
-            pass
-
     return render_title_template('login.html',
                                  title=_("Login"),
                                  next_url=next_url,
                                  config=config,
                                  username=username,
                                  password=password,
-                                 oauth_check=oauth_check,
-                                 generic_login_button=generic_login_button,
-                                 mail=config.get_mail_server_configured(), page="login")
+                                 page="login")
 
 
 @web.route('/login', methods=['GET'])
 def login():
     if current_user is not None and current_user.is_authenticated:
         return redirect(url_for('web.index'))
-
-    # Handle OAuth-only authentication mode
-    if config.config_login_type == constants.LOGIN_OAUTH:
-        # In OAuth-only mode, show OAuth options but still render login template
-        # This prevents infinite redirects to OAuth providers
-        if not feature_support['oauth']:
-            log.error("OAuth authentication is enabled but OAuth support is not available")
-            flash(_("OAuth authentication is not properly configured. Please contact administrator."), category="error")
-        return render_login()
-
-    if config.config_login_type == constants.LOGIN_LDAP and not services.ldap:
-        log.error(u"Cannot activate LDAP authentication")
-        flash(_(u"Cannot activate LDAP authentication"), category="error")
     return render_login()
 
 
 @web.route('/login', methods=['POST'])
 def login_post():
-    if config.config_disable_standard_login:
-        flash(_("Standard login is disabled."), category="error")
-        return render_login()
-
     form = request.form.to_dict()
     username = strip_whitespaces(form.get('username', "")).lower().replace("\n","").replace("\r","")
     if current_user is not None and current_user.is_authenticated:
         return redirect(url_for('web.index'))
-    if config.config_login_type == constants.LOGIN_LDAP and not services.ldap:
-        log.error(u"Cannot activate LDAP authentication")
-        flash(_(u"Cannot activate LDAP authentication"), category="error")
     user = ub.session.query(ub.User).filter(func.lower(ub.User.name) == username).first()
     remember_me = bool(form.get('remember_me'))
 
-    if config.config_login_type == constants.LOGIN_LDAP and services.ldap and form.get('password', '') != "":
-        # Validate username before attempting LDAP authentication
-        if not username or not username.strip():
-            log.warning("LDAP authentication attempted with empty username")
-            flash(_(u"Username cannot be empty"), category="error")
-        else:
-            # Try LDAP authentication first, regardless of whether user exists locally
-            login_result, error = services.ldap.bind_user(username, form['password'])
-
-            if login_result:
-                # LDAP authentication successful
-                if user:
-                    # Existing user - login normally
-                    log.debug(u"You are now logged in as: '{}'".format(user.name))
-                    return handle_login_user(user,
-                                             remember_me,
-                                             _(u"you are now logged in as: '%(nickname)s'", nickname=user.name),
-                                             "success")
-                else:
-                    # New user - create if auto-creation is enabled
-                    if getattr(config, 'config_ldap_auto_create_users', True):
-                        try:
-                            # Get user details from LDAP
-                            ldap_user_details = services.ldap.get_object_details(username)
-                            if ldap_user_details:
-                                # Create user using existing LDAP import function
-                                from . import admin
-                                create_result, error_msg = admin.ldap_import_create_user(username, ldap_user_details)
-                                if create_result:
-                                    # Get the newly created user
-                                    user = ub.session.query(ub.User).filter(func.lower(ub.User.name) == username.lower()).first()
-                                    if user:
-                                        log.info("LDAP auto-created user: '%s'", username)
-                                        return handle_login_user(user,
-                                                                 remember_me,
-                                                                 _(u"Welcome! Your account has been automatically created. You are now logged in as: '%(nickname)s'", nickname=user.name),
-                                                                 "success")
-
-                            # If we get here, user creation failed
-                            log.error("LDAP auto-creation failed for user '%s'", username)
-                            flash(_(u"Authentication successful, but account creation failed. Please contact your administrator."), category="error")
-                        except Exception as ex:
-                            log.error("LDAP auto-creation error for user '%s': %s", username, ex)
-                            flash(_(u"Authentication successful, but account creation failed. Please contact your administrator."), category="error")
-                    else:
-                        # Auto-creation disabled
-                        log.info("LDAP user '%s' authenticated but not found locally, auto-creation disabled", username)
-                        flash(_(u"Authentication successful, but no local account found. Please contact your administrator to create your account."), category="error")
-
-            elif login_result is None and user and check_password_hash(str(user.password), form['password']) \
-                    and user.name != "Guest":
-                # LDAP unavailable, try local fallback
-                log.info("Local Fallback Login as: '{}'".format(user.name))
-                return handle_login_user(user,
-                                         remember_me,
-                                         _(u"Fallback Login as: '%(nickname)s', "
-                                           u"LDAP Server not reachable, or user not known", nickname=user.name),
-                                         "warning")
-            elif login_result is None:
-                # LDAP unavailable and no local fallback
-                log.info(error)
-                flash(_(u"Could not login: %(message)s", message=error), category="error")
-            else:
-                # LDAP authentication failed
-                # Use request.remote_addr (already corrected by ProxyFix) instead of raw header
-                ip_address = request.remote_addr
-                log.warning('LDAP Login failed for user "%s" IP-address: %s', username, ip_address)
-                
-                # Track failed login attempt
-                try:
-                    from scripts.cwa_db import CWA_DB
-                    import json
-                    cwa_db = CWA_DB()
-                    cwa_db.log_activity(
-                        user_id=None,
-                        user_name='Anonymous',
-                        event_type='LOGIN_FAILED',
-                        item_id=None,
-                        item_title=None,
-                        extra_data=json.dumps({'username_attempted': username, 'ip': ip_address, 'method': 'LDAP'})
-                    )
-                except Exception as e:
-                    log.debug(f"Failed to log failed login attempt: {e}")
-                
-                flash(_(u"Wrong Username or Password"), category="error")
-            flash(_(u"Wrong Username or Password"), category="error")
+    # Use request.remote_addr (already corrected by ProxyFix) instead of raw header
+    ip_address = request.remote_addr
+    if user and check_password_hash(str(user.password), form.get('password', '')) and user.name != "Guest":
+        config.config_is_initial = False
+        log.debug(u"You are now logged in as: '{}'".format(user.name))
+        return handle_login_user(user,
+                                 remember_me,
+                                 _(u"You are now logged in as: '%(nickname)s'", nickname=user.name),
+                                 "success")
     else:
-        # Use request.remote_addr (already corrected by ProxyFix) instead of raw header
-        ip_address = request.remote_addr
-        if form.get('forgot', "") == 'forgot':
-            if user is not None and user.name != "Guest":
-                ret, __ = reset_password(user.id)
-                if ret == 1:
-                    flash(_(u"New Password was sent to your email address"), category="info")
-                    log.info('Password reset for user "%s" IP-address: %s', username, ip_address)
-                else:
-                    log.error(u"An unknown error occurred. Please try again later")
-                    flash(_(u"An unknown error occurred. Please try again later."), category="error")
-            else:
-                flash(_(u"Please enter valid username to reset password"), category="error")
-                log.warning('Username missing for password reset IP-address: %s', ip_address)
-        else:
-            if user and check_password_hash(str(user.password), form['password']) and user.name != "Guest":
-                config.config_is_initial = False
-                log.debug(u"You are now logged in as: '{}'".format(user.name))
-                return handle_login_user(user,
-                                         remember_me,
-                                         _(u"You are now logged in as: '%(nickname)s'", nickname=user.name),
-                                         "success")
-            else:
-                log.warning('Login failed for user "{}" IP-address: {}'.format(username, ip_address))
-                
-                # Track failed login attempt
-                try:
-                    from scripts.cwa_db import CWA_DB
-                    import json
-                    cwa_db = CWA_DB()
-                    cwa_db.log_activity(
-                        user_id=None,
-                        user_name='Anonymous',
-                        event_type='LOGIN_FAILED',
-                        item_id=None,
-                        item_title=None,
-                        extra_data=json.dumps({'username_attempted': username, 'ip': ip_address, 'method': 'standard'})
-                    )
-                except Exception as e:
-                    log.debug(f"Failed to log failed login attempt: {e}")
-                
-                flash(_(u"Wrong Username or Password"), category="error")
+        log.warning('Login failed for user "{}" IP-address: {}'.format(username, ip_address))
+        
+        # Track failed login attempt
+        try:
+            from scripts.cwa_db import CWA_DB
+            import json
+            cwa_db = CWA_DB()
+            cwa_db.log_activity(
+                user_id=None,
+                user_name='Anonymous',
+                event_type='LOGIN_FAILED',
+                item_id=None,
+                item_title=None,
+                extra_data=json.dumps({'username_attempted': username, 'ip': ip_address, 'method': 'standard'})
+            )
+        except Exception as e:
+            log.debug(f"Failed to log failed login attempt: {e}")
+        
+        flash(_(u"Wrong Username or Password"), category="error")
     return render_login(username, form.get("password", ""))
 
 
@@ -2065,8 +1634,6 @@ def login_post():
 @user_login_required
 def logout():
     if current_user is not None and current_user.is_authenticated:
-        if feature_support['oauth'] and (config.config_login_type == 2 or config.config_login_type == 3):
-            logout_oauth_user()
         ub.delete_user_session(current_user.id, flask_session.get('_id', ""))
         logout_user()
 
@@ -2088,8 +1655,7 @@ def logout():
 # Accounts still on the shipped default password (ub.User.force_password_change) are sent to
 # /change-password on every web request. Device and machine endpoints keep working so e-readers
 # and internal services are not locked out while the admin picks a new password.
-_FORCE_PW_EXEMPT_BLUEPRINTS = {"opds", "kobo", "kobo_auth", "kosync", "cwa_internal",
-                               "readingservices_api_v3", "readingservices_userstorage"}
+_FORCE_PW_EXEMPT_BLUEPRINTS = {"opds", "cwa_internal"}
 _FORCE_PW_EXEMPT_ENDPOINTS = {"static", "web.login", "web.login_post", "web.logout",
                               "web.change_password", "web.health_check",
                               "gdrive.on_received_watch_confirmation"}
@@ -2152,17 +1718,13 @@ def change_password():
 
 
 # ################################### Users own configuration #########################################################
-def change_profile(kobo_support, hardcover_support, local_oauth_check, oauth_status, translations, languages):
+def change_profile(translations, languages):
     to_save = request.form.to_dict()
     current_user.random_books = 0
     try:
         if current_user.role_passwd() or current_user.role_admin():
             if to_save.get("password", "") != "":
                 current_user.password = generate_password_hash(valid_password(to_save.get("password")))
-        if to_save.get("kindle_mail", current_user.kindle_mail) != current_user.kindle_mail:
-            current_user.kindle_mail = valid_email(to_save.get("kindle_mail"))
-        if to_save.get("kindle_mail_subject", current_user.kindle_mail_subject) != current_user.kindle_mail_subject:
-            current_user.kindle_mail_subject = strip_whitespaces(to_save.get("kindle_mail_subject", "")) or ""
         new_email = valid_email(to_save.get("email", current_user.email))
         if not new_email:
             raise Exception(_("Email can't be empty and has to be a valid Email"))
@@ -2175,18 +1737,9 @@ def change_profile(kobo_support, hardcover_support, local_oauth_check, oauth_sta
         current_user.random_books = 1 if to_save.get("show_random") == "on" else 0
         current_user.default_language = to_save.get("default_language", "all")
         current_user.locale = to_save.get("locale", "en")
-        old_state = current_user.kobo_only_shelves_sync
-        # 1 -> 0: nothing has to be done
-        # 0 -> 1: all synced books have to be added to archived books, + currently synced shelfs which
-        # don't have to be synced have to be removed (added to Shelf archive)
-        current_user.kobo_only_shelves_sync = int(to_save.get("kobo_only_shelves_sync") == "on") or 0
-        if old_state == 0 and current_user.kobo_only_shelves_sync == 1:
-            kobo_sync_status.update_on_sync_shelfs(current_user.id)
-        current_user.hardcover_token = to_save.get("hardcover_token","" ).replace("Bearer ","" ) or None
-        # Auto-send and metadata fetch settings
-        current_user.auto_send_enabled = to_save.get("auto_send_enabled") == "on"
+        if "hardcover_token" in to_save:
+            current_user.hardcover_token = to_save["hardcover_token"].replace("Bearer ", "") or None
         current_user.auto_metadata_fetch = to_save.get("auto_metadata_fetch") == "on"
-        current_user.allow_additional_ereader_emails = to_save.get("allow_additional_ereader_emails") == "on"
         
         # OPDS root order
         opds_order_raw = to_save.get("opds_root_order", "").strip()
@@ -2253,11 +1806,7 @@ def change_profile(kobo_support, hardcover_support, local_oauth_check, oauth_sta
                                      opds_hidden_entries_string=opds_hidden_entries_string,
                                      opds_root_labels=opds_root_labels,
                                      title=_("%(name)s's Profile", name=current_user.name.capitalize()),
-                                     page="me",
-                                     kobo_support=kobo_support,
-                                     hardcover_support=hardcover_support,
-                                     registered_oauth=local_oauth_check,
-                                     oauth_status=oauth_status)
+                                     page="me")
 
     val = 0
     for key, __ in to_save.items():
@@ -2291,17 +1840,8 @@ def change_profile(kobo_support, hardcover_support, local_oauth_check, oauth_sta
 def profile():
     languages = calibre_db.speaking_language()
     translations = get_available_locale()
-    kobo_support = feature_support['kobo'] and config.config_kobo_sync
-    hardcover_support = feature_support['hardcover']
-    if feature_support['oauth'] and config.config_login_type == 2:
-        oauth_status = get_oauth_status()
-        local_oauth_check = oauth_bb.oauth_check
-    else:
-        oauth_status = None
-        local_oauth_check = {}
-    
     if request.method == "POST":
-        return change_profile(kobo_support, hardcover_support, local_oauth_check, oauth_status, translations, languages)
+        return change_profile(translations, languages)
     
     from .opds import get_opds_root_order_for_user, get_opds_hidden_entries_for_user, OPDS_ROOT_ENTRY_DEFS, OPDS_ROOT_ORDER_DEFAULT
     opds_root_order = get_opds_root_order_for_user(current_user)
@@ -2323,15 +1863,11 @@ def profile():
                                  languages=languages,
                                  content=current_user,
                                  config=config,
-                                 kobo_support=kobo_support,
-                                 hardcover_support=hardcover_support,
                                  opds_root_order_string=opds_root_order_string,
                                  opds_hidden_entries_string=opds_hidden_entries_string,
                                  opds_root_labels=opds_root_labels,
                                  title=_("%(name)s's Profile", name=current_user.name.capitalize()),
-                                 page="me",
-                                 registered_oauth=local_oauth_check,
-                                 oauth_status=oauth_status)
+                                 page="me")
 
 
 # ###################################Show single book ##################################################################
@@ -2358,17 +1894,6 @@ def read_book(book_id, book_format):
                                                              ub.Bookmark.book_id == book_id,
                                                              ub.Bookmark.format == book_format.upper())).first()
 
-    kosync_progress = None
-    if current_user.is_authenticated:
-        try:
-            kobo_state = (ub.session.query(ub.KoboReadingState)
-                          .filter(ub.KoboReadingState.user_id == int(current_user.id),
-                                  ub.KoboReadingState.book_id == book_id)
-                          .first())
-            if kobo_state and kobo_state.current_bookmark:
-                kosync_progress = kobo_state.current_bookmark.progress_percent
-        except Exception as e:
-            log.debug(f"Failed to load KOReader progress for book {book_id}: {e}")
     # Track read activity
     if current_user.is_authenticated:
         try:
@@ -2405,7 +1930,7 @@ def read_book(book_id, book_format):
     if book_format.lower() in ("epub", "kepub"):
         log.debug("Start epub reader for %d (%s)", book_id, book_format.lower())
         return render_title_template('read.html', bookid=book_id, title=book.title,
-                                     bookmark=bookmark, kosync_progress=kosync_progress,
+                                     bookmark=bookmark,
                                      book_format=book_format.lower())
     elif book_format.lower() == "pdf":
         log.debug("Start pdf reader for %d", book_id)
@@ -2484,27 +2009,12 @@ def show_book(book_id):
 
         entry.ordered_authors = calibre_db.order_authors([entry])
 
-        entry.email_share_list = check_send_to_ereader(entry)
         entry.reader_list = check_read_formats(entry)
 
         entry.audio_entries = []
         for media_format in entry.data:
             if media_format.format.lower() in constants.EXTENSIONS_AUDIO:
                 entry.audio_entries.append(media_format.format.lower())
-
-        kosync_progress = None
-        kosync_progress_timestamp = None
-        if current_user.is_authenticated:
-            try:
-                kobo_state = (ub.session.query(ub.KoboReadingState)
-                              .filter(ub.KoboReadingState.user_id == int(current_user.id),
-                                      ub.KoboReadingState.book_id == book_id)
-                              .first())
-                if kobo_state and kobo_state.current_bookmark:
-                    kosync_progress = kobo_state.current_bookmark.progress_percent
-                    kosync_progress_timestamp = kobo_state.current_bookmark.last_modified
-            except Exception as e:
-                log.debug(f"Failed to load KOReader progress for book {book_id}: {e}")
 
         cwa_db = CWA_DB()
         cwa_settings = cwa_db.cwa_settings
@@ -2516,8 +2026,6 @@ def show_book(book_id):
                                      title=entry.title,
                                      books_shelfs=book_in_shelves,
                                      cwa_settings=cwa_settings,
-                                     kosync_progress=kosync_progress,
-                                     kosync_progress_timestamp=kosync_progress_timestamp,
                                      page="book")
     else:
         log.debug("Selected book is unavailable. File does not exist or is not accessible")

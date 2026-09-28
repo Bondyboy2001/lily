@@ -9,7 +9,7 @@ import os
 import threading
 from sqlite3 import Error as sqlError
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 
 from tabulate import tabulate
 
@@ -172,7 +172,6 @@ class CWA_DB(CWAStatsQueries):
         self.make_tables()
         self.ensure_settings_schema_match()
         self.match_stat_table_columns_with_schema()
-        self.ensure_scheduled_jobs_schema()
         self.run_migrations()
         self.set_default_settings()
 
@@ -801,131 +800,6 @@ class CWA_DB(CWAStatsQueries):
     # Scheduled Jobs (Auto-Send)
     # ==============================
 
-    def ensure_scheduled_jobs_schema(self) -> None:
-        """Add missing columns to cwa_scheduled_jobs if older table exists."""
-        try:
-            cols = [r[1] for r in self.cur.execute("PRAGMA table_info('cwa_scheduled_jobs')").fetchall()]
-            if cols:
-                if 'scheduler_job_id' not in cols:
-                    self.cur.execute("ALTER TABLE cwa_scheduled_jobs ADD COLUMN scheduler_job_id TEXT DEFAULT ''")
-                    self.con.commit()
-        except Exception:
-            # If table doesn't exist yet, it will be created from schema
-            pass
-
-    def scheduled_add_autosend(self, book_id: int, user_id: int, run_at_utc_iso: str, username: str, title: str) -> int | None:
-        """Insert a scheduled auto-send job and return its row id."""
-        try:
-            created_at = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-            self.cur.execute(
-                """
-                INSERT INTO cwa_scheduled_jobs(job_type, book_id, user_id, username, title, run_at_utc, created_at_utc, state)
-                VALUES(?,?,?,?,?,?,?, 'scheduled')
-                """,
-                ('auto_send', int(book_id), int(user_id), username, title, run_at_utc_iso, created_at)
-            )
-            self.con.commit()
-            return self.cur.lastrowid
-        except Exception as e:
-            print(f"[cwa-db] ERROR adding scheduled auto-send: {e}")
-            return None
-
-    def scheduled_mark_dispatched(self, row_id: int) -> bool:
-        try:
-            # Only transition scheduled -> dispatched; ignore if already cancelled/dispatched
-            self.cur.execute("UPDATE cwa_scheduled_jobs SET state='dispatched' WHERE id=? AND state='scheduled'", (int(row_id),))
-            self.con.commit()
-            return self.cur.rowcount > 0
-        except Exception as e:
-            print(f"[cwa-db] ERROR marking scheduled job dispatched: {e}")
-            return False
-
-    def scheduled_mark_cancelled(self, row_id: int) -> None:
-        try:
-            self.cur.execute("UPDATE cwa_scheduled_jobs SET state='cancelled' WHERE id=?", (int(row_id),))
-            self.con.commit()
-        except Exception as e:
-            print(f"[cwa-db] ERROR marking scheduled job cancelled: {e}")
-
-    def scheduled_cancel_for_book(self, book_id: int) -> int:
-        """Cancel all scheduled jobs (auto-send, etc.) for a specific book
-        
-        Args:
-            book_id: The book ID whose scheduled jobs should be cancelled
-            
-        Returns:
-            int: Number of jobs cancelled
-        """
-        try:
-            self.cur.execute(
-                "UPDATE cwa_scheduled_jobs SET state='cancelled' WHERE book_id=? AND state='scheduled'",
-                (int(book_id),)
-            )
-            self.con.commit()
-            cancelled_count = self.cur.rowcount
-            if cancelled_count > 0:
-                print(f"[cwa-db] Cancelled {cancelled_count} scheduled job(s) for book {book_id}", flush=True)
-            return cancelled_count
-        except Exception as e:
-            print(f"[cwa-db] ERROR cancelling scheduled jobs for book {book_id}: {e}", flush=True)
-            return 0
-
-    def scheduled_update_job_id(self, row_id: int, scheduler_job_id: str) -> None:
-        try:
-            self.cur.execute("UPDATE cwa_scheduled_jobs SET scheduler_job_id=? WHERE id=?", (scheduler_job_id, int(row_id)))
-            self.con.commit()
-        except Exception as e:
-            print(f"[cwa-db] ERROR updating scheduler_job_id: {e}")
-
-    def scheduled_get_by_id(self, row_id: int):
-        try:
-            row = self.cur.execute("SELECT * FROM cwa_scheduled_jobs WHERE id=?", (int(row_id),)).fetchone()
-            if not row:
-                return None
-            cols = [d[0] for d in self.cur.description]
-            return dict(zip(cols, row))
-        except Exception as e:
-            print(f"[cwa-db] ERROR fetching scheduled job by id: {e}")
-            return None
-
-    def scheduled_get_upcoming_autosend(self, limit: int = 50):
-        try:
-            now_utc = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-            rows = self.cur.execute(
-                """
-                SELECT id, book_id, user_id, username, title, run_at_utc, state
-                FROM cwa_scheduled_jobs
-                WHERE job_type='auto_send' AND state='scheduled' AND run_at_utc >= ?
-                ORDER BY run_at_utc ASC
-                LIMIT ?
-                """,
-                (now_utc, int(limit))
-            ).fetchall()
-            cols = [d[0] for d in self.cur.description]
-            return [dict(zip(cols, r)) for r in rows]
-        except Exception as e:
-            print(f"[cwa-db] ERROR fetching upcoming scheduled auto-sends: {e}")
-            return []
-
-    def scheduled_get_pending_autosend(self):
-        """Return all not-yet-dispatched auto-sends due in the future (for rehydration)."""
-        try:
-            now_utc = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
-            rows = self.cur.execute(
-                """
-                SELECT id, book_id, user_id, username, title, run_at_utc
-                FROM cwa_scheduled_jobs
-                WHERE job_type='auto_send' AND state='scheduled' AND run_at_utc >= ?
-                ORDER BY run_at_utc ASC
-                """,
-                (now_utc,)
-            ).fetchall()
-            cols = [d[0] for d in self.cur.description]
-            return [dict(zip(cols, r)) for r in rows]
-        except Exception as e:
-            print(f"[cwa-db] ERROR fetching pending scheduled auto-sends: {e}")
-            return []
-
     def log_activity(self, user_id, user_name, event_type, item_id=None, item_title=None, extra_data=None):
         """Logs a user activity event to the database with device detection."""
         try:
@@ -1082,38 +956,6 @@ class CWA_DB(CWAStatsQueries):
         except Exception as e:
             print(f"[cwa-db] Error logging duplicate resolution: {e}")
             return False
-
-    def get_resolution_history(self, limit=100):
-        """Get recent resolution history"""
-        import json
-        try:
-            self.cur.execute("""
-                SELECT id, timestamp, group_hash, group_title, group_author, 
-                       kept_book_id, deleted_book_ids, strategy, trigger_type, user_id, notes
-                FROM cwa_duplicate_resolutions 
-                ORDER BY timestamp DESC 
-                LIMIT ?
-            """, (limit,))
-            
-            results = []
-            for row in self.cur.fetchall():
-                results.append({
-                    'id': row[0],
-                    'timestamp': row[1],
-                    'group_hash': row[2],
-                    'group_title': row[3],
-                    'group_author': row[4],
-                    'kept_book_id': row[5],
-                    'deleted_book_ids': json.loads(row[6]),
-                    'strategy': row[7],
-                    'trigger_type': row[8],
-                    'user_id': row[9],
-                    'notes': row[10]
-                })
-            return results
-        except Exception as e:
-            print(f"[cwa-db] Error getting resolution history: {e}")
-            return []
 
 
 def main():

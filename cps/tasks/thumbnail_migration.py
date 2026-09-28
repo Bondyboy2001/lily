@@ -6,53 +6,28 @@
 # See CONTRIBUTORS for full list of authors.
 
 import os
-from .. import logger, ub, fs
-from ..constants import CACHE_TYPE_THUMBNAILS
+from .. import logger, fs
+from ..constants import CACHE_TYPE_THUMBNAILS, CONFIG_DIR
 
 log = logger.create()
 
-MIGRATION_VERSION_KEY = "thumbnail_flat_structure_migration"
-MIGRATION_VERSION = "v1.0"
+MIGRATION_MARKER = os.path.join(CONFIG_DIR, ".cwa_migrations", "thumbnail_flat_structure_v1")
+
 
 def get_migration_status():
     """Check if the thumbnail migration has already been completed."""
-    try:
-        session = ub.get_new_session_instance()
-        try:
-            # Check if migration marker exists in settings
-            setting = session.query(ub.Settings).filter(
-                ub.Settings.mail_server == MIGRATION_VERSION_KEY
-            ).first()
-            return setting.mail_server_type == MIGRATION_VERSION if setting else False
-        finally:
-            session.close()
-    except Exception:
-        return False
+    return os.path.isfile(MIGRATION_MARKER)
+
 
 def set_migration_completed():
     """Mark the thumbnail migration as completed."""
     try:
-        session = ub.get_new_session_instance()
-        try:
-            # Store migration marker in settings table
-            setting = session.query(ub.Settings).filter(
-                ub.Settings.mail_server == MIGRATION_VERSION_KEY
-            ).first()
-            
-            if not setting:
-                setting = ub.Settings()
-                setting.mail_server = MIGRATION_VERSION_KEY
-                session.add(setting)
-            
-            setting.mail_server_type = MIGRATION_VERSION
-            session.commit()
-        except Exception as ex:
-            log.error(f"Failed to mark migration as completed: {ex}")
-            session.rollback()
-        finally:
-            session.close()
-    except Exception as ex:
-        log.error(f"Failed to access database for migration marker: {ex}")
+        os.makedirs(os.path.dirname(MIGRATION_MARKER), exist_ok=True)
+        with open(MIGRATION_MARKER, "w", encoding="utf-8") as marker:
+            marker.write("done\n")
+    except OSError as ex:
+        log.error(f"Failed to mark thumbnail migration as completed: {ex}")
+
 
 def migrate_thumbnail_structure():
     """

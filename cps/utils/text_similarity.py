@@ -8,7 +8,7 @@
 """
 Text similarity utilities for metadata matching
 """
-from typing import List, Set
+from typing import List
 import re
 
 
@@ -82,14 +82,6 @@ def normalize_string(s: str) -> str:
     s = re.sub(r'\s+', ' ', s)
     
     return s.strip()
-
-
-def tokenize(s: str) -> Set[str]:
-    """
-    Tokenize a string into a set of normalized words.
-    """
-    normalized = normalize_string(s)
-    return set(normalized.split())
 
 
 def author_list_similarity(authors1: List[str], authors2: List[str]) -> tuple[float, bool]:

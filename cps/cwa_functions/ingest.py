@@ -19,15 +19,12 @@ import subprocess
 
 import json
 from threading import Thread, Lock, Timer
-from datetime import datetime, timedelta
 
 # common puts the scripts dir on sys.path, so it must be imported before cwa_db
 from .common import library_refresh, cwa_internal, log, DIRS_JSON
 from cwa_db import CWA_DB
-from ..services.background_scheduler import BackgroundScheduler, DateTrigger
 from ..services.worker import WorkerThread
 from ..tasks.database import TaskReconnectDatabase
-from ..tasks.auto_send import TaskAutoSend
 from ..internal_api import internal_only
 
 # Debounced duplicate scan timer (web process)
@@ -173,82 +170,6 @@ def get_library_refresh_messages():
 ##                           CWA INTERNAL ENDPOINTS                           ##
 ##                                                                            ##
 ##————————————————————————————————————————————————————————————————————————————##
-
-@csrf.exempt
-@cwa_internal.route('/cwa-internal/schedule-auto-send', methods=["POST"])
-@internal_only
-def cwa_internal_schedule_auto_send():
-    """Schedule an Auto-Send task in the web process scheduler.
-
-    Security: CWA's own processes only (@internal_only).
-    Payload JSON: {book_id:int, user_id:int, delay_minutes:int, username:str, title:str}
-    """
-    try:
-        data = request.get_json(force=True, silent=True) or {}
-        book_id = int(data.get('book_id'))
-        user_id = int(data.get('user_id'))
-        delay_minutes = int(data.get('delay_minutes', 5))
-        delay_minutes = max(0, min(60, delay_minutes))
-        username = data.get('username') or 'System'
-        title = data.get('title') or 'Book'
-
-        scheduler = BackgroundScheduler()
-        if not scheduler:
-            return jsonify({"error": "Scheduler unavailable"}), 503
-
-        # Compute run time in both local and UTC for persistence
-        run_at_local = datetime.now() + timedelta(minutes=delay_minutes)
-        try:
-            from datetime import timezone
-            run_at_utc_iso = run_at_local.astimezone(timezone.utc).replace(tzinfo=timezone.utc).isoformat().replace('+00:00', 'Z')
-        except Exception:
-            run_at_utc_iso = run_at_local.isoformat()
-
-        # Persist scheduled intent in cwa.db
-        try:
-            from cwa_db import CWA_DB
-            db = CWA_DB()
-            row_id = db.scheduled_add_autosend(book_id, user_id, run_at_utc_iso, username, title)
-        except Exception as e:
-            row_id = None
-            log.error(f"Failed to record scheduled auto-send in cwa.db: {e}")
-
-        task_message = f"Auto-sending '{title}' to user's eReader(s)"
-
-        # Closure that marks dispatched and enqueues the task when the time arrives
-        def _enqueue_autosend():
-            should_enqueue = True
-            try:
-                if row_id is not None:
-                    from cwa_db import CWA_DB
-                    changed = CWA_DB().scheduled_mark_dispatched(int(row_id))
-                    # Only enqueue if state actually moved to dispatched (i.e., was not cancelled)
-                    should_enqueue = bool(changed)
-            except Exception as e:
-                log.error(f"Failed to mark scheduled auto-send dispatched: {e}")
-            if should_enqueue:
-                WorkerThread.add(username, TaskAutoSend(task_message, book_id, user_id, delay_minutes), hidden=False)
-
-        # Defer task creation to scheduled time; shows in UI when enqueued
-        job = scheduler.schedule(
-            func=_enqueue_autosend,
-            trigger=DateTrigger(run_date=run_at_local),
-            name=f"Auto-send '{title}' to {username}"
-        )
-
-        # Persist scheduler job id for cancellation support
-        try:
-            if row_id is not None and job is not None:
-                from cwa_db import CWA_DB
-                CWA_DB().scheduled_update_job_id(int(row_id), str(job.id))
-        except Exception as e:
-            log.error(f"Failed to store scheduler job id for auto-send: {e}")
-
-        return jsonify({"status": "scheduled", "run_at": run_at_local.isoformat(), "schedule_id": row_id}), 200
-    except Exception as e:
-        log.error(f"Internal auto-send schedule failed: {e}")
-        return jsonify({"error": str(e)}), 400
-
 
 @csrf.exempt
 @cwa_internal.route('/cwa-internal/queue-duplicate-scan', methods=["POST"])

@@ -36,16 +36,8 @@
 
 <div class="stats-tiles">
     <div class="stats-tile">
-        <div class="stats-tile-label">{{ _('Kobo syncs') }}</div>
-        <div class="stats-tile-value" id="kobo-sync-count">0</div>
-    </div>
-    <div class="stats-tile">
         <div class="stats-tile-label">{{ _('OPDS accesses') }}</div>
         <div class="stats-tile-value" id="opds-access-count">0</div>
-    </div>
-    <div class="stats-tile">
-        <div class="stats-tile-label">{{ _('Email deliveries') }}</div>
-        <div class="stats-tile-value" id="email-delivery-count">0</div>
     </div>
     <div class="stats-tile">
         <div class="stats-tile-label">{{ _('Web UI requests') }}</div>
@@ -128,18 +120,14 @@ function updateAllApiVisualizations() {
 function updateApiMetrics() {
     const breakdown = currentApiData.usageBreakdown || [];
     
-    let koboCount = 0, opdsCount = 0, emailCount = 0, webCount = 0;
-    
+    let opdsCount = 0, webCount = 0;
+
     breakdown.forEach(([category, count]) => {
-        if (category === 'Kobo Sync') koboCount = count;
-        else if (category === 'OPDS Feed') opdsCount = count;
-        else if (category === 'Email Delivery') emailCount = count;
+        if (category === 'OPDS Feed') opdsCount = count;
         else if (category === 'Web UI') webCount = count;
     });
-    
-    document.getElementById('kobo-sync-count').textContent = koboCount;
+
     document.getElementById('opds-access-count').textContent = opdsCount;
-    document.getElementById('email-delivery-count').textContent = emailCount;
     document.getElementById('web-ui-count').textContent = webCount;
 }
 
@@ -227,7 +215,7 @@ function updateEndpointTable() {
     }
 
     // Categories are small facts: neutral pills, with the accent kept for the live integrations.
-    const accentCategories = ['Kobo', 'OPDS'];
+    const accentCategories = ['OPDS'];
 
     tbody.innerHTML = data.map(([endpoint, category, count, lastAccessed]) => {
         const pill = accentCategories.includes(category) ? 'label label-info' : 'label';
@@ -249,9 +237,7 @@ function updateEndpointTable() {
 function generateApiDemoData() {
     return {
         usageBreakdown: [
-            ['Kobo Sync', 234 + Math.floor(Math.random() * 100)],
             ['OPDS Feed', 567 + Math.floor(Math.random() * 200)],
-            ['Email Delivery', 123 + Math.floor(Math.random() * 50)],
             ['Web UI', 1234 + Math.floor(Math.random() * 300)]
         ],
         apiTiming: (() => {
@@ -265,12 +251,10 @@ function generateApiDemoData() {
             return timing;
         })(),
         endpointFrequency: [
-            ['/v1/library/sync', 'Kobo', 234, new Date().toISOString()],
             ['/opds', 'OPDS', 189, new Date().toISOString()],
             ['/opds/new', 'OPDS', 156, new Date().toISOString()],
             ['/opds/search', 'OPDS', 134, new Date().toISOString()],
             ['/download/123/epub', 'Downloads', 98, new Date().toISOString()],
-            ['/send/456', 'Email', 67, new Date().toISOString()],
             ['/read/789', 'Reading', 56, new Date().toISOString()],
             ['SEARCH', 'Search', 234, new Date().toISOString()],
             ['LOGIN', 'Authentication', 89, new Date().toISOString()],

@@ -260,9 +260,6 @@ $("#deleteModal").on("show.bs.modal", function(e) {
 });
 
 $(function() {
-    var updateTimerID;
-    var updateText;
-
     // Allow ajax prefilters to be added/removed dynamically
     // eslint-disable-next-line new-cap
     var preFilters = $.Callbacks();
@@ -292,53 +289,6 @@ $(function() {
     function restartTimer() {
         $("#spinner").addClass("hidden");
         $("#RestartDialog").modal("hide");
-    }
-
-    function cleanUp() {
-        clearInterval(updateTimerID);
-        $("#spinner2").hide();
-        $("#DialogFinished").removeClass("hidden");
-        $("#check_for_update").removeClass("hidden");
-        $("#perform_update").addClass("hidden");
-        $("#message").alert("close");
-        $("#update_table > tbody > tr").each(function () {
-            if ($(this).attr("id") !== "current_version") {
-                $(this).closest("tr").remove();
-            }
-        });
-    }
-
-    var updateTimerInFlight = false;
-    function updateTimer() {
-        var no_response = 0;
-        // Avoid overlapping status requests; the interval keeps running so the
-        // next tick still picks up completion.
-        if (updateTimerInFlight) {
-            return;
-        }
-        updateTimerInFlight = true;
-        $.ajax({
-            dataType: "json",
-            url: getPath() + "/get_updater_status",
-            success: function success(data) {
-                $("#DialogContent").html(updateText[data.status]);
-                if (data.status > 6) {
-                    cleanUp();
-                }
-            },
-            error: function error() {
-                // Server has to restart in 60 Sek. otherwise output error message
-                no_response += 1;
-                if (no_response > 30) {
-                    $("#DialogContent").html(updateText[11]);
-                    cleanUp();
-                }
-            },
-            complete: function() {
-                updateTimerInFlight = false;
-            },
-            timeout: 2000
-        });
     }
 
     function fillFileTable(path, type, folder, filt) {
@@ -441,52 +391,6 @@ $(function() {
             data: JSON.stringify({"parameter":1}),
             success: function success(data) {
                 return alert(data.text);
-            }
-        });
-    });
-    $("#check_for_update").click(function() {
-        var $this = $(this);
-        var buttonText = $this.html();
-        $this.html("...");
-        $("#DialogContent").html("");
-        $("#DialogFinished").addClass("hidden");
-        $("#update_error").addClass("hidden");
-        if ($("#message").length) {
-            $("#message").alert("close");
-        }
-        $.ajax({
-            dataType: "json",
-            url: getPath() + "/get_update_status",
-            success: function success(data) {
-                $this.html(buttonText);
-
-                var cssClass = "";
-                var message = "";
-
-                if (data.success === true) {
-                    if (data.update === true) {
-                        $("#check_for_update").addClass("hidden");
-                        $("#perform_update").removeClass("hidden");
-                        $("#update_info")
-                            .removeClass("hidden")
-                            .find("span").html(data.commit);
-
-                        data.history.forEach(function(entry) {
-                            $("<tr><td>" + entry[0] + "</td><td>" + entry[1] + "</td></tr>").appendTo($("#update_table"));
-                        });
-                        cssClass = "alert-warning";
-                    } else {
-                        cssClass = "alert-success";
-                    }
-                } else {
-                    cssClass = "alert-danger";
-                }
-
-                message = "<div id=\"message\" class=\"alert " + cssClass
-                    + " fade in\"><a href=\"#\" class=\"close\" data-dismiss=\"alert\">&times;</a>"
-                    + data.message + "</div>";
-
-                $(message).insertAfter($("#update_table"));
             }
         });
     });
@@ -711,22 +615,6 @@ $(function() {
             }
         });
     });
-    $("#perform_update").click(function() {
-        $("#DialogHeader").removeClass("hidden");
-        $("#spinner2").show();
-        $.ajax({
-            type: "POST",
-            dataType: "json",
-            data: { start: "True" },
-            url: getPath() + "/get_updater_status",
-            success: function success(data) {
-                updateText = data.text;
-                $("#DialogContent").html(updateText[data.status]);
-                updateTimerID = setInterval(updateTimer, 2000);
-            }
-        });
-    });
-
     // Init all data control handlers to default
     $("input[data-control]").trigger("change");
     $("select[data-control]").trigger("change");
@@ -755,45 +643,6 @@ $(function() {
             $(this).find(".modal-body").html("...");
         });
 
-    $("#modal_kobo_token")
-        .on("show.bs.modal", function(e) {
-            $(e.relatedTarget).one('focus', function(e){$(this).blur();});
-            var $modalBody = $(this).find(".modal-body");
-
-            // Prevent static assets from loading multiple times
-            var useCache = function(options) {
-                options.async = true;
-                options.cache = true;
-            };
-            preFilters.add(useCache);
-
-            $.get(e.relatedTarget.href).done(function(content) {
-                $modalBody.html(content);
-                preFilters.remove(useCache);
-            });
-        })
-        .on("hidden.bs.modal", function() {
-            $(this).find(".modal-body").html("...");
-            $("#config_delete_kobo_token").show();
-            $("#kobo_full_sync").show();
-        });
-
-    $("#config_delete_kobo_token").click(function() {
-        confirmDialog(
-            $(this).attr('id'),
-            "GeneralDeleteModal",
-            $(this).data('value'),
-            function (value) {
-                $.ajax({
-                    method: "post",
-                    url: getPath() + "/kobo_auth/deleteauthtoken/" + value,
-                });
-                $("#config_delete_kobo_token").hide();
-                $("#kobo_full_sync").hide();
-            }
-        );
-    });
-
     $("#btndeluser").click(function() {
         confirmDialog(
             $(this).attr('id'),
@@ -806,35 +655,6 @@ $(function() {
                     return true;
                 });
                 subform.submit();
-            }
-        );
-    });
-
-    $("#kobo_full_sync").click(function() {
-        confirmDialog(
-           "btnfullsync",
-            "GeneralDeleteModal",
-            $(this).data('value'),
-            function(userid) {
-                if (userid) {
-                    path = getPath() + "/ajax/fullsync/" + userid
-                } else {
-                    path = getPath() + "/ajax/fullsync"
-                }
-                $.ajax({
-                    method:"post",
-                    url: path,
-                    timeout: 900,
-                    success:function(data) {
-                        data.forEach(function(item) {
-                            if (!jQuery.isEmptyObject(item)) {
-                                $( ".navbar" ).after( '<div class="row-fluid text-center" >' +
-                                    '<div id="flash_'+item.type+'" class="alert alert-'+item.type+'">'+item.message+'</div>' +
-                                    '</div>');
-                            }
-                        });
-                    }
-                });
             }
         );
     });
@@ -959,12 +779,7 @@ $(function() {
         var type = this.attributes["data-type"].value;
         var folder = $(file_confirm).data("folderonly");
         var filter = $(file_confirm).data("filefilter");
-        var newfile = $(file_confirm).data("newfile");
-        if (newfile !== "") {
-            $("#element_selected").text(path + $("#new_file".text()));
-        } else {
-            $("#element_selected").text(path);
-        }
+        $("#element_selected").text(path);
         if(type === "dir") {
             fillFileTable(path, type, folder, filter);
         }
@@ -979,24 +794,6 @@ $(function() {
                 return !!$(this).data("isotope");
             }).isotope("layout");
         }, 150);
-    });
-
-    $("#import_ldap_users").click(function() {
-        $("#DialogHeader").addClass("hidden");
-        $("#DialogFinished").addClass("hidden");
-        $("#DialogContent").html("");
-        $("#spinner2").show();
-        $.ajax({
-            method:"post",
-            contentType: "application/json; charset=utf-8",
-            dataType: "json",
-            url: getPath() + "/import_ldap_users",
-            success: function success(data) {
-                $("#spinner2").hide();
-                $("#DialogContent").html(data.text);
-                $("#DialogFinished").removeClass("hidden");
-            }
-        });
     });
 
     $(".author-expand").click(function() {

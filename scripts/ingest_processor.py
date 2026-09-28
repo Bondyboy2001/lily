@@ -36,8 +36,6 @@ _CPS_AVAILABLE = False
 _gdriveutils = None
 _cps_config = None
 fetch_and_apply_metadata = None
-TaskAutoSend = None
-WorkerThread = None
 _ub = None
 CWA_DB = None
 audiobook = None
@@ -208,7 +206,7 @@ def _load_runtime_dependencies() -> None:
 
 def _load_optional_cps_modules() -> None:
     global _GDRIVE_AVAILABLE, _CPS_AVAILABLE
-    global _gdriveutils, _cps_config, fetch_and_apply_metadata, TaskAutoSend, WorkerThread, _ub
+    global _gdriveutils, _cps_config, fetch_and_apply_metadata, _ub
 
     if _GDRIVE_AVAILABLE and _CPS_AVAILABLE:
         return
@@ -230,25 +228,19 @@ def _load_optional_cps_modules() -> None:
             _cps_config = None
             _GDRIVE_AVAILABLE = False
 
-        # Import auto-send and metadata functionality
+        # Import metadata functionality
         try:
             from cps.metadata_helper import fetch_and_apply_metadata as loaded_fetch_and_apply_metadata
-            from cps.tasks.auto_send import TaskAutoSend as LoadedTaskAutoSend
-            from cps.services.worker import WorkerThread as LoadedWorkerThread
             from cps import ub as loaded_ub
             from cps.calibre_init import init_calibre_db_from_app_db
             init_calibre_db_from_app_db(get_app_db_path())
             fetch_and_apply_metadata = loaded_fetch_and_apply_metadata
-            TaskAutoSend = LoadedTaskAutoSend
-            WorkerThread = LoadedWorkerThread
             _ub = loaded_ub
             _CPS_AVAILABLE = True
-            print("[ingest-processor] Auto-send and metadata functionality available", flush=True)
+            print("[ingest-processor] Metadata functionality available", flush=True)
         except ImportError as e:
-            print(f"[ingest-processor] Auto-send/metadata functionality not available: {e}", flush=True)
+            print(f"[ingest-processor] Metadata functionality not available: {e}", flush=True)
             fetch_and_apply_metadata = None
-            TaskAutoSend = None
-            WorkerThread = None
             _ub = None
             _CPS_AVAILABLE = False
 
@@ -858,18 +850,6 @@ class NewBookProcessor:
             else:
                 self.fetch_metadata_if_enabled(staged_path.stem)
 
-            # Trigger auto-send for users who have it enabled
-            if self.last_added_book_id is not None:
-                self.trigger_auto_send_if_enabled(book_id=self.last_added_book_id, book_path=book_path)
-            else:
-                self.trigger_auto_send_if_enabled(staged_path.stem, book_path)
-
-            # Generate KOReader sync checksums for the imported book
-            if self.last_added_book_id is not None:
-                self.generate_book_checksums(staged_path.stem, book_id=self.last_added_book_id)
-            else:
-                self.generate_book_checksums(staged_path.stem)
-
             # Ensure newly imported books have their timestamp set to the current time
             # so they appear at the top of "Recently Added" views.
             # calibredb sets timestamp from EPUB metadata (publication date), which can be
@@ -1012,206 +992,6 @@ class NewBookProcessor:
         except Exception as e:
             print(f"[ingest-processor] Error fetching metadata: {e}", flush=True)
 
-
-    def trigger_auto_send_if_enabled(self, book_title: str | None = None, book_path: str | None = None, book_id: int | None = None) -> None:
-        """Trigger auto-send for users who have it enabled"""
-        if not _CPS_AVAILABLE:
-            print("[ingest-processor] CPS modules not available, skipping auto-send", flush=True)
-            return
-
-        if TaskAutoSend is None or WorkerThread is None:
-            print("[ingest-processor] Auto-send functionality not available, skipping auto-send", flush=True)
-            return
-
-        try:
-            with sqlite3.connect(self.metadata_db, timeout=30) as con:
-                cur = con.cursor()
-                if book_id is not None:
-                    cur.execute("SELECT id, title FROM books WHERE id = ?", (int(book_id),))
-                else:
-                    cur.execute("SELECT id, title FROM books ORDER BY timestamp DESC LIMIT 1")
-                result = cur.fetchone()
-
-            if not result:
-                print(f"[ingest-processor] Could not find book ID for auto-send: {book_title}", flush=True)
-                return
-                
-            book_id = int(result[0])
-            actual_title = result[1]
-
-            # Get users with auto-send enabled
-            app_db_path = get_app_db_path()
-            with sqlite3.connect(app_db_path, timeout=30) as con:
-                cur = con.cursor()
-                cur.execute("""
-                    SELECT id, name, kindle_mail
-                    FROM user
-                    WHERE auto_send_enabled = 1
-                    AND kindle_mail IS NOT NULL
-                    AND kindle_mail != ''
-                """)
-                auto_send_users = cur.fetchall()
-
-            # Subfolder routing: if the file was ingested from a subfolder,
-            # only send to the user whose name matches that subfolder.
-            target_username = None
-            try:
-                relative = os.path.relpath(self.filepath, self.ingest_folder)
-                parts = relative.split(os.sep)
-                if len(parts) > 1:
-                    target_username = parts[0]
-            except (ValueError, TypeError):
-                pass
-
-            if target_username:
-                auto_send_users = [
-                    u for u in auto_send_users
-                    if u[1].lower() == target_username.lower()
-                ]
-                if not auto_send_users:
-                    print(f"[ingest-processor] No CWA user matches subfolder '{target_username}', skipping auto-send", flush=True)
-                    return
-
-            if not auto_send_users:
-                print(f"[ingest-processor] No users with auto-send enabled found", flush=True)
-                return
-                
-            # Queue or schedule auto-send tasks for each user
-            for user_id, username, kindle_mail in auto_send_users:
-                try:
-                    delay_minutes = self.cwa_settings.get('auto_send_delay_minutes', 5)
-
-                    # Prefer to schedule in the long-lived web process so it shows in UI
-                    scheduled_via_api = False
-                    try:
-                        url = get_internal_api_url("/cwa-internal/schedule-auto-send")
-                        payload = {
-                            'book_id': int(book_id),
-                            'user_id': int(user_id),
-                            'delay_minutes': int(delay_minutes) if isinstance(delay_minutes, (int, float, str)) else 5,
-                            'username': username,
-                            'title': actual_title,
-                        }
-                        resp = requests.post(
-                            url,
-                            json=payload,
-                            headers=get_internal_api_headers(),
-                            timeout=5,
-                            verify=False,
-                        )
-                        if resp.status_code == 200:
-                            try:
-                                run_at = resp.json().get('run_at', 'soon')
-                            except Exception:
-                                run_at = 'soon'
-                            print(f"[ingest-processor] Scheduled auto-send at {run_at} for '{actual_title}' to user {username} ({kindle_mail}) via web process", flush=True)
-                            scheduled_via_api = True
-                        else:
-                            print(f"[ingest-processor] WARN: Web scheduling returned {resp.status_code}, falling back to immediate queue", flush=True)
-                    except Exception as api_err:
-                        print(f"[ingest-processor] WARN: Failed to schedule via web API: {api_err}. Falling back to immediate queue.", flush=True)
-
-                    if not scheduled_via_api:
-                        # Fallback: queue immediately in this process (task does not sleep)
-                        task_message = f"Auto-sending '{actual_title}' to {username}'s eReader(s)"
-                        task = TaskAutoSend(task_message, book_id, user_id, delay_minutes)
-                        WorkerThread.add(username, task)
-                        print(f"[ingest-processor] Queued auto-send immediately for '{actual_title}' to user {username} ({kindle_mail})", flush=True)
-                except Exception as e:
-                    print(f"[ingest-processor] Error queuing auto-send for user {username}: {e}", flush=True)
-
-        except Exception as e:
-            print(f"[ingest-processor] Error in auto-send trigger: {e}", flush=True)
-
-
-    def generate_book_checksums(self, book_title: str, book_id: int | None = None) -> None:
-        """Generate and store partial MD5 checksums for all formats of a newly imported book
-
-        This creates KOReader-compatible checksums that allow reading progress to sync
-        between KOReader devices and Calibre-Web.
-
-        Args:
-            book_title: Title of the book (used to find the book in Calibre database)
-            book_id: Optional ID of the book (more reliable than title lookup)
-        """
-        try:
-            import sqlite3
-            # Import the centralized partial MD5 calculation function
-            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-            from cps.progress_syncing.checksums import calculate_koreader_partial_md5, store_checksum, CHECKSUM_VERSION
-
-            calibre_db_path = os.path.join(self.library_dir, 'metadata.db')
-
-            with sqlite3.connect(calibre_db_path, timeout=30) as con:
-                cur = con.cursor()
-
-                book_row = None
-                if book_id is not None:
-                    # Find by ID (preferred)
-                    book_row = cur.execute(
-                        'SELECT id, path FROM books WHERE id = ?',
-                        (book_id,)
-                    ).fetchone()
-
-                if not book_row:
-                    # Fallback: Find the book ID by title (most recently added if multiple matches)
-                    book_row = cur.execute(
-                        'SELECT id, path FROM books WHERE title = ? ORDER BY timestamp DESC LIMIT 1',
-                        (book_title,)
-                    ).fetchone()
-
-                if not book_row:
-                    print(f"[ingest-processor] Could not find book '{book_title}' (ID: {book_id}) in database for checksum generation", flush=True)
-                    return
-
-                book_id, book_path = book_row
-
-                # Get all formats for this book
-                formats = cur.execute(
-                    'SELECT format, name FROM data WHERE book = ?',
-                    (book_id,)
-                ).fetchall()
-
-                if not formats:
-                    print(f"[ingest-processor] No formats found for book ID {book_id}", flush=True)
-                    return
-
-                print(f"[ingest-processor] Generating KOReader sync checksums v{CHECKSUM_VERSION} for book ID {book_id}...", flush=True)
-
-                for format_ext, format_name in formats:
-                    # Construct full file path
-                    file_path = os.path.join(self.library_dir, book_path, f"{format_name}.{format_ext.lower()}")
-
-                    if not os.path.exists(file_path):
-                        print(f"[ingest-processor] WARN: File not found: {file_path}", flush=True)
-                        continue
-
-                    # Generate partial MD5 checksum using centralized function
-                    checksum = calculate_koreader_partial_md5(file_path)
-
-                    if checksum:
-                        # Store using centralized manager function
-                        success = store_checksum(
-                            book_id=book_id,
-                            book_format=format_ext.upper(),
-                            checksum=checksum,
-                            version=CHECKSUM_VERSION,
-                            db_connection=con
-                        )
-
-                        if success:
-                            print(f"[ingest-processor] Generated checksum {checksum} (v{CHECKSUM_VERSION}) for {format_ext.upper()} format", flush=True)
-                        else:
-                            print(f"[ingest-processor] WARN: Failed to store checksum for {format_ext.upper()} format", flush=True)
-                    else:
-                        print(f"[ingest-processor] WARN: Failed to generate checksum for {file_path}", flush=True)
-
-                con.commit()
-                print(f"[ingest-processor] Checksum generation complete for book ID {book_id}", flush=True)
-
-        except Exception as e:
-            print(f"[ingest-processor] Error generating book checksums: {e}", flush=True)
-            # Don't fail the import if checksum generation fails
 
     def set_library_permissions(self):
         try:

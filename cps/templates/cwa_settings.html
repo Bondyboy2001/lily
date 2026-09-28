@@ -137,7 +137,7 @@
     </div>
     {% endif %}
     {% set hc_off = '' if hardcover_token_available else ' disabled' %}
-    {% call f.group(_('Hardcover Auto-Fetch'), help=_('Finds Hardcover IDs for books without one, for progress and annotation sync. You can also run it from the Admin page.')) %}
+    {% call f.group(_('Hardcover Auto-Fetch'), help=_('Finds Hardcover IDs for books without one, so Fetch Metadata can match them directly. You can also run it from the Overview page.')) %}
       {{ f.toggle('hardcover_auto_fetch_enabled', _('Auto-fetch Hardcover IDs'), cwa_settings['hardcover_auto_fetch_enabled'] and hardcover_token_available,
          help=_('Confident matches are applied; the rest wait for review.'), attrs='value="True"' ~ hc_off) }}
       {% call f.row(_('Schedule'), for_id='hardcover_auto_fetch_schedule') %}

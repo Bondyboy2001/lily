@@ -88,60 +88,6 @@ $(function() {
 $("#archived_cb").on("change", function() {
     $(this).closest("form").submit();
 });
-
-(function() {
-    var templates = {
-        add: _.template(
-            $("#template-shelf-add").html()
-        ),
-        remove: _.template(
-            $("#template-shelf-remove").html()
-        )
-    };
-
-    $(document).on("click", "#add-to-shelves [data-shelf-action], #remove-from-shelves [data-shelf-action]", function (e) {
-        e.preventDefault();
-        $.ajax({
-                url: $(this).data('href'),
-                method:"post",
-                data: {csrf_token:$("input[name='csrf_token']").val()},
-            })
-            .done(function() {
-                var $this = $(this);
-                switch ($this.data("shelf-action")) {
-                    case "add":
-                        $("#remove-from-shelves").append(
-                            templates.remove({
-                                add: $this.data('href'),
-                                remove: $this.data("remove-href"),
-                                content: $("<div>").text(this.textContent).html()
-                            })
-                        );
-                        break;
-                    case "remove":
-                        $("#add-to-shelves").append(
-                            templates.add({
-                                add: $this.data("add-href"),
-                                remove: $this.data('href'),
-                                content: $("<div>").text(this.textContent).html(),
-                            })
-                        );
-                        break;
-                }
-                this.parentNode.removeChild(this);
-                    window.location.reload();
-            }.bind(this))
-            .fail(function(xhr) {
-                var $msg = $("<span/>", { "class": "text-danger"}).text(xhr.responseText);
-                $("#shelf-action-errors").html($msg);
-
-                setTimeout(function() {
-                    $msg.remove();
-                }, 10000);
-            });
-    });
-})();
-
 // Tooltips for the icon-only toolbar buttons on the book page; labelled buttons don't need one
 $(function () {
     var $toolbarButtons = $(".book-action-bar .action-icon-btn, .book-action-bar .dropdown-toggle");

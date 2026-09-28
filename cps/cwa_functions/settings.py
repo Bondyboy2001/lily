@@ -9,7 +9,7 @@
 from flask import redirect, flash, url_for, request
 from flask_babel import gettext as _
 
-from .. import config, ub, calibre_db
+from .. import config
 from ..usermanagement import login_required_if_no_ano
 from ..admin import admin_required
 from ..render_template import render_title_template
@@ -123,7 +123,6 @@ def set_cwa_settings():
     cwa_db = CWA_DB()
     cwa_default_settings = cwa_db.cwa_default_settings
     cwa_settings = cwa_db.cwa_settings
-    previous_koreader_enabled = bool(cwa_settings.get('koreader_sync_enabled', 0))
 
     ignorable_formats = ['acsm', 'azw', 'azw3', 'azw4', 'cbz',
                         'cbr', 'cb7', 'cbc', 'chm',
@@ -139,10 +138,11 @@ def set_cwa_settings():
     boolean_settings = []
     string_settings = []
     list_settings = []
-    integer_settings = ['ingest_timeout_minutes', 'ingest_stale_temp_minutes', 'ingest_stale_temp_interval', 'auto_send_delay_minutes', 'hardcover_auto_fetch_batch_size', 'hardcover_auto_fetch_schedule_hour', 'duplicate_scan_hour', 'duplicate_scan_chunk_size', 'duplicate_scan_debounce_seconds', 'duplicate_auto_resolve_cooldown_minutes', 'archived_cleanup_schedule_hour', 'cover_download_max_mb', 'db_backup_keep_count']  # Special handling for integer settings
+    integer_settings = ['ingest_timeout_minutes', 'ingest_stale_temp_minutes', 'ingest_stale_temp_interval', 'hardcover_auto_fetch_batch_size', 'hardcover_auto_fetch_schedule_hour', 'duplicate_scan_hour', 'duplicate_scan_chunk_size', 'duplicate_scan_debounce_seconds', 'duplicate_auto_resolve_cooldown_minutes', 'archived_cleanup_schedule_hour', 'cover_download_max_mb', 'db_backup_keep_count']  # Special handling for integer settings
     float_settings = ['hardcover_auto_fetch_min_confidence', 'hardcover_auto_fetch_rate_limit']  # Special handling for float settings
     json_settings = ['metadata_provider_hierarchy', 'metadata_providers_enabled', 'duplicate_format_priority']  # Special handling for JSON settings
-    skip_settings = ['auto_ingest_ignored_formats']  # Handled through individual format checkboxes
+    # Handled through individual format checkboxes, or left over from removed features
+    skip_settings = ['auto_ingest_ignored_formats', 'auto_send_delay_minutes', 'koreader_sync_enabled']
     
     for setting in cwa_default_settings:
         if setting in integer_settings or setting in float_settings or setting in json_settings or setting in skip_settings:
@@ -210,8 +210,6 @@ def set_cwa_settings():
                             int_value = max(0, min(10080, int_value))  # Clamp between 0 and 10080 minutes (7 days)
                         elif setting == 'ingest_stale_temp_interval':
                             int_value = max(0, min(86400, int_value))  # Clamp between 0 and 86400 seconds (24 hours)
-                        elif setting == 'auto_send_delay_minutes':
-                            int_value = max(1, min(60, int_value))  # Clamp between 1 and 60 minutes
                         elif setting == 'hardcover_auto_fetch_batch_size':
                             int_value = max(10, min(200, int_value))  # Clamp between 10 and 200
                         elif setting == 'hardcover_auto_fetch_schedule_hour':
@@ -237,8 +235,6 @@ def set_cwa_settings():
                             result[setting] = cwa_db.cwa_settings.get(setting, 120)  # Default to 120 minutes
                         elif setting == 'ingest_stale_temp_interval':
                             result[setting] = cwa_db.cwa_settings.get(setting, 600)  # Default to 600 seconds
-                        elif setting == 'auto_send_delay_minutes':
-                            result[setting] = cwa_db.cwa_settings.get(setting, 5)  # Default to 5 minutes
                         elif setting == 'hardcover_auto_fetch_batch_size':
                             result[setting] = cwa_db.cwa_settings.get(setting, 50)  # Default to 50
                         elif setting == 'hardcover_auto_fetch_schedule_hour':
@@ -256,8 +252,6 @@ def set_cwa_settings():
                         result[setting] = cwa_db.cwa_settings.get(setting, 120)  # Default to 120 minutes
                     elif setting == 'ingest_stale_temp_interval':
                         result[setting] = cwa_db.cwa_settings.get(setting, 600)  # Default to 600 seconds
-                    elif setting == 'auto_send_delay_minutes':
-                        result[setting] = cwa_db.cwa_settings.get(setting, 5)  # Default to 5 minutes
                     elif setting == 'hardcover_auto_fetch_batch_size':
                         result[setting] = cwa_db.cwa_settings.get(setting, 50)  # Default to 50
                     elif setting == 'hardcover_auto_fetch_schedule_hour':
@@ -374,34 +368,6 @@ def set_cwa_settings():
                     mark_duplicate_index_pending("duplicate criteria settings changed")
                 except Exception as e:
                     log.warning("[cwa-duplicates] Could not mark duplicate index pending: %s", str(e))
-
-            # If KOReader sync was just enabled, ensure required tables exist
-            if not previous_koreader_enabled and bool(cwa_settings.get('koreader_sync_enabled', 0)):
-                log.warning(
-                    "KOReader sync enabled: checksum backfill runs at startup and may temporarily lock metadata.db. "
-                    "Disable and restart the container to stop a running backfill."
-                )
-                try:
-                    from ..progress_syncing.models import ensure_calibre_db_tables, ensure_app_db_tables
-                    from ..progress_syncing.settings import is_koreader_sync_enabled
-                    if is_koreader_sync_enabled():
-                        try:
-                            with calibre_db.engine.connect() as conn:
-                                ensure_calibre_db_tables(conn)
-                        except Exception as e:
-                            log.error(f"Failed to initialize KOReader checksum tables: {e}")
-
-                        try:
-                            if ub.session and ub.session.bind is not None:
-                                ensure_app_db_tables(ub.session.bind.raw_connection())
-                        except Exception as e:
-                            log.error(f"Failed to initialize KOReader progress tables: {e}")
-                except Exception as e:
-                    log.error(f"Failed to enable KOReader sync tables: {e}")
-            elif previous_koreader_enabled and not bool(cwa_settings.get('koreader_sync_enabled', 0)):
-                log.warning(
-                    "KOReader sync disabled: checksum backfill will stop after container restart."
-                )
 
             if not cron_invalid:
                 saved_message = _("Settings saved")

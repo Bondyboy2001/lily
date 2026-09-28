@@ -24,13 +24,13 @@ from sqlalchemy.exc import OperationalError, IntegrityError, InterfaceError, Inv
 from sqlalchemy.orm.exc import StaleDataError
 from sqlalchemy.sql.expression import func, or_
 
-from . import logger, isoLanguages, gdriveutils, uploader, helper, kobo_sync_status
+from . import logger, isoLanguages, gdriveutils, uploader, helper
 from .clean_html import clean_string
 from . import config, ub, db, calibre_db
 from .services.worker import WorkerThread
 from .tasks.upload import TaskUpload
 from .render_template import render_title_template
-from .kobo_sync_status import change_archived_books
+from .helper import change_archived_books
 from .redirect import get_redirect_location
 from .shelf import check_shelf_edit_permissions
 from .file_helper import validate_mime_type
@@ -546,10 +546,8 @@ def edit_book_param(param, vals):
             log_key = 'rating'
             log_value = vals.get('value', '')
         elif param == 'is_archived':
-            is_archived = change_archived_books(book.id, vals['value'] == "True",
-                                                message="Book {} archive bit set to: {}".format(book.id, vals['value']))
-            if is_archived:
-                kobo_sync_status.remove_synced_book(book.id)
+            change_archived_books(book.id, vals['value'] == "True",
+                                  message="Book {} archive bit set to: {}".format(book.id, vals['value']))
             return ""
         elif param == 'read_status':
             ret = helper.edit_book_read_status(book.id, vals['value'] == "True")
@@ -662,10 +660,8 @@ def archive_selected_books():
     state = request.get_json().get('archive')
     if vals:
         for book_id in vals:
-            is_archived = change_archived_books(book_id, state,
-                                                message="Book {} archive bit set to: {}".format(book_id, state))
-            if is_archived:
-                kobo_sync_status.remove_synced_book(book_id)
+            change_archived_books(book_id, state,
+                                  message="Book {} archive bit set to: {}".format(book_id, state))
         return json.dumps({'success': True})
     return ""
 
@@ -985,10 +981,6 @@ def do_edit_book(book_id, upload_formats=None):
 
         modify_date |= edit_all_cc_data(book_id, book, to_save)
 
-        # Handle hardcover sync blacklist settings
-        if config.config_kobo_sync and config.config_hardcover_sync:
-            modify_date |= edit_hardcover_blacklist(book_id, to_save)
-
         if to_save.get("pubdate"):
             try:
                 book.pubdate = datetime.strptime(to_save["pubdate"], "%Y-%m-%d")
@@ -1002,7 +994,6 @@ def do_edit_book(book_id, upload_formats=None):
         # Stage 3: Commit all changes to the database.
         if modify_date:
             book.last_modified = datetime.now(timezone.utc)
-            kobo_sync_status.remove_synced_book(book.id, all=True)
             calibre_db.set_metadata_dirty(book.id)
 
         try:
@@ -1305,8 +1296,6 @@ def delete_book_from_table(book_id, book_format, json_response, location=""):
                 else:
                     calibre_db.session.query(db.Data).filter(db.Data.book == book.id).\
                         filter(db.Data.format == book_format).delete()
-                    if book_format.upper() in ['KEPUB', 'EPUB', 'EPUB3']:
-                        kobo_sync_status.remove_synced_book(book.id, True)
                 calibre_db.session.commit()
 
                 refreshed_duplicate_cache = False
@@ -1382,16 +1371,11 @@ def render_edit_book(book_id):
     for authr in book.authors:
         author_names.append(authr.name.replace('|', ','))
 
-    # Check for existing hardcover blacklist settings
-    hardcover_blacklist = ub.session.query(ub.HardcoverBookBlacklist).filter(
-        ub.HardcoverBookBlacklist.book_id == book.id
-    ).first()
     return render_title_template('book_edit.html', book=book, authors=author_names, cc=cc,
                                  shelf_ids_editable=[shelf.id for shelf in _editable_shelves()],
                                  book_shelf_ids=_book_shelf_ids(book.id),
                                  title=_("Edit Metadata"), page="editbook",
-                                 config=config,
-                                 hardcover_blacklist=hardcover_blacklist)
+                                 config=config)
 
 
 def edit_book_ratings(to_save, book):
@@ -1619,45 +1603,6 @@ def edit_cc_data(book_id, book, to_save, cc):
                                                   calibre_db.session,
                                                   'custom')
     # CWA: Export of changed metadata moved to do_edit_book after commit to avoid race conditions
-    return changed
-
-
-def edit_hardcover_blacklist(book_id, to_save):
-    """Handle hardcover sync blacklist settings for a book."""
-    changed = False
-    new_blacklist_annotations = 'blacklist_annotations' in to_save
-    new_blacklist_progress = 'blacklist_reading_progress' in to_save
-    
-    # Only create/update record if at least one blacklist is active
-    if not new_blacklist_annotations and not new_blacklist_progress:
-        # Check if record exists and delete it
-        blacklist = ub.session.query(ub.HardcoverBookBlacklist).filter(
-            ub.HardcoverBookBlacklist.book_id == book_id
-        ).first()
-        if blacklist:
-            ub.session.delete(blacklist)
-            changed = True
-        return changed
-    
-    # Get or create blacklist record
-    blacklist = ub.session.query(ub.HardcoverBookBlacklist).filter(
-        ub.HardcoverBookBlacklist.book_id == book_id
-    ).first()
-    
-    if blacklist is None:
-        blacklist = ub.HardcoverBookBlacklist(book_id=book_id)
-        ub.session.add(blacklist)
-        changed = True
-    
-    # Update settings
-    if blacklist.blacklist_annotations != new_blacklist_annotations:
-        blacklist.blacklist_annotations = new_blacklist_annotations
-        changed = True
-    
-    if blacklist.blacklist_reading_progress != new_blacklist_progress:
-        blacklist.blacklist_reading_progress = new_blacklist_progress
-        changed = True
-    
     return changed
 
 

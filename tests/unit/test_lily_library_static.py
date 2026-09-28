@@ -97,7 +97,7 @@ def test_quick_actions_are_markup_not_injected():
     image = read(TEMPLATES / "image.html")
     assert "macro cover_actions" in image and "icon-btn" in image
     js = read(JS / "lily.js")
-    for needle in ("lily-toggle-read", "lily-send-ereader", "lily-read-now", "/ajax/toggleread/"):
+    for needle in ("lily-toggle-read", "lily-read-now", "/ajax/toggleread/"):
         assert needle in js, needle
 
 

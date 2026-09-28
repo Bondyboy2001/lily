@@ -8,7 +8,7 @@
 import datetime
 
 from . import config, constants
-from .services.background_scheduler import BackgroundScheduler, CronTrigger, IntervalTrigger, DateTrigger
+from .services.background_scheduler import BackgroundScheduler, CronTrigger, IntervalTrigger
 # Re-exported: cps.admin reads the feature flag as `schedule.use_APScheduler`.
 from .services.background_scheduler import use_APScheduler  # noqa: F401
 from .tasks.database import TaskReconnectDatabase, TaskCleanArchivedBooks
@@ -92,53 +92,6 @@ def register_startup_tasks():
             check_and_migrate_thumbnails()
         except Exception:
             # Don't let migration failures stop the application
-            pass
-
-        # Rehydrate scheduled auto-send jobs from cwa.db (if any)
-        try:
-            import sys as _sys
-            if '/app/calibre-web-automated/scripts/' not in _sys.path:
-                _sys.path.insert(1, '/app/calibre-web-automated/scripts/')
-            from cwa_db import CWA_DB
-            from .tasks.auto_send import TaskAutoSend
-            from .services.worker import WorkerThread
-            from datetime import datetime
-
-            db = CWA_DB()
-            delay_minutes = int(db.cwa_settings.get('auto_send_delay_minutes', 0) or 0)
-            pending = db.scheduled_get_pending_autosend()
-            for row in pending:
-                try:
-                    # Parse UTC run time, convert to local naive for DateTrigger
-                    run_at_utc = datetime.fromisoformat(row['run_at_utc'].replace('Z', '+00:00'))
-                    run_at_local = run_at_utc.astimezone().replace(tzinfo=None)
-                    username = row.get('username') or 'System'
-                    title = row.get('title') or 'Book'
-                    book_id = int(row['book_id']) if row.get('book_id') is not None else None
-                    user_id = int(row['user_id']) if row.get('user_id') is not None else None
-                    schedule_id = int(row['id'])
-
-                    def _rehydrate_enqueue(uid=user_id, bid=book_id, u=username, t=title, sid=schedule_id):
-                        # Mark dispatched and enqueue the task only if state moved from scheduled
-                        should_enqueue = False
-                        try:
-                            should_enqueue = bool(CWA_DB().scheduled_mark_dispatched(int(sid)))
-                        except Exception:
-                            pass
-                        if should_enqueue and bid is not None and uid is not None:
-                            WorkerThread.add(u, TaskAutoSend(f"Auto-sending '{t}' to user's eReader(s)", bid, uid, delay_minutes), hidden=False)
-
-                    job = scheduler.schedule(func=_rehydrate_enqueue, trigger=DateTrigger(run_date=run_at_local), name=f"rehydrated auto-send {schedule_id}")
-                    try:
-                        if job is not None:
-                            db.scheduled_update_job_id(schedule_id, str(job.id))
-                    except Exception:
-                        pass
-                except Exception:
-                    # Never break startup on rehydration issues
-                    pass
-        except Exception:
-            # If scripts not available or table missing, skip
             pass
 
         # Run scheduled tasks immediately for development and testing

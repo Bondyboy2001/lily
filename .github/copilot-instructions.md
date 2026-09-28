@@ -27,7 +27,7 @@ Services communicate via filesystem locks (`/tmp/*.lock`), SQLite databases, and
 ### Flask Blueprint Organization
 Core blueprints in `cps/main.py`:
 - **CWA-specific**: `switch_theme`, `library_refresh`, `cwa_stats`, `cwa_settings`, `cwa_logs`, `profile_pictures`
-- **Stock CW**: `web`, `opds`, `admin`, `editbook`, `shelf`, `kobo`, `oauth`, etc.
+- **Stock CW**: `web`, `opds`, `admin`, `editbook`, `shelf`, etc.
 
 Each blueprint is a self-contained module in `cps/` (e.g., `cps/web.py`, `cps/cwa_functions.py`).
 
@@ -146,19 +146,6 @@ Set `NETWORK_SHARE_MODE=true` environment variable when deploying on NFS/SMB:
 - **Disables**: WAL mode on databases, recursive `chown` operations
 - **Enables**: Polling-based file watcher instead of inotify (unreliable on network mounts)
 - **Fallback watcher**: `scripts/watch_fallback.py` polls every 5 seconds instead of using `inotifywait`
-
-### OAuth Integration
-Enhanced OAuth 2.0/OIDC in `cps/oauth_bb.py`:
-- **Auto-discovery**: Fetches endpoints from `/.well-known/openid-configuration`
-- **Manual override**: Direct endpoint configuration when auto-discovery fails
-- **Group mapping**: JWT field extraction for username/email, group-based admin role assignment
-- **Blueprints**: Dynamically registered per provider (GitHub, Google, Generic OIDC)
-
-### Kobo Sync Integration
-`cps/kobo.py` + `cps/kosync.py`:
-- **Kobo device sync**: Native Calibre-Web functionality, syncs reading positions
-- **KOReader sync**: Custom CWA feature, RFC 7617 auth, plugin in `koreader/plugins/cwasync.koplugin/`
-- **Plugin delivery**: `koplugin.zip` built during Docker image creation, served at `/kosync` endpoint
 
 ### Metadata Provider System
 Pluggable providers in `cps/metadata_provider/`:

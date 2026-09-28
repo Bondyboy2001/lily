@@ -11,12 +11,8 @@ import traceback
 from flask import render_template
 from .cw_login import current_user
 from werkzeug.exceptions import default_exceptions
-try:
-    from werkzeug.exceptions import FailedDependency
-except ImportError:
-    from werkzeug.exceptions import UnprocessableEntity as FailedDependency
 
-from . import config, app, logger, services
+from . import config, app, logger
 
 
 log = logger.create()
@@ -64,12 +60,4 @@ def init_errorhandler():
             app.register_error_handler(ex, error_http)
         elif ex == 500:
             app.register_error_handler(ex, internal_error)
-
-    if services.ldap:
-        # Only way of catching the LDAPException upon logging in with LDAP server down
-        @app.errorhandler(services.ldap.LDAPException)
-        # pylint: disable=unused-variable
-        def handle_exception(e):
-            log.debug('LDAP server not accessible while trying to login to opds feed')
-            return error_http(FailedDependency())
 

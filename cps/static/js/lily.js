@@ -178,33 +178,6 @@
         $btn.removeClass("is-busy");
       });
     });
-
-    $(document).on("click", ".lily-cover-actions .lily-send-ereader", function () {
-      var $btn = $(this);
-      var $box = $btn.closest(".lily-cover-actions");
-      var formats = String($box.data("book-formats") || "").split(",").filter(Boolean);
-      var format = pickFormat(formats, ["epub", "pdf", "mobi", "azw3", "azw"]);
-      var email = window.cwaUserData && window.cwaUserData.primaryEmail;
-      if (!format || !email) { return; }
-      $btn.addClass("is-busy");
-      $.ajax({
-        url: root + "/send_selected/" + $box.data("book-id"),
-        type: "POST",
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-        data: { csrf_token: csrfToken(), selected_emails: email, book_format: format.toUpperCase(), convert: 0 }
-      }).done(function (response) {
-        if (response && response.length && response[0].message) { flash(response[0].message, "success"); }
-      }).fail(function (xhr) {
-        var message = "Sending failed. Check your eReader email settings and try again.";
-        try {
-          var body = JSON.parse(xhr.responseText);
-          if (body && body.length && body[0].message) { message = body[0].message; }
-        } catch (err) { /* keep the default message */ }
-        flash(message, "danger");
-      }).always(function () {
-        $btn.removeClass("is-busy");
-      });
-    });
   });
 })(window.jQuery);
 

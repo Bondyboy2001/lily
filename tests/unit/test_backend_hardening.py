@@ -184,32 +184,6 @@ class TestContentRestrictions:
         assert client.get(f"/show/{allowed}/epub").status_code == 200
         assert client.get(f"/show/{hidden}/epub").status_code == 404
 
-    def test_send_to_ereader_respects_denied_tags(self, env, monkeypatch):
-        from cps import config, helper
-        queued = []
-        monkeypatch.setattr(config, "get_mail_server_configured", lambda: True)
-        monkeypatch.setattr(helper.WorkerThread, "add", lambda *a, **k: queued.append(a))
-        allowed = env.add_book("Open Book", tags=("Public",))
-        hidden = env.add_book("Hidden Book", tags=("Secret",))
-        from cps import constants
-        env.add_user("reader", role=constants.ROLE_VIEWER | constants.ROLE_DOWNLOAD, denied_tags="Secret",
-                     kindle_mail="reader@kindle.example")
-        client = _login(env, "reader", "pw")
-
-        resp = json.loads(client.post(f"/send/{hidden}/epub/0").get_data(as_text=True))
-        assert resp[0]["type"] == "danger" and "not found" in resp[0]["message"]
-        assert queued == []
-
-        resp = json.loads(client.post(f"/send/{allowed}/epub/0").get_data(as_text=True))
-        assert resp[0]["type"] == "success"
-        assert len(queued) == 1
-
-    def test_send_mail_uses_the_filtered_lookup(self):
-        tree = ast.parse((REPO / "cps/helper.py").read_text())
-        fn = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "send_mail")
-        calls = {n.func.attr for n in ast.walk(fn) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)}
-        assert "get_filtered_book" in calls
-
 
 # --------------------------------------------------------------------------- 4. stats SQL
 def _stats_queries(tmp_path):
@@ -425,38 +399,30 @@ class TestContinueReadingWebSource:
 
     BASE = datetime(2026, 1, 1)
 
-    def _reading(self, session, book_id, minutes, kobo=None, web=None):
+    def _reading(self, session, book_id, minutes, web=None):
         from cps import ub
         rb = ub.ReadBook(user_id=1, book_id=book_id, read_status=ub.ReadBook.STATUS_IN_PROGRESS)
         session.add(rb)
-        if kobo is not None:
-            state = ub.KoboReadingState(user_id=1, book_id=book_id)
-            state.current_bookmark = ub.KoboBookmark(progress_percent=kobo[0])
-            session.add(state)
         if web is not None:
             session.add(ub.WebReaderProgress(user_id=1, book_id=book_id, cfi="x", percent=web[0]))
         session.commit()
         at = self.BASE + timedelta(minutes=minutes)
         session.query(ub.ReadBook).filter_by(book_id=book_id).update({ub.ReadBook.last_modified: at})
-        if kobo is not None:
-            session.query(ub.KoboBookmark).filter(
-                ub.KoboBookmark.kobo_reading_state_id == state.id).update(
-                {ub.KoboBookmark.last_modified: self.BASE + timedelta(minutes=kobo[1])})
         if web is not None:
             session.query(ub.WebReaderProgress).filter_by(book_id=book_id).update(
                 {ub.WebReaderProgress.last_modified: self.BASE + timedelta(minutes=web[1])})
         session.commit()
 
-    def test_newest_source_wins_and_orders_the_row(self, session):
+    def test_web_progress_orders_the_row(self, session):
         from cps.web import get_continue_reading_progress
-        self._reading(session, 10, 1, kobo=(40.0, 2), web=(0.6, 5))   # web newer -> 60 %
-        self._reading(session, 11, 1, kobo=(70.0, 8), web=(0.2, 3))   # kobo newer -> 70 %
-        self._reading(session, 12, 1, web=(0.1, 20))                  # web only, most recent
-        self._reading(session, 13, 4)                                 # no progress at all
+        self._reading(session, 10, 1, web=(0.6, 5))
+        self._reading(session, 11, 8)                  # no progress, but touched most recently
+        self._reading(session, 12, 1, web=(0.1, 20))   # web position is the newest activity
+        self._reading(session, 13, 4)
         result = get_continue_reading_progress(session, 1)
         assert [book_id for book_id, __ in result] == [12, 11, 10, 13]
         progress = dict(result)
         assert progress[10] == pytest.approx(60.0)
-        assert progress[11] == pytest.approx(70.0)
+        assert progress[11] is None
         assert progress[12] == pytest.approx(10.0)
         assert progress[13] is None

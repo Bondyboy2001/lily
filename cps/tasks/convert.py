@@ -9,7 +9,6 @@ import os
 import re
 import glob
 from shutil import copyfile
-from markupsafe import escape
 from time import time
 from uuid import uuid4
 
@@ -21,11 +20,8 @@ from cps import db
 from cps import logger, config
 from cps.subproc_wrapper import process_open
 from flask_babel import gettext as _
-from cps.kobo_sync_status import remove_synced_book
-from cps.ub import init_db_thread
 from cps.file_helper import get_temp_dir
 
-from cps.tasks.mail import TaskEmail
 from cps import gdriveutils, helper
 from cps.constants import SUPPORTED_CALIBRE_BINARIES
 from cps.string_helper import strip_whitespaces
@@ -36,14 +32,13 @@ current_milli_time = lambda: int(round(time() * 1000))
 
 
 class TaskConvert(CalibreTask):
-    def __init__(self, file_path, book_id, task_message, settings, ereader_mail, user=None):
+    def __init__(self, file_path, book_id, task_message, settings, user=None):
         super(TaskConvert, self).__init__(task_message)
         self.worker_thread = None
         self.file_path = file_path
         self.book_id = book_id
         self.title = ""
         self.settings = settings
-        self.ereader_mail = ereader_mail
         self.user = user
 
         self.results = dict()
@@ -91,25 +86,6 @@ class TaskConvert(CalibreTask):
                 # Upload files to gdrive
                 gdriveutils.updateGdriveCalibreFromLocal()
                 self._handleSuccess()
-            if self.ereader_mail:
-                # if we're sending to E-Reader after converting, create a one-off task and run it immediately
-                # todo: figure out how to incorporate this into the progress
-                try:
-                    EmailText = N_(u"%(book)s send to E-Reader", book=escape(self.title))                    
-                    for email in self.ereader_mail.split(','):
-                        email = strip_whitespaces(email)
-                        worker_thread.add(self.user, TaskEmail(self.settings['subject'],
-                                                               self.results["path"],
-                                                               filename,
-                                                               self.settings,
-                                                               email,
-                                                               EmailText,
-                                                               self.settings['body'],
-                                                               id=self.book_id,
-                                                               internal=True)
-                                          )
-                except Exception as ex:
-                    return self._handleError(str(ex))
 
     def _convert_ebook_format(self):
         error_message = None
@@ -176,10 +152,6 @@ class TaskConvert(CalibreTask):
                     try:
                         local_db.session.merge(new_format)
                         local_db.session.commit()
-                        if self.settings['new_book_format'].upper() in ['KEPUB', 'EPUB', 'EPUB3']:
-                            ub_session = init_db_thread()
-                            remove_synced_book(book_id, True, ub_session)
-                            ub_session.close()
                     except SQLAlchemyError as e:
                         local_db.session.rollback()
                         log.error("Database error: %s", e)
@@ -340,10 +312,7 @@ class TaskConvert(CalibreTask):
         return N_("Convert")
 
     def __str__(self):
-        if self.ereader_mail:
-            return "Convert Book {} and mail it to {}".format(self.book_id, self.ereader_mail)
-        else:
-            return "Convert Book {}".format(self.book_id)
+        return "Convert Book {}".format(self.book_id)
 
     @property
     def is_cancellable(self):

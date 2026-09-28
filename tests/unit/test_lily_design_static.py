@@ -223,7 +223,7 @@ def test_layout_loads_lily_js_after_main_js():
 
 
 LILY_STYLESHEETS.append("login.css")
-AUTH_TEMPLATES = ["login.html", "register.html"]
+AUTH_TEMPLATES = ["login.html"]
 
 
 def test_auth_templates_have_one_primary_and_no_inline_styles():

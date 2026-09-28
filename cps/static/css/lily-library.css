@@ -900,10 +900,6 @@ dl.book-metadata {
 
 .book-detail-description .comments p { margin: 0 0 14px; }
 
-#shelf-action-errors:empty { display: none; }
-
-#modal-validation-message { display: none; }
-
 /* A short confirmation next to the control that caused it. */
 .action-toast {
     position: fixed;

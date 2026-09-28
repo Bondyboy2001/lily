@@ -67,17 +67,6 @@ class LilyEnv:
         ub.session.commit()
         return user
 
-    def kobo_token(self, user):
-        ub = self.ub
-        token = ub.RemoteAuthToken()
-        token.user_id = user.id
-        token.token_type = 1
-        token.auth_token = uuid.uuid4().hex
-        token.expiration = datetime(2099, 1, 1)
-        ub.session.add(token)
-        ub.session.commit()
-        return token.auth_token
-
     # -- books -----------------------------------------------------------------
     def add_book(self, title, *, author="Test Author", fmt="EPUB", timestamp=None,
                  tags=(), lang=None):
@@ -116,17 +105,6 @@ class LilyEnv:
             con.close()
         return book_id
 
-    def add_checksum(self, book_id, checksum, fmt="EPUB", version="koreader"):
-        con = sqlite3.connect(self.library_dir / "metadata.db")
-        try:
-            con.execute(
-                "INSERT INTO book_format_checksums (book, format, checksum, version, created) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (book_id, fmt, checksum, version, datetime.now(timezone.utc).isoformat()))
-            con.commit()
-        finally:
-            con.close()
-
 
 def _build_app():
     import cps
@@ -154,11 +132,8 @@ def _build_app():
     from cps.opds import opds
     from cps.shelf import shelf
     from cps.search import search
-    from cps.kobo import kobo
-    from cps.kobo_auth import kobo_auth
     from cps.admin import admi
-    from cps.progress_syncing.protocols.kosync import kosync
-    for bp in (admi, jinjia, web, opds, shelf, search, kobo, kobo_auth, kosync):
+    for bp in (admi, jinjia, web, opds, shelf, search):
         app.register_blueprint(bp)
 
     @app.teardown_appcontext
@@ -174,17 +149,10 @@ def lily_env(tmp_path, **config_overrides):
     """Yield a LilyEnv backed by fresh databases under ``tmp_path``."""
     import cps
     from cps import ub, db, config, config_sql
-    from cps.progress_syncing.models import ensure_calibre_db_tables
 
     library_dir = Path(tmp_path) / "library"
     library_dir.mkdir()
     shutil.copy(EMPTY_LIBRARY_DB, library_dir / "metadata.db")
-    con = sqlite3.connect(library_dir / "metadata.db")
-    try:
-        ensure_calibre_db_tables(con)
-        con.commit()
-    finally:
-        con.close()
     app_db_path = str(Path(tmp_path) / "app.db")
 
     saved_ub = (ub.session, ub.app_DB_path)
@@ -206,8 +174,6 @@ def lily_env(tmp_path, **config_overrides):
         config_sql.load_configuration(ub.session, key)
         config.init_config(ub.session, key, None)
         config.config_calibre_dir = str(library_dir)
-        config.config_kobo_sync = True
-        config.config_kobo_proxy = False
         config.config_anonbrowse = 0
         config.config_books_per_page = 60
         for name, value in config_overrides.items():

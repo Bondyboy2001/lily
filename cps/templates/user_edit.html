@@ -17,11 +17,6 @@
         {% call f.row(_('Password'), for_id='password', help=_('Leave empty to keep the current password.') if not new_user else None) %}
           <input type="password" class="form-control" name="password" id="password" data-lang="{{ current_user.locale }}" data-verify="{{ config.config_password_policy }}" {% if config.config_password_policy %} data-min={{ config.config_password_min_length }} data-word={{ config.config_password_character }} data-special={{ config.config_password_special }} data-upper={{ config.config_password_upper }} data-lower={{ config.config_password_lower }} data-number={{ config.config_password_number }}{% endif %} value="" autocomplete="off">
         {% endcall %}
-        {% if current_user and current_user.role_admin() and not new_user and not profile and ( mail_configured and content.email if content.email != None ) %}
-          {% call f.row(_('Password Reset'), help=_('Email this user a new password.')) %}
-            <a class="btn btn-default postAction" id="resend_password" role="button" data-action="{{url_for('admin.reset_user_password', user_id = content.id) }}">{{_('Reset user Password')}}</a>
-          {% endcall %}
-        {% endif %}
       {% endif %}
     {% endcall %}
 
@@ -45,32 +40,9 @@
       {% endcall %}
     {% endcall %}
 
-    {% if (registered_oauth.keys()| length > 0 and not new_user and profile) or (hardcover_support and config.config_hardcover_sync and not new_user) or (kobo_support and not new_user) %}
-    {% call f.group(_('Connections')) %}
-      {% if registered_oauth.keys()| length > 0 and not new_user and profile %}
-        {% for id, name in registered_oauth.items() %}
-          {% call f.row(name|capitalize) %}
-            {% if id not in oauth_status %}
-            <a href="{{ url_for('oauth.'+ name +'_login') }}" id="config_{{ id }}_oauth" class="btn btn-default">{{_('Link')}} {{ name|capitalize }} {{_('Account')}}</a>
-            {% else %}
-            <a href="{{ url_for('oauth.'+ name +'_login_unlink') }}" id="config_{{ id }}_oauth" class="btn btn-danger">{{_('Unlink')}} {{ name|capitalize }} {{_('Account')}}</a>
-            {% endif %}
-          {% endcall %}
-        {% endfor %}
-      {% endif %}
-      {% if hardcover_support and config.config_hardcover_sync and not new_user %}
-        {{ f.input('hardcover_token', _('Hardcover API Token'), content.hardcover_token, help=_('For Hardcover metadata and progress sync.')) }}
-      {% endif %}
-      {% if kobo_support and not new_user %}
-        {% call f.row(_('Kobo Sync Token')) %}
-          <div class="btn btn-danger" id="config_delete_kobo_token" data-value="{{ content.id }}" data-remote="false" {% if not content.remote_auth_token.first() %} style="display: none;" {% endif %}>{{_('Delete')}}</div>
-          <div class="btn btn-default" id="kobo_full_sync" data-value="{% if current_user.role_admin() %}{{ content.id }}{% else %}0{% endif %}" {% if not content.remote_auth_token.first() %} style="display: none;" {% endif %}>{{_('Force full kobo sync')}}</div>
-          <a class="btn btn-default" id="config_create_kobo_token" data-toggle="modal" data-target="#modal_kobo_token" data-remote="false" href="{{ url_for('kobo_auth.generate_auth_token', user_id=content.id) }}">{{_('Create/View')}}</a>
-        {% endcall %}
-        {% if not content.role_anonymous() and not simple %}
-          {{ f.toggle('kobo_only_shelves_sync', _('Sync only books in selected shelves with Kobo'), content.kobo_only_shelves_sync) }}
-        {% endif %}
-      {% endif %}
+    {% if profile and not content.role_anonymous() %}
+    {% call f.group(_('Hardcover')) %}
+      {{ f.input('hardcover_token', _('Hardcover API key'), content.hardcover_token, help=_('Optional. Used for Fetch Metadata instead of the server-wide key.')) }}
     {% endcall %}
     {% endif %}
 
@@ -128,21 +100,6 @@
       <button id="user_submit" class="btn btn-primary" type="button">{{_('Save')}}</button>
     </div>
   </form>
-</div>
-
-<div class="modal fade" id="modal_kobo_token" tabindex="-1" role="dialog" aria-labelledby="kobo_tokenModalLabel">
-  <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-        <h4 class="modal-title" id="kobo_tokenModalLabel">{{_('Generate Kobo Auth URL')}}</h4>
-      </div>
-      <div class="modal-body">...</div>
-      <div class="modal-footer">
-        <button type="button" id="kobo_close" class="btn btn-default" data-dismiss="modal">{{_('Close')}}</button>
-      </div>
-    </div>
-  </div>
 </div>
 
 <script>

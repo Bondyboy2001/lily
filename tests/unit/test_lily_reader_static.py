@@ -111,16 +111,15 @@ def test_advanced_search_uses_lily_form_rows():
 def _register_remaining_blueprints(app):
     """layout.html links to every blueprint; add the ones the shared test app lacks."""
     from cps.cwa_functions import (library_refresh, cwa_stats, cwa_check_status, cwa_settings,
-                                   cwa_logs, cwa_internal)
+                                   cwa_internal)
     from cps.editbooks import editbook
     from cps.about import about
     from cps.search_metadata import meta
     from cps.tasks_status import tasks
-    from cps.remotelogin import remotelogin
     from cps.duplicates import duplicates
     from cps.gdrive import gdrive
-    for bp in (library_refresh, cwa_stats, cwa_check_status, cwa_settings, cwa_logs, cwa_internal,
-               editbook, about, meta, tasks, remotelogin, duplicates, gdrive):
+    for bp in (library_refresh, cwa_stats, cwa_check_status, cwa_settings, cwa_internal,
+               editbook, about, meta, tasks, duplicates, gdrive):
         if bp.name not in app.blueprints:
             app.register_blueprint(bp)
 

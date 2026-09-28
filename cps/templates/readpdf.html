@@ -47,7 +47,6 @@ See https://github.com/adobe-type-tools/cmap-resources
         PDFViewerApplicationOptions.set('cMapUrl', "{{ url_for('static', filename='cmaps/') }}");
         PDFViewerApplicationOptions.set('standardFontDataUrl', "{{ url_for('static', filename='standard_fonts/') }}");
         PDFViewerApplicationOptions.set('sidebarViewOnLoad', 0);
-        PDFViewerApplicationOptions.set('imageResourcesPath', "{{ url_for('static', filename='css/images/') }}");
         PDFViewerApplicationOptions.set('workerSrc', "{{ url_for('static', filename='js/libs/pdf.worker.mjs') }}");
         PDFViewerApplicationOptions.set('defaultUrl',"{{ url_for('web.serve_book', book_id=pdffile, book_format='pdf') }}")
     });

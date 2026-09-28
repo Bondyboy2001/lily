@@ -32,7 +32,6 @@ certifi>=2024.7.4
 charset-normalizer>=3.5.1
 idna>=3.7
 tabulate>=0.9.0
-qrcode>=8.1
 polib>=1.2.0
 
 # GDrive Integration
@@ -54,19 +53,8 @@ pyOpenSSL>=24.0.0,<25.0.0
 PyYAML>=3.12,<6.1
 rsa>=3.4.2,<4.10.0
 
-# Gmail (google-api-python-client is listed under GDrive above)
-google-auth-oauthlib>=0.4.3,<1.3.0
-
 # fuzzy title matching (cps/utils/text_similarity.py)
 python-Levenshtein>=0.12.0,<0.28.0
-
-# ldap login
-python-ldap>=3.0.0,<3.5.0
-Flask-SimpleLDAP>=1.4.0,<2.1.0
-
-# oauth
-Flask-Dance>=2.0.0,<7.2.0
-SQLAlchemy-Utils>=0.33.5,<0.42.0
 
 # metadata extraction
 rarfile>=3.2,<5.0
@@ -81,7 +69,3 @@ mutagen>=1.40.0,<1.50.0
 # Comics
 natsort>=2.2.0,<8.5.0
 comicapi>=2.2.0,<3.3.0
-
-# Kobo integration
-jsonschema>=3.2.0,<4.24.0
-curl-cffi>=0.6.0,<0.7.0

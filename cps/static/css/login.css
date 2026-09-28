@@ -127,8 +127,6 @@ body.login .lily-topbar ~ .row-fluid {
 
 .lily-login-form .alert { margin: 0 0 14px; }
 
-.lily-login-note { color: var(--muted); }
-
 /* ---- Other ways in ---- */
 .lily-login-alt {
     display: flex;
@@ -137,22 +135,6 @@ body.login .lily-topbar ~ .row-fluid {
     margin-top: 22px;
     padding-top: 22px;
     border-top: 1px solid var(--line);
-}
-
-.lily-login-alt .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.lily-login-alt .btn + .btn { margin-top: 0; }
-
-.lily-login-alt svg {
-    width: 14px;
-    height: 14px;
-    flex: none;
-    fill: currentColor;
 }
 
 .lily-login-links {

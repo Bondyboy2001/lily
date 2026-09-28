@@ -10,7 +10,6 @@
 from markupsafe import escape
 import datetime
 import mimetypes
-from uuid import uuid4
 
 from flask import Blueprint, request, url_for, g
 from flask_babel import format_date
@@ -118,28 +117,9 @@ def formatfloat(value, decimals=1):
         return ''
 
 
-'''@jinjia.app_template_filter('formatseriesindex')
-def formatseriesindex_filter(series_index):
-    if series_index:
-        try:
-            if int(series_index) - series_index == 0:
-                return int(series_index)
-            else:
-                return series_index
-        except (ValueError, TypeError):
-            return series_index
-    return 0
-'''
-
-
 @jinjia.app_template_filter('escapedlink')
 def escapedlink_filter(url, text):
     return "<a href='{}'>{}</a>".format(url, escape(text))
-
-
-@jinjia.app_template_filter('uuidfilter')
-def uuidfilter(var):
-    return uuid4()
 
 
 @jinjia.app_template_filter('cache_timestamp')

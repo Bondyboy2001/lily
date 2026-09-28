@@ -164,7 +164,8 @@ def _load_editbooks_module(delete_key_calls):
 
     cps = _install_stub("cps")
     logger = _install_stub("cps.logger", {"create": lambda: _Logger()})
-    helper = _install_stub("cps.helper", {"delete_book": lambda *args, **kwargs: (True, None)})
+    helper = _install_stub("cps.helper", {"delete_book": lambda *args, **kwargs: (True, None),
+                                          "change_archived_books": lambda *args, **kwargs: None})
     config = _install_stub("cps.config", {"get_book_path": lambda: "/library"})
     calls = []
     calibre_db = _install_stub(
@@ -186,13 +187,6 @@ def _load_editbooks_module(delete_key_calls):
         setattr(cps, name, module)
 
     _install_stub("cps.ub")
-    _install_stub(
-        "cps.kobo_sync_status",
-        {
-            "remove_synced_book": lambda *args, **kwargs: calls.append("kobo"),
-            "change_archived_books": lambda *args, **kwargs: None,
-        },
-    )
     _install_stub("cps.clean_html", {"clean_string": lambda value: value})
     _install_stub("cps.services")
     _install_stub("cps.services.worker", {"WorkerThread": SimpleNamespace(get_instance=lambda: None)})

@@ -29,7 +29,6 @@ from cps.helper import (
     get_valid_filename,
     split_authors,
     get_sorted_author,
-    generate_random_password,
     check_email,
     check_username,
     valid_email,
@@ -327,57 +326,6 @@ class TestGetSortedAuthor:
         result = get_sorted_author("")
         # Should return empty string or handle gracefully
         assert result is not None
-
-
-# ============================================================================
-# Tests for generate_random_password()
-# ============================================================================
-
-class TestGenerateRandomPassword:
-    """Test password generation logic"""
-    
-    def test_minimum_length_respected(self):
-        """Test password meets minimum length"""
-        password = generate_random_password(12)
-        assert len(password) >= 12
-    
-    def test_contains_lowercase(self):
-        """Test password contains lowercase letter"""
-        password = generate_random_password(8)
-        assert any(c.islower() for c in password)
-    
-    def test_contains_uppercase(self):
-        """Test password contains uppercase letter"""
-        password = generate_random_password(8)
-        assert any(c.isupper() for c in password)
-    
-    def test_contains_digit(self):
-        """Test password contains digit"""
-        password = generate_random_password(8)
-        assert any(c.isdigit() for c in password)
-    
-    def test_contains_special_char(self):
-        """Test password contains special character"""
-        password = generate_random_password(8)
-        special_chars = "!@#$%&*()?"
-        assert any(c in special_chars for c in password)
-    
-    def test_minimum_8_chars_enforced(self):
-        """Test minimum 8 characters enforced even if less requested"""
-        password = generate_random_password(4)
-        assert len(password) >= 8  # Should be min 8 after 4 required chars
-    
-    def test_randomness(self):
-        """Test passwords are different each time"""
-        password1 = generate_random_password(12)
-        password2 = generate_random_password(12)
-        # Should be different (extremely unlikely to be same)
-        assert password1 != password2
-    
-    def test_long_password_generation(self):
-        """Test generating long passwords"""
-        password = generate_random_password(50)
-        assert len(password) >= 50
 
 
 # ============================================================================

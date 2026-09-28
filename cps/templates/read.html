@@ -145,7 +145,6 @@
             bookUrl: "{{ url_for('web.serve_book', book_id=bookid, book_format=book_format, anyname='file.epub') }}",
             bookmark: "{{ bookmark.bookmark_key if bookmark != None }}",
             useBookmarks: "{{ current_user.is_authenticated | tojson }}",
-            kosyncPercent: {{ kosync_progress | tojson if kosync_progress is not none else 'null' }},
             // Reading position sync (GET/POST {cfi, percent}); only for signed-in users.
             progressUrl: "{{ url_for('web.index') }}ajax/progress/{{ bookid }}",
             progressKey: "{{ bookid }}.{{ book_format }}",

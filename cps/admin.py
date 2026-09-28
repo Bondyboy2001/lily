@@ -11,13 +11,11 @@ import json
 import operator
 import sys
 import string
-import requests
 from datetime import datetime, timedelta
 from datetime import time as datetime_time
 from functools import wraps
-from urllib.parse import urlparse
 
-from flask import Blueprint, current_app, flash, redirect, url_for, abort, request, make_response, send_from_directory, g, Response, jsonify
+from flask import Blueprint, current_app, flash, redirect, url_for, abort, request, make_response, g, Response, jsonify
 from markupsafe import Markup
 from .cw_login import current_user
 from flask_babel import gettext as _
@@ -27,11 +25,10 @@ from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.exc import IntegrityError, OperationalError, InvalidRequestError
 from sqlalchemy.sql.expression import func, or_, text
 
-from . import constants, logger, helper, services, cli_param
-from . import db, calibre_db, ub, web_server, config, gdriveutils, \
-    kobo_sync_status, schedule
-from .helper import check_valid_domain, send_test_mail, reset_password, generate_password_hash, check_email, \
-    valid_email, check_username
+from . import constants, logger, helper, cli_param
+from . import db, calibre_db, ub, web_server, config, gdriveutils, schedule
+from werkzeug.security import generate_password_hash
+from .helper import check_email, valid_email, check_username
 from .embed_helper import get_calibre_binarypath
 from .gdriveutils import is_gdrive_ready, gdrive_support
 from .render_template import render_title_template, get_sidebar_config
@@ -44,10 +41,6 @@ from .string_helper import strip_whitespaces
 log = logger.create()
 
 feature_support = {
-    'ldap': bool(services.ldap),
-    'kobo': bool(services.kobo),
-    'hardcover' : bool(services.hardcover),
-    'gmail': bool(services.gmail),
     'scheduler': schedule.use_APScheduler,
     'gdrive': gdrive_support
 }
@@ -58,19 +51,6 @@ try:
     feature_support['rar'] = True
 except (ImportError, SyntaxError):
     feature_support['rar'] = False
-
-try:
-    from . import oauth_bb
-
-    feature_support['oauth'] = True
-except ImportError as err:
-    log.debug('Cannot import Flask-Dance, login with Oauth will not work: %s', err)
-    feature_support['oauth'] = False
-    # Create a mock oauth_bb module with empty lists for when OAuth is not available
-    class MockOAuth:
-        oauthblueprints = []
-        oauth_check = {}
-    oauth_bb = MockOAuth()
 
 admi = Blueprint('admin', __name__)
 
@@ -121,7 +101,6 @@ def before_request():
             flash(_("Calibre database unavailable. Please reconfigure the library path."), category="error")
     g.constants = constants
     g.google_site_verification = os.getenv('GOOGLE_SITE_VERIFICATION', '')
-    g.allow_registration = config.config_public_reg
     g.allow_anonymous = config.config_anonbrowse
     g.allow_upload = config.config_uploading
     g.config_authors_max = config.config_authors_max
@@ -525,7 +504,6 @@ def db_configuration():
 def configuration():
     return render_title_template("config_edit.html",
                                  config=config,
-                                 provider=oauth_bb.oauthblueprints,
                                  feature_support=feature_support,
                                  is_proxied=current_app.wsgi_app.is_proxied,
                                  title=_("Basic Configuration"), page="config")
@@ -597,7 +575,6 @@ def edit_user_table():
         custom_values = []
     if not config.config_anonbrowse:
         all_user = all_user.filter(ub.User.role.op('&')(constants.ROLE_ANONYMOUS) != constants.ROLE_ANONYMOUS)
-    kobo_support = feature_support['kobo'] and config.config_kobo_sync
     return render_title_template("user_table.html",
                                  users=all_user.all(),
                                  tags=tags,
@@ -606,7 +583,6 @@ def edit_user_table():
                                  languages=languages,
                                  visiblility=visibility,
                                  all_roles=constants.ALL_ROLES,
-                                 kobo_support=kobo_support,
                                  sidebar_settings=constants.sidebar_settings,
                                  title=_("Edit Users"),
                                  page="usertable")
@@ -641,7 +617,6 @@ def list_users():
 
     if search:
         all_user = all_user.filter(or_(func.lower(ub.User.name).ilike("%" + search + "%"),
-                                       func.lower(ub.User.kindle_mail).ilike("%" + search + "%"),
                                        func.lower(ub.User.email).ilike("%" + search + "%")))
     if state:
         users = calibre_db.get_checkbox_sorted(all_user.all(), state, off, limit, request.args.get("order", "").lower())
@@ -759,12 +734,6 @@ def edit_list_user(param):
                     user.name = check_username(vals['value'])
                 elif param == 'email':
                     user.email = check_email(vals['value'])
-                elif param == 'kobo_only_shelves_sync':
-                    user.kobo_only_shelves_sync = int(vals['value'] == 'true')
-                elif param == 'kindle_mail':
-                    user.kindle_mail = valid_email(vals['value']) if vals['value'] else ""
-                elif param == 'kindle_mail_subject':
-                    user.kindle_mail_subject = vals['value']
                 elif param.endswith('role'):
                     value = int(vals['field_index'])
                     if user.name == "Guest" and value in \
@@ -894,11 +863,7 @@ def update_view_configuration():
 @user_login_required
 def load_dialogtexts(element_id):
     texts = {"header": "", "main": "", "valid": 1}
-    if element_id == "config_delete_kobo_token":
-        texts["main"] = _('Do you really want to delete the Kobo Token?')
-    elif element_id == "btndeletedomain":
-        texts["main"] = _('Do you really want to delete this domain?')
-    elif element_id == "btndeluser":
+    if element_id == "btndeluser":
         texts["main"] = _('Do you really want to delete this user?')
     elif element_id == "delete_shelf":
         texts["main"] = _('Are you sure you want to delete this shelf?')
@@ -913,75 +878,12 @@ def load_dialogtexts(element_id):
     elif element_id == "sidebar_view":
         texts["main"] = _('Are you sure you want to change the selected visibility restrictions '
                           'for the selected user(s)?')
-    elif element_id == "kobo_only_shelves_sync":
-        texts["main"] = _('Are you sure you want to change shelf sync behavior for the selected user(s)?')
     elif element_id == "db_submit":
         texts["main"] = _('Are you sure you want to change Calibre library location?')
     elif element_id == "admin_refresh_cover_cache":
         texts["main"] = _('Lily will search for updated Covers '
                           'and update Cover Thumbnails, this may take a while?')
-    elif element_id == "btnfullsync":
-        texts["main"] = _("Are you sure you want delete Lily's sync database "
-                          "to force a full sync with your Kobo Reader?")
     return json.dumps(texts)
-
-
-@admi.route("/ajax/editdomain/<int:allow>", methods=['POST'])
-@user_login_required
-@admin_required
-def edit_domain(allow):
-    # POST /post
-    # name:  'username',  //name of field (column in db)
-    # pk:    1            //primary key (record id)
-    # value: 'superuser!' //new value
-    vals = request.form.to_dict()
-    answer = ub.session.query(ub.Registration).filter(ub.Registration.id == vals['pk']).first()
-    answer.domain = vals['value'].replace('*', '%').replace('?', '_').lower()
-    return ub.session_commit("Registering Domains edited {}".format(answer.domain))
-
-
-@admi.route("/ajax/adddomain/<int:allow>", methods=['POST'])
-@user_login_required
-@admin_required
-def add_domain(allow):
-    domain_name = request.form.to_dict()['domainname'].replace('*', '%').replace('?', '_').lower()
-    check = ub.session.query(ub.Registration).filter(ub.Registration.domain == domain_name) \
-        .filter(ub.Registration.allow == allow).first()
-    if not check:
-        new_domain = ub.Registration(domain=domain_name, allow=allow)
-        ub.session.add(new_domain)
-        ub.session_commit("Registering Domains added {}".format(domain_name))
-    return ""
-
-
-@admi.route("/ajax/deletedomain", methods=['POST'])
-@user_login_required
-@admin_required
-def delete_domain():
-    try:
-        domain_id = request.form.to_dict()['domainid'].replace('*', '%').replace('?', '_').lower()
-        ub.session.query(ub.Registration).filter(ub.Registration.id == domain_id).delete()
-        ub.session_commit("Registering Domains deleted {}".format(domain_id))
-        # If last domain was deleted, add all domains by default
-        if not ub.session.query(ub.Registration).filter(ub.Registration.allow == 1).count():
-            new_domain = ub.Registration(domain="%.%", allow=1)
-            ub.session.add(new_domain)
-            ub.session_commit("Last Registering Domain deleted, added *.* as default")
-    except KeyError:
-        pass
-    return ""
-
-
-@admi.route("/ajax/domainlist/<int:allow>")
-@user_login_required
-@admin_required
-def list_domain(allow):
-    answer = ub.session.query(ub.Registration).filter(ub.Registration.allow == allow).all()
-    json_dumps = json.dumps([{"domain": r.domain.replace('%', '*').replace('_', '?'), "id": r.id} for r in answer])
-    js = json.dumps(json_dumps.replace('"', "'")).strip('"')
-    response = make_response(js.replace("'", '"'))
-    response.headers["Content-Type"] = "application/json; charset=utf-8"
-    return response
 
 
 @admi.route("/ajax/editrestriction/<int:res_type>", defaults={"user_id": 0}, methods=['POST'])
@@ -1199,31 +1101,11 @@ def list_restriction(res_type, user_id):
     return response
 
 
-@admi.route("/ajax/fullsync", methods=["POST"])
-@user_login_required
-def ajax_self_fullsync():
-    return do_full_kobo_sync(current_user.id)
-
-
-@admi.route("/ajax/fullsync/<int:userid>", methods=["POST"])
-@user_login_required
-@admin_required
-def ajax_fullsync(userid):
-    return do_full_kobo_sync(userid)
-
-
 @admi.route("/ajax/pathchooser/")
 @user_login_required
 @admin_required
 def ajax_pathchooser():
     return pathchooser()
-
-
-def do_full_kobo_sync(userid):
-    count = ub.session.query(ub.KoboSyncedBooks).filter(userid == ub.KoboSyncedBooks.user_id).delete()
-    message = _("{} sync entries deleted").format(count)
-    ub.session_commit(message)
-    return Response(json.dumps([{"type": "success", "message": message}]), mimetype='application/json')
 
 
 def check_valid_read_column(column):
@@ -1424,122 +1306,6 @@ def _configuration_gdrive_helper(to_save):
     return gdrive_error
 
 
-def _configuration_oauth_helper(to_save):
-    reboot_required = False
-
-    for element in oauth_bb.oauthblueprints:
-        update = {}
-        if element["provider_name"] == "generic":
-            if to_save["config_generic_oauth_client_id"] != element["oauth_client_id"]:
-                reboot_required = True
-                update["oauth_client_id"] = to_save["config_generic_oauth_client_id"]
-            if to_save["config_generic_oauth_client_secret"] != element["oauth_client_secret"]:
-                reboot_required = True
-                update["oauth_client_secret"] = to_save["config_generic_oauth_client_secret"]
-
-            # Handle metadata URL (takes precedence over manual configuration)
-            metadata_url = to_save.get("config_generic_oauth_metadata_url", "")
-            if metadata_url != element.get("metadata_url", ""):
-                reboot_required = True
-                update["metadata_url"] = metadata_url
-
-                # If metadata URL is provided, try to fetch endpoints
-                if metadata_url:
-                    try:
-                        resp = requests.get(metadata_url, timeout=3, verify=constants.OAUTH_SSL_STRICT)
-                        if resp.status_code == 200:
-                            data = resp.json()
-                            update["oauth_base_url"] = data.get("issuer", "")
-                            update["oauth_authorize_url"] = data.get("authorization_endpoint", "")
-                            update["oauth_token_url"] = data.get("token_endpoint", "")
-                            update["oauth_userinfo_url"] = data.get("userinfo_endpoint", "")
-                        else:
-                            log.warning(f"Failed to fetch OAuth metadata: HTTP {resp.status_code}")
-                    except requests.exceptions.Timeout:
-                        log.warning("OAuth metadata fetch timed out - configuration saved but endpoints not auto-discovered")
-                    except requests.exceptions.RequestException as ex:
-                        log.warning(f"Failed to fetch OAuth metadata: {ex}")
-                    except Exception as ex:
-                        log.error(f"Unexpected error fetching OAuth metadata: {ex}")
-
-            # Handle manual server URL (fallback or override)
-            elif to_save["config_generic_oauth_server_url"] != element["oauth_base_url"]:
-                reboot_required = True
-                update["oauth_base_url"] = to_save["config_generic_oauth_server_url"]
-                try:
-                    resp = requests.get(
-                        os.path.join(update["oauth_base_url"], ".well-known/openid-configuration"),
-                        timeout=3,
-                        verify=constants.OAUTH_SSL_STRICT
-                    )
-                    if resp.status_code == 200:
-                        data = resp.json()
-                        update["oauth_authorize_url"] = data.get("authorization_endpoint", "")
-                        update["oauth_token_url"] = data.get("token_endpoint", "")
-                        update["oauth_userinfo_url"] = data.get("userinfo_endpoint", "")
-                    else:
-                        log.warning(f"Failed to fetch OIDC configuration: HTTP {resp.status_code}")
-                except requests.exceptions.Timeout:
-                    log.warning("OIDC configuration fetch timed out - configuration saved but endpoints not auto-discovered")
-                except requests.exceptions.RequestException as ex:
-                    log.warning(f"Failed to fetch OIDC configuration: {ex}")
-                except Exception as ex:
-                    log.error(f"Unexpected error fetching OIDC configuration: {ex}")
-
-            # Handle manual endpoint URLs if metadata URL is not used
-            if not metadata_url:
-                # Map form field names to database field names
-                endpoint_mappings = {
-                    "config_generic_oauth_auth_url": "oauth_authorize_url",
-                    "config_generic_oauth_token_url": "oauth_token_url",
-                    "config_generic_oauth_userinfo_url": "oauth_userinfo_url"
-                }
-
-                for form_field, db_field in endpoint_mappings.items():
-                    if form_field in to_save and to_save[form_field] != element.get(db_field, ""):
-                        reboot_required = True
-                        update[db_field] = to_save[form_field]
-
-            # Handle scope
-            if to_save.get("config_generic_oauth_scope", "") != element.get("scope", ""):
-                reboot_required = True
-                update["scope"] = to_save.get("config_generic_oauth_scope", "")
-
-            # Handle username mapper
-            if to_save.get("config_generic_oauth_username_mapper", "") != element.get("username_mapper", ""):
-                reboot_required = True
-                update["username_mapper"] = to_save.get("config_generic_oauth_username_mapper", "")
-
-            # Handle email mapper
-            if to_save.get("config_generic_oauth_email_mapper", "") != element.get("email_mapper", ""):
-                reboot_required = True
-                update["email_mapper"] = to_save.get("config_generic_oauth_email_mapper", "")
-
-            # Handle login button text
-            if to_save.get("config_generic_oauth_login_button", "") != element.get("login_button", ""):
-                reboot_required = True
-                update["login_button"] = to_save.get("config_generic_oauth_login_button", "")
-
-            if to_save["config_generic_oauth_admin_group"] != element["oauth_admin_group"]:
-                reboot_required = True
-                update["oauth_admin_group"] = to_save["config_generic_oauth_admin_group"]
-        else:
-            if to_save["config_" + str(element['id']) + "_oauth_client_id"] != element["oauth_client_id"]:
-                reboot_required = True
-                update["oauth_client_id"] = to_save["config_" + str(element['id']) + "_oauth_client_id"]
-            if to_save["config_" + str(element['id']) + "_oauth_client_secret"] != element["oauth_client_secret"]:
-                reboot_required = True
-                update["oauth_client_secret"] = to_save["config_" + str(element['id']) + "_oauth_client_secret"]
-
-        oauth_client_id = update.get("oauth_client_id", element["oauth_client_id"])
-        oauth_client_secret = update.get("oauth_client_secret", element["oauth_client_secret"])
-        update["active"] = 1 if oauth_client_id and oauth_client_secret else 0
-
-        ub.session.query(ub.OAuthProvider).filter(ub.OAuthProvider.id == element['id']).update(update)
-
-    return reboot_required, None
-
-
 def _configuration_logfile_helper(to_save):
     reboot_required = False
     reboot_required |= _config_int(to_save, "config_log_level")
@@ -1553,80 +1319,6 @@ def _configuration_logfile_helper(to_save):
     if not logger.is_valid_logfile(config.config_access_logfile):
         return reboot_required, \
                _configuration_result(_('Access Logfile Location is not Valid, Please Enter Correct Path'))
-    return reboot_required, None
-
-
-def _configuration_ldap_helper(to_save):
-    reboot_required = False
-    reboot_required |= _config_int(to_save, "config_ldap_port")
-    reboot_required |= _config_int(to_save, "config_ldap_authentication")
-    reboot_required |= _config_string(to_save, "config_ldap_dn")
-    reboot_required |= _config_string(to_save, "config_ldap_serv_username")
-    reboot_required |= _config_string(to_save, "config_ldap_user_object")
-    reboot_required |= _config_string(to_save, "config_ldap_group_object_filter")
-    reboot_required |= _config_string(to_save, "config_ldap_group_members_field")
-    reboot_required |= _config_string(to_save, "config_ldap_member_user_object")
-    reboot_required |= _config_checkbox(to_save, "config_ldap_openldap")
-    _config_checkbox(to_save, "config_ldap_auto_create_users")
-    reboot_required |= _config_int(to_save, "config_ldap_encryption")
-    reboot_required |= _config_string(to_save, "config_ldap_cacert_path")
-    reboot_required |= _config_string(to_save, "config_ldap_cert_path")
-    reboot_required |= _config_string(to_save, "config_ldap_key_path")
-    _config_string(to_save, "config_ldap_group_name")
-
-    address = urlparse(to_save.get("config_ldap_provider_url", ""))
-    to_save["config_ldap_provider_url"] = (address.hostname or address.path).strip("/")
-    reboot_required |= _config_string(to_save, "config_ldap_provider_url")
-
-    if to_save.get("config_ldap_serv_password_e", "") != "":
-        reboot_required |= 1
-        config.set_from_dictionary(to_save, "config_ldap_serv_password_e")
-    config.save()
-
-    if not config.config_ldap_provider_url \
-      or not config.config_ldap_port \
-      or not config.config_ldap_dn \
-      or not config.config_ldap_user_object:
-        return reboot_required, _configuration_result(_('Please Enter a LDAP Provider, '
-                                                        'Port, DN and User Object Identifier'))
-
-    if config.config_ldap_authentication > constants.LDAP_AUTH_ANONYMOUS:
-        if config.config_ldap_authentication > constants.LDAP_AUTH_UNAUTHENTICATE:
-            if not config.config_ldap_serv_username or not bool(config.config_ldap_serv_password_e):
-                return reboot_required, _configuration_result(_('Please Enter a LDAP Service Account and Password'))
-        else:
-            if not config.config_ldap_serv_username:
-                return reboot_required, _configuration_result(_('Please Enter a LDAP Service Account'))
-
-    if config.config_ldap_group_object_filter:
-        if config.config_ldap_group_object_filter.count("%s") != 1:
-            return reboot_required, \
-                   _configuration_result(_('LDAP Group Object Filter Needs to Have One "%s" Format Identifier'))
-        if config.config_ldap_group_object_filter.count("(") != config.config_ldap_group_object_filter.count(")"):
-            return reboot_required, _configuration_result(_('LDAP Group Object Filter Has Unmatched Parenthesis'))
-
-    if config.config_ldap_user_object.count("%s") != 1:
-        return reboot_required, \
-               _configuration_result(_('LDAP User Object Filter needs to Have One "%s" Format Identifier'))
-    if config.config_ldap_user_object.count("(") != config.config_ldap_user_object.count(")"):
-        return reboot_required, _configuration_result(_('LDAP User Object Filter Has Unmatched Parenthesis'))
-
-    if to_save.get("ldap_import_user_filter") == '0':
-        config.config_ldap_member_user_object = ""
-    else:
-        if config.config_ldap_member_user_object.count("%s") != 1:
-            return reboot_required, \
-                   _configuration_result(_('LDAP Member User Filter needs to Have One "%s" Format Identifier'))
-        if config.config_ldap_member_user_object.count("(") != config.config_ldap_member_user_object.count(")"):
-            return reboot_required, _configuration_result(_('LDAP Member User Filter Has Unmatched Parenthesis'))
-
-    if config.config_ldap_cacert_path or config.config_ldap_cert_path or config.config_ldap_key_path:
-        if not (os.path.isfile(config.config_ldap_cacert_path) and
-                os.path.isfile(config.config_ldap_cert_path) and
-                os.path.isfile(config.config_ldap_key_path)):
-            return reboot_required, \
-                   _configuration_result(_('LDAP CACertificate, Certificate or Key Location is not Valid, '
-                                           'Please Enter Correct Path'))
     return reboot_required, None
 
 
@@ -1645,10 +1337,9 @@ def new_user():
     content = ub.User()
     languages = calibre_db.speaking_language()
     translations = get_available_locale()
-    kobo_support = feature_support['kobo'] and config.config_kobo_sync
     if request.method == "POST":
         to_save = request.form.to_dict()
-        _handle_new_user(to_save, content, languages, translations, kobo_support)
+        _handle_new_user(to_save, content, languages, translations)
     else:
         content.role = config.config_default_role
         content.sidebar_view = config.config_default_show
@@ -1658,76 +1349,9 @@ def new_user():
     return render_title_template("user_edit.html", new_user=1, content=content,
                                  config=config, translations=translations,
                                  languages=languages, title=_("Add New User"), page="newuser",
-                                 kobo_support=kobo_support, registered_oauth=oauth_bb.oauth_check,
                                  opds_root_order_string=opds_context["opds_root_order_string"],
                                  opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
                                  opds_root_labels=opds_context["opds_root_labels"])
-
-
-@admi.route("/admin/mailsettings", methods=["GET"])
-@user_login_required
-@admin_required
-def edit_mailsettings():
-    content = config.get_mail_settings()
-    return render_title_template("email_edit.html", content=content, title=_("Edit Email Server Settings"),
-                                 page="mailset", feature_support=feature_support)
-
-
-@admi.route("/admin/mailsettings", methods=["POST"])
-@user_login_required
-@admin_required
-def update_mailsettings():
-    to_save = request.form.to_dict()
-    _config_int(to_save, "mail_server_type")
-    if to_save.get("invalidate"):
-        config.mail_gmail_token = {}
-        try:
-            flag_modified(config, "mail_gmail_token")
-        except AttributeError:
-            pass
-    elif to_save.get("gmail"):
-        try:
-            config.mail_gmail_token = services.gmail.setup_gmail(config.mail_gmail_token)
-            flash(_("Success! Gmail Account Verified."), category="success")
-        except Exception as ex:
-            flash(str(ex), category="error")
-            log.error(ex)
-            return edit_mailsettings()
-
-    else:
-        _config_int(to_save, "mail_port")
-        _config_int(to_save, "mail_use_ssl")
-        if to_save.get("mail_password_e", ""):
-            _config_string(to_save, "mail_password_e")
-        _config_int(to_save, "mail_size", lambda y: int(y) * 1024 * 1024)
-        config.mail_server = strip_whitespaces(to_save.get('mail_server', ""))
-        config.mail_from = strip_whitespaces(to_save.get('mail_from', ""))
-        config.mail_login = strip_whitespaces(to_save.get('mail_login', ""))
-    try:
-        config.save()
-    except (OperationalError, InvalidRequestError) as e:
-        ub.session.rollback()
-        log.error_or_exception("Settings Database error: {}".format(e))
-        flash(_("Oops! Database Error: %(error)s.", error=e.orig), category="error")
-        return edit_mailsettings()
-    except Exception as e:
-        flash(_("Oops! Database Error: %(error)s.", error=e.orig), category="error")
-        return edit_mailsettings()
-
-    if to_save.get("test"):
-        if current_user.email:
-            result = send_test_mail(current_user.email, current_user.name)
-            if result is None:
-                flash(_("Test e-mail queued for sending to %(email)s, please check Tasks for result",
-                        email=current_user.email), category="info")
-            else:
-                flash(_("There was an error sending the Test e-mail: %(res)s", res=result), category="error")
-        else:
-            flash(_("Please configure your e-mail address first..."), category="error")
-    else:
-        flash(_("Email Server Settings updated"), category="success")
-
-    return edit_mailsettings()
 
 
 @admi.route("/admin/scheduledtasks")
@@ -1830,11 +1454,10 @@ def edit_user(user_id):
         return redirect(url_for('admin.admin'))
     languages = calibre_db.speaking_language(return_all_languages=True)
     translations = get_available_locale()
-    kobo_support = feature_support['kobo'] and config.config_kobo_sync
-    
+
     if request.method == "POST":
         to_save = request.form.to_dict()
-        resp = _handle_edit_user(to_save, content, languages, translations, kobo_support)
+        resp = _handle_edit_user(to_save, content, languages, translations)
         if resp:
             return resp
     opds_context = _build_opds_context(content)
@@ -1844,9 +1467,6 @@ def edit_user(user_id):
                                  new_user=0,
                                  content=content,
                                  config=config,
-                                 registered_oauth=oauth_bb.oauth_check,
-                                 mail_configured=config.get_mail_server_configured(),
-                                 kobo_support=kobo_support,
                                  opds_root_order_string=opds_context["opds_root_order_string"],
                                  opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
                                  opds_root_labels=opds_context["opds_root_labels"],
@@ -1854,184 +1474,11 @@ def edit_user(user_id):
                                  page="edituser")
 
 
-@admi.route("/admin/resetpassword/<int:user_id>", methods=["POST"])
-@user_login_required
-@admin_required
-def reset_user_password(user_id):
-    if current_user is not None and current_user.is_authenticated:
-        ret, message = reset_password(user_id)
-        if ret == 1:
-            log.debug("Password for user %s reset", message)
-            flash(_("Success! Password for user %(user)s reset", user=message), category="success")
-        elif ret == 0:
-            log.error("An unknown error occurred. Please try again later.")
-            flash(_("Oops! An unknown error occurred. Please try again later."), category="error")
-        else:
-            log.error("Please configure the SMTP mail settings.")
-            flash(_("Oops! Please configure the SMTP mail settings."), category="error")
-    return redirect(url_for('admin.admin'))
-
-
-@admi.route("/admin/logfile")
-@user_login_required
-@admin_required
-def view_logfile():
-    logfiles = {0: logger.get_logfile(config.config_logfile),
-                1: logger.get_accesslogfile(config.config_access_logfile)}
-    return render_title_template("logviewer.html",
-                                 title=_("Logfile viewer"),
-                                 accesslog_enable=config.config_access_log,
-                                 log_enable=bool(config.config_logfile != logger.LOG_TO_STDOUT),
-                                 logfiles=logfiles,
-                                 page="logfile")
-
-
-@admi.route("/ajax/log/<int:logtype>")
-@user_login_required
-@admin_required
-def send_logfile(logtype):
-    if logtype == 1:
-        logfile = logger.get_accesslogfile(config.config_access_logfile)
-        return send_from_directory(os.path.dirname(logfile),
-                                   os.path.basename(logfile))
-    if logtype == 0:
-        logfile = logger.get_logfile(config.config_logfile)
-        return send_from_directory(os.path.dirname(logfile),
-                                   os.path.basename(logfile))
-    else:
-        return ""
-
-
-@admi.route("/admin/logdownload/<int:logtype>")
-@user_login_required
-@admin_required
-def download_log(logtype):
-    if logtype == 0:
-        file_name = logger.get_logfile(config.config_logfile)
-    elif logtype == 1:
-        file_name = logger.get_accesslogfile(config.config_access_logfile)
-    else:
-        abort(404)
-    if logger.is_valid_logfile(file_name):
-        return debug_info.assemble_logfiles(file_name)
-    abort(404)
-
-
 @admi.route("/admin/debug")
 @user_login_required
 @admin_required
 def download_debug():
     return debug_info.send_debug()
-
-
-def ldap_import_create_user(user, user_data):
-    user_login_field = extract_dynamic_field_from_filter(user, config.config_ldap_user_object)
-
-    try:
-        username = user_data[user_login_field][0].decode('utf-8')
-    except KeyError as ex:
-        log.error("Failed to extract LDAP user: %s - %s", user, ex)
-        message = _(u'Failed to extract at least One LDAP User')
-        return 0, message
-
-    # check for duplicate username
-    if ub.session.query(ub.User).filter(func.lower(ub.User.name) == username.lower()).first():
-        log.warning("LDAP User  %s Already in Database", user_data)
-        return 0, None
-
-    ereader_mail = ''
-    if 'mail' in user_data:
-        useremail = user_data['mail'][0].decode('utf-8')
-        if len(user_data['mail']) > 1:
-            ereader_mail = user_data['mail'][1].decode('utf-8')
-
-    else:
-        log.debug('No Mail Field Found in LDAP Response')
-        useremail = username + '@email.com'
-
-    try:
-        # check for duplicate email
-        useremail = check_email(useremail)
-    except Exception as ex:
-        log.warning("LDAP Email Error: {}, {}".format(user_data, ex))
-        return 0, None
-    content = ub.User()
-    content.name = username
-    content.password = ''  # dummy password which will be replaced by ldap one
-    content.email = useremail
-    content.kindle_mail = ereader_mail
-    content.default_language = config.config_default_language
-    content.locale = config.config_default_locale
-    content.role = config.config_default_role
-    content.sidebar_view = config.config_default_show
-    content.allowed_tags = config.config_allowed_tags
-    content.denied_tags = config.config_denied_tags
-    content.allowed_column_value = config.config_allowed_column_value
-    content.denied_column_value = config.config_denied_column_value
-    ub.session.add(content)
-    try:
-        ub.session.commit()
-        return 1, None  # increase no of users
-    except Exception as ex:
-        log.warning("Failed to create LDAP user: %s - %s", user, ex)
-        ub.session.rollback()
-        message = _(u'Failed to Create at Least One LDAP User')
-        return 0, message
-
-
-@admi.route('/import_ldap_users', methods=["POST"])
-@user_login_required
-@admin_required
-def import_ldap_users():
-    showtext = {}
-    try:
-        new_users = services.ldap.get_group_members(config.config_ldap_group_name)
-    except (services.ldap.LDAPException, TypeError, AttributeError, KeyError) as e:
-        log.error_or_exception(e)
-        showtext['text'] = _(u'Error: %(ldaperror)s', ldaperror=e)
-        return json.dumps(showtext)
-    if not new_users:
-        log.debug('LDAP empty response')
-        showtext['text'] = _(u'Error: No user returned in response of LDAP server')
-        return json.dumps(showtext)
-
-    imported = 0
-    for username in new_users:
-        if isinstance(username, bytes):
-            user = username.decode('utf-8')
-        else:
-            user = username
-        if '=' in user:
-            # if member object field is empty take user object as filter
-            if config.config_ldap_member_user_object:
-                query_filter = config.config_ldap_member_user_object
-            else:
-                query_filter = config.config_ldap_user_object
-            try:
-                user_identifier = extract_user_identifier(user, query_filter)
-            except Exception as ex:
-                log.warning(ex)
-                continue
-        else:
-            user_identifier = user
-            query_filter = None
-        try:
-            user_data = services.ldap.get_object_details(user=user_identifier, query_filter=query_filter)
-        except AttributeError as ex:
-            log.error_or_exception(ex)
-            continue
-        if user_data:
-            user_count, message = ldap_import_create_user(user, user_data)
-            if message:
-                showtext['text'] = message
-            else:
-                imported += user_count
-        else:
-            log.warning("LDAP User: %s Not Found", user)
-            showtext['text'] = _(u'At Least One LDAP User Not Found in Database')
-    if not showtext:
-        showtext['text'] = _(u'{} User Successfully Imported'.format(imported))
-    return json.dumps(showtext)
 
 
 @admi.route("/ajax/canceltask", methods=['POST'])
@@ -2105,7 +1552,7 @@ def _db_configuration_update_helper():
         else:
             calibre_db.setup_db(to_save['config_calibre_dir'], ub.app_DB_path)
         config.store_calibre_uuid(calibre_db, db.Library_Id)
-        # if db changed -> delete shelfs, delete download books, delete read books, kobo sync...
+        # if db changed -> delete shelfs, delete download books, delete read books...
         if db_change:
             log.info("Calibre Database changed, all Lily info related to old Database gets deleted")
             ub.session.query(ub.Downloads).delete()
@@ -2113,9 +1560,6 @@ def _db_configuration_update_helper():
             ub.session.query(ub.ReadBook).delete()
             ub.session.query(ub.BookShelf).delete()
             ub.session.query(ub.Bookmark).delete()
-            ub.session.query(ub.KoboReadingState).delete()
-            ub.session.query(ub.KoboStatistics).delete()
-            ub.session.query(ub.KoboSyncedBooks).delete()
             helper.delete_thumbnail_cache()
             ub.session_commit()
             # deleted visibilities based on custom column and tags
@@ -2151,18 +1595,7 @@ def _configuration_update_helper():
         _config_checkbox_int(to_save, "config_uploading")
         _config_checkbox_int(to_save, "config_unicode_filename")
         _config_checkbox_int(to_save, "config_embed_metadata")
-        # Reboot on config_anonbrowse with enabled ldap, as decoraters are changed in this case
-        reboot_required |= (_config_checkbox_int(to_save, "config_anonbrowse")
-                            and config.config_login_type == constants.LOGIN_LDAP)
-        _config_checkbox_int(to_save, "config_public_reg")
-        _config_checkbox_int(to_save, "config_register_email")
-        reboot_required |= _config_checkbox_int(to_save, "config_kobo_sync")
-        if not to_save.get("config_external_port", "").strip():
-            config.config_external_port = None
-        else:
-            _config_int(to_save, "config_external_port")
-        _config_checkbox_int(to_save, "config_kobo_proxy")
-        _config_checkbox_int(to_save, "config_hardcover_sync")
+        _config_checkbox_int(to_save, "config_anonbrowse")
 
         if "config_upload_formats" in to_save:
             to_save["config_upload_formats"] = ','.join(
@@ -2183,74 +1616,9 @@ def _configuration_update_helper():
             to_save["config_converterpath"] = get_calibre_binarypath("ebook-convert")
             _config_string(to_save, "config_converterpath")
 
-        reboot_required |= _config_int(to_save, "config_login_type")
-
-        # LDAP configurator
-        if config.config_login_type == constants.LOGIN_LDAP:
-            reboot, message = _configuration_ldap_helper(to_save)
-            if message:
-                return message
-            reboot_required |= reboot
-
-        # Remote login configuration
-        _config_checkbox(to_save, "config_remote_login")
-        if not config.config_remote_login:
-            ub.session.query(ub.RemoteAuthToken).filter(ub.RemoteAuthToken.token_type == 0).delete()
-
-        # Hardcover configuration
-        _config_checkbox(to_save, "config_hardcover_sync")
-        _config_checkbox(to_save, "config_hardcover_annotations_sync")
+        # Metadata provider keys
         _config_string(to_save, "config_hardcover_token")
         _config_string(to_save, "config_google_books_api_key")
-
-        # Reverse proxy login configuration
-        _config_checkbox(to_save, "config_allow_reverse_proxy_header_login")
-        _config_string(to_save, "config_reverse_proxy_login_header_name")
-        _config_checkbox(to_save, "config_reverse_proxy_auto_create_users")
-
-        # Validate reverse proxy configuration
-        if config.config_reverse_proxy_auto_create_users and not config.config_allow_reverse_proxy_header_login:
-            return _configuration_result(_('Auto-create users cannot be enabled without enabling reverse proxy authentication'))
-
-        if config.config_reverse_proxy_auto_create_users and not config.config_reverse_proxy_login_header_name:
-            return _configuration_result(_('Auto-create users requires a valid reverse proxy header name'))
-
-        # OAuth configuration
-        oauth_redirect_host_changed = False
-        if "config_oauth_redirect_host" in to_save:
-            old_host = getattr(config, 'config_oauth_redirect_host', '')
-            new_host = to_save["config_oauth_redirect_host"].strip()
-
-            # Validate OAuth redirect host format if provided
-            if new_host:
-                try:
-                    # Add https:// if no scheme is provided
-                    if not new_host.startswith(('http://', 'https://')):
-                        new_host = f"https://{new_host}"
-                        to_save["config_oauth_redirect_host"] = new_host
-
-                    # Parse the URL to validate it
-                    parsed = urlparse(new_host)
-                    if not parsed.netloc:
-                        return _configuration_result(_('Invalid OAuth Redirect Host format. Please include the full URL with protocol (e.g., https://your-domain.com)'))
-
-                    # Warn if URL contains a path (could cause redirect URI issues)
-                    if parsed.path and parsed.path != '/':
-                        return _configuration_result(_('OAuth Redirect Host should not include a path. Use only the base URL (e.g., https://your-domain.com)'))
-
-                except Exception:
-                    return _configuration_result(_('Invalid OAuth Redirect Host format. Please include the full URL with protocol (e.g., https://your-domain.com)'))
-
-            if old_host != new_host:
-                oauth_redirect_host_changed = True
-
-        _config_string(to_save, "config_oauth_redirect_host")
-
-        if config.config_login_type == constants.LOGIN_OAUTH:
-            reboot, message = _configuration_oauth_helper(to_save)
-            if message:
-                return message
-            reboot_required |= reboot or oauth_redirect_host_changed
 
         # logfile configuration
         reboot, message = _configuration_logfile_helper(to_save)
@@ -2259,8 +1627,6 @@ def _configuration_update_helper():
         reboot_required |= reboot
 
         # security configuration
-        _config_checkbox(to_save, "config_disable_standard_login")
-        _config_checkbox(to_save, "config_enable_oauth_group_admin_management")
         _config_checkbox(to_save, "config_check_extensions")
         _config_checkbox(to_save, "config_password_policy")
         _config_checkbox(to_save, "config_password_number")
@@ -2342,7 +1708,7 @@ def _db_configuration_result(error_flash=None, gdrive_error=None):
                                  title=_("Database Configuration"), page="dbconfig")
 
 
-def _handle_new_user(to_save, content, languages, translations, kobo_support):
+def _handle_new_user(to_save, content, languages, translations):
     content.default_language = to_save["default_language"]
     content.locale = to_save.get("locale", content.locale)
 
@@ -2359,11 +1725,6 @@ def _handle_new_user(to_save, content, languages, translations, kobo_support):
         content.email = check_email(to_save["email"])
         # Query username, if not existing, change
         content.name = check_username(to_save["name"])
-        if to_save.get("kindle_mail"):
-            content.kindle_mail = valid_email(to_save["kindle_mail"])
-        if config.config_public_reg and not check_valid_domain(content.email):
-            log.info("E-mail: {} for new user is not from valid domain".format(content.email))
-            raise Exception(_("E-mail is not from valid domain"))
     except Exception as ex:
         flash(str(ex), category="error")
         opds_context = _build_opds_context(content)
@@ -2371,7 +1732,6 @@ def _handle_new_user(to_save, content, languages, translations, kobo_support):
                                      config=config,
                                      translations=translations,
                                      languages=languages, title=_("Add new user"), page="newuser",
-                                     kobo_support=kobo_support, registered_oauth=oauth_bb.oauth_check,
                                      opds_root_order_string=opds_context["opds_root_order_string"],
                                      opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
                                      opds_root_labels=opds_context["opds_root_labels"])
@@ -2380,8 +1740,6 @@ def _handle_new_user(to_save, content, languages, translations, kobo_support):
         content.denied_tags = config.config_denied_tags
         content.allowed_column_value = config.config_allowed_column_value
         content.denied_column_value = config.config_denied_column_value
-        # No default value for kobo sync shelf setting
-        content.kobo_only_shelves_sync = to_save.get("kobo_only_shelves_sync", 0) == "on"
         ub.session.add(content)
         ub.session.commit()
         flash(_("User '%(user)s' created", user=content.name), category="success")
@@ -2411,13 +1769,7 @@ def _delete_user(content):
             ub.session.query(ub.Bookmark).filter(content.id == ub.Bookmark.user_id).delete()
             ub.session.query(ub.User).filter(ub.User.id == content.id).delete()
             ub.session.query(ub.ArchivedBook).filter(ub.ArchivedBook.user_id == content.id).delete()
-            ub.session.query(ub.RemoteAuthToken).filter(ub.RemoteAuthToken.user_id == content.id).delete()
             ub.session.query(ub.User_Sessions).filter(ub.User_Sessions.user_id == content.id).delete()
-            ub.session.query(ub.KoboSyncedBooks).filter(ub.KoboSyncedBooks.user_id == content.id).delete()
-            # delete KoboReadingState and all it's children
-            kobo_entries = ub.session.query(ub.KoboReadingState).filter(ub.KoboReadingState.user_id == content.id).all()
-            for kobo_entry in kobo_entries:
-                ub.session.delete(kobo_entry)
             ub.session_commit()
             log.info("User {} deleted".format(content.name))
             return _("User '%(nick)s' deleted", nick=content.name)
@@ -2427,7 +1779,7 @@ def _delete_user(content):
         raise Exception(_("No admin user remaining, can't delete user"))
 
 
-def _handle_edit_user(to_save, content, languages, translations, kobo_support):
+def _handle_edit_user(to_save, content, languages, translations):
     if to_save.get("delete"):
         try:
             flash(_delete_user(content), category="success")
@@ -2455,15 +1807,6 @@ def _handle_edit_user(to_save, content, languages, translations, kobo_support):
     else:
         content.sidebar_view &= ~constants.DETAIL_RANDOM
 
-    old_state = content.kobo_only_shelves_sync
-    content.kobo_only_shelves_sync = int(to_save.get("kobo_only_shelves_sync") == "on") or 0
-    # 1 -> 0: nothing has to be done
-    # 0 -> 1: all synced books have to be added to archived books, + currently synced shelfs
-    # which don't have to be synced have to be removed (added to Shelf archive)
-    if old_state == 0 and content.kobo_only_shelves_sync == 1:
-        kobo_sync_status.update_on_sync_shelfs(content.id)
-    # Auto-send and metadata fetch settings
-    content.auto_send_enabled = to_save.get("auto_send_enabled") == "on"
     content.auto_metadata_fetch = to_save.get("auto_metadata_fetch") == "on"
 
     # OPDS root order
@@ -2524,14 +1867,6 @@ def _handle_edit_user(to_save, content, languages, translations, kobo_support):
             if to_save.get("name") == "Guest":
                 raise Exception(_("Guest Name can't be changed"))
             content.name = check_username(to_save["name"])
-        if "allow_additional_ereader_emails" in to_save:
-            content.allow_additional_ereader_emails = to_save.get("allow_additional_ereader_emails") == "on"
-        else:
-            content.allow_additional_ereader_emails = False
-        if "kindle_mail" in to_save and to_save["kindle_mail"] != content.kindle_mail:
-            content.kindle_mail = valid_email(to_save["kindle_mail"]) if to_save["kindle_mail"] else ""
-        if to_save.get("kindle_mail_subject") is not None:
-            content.kindle_mail_subject = (to_save.get("kindle_mail_subject", "") or "").strip()
 
     except Exception as ex:
         log.error(ex)
@@ -2540,12 +1875,9 @@ def _handle_edit_user(to_save, content, languages, translations, kobo_support):
         return render_title_template("user_edit.html",
                                      translations=translations,
                                      languages=languages,
-                                     mail_configured=config.get_mail_server_configured(),
-                                     kobo_support=kobo_support,
                                      new_user=0,
                                      content=content,
                                      config=config,
-                                     registered_oauth=oauth_bb.oauth_check,
                                      opds_root_order_string=opds_context["opds_root_order_string"],
                                      opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
                                      opds_root_labels=opds_context["opds_root_labels"],
@@ -2564,134 +1896,6 @@ def _handle_edit_user(to_save, content, languages, translations, kobo_support):
         flash(_("Oops! Database Error: %(error)s.", error=e.orig), category="error")
     return ""
 
-
-def extract_user_data_from_field(user, field):
-    match = re.search(field + r"=(.*?)($|(?<!\\),)", user, re.IGNORECASE | re.UNICODE)
-    if match:
-        return match.group(1)
-    else:
-        raise Exception("Could Not Parse LDAP User: {}".format(user))
-
-
-def extract_dynamic_field_from_filter(user, filtr):
-    match = re.search(r"([a-zA-Z0-9-]+)=%s", filtr, re.IGNORECASE | re.UNICODE)
-    if match:
-        return match.group(1)
-    else:
-        raise Exception("Could Not Parse LDAP Userfield: {}", user)
-
-
-def extract_user_identifier(user, filtr):
-    dynamic_field = extract_dynamic_field_from_filter(user, filtr)
-    return extract_user_data_from_field(user, dynamic_field)
-
-
-@admi.route("/admin/test_oidc", methods=["POST"])
-@user_login_required
-@admin_required
-def test_oidc():
-    url = request.get_json().get('url')
-    if not url:
-        return json.dumps({'success': False, 'message': 'URL is required.'}), 400
-
-    if not url.startswith('http'):
-        url = 'https://' + url
-
-    discovery_url = url.rstrip('/') + '/.well-known/openid-configuration'
-
-    try:
-        response = requests.get(discovery_url, timeout=5, verify=constants.OAUTH_SSL_STRICT)
-        response.raise_for_status()
-        # Try to parse the JSON and extract useful information
-        oidc_config = response.json()
-
-        # Extract key endpoints for validation
-        endpoints = []
-        if 'authorization_endpoint' in oidc_config:
-            endpoints.append('authorization')
-        if 'token_endpoint' in oidc_config:
-            endpoints.append('token')
-        if 'userinfo_endpoint' in oidc_config:
-            endpoints.append('userinfo')
-
-        endpoint_info = " Found endpoints: " + ', '.join(endpoints) + "." if endpoints else ""
-
-        return json.dumps({
-            'success': True,
-            'message': _('Connection successful! OIDC discovery endpoint is accessible.%(endpoints)s',
-                        endpoints=endpoint_info)
-        })
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 404:
-            return json.dumps({'success': False, 'message': _('Connection failed: OIDC discovery endpoint not found (404). Check if the base URL is correct.')}), 200
-        else:
-            return json.dumps({'success': False, 'message': _('Connection failed: Server returned status code %(code)s', code=e.response.status_code)}), 200
-    except requests.exceptions.ConnectionError:
-        return json.dumps({'success': False, 'message': _('Connection failed: Could not connect to server. Check the URL and network connectivity.')}), 200
-    except requests.exceptions.Timeout:
-        return json.dumps({'success': False, 'message': _('Connection failed: Request timed out. The server may be slow or unreachable.')}), 200
-    except ValueError:
-        return json.dumps({'success': False, 'message': _('Connection failed: Server returned invalid JSON. This may not be an OIDC endpoint.')}), 200
-    except Exception as e:
-        log.error("OIDC test connection failed: %s", e)
-        return json.dumps({'success': False, 'message': _('Connection failed: %(error)s', error=str(e))}), 200
-
-
-@admi.route("/admin/test_metadata", methods=["POST"])
-@user_login_required
-@admin_required
-def test_metadata():
-    metadata_url = request.get_json().get('url')
-    if not metadata_url:
-        return json.dumps({'success': False, 'message': 'Metadata URL is required.'}), 400
-
-    if not metadata_url.startswith('http'):
-        metadata_url = 'https://' + metadata_url
-
-    try:
-        response = requests.get(metadata_url, timeout=5, verify=constants.OAUTH_SSL_STRICT)
-        response.raise_for_status()
-        data = response.json()
-
-        # Validate that it contains required OIDC fields
-        required_fields = ['issuer', 'authorization_endpoint', 'token_endpoint']
-        missing_fields = [field for field in required_fields if not data.get(field)]
-
-        if missing_fields:
-            return json.dumps({
-                'success': False,
-                'message': _('Metadata is missing required OIDC fields: %(fields)s. This may not be a valid OIDC metadata endpoint.',
-                            fields=', '.join(missing_fields))
-            }), 200
-
-        # Count available OAuth endpoints for user feedback
-        oauth_endpoints = ['authorization_endpoint', 'token_endpoint', 'userinfo_endpoint',
-                          'end_session_endpoint', 'introspection_endpoint', 'revocation_endpoint']
-        found_endpoints = [ep for ep in oauth_endpoints if ep in data]
-        endpoint_count = len(found_endpoints)
-        has_userinfo = 'userinfo_endpoint' in data
-
-        message = _('Metadata URL is valid! Found %(count)s OAuth endpoints.', count=endpoint_count)
-        if has_userinfo:
-            message += _(' User info endpoint is available.')
-        else:
-            message += _(' Note: User info endpoint not found - this may cause authentication issues.')
-
-        return json.dumps({'success': True, 'message': message})
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 404:
-            return json.dumps({'success': False, 'message': _('Metadata URL not found (404). Please check the URL is correct.')}), 200
-        else:
-            return json.dumps({'success': False, 'message': _('Connection failed: Server returned status code %(code)s', code=e.response.status_code)}), 200
-    except requests.exceptions.ConnectionError:
-        return json.dumps({'success': False, 'message': _('Connection failed: Could not connect to metadata URL. Check the URL and network connectivity.')}), 200
-    except requests.exceptions.Timeout:
-        return json.dumps({'success': False, 'message': _('Connection failed: Request timed out.')}), 200
-    except ValueError:
-        return json.dumps({'success': False, 'message': _('Connection failed: Invalid JSON in response.')}), 200
-    except Exception as e:
-        log.error("Metadata test failed: %s", e)
-        return json.dumps({'success': False, 'message': _('An unknown error occurred.')}), 200
 
 # --- Last Resort Calibre DB Restore / database snapshot restore ---
 # Both run as background tasks: calibredb restore_database can take ~20 minutes and a

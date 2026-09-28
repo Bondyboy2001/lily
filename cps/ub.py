@@ -14,22 +14,10 @@ from datetime import datetime, timezone, timedelta
 import itertools
 import uuid
 from flask import session as flask_session
-from binascii import hexlify
 
 from .cw_login import AnonymousUserMixin, current_user
 from .cw_login import user_logged_in
 
-try:
-    from flask_dance.consumer.backend.sqla import OAuthConsumerMixin  # pyright: ignore[reportMissingImports]
-    oauth_support = True
-except ImportError:
-    # fails on flask-dance >1.3, due to renaming
-    try:
-        from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
-        oauth_support = True
-    except ImportError:
-        OAuthConsumerMixin = BaseException
-        oauth_support = False
 from sqlalchemy import create_engine, exc, exists, event, text
 from sqlalchemy import Column, ForeignKey, Index, UniqueConstraint
 from sqlalchemy import String, Integer, SmallInteger, Boolean, DateTime, Float, JSON
@@ -40,7 +28,7 @@ try:
     from sqlalchemy.orm import declarative_base
 except ImportError:
     from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import backref, relationship, sessionmaker, Session, scoped_session
+from sqlalchemy.orm import relationship, sessionmaker, Session, scoped_session
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from . import constants, logger
@@ -259,8 +247,6 @@ class User(UserBase, Base):
     email = Column(String(120), unique=True, default="")
     role = Column(SmallInteger, default=constants.ROLE_USER)
     password = Column(String)
-    kindle_mail = Column(String(120), default="")
-    kindle_mail_subject = Column(String(256), default="", doc="Subject line for eReader email sending, empty=default")
     shelf = relationship('Shelf', backref='user', lazy='dynamic', order_by='Shelf.name')
     downloads = relationship('Downloads', backref='user', lazy='dynamic')
     locale = Column(String(2), default="en")
@@ -270,17 +256,11 @@ class User(UserBase, Base):
     allowed_tags = Column(String, default="")
     denied_column_value = Column(String, default="")
     allowed_column_value = Column(String, default="")
-    remote_auth_token = relationship('RemoteAuthToken', backref='user', lazy='dynamic')
     view_settings = Column(JSON, default={})
-    kobo_only_shelves_sync = Column(Integer, default=0)
     opds_only_shelves_sync = Column(Integer, default=0)
     hardcover_token = Column(String, unique=True, default=None)
     # Unused since Lily has a single look; kept so existing databases still match the model
     theme = Column(Integer, default=1)
-    # Auto-send settings for new books
-    auto_send_enabled = Column(Boolean, default=False)
-    # Allow entering additional email addresses on send-to-eReader
-    allow_additional_ereader_emails = Column(Boolean, default=True)
     # Set for accounts still using the shipped default password; the web UI forces a
     # password change before anything else can be used. Cleared whenever the password
     # is assigned (see _clear_force_password_change below).
@@ -294,53 +274,22 @@ def _clear_force_password_change(target, value, oldvalue, initiator):
     target.force_password_change = False
 
 
-if oauth_support:
-    class OAuth(OAuthConsumerMixin, Base):
-        provider_user_id = Column(String(256))
-        user_id = Column(Integer, ForeignKey(User.id))
-        user = relationship(User)
-
-
-class OAuthProvider(Base):
-    __tablename__ = 'oauthProvider'
-
-    id = Column(Integer, primary_key=True)
-    provider_name = Column(String)
-    oauth_client_id = Column(String)
-    oauth_client_secret = Column(String)
-    oauth_base_url = Column(String, default=None)
-    oauth_authorize_url = Column(String, default=None)
-    oauth_token_url = Column(String, default=None)
-    oauth_userinfo_url = Column(String, default=None)
-    oauth_admin_group = Column(String, default=None)
-    metadata_url = Column(String, default=None)  # For OIDC auto-discovery
-    scope = Column(String, default="openid profile email")  # Customizable OAuth scopes
-    username_mapper = Column(String, default="preferred_username")  # JWT field for username
-    email_mapper = Column(String, default="email")  # JWT field for email
-    login_button = Column(String, default="OpenID Connect")  # Custom button text
-    active = Column(Boolean)
-
-
 # Class for anonymous user is derived from User base and completely overrides methods and properties for the
 # anonymous user
 class Anonymous(AnonymousUserMixin, UserBase):
     def __init__(self):
         self.hardcover_token = None
-        self.kobo_only_shelves_sync = None
         self.opds_only_shelves_sync = None
         self.view_settings = None
         self.allowed_column_value = None
         self.allowed_tags = None
         self.denied_tags = None
-        self.kindle_mail = None
-        self.kindle_mail_subject = None
         self.locale = None
         self.default_language = None
         self.sidebar_view = None
         self.id = None
         self.role = None
         self.name = None
-        self.auto_send_enabled = False
         self.force_password_change = False
         self.loadSettings()
 
@@ -353,17 +302,13 @@ class Anonymous(AnonymousUserMixin, UserBase):
         self.sidebar_view = data.sidebar_view
         self.default_language = data.default_language
         self.locale = data.locale
-        self.kindle_mail = data.kindle_mail
-        self.kindle_mail_subject = data.kindle_mail_subject
         self.denied_tags = data.denied_tags
         self.allowed_tags = data.allowed_tags
         self.denied_column_value = data.denied_column_value
         self.allowed_column_value = data.allowed_column_value
         self.view_settings = data.view_settings
-        self.kobo_only_shelves_sync = data.kobo_only_shelves_sync
         self.opds_only_shelves_sync = data.opds_only_shelves_sync
         self.hardcover_token = data.hardcover_token
-        self.auto_send_enabled = data.auto_send_enabled
     def role_admin(self):
         return False
 
@@ -421,7 +366,6 @@ class Shelf(Base):
     name = Column(String)
     is_public = Column(Integer, default=0)
     user_id = Column(Integer, ForeignKey('user.id'))
-    kobo_sync = Column(Boolean, default=False)
     books = relationship("BookShelf", backref="ub_shelf", cascade="all, delete-orphan", lazy="dynamic")
     created = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
@@ -474,16 +418,6 @@ class BookShelf(Base):
         return '<Book %r>' % self.id
 
 
-# This table keeps track of deleted Shelves so that deletes can be propagated to any paired Kobo device.
-class ShelfArchive(Base):
-    __tablename__ = 'shelf_archive'
-
-    id = Column(Integer, primary_key=True)
-    uuid = Column(String)
-    user_id = Column(Integer, ForeignKey('user.id'))
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-
-
 class ReadBook(Base):
     __tablename__ = 'book_read_link'
     __table_args__ = (Index('ix_book_read_link_user_book', 'user_id', 'book_id'),)
@@ -496,12 +430,6 @@ class ReadBook(Base):
     book_id = Column(Integer, unique=False)
     user_id = Column(Integer, ForeignKey('user.id'), unique=False)
     read_status = Column(Integer, unique=False, default=STATUS_UNREAD, nullable=False)
-    kobo_reading_state = relationship("KoboReadingState", uselist=False,
-                                      primaryjoin="and_(ReadBook.user_id == foreign(KoboReadingState.user_id), "
-                                                  "ReadBook.book_id == foreign(KoboReadingState.book_id))",
-                                      cascade="all",
-                                      backref=backref("book_read_link",
-                                                      uselist=False))
     last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     last_time_started_reading = Column(DateTime, nullable=True)
     times_started_reading = Column(Integer, default=0, nullable=False)
@@ -532,7 +460,7 @@ class WebReaderProgress(Base):
                            onupdate=lambda: datetime.now(timezone.utc))
 
 
-# Baseclass representing books that are archived on the user's Kobo device.
+# Books a user has archived (hidden from their library views).
 class ArchivedBook(Base):
     __tablename__ = 'archived_book'
     __table_args__ = (Index('ix_archived_book_user_book', 'user_id', 'book_id'),)
@@ -542,92 +470,6 @@ class ArchivedBook(Base):
     book_id = Column(Integer)
     is_archived = Column(Boolean, unique=False)
     last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-
-
-class KoboSyncedBooks(Base):
-    __tablename__ = 'kobo_synced_books'
-    __table_args__ = (Index('ix_kobo_synced_books_user_book', 'user_id', 'book_id'),)
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('user.id'))
-    book_id = Column(Integer)
-
-
-# The Kobo ReadingState API keeps track of 4 timestamped entities:
-#   ReadingState, StatusInfo, Statistics, CurrentBookmark
-# Which we map to the following 4 tables:
-#   KoboReadingState, ReadBook, KoboStatistics and KoboBookmark
-class KoboReadingState(Base):
-    __tablename__ = 'kobo_reading_state'
-    __table_args__ = (Index('ix_kobo_reading_state_user_book', 'user_id', 'book_id'),)
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('user.id'))
-    book_id = Column(Integer)
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    priority_timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    current_bookmark = relationship("KoboBookmark", uselist=False, backref="kobo_reading_state", cascade="all, delete")
-    statistics = relationship("KoboStatistics", uselist=False, backref="kobo_reading_state", cascade="all, delete")
-
-
-class KoboBookmark(Base):
-    __tablename__ = 'kobo_bookmark'
-
-    id = Column(Integer, primary_key=True)
-    kobo_reading_state_id = Column(Integer, ForeignKey('kobo_reading_state.id'))
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    location_source = Column(String)
-    location_type = Column(String)
-    location_value = Column(String)
-    progress_percent = Column(Float)
-    content_source_progress_percent = Column(Float)
-
-
-class KoboStatistics(Base):
-    __tablename__ = 'kobo_statistics'
-
-    id = Column(Integer, primary_key=True)
-    kobo_reading_state_id = Column(Integer, ForeignKey('kobo_reading_state.id'))
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    remaining_time_minutes = Column(Integer)
-    spent_reading_minutes = Column(Integer)
-
-
-class KoboAnnotationSync(Base):
-    """Track which Kobo annotations have been synced to external services (e.g., Hardcover)."""
-    __tablename__ = 'kobo_annotation_sync'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
-    annotation_id = Column(String, nullable=False)  # Kobo annotation UUID
-    book_id = Column(Integer, nullable=False)  # Calibre book ID
-    synced_to_hardcover = Column(Boolean, default=False)
-    hardcover_journal_id = Column(Integer)  # Hardcover journal entry ID
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    last_synced = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    highlighted_text = Column(String, nullable=True)
-    highlight_color = Column(String, nullable=True)
-    note_text = Column(String, nullable=True)
-    
-    __table_args__ = (
-        Index('ix_kobo_annotation_sync_user_annotation', 'user_id', 'annotation_id'),
-        Index('ix_kobo_annotation_sync_user_book', 'user_id', 'book_id'),
-    )
-
-    def __repr__(self):
-        return f'<KoboAnnotationSync annotation_id={self.annotation_id} book_id={self.book_id}>'
-
-
-class HardcoverBookBlacklist(Base):
-    """Track book-level blacklisting for hardcover sync features."""
-    __tablename__ = 'hardcover_book_blacklist'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    book_id = Column(Integer, nullable=False, unique=True)  # Calibre book ID
-    blacklist_annotations = Column(Boolean, default=False)  # Block annotation syncing
-    blacklist_reading_progress = Column(Boolean, default=False)  # Block reading progress syncing
-
-    def __repr__(self):
-        return f'<HardcoverBookBlacklist book_id={self.book_id} annotations={self.blacklist_annotations} progress={self.blacklist_reading_progress}>'
 
 
 class HardcoverMatchQueue(Base):
@@ -652,13 +494,8 @@ class HardcoverMatchQueue(Base):
         return f'<HardcoverMatchQueue book_id={self.book_id} title="{self.book_title}" reviewed={bool(self.reviewed)}>'
 
 
-# Updates the last_modified timestamp in the KoboReadingState table if any of its children tables are modified.
 @event.listens_for(Session, 'before_flush')
 def receive_before_flush(session, flush_context, instances):
-    for change in itertools.chain(session.new, session.dirty):
-        if isinstance(change, (ReadBook, KoboStatistics, KoboBookmark)):
-            if change.kobo_reading_state:
-                change.kobo_reading_state.last_modified = datetime.now(timezone.utc)
     # Maintain the last_modified_bit for the Shelf table.
     for change in itertools.chain(session.new, session.deleted):
         if isinstance(change, BookShelf):
@@ -676,37 +513,6 @@ class Downloads(Base):
 
     def __repr__(self):
         return '<Download %r' % self.book_id
-
-
-# Baseclass representing allowed domains for registration
-class Registration(Base):
-    __tablename__ = 'registration'
-
-    id = Column(Integer, primary_key=True)
-    domain = Column(String)
-    allow = Column(Integer)
-
-    def __repr__(self):
-        return "<Registration('{0}')>".format(self.domain)
-
-
-class RemoteAuthToken(Base):
-    __tablename__ = 'remote_auth_token'
-
-    id = Column(Integer, primary_key=True)
-    auth_token = Column(String, unique=True)
-    user_id = Column(Integer, ForeignKey('user.id'))
-    verified = Column(Boolean, default=False)
-    expiration = Column(DateTime)
-    token_type = Column(Integer, default=0)
-
-    def __init__(self):
-        super().__init__()
-        self.auth_token = (hexlify(os.urandom(4))).decode('utf-8')
-        self.expiration = datetime.now() + timedelta(minutes=10)  # 10 min from now
-
-    def __repr__(self):
-        return '<Token %r>' % self.id
 
 
 def filename(context):
@@ -768,28 +574,10 @@ def add_missing_tables(engine, _session):
         ArchivedBook.__table__.create(bind=engine, checkfirst=True)
     if not engine.dialect.has_table(engine.connect(), "thumbnail"):
         Thumbnail.__table__.create(bind=engine, checkfirst=True)
-    if not engine.dialect.has_table(engine.connect(), "kosync_progress"):
-        # Model lives in progress_syncing.models, which imports ub, so use the shared metadata
-        Base.metadata.tables["kosync_progress"].create(bind=engine, checkfirst=True)
     if not engine.dialect.has_table(engine.connect(), "opds_shelf_exposure"):
         OpdsShelfExposure.__table__.create(bind=engine, checkfirst=True)
     if not engine.dialect.has_table(engine.connect(), "web_reader_progress"):
         WebReaderProgress.__table__.create(bind=engine, checkfirst=True)
-
-
-# migrate all settings missing in registration table
-def migrate_registration_table(engine, _session):
-    try:
-        # Handle table exists, but no content
-        cnt = _session.query(Registration).count()
-        if not cnt:
-            with engine.connect() as conn:
-                trans = conn.begin()
-                conn.execute(text("insert into registration (domain, allow) values('%.%',1)"))
-                trans.commit()
-    except exc.OperationalError:  # Database is not writeable
-        print('Settings database is not writeable. Exiting...')
-        sys.exit(2)
 
 
 def migrate_user_session_table(engine, _session):
@@ -829,23 +617,6 @@ def migrate_user_table(engine, _session):
         _run_ddl_with_retry(engine, "ALTER TABLE user ADD column 'theme' Integer DEFAULT 0")
 
 
-    # Migration for auto-send feature columns
-    try:
-        _session.query(exists().where(User.auto_send_enabled)).scalar()
-        _session.commit()
-    except exc.OperationalError:
-        _safe_session_rollback(_session, "user.auto_send_enabled")
-        try:
-            _run_ddl_with_retry(engine, "ALTER TABLE user ADD column 'auto_send_enabled' Boolean DEFAULT 0")
-        except Exception as e:
-            db_hint = app_DB_path or str(engine.url)
-            log.error(
-                "Failed to add auto_send_enabled column to user table in app.db (%s). "
-                "Check file permissions, locks, and CALIBRE_DBPATH mapping. Error: %s",
-                db_hint,
-                e,
-            )
-
     # Migration for forced password change flag (default admin password)
     try:
         _session.query(exists().where(User.force_password_change)).scalar()
@@ -853,31 +624,6 @@ def migrate_user_table(engine, _session):
     except exc.OperationalError:
         _safe_session_rollback(_session, "user.force_password_change")
         _run_ddl_with_retry(engine, "ALTER TABLE user ADD column 'force_password_change' Boolean DEFAULT 0")
-
-    # Migration for per-user additional eReader email address permission
-    try:
-        _session.query(exists().where(User.allow_additional_ereader_emails)).scalar()
-        _session.commit()
-    except exc.OperationalError:
-        _safe_session_rollback(_session, "user.allow_additional_ereader_emails")
-        try:
-            _run_ddl_with_retry(engine, "ALTER TABLE user ADD column 'allow_additional_ereader_emails' Boolean DEFAULT 1")
-        except Exception as e:
-            db_hint = app_DB_path or str(engine.url)
-            log.error(
-                "Failed to add allow_additional_ereader_emails column to user table in app.db (%s). "
-                "Check file permissions, locks, and CALIBRE_DBPATH mapping. Error: %s",
-                db_hint,
-                e,
-            )
-
-    # Migration to add per-user email subject for Kindle sending
-    try:
-        _session.query(exists().where(User.kindle_mail_subject)).scalar()
-        _session.commit()
-    except exc.OperationalError:
-        _safe_session_rollback(_session, "user.kindle_mail_subject")
-        _run_ddl_with_retry(engine, "ALTER TABLE user ADD column 'kindle_mail_subject' String DEFAULT ''")
 
     # Migration to enable duplicates sidebar for existing admin users (one-time)
     try:
@@ -911,107 +657,6 @@ def migrate_user_table(engine, _session):
         print(f"[Migration] Warning: Could not update duplicates sidebar setting: {e}")
         _session.rollback()
 
-def migrate_oauth_provider_table(engine, _session):
-    try:
-        _session.query(exists().where(OAuthProvider.oauth_base_url)).scalar()
-        _session.commit()
-    except exc.OperationalError:  # Database is not compatible, some columns are missing
-        _safe_session_rollback(_session, "oauthProvider.base_urls")
-        _run_ddl_with_retry(
-            engine,
-            [
-                "ALTER TABLE oauthProvider ADD column 'oauth_base_url' String DEFAULT NULL",
-                "ALTER TABLE oauthProvider ADD column 'oauth_authorize_url' String DEFAULT NULL",
-                "ALTER TABLE oauthProvider ADD column 'oauth_token_url' String DEFAULT NULL",
-                "ALTER TABLE oauthProvider ADD column 'oauth_userinfo_url' String DEFAULT NULL",
-                "ALTER TABLE oauthProvider ADD column 'oauth_admin_group' String DEFAULT NULL",
-            ],
-        )
-
-    # Add new OAuth enhancement fields
-    try:
-        _session.query(exists().where(OAuthProvider.metadata_url)).scalar()
-        _session.commit()
-    except exc.OperationalError:  # New columns are missing
-        _safe_session_rollback(_session, "oauthProvider.metadata_url")
-        _run_ddl_with_retry(
-            engine,
-            [
-                "ALTER TABLE oauthProvider ADD column 'metadata_url' String DEFAULT NULL",
-                "ALTER TABLE oauthProvider ADD column 'scope' String DEFAULT 'openid profile email'",
-                "ALTER TABLE oauthProvider ADD column 'username_mapper' String DEFAULT 'preferred_username'",
-                "ALTER TABLE oauthProvider ADD column 'email_mapper' String DEFAULT 'email'",
-                "ALTER TABLE oauthProvider ADD column 'login_button' String DEFAULT 'OpenID Connect'",
-            ],
-        )
-
-
-def migrate_config_table(engine, _session):
-    """Migrate configuration table to add new authentication columns"""
-    if not engine or not _session:
-            _safe_session_rollback(_session, "settings.config_reverse_proxy_auto_create_users")
-            _run_ddl_with_retry(
-                engine,
-                "ALTER TABLE settings ADD column 'config_reverse_proxy_auto_create_users' Boolean DEFAULT 0",
-            )
-    try:
-        # Test if the new column exists
-        _session.execute(text("SELECT config_oauth_redirect_host FROM settings LIMIT 1"))
-        _session.commit()
-    except exc.OperationalError:  # Column doesn't exist
-        try:
-            with engine.connect() as conn:
-                trans = conn.begin()
-                conn.execute(text("ALTER TABLE settings ADD column 'config_oauth_redirect_host' String DEFAULT ''"))
-                trans.commit()
-        except Exception as e:
-            log.error("Failed to add config_oauth_redirect_host column: %s", e)
-            # Don't raise - let CWA continue without this feature
-            pass
-
-    # Add reverse proxy auto-create users configuration
-    try:
-        # Test if the new column exists
-        _session.execute(text("SELECT config_reverse_proxy_auto_create_users FROM settings LIMIT 1"))
-        _session.commit()
-    except exc.OperationalError:  # Column doesn't exist
-        try:
-            with engine.connect() as conn:
-                trans = conn.begin()
-                conn.execute(text("ALTER TABLE settings ADD column 'config_reverse_proxy_auto_create_users' Boolean DEFAULT 0"))
-                trans.commit()
-        except Exception as e:
-            log.error("Failed to add config_reverse_proxy_auto_create_users column: %s", e)
-            # Don't raise - let CWA continue without this feature
-            pass
-
-    # Add LDAP auto-create users configuration
-    try:
-        # Test if the new column exists
-        _session.execute(text("SELECT config_ldap_auto_create_users FROM settings LIMIT 1"))
-        _session.commit()
-    except exc.OperationalError:  # Column doesn't exist
-        try:
-            _safe_session_rollback(_session, "settings.config_ldap_auto_create_users")
-            _run_ddl_with_retry(
-                engine,
-                "ALTER TABLE settings ADD column 'config_ldap_auto_create_users' Boolean DEFAULT 1",
-            )
-        except Exception as e:
-            log.error("Failed to add config_ldap_auto_create_users column: %s", e)
-            # Don't raise - let CWA continue without this feature
-            pass
-
-
-def migrate_shelf_table(engine, _session):
-    try:
-        _session.query(exists().where(Shelf.kobo_sync)).scalar()
-        _session.commit()
-    except exc.OperationalError:
-        _safe_session_rollback(_session, "shelf.kobo_sync")
-        _run_ddl_with_retry(engine, "ALTER TABLE shelf ADD column 'kobo_sync' Boolean DEFAULT 0")
-
-
 # Migrate database to current version, has to be updated after every database change. Currently migration from
 # maybe 4/5 versions back to current should work.
 # Migration is done by checking if relevant columns are existing, and then adding rows with SQL commands
@@ -1020,8 +665,6 @@ def migrate_shelf_table(engine, _session):
 _PERFORMANCE_INDEXES = (
     ('ix_book_read_link_user_book', 'book_read_link', ('user_id', 'book_id')),
     ('ix_archived_book_user_book', 'archived_book', ('user_id', 'book_id')),
-    ('ix_kobo_synced_books_user_book', 'kobo_synced_books', ('user_id', 'book_id')),
-    ('ix_kobo_reading_state_user_book', 'kobo_reading_state', ('user_id', 'book_id')),
     ('ix_thumbnail_type_entity_resolution', 'thumbnail', ('type', 'entity_id', 'resolution')),
     ('ix_user_session_random_session_key', 'user_session', ('random', 'session_key')),
     ('ix_book_shelf_link_shelf', 'book_shelf_link', ('shelf',)),
@@ -1095,35 +738,13 @@ def migrate_default_sidebar(_session):
 def migrate_Database(_session):
     engine = _session.bind
     add_missing_tables(engine, _session)
-    migrate_registration_table(engine, _session)
     migrate_user_session_table(engine, _session)
     migrate_user_table(engine, _session)
-    migrate_shelf_table(engine, _session)
-    migrate_oauth_provider_table(engine, _session)
-    migrate_config_table(engine, _session)
     migrate_default_sidebar(_session)
     # Runs after every user column migration so the full User model can be queried
     flag_users_with_default_password(_session)
     _safe_session_rollback(_session, "performance indexes")  # release any read lock before DDL
     migrate_performance_indexes(engine)
-
-    # Ensure progress syncing tables in app.db (user-related tables)
-    from .progress_syncing.models import ensure_app_db_tables
-    from .progress_syncing.settings import is_koreader_sync_enabled
-    if is_koreader_sync_enabled():
-        ensure_app_db_tables(engine.raw_connection())
-
-
-def clean_database(_session):
-    # Remove expired remote login tokens
-    now = datetime.now()
-    try:
-        _session.query(RemoteAuthToken).filter(now > RemoteAuthToken.expiration).\
-            filter(RemoteAuthToken.token_type != 1).delete()
-        _session.commit()
-    except exc.OperationalError:  # Database is not writeable
-        print('Settings database is not writeable. Exiting...')
-        sys.exit(2)
 
 
 # Save downloaded books per user in calibre-web's own database
@@ -1237,7 +858,6 @@ def init_db(app_db_path):
     if os.path.exists(app_db_path):
         Base.metadata.create_all(engine)
         migrate_Database(session)
-        clean_database(session)
     else:
         Base.metadata.create_all(engine)
         create_admin_user(session)

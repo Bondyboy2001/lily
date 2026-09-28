@@ -37,10 +37,6 @@
     <script>
       // Page globals for main.js and lily.js, set before either loads
       window.scriptRoot = {{ request.script_root|tojson }};
-      window.cwaUserData = {
-        primaryEmail: {{ (current_user.kindle_mail.split(',')[0].strip() if current_user.kindle_mail and current_user.kindle_mail.strip() else None)|tojson }},
-        canEditBooks: {{ 'true' if current_user.role_edit() else 'false' }}
-      };
     </script>
   </head>
   <body class="{{ page }} {{ bodyClass }}" data-book-view="{{ current_user.get_view_property('books', 'view') or 'grid' }}" data-text="{{_('Home')}}" data-textback="{{_('Back')}}">

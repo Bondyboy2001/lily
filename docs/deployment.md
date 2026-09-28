@@ -72,38 +72,10 @@ chain depth is wrong — adjust this variable to match.
 | Variable | Default | Purpose |
 |---|---|---|
 | `TRUSTED_PROXY_COUNT` | `0` | Number of reverse proxies whose `X-Forwarded-*` headers are trusted. Set to `1` behind a single reverse proxy. |
-| `TRUSTED_PROXY_IPS` | `127.0.0.0/8,::1/128` (loopback only) | CIDRs allowed to send the *reverse proxy login header* (Admin → Configuration → "Allow Reverse Proxy Authentication"). The header is ignored from any other source address. Checked against the socket that actually connected, not `X-Forwarded-For`. If your proxy runs in another container or on another host, list its address, e.g. `172.18.0.5/32`. See [Reverse proxy authentication](#reverse-proxy-authentication-header-login) below. |
 | `SESSION_COOKIE_SECURE` | `false` | Set to `true` when Lily is served over HTTPS, so session and remember-me cookies are only sent over HTTPS. |
 | `NETWORK_SHARE_MODE` | `false` | See [Network shares](#network-shares-nfssmb) above. |
 | `CWA_WATCH_MODE` | `auto` | Force `poll` to override watcher auto-detection. |
 | `CWA_PORT_OVERRIDE` | `8083` | Change the web server port. |
-
-### Reverse proxy authentication (header login)
-
-With "Allow Reverse Proxy Authentication" enabled, Lily logs in whichever user the
-configured header names, so it must only accept that header from your proxy.
-`TRUSTED_PROXY_IPS` lists the addresses it is accepted from.
-
-**Upgrade note:** earlier versions trusted loopback *and* every private range
-(`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`) by default, which let any
-device on the LAN, or any container on a shared Docker network, log in as any user by
-sending the header itself. The default is now loopback only. If header login stops
-working after upgrading, Lily logs `Ignoring reverse proxy login header from untrusted
-address <ip>`: add that address (your proxy's) to `TRUSTED_PROXY_IPS`, for example
-
-```yaml
-    environment:
-      - TRUSTED_PROXY_IPS=172.18.0.5/32
-```
-
-Give the proxy container a fixed IP (or a dedicated Docker network with a small subnet)
-so the entry stays valid. Setting the old private ranges again restores the previous
-behaviour, but only do that if nothing untrusted can reach Lily's port directly.
-
-Other hardening defaults:
-
-- Failed KOReader (KOSync) logins are rate limited per username (5/minute, 60/hour) when
-  the rate limiter is enabled. Successful syncs are never throttled.
 
 ---
 
@@ -144,12 +116,3 @@ restoring `app.db`. Pre-restore snapshots are never rotated; delete them by hand
 Snapshots are self-contained SQLite files with no `-wal` sidecar, so they can also be
 opened directly with `sqlite3` to inspect or recover individual rows.
 
----
-
-## Gmail / email setup
-
-Sending books over email uses Calibre's mail configuration at
-`/app/calibre-web-automated/gmail.json`.
-
-The upstream [Calibre-Web mailserver guide](https://github.com/janeczku/calibre-web/wiki/Setup-Mailserver#gmail)
-covers it, but Gmail is a fiddly process — a plain SMTP server is usually less painful.

@@ -260,11 +260,6 @@ input.pill:not(:checked) + label .glyphicon {
   width: 100px;
 }
 
-#remove-from-shelves .btn,
-#shelf-action-errors {
-  margin-left: 5px;
-}
-
 .tags_click,
 .serie_click,
 .language_click {

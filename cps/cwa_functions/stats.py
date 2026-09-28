@@ -8,7 +8,7 @@
 
 from datetime import datetime
 
-from flask import request, jsonify
+from flask import request
 from flask_babel import gettext as _
 
 from .. import ub
@@ -23,7 +23,6 @@ from ..web import cwa_get_num_books_in_library
 # common puts the scripts dir on sys.path, so it must be imported before cwa_db
 from .common import cwa_stats, log
 from cwa_db import CWA_DB
-from ..services.background_scheduler import BackgroundScheduler
 
 def parse_stats_date_range(start_date, end_date):
     """Validate a 'YYYY-MM-DD' start/end pair from the query string.
@@ -39,44 +38,6 @@ def parse_stats_date_range(start_date, end_date):
     except (TypeError, ValueError):
         return None, None
 
-
-@cwa_stats.route('/cwa-scheduled/cancel', methods=["POST"])
-@login_required_if_no_ano
-@admin_required
-def cwa_scheduled_cancel():
-    """Cancel a pending scheduled auto-send by id.
-
-    Payload JSON: {id:int}
-    """
-    try:
-        data = request.get_json(force=True, silent=True) or {}
-        sid = int(data.get('id'))
-    except Exception:
-        return jsonify({"error": "Invalid id"}), 400
-
-    try:
-        from cwa_db import CWA_DB
-        db = CWA_DB()
-        row = db.scheduled_get_by_id(sid)
-        if not row:
-            return jsonify({"error": "Not found"}), 404
-
-        # Attempt to remove scheduled APScheduler job
-        job_id = (row.get('scheduler_job_id') or '').strip()
-        try:
-            scheduler = BackgroundScheduler()
-            if scheduler and job_id:
-                scheduler.remove_job(job_id)
-        except Exception:
-            # Ignore removal errors (job may have already run or been removed)
-            pass
-
-        # Mark as cancelled regardless of job removal result
-        db.scheduled_mark_cancelled(sid)
-        return jsonify({"status": "cancelled", "id": sid}), 200
-    except Exception as e:
-        log.error(f"Error cancelling scheduled auto-send: {e}")
-        return jsonify({"error": str(e)}), 500
 
 ##————————————————————————————————————————————————————————————————————————————##
 ##                                                                            ##
@@ -557,19 +518,6 @@ def export_stats_csv(tab_name):
         response.headers['Content-Disposition'] = 'attachment; filename="error.csv"'
         return response
 
-
-@cwa_stats.route('/cwa-scheduled/upcoming', methods=["GET"])
-@login_required_if_no_ano
-@admin_required
-def cwa_scheduled_upcoming():
-    try:
-        from cwa_db import CWA_DB
-        db = CWA_DB()
-        rows = db.scheduled_get_upcoming_autosend(limit=100)
-        return jsonify({"items": rows}), 200
-    except Exception as e:
-        log.error(f"Error fetching upcoming scheduled sends: {e}")
-        return jsonify({"items": []}), 200
 
 @cwa_stats.route("/cwa-stats-show/full-enforcement", methods=["GET", "POST"])
 @login_required_if_no_ano

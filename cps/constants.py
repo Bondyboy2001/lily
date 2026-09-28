@@ -28,8 +28,6 @@ TRANSLATIONS_DIR    = os.path.join(BASE_DIR, 'cps', 'translations')
 DEFAULT_CACHE_DIR   = os.path.join(BASE_DIR, 'cps', 'cache')
 CACHE_DIR           = os.environ.get('CACHE_DIR', DEFAULT_CACHE_DIR)
 
-OAUTH_SSL_STRICT = os.environ.get('OAUTH_SSL_STRICT', "1").lower() in ("true", "1")
-
 if HOME_CONFIG:
     home_dir = os.path.join(os.path.expanduser("~"), ".calibre-web-automated")
     if not os.path.exists(home_dir):
@@ -114,15 +112,6 @@ DEFAULT_SIDEBAR         = (SIDEBAR_RECENT | SIDEBAR_CATEGORY | SIDEBAR_SERIES | 
 ADMIN_USER_SIDEBAR      = DEFAULT_SIDEBAR
 
 UPDATE_STABLE       = 0 << 0
-
-LOGIN_LDAP          = 1
-LOGIN_OAUTH         = 2
-
-LDAP_AUTH_ANONYMOUS      = 0
-LDAP_AUTH_UNAUTHENTICATE = 1
-LDAP_AUTH_SIMPLE         = 0
-
-DEFAULT_MAIL_SERVER = "mail.example.org"
 
 DEFAULT_ADMIN_NAME  = "harry"
 DEFAULT_PASSWORD    = "harry10"  # nosec

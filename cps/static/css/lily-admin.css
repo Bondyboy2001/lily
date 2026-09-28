@@ -595,25 +595,6 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Guides (kosync_plugin.html)                                          */
-/* ------------------------------------------------------------------ */
-.lily-admin .lily-steps {
-    margin: 0 0 14px;
-    padding-left: 22px;
-}
-
-.lily-admin .lily-steps > li { padding: 4px 0; }
-.lily-admin .lily-steps > li::marker { color: var(--muted); font-variant-numeric: tabular-nums; }
-
-.lily-admin .lily-inline-glyph { vertical-align: -3px; color: var(--ink); }
-
-.lily-facts.lily-facts-single { grid-template-columns: minmax(0, 1fr); max-width: 560px; }
-
-.lily-admin .lily-values-table.table { margin: 0; }
-.lily-admin .lily-values-table.table > tbody > tr > td,
-.lily-admin .lily-values-table.table > thead > tr > th { padding: 8px 14px 8px 0; }
-
-/* ------------------------------------------------------------------ */
 /* Empty state (§5): large light glyph, muted title, one sentence, the next action */
 /* ------------------------------------------------------------------ */
 .lily-admin .lily-empty {
@@ -716,97 +697,7 @@
 .match-candidate .btn { margin-top: auto; }
 
 /* ------------------------------------------------------------------ */
-/* Logs (§5 Code blocks): sunk well, 1px line, radius 4, 12px mono      */
-/* ------------------------------------------------------------------ */
-.lily-admin .lily-code-block {
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    background: var(--sunk);
-    overflow: hidden;
-}
-
-.lily-admin .lily-code-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    min-height: 36px;
-    padding: 0 3px 0 12px;
-    border-bottom: 1px solid var(--line);
-    background: color-mix(in srgb, var(--ink) 3%, transparent);
-}
-
-.lily-admin .lily-code-title {
-    min-width: 0;
-    overflow: hidden;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--ink-soft);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.lily-admin .lily-log,
-.lily-admin div.log.lily-log {
-    height: auto;
-    max-height: calc(100vh / var(--page-zoom) - 220px);
-    min-height: 200px;
-    margin: 0;
-    padding: 10px 12px;
-    overflow: auto;
-    border: 0;
-    background: var(--sunk);
-    color: var(--ink);
-    font-family: var(--font-mono);
-    font-size: 14px;
-    line-height: 1.62;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-}
-
-.lily-admin div.log.lily-log {
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    white-space: normal;
-}
-
-.lily-admin .lily-log:empty { display: none; }
-
-.lily-admin .lily-log p { margin: 0; font-size: 14px; color: var(--ink); white-space: pre-wrap; }
-
-.lily-admin .lily-log-choice {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin: 0 0 14px;
-}
-
-.lily-admin .lily-log-choice label { margin: 0; }
-
-/* Magic link (remote_login.html) */
-.lily-remote-login { max-width: 560px; }
-.lily-admin .lily-remote-url { font-family: var(--font-mono); font-size: 14px; overflow-wrap: anywhere; }
-.lily-admin .lily-remote-qr { display: block; margin: 14px 0; border-radius: 4px; }
-
-/* ------------------------------------------------------------------ */
-/* Kobo auth URL (generate_kobo_auth_url.html, loaded into a sheet)      */
-/* ------------------------------------------------------------------ */
-.lily-kobo-auth p { color: var(--ink); }
-
-.lily-kobo-auth .lily-code-line {
-    display: block;
-    padding: 10px 12px;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    background: var(--sunk);
-    color: var(--ink);
-    font-size: 14px;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-}
-
-/* ------------------------------------------------------------------ */
-/* Stand-alone pages without the app shell (http_error, shelfdown)     */
+/* Stand-alone pages without the app shell (http_error)                */
 /* ------------------------------------------------------------------ */
 .lily-standalone { margin: 0; background: var(--paper); }
 
@@ -860,12 +751,6 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
-
-.lily-shelfdown { max-width: 1080px; }
-.lily-shelfdown .book .meta .title { color: var(--ink); font-weight: 500; }
-.lily-shelfdown .btn-group.lily-actions { float: none; margin-top: 8px; }
-.lily-shelfdown .btn-group.lily-actions > .btn-group { display: flex; flex-wrap: wrap; gap: 8px; float: none; }
-.lily-shelfdown .btn-group > .btn-group > .btn { float: none; margin: 0; }
 
 /* Buttons inside a notice keep the Quiet label colour (lily.css tints links in notices). */
 .lily-admin .alert .btn,
@@ -1147,7 +1032,6 @@ ul.lp-help li { margin: 2px 0; }
 .lp-control > .error-list,
 .lp-control > .progress { flex: 1 0 100%; margin: 4px 0 0; padding: 0; font-size: 13px; color: var(--muted); list-style: none; }
 .lp-control > .error-list:empty { display: none; }
-.lp-row:has(> #oidc_test_result:empty) { display: none; }
 
 /* Settings that only apply while their parent is on sit indented under it. */
 .lp-sub > .lp-row { padding-left: 22px; }

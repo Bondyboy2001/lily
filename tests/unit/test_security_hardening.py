@@ -4,14 +4,12 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Regression tests for security hardening: shell injection, XSS, CSRF, proxy trust,
-KOSync brute force and forced default-password change."""
+"""Regression tests for security hardening: shell injection, XSS, CSRF, proxy trust
+and forced default-password change."""
 
 import ast
-import importlib
 import re
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -51,8 +49,7 @@ def test_python_services_drop_root(service):
 
 # --------------------------------------------------------------------------- stored XSS
 @pytest.mark.unit
-@pytest.mark.parametrize("template", ["cwa_stats_full.html",
-                                      "cwa_stats_system.html", "cwa_read_log.html"])
+@pytest.mark.parametrize("template", ["cwa_stats_full.html", "cwa_stats_system.html"])
 def test_stats_and_log_templates_do_not_mark_content_safe(template):
     text = (REPO / "cps/templates" / template).read_text()
     assert not re.search(r"\|\s*safe\b", text)
@@ -87,7 +84,7 @@ def _route_decorators(relpath):
             yield node.name, names, methods
 
 
-STATE_CHANGING = {"cwa_library_refresh", "cwa_scheduled_cancel"}
+STATE_CHANGING = {"cwa_library_refresh"}
 
 
 @pytest.mark.unit
@@ -103,10 +100,9 @@ def test_state_changing_cwa_routes_are_post_only_and_csrf_protected():
     assert "admin_required" in routes["cwa_library_refresh"][0]
 
 
-# Modules whose exempt routes serve devices (Kobo, KOReader, Google Drive
-# callbacks) that authenticate without a browser session.
-DEVICE_PROTOCOL_MODULES = {"cps/kobo.py", "cps/readingservices.py", "cps/gdrive.py",
-                           "cps/progress_syncing/protocols/kosync.py"}
+# Modules whose exempt routes serve callbacks (Google Drive) that authenticate
+# without a browser session.
+DEVICE_PROTOCOL_MODULES = {"cps/gdrive.py"}
 
 
 @pytest.mark.unit
@@ -133,85 +129,6 @@ def test_proxyfix_default_is_off():
     src = (REPO / "cps/__init__.py").read_text()
     assert "os.environ.get('TRUSTED_PROXY_COUNT', '0')" in src
     assert "if num_proxies > 0:" in src
-
-
-def _req(remote, orig=None, headers=None):
-    environ = {"REMOTE_ADDR": remote}
-    if orig:
-        environ["werkzeug.proxy_fix.orig"] = {"REMOTE_ADDR": orig}
-    return SimpleNamespace(environ=environ, headers=headers or {})
-
-
-@pytest.mark.unit
-class TestTrustedProxy:
-    @pytest.mark.parametrize("addr", ["127.0.0.1", "127.0.0.2", "::1", "::ffff:127.0.0.1"])
-    def test_default_trusts_loopback(self, monkeypatch, addr):
-        from cps import usermanagement as um
-        monkeypatch.delenv("TRUSTED_PROXY_IPS", raising=False)
-        assert um.request_from_trusted_proxy(_req(addr))
-
-    @pytest.mark.parametrize("addr", ["203.0.113.9", "8.8.8.8", "2001:db8::1", "garbage", "",
-                                      # private ranges are no longer trusted by default
-                                      "172.18.0.4", "192.168.1.10", "10.1.2.3", "::ffff:192.168.1.2",
-                                      "fd00::1"])
-    def test_default_rejects_public_and_private(self, monkeypatch, addr):
-        from cps import usermanagement as um
-        monkeypatch.delenv("TRUSTED_PROXY_IPS", raising=False)
-        assert not um.request_from_trusted_proxy(_req(addr))
-
-    def test_uses_socket_peer_not_forwarded_for(self, monkeypatch):
-        from cps import usermanagement as um
-        monkeypatch.delenv("TRUSTED_PROXY_IPS", raising=False)
-        # ProxyFix rewrote REMOTE_ADDR from a spoofed X-Forwarded-For
-        assert not um.request_from_trusted_proxy(_req("127.0.0.1", orig="203.0.113.9"))
-
-    def test_private_range_can_be_opted_into(self, monkeypatch):
-        from cps import usermanagement as um
-        monkeypatch.setenv("TRUSTED_PROXY_IPS", "127.0.0.0/8,::1/128,172.16.0.0/12")
-        assert um.request_from_trusted_proxy(_req("172.18.0.4"))
-        assert not um.request_from_trusted_proxy(_req("192.168.1.10"))
-
-    def test_custom_list(self, monkeypatch):
-        from cps import usermanagement as um
-        monkeypatch.setenv("TRUSTED_PROXY_IPS", "203.0.113.0/24, bogus")
-        assert um.request_from_trusted_proxy(_req("203.0.113.9"))
-        assert not um.request_from_trusted_proxy(_req("127.0.0.1"))
-
-    def test_header_ignored_from_untrusted_peer(self, monkeypatch):
-        from cps import usermanagement as um
-        monkeypatch.delenv("TRUSTED_PROXY_IPS", raising=False)
-        monkeypatch.setattr(um, "config", SimpleNamespace(config_reverse_proxy_login_header_name="X-User"))
-
-        class Boom:
-            def query(self, *a, **k):
-                raise AssertionError("user lookup must not happen for untrusted peers")
-        monkeypatch.setattr(um.ub, "session", Boom())
-        assert um.load_user_from_reverse_proxy_header(_req("203.0.113.9", headers={"X-User": "admin"})) is None
-
-
-# --------------------------------------------------------------------------- KOSync brute force
-@pytest.mark.unit
-def test_kosync_limits_failed_attempts_only(monkeypatch):
-    from limits.storage import MemoryStorage
-    from limits.strategies import FixedWindowRateLimiter
-    kosync = importlib.import_module("cps.progress_syncing.protocols.kosync")
-
-    fake = SimpleNamespace(enabled=True, limiter=FixedWindowRateLimiter(MemoryStorage()))
-    monkeypatch.setattr(kosync, "limiter", fake)
-
-    assert not kosync.kosync_auth_blocked("Alice")
-    for _ in range(5):
-        kosync.kosync_record_auth_failure("alice")
-    assert kosync.kosync_auth_blocked("ALICE")
-    assert not kosync.kosync_auth_blocked("bob")
-
-
-@pytest.mark.unit
-def test_kosync_limiter_disabled_is_noop(monkeypatch):
-    kosync = importlib.import_module("cps.progress_syncing.protocols.kosync")
-    monkeypatch.setattr(kosync, "limiter", SimpleNamespace(enabled=False))
-    kosync.kosync_record_auth_failure("alice")
-    assert not kosync.kosync_auth_blocked("alice")
 
 
 # --------------------------------------------------------------------------- default admin

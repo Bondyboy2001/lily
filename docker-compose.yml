@@ -24,9 +24,6 @@ services:
       # If you run Lily behind a reverse proxy (nginx, Caddy, Traefik, ...), set this to 1; for Cloudflare Tunnel +
       # reverse proxy use 2. Leave at 0 if Lily is accessed directly, otherwise clients could spoof their IP.
       # - TRUSTED_PROXY_COUNT=1
-      # Comma-separated CIDRs allowed to send the reverse-proxy login header (only used if reverse proxy authentication
-      # is enabled in the admin settings). Default: loopback only; list your proxy's address, e.g. 172.18.0.5/32.
-      # - TRUSTED_PROXY_IPS=127.0.0.0/8,::1/128,172.18.0.5/32
       # Set to true when serving Lily over HTTPS so session / remember-me cookies are marked Secure (default: false)
       # - SESSION_COOKIE_SECURE=true
       # Skip the automatic library detection/mount at startup. When enabled, the auto-library service will not run.

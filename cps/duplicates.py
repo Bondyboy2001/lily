@@ -1772,16 +1772,6 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
                         except Exception as cancel_ex:
                             log.warning("[cwa-duplicates] Failed to cancel tasks for book %s: %s", book.id, cancel_ex)
                         
-                        print(f"[cwa-duplicates-auto] Cancelling scheduled jobs for book {book.id}...", flush=True)
-                        # Cancel any scheduled jobs (auto-send, etc.) for this book
-                        try:
-                            cancelled_scheduled = cwa_db.scheduled_cancel_for_book(book.id)
-                            if cancelled_scheduled > 0:
-                                log.info("[cwa-duplicates] Cancelled %d scheduled job(s) for deleted book %s", 
-                                        cancelled_scheduled, book.id)
-                        except Exception as schedule_ex:
-                            log.warning("[cwa-duplicates] Failed to cancel scheduled jobs for book %s: %s", book.id, schedule_ex)
-                        
                         print(f"[cwa-duplicates-auto] Book {book.id} deletion complete", flush=True)
                         
                     except Exception as e:

@@ -4,17 +4,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Auth on CWA routes: internal-only endpoints, admin-only services, Kobo token ownership."""
+"""Auth on CWA routes: internal-only endpoints and admin-only services."""
 
 import ast
 import os
 import stat
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 from flask import Flask
-from werkzeug.exceptions import Forbidden
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import cwa_internal_auth
@@ -94,36 +92,6 @@ class TestInternalOnly:
         assert resp.status_code == 403
 
 
-@pytest.mark.unit
-class TestKoboTokenOwnership:
-    @pytest.fixture
-    def check(self, monkeypatch):
-        import cps.kobo_auth as kobo_auth
-
-        def as_user(user_id, admin=False):
-            monkeypatch.setattr(kobo_auth, "current_user",
-                                SimpleNamespace(id=user_id, role_admin=lambda: admin))
-            return kobo_auth._require_self_or_admin
-        return as_user
-
-    def test_own_token_is_allowed(self, check):
-        check(5)(5)
-
-    def test_other_users_token_is_forbidden(self, check):
-        with pytest.raises(Forbidden):
-            check(5)(1)
-
-    def test_admin_may_manage_any_token(self, check):
-        check(1, admin=True)(5)
-
-    def test_both_routes_use_the_check(self):
-        tree = ast.parse((REPO / "cps/kobo_auth.py").read_text())
-        funcs = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
-        for name in ("generate_auth_token", "delete_auth_token"):
-            first = funcs[name].body[0]
-            assert isinstance(first, ast.Expr) and first.value.func.id == "_require_self_or_admin", name
-
-
 # (file, function) pairs that are intentionally reachable without these decorators. None today.
 PUBLIC_ROUTES = set()
 AUTH_DECORATORS = {"login_required_if_no_ano", "user_login_required", "admin_required",
@@ -157,7 +125,7 @@ def test_every_route_has_an_auth_decorator(relpath):
 
 @pytest.mark.unit
 def test_admin_services_require_admin():
-    admin_only = {"download_log", "read_log"}
+    admin_only = {"cwa_flash_status", "set_cwa_settings"}
     routes = {name: decos for relpath in CWA_FUNCTIONS_MODULES for name, decos in _routes(relpath)}
     for name in admin_only:
         assert {"login_required_if_no_ano", "admin_required"} <= routes[name], name

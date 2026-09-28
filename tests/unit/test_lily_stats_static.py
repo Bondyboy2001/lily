@@ -14,7 +14,7 @@ JS = REPO_ROOT / "cps/static/js"
 TEMPLATES = REPO_ROOT / "cps/templates"
 
 STATS_TEMPLATES = [
-    "stats.html", "cwa_stats_full.html", "cwa_stats_system.html", "cwa_stats_tabs.html",
+    "cwa_stats_full.html", "cwa_stats_system.html", "cwa_stats_tabs.html",
     "cwa_user_activity.html", "cwa_library_stats.html", "cwa_api_stats.html", "duplicates.html",
 ]
 STATS_STYLESHEETS = ["lily-stats.css", "duplicates-notifications.css"]

@@ -28,7 +28,7 @@ top.
 ## Features
 
 Everything stock Calibre-Web does — per-user permissions, OPDS feeds, metadata editing,
-Kobo sync, in-browser reading, OAuth/OIDC, 20+ languages, content hiding — plus:
+in-browser reading, 20+ languages, content hiding — plus:
 
 | | |
 |---|---|
@@ -37,14 +37,12 @@ Kobo sync, in-browser reading, OAuth/OIDC, 20+ languages, content hiding — plu
 | **Library auto-detect** | No library? Lily creates one. Have one? Lily finds it and registers it. |
 | **Duplicate detection** | Hybrid SQL + fuzzy matching, with one-click merge and scheduled scans. |
 | **Automatic metadata fetch** | Optional on ingest, with provider fallback and fill-missing-only mode. |
-| **Auto-send to e-reader** | Emails new books after ingest, with a configurable delay. |
 | **Deep stats & analytics** | Activity, library and API usage, with CSV export. |
 | **Nightly backups** | Snapshots of all three databases, retention configurable. |
-| **KOReader sync** | Built-in, zero-config, with checksum generation. |
 | **Batch edit & delete** | Select many books, act once. |
 | **Update notifications** | In-app notice when a new release is available. |
 | **Manual library refresh** | Re-process anything stranded in the ingest folder. |
-| **Extra metadata providers** | ISBNDB, Hardcover, Kobo, LitRes. |
+| **Extra metadata providers** | Hardcover, Open Library, Google Scholar. |
 
 Most of these are toggleable in the Lily Settings panel.
 
@@ -121,7 +119,7 @@ Keep these as separate directories — nesting binds inside each other causes er
 4. Drop a book in the ingest folder to confirm it works.
 
 > **Default login** — username `harry`, password `harry10`. The password must be changed at
-> first login; OPDS, Kobo and KOReader sync keep working in the meantime.
+> first login; OPDS keeps working in the meantime.
 
 ### Environment variables
 

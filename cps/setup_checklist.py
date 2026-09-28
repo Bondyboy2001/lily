@@ -46,16 +46,6 @@ def _admin_on_default_password():
     return None
 
 
-def _sync_enabled():
-    if config.config_kobo_sync:
-        return True
-    try:
-        from .progress_syncing.settings import is_koreader_sync_enabled
-        return is_koreader_sync_enabled()
-    except Exception:
-        return False
-
-
 def setup_checklist():
     """[{id, label, hint, done, href}] for admins while any step is open, else None."""
     if not current_user.is_authenticated or not current_user.role_admin():
@@ -73,12 +63,6 @@ def setup_checklist():
             {"id": "uploads", "label": _("Uploads enabled"),
              "hint": _("Off by default. Until it is on, the Upload button stays hidden."),
              "done": bool(config.config_uploading), "href": url_for("admin.configuration")},
-            {"id": "email", "label": _("Email (SMTP) configured"),
-             "hint": _("Needed to send books to e-readers."),
-             "done": bool(config.get_mail_server_configured()), "href": url_for("admin.edit_mailsettings")},
-            {"id": "sync", "label": _("Kobo sync or KOReader set up"),
-             "hint": _("Keep reading progress in step with your devices."),
-             "done": _sync_enabled(), "href": url_for("kosync.kosync_plugin_page")},
             {"id": "password", "label": _("Default admin password changed"),
              "hint": _("The admin account still accepts the default password."),
              "done": default_pw_user is None, "href": password_href},

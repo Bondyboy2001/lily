@@ -123,18 +123,11 @@ qFinished(()=>{
     }
     Promise.all([epub.locations.generate(), progressSync.load()]).then(([, saved])=> {
         if (reader && reader.rendition) {
-            let hasBookmark = window.calibre.bookmark && window.calibre.bookmark.length > 0;
             let restored = displayPosition(saved);
             if (!restored) {
                 let legacy = legacyLocalPercent();
                 if (legacy !== null) {
                     restored = displayPosition({cfi: "", percent: legacy});
-                }
-            }
-            if (!restored && !hasBookmark && window.calibre.kosyncPercent !== null && window.calibre.kosyncPercent !== undefined) {
-                let kosyncPercent = parseFloat(window.calibre.kosyncPercent);
-                if (!isNaN(kosyncPercent) && kosyncPercent > 0) {
-                    displayPosition({cfi: "", percent: kosyncPercent / 100});
                 }
             }
         }

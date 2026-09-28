@@ -11,13 +11,13 @@ import sys
 import os
 import mimetypes
 
-from flask import Flask, g
+from flask import Flask
 from .MyLoginManager import MyLoginManager
 from flask_principal import Principal
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import logger
-from . import constants
+from . import constants  # noqa: F401  # cps.constants must be importable as an attribute
 from .cli import CliParameter
 from .reverseproxy import ReverseProxied
 from .server import WebServer
@@ -139,24 +139,13 @@ def create_app():
     config_sql.load_configuration(ub.session, encrypt_key)
     config.init_config(ub.session, encrypt_key, cli_param)
 
-    # Intelligent Security Configuration
-    # Force SESSION_COOKIE_SECURE if OAuth is enabled OR if "Use via HTTPS" is checked
-    # This ensures OAuth works (requires Secure cookies) while allowing HTTP for standard login if desired
-    if config.config_login_type == constants.LOGIN_OAUTH or getattr(config, 'config_use_https', False):
+    # Secure cookies when served over HTTPS (config flag or SESSION_COOKIE_SECURE env var)
+    if getattr(config, 'config_use_https', False):
         app.config['SESSION_COOKIE_SECURE'] = True
         app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-        log.info("Enforcing SESSION_COOKIE_SECURE=True (OAuth enabled or HTTPS enforced)")
     else:
-        # Fallback to environment variable or False
         app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'False').lower() == 'true'
-        log.info(f"SESSION_COOKIE_SECURE set to {app.config['SESSION_COOKIE_SECURE']} (Standard/LDAP login)")
-
-    # Set OAuth redirect host consistency
-    if hasattr(config, 'config_oauth_redirect_host') and config.config_oauth_redirect_host:
-        from urllib.parse import urlparse
-        parsed = urlparse(config.config_oauth_redirect_host)
-        if parsed.netloc:
-            app.config['FORCE_HOST_FOR_REDIRECTS'] = parsed.netloc
+    log.info(f"SESSION_COOKIE_SECURE set to {app.config['SESSION_COOKIE_SECURE']}")
 
     if error:
         log.error(error)
@@ -205,21 +194,6 @@ def create_app():
     else:
         babel.init_app(app, locale_selector=get_locale)
 
-    # Initialize OAuth blueprints AFTER babel to ensure translations are loaded
-    # Issue: OAuth blueprint generation was happening during module import (before babel init),
-    # causing babel.list_translations() to return empty list and hiding language options
-    if ub.oauth_support:
-        try:
-            from . import oauth_bb
-            oauth_bb.init_oauth_blueprints()
-            log.info("OAuth blueprints initialized successfully")
-        except Exception as e:
-            log.error("Failed to initialize OAuth blueprints: %s", e)
-
-    from . import services
-
-    if services.ldap:
-        services.ldap.init_app(app, config)
     config.store_calibre_uuid(calibre_db, db.Library_Id)
     # Configure rate limiter
     # https://limits.readthedocs.io/en/stable/storage.html
@@ -255,25 +229,6 @@ def create_app():
     # Ensure a valid calibre_db session exists before handling each request
     @app.before_request
     def _cwa_ensure_db_session():
-        from flask import request
-
-        if config.config_allow_reverse_proxy_header_login:
-            """
-            Load user from reverse proxy authentication header if configured.
-            Sets g.flask_httpauth_user early so that current_user proxy resolves correctly
-            for user-specific settings like theme preferences.
-
-            This must run before any blueprint before_request handlers that access current_user.
-            """
-
-            from . import usermanagement
-            user = usermanagement.load_user_from_reverse_proxy_header(request)
-            if user:
-                g.flask_httpauth_user = user
-            else:
-                # Explicitly set to None to indicate we checked but found nothing
-                g.flask_httpauth_user = None
-
         try:
             calibre_db.ensure_session()
         except Exception:

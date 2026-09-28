@@ -17,7 +17,6 @@ library_refresh = Blueprint('library_refresh', __name__)
 cwa_stats = Blueprint('cwa_stats', __name__)
 cwa_check_status = Blueprint('cwa_check_status', __name__)
 cwa_settings = Blueprint('cwa_settings', __name__)
-cwa_logs = Blueprint('cwa_logs', __name__)
 cwa_internal = Blueprint('cwa_internal', __name__)
 
 log = logger.create()

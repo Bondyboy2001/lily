@@ -67,9 +67,7 @@ RUN \
   apt-get install -y --no-install-recommends \
   imagemagick \
   ghostscript \
-  libldap2 \
   libmagic1 \
-  libsasl2-2 \
   libxi6 \
   libxslt1.1 \
   xdg-utils \
@@ -113,8 +111,6 @@ RUN \
   apt-get update && \
   apt-get install -y --no-install-recommends \
   build-essential \
-  libldap2-dev \
-  libsasl2-dev \
   python3.13-dev \
   python3.13-venv
 
@@ -258,18 +254,6 @@ RUN \
   echo "$VERSION" > /app/CWA_RELEASE && \
   echo "$KEPUBIFY_RELEASE" > /app/KEPUBIFY_RELEASE && \
   echo "$CALIBRE_RELEASE" > /CALIBRE_RELEASE
-
-# Package the KOReader sync plugin as cps/static/koplugin.zip (served on the KOSync page).
-# A <sha256>.digest file inside it lists the plugin's sources, to tell builds apart when debugging.
-RUN \
-  cd koreader/plugins && \
-  PLUGIN_FILES=$(find cwasync.koplugin -type f \( -name "*.lua" -o -name "*.json" \) | sort) && \
-  PLUGIN_DIGEST=$(echo "$PLUGIN_FILES" | xargs sha256sum | sha256sum | cut -d' ' -f1) && \
-  printf 'Plugin files digest: %s\nBuild date: %s\nFiles included:\n%s\n' \
-    "$PLUGIN_DIGEST" "$(date)" "$PLUGIN_FILES" > "cwasync.koplugin/${PLUGIN_DIGEST}.digest" && \
-  zip -qr koplugin.zip cwasync.koplugin/ && \
-  mv koplugin.zip /app/calibre-web-automated/cps/static/ && \
-  echo "Built koplugin.zip (digest ${PLUGIN_DIGEST})"
 
 ENV CALIBRE_CONFIG_DIR=/config/.config/calibre
 WORKDIR /config

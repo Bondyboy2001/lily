@@ -87,19 +87,6 @@
                                 </ul>
                             </span>
                         {% endif %}
-                        {% if current_user.kindle_mail and entry.email_share_list %}
-                            {% if current_user.allow_additional_ereader_emails %}
-                                <button id="sendToEReaderBtn" type="button" class="icon-btn action-icon-btn" data-toggle="modal" data-target="#emailSelectModal" data-book-id="{{ entry.id }}"
-                                        title="{{ _('Send to eReader') }}" aria-label="{{ _('Send to eReader') }}">
-                                    <span class="glyphicon glyphicon-send" aria-hidden="true"></span>
-                                </button>
-                            {% else %}
-                                <button id="sendToEReaderBtn" type="button" class="icon-btn action-icon-btn" data-direct-send="true" data-book-id="{{ entry.id }}" data-book-format="{{ entry.email_share_list[0]['format'] }}" data-convert="{{ entry.email_share_list[0]['convert'] }}" data-selected-emails="{{ current_user.kindle_mail }}"
-                                        title="{{ _('Send to eReader') }}" aria-label="{{ _('Send to eReader') }}">
-                                    <span class="glyphicon glyphicon-send" aria-hidden="true"></span>
-                                </button>
-                            {% endif %}
-                        {% endif %}
                     {% endif %}
                     {% if not current_user.is_anonymous %}
                         {% set read_label = entry.read_status and _('Mark As Unread') or _('Mark As Read') %}
@@ -177,12 +164,6 @@
                                 <a href="{{ identifier|escape }}" target="_blank" rel="noopener">{{ identifier.format_type() }}</a>{% if not loop.last %}, {% endif %}
                             {% endfor %}
                         </dd>
-                    </div>
-                {% endif %}
-                {% if kosync_progress is not none %}
-                    <div class="kosync-progress">
-                        <dt>{{ _('KOReader Progress') }}</dt>
-                        <dd>{{ kosync_progress|formatfloat(1) }}%{% if kosync_progress_timestamp %} <span class="text-muted">({{ kosync_progress_timestamp|formatdate }})</span>{% endif %}</dd>
                     </div>
                 {% endif %}
                 {% if cc|length > 0 %}
@@ -267,101 +248,13 @@
             <div class="comments">{{ entry.comments[0].text|safe }}</div>
         </section>
     {% endif %}
-    <div id="shelf-action-errors" role="alert"></div>
     <div id="action-toast" class="action-toast" role="status" aria-live="polite"></div>
-    {% if current_user.kindle_mail and entry.email_share_list and current_user.allow_additional_ereader_emails %}
-        <div class="modal fade" id="emailSelectModal" data-book-id="{{ entry.id }}" tabindex="-1" role="dialog" aria-labelledby="emailSelectModalLabel">
-            <div class="modal-dialog" role="document">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                        <h4 class="modal-title" id="emailSelectModalLabel">{{ _('Select eReader Email Addresses') }}</h4>
-                    </div>
-                    <div class="modal-body">
-                        <div id="modal-validation-message" class="alert alert-danger">
-                            <button type="button" class="close" data-dismiss="alert" aria-label="{{ _('Close') }}">
-                                <span aria-hidden="true">&times;</span>
-                            </button>
-                            <span id="validation-message-text"></span>
-                        </div>
-                        <form id="emailSelectForm">
-                            {% if current_user.kindle_mail %}
-                            <div class="form-group">
-                                <fieldset>
-                                    <legend class="lily-section-label">{{ _('Choose email addresses:') }}</legend>
-                                    {% if ',' in current_user.kindle_mail %}
-                                        <div class="checkbox">
-                                            <label for="selectAllEmails">
-                                                <input type="checkbox" id="selectAllEmails" checked>
-                                                <strong>{{ _('Select All') }}</strong>
-                                            </label>
-                                        </div>
-                                        <hr>
-                                    {% endif %}
-                                    {% for email in current_user.kindle_mail.split(',') %}
-                                        <div class="checkbox">
-                                            <label for="email-{{ loop.index }}">
-                                                <input type="checkbox" id="email-{{ loop.index }}" name="selected_emails" value="{{ email.strip() }}" checked>
-                                                {{ email.strip() }}
-                                            </label>
-                                        </div>
-                                    {% endfor %}
-                                </fieldset>
-                            </div>
-                            {% endif %}
-                            {% if current_user.allow_additional_ereader_emails %}
-                            <div class="form-group">
-                                <fieldset>
-                                    <legend class="lily-section-label">{{ _('Additional email addresses:') }}</legend>
-                                    <label for="custom_emails">{{ _('Enter additional email addresses (separated by commas):') }}</label>
-                                    <textarea id="custom_emails" name="custom_emails" class="form-control" rows="3" placeholder="{{ _('example@domain.com, another@domain.com') }}"></textarea>
-                                    <small class="help-block">{{ _('Enter one or more email addresses separated by commas') }}</small>
-                                </fieldset>
-                            </div>
-                            {% endif %}
-                            <div class="form-group">
-                                <label for="format_selection">{{ _('Select format:') }}</label>
-                                <select id="format_selection" name="format_selection" class="form-control">
-                                    {% for format in entry.email_share_list %}
-                                        <option value="{{ format['format'] }}" data-convert="{{ format['convert'] }}">
-                                            {{ format['text'] }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-default" data-dismiss="modal">{{ _('Cancel') }}</button>
-                        <button type="button" class="btn btn-primary" id="sendSelectedBtn">{{ _('Send') }}</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    {% endif %}
     {{ delete_book(current_user.role_delete_books() and current_user.role_edit()) }}
 </div>
 {% endblock %}
 
 {% block js %}
-<script type="text/template" id="template-shelf-add">
-    <li>
-        <a data-href="<%= add %>" data-remove-href="<%= remove %>" data-shelf-action="add">
-            <%= content %>
-        </a>
-    </li>
-</script>
-<script type="text/template" id="template-shelf-remove">
-    <li>
-        <a data-href="<%= remove %>" data-add-href="<%= add %>" data-shelf-action="remove">
-            <%= content %>
-        </a>
-    </li>
-</script>
 <script src="{{ url_for('static', filename='js/details.js') }}"></script>
-<script src="{{ url_for('static', filename='js/email_selection.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fullscreen.js') }}"></script>
 <script type="text/javascript">
     $(function () {

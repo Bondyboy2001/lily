@@ -17,7 +17,7 @@
     {% call f.sub('upload_settings') %}
       {{ f.input('config_upload_formats', _('Allowed upload formats'), config.config_upload_formats, wide=True) }}
     {% endcall %}
-    {{ f.toggle('config_embed_metadata', _('Embed metadata in downloads'), config.config_embed_metadata, help=_('On download, conversion and email. Needs the Calibre or Kepubify binaries')) }}
+    {{ f.toggle('config_embed_metadata', _('Embed metadata in downloads'), config.config_embed_metadata, help=_('On download and conversion. Needs the Calibre or Kepubify binaries')) }}
     {{ f.toggle('config_unicode_filename', _('Transliterate file names'), config.config_unicode_filename, help=_('Convert non-English characters in title and author while saving to disk')) }}
     {{ f.toggle('config_anonbrowse', _('Anonymous browsing'), config.config_anonbrowse) }}
   {% endcall %}

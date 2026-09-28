@@ -5,7 +5,6 @@
 <div class="lp lp-dashboard">
   {% set user_actions %}
     {% if not simple %}<a class="btn btn-default" id="admin_user_table" href="{{url_for('admin.edit_user_table')}}">{{_('Edit Users')}}</a>{% endif %}
-    {% if (config.config_login_type == 1) %}<button type="button" class="btn btn-default" id="import_ldap_users" data-toggle="modal" data-target="#StatusDialog">{{_('Import LDAP Users')}}</button>{% endif %}
     <a class="btn btn-default" id="admin_new_user" href="{{url_for('admin.new_user')}}">{{_('Add New User')}}</a>
   {% endset %}
   {% call f.group(_('Users'), id='table_user', actions=user_actions) %}

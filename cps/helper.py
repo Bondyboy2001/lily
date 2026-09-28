@@ -6,7 +6,6 @@
 # See CONTRIBUTORS for full list of authors.
 
 import os
-import random
 import io
 import mimetypes
 import time
@@ -20,15 +19,14 @@ import requests
 import unidecode
 from uuid import uuid4
 
-from flask import send_from_directory, make_response, abort, url_for, Response, has_request_context
+from flask import send_from_directory, make_response, abort, url_for, Response
 from flask_babel import gettext as _
 from flask_babel import lazy_gettext as N_
 from flask_babel import get_locale
 from .cw_login import current_user
-from sqlalchemy.sql.expression import true, false, and_, or_, text, func
+from sqlalchemy.sql.expression import true, false, and_, or_, func
 from sqlalchemy.exc import InvalidRequestError, OperationalError
 from werkzeug.datastructures import Headers
-from werkzeug.security import generate_password_hash
 from markupsafe import escape
 from urllib.parse import quote
 
@@ -57,7 +55,6 @@ import sys
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB
 from .services.worker import WorkerThread, STAT_FINISH_SUCCESS
-from .tasks.mail import TaskEmail
 from .tasks.thumbnail import TaskClearCoverThumbnailCache, TaskGenerateCoverThumbnails
 from .tasks.metadata_backup import TaskBackupMetadata
 from .file_helper import get_temp_dir
@@ -85,8 +82,7 @@ except (ImportError, RuntimeError) as e:
 
 
 # Convert existing book entry to new format
-def convert_book_format(book_id, calibre_path, old_book_format, new_book_format, user_id,
-                        ereader_mail=None, subject=None, blocking=False):
+def convert_book_format(book_id, calibre_path, old_book_format, new_book_format, user_id, blocking=False):
     book = calibre_db.get_book(book_id)
     data = calibre_db.get_book_format(book.id, old_book_format)
     if not data:
@@ -104,15 +100,8 @@ def convert_book_format(book_id, calibre_path, old_book_format, new_book_format,
             error_message = _("%(format)s not found: %(fn)s",
                               format=old_book_format, fn=data.name + "." + old_book_format.lower())
             return error_message
-    # read settings and append converter task to queue
-    if ereader_mail:
-        settings = config.get_mail_settings()
-        if not subject or not subject.strip():
-            subject = _('Send to eReader')
-        settings['subject'] = subject
-        settings['body'] = _('This Email has been sent via Lily.')
-    else:
-        settings = dict()
+    # append converter task to queue
+    settings = dict()
     link = '<a href="{}">{}</a>'.format(url_for('web.show_book', book_id=book.id), escape(book.title))  # prevent xss
     txt = "{} -> {}: {}".format(
            old_book_format.upper(),
@@ -120,7 +109,7 @@ def convert_book_format(book_id, calibre_path, old_book_format, new_book_format,
            link)
     settings['old_book_format'] = old_book_format
     settings['new_book_format'] = new_book_format
-    task = TaskConvert(file_path, book.id, txt, settings, ereader_mail, user_id)
+    task = TaskConvert(file_path, book.id, txt, settings, user_id)
     WorkerThread.add(user_id, task)
     if blocking:
         finished = task.done_event.wait(timeout=120)
@@ -131,84 +120,18 @@ def convert_book_format(book_id, calibre_path, old_book_format, new_book_format,
     return None
 
 
-# Texts are not lazy translated as they are supposed to get send out as is
-def send_test_mail(ereader_mail, user_name):
-    for email in ereader_mail.split(','):
-        email = strip_whitespaces(email)
-        WorkerThread.add(user_name, TaskEmail(_('Lily Test Email'), None, None,
-                         config.get_mail_settings(), email, N_("Test Email"),
-                                              _('This Email has been sent via Lily.')))
-    return
+def change_archived_books(book_id, state=None, message=None):
+    archived_book = ub.session.query(ub.ArchivedBook).filter(and_(ub.ArchivedBook.user_id == int(current_user.id),
+                                                                  ub.ArchivedBook.book_id == book_id)).first()
+    if not archived_book:
+        archived_book = ub.ArchivedBook(user_id=current_user.id, book_id=book_id)
 
+    archived_book.is_archived = state if state else not archived_book.is_archived
+    archived_book.last_modified = datetime.now(timezone.utc)
 
-# Send registration email or password reset email, depending on parameter resend (False means welcome email)
-def send_registration_mail(e_mail, user_name, default_password, resend=False):
-    txt = "Hi %s!\r\n" % user_name
-    if not resend:
-        txt += "Your account at Lily has been created.\r\n"
-    txt += "Please log in using the following information:\r\n"
-    txt += "Username: %s\r\n" % user_name
-    txt += "Password: %s\r\n" % default_password
-    txt += "Don't forget to change your password after your first login.\r\n"
-    txt += "Regards,\r\n\r\n"
-    txt += "Lily"
-    WorkerThread.add(None, TaskEmail(
-        subject=_('Get Started with Lily'),
-        filepath=None,
-        attachment=None,
-        settings=config.get_mail_settings(),
-        recipient=e_mail,
-        task_message=N_("Registration Email for user: %(name)s", name=user_name),
-        text=txt
-    ))
-    return
-
-
-def check_send_to_ereader_with_converter(formats):
-    book_formats = list()
-    if 'MOBI' in formats and 'EPUB' not in formats:
-        book_formats.append({'format': 'Epub',
-                             'convert': 1,
-                             'text': _('Convert %(orig)s to %(format)s and send to eReader',
-                                       orig='Mobi',
-                                       format='Epub')})
-    if 'AZW3' in formats and 'EPUB' not in formats:
-        book_formats.append({'format': 'Epub',
-                             'convert': 2,
-                             'text': _('Convert %(orig)s to %(format)s and send to eReader',
-                                       orig='Azw3',
-                                       format='Epub')})
-    return book_formats
-
-
-def check_send_to_ereader(entry):
-    """
-        returns all available book formats for sending to eReader
-    """
-    formats = list()
-    book_formats = list()
-    if len(entry.data):
-        for ele in iter(entry.data):
-            if ele.uncompressed_size < config.mail_size:
-                formats.append(ele.format)
-        if 'EPUB' in formats:
-            book_formats.append({'format': 'Epub',
-                                 'convert': 0,
-                                 'text': _('Send %(format)s to eReader', format='Epub')})
-        if 'PDF' in formats:
-            book_formats.append({'format': 'Pdf',
-                                 'convert': 0,
-                                 'text': _('Send %(format)s to eReader', format='Pdf')})
-        if 'AZW' in formats:
-            book_formats.append({'format': 'Azw',
-                                 'convert': 0,
-                                 'text': _('Send %(format)s to eReader', format='Azw')})
-        if config.config_converterpath:
-            book_formats.extend(check_send_to_ereader_with_converter(formats))
-        return book_formats
-    else:
-        log.error('Cannot find book entry %d', entry.id)
-        return None
+    ub.session.merge(archived_book)
+    ub.session_commit(message)
+    return archived_book.is_archived
 
 
 # Check if a reader is existing for any of the book formats, if not, return empty list, otherwise return
@@ -221,46 +144,6 @@ def check_read_formats(entry):
             if ele.format.upper() in extensions_reader:
                 book_formats.append(ele.format.lower())
     return book_formats
-
-
-# Files are processed in the following order/priority:
-# 1: If epub file is existing, it's directly send to eReader email,
-# 2: If mobi file is existing, it's converted and send to eReader email,
-# 3: If Pdf file is existing, it's directly send to eReader email
-def send_mail(book_id, book_format, convert, ereader_mail, calibrepath, user_id, subject=None):
-    """Send email with attachments"""
-    if has_request_context():
-        # Web request: respect the current user's tag / language / custom column restrictions
-        book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
-    else:
-        # Background tasks (auto-send) have no current user to filter by
-        book = calibre_db.get_book(book_id)
-    if not book:
-        log.error("Book id %s not found or not accessible for sending", book_id)
-        return _("Book not found")
-
-    if convert == 1:
-        # returns None if success, otherwise errormessage
-        return convert_book_format(book_id, calibrepath, 'mobi', book_format.lower(), user_id, ereader_mail, subject)
-    if convert == 2:
-        # returns None if success, otherwise errormessage
-        return convert_book_format(book_id, calibrepath, 'azw3', book_format.lower(), user_id, ereader_mail, subject)
-
-    if not subject or not subject.strip():
-        subject = _("Send to eReader")
-
-    for entry in iter(book.data):
-        if entry.format.upper() == book_format.upper():
-            converted_file_name = entry.name + '.' + book_format.lower()
-            link = '<a href="/book/{}">{}</a>'.format(book_id, escape(book.title))
-            email_text = N_("%(book)s send to eReader", book=link)
-            for email in ereader_mail.split(','):
-                email = strip_whitespaces(email)
-                WorkerThread.add(user_id, TaskEmail(subject, book.path, converted_file_name,
-                                                    config.get_mail_settings(), email,
-                                                    email_text, _('This Email has been sent via Lily.'), book.id))
-            return None
-    return _("The requested file could not be read. Maybe wrong permissions?")
 
 
 def get_valid_filename(value, replace_whitespace=True, chars=128):
@@ -376,11 +259,6 @@ def edit_book_read_status(book_id, read_status=None):
             read_book = ub.ReadBook(user_id=current_user.id, book_id=book_id)
             read_book.read_status = ub.ReadBook.STATUS_FINISHED
             book = read_book
-        if not book.kobo_reading_state:
-            kobo_reading_state = ub.KoboReadingState(user_id=current_user.id, book_id=book_id)
-            kobo_reading_state.current_bookmark = ub.KoboBookmark()
-            kobo_reading_state.statistics = ub.KoboStatistics()
-            book.kobo_reading_state = kobo_reading_state
         ub.session.merge(book)
         ub.session_commit("Book {} readbit toggled".format(book_id))
     else:
@@ -709,47 +587,6 @@ def delete_book_gdrive(book, book_format):
     return error is None, error
 
 
-def reset_password(user_id):
-    existing_user = ub.session.query(ub.User).filter(ub.User.id == user_id).first()
-    if not existing_user:
-        return 0, None
-    if not config.get_mail_server_configured():
-        return 2, None
-    try:
-        password = generate_random_password(config.config_password_min_length)
-        existing_user.password = generate_password_hash(password)
-        ub.session.commit()
-        send_registration_mail(existing_user.email, existing_user.name, password, True)
-        return 1, existing_user.name
-    except Exception:
-        ub.session.rollback()
-        return 0, None
-
-
-def generate_random_password(min_length):
-    min_length = max(8, min_length) - 4
-    random_source = "abcdefghijklmnopqrstuvwxyz01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%&*()?"
-    # select 1 lowercase
-    s = "abcdefghijklmnopqrstuvwxyz"
-    password = [s[c % len(s)] for c in os.urandom(1)]
-    # select 1 uppercase
-    s = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    password.extend([s[c % len(s)] for c in os.urandom(1)])
-    # select 1 digit
-    s = "01234567890"
-    password.extend([s[c % len(s)] for c in os.urandom(1)])
-    # select 1 special symbol
-    s = "!@#$%&*()?"
-    password.extend([s[c % len(s)] for c in os.urandom(1)])
-
-    # generate other characters
-    password.extend([random_source[c % len(random_source)] for c in os.urandom(min_length)])
-
-    # shuffle all characters
-    random.SystemRandom().shuffle(password)
-    return ''.join(password)
-
-
 def uniq(inpt):
     output = []
     inpt = [" ".join(inp.split()) for inp in inpt]
@@ -874,13 +711,6 @@ def _apply_cover_cache_headers(resp):
     return resp
 
 
-def get_book_cover_with_uuid(book_uuid, resolution=None):
-    book = calibre_db.get_book_by_uuid(book_uuid)
-    if not book:
-        return  # allows kobo.HandleCoverImageRequest to proxy request
-    return get_book_cover_internal(book, resolution=resolution)
-
-
 def get_book_cover_internal(book, resolution=None):
     """Serve book cover with improved thumbnail generation fallback.
 
@@ -901,15 +731,10 @@ def get_book_cover_internal(book, resolution=None):
             webp_exists = webp_thumb and cache.get_cache_file_exists(webp_thumb.filename, CACHE_TYPE_THUMBNAILS)
             jpg_exists = jpg_thumb and cache.get_cache_file_exists(jpg_thumb.filename, CACHE_TYPE_THUMBNAILS)
 
-            # Generate missing thumbnails on-demand (skip for Kobo requests to avoid delays)
+            # Generate missing thumbnails on-demand
             if not webp_exists or not jpg_exists:
                 try:
-                    from flask import has_request_context, request
-                    is_kobo_request = (has_request_context() and
-                                     request.path and
-                                     '/kobo/' in request.path)
-
-                    if not is_kobo_request and use_IM:
+                    if use_IM:
                         from .tasks.thumbnail import TaskGenerateCoverThumbnails
                         from .services.worker import WorkerThread
                         
@@ -930,21 +755,7 @@ def get_book_cover_internal(book, resolution=None):
                 except Exception as ex:
                     log.debug(f'Failed to prepare thumbnail generation for book {book.id}: {ex}')
 
-            # Determine which thumbnail format to serve based on request context
-            try:
-                from flask import has_request_context, request
-                is_kobo_request = (has_request_context() and
-                                 request.path and
-                                 '/kobo/' in request.path)
-
-                # Prefer jpg for Kobo requests, webp for web requests
-                if is_kobo_request:
-                    thumbnail_to_serve = jpg_thumb if jpg_exists else (webp_thumb if webp_exists else None)
-                else:
-                    thumbnail_to_serve = webp_thumb if webp_exists else (jpg_thumb if jpg_exists else None)
-            except:
-                # Fallback if we can't determine request context
-                thumbnail_to_serve = webp_thumb if webp_exists else (jpg_thumb if jpg_exists else None)
+            thumbnail_to_serve = webp_thumb if webp_exists else (jpg_thumb if jpg_exists else None)
             if thumbnail_to_serve:
                 return _apply_cover_cache_headers(
                     send_from_directory(cache.get_cache_file_dir(thumbnail_to_serve.filename, CACHE_TYPE_THUMBNAILS),
@@ -1208,7 +1019,6 @@ def save_cover_with_thumbnail_update(img, book_path, book_id=None):
 def do_download_file(book, book_format, client, data, headers):
     book_name = data.name
     download_name = filename = None
-    metadata_was_embedded = False  # Track if we embedded metadata
 
     if config.config_use_google_drive:
         df = gd.getFileFromEbooksFolder(book.path, data.name + "." + book_format)
@@ -1224,14 +1034,12 @@ def do_download_file(book, book_format, client, data, headers):
                 if book_format == "kepub" and config.config_kepubifypath:
                     try:
                         filename, download_name = do_kepubify_metadata_replace(book, output)
-                        metadata_was_embedded = True
                     except Exception as e:
                         log.error_or_exception(f"Failed to kepubify metadata for book {book.id}: {e}")
                         filename = os.path.dirname(output)
                         download_name = os.path.splitext(os.path.basename(output))[0]
                 elif book_format != "kepub" and config.config_binariesdir:
                     filename, download_name = do_calibre_export(book.id, book_format)
-                    metadata_was_embedded = True
             else:
                 return gd.do_gdrive_download(df, headers)
         else:
@@ -1249,17 +1057,14 @@ def do_download_file(book, book_format, client, data, headers):
             try:
                 filename, download_name = do_kepubify_metadata_replace(book, os.path.join(filename,
                                                                                           book_name + "." + book_format))
-                metadata_was_embedded = True
             except Exception as e:
                 log.error_or_exception(f"Failed to kepubify metadata for book {book.id}: {e}")
                 filename = os.path.join(config.get_book_path(), book.path)
                 download_name = book_name
         elif book_format != "kepub" and config.config_binariesdir and config.config_embed_metadata:
             filename, download_name = do_calibre_export(book.id, book_format)
-            metadata_was_embedded = True
 
             # Rename the exported file to match the expected download name (from Content-Disposition)
-            # This ensures KOReader calculates the checksum on the same file we calculated it on
             if filename and download_name:
                 uuid_file = os.path.join(filename, download_name + "." + book_format)
                 expected_file = os.path.join(filename, book_name + "." + book_format)
@@ -1277,25 +1082,6 @@ def do_download_file(book, book_format, client, data, headers):
                         log.error(f'Failed to rename exported file: {e}')
         else:
             download_name = book_name
-
-    # Calculate and store checksum if metadata was embedded
-    if metadata_was_embedded and filename and download_name:
-        try:
-            from .progress_syncing import calculate_and_store_checksum
-
-            # Calculate checksum on the EXPORTED file (with embedded metadata)
-            # This is what KOReader actually downloads and calculates the checksum for
-            exported_file = os.path.join(filename, download_name + "." + book_format)
-
-            if os.path.exists(exported_file):
-                calculate_and_store_checksum(
-                    book_id=book.id,
-                    book_format=book_format,
-                    file_path=exported_file  # Use exported file with embedded metadata!
-                )
-        except Exception as e:
-            log.error(f"Failed to calculate/store checksum for book {book.id}: {e}")
-            # Don't fail the download if checksum calculation fails
 
     response = make_response(send_from_directory(filename, download_name + "." + book_format))
     # ToDo Check headers parameter
@@ -1396,18 +1182,6 @@ def tags_filters():
     neg_content_tags_filter = false() if negtags_list == [''] else db.Tags.name.in_(negtags_list)
     pos_content_tags_filter = true() if postags_list == [''] else db.Tags.name.in_(postags_list)
     return and_(pos_content_tags_filter, ~neg_content_tags_filter)
-
-
-# checks if domain is in database (including wildcards)
-# example SELECT * FROM @TABLE WHERE 'abcdefg' LIKE Name;
-# from https://code.luasoftware.com/tutorials/flask/execute-raw-sql-in-flask-sqlalchemy/
-# in all calls the email address is checked for validity
-def check_valid_domain(domain_text):
-    sql = "SELECT * FROM registration WHERE (:domain LIKE domain and allow = 1);"
-    if not len(ub.session.query(ub.Registration).from_statement(text(sql)).params(domain=domain_text).all()):
-        return False
-    sql = "SELECT * FROM registration WHERE (:domain LIKE domain and allow = 0);"
-    return not len(ub.session.query(ub.Registration).from_statement(text(sql)).params(domain=domain_text).all())
 
 
 def get_download_link(book_id, book_format, client):

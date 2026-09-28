@@ -5,7 +5,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-import shutil
 import glob
 import zipfile
 import json
@@ -29,24 +28,6 @@ class lazyEncoder(json.JSONEncoder):
             return str(obj)
         # Let the base class default method raise the TypeError
         return json.JSONEncoder.default(self, obj)
-
-
-def assemble_logfiles(file_name):
-    log_list = sorted(glob.glob(file_name + '*'), reverse=True)
-    wfd = BytesIO()
-    for f in log_list:
-        with open(f, 'rb') as fd:
-            shutil.copyfileobj(fd, wfd)
-    wfd.seek(0)
-    version = importlib.metadata.version("flask")
-    if int(version.split('.')[0]) < 2:
-        return send_file(wfd,
-                         as_attachment=True,
-                         attachment_filename=os.path.basename(file_name))
-    else:
-        return send_file(wfd,
-                         as_attachment=True,
-                         download_name=os.path.basename(file_name))
 
 
 def send_debug():

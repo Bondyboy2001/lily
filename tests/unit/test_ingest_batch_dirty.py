@@ -66,9 +66,7 @@ def test_successful_import_marks_batch_dirty_without_hot_loop_http_calls(monkeyp
 
     with mock.patch.object(ingest_processor.subprocess, "run", return_value=result) as run_mock, \
         mock.patch.object(ingest_processor, "gdrive_sync_if_enabled"), \
-        mock.patch.object(processor, "fetch_metadata_if_enabled"), \
-        mock.patch.object(processor, "trigger_auto_send_if_enabled"), \
-        mock.patch.object(processor, "generate_book_checksums"):
+        mock.patch.object(processor, "fetch_metadata_if_enabled"):
         processor.add_book_to_library(str(source))
 
     assert run_mock.call_args.args[0][:2] == ["calibredb", "add"]

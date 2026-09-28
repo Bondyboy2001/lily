@@ -13,10 +13,8 @@ from collections import OrderedDict
 
 import flask
 from flask import redirect, url_for
-from flask_babel import gettext as _
 
-from . import db, calibre_db, converter, uploader, dep_check
-from .render_template import render_title_template
+from . import converter, uploader, dep_check
 from .usermanagement import user_login_required
 
 
@@ -52,17 +50,6 @@ def collect_stats():
     _VERSIONS.update(uploader.get_magick_version())
     _VERSIONS.update(sorted_modules)
     return _VERSIONS
-
-
-@about.route("/package-versions")
-@user_login_required
-def package_versions():
-    counter = calibre_db.session.query(db.Books).count()
-    authors = calibre_db.session.query(db.Authors).count()
-    categories = calibre_db.session.query(db.Tags).count()
-    series = calibre_db.session.query(db.Series).count()
-    return render_title_template('stats.html', bookcounter=counter, authorcounter=authors, versions=collect_stats(),
-                                 categorycounter=categories, seriecounter=series, title=_("Statistics"), page="stat")
 
 
 @about.route("/stats")

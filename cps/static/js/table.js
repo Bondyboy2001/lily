@@ -293,13 +293,9 @@ $(function() {
                 $("#add_to_shelf_btn").attr("aria-disabled", true);
             }
             if (selections.length < 1) {
-                $("#delete_selection").addClass("disabled");
-                $("#delete_selection").attr("aria-disabled", true);
                 $("#table_xchange").addClass("disabled");
                 $("#table_xchange").attr("aria-disabled", true);
             } else {
-                $("#delete_selection").removeClass("disabled");
-                $("#delete_selection").attr("aria-disabled", false);
                 $("#table_xchange").removeClass("disabled");
                 $("#table_xchange").attr("aria-disabled", false);
 
@@ -326,10 +322,6 @@ $(function() {
             $('#title_sort_input').prop('disabled', checkT);
     })
     /////
-
-    $("#delete_selection").click(function() {
-        $("#books-table").bootstrapTable("uncheckAll");
-    });
 
     $("#merge_confirm").click(function() {
         $.ajax({
@@ -707,84 +699,6 @@ $(function() {
         },
     });
 
-    $("#domain_allow_submit").click(function(event) {
-        event.preventDefault();
-        $("#domain_add_allow").ajaxForm();
-        $(this).closest("form").submit();
-        $.ajax ({
-            method:"get",
-            url: window.location.pathname + "/../../ajax/domainlist/1",
-            async: true,
-            timeout: 900,
-            success:function(data) {
-                $("#domain-allow-table").bootstrapTable("load", data);
-            }
-        });
-    });
-
-    $("#domain-allow-table").bootstrapTable({
-        formatNoMatches: function () {
-            return "";
-        },
-        striped: false
-    });
-    $("#domain_deny_submit").click(function(event) {
-        event.preventDefault();
-        $("#domain_add_deny").ajaxForm();
-        $(this).closest("form").submit();
-        $.ajax ({
-            method:"get",
-            url: window.location.pathname + "/../../ajax/domainlist/0",
-            async: true,
-            timeout: 900,
-            success:function(data) {
-                $("#domain-deny-table").bootstrapTable("load", data);
-            }
-        });
-    });
-    $("#domain-deny-table").bootstrapTable({
-        formatNoMatches: function () {
-            return "";
-        },
-        striped: false
-    });
-
-    function domainHandle(domainId) {
-        $.ajax({
-            method:"post",
-            url: window.location.pathname + "/../../ajax/deletedomain",
-            data: {"domainid":domainId}
-        });
-        $.ajax({
-            method:"get",
-            url: window.location.pathname + "/../../ajax/domainlist/1",
-            async: true,
-            timeout: 900,
-            success:function(data) {
-                $("#domain-allow-table").bootstrapTable("load", data);
-            }
-        });
-        $.ajax({
-            method:"get",
-            url: window.location.pathname + "/../../ajax/domainlist/0",
-            async: true,
-            timeout: 900,
-            success:function(data) {
-                $("#domain-deny-table").bootstrapTable("load", data);
-            }
-        });
-    }
-    $("#domain-allow-table").on("click-cell.bs.table", function (field, value, row, $element) {
-        if (value === 2) {
-            confirmDialog("btndeletedomain", "GeneralDeleteModal", $element.id, domainHandle);
-        }
-    });
-    $("#domain-deny-table").on("click-cell.bs.table", function (field, value, row, $element) {
-        if (value === 2) {
-            confirmDialog("btndeletedomain", "GeneralDeleteModal", $element.id, domainHandle);
-        }
-    });
-
     $("#restrictModal").on("hidden.bs.modal", function (e) {
         // Destroy table and remove hooks for buttons
         $("#restrict-elements-table").unbind();
@@ -1056,17 +970,7 @@ function handle_header_buttons () {
     }
 }
 
-/* Function for deleting domain restrictions */
-function TableActions (value, row) {
-    return [
-        "<a class=\"danger remove\"  data-value=\"" + row.id
-        + "\" title=\"Remove\">",
-        "<i class=\"glyphicon glyphicon-trash\"></i>",
-        "</a>"
-    ].join("");
-}
-
-/* Function for deleting domain restrictions */
+/* Function for deleting restrictions */
 function RestrictionActions (value, row) {
     return [
         "<div class=\"danger remove\" data-restriction-id=\"" + row.id + "\" title=\"Remove\">",

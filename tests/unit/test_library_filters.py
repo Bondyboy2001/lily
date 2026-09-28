@@ -101,9 +101,11 @@ class TestFilterChips:
 @pytest.mark.unit
 class TestSetupChecklist:
     def test_admin_sees_open_steps(self, env):
+        from cps import config
+        config.config_uploading = 0
         html = _get(_login(env), "/")
         assert 'id="lily-setup"' in html
-        assert "Email (SMTP) configured" in html
+        assert "Uploads enabled" in html
 
     def test_default_password_is_detected(self, env):
         from cps import constants, ub

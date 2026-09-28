@@ -34,15 +34,17 @@ def _read(session, user_id, book_id, status, minutes, percent=None, bookmark_min
     session.flush()
     rb.last_modified = BASE + timedelta(minutes=minutes)
     if percent is not None or bookmark_minutes is not None:
-        state = ub.KoboReadingState(user_id=user_id, book_id=book_id)
-        state.current_bookmark = ub.KoboBookmark(progress_percent=percent)
-        session.add(state)
-        session.flush()
-        state.current_bookmark.last_modified = BASE + timedelta(minutes=bookmark_minutes or minutes)
+        # the web reader stores its position as a 0..1 fraction
+        session.add(ub.WebReaderProgress(user_id=user_id, book_id=book_id, cfi="x",
+                                         percent=None if percent is None else percent / 100.0))
     session.commit()
     # onupdate hooks may have bumped timestamps; pin them explicitly
     session.query(ub.ReadBook).filter_by(id=rb.id).update(
         {ub.ReadBook.last_modified: BASE + timedelta(minutes=minutes)}, synchronize_session=False)
+    if percent is not None or bookmark_minutes is not None:
+        session.query(ub.WebReaderProgress).filter_by(user_id=user_id, book_id=book_id).update(
+            {ub.WebReaderProgress.last_modified: BASE + timedelta(minutes=bookmark_minutes or minutes)},
+            synchronize_session=False)
     session.commit()
 
 
@@ -58,7 +60,7 @@ class TestContinueReadingProgress:
     def test_orders_by_most_recent_activity(self, session):
         _read(session, 1, 10, ub.ReadBook.STATUS_IN_PROGRESS, 1)
         _read(session, 1, 11, ub.ReadBook.STATUS_IN_PROGRESS, 5)
-        # older ReadBook row, but its Kobo bookmark was updated most recently
+        # older ReadBook row, but its web reader position was updated most recently
         _read(session, 1, 12, ub.ReadBook.STATUS_IN_PROGRESS, 0, percent=42.5, bookmark_minutes=10)
         ids = [book_id for book_id, __ in get_continue_reading_progress(session, 1)]
         assert ids == [12, 11, 10]
