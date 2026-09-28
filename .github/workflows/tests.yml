@@ -60,6 +60,10 @@ jobs:
         with:
           python-version: '3.13'
           cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements.lock
+            requirements-dev.txt
       
       - name: Install system dependencies
         run: |
@@ -69,8 +73,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+          # Same pins as the Docker image (requirements.lock), so CI tests what ships
+          pip install -r requirements.txt -c requirements.lock
+          pip install -r requirements-dev.txt -c requirements.lock
           # Fail fast if the resolver produced an incompatible pyOpenSSL/cryptography pair
           pip check
           python -c "import OpenSSL, cryptography; print('pyOpenSSL', OpenSSL.__version__, 'cryptography', cryptography.__version__)"
@@ -119,6 +124,35 @@ jobs:
             })
 
   # ============================================================================
+  # Docker build check
+  # Runs on: every PR (integration below only runs on main/dev)
+  # Purpose: a broken Dockerfile, pin or apt package fails the PR, not the merge.
+  # BuildKit layers are cached in the GitHub Actions cache under the same scope
+  # the integration job writes on main/dev, so most PR builds only redo the
+  # layers the PR actually touches.
+  # ============================================================================
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build Docker image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: lily:pr-${{ github.event.pull_request.number }}
+          cache-from: type=gha,scope=lily-image
+          cache-to: type=gha,scope=lily-image,mode=max
+
+  # ============================================================================
   # JOB 2: Integration Tests (Docker)
   # Runs on: Merge to main/dev, manual trigger
   # Duration: ~15-20 minutes
@@ -142,6 +176,10 @@ jobs:
         with:
           python-version: '3.13'
           cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements.lock
+            requirements-dev.txt
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -154,19 +192,19 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+          pip install -r requirements.txt -c requirements.lock
+          pip install -r requirements-dev.txt -c requirements.lock
           pip install --force-reinstall --no-cache-dir docker
 
       - name: Build Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: false
           load: true
           tags: lily:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=lily-image
+          cache-to: type=gha,scope=lily-image,mode=max
 
       - name: Set test UID/GID
         run: |
@@ -221,7 +259,7 @@ jobs:
   test-summary:
     name: Test Suite Summary
     runs-on: ubuntu-latest
-    needs: [lint, fast-tests, integration-tests]
+    needs: [lint, fast-tests, docker-build, integration-tests]
     if: always()
     
     steps:
@@ -229,12 +267,14 @@ jobs:
         run: |
           echo "Lint: ${{ needs.lint.result }}"
           echo "Fast Tests: ${{ needs.fast-tests.result }}"
+          echo "Docker Build: ${{ needs.docker-build.result }}"
           echo "Integration Tests: ${{ needs.integration-tests.result }}"
 
           failed=0
           for job in "lint=${{ needs.lint.result }}" "fast-tests=${{ needs.fast-tests.result }}" \
+                     "docker-build=${{ needs.docker-build.result }}" \
                      "integration-tests=${{ needs.integration-tests.result }}"; do
-            # "skipped" is fine: integration only runs on main/dev or when requested
+            # "skipped" is fine: docker-build only runs on PRs, integration only on main/dev or when requested
             if [[ "${job#*=}" == "failure" || "${job#*=}" == "cancelled" ]]; then
               echo "❌ ${job%%=*} ${job#*=}"
               failed=1

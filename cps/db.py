@@ -20,6 +20,7 @@ from sqlalchemy import create_engine
 from sqlalchemy import Table, Column, ForeignKey, CheckConstraint
 from sqlalchemy import String, Integer, Boolean, TIMESTAMP, Float
 from sqlalchemy.orm import relationship, sessionmaker, scoped_session, joinedload, object_session
+from sqlalchemy.orm import selectinload, lazyload
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.exc import OperationalError
@@ -411,15 +412,20 @@ class Books(Base):
     has_cover = Column(Integer, default=0)
     uuid = Column(String)
 
-    authors = relationship(Authors, secondary=books_authors_link, backref='books', lazy='subquery')
-    tags = relationship(Tags, secondary=books_tags_link, backref='books', order_by="Tags.name", lazy='subquery')
-    comments = relationship(Comments, backref='books', lazy='subquery')
-    data = relationship(Data, backref='books', lazy='subquery')
-    series = relationship(Series, secondary=books_series_link, backref='books', lazy='subquery')
-    ratings = relationship(Ratings, secondary=books_ratings_link, backref='books', lazy='subquery')
-    languages = relationship(Languages, secondary=books_languages_link, backref='books', lazy='subquery')
-    publishers = relationship(Publishers, secondary=books_publishers_link, backref='books', lazy='subquery')
-    identifiers = relationship(Identifiers, backref='books', lazy='subquery')
+    # Eager 'selectin' loading: each relationship is fetched right after the Books query with one
+    # "WHERE books.id IN (...)" lookup, so templates can read them after the scoped session is torn
+    # down (see fill_indexpage) and there is no N+1. 'subquery' (the old setting) re-ran the whole
+    # filtered/ordered/paginated Books query once per relationship. Queries that know they need
+    # less (the Discover cards) opt out with lazyload(); see _card_relationships().
+    authors = relationship(Authors, secondary=books_authors_link, backref='books', lazy='selectin')
+    tags = relationship(Tags, secondary=books_tags_link, backref='books', order_by="Tags.name", lazy='selectin')
+    comments = relationship(Comments, backref='books', lazy='selectin')
+    data = relationship(Data, backref='books', lazy='selectin')
+    series = relationship(Series, secondary=books_series_link, backref='books', lazy='selectin')
+    ratings = relationship(Ratings, secondary=books_ratings_link, backref='books', lazy='selectin')
+    languages = relationship(Languages, secondary=books_languages_link, backref='books', lazy='selectin')
+    publishers = relationship(Publishers, secondary=books_publishers_link, backref='books', lazy='selectin')
+    identifiers = relationship(Identifiers, backref='books', lazy='selectin')
 
     def __init__(self, title, sort, author_sort, timestamp, pubdate, series_index, last_modified, path, has_cover,
                  authors, tags, languages=None):
@@ -524,6 +530,31 @@ class CustomColumns(Base):
         content['is_multiple2'] = {} if not self.is_multiple else {"cache_to_list": "|", "ui_to_list": ",",
                                                                    "list_to_ui": ", "}
         return json.dumps(content, ensure_ascii=False)
+
+
+def _all_book_relationships():
+    return (Books.authors, Books.tags, Books.comments, Books.data, Books.series, Books.ratings,
+            Books.languages, Books.publishers, Books.identifiers)
+
+
+def _card_relationships():
+    """What a book card (image.html book_card) reads: authors, formats, series, rating."""
+    return (Books.authors, Books.data, Books.series, Books.ratings)
+
+
+def _card_load_options(skip_others):
+    """Loader options for a page of book cards.
+
+    selectinload (not joinedload) so the paginated query isn't wrapped in a subquery and
+    multiplied by authors x formats x series x ratings. With skip_others, the relationships
+    cards never read (comments, tags, identifiers, ...) are left unloaded.
+    """
+    card = _card_relationships()
+    options = [selectinload(rel) for rel in card]
+    if skip_others:
+        card_keys = {rel.key for rel in card}
+        options += [lazyload(rel) for rel in _all_book_relationships() if rel.key not in card_keys]
+    return options
 
 
 class AlchemyEncoder(json.JSONEncoder):
@@ -867,17 +898,11 @@ class CalibreDB:
 
     def get_filtered_book(self, book_id, allow_show_archived=False):
         self.ensure_session()
-        # Eagerly load all relationships to prevent detached instance errors during editing
+        # Eagerly load all relationships to prevent detached instance errors during editing.
+        # selectinload, not joinedload: joining nine collections multiplied the rows
+        # (tags x formats x identifiers x ...) for a single book.
         return (self.session.query(Books)
-                .options(joinedload(Books.authors),
-                         joinedload(Books.tags),
-                         joinedload(Books.comments),
-                         joinedload(Books.data),
-                         joinedload(Books.series),
-                         joinedload(Books.ratings),
-                         joinedload(Books.languages),
-                         joinedload(Books.publishers),
-                         joinedload(Books.identifiers))
+                .options(*[selectinload(rel) for rel in _all_book_relationships()])
                 .filter(Books.id == book_id)
                 .filter(self.common_filters(allow_show_archived))
                 .first())
@@ -1067,13 +1092,9 @@ class CalibreDB:
             random_query = self.generate_linked_query(config_read_column, database)
             # Eagerly load template relationships to prevent detached lazy-load
             # failures if another request tears down the shared scoped session.
+            # The Discover row only renders book cards, so skip everything else.
             if database == Books:
-                random_query = random_query.options(
-                    joinedload(Books.authors),
-                    joinedload(Books.data),
-                    joinedload(Books.series),
-                    joinedload(Books.ratings),
-                )
+                random_query = random_query.options(*_card_load_options(skip_others=True))
             randm = (random_query.filter(self.common_filters(allow_show_archived, viewing_tag_id=viewing_tag_id))
                      .order_by(func.random())
                      .limit(self.config.config_random_books).all())
@@ -1086,13 +1107,12 @@ class CalibreDB:
         
         # Eagerly load template relationships to prevent DetachedInstanceError
         # during rendering under concurrent status/notification requests.
+        # The same helper feeds OPDS (comments, tags, languages, publishers) and the
+        # books table JSON (every column), so by default the other relationships keep
+        # their model-level selectin loading: one IN query each, never per book.
+        # Callers that only render book cards pass cards_only=True to skip them.
         if database == Books:
-            query = query.options(
-                joinedload(Books.authors),
-                joinedload(Books.data),
-                joinedload(Books.series),
-                joinedload(Books.ratings),
-            )
+            query = query.options(*_card_load_options(skip_others=bool(kwargs.get('cards_only'))))
         
         off = int(int(pagesize) * (page - 1))
 

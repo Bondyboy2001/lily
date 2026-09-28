@@ -11,6 +11,7 @@ from flask_babel import gettext as _
 from werkzeug.local import LocalProxy
 from .cw_login import current_user
 from sqlalchemy.sql.expression import or_
+from sqlalchemy import func
 
 from . import config, constants, logger, ub
 from .ub import User
@@ -170,8 +171,19 @@ def get_sidebar_config(kwargs=None):
              "show_text": _('Show Duplicate Books'), "config_show": content})
     g.shelves_access = ub.session.query(ub.Shelf).filter(
         or_(ub.Shelf.is_public == 1, ub.Shelf.user_id == current_user.id)).order_by(ub.Shelf.name).all()
+    g.shelf_book_counts = shelf_book_counts([shelf.id for shelf in g.shelves_access])
 
     return sidebar, simple
+
+
+def shelf_book_counts(shelf_ids):
+    """Book count per shelf id in one grouped query (the sidebar used to run one count per shelf)."""
+    if not shelf_ids:
+        return {}
+    rows = (ub.session.query(ub.BookShelf.shelf, func.count(ub.BookShelf.id))
+            .filter(ub.BookShelf.shelf.in_(shelf_ids))
+            .group_by(ub.BookShelf.shelf).all())
+    return {shelf_id: count for shelf_id, count in rows}
 
 # Checks if an update for CWA is available, returning True if yes
 def cwa_update_available() -> tuple[bool, str, str]:

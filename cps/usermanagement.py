@@ -195,9 +195,12 @@ def user_login_required(func):
 
 
 # Networks allowed to assert a username via the reverse proxy login header.
-# Default: loopback, RFC1918 private ranges (typical Docker / homelab proxies) and
-# IPv6 unique-local addresses. Override with TRUSTED_PROXY_IPS (comma separated CIDRs).
-DEFAULT_TRUSTED_PROXY_IPS = "127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7"
+# Default: loopback only. Private ranges used to be trusted by default, but then any
+# device on the LAN (or any container on a shared Docker network) could log in as any
+# user by sending the header itself. A proxy in another container or on another host
+# must be listed explicitly with TRUSTED_PROXY_IPS (comma separated CIDRs), e.g.
+# TRUSTED_PROXY_IPS=172.18.0.5/32. See docs/deployment.md.
+DEFAULT_TRUSTED_PROXY_IPS = "127.0.0.0/8,::1/128"
 
 
 @lru_cache(maxsize=None)
@@ -251,7 +254,9 @@ def load_user_from_reverse_proxy_header(req):
     # otherwise any client could log in as any user by sending the header itself.
     if not request_from_trusted_proxy(req):
         log.warning("Ignoring reverse proxy login header from untrusted address %s "
-                    "(adjust TRUSTED_PROXY_IPS if this is your proxy)", get_socket_peer_address(req))
+                    "(only loopback is trusted by default; add your proxy's address to "
+                    "TRUSTED_PROXY_IPS, e.g. TRUSTED_PROXY_IPS=%s/32)",
+                    get_socket_peer_address(req), get_socket_peer_address(req) or "<proxy-ip>")
         return None
         
     # Clean username (strip whitespace, etc.)

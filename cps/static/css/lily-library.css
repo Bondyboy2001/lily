@@ -303,7 +303,7 @@
 /* Stars: filled in the accent, empty in the line colour (decorative; the count is in the title). */
 .rating .glyphicon-star.good,
 .rating .glyphicon-star { color: var(--accent); }
-.rating .glyphicon-star-empty { color: var(--line); }
+.rating .glyphicon-star-empty { color: var(--line-strong); }
 
 .container-fluid .lily-book .meta .rating,
 .lily-book .meta .rating {
@@ -335,8 +335,22 @@
     .lily-book:focus-within .lily-cover-actions { opacity: 1; }
 }
 
+/* Touch screens have no hover, so the actions stay visible in a compact row that
+   wraps on narrow cards. Hit areas grow into the gap without overlapping. */
 @media (hover: none) {
-    .lily-cover-actions { display: none; }
+    .lily-cover-actions {
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 6px 0 0 -5px;
+    }
+
+    .lily-cover-actions .icon-btn {
+        width: 32px;
+        height: 32px;
+        color: var(--faint);
+    }
+
+    .lily-cover-actions .icon-btn::after { inset: -3px; }
 }
 
 /* List view (the top bar's List icon sets body[data-book-view]): one row per
@@ -480,6 +494,100 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
 }
 
 .library-empty-state p { color: var(--muted); }
+
+/* The Lucide mask is a fixed-width block; centre it like the text. */
+.library-empty-state .library-empty-icon::before { margin: -0.1em auto; }
+
+.library-empty-state .library-empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 18px;
+}
+
+.library-empty-state .library-empty-actions .btn { margin: 0; }
+
+/* ------------------------------------------------------------------ */
+/* Admin "Get started" card (index.html, setup_checklist.py)            */
+/* ------------------------------------------------------------------ */
+.lily-setup {
+    margin: 0 0 22px;
+    padding: 14px 18px 8px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+}
+
+.lily-setup-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.lily-setup-head h2 { margin: 0; font-size: 19px; }
+.lily-setup-lede { margin: 4px 0 8px; color: var(--muted); }
+
+.lily-setup-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.lily-setup-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-top: 1px solid var(--line-soft);
+}
+
+.lily-setup-mark {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 50%;
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.lily-setup-item.is-done .lily-setup-mark {
+    border-color: var(--success);
+    background: var(--success);
+    color: var(--surface);
+}
+
+.lily-setup-item > a {
+    display: flex;
+    flex-direction: column;
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.lily-setup-item > a:hover .lily-setup-label { color: var(--accent); text-decoration: underline; }
+.lily-setup-item.is-done .lily-setup-label { color: var(--muted); }
+.lily-setup-hint { color: var(--muted); font-size: 13px; }
+
+/* ------------------------------------------------------------------ */
+/* Filter chips on book grids (image.filter_chips)                      */
+/* ------------------------------------------------------------------ */
+/* Wraps instead of scrolling: the tag and language menus must not be clipped by a scroller. */
+.lily-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.lily-filter-chips > .btn.lily-chip { margin: 0; }
+.lily-filter-chips .dropdown-menu.lily-filter-menu { max-height: 320px; overflow-y: auto; }
+.lily-filter-clear .glyphicon { top: 1px; margin-right: 4px; font-size: 12px; }
 
 /* ------------------------------------------------------------------ */
 /* Category / series / publisher lists (list.html)                     */
@@ -830,13 +938,34 @@ dl.book-metadata {
 #search.lily-search-form,
 form#search { max-width: 640px; }
 
-.lily-search-page { max-width: 640px; }
+/* Advanced search uses the settings rows (lily_form.html, lp-* in lily-admin.css) with a
+   narrower label column, so the fields and include/exclude pairs get the width. */
+.lily-search-page { max-width: 760px; }
 
-.lily-search-page .row { margin-left: -8px; margin-right: -8px; }
+.lily-search-page .lp-row { grid-template-columns: minmax(0, 170px) minmax(0, 1fr); }
 
-.lily-search-page .row > [class*="col-"] { padding-left: 8px; padding-right: 8px; }
+.lily-search-page .lp-control > .bootstrap-select,
+.lily-search-page .lp-control > .input-group {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    margin: 0;
+}
 
-.lily-search-page .rating-input { font-size: 18px; }
+.lily-search-page .lp-control > .input-group .form-control { min-width: 0; }
+
+.lily-search-page .lp-control .rating-input {
+    margin-right: auto;
+    font-size: 18px;
+}
+
+@media (max-width: 767px) {
+    .lily-search-page .lp-row { grid-template-columns: minmax(0, 1fr); }
+
+    .lily-search-page .lily-search-pair .lp-control { flex-direction: column; align-items: stretch; }
+
+    .lily-search-page .lily-search-pair .lp-control > * { flex: 0 0 auto; width: 100%; }
+}
 
 .lily-form-actions-left {
     display: flex;
@@ -857,7 +986,7 @@ form#search { max-width: 640px; }
 .bootstrap-select > .dropdown-toggle.btn-danger {
     height: 30px;
     padding: 0 28px 0 10px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     border-radius: 7px;
     background: var(--paper);
     color: var(--ink);
@@ -936,7 +1065,7 @@ form#search { max-width: 640px; }
 .datepicker table tr td span.active,
 .datepicker table tr td span.active:hover {
     background: var(--accent);
-    color: var(--paper);
+    color: var(--on-accent);
     text-shadow: none;
 }
 
@@ -974,7 +1103,7 @@ form#search { max-width: 640px; }
 
 /* Rating input (bootstrap-rating-input) */
 .rating-input .glyphicon-star { color: var(--accent); }
-.rating-input .glyphicon-star-empty { color: var(--line); }
+.rating-input .glyphicon-star-empty { color: var(--line-strong); }
 .rating-input .rating-clear { color: var(--muted); }
 
 /* Pushes the following items in a flex row to the far end. */
@@ -1013,11 +1142,11 @@ form#search { max-width: 640px; }
 
 .editbook-side-group { margin-top: 22px; }
 
-.editbook-side-group h4 {
-    margin: 0 0 8px;
-    font-size: 14px;
+/* Matches .editbook-section h3 (Details, Description...) */
+.editbook-side-group h3 {
+    margin: 0 0 14px;
+    font-size: 17px;
     font-weight: 600;
-    color: var(--heading);
 }
 
 .editbook-cover-section .form-group { margin-bottom: 8px; }
@@ -1149,7 +1278,7 @@ form#search { max-width: 640px; }
     margin: 0;
     appearance: none;
     -webkit-appearance: none;
-    border: 1.5px solid var(--line);
+    border: 1.5px solid var(--line-strong);
     border-radius: 5px;
     background: var(--surface) center / 14px 14px no-repeat;
     cursor: pointer;
@@ -1159,7 +1288,7 @@ form#search { max-width: 640px; }
 #book_edit_frm .checkbox input[type="checkbox"]:checked {
     border-color: var(--accent);
     background-color: var(--accent);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-image: var(--check-mark);
 }
 #book_edit_frm .checkbox input[type="checkbox"]:focus-visible {
     outline: 2px solid var(--accent);

@@ -144,15 +144,17 @@ def _req(remote, orig=None, headers=None):
 
 @pytest.mark.unit
 class TestTrustedProxy:
-    @pytest.mark.parametrize("addr", ["127.0.0.1", "::1", "172.18.0.4", "192.168.1.10",
-                                      "10.1.2.3", "::ffff:192.168.1.2"])
-    def test_default_trusts_loopback_and_private(self, monkeypatch, addr):
+    @pytest.mark.parametrize("addr", ["127.0.0.1", "127.0.0.2", "::1", "::ffff:127.0.0.1"])
+    def test_default_trusts_loopback(self, monkeypatch, addr):
         from cps import usermanagement as um
         monkeypatch.delenv("TRUSTED_PROXY_IPS", raising=False)
         assert um.request_from_trusted_proxy(_req(addr))
 
-    @pytest.mark.parametrize("addr", ["203.0.113.9", "8.8.8.8", "2001:db8::1", "garbage", ""])
-    def test_default_rejects_public(self, monkeypatch, addr):
+    @pytest.mark.parametrize("addr", ["203.0.113.9", "8.8.8.8", "2001:db8::1", "garbage", "",
+                                      # private ranges are no longer trusted by default
+                                      "172.18.0.4", "192.168.1.10", "10.1.2.3", "::ffff:192.168.1.2",
+                                      "fd00::1"])
+    def test_default_rejects_public_and_private(self, monkeypatch, addr):
         from cps import usermanagement as um
         monkeypatch.delenv("TRUSTED_PROXY_IPS", raising=False)
         assert not um.request_from_trusted_proxy(_req(addr))
@@ -162,6 +164,12 @@ class TestTrustedProxy:
         monkeypatch.delenv("TRUSTED_PROXY_IPS", raising=False)
         # ProxyFix rewrote REMOTE_ADDR from a spoofed X-Forwarded-For
         assert not um.request_from_trusted_proxy(_req("127.0.0.1", orig="203.0.113.9"))
+
+    def test_private_range_can_be_opted_into(self, monkeypatch):
+        from cps import usermanagement as um
+        monkeypatch.setenv("TRUSTED_PROXY_IPS", "127.0.0.0/8,::1/128,172.16.0.0/12")
+        assert um.request_from_trusted_proxy(_req("172.18.0.4"))
+        assert not um.request_from_trusted_proxy(_req("192.168.1.10"))
 
     def test_custom_list(self, monkeypatch):
         from cps import usermanagement as um

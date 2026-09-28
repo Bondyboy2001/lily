@@ -523,5 +523,41 @@ See https://github.com/adobe-type-tools/cmap-resources
 
     </div> <!-- outerContainer -->
     <div id="printContainer"></div>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <script src="{{ url_for('static', filename='js/reading/progress-sync.js') }}"></script>
+    <script>
+    // Reading position: cfi "page:N" (1-based) and the fraction read, synced across devices.
+    (function () {
+        var progress = LilyProgress.create({
+            url: "{{ url_for('web.index') }}ajax/progress/{{ pdffile }}",
+            storageKey: "{{ pdffile }}.pdf",
+            enabled: {{ current_user.is_authenticated | tojson }}
+        });
+        var restored = false;
+        window.addEventListener("webviewerloaded", function () {
+            var app = window.PDFViewerApplication;
+            if (!app || !app.initializedPromise) {
+                return;
+            }
+            app.initializedPromise.then(function () {
+                app.eventBus.on("pagesinit", function () {
+                    progress.load().then(function (saved) {
+                        var page = saved ? LilyProgress.parseTagged(saved.cfi, "page") : null;
+                        if (page !== null && page >= 1 && page <= app.pagesCount) {
+                            app.page = Math.floor(page);
+                        }
+                    }).catch(function () {}).then(function () {
+                        restored = true;
+                    });
+                });
+                app.eventBus.on("pagechanging", function (evt) {
+                    if (restored && app.pagesCount) {
+                        progress.save("page:" + evt.pageNumber, evt.pageNumber / app.pagesCount);
+                    }
+                });
+            });
+        });
+    })();
+    </script>
   </body>
 </html>

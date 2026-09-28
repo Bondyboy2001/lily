@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html class="lily-reader-page">
 
 <head>
   <meta charset="utf-8">
@@ -13,8 +13,12 @@
   {% endif %}    
 
   <link rel="stylesheet" href="{{ url_for('static', filename='css/libs/normalize.css') }}">
+  {# main.css and kthoom.css still lay out the comic viewer; lily-reader.css restyles the chrome over them. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" type="text/css"/>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/kthoom.css') }}" type="text/css"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/lily.css') }}" type="text/css"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/lily-icons.css') }}" type="text/css"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/lily-reader.css') }}" type="text/css"/>
 
   <script src="{{ url_for('static', filename='js/libs/jquery.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/libs/jquery-migrate.min.js') }}"></script>
@@ -22,8 +26,9 @@
   <script src="{{ url_for('static', filename='js/libs/screenfull.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/compress/uncompress.js') }}"></script>
   <script src="{{ url_for('static', filename='js/kthoom.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/reading/progress-sync.js') }}"></script>
 </head>
-<body>
+<body class="lily-reader lily-comic">
 <div id="sidebar">
   <div id="tocView" class="view" tabindex="-1">
     <ul id="thumbnails"></ul>
@@ -36,7 +41,8 @@
 <div id="main" class="main">
   <div id="titlebar" class="main">
     <div id="opener">
-      <a id="slider" class="icon-menu">Menu</a>
+      <a id="back-button" class="reader-btn" href="{{ url_for('web.show_book', book_id=comicfile) }}" aria-label="{{_('Back to book')}}" title="{{_('Back to book')}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="reader-btn-label">{{_('Book')}}</span></a>
+      <button type="button" id="slider" class="reader-btn icon-menu" aria-label="{{_('Pages')}}" title="{{_('Pages')}}" aria-controls="sidebar"><span class="glyphicon glyphicon-th-large" aria-hidden="true"></span></button>
     </div>
     <div id="metainfo">
       <span id="book-title">{{ title | shortentitle }}</span>
@@ -44,13 +50,13 @@
       <span id="chapter-title"></span>
     </div>
     <div id="title-controls">
-      <a id="setting" class="icon-cog">Settings</a>
-      <a id="fullscreen" class="icon-resize-full">Fullscreen</a>
+      <button type="button" id="setting" class="reader-btn icon-cog" aria-label="{{_('Reader settings')}}" title="{{_('Reader settings')}}" aria-controls="settings-modal"><span class="glyphicon glyphicon-cog" aria-hidden="true"></span></button>
+      <button type="button" id="fullscreen" class="reader-btn icon-resize-full" aria-label="{{_('Fullscreen')}}" title="{{_('Fullscreen')}}"><span class="glyphicon glyphicon-fullscreen" aria-hidden="true"></span></button>
     </div>
     <div id="progress" role="progressbar" class="loading">
       <div class="bar-load from-left">
         <div class="text load">
-          Loading...
+          {{_('Loading...')}}
         </div>
       </div>
       <div class="bar-read from-left">
@@ -62,13 +68,13 @@
   <div id="mainContent" tabindex="-1">
     <div id="mainText" style="display:none"></div>
   </div>
-  <div id="left" class="arrow" style="display:none">‹</div>
-  <div id="right" class="arrow" style="display:none">›</div>
+  <button type="button" id="left" class="arrow" style="display:none" aria-label="{{_('Previous Page')}}">‹</button>
+  <button type="button" id="right" class="arrow" style="display:none" aria-label="{{_('Next Page')}}">›</button>
 </div>
 
-<div class="modal md-effect-1" id="settings-modal">
+<div class="modal md-effect-1" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
   <div class="md-content">
-    <h3>{{_('Settings')}}</h3>
+    <h3 id="settings-title">{{_('Settings')}}</h3>
     <div>
       <div class="settings-column">
         <table>
@@ -178,7 +184,7 @@
           </table>
         </div>
       </div>
-      <button type="button" class="closer icon-cancel-circled" aria-label="{{_('Close')}}"></button>
+      <button type="button" class="closer icon-cancel-circled" aria-label="{{_('Close')}}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></button>
     </div>
   </div>
   <div class="overlay"></div>
@@ -187,18 +193,47 @@
     window.calibre = {
         bookmarkUrl: "{{ url_for('web.set_bookmark', book_id=comicfile, book_format=extension.upper()) }}",
         bookmark: "{{ bookmark.bookmark_key if bookmark != None }}",
-        useBookmarks: "{{ current_user.is_authenticated | tojson }}"
+        useBookmarks: "{{ current_user.is_authenticated | tojson }}",
+        progressUrl: "{{ url_for('web.index') }}ajax/progress/{{ comicfile }}",
+        progressKey: "{{ comicfile }}.{{ extension }}",
+        syncProgress: {{ current_user.is_authenticated | tojson }}
     };
+
+    // Reading position: "page:N" (1-based, as in the PDF reader) plus the fraction read, synced like the epub reader.
+    var comicProgress = LilyProgress.create({
+        url: calibre.progressUrl,
+        storageKey: calibre.progressKey,
+        enabled: calibre.syncProgress === true
+    });
+    var comicProgressReady = false;
+
+    // kthoom calls the global updateProgress() with no argument on every page change
+    // (paged and long-strip); with an argument it is only reporting unzip progress.
+    var kthoomUpdateProgress = updateProgress;
+    updateProgress = function (loadPercentage) {
+        kthoomUpdateProgress.apply(this, arguments);
+        if (!loadPercentage && comicProgressReady && totalImages > 0) {
+            comicProgress.save("page:" + (currentImage + 1), (currentImage + 1) / totalImages);
+        }
+    };
+
+    function bookmarkPage() {
+        var page = parseInt(calibre.bookmark, 10);
+        return isNaN(page) ? 0 : page;
+    }
 
     document.onreadystatechange = function () {
       if (document.readyState == "complete") {
-          if (calibre.useBookmarks) {
-              currentImage = eval(calibre.bookmark);
-              if (typeof currentImage !== 'number') {
-                  currentImage = 0;
+          currentImage = calibre.syncProgress === true ? bookmarkPage() : 0;
+          comicProgress.load().then(function (saved) {
+              var page = saved ? LilyProgress.parseTagged(saved.cfi, "page") : null;
+              if (page !== null && page >= 1) {
+                  currentImage = Math.floor(page) - 1;
               }
-          }
-          init("{{ url_for('web.serve_book', book_id=comicfile, book_format=extension) }}");
+          }).catch(function () {}).then(function () {
+              comicProgressReady = true;
+              init("{{ url_for('web.serve_book', book_id=comicfile, book_format=extension) }}");
+          });
       }
     }
   </script>

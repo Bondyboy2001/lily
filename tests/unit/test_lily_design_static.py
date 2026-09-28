@@ -86,7 +86,7 @@ def test_shadows_only_on_menus_popovers_and_toasts():
         for selector, body in css_rules(read(CSS / name)):
             for value in re.findall(r"box-shadow\s*:\s*([^;]+)", body):
                 if value.strip() not in ("none", "none !important"):
-                    assert any(k in selector for k in ("dropdown-menu", "popover", "toast")), (name, selector)
+                    assert any(k in selector for k in ("dropdown-menu", "picker(select)", "popover", "toast")), (name, selector)
 
 
 def test_buttons_have_no_border():
@@ -120,14 +120,84 @@ def test_legacy_caliblur_assets_are_deleted():
         assert not (REPO_ROOT / "cps/static" / path).exists(), path
 
 
-def test_theme_switching_is_gone():
+def test_legacy_theme_switching_is_gone():
     layout = read(TEMPLATES / "layout.html")
     main_js = read(REPO_ROOT / "cps/static/js/main.js")
-    for needle in ("lily-theme", "cwa-switch-theme", "data-theme", "current_theme", "allow-mobile-blur"):
+    for needle in ("cwa-switch-theme", "current_theme", "allow-mobile-blur"):
         assert needle not in layout, needle
     for needle in ("lily-theme", "cwa-switch-theme"):
         assert needle not in main_js, needle
-    assert '<meta name="theme-color" content="#FDFCFA">' in layout
+
+
+DARK_PALETTE_BLOCKS = (':root:not([data-theme="light"])', ':root[data-theme="dark"]')
+
+
+def dark_tokens(selector):
+    tokens = {}
+    for sel, body in css_rules(read(CSS / "lily.css")):
+        if sel == selector:
+            tokens.update({n: v.strip() for n, v in re.findall(r"--([\w-]+)\s*:\s*([^;]+);", body)})
+    return tokens
+
+
+def test_dark_theme_redefines_every_colour_token_for_system_and_explicit_choice():
+    css = read(CSS / "lily.css")
+    assert "@media (prefers-color-scheme: dark)" in css
+    light = root_tokens()
+    colour_tokens = [n for n, v in light.items() if v.startswith("#")]
+    for selector in DARK_PALETTE_BLOCKS:
+        dark = dark_tokens(selector)
+        for name in colour_tokens:
+            assert name in dark, (selector, name)
+        assert dark_tokens(DARK_PALETTE_BLOCKS[0]) == dark_tokens(DARK_PALETTE_BLOCKS[1])
+
+
+def test_dark_text_tokens_meet_contrast():
+    dark = dark_tokens(DARK_PALETTE_BLOCKS[1])
+    for name in TEXT_TOKENS:
+        for ground in ("paper", "surface", "sunk"):
+            ratio = contrast(dark[name], dark[ground])
+            assert ratio >= 4.5, (name, ground, round(ratio, 2))
+    assert contrast(dark["on-accent"], dark["accent"]) >= 4.5
+
+
+def test_control_edges_meet_non_text_contrast_in_both_themes():
+    light, dark = root_tokens(), dark_tokens(DARK_PALETTE_BLOCKS[1])
+    for palette in (light, dark):
+        for ground in ("paper", "surface", "sunk"):
+            assert contrast(palette["line-strong"], palette[ground]) >= 3, (ground, palette["line-strong"])
+    library = read(CSS / "lily-library.css")
+    assert ".rating .glyphicon-star-empty { color: var(--line-strong); }" in library
+
+
+def test_theme_is_applied_in_head_before_styles_paint():
+    layout = read(TEMPLATES / "layout.html")
+    head = read(TEMPLATES / "lily_theme_head.html")
+    assert layout.index("lily_theme_head.html") < layout.index("css/lily.css")
+    assert 'localStorage.getItem("lily-theme")' in head and "data-theme" in head
+    assert 'media="(prefers-color-scheme: dark)"' in head and 'media="(prefers-color-scheme: light)"' in head
+    assert 'id="lily-theme-toggle"' in layout
+    assert "lily-theme-toggle" in read(REPO_ROOT / "cps/static/js/lily.js")
+
+
+def test_flash_messages_share_one_live_region():
+    layout = read(TEMPLATES / "layout.html")
+    assert layout.count('id="messageContainer"') == 1
+    assert re.search(r'id="messageContainer"[^>]*role="status"[^>]*aria-live="polite"', layout)
+    assert 'id="flash_danger" class="alert alert-danger" role="alert"' in layout
+
+
+def test_skip_link_targets_main_content():
+    layout = read(TEMPLATES / "layout.html")
+    assert 'href="#lily-content"' in layout
+    assert re.search(r'<main[^>]*id="lily-content"', layout)
+    assert layout.index('href="#lily-content"') < layout.index('class="lily-app"')
+
+
+def test_sidebar_shelf_counts_come_from_one_query():
+    layout = read(TEMPLATES / "layout.html")
+    assert "shelf.books.count()" not in layout
+    assert "shelf_book_counts" in layout
 
 
 def test_layout_keeps_hooks_other_scripts_use():

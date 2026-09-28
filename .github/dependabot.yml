@@ -1,6 +1,10 @@
 # Weekly update PRs for Python packages, GitHub Actions and the pinned Docker base images.
 version: 2
 updates:
+  # Dependabot bumps the ranges in requirements.txt / pyproject.toml. It does not read
+  # requirements.lock (not a *requirements*.txt name, and piecemeal pin bumps would skip the
+  # transitive deps), so a bump that moves a range past its pin fails
+  # tests/unit/test_requirements_sync.py until the lock is regenerated (command in its header).
   - package-ecosystem: pip
     directory: /
     schedule:

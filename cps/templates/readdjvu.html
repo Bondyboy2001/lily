@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html class="lily-reader-page">
   <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
     <title>{{_('DJVU Reader')}} | {{title}}</title>
@@ -8,16 +8,23 @@
     <meta name="mobile-web-app-capable" content="yes">
     {% if g.google_site_verification|length > 0 %}
       <meta name="google-site-verification" content="{{g.google_site_verification}}">
-    {% endif %}  
+    {% endif %}
 
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
 
     <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='css/libs/Djvu_html5.css') }}">
+    <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='css/lily.css') }}">
+    <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='css/lily-reader.css') }}">
     <script src="{{ url_for('static', filename='js/libs/djvu_html5/djvu_html5/djvu_html5.nocache.js') }}"></script>
     <script src="{{ url_for('static', filename='js/reading/djvu_reader.js') }}"></script>
   </head>
-  <body>
-	<div id="djvuContainer" file="{{ url_for('web.serve_book', book_id=djvufile, book_format=extension) }}"></div>
+  <body class="lily-reader lily-djvu">
+    <header class="lily-reader-bar">
+      <a id="back-button" class="reader-btn" href="{{ url_for('web.show_book', book_id=djvufile) }}" aria-label="{{_('Back to book')}}" title="{{_('Back to book')}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="reader-btn-label">{{_('Book')}}</span></a>
+      <h1 class="reader-title">{{ title }}</h1>
+      <span class="reader-bar-spacer" aria-hidden="true"></span>
+    </header>
+    <div id="djvuContainer" file="{{ url_for('web.serve_book', book_id=djvufile, book_format=extension) }}"></div>
   </body>
 </html>

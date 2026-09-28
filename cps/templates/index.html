@@ -4,6 +4,28 @@
 
 {% block body %}
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% if setup_checklist %}
+{# Admin first-run card. Dismissal is per user and per browser (localStorage). #}
+<section class="lily-setup" id="lily-setup" aria-labelledby="lily-setup-heading" data-dismiss-key="lily-setup-dismissed-{{ current_user.id }}">
+  <script>try { if (localStorage.getItem(document.currentScript.parentNode.dataset.dismissKey) === "1") { document.currentScript.parentNode.hidden = true; } } catch (e) {}</script>
+  <div class="lily-setup-head">
+    <h2 id="lily-setup-heading">{{_('Get started')}}</h2>
+    <button type="button" class="icon-btn lily-setup-dismiss" aria-label="{{_('Dismiss')}}" title="{{_('Dismiss')}}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></button>
+  </div>
+  <p class="lily-setup-lede">{{_('%(done)s of %(total)s set up. Finish the rest when you are ready.', done=setup_checklist|selectattr('done')|list|length, total=setup_checklist|length)}}</p>
+  <ul class="lily-setup-list">
+    {% for item in setup_checklist %}
+    <li class="lily-setup-item{% if item.done %} is-done{% endif %}">
+      <span class="lily-setup-mark" aria-hidden="true"><span class="glyphicon {{ 'glyphicon-ok' if item.done else 'glyphicon-chevron-right' }}"></span></span>
+      <a href="{{ item.href }}">
+        <span class="lily-setup-label">{{ item.label }}<span class="sr-only">: {{ _('done') if item.done else _('not done') }}</span></span>
+        {% if not item.done %}<span class="lily-setup-hint">{{ item.hint }}</span>{% endif %}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
 {% if continue_reading %}
 <section class="continue-reading" aria-labelledby="continue-reading-heading">
   <h2 id="continue-reading-heading">{{_('Continue Reading')}}</h2>
@@ -41,7 +63,7 @@
   </div>
 </section>
 {% endif %}
-{% if current_user.show_detail_random() and page != "discover" and random is iterable and random|list|length %}
+{% if current_user.show_detail_random() and page != "discover" and not (list_filters and list_filters.active) and random is iterable and random|list|length %}
 <div class="discover random-books">
   <h2 class="random-books">{{_('Discover (Random Books)')}}</h2>
   <div class="row display-flex lily-grid">
@@ -52,6 +74,9 @@
 </div>
 {% endif %}
 <div class="discover load-more">
+  {% if page == 'discover' and list_filters %}
+  <div class="lily-list-toolbar">{{ image.filter_chips(list_filters) }}</div>
+  {% endif %}
   {% if page != 'discover' %}
   <div class="lily-list-toolbar">
     {# Grid/List icons, pinned to the toolbar's top right #}
@@ -59,7 +84,8 @@
     {% if page == 'hot' %}{% set sort_fields = ['downloads'] %}
     {% elif page == 'series' %}{% set sort_fields = ['added', 'title', 'author', 'published', 'series'] %}
     {% else %}{% set sort_fields = ['added', 'title', 'author', 'published'] %}{% endif %}
-    {{ image.sort_menu(order, url_for('web.books_list', data=page, book_id=id, sort_param='SORT_PARAM'), sort_fields) }}
+    {{ image.sort_menu(order, url_for('web.books_list', data=page, book_id=id, sort_param='SORT_PARAM', **(list_filters.args if list_filters else {})), sort_fields) }}
+    {{ image.filter_chips(list_filters) }}
   </div>
   {% endif %}
 
@@ -68,7 +94,11 @@
     {{ image.book_card(entry.Books, current_user, entry[2] == True, g.config_authors_max, series_link=(page != 'series'), extra_class='books') }}
     {% endfor %}
   </div>
-  {% if not entries[0] and page == 'newest' %}
+  {% if not entries[0] and list_filters and list_filters.active %}
+  {{ image.empty_state('glyphicon-filter', _('No books match these filters'),
+                       _('Try removing a filter, or clear them all.'),
+                       [(_('Clear filters'), list_filters.url(format=None, lang=None, status=None, tag=None), True)]) }}
+  {% elif not entries[0] and page == 'newest' %}
   <div class="library-empty-state">
     <span class="glyphicon glyphicon-book library-empty-icon" aria-hidden="true"></span>
     <h3>{{_('Your library is empty')}}</h3>
@@ -76,8 +106,14 @@
     {% if current_user.role_upload() and g.allow_upload %}
     {# Opens the same file picker as the top bar's Upload button #}
     <p><label for="btn-upload" class="btn btn-primary lily-upload-btn"><span class="glyphicon glyphicon-upload" aria-hidden="true"></span>{{_('Upload books')}}</label></p>
+    {% elif current_user.role_admin() and not g.allow_upload %}
+    <p><a class="btn btn-default" href="{{ url_for('admin.configuration') }}">{{_('Turn on uploads')}}</a></p>
     {% endif %}
   </div>
+  {% elif not entries[0] and page not in ('discover', 'hot') %}
+  {{ image.empty_state('glyphicon-book', _('No books here yet'),
+                       _('Books appear here once they match this list.'),
+                       [(_('Browse all books'), url_for('web.index'), True)]) }}
   {% endif %}
 </div>
 {% endblock %}

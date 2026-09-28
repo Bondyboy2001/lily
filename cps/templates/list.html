@@ -45,6 +45,14 @@ See CONTRIBUTORS for full list of authors. -->
   {% endfor %}
   </div>
 </div>
+{% if not entries %}
+  {% set empty_heading = {'author': _('No authors yet'), 'series': _('No series yet'), 'category': _('No categories yet'),
+                          'publisher': _('No publishers yet'), 'language': _('No languages yet'),
+                          'formats': _('No file formats yet'), 'ratings': _('No ratings yet')}.get(data, _('Nothing to list yet')) %}
+  {{ image.empty_state('glyphicon-list-alt', empty_heading,
+                       _('This list fills in from your books. Books you cannot see because of your account restrictions are left out.'),
+                       [(_('Browse all books'), url_for('web.index'), True)]) }}
+{% endif %}
 {% endblock %}
 {% block js %}
 <script src="{{ url_for('static', filename='js/filter_list.js') }}"></script>

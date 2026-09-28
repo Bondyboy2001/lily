@@ -62,6 +62,12 @@ CREATE TABLE IF NOT EXISTS cwa_settings(
     hardcover_auto_fetch_rate_limit REAL DEFAULT 5.0 NOT NULL,
     -- Number of nightly sqlite backups (app.db, cwa.db, metadata.db) kept in /config/backup/db/
     db_backup_keep_count INTEGER DEFAULT 7 NOT NULL,
+    -- Where nightly snapshots go. '' = DB_BACKUP_DIR env var, else /config/backup/db/.
+    -- Point this at a different volume from /config so a lost /config volume doesn't take the backups with it.
+    db_backup_dir TEXT DEFAULT '' NOT NULL,
+    -- Days to keep files in /config/processed_books/{imported,failed}, pruned nightly. '0' = keep forever.
+    -- Stored as TEXT so the generic settings form doesn't treat it as a checkbox.
+    processed_books_retention_days TEXT DEFAULT '30' NOT NULL,
     -- Duplicate notification and auto-resolution settings
     duplicate_detection_enabled SMALLINT DEFAULT 1 NOT NULL,
     duplicate_notifications_enabled SMALLINT DEFAULT 1 NOT NULL,

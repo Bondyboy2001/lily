@@ -30,6 +30,10 @@
               </div>
         {% endfor %}
         </div>
+    {% else %}
+        {{ image.empty_state('glyphicon-list-alt', _('No series yet'),
+                             _('Series appear here once a book in your library has one.'),
+                             [(_('Browse all books'), url_for('web.index'), True)]) }}
     {% endif %}
 
 

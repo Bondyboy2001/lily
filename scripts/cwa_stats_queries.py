@@ -8,8 +8,42 @@
 
 Mixed into CWA_DB (scripts/cwa_db.py), which provides the cursor (self.cur)
 and the user-filter helpers (self._build_user_filter, self._has_user_filter).
+
+Dates, day counts and limits are always passed as bound parameters
+(:start_date, :end_date, :prev_start, :prev_end, :days, :days2, :limit), never
+formatted into the SQL. ``_bind`` collects and validates them from the caller's locals.
 """
 
+from datetime import datetime
+
+_DATE_PARAMS = ("start_date", "end_date", "prev_start", "prev_end")
+
+
+def valid_stats_date(value):
+    """Return ``value`` normalised to 'YYYY-MM-DD'; raise ValueError for anything else."""
+    if not isinstance(value, str):
+        raise ValueError(f"Invalid date: {value!r}")
+    return datetime.strptime(value.strip(), "%Y-%m-%d").strftime("%Y-%m-%d")
+
+
+def _bind(scope):
+    """Named SQL parameters for a stats query, validated, taken from the calling method's locals()."""
+    params = {}
+    for name in _DATE_PARAMS:
+        value = scope.get(name)
+        if value:
+            params[name] = valid_stats_date(value)
+    days = scope.get("days")
+    if days is not None:
+        days = int(days)
+        if days < 0:
+            raise ValueError("Invalid day count: %r" % (days,))
+        params["days"] = days
+        params["days2"] = days * 2
+    limit = scope.get("limit")
+    if limit is not None:
+        params["limit"] = int(limit)
+    return params
 
 
 class CWAStatsQueries:
@@ -21,7 +55,7 @@ class CWAStatsQueries:
                 FROM cwa_user_activity
                 WHERE user_id IS NOT NULL
                 ORDER BY user_name ASC
-            """)
+            """, _bind(locals()))
             return self.cur.fetchall()
         except Exception as e:
             print(f"[cwa-db] Error fetching active users: {e}")
@@ -34,10 +68,10 @@ class CWAStatsQueries:
         try:
             # Build date filter
             if start_date and end_date:
-                date_filter = f"timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
             else:
                 days = days or 30
-                date_filter = f"timestamp >= date('now', '-{days} days')"
+                date_filter = "timestamp >= date('now', '-' || :days || ' days')"
             
             # Add user filter if provided
             user_filter = self._build_user_filter(user_id)
@@ -58,7 +92,7 @@ class CWAStatsQueries:
                     AND {combined_filter}
                 GROUP BY source
                 ORDER BY count DESC
-            """)
+            """, _bind(locals()))
             return self.cur.fetchall()
         except Exception as e:
             print(f"[cwa-db] Error getting discovery sources: {e}")
@@ -72,10 +106,10 @@ class CWAStatsQueries:
         try:
             # Build date filter
             if start_date and end_date:
-                date_filter = f"timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
             else:
                 days = days or 30
-                date_filter = f"timestamp >= date('now', '-{days} days')"
+                date_filter = "timestamp >= date('now', '-' || :days || ' days')"
             
             # Add user filter if provided
             user_filter = self._build_user_filter(user_id)
@@ -95,7 +129,7 @@ class CWAStatsQueries:
                 WHERE {combined_filter}
                 GROUP BY device_type
                 ORDER BY count DESC
-            """)
+            """, _bind(locals()))
             return self.cur.fetchall()
         except Exception as e:
             print(f"[cwa-db] Error getting device breakdown: {e}")
@@ -109,10 +143,10 @@ class CWAStatsQueries:
         try:
             # Build date filter
             if start_date and end_date:
-                date_filter = f"timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
             else:
                 days = days or 30
-                date_filter = f"timestamp >= date('now', '-{days} days')"
+                date_filter = "timestamp >= date('now', '-' || :days || ' days')"
             
             self.cur.execute(f"""
                 SELECT 
@@ -126,7 +160,7 @@ class CWAStatsQueries:
                 GROUP BY ip_address, username
                 ORDER BY attempt_count DESC, last_attempt DESC
                 LIMIT 20
-            """)
+            """, _bind(locals()))
             return self.cur.fetchall()
         except Exception as e:
             print(f"[cwa-db] Error getting failed logins: {e}")
@@ -147,10 +181,10 @@ class CWAStatsQueries:
             
             # Build date filter
             if start_date and end_date:
-                date_filter = f"timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
             else:
                 days = days or 365  # Default to 1 year for growth chart
-                date_filter = f"timestamp >= date('now', '-{days} days')"
+                date_filter = "timestamp >= date('now', '-' || :days || ' days')"
             
             metadata_cur.execute(f"""
                 SELECT 
@@ -161,7 +195,7 @@ class CWAStatsQueries:
                     AND {date_filter}
                 GROUP BY add_date
                 ORDER BY add_date ASC
-            """)
+            """, _bind(locals()))
             result = metadata_cur.fetchall()
             metadata_con.close()
             return result
@@ -184,9 +218,9 @@ class CWAStatsQueries:
             
             # Build date filter for current period
             if start_date and end_date:
-                date_filter = f"timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
             elif days:
-                date_filter = f"timestamp >= date('now', '-{days} days')"
+                date_filter = "timestamp >= date('now', '-' || :days || ' days')"
             else:
                 date_filter = "1=1"  # All time - no filter
             
@@ -196,7 +230,7 @@ class CWAStatsQueries:
                 FROM books
                 WHERE timestamp IS NOT NULL
                     AND {date_filter}
-            """)
+            """, _bind(locals()))
             current = metadata_cur.fetchone()
             
             # Get previous period for trend comparison
@@ -208,9 +242,9 @@ class CWAStatsQueries:
                 duration = (end_dt - start_dt).days
                 prev_start = (start_dt - timedelta(days=duration)).strftime('%Y-%m-%d')
                 prev_end = start_date
-                prev_filter = f"timestamp BETWEEN date('{prev_start}') AND date('{prev_end}')"
+                prev_filter = "timestamp BETWEEN date(:prev_start) AND date(:prev_end)"
             elif days:
-                prev_filter = f"timestamp >= date('now', '-{days * 2} days') AND timestamp < date('now', '-{days} days')"
+                prev_filter = "timestamp >= date('now', '-' || :days2 || ' days') AND timestamp < date('now', '-' || :days || ' days')"
             else:
                 # All time - no previous period comparison
                 prev_filter = "1=0"  # Returns 0
@@ -220,7 +254,7 @@ class CWAStatsQueries:
                 FROM books
                 WHERE timestamp IS NOT NULL
                     AND {prev_filter}
-            """)
+            """, _bind(locals()))
             previous = metadata_cur.fetchone()
             
             total = current[0] or 0
@@ -267,9 +301,9 @@ class CWAStatsQueries:
             
             # Build date filter
             if start_date and end_date:
-                date_filter = f"WHERE books.timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "WHERE books.timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
             elif days:
-                date_filter = f"WHERE books.timestamp >= date('now', '-{days} days')"
+                date_filter = "WHERE books.timestamp >= date('now', '-' || :days || ' days')"
             else:
                 date_filter = ""  # No filter, show all time
             
@@ -282,7 +316,7 @@ class CWAStatsQueries:
                 {date_filter}
                 GROUP BY format
                 ORDER BY count DESC
-            """)
+            """, _bind(locals()))
             result = metadata_cur.fetchall()
             metadata_con.close()
             return result
@@ -319,8 +353,8 @@ class CWAStatsQueries:
                 JOIN books b ON bs.book = b.id
                 GROUP BY s.id, s.name
                 ORDER BY book_count DESC, series_name ASC
-                LIMIT {limit}
-            """)
+                LIMIT :limit
+            """, _bind(locals()))
             
             results = metadata_cur.fetchall()
             metadata_con.close()
@@ -357,7 +391,7 @@ class CWAStatsQueries:
                 GROUP BY year
                 HAVING year >= 1800 AND year <= 2030
                 ORDER BY year ASC
-            """)
+            """, _bind(locals()))
             
             results = metadata_cur.fetchall()
             metadata_con.close()
@@ -382,10 +416,10 @@ class CWAStatsQueries:
         try:
             # Build date filter
             if start_date and end_date:
-                date_filter = f"timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
             else:
                 days = days or 30
-                date_filter = f"timestamp >= date('now', '-{days} days')"
+                date_filter = "timestamp >= date('now', '-' || :days || ' days')"
             
             # Add user filter if provided
             user_filter = self._build_user_filter(user_id)
@@ -410,7 +444,7 @@ class CWAStatsQueries:
                 FROM ordered_logins
                 WHERE next_login IS NOT NULL
                     AND duration_days < 1  -- Ignore sessions > 24 hours
-            """)
+            """, _bind(locals()))
             
             results = self.cur.fetchall()
             if not results:
@@ -428,7 +462,7 @@ class CWAStatsQueries:
                 SELECT ROUND(AVG(duration_days * 24 * 60), 1) as avg_minutes
                 FROM ordered_logins
                 WHERE duration_days IS NOT NULL AND duration_days < 1
-            """).fetchone()
+            """, _bind(locals())).fetchone()
             
             avg_minutes = avg_result[0] if avg_result and avg_result[0] else 0
             
@@ -448,7 +482,7 @@ class CWAStatsQueries:
                 WHERE duration_days IS NOT NULL AND duration_days < 1
                 GROUP BY bucket_start
                 ORDER BY bucket_start
-            """)
+            """, _bind(locals()))
             
             distribution = self.cur.fetchall()
             
@@ -476,12 +510,12 @@ class CWAStatsQueries:
         try:
             # Build date filter
             if start_date and end_date:
-                date_filter = f"timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
                 date_filter_prev = None
             else:
                 days = days or 30
-                date_filter = f"timestamp >= date('now', '-{days} days')"
-                date_filter_prev = f"timestamp >= date('now', '-{days * 2} days') AND timestamp < date('now', '-{days} days')"
+                date_filter = "timestamp >= date('now', '-' || :days || ' days')"
+                date_filter_prev = "timestamp >= date('now', '-' || :days2 || ' days') AND timestamp < date('now', '-' || :days || ' days')"
             
             # Add user filter if provided
             user_filter = self._build_user_filter(user_id)
@@ -492,7 +526,7 @@ class CWAStatsQueries:
                 SELECT COUNT(*)
                 FROM cwa_user_activity
                 WHERE event_type = 'SEARCH' AND {combined_filter}
-            """).fetchone()[0]
+            """, _bind(locals())).fetchone()[0]
             
             # Count successful searches (followed by DOWNLOAD or READ within 5 minutes)
             successful_searches = self.cur.execute(f"""
@@ -506,7 +540,7 @@ class CWAStatsQueries:
                             AND a.event_type IN ('DOWNLOAD', 'READ')
                             AND a.timestamp BETWEEN s.timestamp AND datetime(s.timestamp, '+5 minutes')
                     )
-            """).fetchone()[0]
+            """, _bind(locals())).fetchone()[0]
             
             success_rate = (successful_searches / total_searches * 100) if total_searches > 0 else 0
             
@@ -518,7 +552,7 @@ class CWAStatsQueries:
                     SELECT COUNT(*)
                     FROM cwa_user_activity
                     WHERE event_type = 'SEARCH' AND {combined_filter_prev}
-                """).fetchone()[0]
+                """, _bind(locals())).fetchone()[0]
                 
                 successful_prev = self.cur.execute(f"""
                     SELECT COUNT(DISTINCT s.id)
@@ -531,7 +565,7 @@ class CWAStatsQueries:
                                 AND a.event_type IN ('DOWNLOAD', 'READ')
                                 AND a.timestamp BETWEEN s.timestamp AND datetime(s.timestamp, '+5 minutes')
                         )
-                """).fetchone()[0]
+                """, _bind(locals())).fetchone()[0]
                 
                 success_rate_prev = (successful_prev / total_prev * 100) if total_prev > 0 else 0
                 trend = success_rate - success_rate_prev if success_rate_prev > 0 else 0
@@ -569,10 +603,10 @@ class CWAStatsQueries:
             
             # Build date filter
             if start_date and end_date:
-                date_filter = f"timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
             else:
                 days = days or 30
-                date_filter = f"timestamp >= date('now', '-{days} days')"
+                date_filter = "timestamp >= date('now', '-' || :days || ' days')"
             
             # Add user filter if provided
             user_filter = self._build_user_filter(user_id)
@@ -596,8 +630,8 @@ class CWAStatsQueries:
                     AND json_extract(extra_data, '$.shelf_name') IS NOT NULL
                 GROUP BY shelf_name
                 ORDER BY add_count DESC, net_change DESC
-                LIMIT {limit}
-            """)
+                LIMIT :limit
+            """, _bind(locals()))
             
             return self.cur.fetchall()
             
@@ -620,10 +654,10 @@ class CWAStatsQueries:
         try:
             # Build date filter
             if start_date and end_date:
-                date_filter = f"timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
             else:
                 days = days or 30
-                date_filter = f"timestamp >= date('now', '-{days} days')"
+                date_filter = "timestamp >= date('now', '-' || :days || ' days')"
             
             # Add user filter if provided
             user_filter = self._build_user_filter(user_id)
@@ -644,7 +678,7 @@ class CWAStatsQueries:
                 WHERE {combined_filter}
                 GROUP BY category
                 ORDER BY count DESC
-            """)
+            """, _bind(locals()))
             
             return self.cur.fetchall()
             
@@ -669,10 +703,10 @@ class CWAStatsQueries:
             
             # Build date filter
             if start_date and end_date:
-                date_filter = f"timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
             else:
                 days = days or 30
-                date_filter = f"timestamp >= date('now', '-{days} days')"
+                date_filter = "timestamp >= date('now', '-' || :days || ' days')"
             
             # Add user filter if provided
             user_filter = self._build_user_filter(user_id)
@@ -681,7 +715,7 @@ class CWAStatsQueries:
             # Debug: Check what event types actually exist
             debug_query = f"SELECT DISTINCT event_type FROM cwa_user_activity WHERE {combined_filter}"
             print(f"[cwa-db] Checking event types with filter: {debug_query}")
-            self.cur.execute(debug_query)
+            self.cur.execute(debug_query, _bind(locals()))
             event_types = self.cur.fetchall()
             print(f"[cwa-db] Found event types: {event_types}")
             
@@ -712,11 +746,11 @@ class CWAStatsQueries:
                 GROUP BY endpoint, category
                 HAVING COUNT(*) > 0
                 ORDER BY access_count DESC, last_accessed DESC
-                LIMIT {limit}
+                LIMIT :limit
             """
             
             print(f"[cwa-db] Endpoint frequency query: {query}")
-            self.cur.execute(query)
+            self.cur.execute(query, _bind(locals()))
             
             results = self.cur.fetchall()
             print(f"[cwa-db] Endpoint frequency results: {results}")
@@ -741,10 +775,10 @@ class CWAStatsQueries:
         try:
             # Build date filter
             if start_date and end_date:
-                date_filter = f"timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
             else:
                 days = days or 30
-                date_filter = f"timestamp >= date('now', '-{days} days')"
+                date_filter = "timestamp >= date('now', '-' || :days || ' days')"
             
             # Add user filter if provided
             user_filter = self._build_user_filter(user_id)
@@ -761,7 +795,7 @@ class CWAStatsQueries:
                     AND {combined_filter}
                 GROUP BY day_of_week, hour
                 ORDER BY day_of_week, hour
-            """)
+            """, _bind(locals()))
             
             return self.cur.fetchall()
             
@@ -793,7 +827,7 @@ class CWAStatsQueries:
             
             # Build date filter for books added in time period
             if start_date and end_date:
-                date_filter = f"WHERE b.timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "WHERE b.timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
                 # Calculate previous period for trend
                 from datetime import datetime, timedelta
                 start_dt = datetime.strptime(start_date, '%Y-%m-%d')
@@ -801,10 +835,10 @@ class CWAStatsQueries:
                 period_days = (end_dt - start_dt).days
                 prev_start = (start_dt - timedelta(days=period_days)).strftime('%Y-%m-%d')
                 prev_end = start_date
-                prev_date_filter = f"WHERE b.timestamp BETWEEN date('{prev_start}') AND date('{prev_end}', '+1 day')"
+                prev_date_filter = "WHERE b.timestamp BETWEEN date(:prev_start) AND date(:prev_end, '+1 day')"
             elif days:
-                date_filter = f"WHERE b.timestamp >= date('now', '-{days} days')"
-                prev_date_filter = f"WHERE b.timestamp >= date('now', '-{days * 2} days') AND b.timestamp < date('now', '-{days} days')"
+                date_filter = "WHERE b.timestamp >= date('now', '-' || :days || ' days')"
+                prev_date_filter = "WHERE b.timestamp >= date('now', '-' || :days2 || ' days') AND b.timestamp < date('now', '-' || :days || ' days')"
             else:
                 date_filter = ""
                 prev_date_filter = ""
@@ -818,7 +852,7 @@ class CWAStatsQueries:
                 {date_filter.replace('WHERE', 'WHERE' if date_filter else '') if date_filter else ''}
                 {'AND' if date_filter else 'WHERE'} r.rating > 0
             """
-            metadata_cur.execute(avg_query)
+            metadata_cur.execute(avg_query, _bind(locals()))
             avg_result = metadata_cur.fetchone()
             average_rating = round(avg_result[0], 2) if avg_result and avg_result[0] else 0.0
             
@@ -832,7 +866,7 @@ class CWAStatsQueries:
                     {prev_date_filter}
                     AND r.rating > 0
                 """
-                metadata_cur.execute(prev_avg_query)
+                metadata_cur.execute(prev_avg_query, _bind(locals()))
                 prev_avg_result = metadata_cur.fetchone()
                 prev_average = prev_avg_result[0] if prev_avg_result and prev_avg_result[0] else 0.0
                 
@@ -856,12 +890,12 @@ class CWAStatsQueries:
                 GROUP BY stars
                 ORDER BY stars DESC
             """
-            metadata_cur.execute(dist_query)
+            metadata_cur.execute(dist_query, _bind(locals()))
             rating_distribution = metadata_cur.fetchall()
             
             # Get total books and unrated count
             total_query = f"SELECT COUNT(*) FROM books b {date_filter}"
-            metadata_cur.execute(total_query)
+            metadata_cur.execute(total_query, _bind(locals()))
             total_books = metadata_cur.fetchone()[0]
             
             unrated_query = f"""
@@ -872,7 +906,7 @@ class CWAStatsQueries:
                 {date_filter}
                 {'AND' if date_filter else 'WHERE'} (brl.rating IS NULL OR r.rating = 0)
             """
-            metadata_cur.execute(unrated_query)
+            metadata_cur.execute(unrated_query, _bind(locals()))
             unrated_books = metadata_cur.fetchone()[0]
             
             unrated_percentage = round((unrated_books / total_books * 100), 1) if total_books > 0 else 0.0
@@ -924,8 +958,8 @@ class CWAStatsQueries:
                 FROM cwa_enforcement
                 GROUP BY book_id
                 ORDER BY enforcement_count DESC
-                LIMIT {limit}
-            """)
+                LIMIT :limit
+            """, _bind(locals()))
             enforcement_data = self.cur.fetchall()
             
             if not enforcement_data:
@@ -967,10 +1001,10 @@ class CWAStatsQueries:
         try:
             # Build date filter
             if start_date and end_date:
-                date_filter = f"timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
             else:
                 days = days or 30
-                date_filter = f"timestamp >= date('now', '-{days} days')"
+                date_filter = "timestamp >= date('now', '-' || :days || ' days')"
             
             # Add user filter if provided
             user_filter = self._build_user_filter(user_id)
@@ -985,7 +1019,7 @@ class CWAStatsQueries:
                 WHERE {combined_filter}
                 GROUP BY day_of_week, hour
                 ORDER BY day_of_week, hour
-            """)
+            """, _bind(locals()))
             return self.cur.fetchall()
         except Exception as e:
             print(f"[cwa-db] Error getting hourly activity heatmap: {e}")
@@ -1000,10 +1034,10 @@ class CWAStatsQueries:
         try:
             # Build date filter
             if start_date and end_date:
-                date_filter = f"timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
             else:
                 days = days or 30
-                date_filter = f"timestamp >= date('now', '-{days} days')"
+                date_filter = "timestamp >= date('now', '-' || :days || ' days')"
             
             # Add user filter if provided
             user_filter = self._build_user_filter(user_id)
@@ -1018,7 +1052,7 @@ class CWAStatsQueries:
                     AND {combined_filter}
                 GROUP BY week
                 ORDER BY week
-            """)
+            """, _bind(locals()))
             return self.cur.fetchall()
         except Exception as e:
             print(f"[cwa-db] Error getting reading velocity: {e}")
@@ -1032,10 +1066,10 @@ class CWAStatsQueries:
         try:
             # Build date filter
             if start_date and end_date:
-                date_filter = f"timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
             else:
                 days = days or 30
-                date_filter = f"timestamp >= date('now', '-{days} days')"
+                date_filter = "timestamp >= date('now', '-' || :days || ' days')"
             
             # Add user filter if provided
             user_filter = self._build_user_filter(user_id)
@@ -1054,7 +1088,7 @@ class CWAStatsQueries:
                     AND {combined_filter}
                 GROUP BY user_name, format
                 ORDER BY user_name, count DESC
-            """)
+            """, _bind(locals()))
             return self.cur.fetchall()
         except Exception as e:
             print(f"[cwa-db] Error getting format preferences: {e}")
@@ -1072,10 +1106,10 @@ class CWAStatsQueries:
         try:
             # Use date range if provided, otherwise fall back to days
             if start_date and end_date:
-                date_filter = f"timestamp BETWEEN date('{start_date}') AND date('{end_date}', '+1 day')"
+                date_filter = "timestamp BETWEEN date(:start_date) AND date(:end_date, '+1 day')"
             else:
                 days = days or 30  # Default to 30 days
-                date_filter = f"timestamp >= date('now', '-{days} days')"
+                date_filter = "timestamp >= date('now', '-' || :days || ' days')"
             
             # Add user filter if provided
             user_filter = self._build_user_filter(user_id)
@@ -1088,7 +1122,7 @@ class CWAStatsQueries:
                 WHERE {combined_filter}
                 GROUP BY day, event_type
                 ORDER BY day ASC
-            """)
+            """, _bind(locals()))
             timeline_data = self.cur.fetchall()
 
             # 2. Top active users or most active days (depending on user filter)
@@ -1101,7 +1135,7 @@ class CWAStatsQueries:
                     GROUP BY day
                     ORDER BY activity_count DESC 
                     LIMIT 10
-                """)
+                """, _bind(locals()))
                 top_users = self.cur.fetchall()
             else:
                 # Show top active users across all users
@@ -1112,7 +1146,7 @@ class CWAStatsQueries:
                     GROUP BY user_id, user_name
                     ORDER BY activity_count DESC 
                     LIMIT 10
-                """)
+                """, _bind(locals()))
                 top_users = self.cur.fetchall()
 
             # 3. Most popular books (reads + downloads + emails combined)
@@ -1125,7 +1159,7 @@ class CWAStatsQueries:
                 GROUP BY item_id, item_title
                 ORDER BY hits DESC 
                 LIMIT 10
-            """)
+            """, _bind(locals()))
             top_books = self.cur.fetchall()
             
             # 4. Recent search terms
@@ -1137,7 +1171,7 @@ class CWAStatsQueries:
                   AND {combined_filter}
                 ORDER BY timestamp DESC 
                 LIMIT 15
-            """)
+            """, _bind(locals()))
             recent_searches = self.cur.fetchall()
 
             # 5. Download format distribution
@@ -1157,7 +1191,7 @@ class CWAStatsQueries:
                   AND {combined_filter}
                 GROUP BY format
                 ORDER BY count DESC
-            """)
+            """, _bind(locals()))
             format_distribution = self.cur.fetchall()
 
             # 6. Event type breakdown (LOGIN, DOWNLOAD, READ, SEARCH, EMAIL)
@@ -1167,7 +1201,7 @@ class CWAStatsQueries:
                 WHERE {combined_filter}
                 GROUP BY event_type
                 ORDER BY count DESC
-            """)
+            """, _bind(locals()))
             event_breakdown = self.cur.fetchall()
 
             # 7. Total activity metrics
@@ -1185,7 +1219,7 @@ class CWAStatsQueries:
                         COUNT(CASE WHEN event_type = 'SEARCH' THEN 1 END) as total_searches
                     FROM cwa_user_activity
                     WHERE {combined_filter}
-                """)
+                """, _bind(locals()))
             else:
                 # For all users, show active user count
                 self.cur.execute(f"""
@@ -1200,7 +1234,7 @@ class CWAStatsQueries:
                         COUNT(CASE WHEN event_type = 'SEARCH' THEN 1 END) as total_searches
                     FROM cwa_user_activity
                     WHERE {combined_filter}
-                """)
+                """, _bind(locals()))
             totals = self.cur.fetchone()
 
             return {

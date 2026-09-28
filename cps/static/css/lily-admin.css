@@ -1209,7 +1209,8 @@ input[type="checkbox"].lp-switch {
     width: 34px;
     height: 20px;
     margin: 0;
-    border: 0;
+    /* The off track needs a ≥3:1 edge (WCAG 1.4.11); the tint alone is too faint. */
+    border: 1px solid var(--line-strong);
     border-radius: 999px;
     background: var(--control-tint-strong);
     cursor: pointer;
@@ -1219,8 +1220,8 @@ input[type="checkbox"].lp-switch {
 input[type="checkbox"].lp-switch::after {
     content: "";
     position: absolute;
-    top: 2px;
-    left: 2px;
+    top: 1px;
+    left: 1px;
     width: 16px;
     height: 16px;
     border-radius: 50%;
@@ -1229,7 +1230,7 @@ input[type="checkbox"].lp-switch::after {
     transition: transform .12s ease-out;
 }
 
-input[type="checkbox"].lp-switch:checked { background: var(--accent); }
+input[type="checkbox"].lp-switch:checked { border-color: var(--accent); background: var(--accent); }
 input[type="checkbox"].lp-switch:checked::after { transform: translateX(14px); }
 input[type="checkbox"].lp-switch:disabled { opacity: .4; cursor: not-allowed; }
 input[type="checkbox"].lp-switch:focus-visible {

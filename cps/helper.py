@@ -20,7 +20,7 @@ import requests
 import unidecode
 from uuid import uuid4
 
-from flask import send_from_directory, make_response, abort, url_for, Response
+from flask import send_from_directory, make_response, abort, url_for, Response, has_request_context
 from flask_babel import gettext as _
 from flask_babel import lazy_gettext as N_
 from flask_babel import get_locale
@@ -229,7 +229,15 @@ def check_read_formats(entry):
 # 3: If Pdf file is existing, it's directly send to eReader email
 def send_mail(book_id, book_format, convert, ereader_mail, calibrepath, user_id, subject=None):
     """Send email with attachments"""
-    book = calibre_db.get_book(book_id)
+    if has_request_context():
+        # Web request: respect the current user's tag / language / custom column restrictions
+        book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+    else:
+        # Background tasks (auto-send) have no current user to filter by
+        book = calibre_db.get_book(book_id)
+    if not book:
+        log.error("Book id %s not found or not accessible for sending", book_id)
+        return _("Book not found")
 
     if convert == 1:
         # returns None if success, otherwise errormessage

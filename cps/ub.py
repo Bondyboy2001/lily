@@ -41,7 +41,7 @@ try:
 except ImportError:
     from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import backref, relationship, sessionmaker, Session, scoped_session
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from . import constants, logger
 from .string_helper import strip_whitespaces
@@ -281,6 +281,17 @@ class User(UserBase, Base):
     auto_send_enabled = Column(Boolean, default=False)
     # Allow entering additional email addresses on send-to-eReader
     allow_additional_ereader_emails = Column(Boolean, default=True)
+    # Set for accounts still using the shipped default password; the web UI forces a
+    # password change before anything else can be used. Cleared whenever the password
+    # is assigned (see _clear_force_password_change below).
+    force_password_change = Column(Boolean, default=False)
+
+
+@event.listens_for(User.password, 'set')
+def _clear_force_password_change(target, value, oldvalue, initiator):
+    # Any explicit password assignment (profile, admin edit, reset, CLI) satisfies the
+    # forced change. Attribute 'set' events are not fired when rows are loaded.
+    target.force_password_change = False
 
 
 if oauth_support:
@@ -330,6 +341,7 @@ class Anonymous(AnonymousUserMixin, UserBase):
         self.role = None
         self.name = None
         self.auto_send_enabled = False
+        self.force_password_change = False
         self.loadSettings()
 
     def loadSettings(self):
@@ -504,6 +516,20 @@ class Bookmark(Base):
     book_id = Column(Integer)
     format = Column(String(collation='NOCASE'))
     bookmark_key = Column(String)
+
+
+# Reading position saved by the built-in web reader (one row per user and book)
+class WebReaderProgress(Base):
+    __tablename__ = 'web_reader_progress'
+    __table_args__ = (UniqueConstraint('user_id', 'book_id', name='uq_web_reader_progress_user_book'),)
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
+    book_id = Column(Integer, nullable=False)
+    cfi = Column(String)
+    percent = Column(Float)
+    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc))
 
 
 # Baseclass representing books that are archived on the user's Kobo device.
@@ -747,6 +773,8 @@ def add_missing_tables(engine, _session):
         Base.metadata.tables["kosync_progress"].create(bind=engine, checkfirst=True)
     if not engine.dialect.has_table(engine.connect(), "opds_shelf_exposure"):
         OpdsShelfExposure.__table__.create(bind=engine, checkfirst=True)
+    if not engine.dialect.has_table(engine.connect(), "web_reader_progress"):
+        WebReaderProgress.__table__.create(bind=engine, checkfirst=True)
 
 
 # migrate all settings missing in registration table
@@ -817,6 +845,14 @@ def migrate_user_table(engine, _session):
                 db_hint,
                 e,
             )
+
+    # Migration for forced password change flag (default admin password)
+    try:
+        _session.query(exists().where(User.force_password_change)).scalar()
+        _session.commit()
+    except exc.OperationalError:
+        _safe_session_rollback(_session, "user.force_password_change")
+        _run_ddl_with_retry(engine, "ALTER TABLE user ADD column 'force_password_change' Boolean DEFAULT 0")
 
     # Migration for per-user additional eReader email address permission
     try:
@@ -1003,6 +1039,31 @@ def migrate_performance_indexes(engine):
             log.warning("Could not create index %s on %s: %s", index_name, table_name, e)
 
 
+def flag_users_with_default_password(_session):
+    """Flag admin accounts whose password is still the shipped default so they must change it.
+
+    Runs on every start (an app.db shipped with an image also contains the default admin).
+    Only admin accounts are checked to keep start-up cheap.
+    """
+    try:
+        candidates = _session.query(User).filter(
+            User.role.op('&')(constants.ROLE_ADMIN) == constants.ROLE_ADMIN,
+            User.force_password_change.isnot(True),
+        ).all()
+        flagged = []
+        for user in candidates:
+            if user.password and check_password_hash(str(user.password), constants.DEFAULT_PASSWORD):
+                user.force_password_change = True
+                flagged.append(user.name)
+        if flagged:
+            _session.commit()
+            log.warning("User(s) %s still use the default password; they will be required to change it "
+                        "at next web login", ", ".join(flagged))
+    except Exception as e:
+        log.error("Could not check for accounts using the default password: %s", e)
+        _safe_session_rollback(_session, "default password check")
+
+
 def migrate_default_sidebar(_session):
     """One-time trim of every user's sidebar (and the new-user default) to constants.DEFAULT_SIDEBAR.
 
@@ -1041,6 +1102,8 @@ def migrate_Database(_session):
     migrate_oauth_provider_table(engine, _session)
     migrate_config_table(engine, _session)
     migrate_default_sidebar(_session)
+    # Runs after every user column migration so the full User model can be queried
+    flag_users_with_default_password(_session)
     _safe_session_rollback(_session, "performance indexes")  # release any read lock before DDL
     migrate_performance_indexes(engine)
 
@@ -1110,6 +1173,8 @@ def create_admin_user(_session):
     user.sidebar_view = constants.ADMIN_USER_SIDEBAR
 
     user.password = generate_password_hash(constants.DEFAULT_PASSWORD)
+    # Must come after the password assignment (which clears the flag)
+    user.force_password_change = True
 
     _session.add(user)
     try:

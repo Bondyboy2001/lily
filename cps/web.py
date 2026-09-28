@@ -6,12 +6,14 @@
 
 import os
 import json
+import math
 import mimetypes
 import chardet  # dependency of requests
 import importlib
 import re
 import zipfile
 import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify
 from flask import request, redirect, send_from_directory, send_file, make_response, flash, abort, url_for, Response
@@ -43,6 +45,8 @@ from .cw_babel import get_available_locale
 from .usermanagement import login_required_if_no_ano
 from .kobo_sync_status import remove_synced_book
 from .render_template import render_title_template
+from . import list_filters
+from .setup_checklist import setup_checklist
 from .kobo_sync_status import change_archived_books
 from . import limiter
 from .services.worker import WorkerThread
@@ -188,6 +192,88 @@ def set_bookmark(book_id, book_format):
     ub.session.merge(l_bookmark)
     ub.session_commit("Bookmark for user {} in book {} created".format(current_user.id, book_id))
     return "", 201
+
+
+WEB_PROGRESS_CFI_MAX_LEN = 4096
+WEB_PROGRESS_FINISHED_AT = 0.99
+
+
+def _web_progress_json(progress):
+    if not progress:
+        return {"cfi": None, "percent": None, "updated": None}
+    updated = progress.last_modified
+    if updated is not None and updated.tzinfo is None:
+        updated = updated.replace(tzinfo=timezone.utc)
+    return {"cfi": progress.cfi,
+            "percent": progress.percent,
+            "updated": updated.isoformat() if updated else None}
+
+
+def _update_read_status_from_web_progress(user_id, book_id, percent):
+    """Unread -> in progress; anything not finished -> finished once the reader hits the end."""
+    read_book = ub.session.query(ub.ReadBook).filter(ub.ReadBook.user_id == user_id,
+                                                     ub.ReadBook.book_id == book_id).first()
+    if not read_book:
+        read_book = ub.ReadBook(user_id=user_id, book_id=book_id, read_status=ub.ReadBook.STATUS_UNREAD,
+                                times_started_reading=0)
+        ub.session.add(read_book)
+    if percent >= WEB_PROGRESS_FINISHED_AT:
+        if read_book.read_status != ub.ReadBook.STATUS_FINISHED:
+            read_book.read_status = ub.ReadBook.STATUS_FINISHED
+    elif read_book.read_status in (None, ub.ReadBook.STATUS_UNREAD):
+        read_book.read_status = ub.ReadBook.STATUS_IN_PROGRESS
+        read_book.times_started_reading = (read_book.times_started_reading or 0) + 1
+        read_book.last_time_started_reading = datetime.now(timezone.utc)
+    read_book.last_modified = datetime.now(timezone.utc)
+    if not read_book.kobo_reading_state:
+        kobo_reading_state = ub.KoboReadingState(user_id=user_id, book_id=book_id)
+        kobo_reading_state.current_bookmark = ub.KoboBookmark()
+        kobo_reading_state.statistics = ub.KoboStatistics()
+        read_book.kobo_reading_state = kobo_reading_state
+
+
+@web.route("/ajax/progress/<int:book_id>", methods=['GET', 'POST'])
+@user_login_required
+def web_reader_progress(book_id):
+    """Reading position of the built-in web reader, per user and book.
+
+    GET  -> {"cfi": str|null, "percent": float|null, "updated": iso8601|null}
+    POST <- {"cfi": str, "percent": float 0..1} (CSRF token in the X-CSRFToken header)
+    """
+    if not calibre_db.get_filtered_book(book_id, allow_show_archived=True):
+        return jsonify({"error": "Book not found"}), 404
+    user_id = int(current_user.id)
+    progress = ub.session.query(ub.WebReaderProgress).filter(ub.WebReaderProgress.user_id == user_id,
+                                                             ub.WebReaderProgress.book_id == book_id).first()
+    if request.method == 'GET':
+        return jsonify(_web_progress_json(progress))
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Expected a JSON object"}), 400
+    cfi = data.get("cfi")
+    percent = data.get("percent")
+    if not isinstance(cfi, str) or not cfi or len(cfi) > WEB_PROGRESS_CFI_MAX_LEN:
+        return jsonify({"error": "Invalid cfi"}), 400
+    if isinstance(percent, bool) or not isinstance(percent, (int, float)) \
+            or not math.isfinite(percent) or not 0 <= percent <= 1:
+        return jsonify({"error": "percent must be a number between 0 and 1"}), 400
+    percent = float(percent)
+
+    try:
+        if not progress:
+            progress = ub.WebReaderProgress(user_id=user_id, book_id=book_id)
+            ub.session.add(progress)
+        progress.cfi = cfi
+        progress.percent = percent
+        progress.last_modified = datetime.now(timezone.utc)
+        _update_read_status_from_web_progress(user_id, book_id, percent)
+        ub.session.commit()
+    except (OperationalError, InvalidRequestError, IntegrityError) as ex:
+        ub.session.rollback()
+        log.error("Could not save web reader progress for book %s: %s", book_id, ex)
+        return jsonify({"error": "Could not save progress"}), 500
+    return jsonify(_web_progress_json(progress))
 
 
 @web.route("/ajax/toggleread/<int:book_id>", methods=['POST'])
@@ -485,11 +571,12 @@ def render_books_list(data, sort_param, book_id, page):
         return render_adv_search_results(term, offset, order, config.config_books_per_page)
     else:
         website = data or "newest"
-        entries, random, pagination = calibre_db.fill_indexpage(page, 0, db.Books, True, order[0],
+        entries, random, pagination = calibre_db.fill_indexpage(page, 0, db.Books,
+                                                                list_filters.filter_expression(), order[0],
                                                                 True, config.config_read_column,
                                                                 db.books_series_link,
                                                                 db.Books.id == db.books_series_link.c.book,
-                                                                db.Series)
+                                                                db.Series, cards_only=True)
 
         try:
             title = _('Books (%(count)s)', count=pagination.total_count)
@@ -497,12 +584,15 @@ def render_books_list(data, sort_param, book_id, page):
             title = _('Books (%(count)s)', count=cwa_get_num_books_in_library())
 
         continue_reading = []
-        if website == "newest" and page == 1:
+        if website == "newest" and page == 1 and not list_filters.active_filters():
             continue_reading = get_continue_reading_entries()
 
         return render_title_template('index.html', random=random, entries=entries, pagination=pagination,
                                      title=title, page=website, order=order[1],
-                                     continue_reading=continue_reading)
+                                     continue_reading=continue_reading,
+                                     list_filters=list_filters.filter_context(),
+                                     setup_checklist=(setup_checklist() if website == "newest" and page == 1
+                                                      else None))
 
 
 CONTINUE_READING_LIMIT = 12
@@ -511,30 +601,43 @@ CONTINUE_READING_LIMIT = 12
 def get_continue_reading_progress(session, user_id, limit=CONTINUE_READING_LIMIT):
     """Return [(book_id, progress_percent or None), ...] for books the user is currently reading.
 
-    ReadBook.read_status == STATUS_IN_PROGRESS is the single source of truth: Kobo sync and
-    KOSync both write it (KOSync also mirrors its percentage into KoboBookmark.progress_percent),
-    so joining the Kobo bookmark gives a percentage without resolving KOSync document checksums.
-    Most recently touched first, using whichever of the ReadBook / bookmark timestamps is newer.
+    ReadBook.read_status == STATUS_IN_PROGRESS is the single source of truth: Kobo sync, KOSync and
+    the web reader all write it. The percentage comes from whichever source was updated last: the
+    Kobo bookmark (KOSync mirrors its percentage into KoboBookmark.progress_percent, so this covers
+    KOSync without resolving document checksums) or the web reader's saved position.
+    Most recently touched first, using the newest of the ReadBook / bookmark / web reader timestamps.
     """
     read_modified = coalesce(ub.ReadBook.last_modified, ub.KoboBookmark.last_modified)
     bookmark_modified = coalesce(ub.KoboBookmark.last_modified, ub.ReadBook.last_modified)
-    rows = (session.query(ub.ReadBook.book_id, ub.KoboBookmark.progress_percent)
+    web_modified = coalesce(ub.WebReaderProgress.last_modified, ub.ReadBook.last_modified)
+    rows = (session.query(ub.ReadBook.book_id,
+                          ub.KoboBookmark.progress_percent, ub.KoboBookmark.last_modified,
+                          ub.WebReaderProgress.percent, ub.WebReaderProgress.last_modified)
             .outerjoin(ub.KoboReadingState,
                        and_(ub.KoboReadingState.user_id == ub.ReadBook.user_id,
                             ub.KoboReadingState.book_id == ub.ReadBook.book_id))
             .outerjoin(ub.KoboBookmark, ub.KoboBookmark.kobo_reading_state_id == ub.KoboReadingState.id)
+            .outerjoin(ub.WebReaderProgress,
+                       and_(ub.WebReaderProgress.user_id == ub.ReadBook.user_id,
+                            ub.WebReaderProgress.book_id == ub.ReadBook.book_id))
             .filter(ub.ReadBook.user_id == user_id,
                     ub.ReadBook.read_status == ub.ReadBook.STATUS_IN_PROGRESS)
-            .order_by(func.max(read_modified, bookmark_modified).desc(), ub.ReadBook.id.desc())
+            .order_by(func.max(read_modified, bookmark_modified, web_modified).desc(), ub.ReadBook.id.desc())
             # headroom for duplicate rows and books hidden by the visibility filters
             .limit(limit * 3)
             .all())
     result = []
     seen = set()
-    for book_id, percent in rows:
+    for book_id, kobo_percent, kobo_modified, web_percent, web_modified_at in rows:
         if book_id in seen:
             continue
         seen.add(book_id)
+        percent = kobo_percent
+        if web_percent is not None:
+            # web reader stores 0..1; prefer it when newer than the Kobo/KOSync bookmark (or the only one)
+            if kobo_percent is None or kobo_modified is None or \
+                    (web_modified_at is not None and _naive_utc(web_modified_at) >= _naive_utc(kobo_modified)):
+                percent = web_percent * 100.0
         if percent is not None:
             try:
                 percent = max(0.0, min(100.0, float(percent)))
@@ -542,6 +645,12 @@ def get_continue_reading_progress(session, user_id, limit=CONTINUE_READING_LIMIT
                 percent = None
         result.append((book_id, percent))
     return result
+
+
+def _naive_utc(value):
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
 
 
 def get_continue_reading_entries(limit=CONTINUE_READING_LIMIT):
@@ -573,27 +682,31 @@ def render_rated_books(page, book_id, order):
     if current_user.check_visibility(constants.SIDEBAR_BEST_RATED):
         entries, random, pagination = calibre_db.fill_indexpage(page, 0,
                                                                 db.Books,
-                                                                db.Books.ratings.any(db.Ratings.rating > 9),
+                                                                and_(db.Books.ratings.any(db.Ratings.rating > 9),
+                                                                     list_filters.filter_expression()),
                                                                 order[0],
                                                                 True, config.config_read_column,
                                                                 db.books_series_link,
                                                                 db.Books.id == db.books_series_link.c.book,
-                                                                db.Series)
+                                                                db.Series, cards_only=True)
 
         return render_title_template('index.html', random=random, entries=entries, pagination=pagination,
-                                     id=book_id, title=_("Top Rated Books"), page="rated", order=order[1])
+                                     id=book_id, title=_("Top Rated Books"), page="rated", order=order[1],
+                                     list_filters=list_filters.filter_context())
     else:
         abort(404)
 
 
 def render_discover_books(book_id):
     if current_user.check_visibility(constants.SIDEBAR_RANDOM):
-        entries, __, ___ = calibre_db.fill_indexpage(1, 0, db.Books, True, [func.randomblob(2)],
+        entries, __, ___ = calibre_db.fill_indexpage(1, 0, db.Books, list_filters.filter_expression(),
+                                                     [func.randomblob(2)],
                                                             join_archive_read=True,
-                                                            config_read_column=config.config_read_column)
+                                                            config_read_column=config.config_read_column, cards_only=True)
         pagination = Pagination(1, config.config_books_per_page, config.config_books_per_page)
         return render_title_template('index.html', random=false(), entries=entries, pagination=pagination, id=book_id,
-                                     title=_("Discover (Random Books)"), page="discover")
+                                     title=_("Discover (Random Books)"), page="discover",
+                                     list_filters=list_filters.filter_context())
     else:
         abort(404)
 
@@ -664,7 +777,7 @@ def render_downloaded_books(page, order, user_id):
                                                             db.books_series_link,
                                                             db.Books.id == db.books_series_link.c.book,
                                                             db.Series,
-                                                            ub.Downloads, db.Books.id == ub.Downloads.book_id)
+                                                            ub.Downloads, db.Books.id == ub.Downloads.book_id, cards_only=True)
         for book in entries:
             if not (calibre_db.session.query(db.Books).filter(calibre_db.common_filters())
                     .filter(db.Books.id == book.Books.id).first()):
@@ -684,13 +797,14 @@ def render_downloaded_books(page, order, user_id):
 def render_author_books(page, author_id, order):
     entries, __, pagination = calibre_db.fill_indexpage(page, 0,
                                                         db.Books,
-                                                        db.Books.authors.any(db.Authors.id == author_id),
+                                                        and_(db.Books.authors.any(db.Authors.id == author_id),
+                                                             list_filters.filter_expression()),
                                                         [order[0][0], db.Series.name, db.Books.series_index],
                                                         True, config.config_read_column,
                                                         db.books_series_link,
                                                         db.books_series_link.c.book == db.Books.id,
-                                                        db.Series)
-    if entries is None or not len(entries):
+                                                        db.Series, cards_only=True)
+    if entries is None or (not len(entries) and not list_filters.active_filters()):
         flash(_("Oops! Selected book is unavailable. File does not exist or is not accessible"),
               category="error")
         return redirect(url_for("web.index"))
@@ -700,7 +814,8 @@ def render_author_books(page, author_id, order):
         author = calibre_db.session.query(db.Authors).get(author_id)
     author_name = author.name.replace('|', ',')
     return render_title_template('author.html', entries=entries, pagination=pagination, id=author_id,
-                                 title=_("Author: %(name)s", name=author_name), page="author", order=order[1])
+                                 title=_("Author: %(name)s", name=author_name), page="author", order=order[1],
+                                 list_filters=list_filters.filter_context())
 
 
 def render_publisher_books(page, book_id, order):
@@ -715,7 +830,7 @@ def render_publisher_books(page, book_id, order):
                                                                 db.Publishers,
                                                                 db.books_series_link,
                                                                 db.Books.id == db.books_series_link.c.book,
-                                                                db.Series)
+                                                                db.Series, cards_only=True)
         publisher = _("Unknown")
     else:
         publisher = calibre_db.session.query(db.Publishers).filter(db.Publishers.id == book_id).first()
@@ -729,7 +844,7 @@ def render_publisher_books(page, book_id, order):
                                                                     True, config.config_read_column,
                                                                     db.books_series_link,
                                                                     db.Books.id == db.books_series_link.c.book,
-                                                                    db.Series)
+                                                                    db.Series, cards_only=True)
             publisher = publisher.name
         else:
             abort(404)
@@ -744,26 +859,29 @@ def render_series_books(page, book_id, order):
     if book_id == '-1':
         entries, random, pagination = calibre_db.fill_indexpage(page, 0,
                                                                 db.Books,
-                                                                db.Series.name == None,
+                                                                and_(db.Series.name == None,
+                                                                     list_filters.filter_expression()),
                                                                 [order[0][0]],
                                                                 True, config.config_read_column,
                                                                 db.books_series_link,
                                                                 db.Books.id == db.books_series_link.c.book,
-                                                                db.Series)
+                                                                db.Series, cards_only=True)
         series_name = _("Unknown")
     else:
         series_name = calibre_db.session.query(db.Series).filter(db.Series.id == book_id).first()
         if series_name:
             entries, random, pagination = calibre_db.fill_indexpage(page, 0,
                                                                     db.Books,
-                                                                    db.Books.series.any(db.Series.id == book_id),
+                                                                    and_(db.Books.series.any(db.Series.id == book_id),
+                                                                         list_filters.filter_expression()),
                                                                     [order[0][0]],
-                                                                    True, config.config_read_column)
+                                                                    True, config.config_read_column, cards_only=True)
             series_name = series_name.name
         else:
             abort(404)
     return render_title_template('index.html', random=random, pagination=pagination, entries=entries, id=book_id,
-                                 title=_("Series: %(serie)s", serie=series_name), page="series", order=order[1])
+                                 title=_("Series: %(serie)s", serie=series_name), page="series", order=order[1],
+                                 list_filters=list_filters.filter_context())
 
 
 def render_ratings_books(page, book_id, order):
@@ -776,7 +894,7 @@ def render_ratings_books(page, book_id, order):
                                                                 True, config.config_read_column,
                                                                 db.books_ratings_link,
                                                                 db.Books.id == db.books_ratings_link.c.book,
-                                                                db.Ratings)
+                                                                db.Ratings, cards_only=True)
         title = _("Rating: None")
     else:
         name = calibre_db.session.query(db.Ratings).filter(db.Ratings.id == book_id).first()
@@ -785,7 +903,7 @@ def render_ratings_books(page, book_id, order):
                                                                     db.Books,
                                                                     db.Books.ratings.any(db.Ratings.id == book_id),
                                                                     [order[0][0]],
-                                                                    True, config.config_read_column)
+                                                                    True, config.config_read_column, cards_only=True)
             title = _("Rating: %(rating)s stars", rating=int(name.rating / 2))
         else:
             abort(404)
@@ -801,7 +919,7 @@ def render_formats_books(page, book_id, order):
                                                                 db.Data.format == None,
                                                                 [order[0][0]],
                                                                 True, config.config_read_column,
-                                                                db.Data)
+                                                                db.Data, cards_only=True)
 
     else:
         name = calibre_db.session.query(db.Data).filter(db.Data.format == book_id.upper()).first()
@@ -812,7 +930,7 @@ def render_formats_books(page, book_id, order):
                                                                     db.Books.data.any(
                                                                         db.Data.format == book_id.upper()),
                                                                     [order[0][0]],
-                                                                    True, config.config_read_column)
+                                                                    True, config.config_read_column, cards_only=True)
         else:
             abort(404)
 
@@ -834,7 +952,7 @@ def render_category_books(page, book_id, order):
                                                                 db.Tags,
                                                                 db.books_series_link,
                                                                 db.Books.id == db.books_series_link.c.book,
-                                                                db.Series)
+                                                                db.Series, cards_only=True)
         tagsname = _("Unknown")
     else:
         tagsname = calibre_db.session.query(db.Tags).filter(db.Tags.id == book_id).first()
@@ -849,7 +967,7 @@ def render_category_books(page, book_id, order):
                                                                     db.books_series_link,
                                                                     db.Books.id == db.books_series_link.c.book,
                                                                     db.Series,
-                                                                    viewing_tag_id=book_id)
+                                                                    viewing_tag_id=book_id, cards_only=True)
             tagsname = tagsname.name
         else:
             abort(404)
@@ -875,13 +993,13 @@ def render_language_books(page, name, order):
                                                                 True, config.config_read_column,
                                                                 db.books_languages_link,
                                                                 db.Books.id == db.books_languages_link.c.book,
-                                                                db.Languages)
+                                                                db.Languages, cards_only=True)
     else:
         entries, random, pagination = calibre_db.fill_indexpage(page, 0,
                                                                 db.Books,
                                                                 db.Books.languages.any(db.Languages.lang_code == name),
                                                                 [order[0][0]],
-                                                                True, config.config_read_column)
+                                                                True, config.config_read_column, cards_only=True)
     return render_title_template('index.html', random=random, entries=entries, pagination=pagination, id=name,
                                  title=_("Language: %(name)s", name=lang_name), page="language", order=order[1])
 
@@ -1471,7 +1589,11 @@ def _repair_epub_container_if_needed(book_id, original_path):
 @viewer_required
 def serve_book(book_id, book_format, anyname):
     book_format = book_format.split(".")[0]
-    book = calibre_db.get_book(book_id)
+    # Respect the user's tag / language / custom column restrictions
+    book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+    if not book:
+        log.debug("Book %s is not accessible for user %s", book_id, current_user.name)
+        abort(404)
     data = calibre_db.get_book_format(book_id, book_format.upper())
     if not data:
         return "File not in Database"
@@ -1531,7 +1653,7 @@ def serve_book(book_id, book_format, anyname):
 @login_required_if_no_ano
 @download_required
 def download_link(book_id, book_format, anyname):
-    client = "kobo" if "Kobo" in request.headers.get('User-Agent') else ""
+    client = "kobo" if "Kobo" in request.headers.get('User-Agent', '') else ""
     return get_download_link(book_id, book_format, client)
 
 
@@ -1960,6 +2082,73 @@ def logout():
         return redirect(location)
     else:
         return redirect(url_for('web.login'))
+
+
+# ################################### Forced password change ########################################################
+# Accounts still on the shipped default password (ub.User.force_password_change) are sent to
+# /change-password on every web request. Device and machine endpoints keep working so e-readers
+# and internal services are not locked out while the admin picks a new password.
+_FORCE_PW_EXEMPT_BLUEPRINTS = {"opds", "kobo", "kobo_auth", "kosync", "cwa_internal",
+                               "readingservices_api_v3", "readingservices_userstorage"}
+_FORCE_PW_EXEMPT_ENDPOINTS = {"static", "web.login", "web.login_post", "web.logout",
+                              "web.change_password", "web.health_check",
+                              "gdrive.on_received_watch_confirmation"}
+
+
+def _force_password_change_exempt(endpoint, blueprint):
+    if not endpoint or endpoint in _FORCE_PW_EXEMPT_ENDPOINTS or endpoint.endswith(".static"):
+        return True
+    return blueprint in _FORCE_PW_EXEMPT_BLUEPRINTS
+
+
+@web.before_app_request
+def enforce_forced_password_change():
+    if _force_password_change_exempt(request.endpoint, request.blueprint):
+        return None
+    try:
+        if not (current_user and current_user.is_authenticated
+                and getattr(current_user, "force_password_change", False)):
+            return None
+    except Exception:
+        return None
+    if request.method in ("GET", "HEAD"):
+        return redirect(url_for("web.change_password"))
+    abort(403)
+
+
+@web.route('/change-password', methods=['GET', 'POST'])
+@user_login_required
+def change_password():
+    forced = bool(getattr(current_user, "force_password_change", False))
+    if not forced and not (current_user.role_passwd() or current_user.role_admin()):
+        abort(403)
+    if request.method == "POST":
+        form = request.form
+        current_pw = form.get("current_password", "")
+        new_pw = form.get("new_password", "")
+        confirm_pw = form.get("confirm_password", "")
+        if not current_user.password or not check_password_hash(str(current_user.password), current_pw):
+            flash(_("Current password is incorrect"), category="error")
+        elif not new_pw or new_pw != confirm_pw:
+            flash(_("New passwords do not match"), category="error")
+        elif new_pw == constants.DEFAULT_PASSWORD or check_password_hash(str(current_user.password), new_pw):
+            flash(_("Please choose a password different from the current one"), category="error")
+        else:
+            try:
+                user = ub.session.query(ub.User).filter(ub.User.id == current_user.id).first()
+                # Assigning the password also clears force_password_change (ub listener)
+                user.password = generate_password_hash(valid_password(new_pw))
+                user.force_password_change = False
+                ub.session_commit()
+                log.info("User '%s' changed their password", user.name)
+                flash(_("Password changed"), category="success")
+                return redirect(url_for("web.index"))
+            except Exception as ex:
+                ub.session.rollback()
+                flash(str(ex), category="error")
+    # bodyClass "login" hides the shell, as on the login page (the nav would only redirect back here)
+    return render_title_template("change_password.html", title=_("Change Password"),
+                                 page="change_password", bodyClass="login", forced=forced)
 
 
 # ################################### Users own configuration #########################################################

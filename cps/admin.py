@@ -16,9 +16,6 @@ from datetime import datetime, timedelta
 from datetime import time as datetime_time
 from functools import wraps
 from urllib.parse import urlparse
-import subprocess
-import tempfile
-import fcntl
 
 from flask import Blueprint, current_app, flash, redirect, url_for, abort, request, make_response, send_from_directory, g, Response, jsonify
 from markupsafe import Markup
@@ -2531,7 +2528,7 @@ def _handle_edit_user(to_save, content, languages, translations, kobo_support):
             content.allow_additional_ereader_emails = to_save.get("allow_additional_ereader_emails") == "on"
         else:
             content.allow_additional_ereader_emails = False
-        if to_save.get("kindle_mail") != content.kindle_mail:
+        if "kindle_mail" in to_save and to_save["kindle_mail"] != content.kindle_mail:
             content.kindle_mail = valid_email(to_save["kindle_mail"]) if to_save["kindle_mail"] else ""
         if to_save.get("kindle_mail_subject") is not None:
             content.kindle_mail_subject = (to_save.get("kindle_mail_subject", "") or "").strip()
@@ -2696,210 +2693,130 @@ def test_metadata():
         log.error("Metadata test failed: %s", e)
         return json.dumps({'success': False, 'message': _('An unknown error occurred.')}), 200
 
-# --- Last Resort Calibre DB Restore ---
-def _acquire_service_lock(lock_path, existence_lock=False):
-    """Takes a background service's lock so it can't run during a restore.
+# --- Last Resort Calibre DB Restore / database snapshot restore ---
+# Both run as background tasks: calibredb restore_database can take ~20 minutes and a
+# blocking subprocess inside the request (gevent, no monkey-patching) froze the server.
+from .tasks.restore import _acquire_service_lock, restore_in_progress, mark_restore_queued  # noqa: E402,F401
 
-    Returns (handle, path_to_remove_on_release). Raises if the service holds it.
-    Opened with 'a+' (never 'w') so the holder's PID is not truncated, and the
-    file is never unlinked while a flock-based service may be using it (same
-    contract as ProcessLock in scripts/ingest_processor.py).
 
-    existence_lock: the service (cover_enforcer.py) treats the file's mere
-    existence as "running" (open(..., 'x')) rather than using flock. An existing
-    empty file therefore means it is running; if we create the file ourselves we
-    remove it again on release.
-    """
-    existed = True
-    if existence_lock:
-        # Create atomically (like the service's open(..., 'x')) so there is no window
-        # between an existence check and the open in which the service can create it.
-        try:
-            os.close(os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644))
-            existed = False
-        except FileExistsError:
-            pass
-    handle = open(lock_path, "a+", encoding="utf-8")
-    try:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
-        handle.close()
-        raise RuntimeError("lock held by another process: %s" % lock_path)
-    if existence_lock and existed:
-        handle.seek(0)
-        content = handle.read().strip()
-        if not content.isdigit():
-            # Legacy 'x'-style lock (empty file) present: the service is running,
-            # or crashed and left it behind (delete the file manually in that case).
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-            handle.close()
-            raise RuntimeError("lock file present: %s" % lock_path)
-    try:
-        # We hold the lock, so replacing the diagnostic PID is safe
-        handle.seek(0)
-        handle.truncate()
-        handle.write(str(os.getpid()))
-        handle.flush()
-    except OSError:
-        pass
-    return handle, (lock_path if existence_lock and not existed else None)
+def _tasks_page_link():
+    return Markup('<a href="%s">%s</a>') % (url_for("tasks.get_tasks_status"), _("Tasks"))
 
 
 @admi.route("/admin/restore_calibre_db", methods=["POST"])
 @user_login_required
 @admin_required
 def restore_calibre_db():
-    """Restore Calibre metadata.db and clean app.db book-linked tables (last resort recovery)."""
-    lock_path = "/tmp/restore_calibre_db.lock"
-    service_lock_handles = []
+    """Queue a restore of Calibre metadata.db from the library's OPF files (last resort recovery)."""
+    if not config.config_calibre_dir:
+        flash(_("Restore failed: Calibre library path is not configured."), category="error")
+        return redirect(url_for("admin.db_configuration"))
+    metadata_path = os.path.join(config.config_calibre_dir, "metadata.db")
+    if not os.path.exists(metadata_path):
+        flash(_("Restore failed: metadata.db not found at %(path)s", path=metadata_path), category="error")
+        return redirect(url_for("admin.db_configuration"))
+    if not mark_restore_queued():
+        flash(_("Restore already in progress."), category="error")
+        return redirect(url_for("admin.db_configuration"))
+
+    from .tasks.restore import TaskRestoreCalibreLibrary
+    WorkerThread.add(current_user.name, TaskRestoreCalibreLibrary())
+    flash(Markup(_("Restore started in the background. Follow its progress on the %(link)s page; "
+                   "databases are backed up to /config/backup first.", link=_tasks_page_link())),
+          category="success")
+    return redirect(url_for("admin.db_configuration"))
+
+
+def _format_size(num_bytes):
+    size = float(num_bytes or 0)
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024 or unit == "GB":
+            return ("%d %s" % (size, unit)) if unit == "B" else ("%.1f %s" % (size, unit))
+        size /= 1024
+
+
+@admi.route("/admin/db_backups", methods=["GET"])
+@user_login_required
+@admin_required
+def db_backups():
+    """Lists the nightly database snapshots with a Restore action per snapshot."""
+    from .tasks.db_backup import get_backup_root, _configured_backup_dir, RESTORABLE_DBS
+    from db_backup import describe_snapshots
+    from .tasks.processed_cleanup import get_retention_days
+    backup_root = get_backup_root()
     try:
-        if os.path.exists(lock_path):
-            flash(_("Restore already in progress."), category="error")
-            return redirect(url_for("admin.db_configuration"))
+        snapshots = describe_snapshots(backup_root)
+    except OSError as e:
+        log.error("Could not list database snapshots in %s: %s", backup_root, e)
+        snapshots = []
+    for snap in snapshots:
+        snap["size_text"] = _format_size(snap["size"])
+        snap["db_text"] = ", ".join("%s (%s)" % (name, _format_size(size)) for name, size in snap["databases"].items())
+    return render_title_template("db_backups.html", title=_("Database Backups"), page="db_backups",
+                                 snapshots=snapshots, backup_root=backup_root,
+                                 backup_dir_setting=_configured_backup_dir(),
+                                 backup_dir_env=os.environ.get("DB_BACKUP_DIR", ""),
+                                 retention_days=get_retention_days(),
+                                 restorable_dbs=RESTORABLE_DBS,
+                                 restore_running=restore_in_progress())
 
-        if not config.config_calibre_dir:
-            flash(_("Restore failed: Calibre library path is not configured."), category="error")
-            return redirect(url_for("admin.db_configuration"))
 
-        metadata_path = os.path.join(config.config_calibre_dir, "metadata.db")
-        if not os.path.exists(metadata_path):
-            flash(_("Restore failed: metadata.db not found at %(path)s", path=metadata_path), category="error")
-            return redirect(url_for("admin.db_configuration"))
-
-        app_db_path = ub.app_DB_path or cli_param.settings_path or "/config/app.db"
-        if not os.path.exists(app_db_path):
-            flash(_("Restore failed: app.db not found at %(path)s", path=app_db_path), category="error")
-            return redirect(url_for("admin.db_configuration"))
-
-        # Create lock file
-        with open(lock_path, "w", encoding="utf-8") as lock_file:
-            lock_file.write(str(os.getpid()))
-
-        # Pause background services first so nothing writes metadata.db while we
-        # snapshot and restore it. Abort if either service is busy.
-        for service_name, lock_name, existence_lock in (
-                ("ingest processor", "ingest_processor.lock", False),
-                ("cover enforcer", "cover_enforcer.lock", True)):
-            try:
-                service_lock_handles.append(
-                    _acquire_service_lock(os.path.join(tempfile.gettempdir(), lock_name), existence_lock))
-            except Exception as e:
-                log.error("Restore aborted: could not pause %s: %s", service_name, e)
-                flash(_("Restore aborted: the %(service)s is currently running. Wait for it to finish and try again.",
-                        service=service_name), category="error")
-                return redirect(url_for("admin.db_configuration"))
-
-        # 1. Backup both DBs (sqlite backup API: consistent even with pending -wal pages)
-        backup_dir = f"/config/backup/restore_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        os.makedirs(backup_dir, exist_ok=True)
-        if '/app/calibre-web-automated/scripts/' not in sys.path:
-            sys.path.insert(1, '/app/calibre-web-automated/scripts/')
-        from db_backup import sqlite_backup
-        sqlite_backup(metadata_path, os.path.join(backup_dir, "metadata.db.bak"))
-        sqlite_backup(app_db_path, os.path.join(backup_dir, "app.db.bak"))
-
-        log_path = os.path.join(backup_dir, "restore.log")
-        with open(log_path, "a", encoding="utf-8") as log_file:
-            log_file.write(f"Restore started at {datetime.now().isoformat()}\n")
-
-        # Close active sessions to reduce lock contention
-        try:
-            calibre_db.dispose()
-        except Exception as e:
-            log.warning("Failed to dispose sessions before restore: %s", e)
-
-        # 2. Run calibredb check_library (pre)
-        calibredb_binary = get_calibre_binarypath("calibredb") or "/app/calibre/calibredb"
-        check_cmd = [
-            calibredb_binary, "check_library",
-            "--with-library", config.config_calibre_dir
-        ]
-        check_result = subprocess.run(check_cmd, capture_output=True, text=True, timeout=300)
-        log.info("calibredb check_library (pre) output: %s\n%s", check_result.stdout, check_result.stderr)
-        if check_result.returncode != 0:
-            log.warning("calibredb check_library (pre) returned code %s", check_result.returncode)
-        with open(log_path, "a", encoding="utf-8") as log_file:
-            log_file.write("\n[check_library pre]\n")
-            log_file.write(check_result.stdout or "")
-            log_file.write(check_result.stderr or "")
-
-        # 3. Run calibredb restore_database
-        restore_cmd = [
-            calibredb_binary, "restore_database",
-            "--with-library", config.config_calibre_dir,
-            "--really-do-it"
-        ]
-        result = subprocess.run(restore_cmd, capture_output=True, text=True, timeout=1200)
-        log.info("calibredb restore_database output: %s\n%s", result.stdout, result.stderr)
-        with open(log_path, "a", encoding="utf-8") as log_file:
-            log_file.write("\n[restore_database]\n")
-            log_file.write(result.stdout or "")
-            log_file.write(result.stderr or "")
-        if result.returncode != 0:
-            flash(_("Restore failed: %(err)s", err=result.stderr), category="error")
-            return redirect(url_for("admin.db_configuration"))
-
-        # 4. Wipe all book-linked tables in app.db
-        from sqlalchemy import text as sql_text
-        book_tables = [
-            "book_shelf_link", "book_read_link", "bookmark", "archived_book", "kobo_synced_books",
-            "kobo_reading_state", "kobo_bookmark", "kobo_statistics", "kobo_annotation_sync",
-            "hardcover_book_blacklist", "hardcover_match_queue", "downloads"
-        ]
-        try:
-            for table in book_tables:
-                ub.session.execute(sql_text(f"DELETE FROM {table}"))
-            ub.session.commit()
-        except Exception as e:
-            log.error("Failed to wipe book-linked tables: %s", e)
-            ub.session.rollback()
-            flash(_("Restore completed but app.db cleanup failed. See logs for details."), category="error")
-            return redirect(url_for("admin.db_configuration"))
-
-        # 5. Run calibredb check_library (post)
-        check_result_post = subprocess.run(check_cmd, capture_output=True, text=True, timeout=300)
-        log.info("calibredb check_library (post) output: %s\n%s", check_result_post.stdout, check_result_post.stderr)
-        if check_result_post.returncode != 0:
-            log.warning("calibredb check_library (post) returned code %s", check_result_post.returncode)
-        with open(log_path, "a", encoding="utf-8") as log_file:
-            log_file.write("\n[check_library post]\n")
-            log_file.write(check_result_post.stdout or "")
-            log_file.write(check_result_post.stderr or "")
-
-        # 6. Reconnect CalibreDB to clear stale sessions
-        try:
-            calibre_db.reconnect_db(config, ub.app_DB_path)
-        except Exception as e:
-            log.error("Failed to reconnect CalibreDB after restore: %s", e)
-
-        flash(_("Restore complete. Backups and restore log saved to %(dir)s. All book-linked data was reset.", dir=backup_dir), category="success")
-        return redirect(url_for("admin.db_configuration"))
+@admi.route("/admin/db_backups/settings", methods=["POST"])
+@user_login_required
+@admin_required
+def db_backups_settings():
+    from .tasks.db_backup import get_backup_root  # noqa: F401 (puts scripts/ on sys.path)
+    from cwa_db import CWA_DB
+    from .tasks.processed_cleanup import normalize_retention_days
+    backup_dir = (request.form.get("db_backup_dir") or "").strip()
+    if backup_dir and not os.path.isabs(backup_dir):
+        flash(_("The backup folder must be an absolute path."), category="error")
+        return redirect(url_for("admin.db_backups"))
+    raw_days = (request.form.get("processed_books_retention_days") or "").strip()
+    days = normalize_retention_days(raw_days, default=-1)
+    if days < 0 or days > 3650:
+        flash(_("Retention must be a whole number of days between 0 and 3650."), category="error")
+        return redirect(url_for("admin.db_backups"))
+    try:
+        with CWA_DB() as cwa_db:
+            cwa_db.update_cwa_settings({"db_backup_dir": backup_dir,
+                                        "processed_books_retention_days": str(days)})
     except Exception as e:
-        log.error(f"Restore failed: {e}")
-        flash(_("Restore failed: %(err)s", err=str(e)), category="error")
-        return redirect(url_for("admin.db_configuration"))
-    finally:
-        try:
-            if os.path.exists(lock_path):
-                os.remove(lock_path)
-        except Exception:
-            pass
-        try:
-            for handle, remove_path in service_lock_handles:
-                try:
-                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-                except Exception:
-                    pass
-                try:
-                    handle.close()
-                except Exception:
-                    pass
-                if remove_path:
-                    # We created this existence-style lock ourselves; leaving it
-                    # behind would block the cover enforcer forever.
-                    try:
-                        os.remove(remove_path)
-                    except OSError:
-                        pass
-        except Exception:
-            pass
+        log.error("Saving backup settings failed: %s", e)
+        flash(_("Saving backup settings failed: %(err)s", err=str(e)), category="error")
+        return redirect(url_for("admin.db_backups"))
+    flash(_("Backup settings saved."), category="success")
+    return redirect(url_for("admin.db_backups"))
+
+
+@admi.route("/admin/db_backups/restore", methods=["POST"])
+@user_login_required
+@admin_required
+def restore_db_snapshot():
+    """Queue a restore of the selected databases from one snapshot."""
+    from .tasks.db_backup import get_backup_root, RESTORABLE_DBS, TaskRestoreDatabaseSnapshot
+    from db_backup import resolve_snapshot
+    name = request.form.get("snapshot", "")
+    databases = [d for d in request.form.getlist("databases") if d in RESTORABLE_DBS]
+    wants_json = request.accept_mimetypes.best == "application/json"
+
+    def _reply(ok, message, status=200):
+        if wants_json:
+            return jsonify({"success": ok, "message": str(message),
+                            "tasks_url": url_for("tasks.get_tasks_status")}), status
+        flash(message, category="success" if ok else "error")
+        return redirect(url_for("admin.db_backups"))
+
+    try:
+        resolve_snapshot(get_backup_root(), name)
+    except (ValueError, FileNotFoundError):
+        return _reply(False, _("Snapshot not found."), 404)
+    if not databases:
+        return _reply(False, _("Select at least one database to restore."), 400)
+    if not mark_restore_queued():
+        return _reply(False, _("Restore already in progress."), 409)
+
+    WorkerThread.add(current_user.name, TaskRestoreDatabaseSnapshot(name, databases))
+    return _reply(True, Markup(_("Restore of %(dbs)s from %(name)s started. A safety copy of the current "
+                                 "databases is taken first. Follow its progress on the %(link)s page.",
+                                 dbs=", ".join(databases), name=name, link=_tasks_page_link())))

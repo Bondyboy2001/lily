@@ -147,7 +147,7 @@ function updateApiUsageChart() {
     const data = (currentApiData.usageBreakdown || []).slice().sort((x, y) => y[1] - x[1]);
 
     if (data.length === 0) {
-        LilyCharts.empty(apiUsageChart, 'No API usage yet');
+        LilyCharts.empty(apiUsageChart, {{ _('No API usage yet')|tojson }});
         return;
     }
 
@@ -171,7 +171,7 @@ function updateApiTimingChart() {
     const data = currentApiData.apiTiming || [];
 
     if (data.length === 0) {
-        LilyCharts.empty(apiTimingChart, 'No timing data yet');
+        LilyCharts.empty(apiTimingChart, {{ _('No timing data yet')|tojson }});
         return;
     }
 
@@ -221,7 +221,8 @@ function updateEndpointTable() {
     const tbody = document.getElementById('endpoint-table-body');
 
     if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="stats-none">No endpoint data yet</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="stats-none"></td></tr>';
+        tbody.querySelector('td').textContent = {{ _('No endpoint data yet')|tojson }};
         return;
     }
 

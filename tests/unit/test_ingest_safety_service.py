@@ -147,3 +147,35 @@ def test_queue_trim_logs_dropped_entries(svc):
     assert f"Dropped from retry queue (file left untouched in ingest folder, will not be retried automatically): {existing[0]}" in res.stdout
     assert f"{existing[1]}" in res.stdout
     assert svc["queue"].read_text().splitlines() == [existing[2], str(book)]
+
+
+def test_busy_file_moves_to_failed_after_attempt_cap(svc):
+    book = svc["watch"] / "stuck.epub"
+    book.write_text("stuck")
+    # First busy result on the initial event queues it (attempt 1 of 3)
+    svc["run"](f'handle_event "{book}"', PROCESSOR_EXIT_CODE="2", CWA_INGEST_MAX_BUSY_ATTEMPTS="3")
+    assert svc["queue"].read_text().splitlines() == [str(book)]
+    # Attempt 2: still queued
+    svc["run"]("process_retry_queue", PROCESSOR_EXIT_CODE="2", CWA_INGEST_MAX_BUSY_ATTEMPTS="3")
+    assert svc["queue"].read_text().splitlines() == [str(book)]
+    assert book.exists()
+    # Attempt 3: cap reached, moved to failed/ with an explanation, not re-queued
+    res = svc["run"]("process_retry_queue", PROCESSOR_EXIT_CODE="2", CWA_INGEST_MAX_BUSY_ATTEMPTS="3")
+    assert "GIVING UP" in res.stdout and "busy (exit 2) 3 times" in res.stdout
+    assert svc["queue"].read_text() == ""
+    assert not book.exists()
+    failed = list(svc["failed"].iterdir())
+    assert len(failed) == 1 and "_busy_retries_exhausted_stuck" in failed[0].name
+    assert failed[0].read_text() == "stuck"
+    attempts = Path(str(svc["queue"]) + ".attempts")
+    assert not attempts.exists() or str(book) not in attempts.read_text()
+
+
+def test_busy_count_resets_after_success(svc):
+    book = svc["watch"] / "flaky.epub"
+    book.write_text("x")
+    svc["run"](f'handle_event "{book}"', PROCESSOR_EXIT_CODE="2", CWA_INGEST_MAX_BUSY_ATTEMPTS="2")
+    svc["run"]("process_retry_queue", PROCESSOR_EXIT_CODE="0", CWA_INGEST_MAX_BUSY_ATTEMPTS="2")
+    attempts = Path(str(svc["queue"]) + ".attempts")
+    assert not attempts.exists() or str(book) not in attempts.read_text()
+    assert book.exists()  # the stub processor doesn't consume the file

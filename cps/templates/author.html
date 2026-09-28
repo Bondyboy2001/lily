@@ -8,13 +8,19 @@
   <div class="lily-list-toolbar">
     {# Grid/List icons, pinned to the toolbar's top right #}
     {{ self.view_switch() }}
-    {{ image.sort_menu(order, url_for('web.books_list', data='author', book_id=id, sort_param='SORT_PARAM'), ['added', 'title', 'published']) }}
+    {{ image.sort_menu(order, url_for('web.books_list', data='author', book_id=id, sort_param='SORT_PARAM', **(list_filters.args if list_filters else {})), ['added', 'title', 'published']) }}
+    {{ image.filter_chips(list_filters) }}
   </div>
   <div class="row display-flex lily-grid">
     {% for entry in entries %}
     {{ image.book_card(entry.Books, current_user, entry[2] == True, g.config_authors_max, extra_class='books') }}
     {% endfor %}
   </div>
+  {% if not entries and list_filters and list_filters.active %}
+  {{ image.empty_state('glyphicon-filter', _('No books match these filters'),
+                       _('Try removing a filter, or clear them all.'),
+                       [(_('Clear filters'), list_filters.url(format=None, lang=None, status=None, tag=None), True)]) }}
+  {% endif %}
 </div>
 
 {% endblock %}

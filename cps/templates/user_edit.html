@@ -25,15 +25,6 @@
       {% endif %}
     {% endcall %}
 
-    {% call f.group(_('Send to eReader')) %}
-      {{ f.input('kindle_mail', _('eReader Email'), content.kindle_mail, type='email', help=_('Separate several addresses with commas.'), placeholder=_('Use comma to separate multiple addresses')) }}
-      {{ f.input('kindle_mail_subject', _('Email Subject'), content.kindle_mail_subject) }}
-      {% if not content.role_anonymous() %}
-        {{ f.toggle('allow_additional_ereader_emails', _('Ask Before Sending'), content.allow_additional_ereader_emails, help=_('Pick addresses, or add one, each time. Off sends to all of them.')) }}
-        {{ f.toggle('auto_send_enabled', _('Send New Books Automatically'), content.auto_send_enabled, help=_('Newly added books go to every address above.')) }}
-      {% endif %}
-    {% endcall %}
-
     {% call f.group(_('Language')) %}
       {% if not content.role_anonymous() %}
       {% call f.row(_('Interface Language'), for_id='locale') %}
@@ -54,7 +45,7 @@
       {% endcall %}
     {% endcall %}
 
-    {% if (registered_oauth.keys()| length > 0 and not new_user and profile) or (hardcover_support and not new_user) or (kobo_support and not new_user) %}
+    {% if (registered_oauth.keys()| length > 0 and not new_user and profile) or (hardcover_support and config.config_hardcover_sync and not new_user) or (kobo_support and not new_user) %}
     {% call f.group(_('Connections')) %}
       {% if registered_oauth.keys()| length > 0 and not new_user and profile %}
         {% for id, name in registered_oauth.items() %}
@@ -67,7 +58,7 @@
           {% endcall %}
         {% endfor %}
       {% endif %}
-      {% if hardcover_support and not new_user %}
+      {% if hardcover_support and config.config_hardcover_sync and not new_user %}
         {{ f.input('hardcover_token', _('Hardcover API Token'), content.hardcover_token, help=_('For Hardcover metadata and progress sync.')) }}
       {% endif %}
       {% if kobo_support and not new_user %}

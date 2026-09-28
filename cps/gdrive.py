@@ -7,12 +7,15 @@
 
 import os
 import hashlib
+import hmac
 import json
+import secrets
 from uuid import uuid4
 from time import time
 from shutil import move, copyfile
 
 from flask import Blueprint, flash, request, redirect, url_for, abort
+from flask import session as flask_session
 from flask_babel import gettext as _
 
 from . import logger, gdriveutils, config, ub, calibre_db, csrf
@@ -30,7 +33,37 @@ except ImportError as err:
 
 current_milli_time = lambda: int(round(time() * 1000))
 
-gdrive_watch_callback_token = 'target=calibreweb-watch_files'  # nosec
+# Shared secret Google echoes back in X-Goog-Channel-Token on every change notification.
+# Generated once per install and kept next to the Drive credentials (it used to be a
+# constant shared by every install, so anyone could forge notifications).
+WATCH_TOKEN_FILE = os.path.join(os.path.dirname(gdriveutils.CREDENTIALS), 'gdrive_watch_token')
+LEGACY_WATCH_TOKEN = 'target=calibreweb-watch_files'  # nosec - only used to warn about old channels
+OAUTH_STATE_KEY = 'gdrive_oauth_state'
+
+
+def get_watch_callback_token():
+    """Return this install's webhook secret, creating it (mode 0600) on first use."""
+    try:
+        with open(WATCH_TOKEN_FILE, 'r') as f:
+            token = f.read().strip()
+        if token:
+            return token
+    except FileNotFoundError:
+        pass
+    token = secrets.token_urlsafe(32)
+    fd = os.open(WATCH_TOKEN_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, 'w') as f:
+        f.write(token)
+    return token
+
+
+def file_md5(path):
+    """Hex MD5 of a file's contents, comparable with Drive's md5Checksum."""
+    digest = hashlib.md5()  # nosec - matches Google Drive's checksum, not used for security
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b''):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 @gdrive.route("/authenticate")
@@ -38,7 +71,13 @@ gdrive_watch_callback_token = 'target=calibreweb-watch_files'  # nosec
 @admin_required
 def authenticate_google_drive():
     try:
-        authUrl = gdriveutils.Gauth.Instance().auth.GetAuthUrl()
+        auth = gdriveutils.Gauth.Instance().auth
+        if auth.flow is None:
+            auth.GetFlow()
+        # Bind the OAuth round trip to this admin session (checked in the callback)
+        state = secrets.token_urlsafe(32)
+        flask_session[OAUTH_STATE_KEY] = state
+        authUrl = auth.flow.step1_get_authorize_url(state=state)
     except gdriveutils.InvalidConfigError:
         flash(_('Google Drive setup not completed, try to deactivate and activate Google Drive again'),
               category="error")
@@ -47,9 +86,14 @@ def authenticate_google_drive():
 
 
 @gdrive.route("/callback")
+@user_login_required
+@admin_required
 def google_drive_callback():
     auth_code = request.args.get('code')
-    if not auth_code:
+    expected_state = flask_session.pop(OAUTH_STATE_KEY, None)
+    received_state = request.args.get('state') or ''
+    if not auth_code or not expected_state or not hmac.compare_digest(expected_state, received_state):
+        log.warning("Rejected Google Drive OAuth callback with a missing or mismatched state")
         abort(403)
     try:
         credentials = gdriveutils.Gauth.Instance().auth.flow.step2_exchange(auth_code)
@@ -71,7 +115,7 @@ def watch_gdrive():
         notification_id = str(uuid4())
         try:
             result = gdriveutils.watchChange(gdriveutils.Gdrive.Instance().drive, notification_id,
-                                 'web_hook', address, gdrive_watch_callback_token, current_milli_time() + 604800*1000)
+                                 'web_hook', address, get_watch_callback_token(), current_milli_time() + 604800*1000)
 
             config.config_google_drive_watch_changes_response = result
             config.save()
@@ -108,9 +152,13 @@ try:
     def on_received_watch_confirmation():
         if not config.config_google_drive_watch_changes_response:
             return ''
-        if request.headers.get('X-Goog-Channel-Token') != gdrive_watch_callback_token \
-                or request.headers.get('X-Goog-Resource-State') != 'change' \
-                or not request.data:
+        channel_token = request.headers.get('X-Goog-Channel-Token') or ''
+        if not hmac.compare_digest(channel_token.encode(), get_watch_callback_token().encode()):
+            if channel_token == LEGACY_WATCH_TOKEN:
+                log.warning('Ignoring Google Drive change notification for a channel created with the old '
+                            'shared token; revoke and re-enable "watch metadata.db" in the database settings')
+            return ''
+        if request.headers.get('X-Goog-Resource-State') != 'change' or not request.data:
             return ''
 
         log.debug('%r', request.headers)
@@ -125,7 +173,7 @@ try:
             if response:
                 dbpath = os.path.join(config.config_calibre_dir, "metadata.db").encode()
                 if not response['deleted'] and response['file']['title'] == 'metadata.db' \
-                  and response['file']['md5Checksum'] != hashlib.md5(dbpath):  # nosec
+                  and response['file']['md5Checksum'] != file_md5(dbpath):
                     tmp_dir = get_temp_dir()
 
                     log.info('Database file updated')

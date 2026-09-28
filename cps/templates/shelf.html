@@ -31,6 +31,11 @@
     {{ image.book_card(entry.Books, current_user, entry[2] == True, g.config_authors_max, extra_class='isotope-item') }}
     {% endfor %}
   </div>
+  {% if not entries %}
+  {{ image.empty_state('glyphicon-list', _('This shelf is empty'),
+                       _('Open a book and choose Add to shelf to put it here.'),
+                       [(_('Browse books'), url_for('web.index'), True)]) }}
+  {% endif %}
 </div>
 {% endblock %}
 {% block modal %}

@@ -26,10 +26,54 @@ sys.path.insert(0, str(scripts_dir))
 from cps.progress_syncing.checksums import calculate_koreader_partial_md5
 
 
+def _set_koreader_sync(config_dir: Path, enabled: bool) -> None:
+    """Create an isolated cwa.db in config_dir with koreader_sync_enabled set as given."""
+    from cwa_db import CWA_DB
+
+    CWA_DB()  # creates the schema and default settings under $CWA_DB_PATH
+    conn = sqlite3.connect(config_dir / "cwa.db")
+    try:
+        conn.execute("UPDATE cwa_settings SET koreader_sync_enabled = ?", (1 if enabled else 0,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+@pytest.fixture(autouse=True)
+def koreader_sync_enabled(tmp_path, monkeypatch):
+    """The script only writes checksums when KOReader sync is on (it reads cwa.db via CWA_DB).
+
+    Point CWA_DB_PATH at a per-test cwa.db with the feature enabled; the subprocess inherits
+    the environment, so the tests no longer depend on whatever /config/cwa.db the host has.
+    """
+    config_dir = tmp_path / "cwa_config"
+    config_dir.mkdir()
+    monkeypatch.setenv("CWA_DB_PATH", str(config_dir))
+    _set_koreader_sync(config_dir, True)
+    return config_dir
+
+
 def _skip_if_koreader_disabled(result):
+    # Kept as a guard: the autouse fixture enables KOReader sync, so hitting this is a bug.
     stdout = result.stdout if isinstance(result.stdout, str) else (result.stdout or b"").decode(errors="ignore")
-    if "koreader sync is disabled" in stdout.lower():
-        pytest.skip("KOReader sync disabled in test environment")
+    assert "koreader sync is disabled" not in stdout.lower(), (
+        "script saw KOReader sync disabled despite the koreader_sync_enabled fixture")
+
+
+def _checksum_count(library_path: Path) -> int:
+    conn = sqlite3.connect(library_path / "metadata.db")
+    try:
+        return conn.execute("SELECT COUNT(*) FROM book_format_checksums").fetchone()[0]
+    finally:
+        conn.close()
+
+
+def _queued(result) -> int:
+    """The script prints no per-book success line, only a summary; read 'Queued: N' from it."""
+    for line in result.stdout.splitlines():
+        if line.strip().startswith("Queued:"):
+            return int(line.split(":", 1)[1])
+    raise AssertionError(f"no summary in script output:\n{result.stdout}")
 
 
 def create_minimal_calibre_library(library_path: Path):
@@ -157,8 +201,9 @@ class TestChecksumGenerationScript:
         assert result.returncode == 0
         assert "usage:" in result.stdout.lower() or "Generate" in result.stdout
 
-    def test_reports_disabled_and_no_writes_when_koreader_off(self, tmp_path):
+    def test_reports_disabled_and_no_writes_when_koreader_off(self, tmp_path, koreader_sync_enabled):
         """Verify script reports disabled state and does not write checksums when KOReader sync is off."""
+        _set_koreader_sync(koreader_sync_enabled, False)
         library_path = tmp_path / "test_library"
         create_minimal_calibre_library(library_path)
 
@@ -174,16 +219,14 @@ class TestChecksumGenerationScript:
         )
 
         assert result.returncode == 0
+        assert "koreader sync is disabled" in result.stdout.lower()
 
-        if "koreader sync is disabled" in result.stdout.lower():
-            db_path = library_path / "metadata.db"
-            conn = sqlite3.connect(db_path)
-            cur = conn.cursor()
-            count = cur.execute("SELECT COUNT(*) FROM book_format_checksums").fetchone()[0]
-            conn.close()
-            assert count == 0
-        else:
-            pytest.skip("KOReader sync enabled in test environment")
+        db_path = library_path / "metadata.db"
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        count = cur.execute("SELECT COUNT(*) FROM book_format_checksums").fetchone()[0]
+        conn.close()
+        assert count == 0
 
     def test_generates_checksums_for_new_library(self, tmp_path):
         """Test generating checksums for a library without any checksums."""
@@ -404,8 +447,7 @@ class TestChecksumGenerationScript:
         
         assert result.returncode == 0
         _skip_if_koreader_disabled(result)
-        assert "Split Library Book" in result.stdout
-        assert "✓" in result.stdout
+        assert _queued(result) == 1
         assert "split library mode" in result.stdout.lower()
         
         # Verify checksum was stored in metadata.db
@@ -440,8 +482,9 @@ class TestChecksumGenerationScript:
         # Should succeed by falling back to library_path
         assert result.returncode == 0
         _skip_if_koreader_disabled(result)
-        assert "Fallback Test Book" in result.stdout
-        assert "✓" in result.stdout
+        assert _queued(result) == 1
+        assert "split library mode" not in result.stdout.lower()
+        assert _checksum_count(library_path) == 1
 
     def test_books_path_with_none_value(self, tmp_path):
         """Test that None books-path uses library-path."""
@@ -462,8 +505,8 @@ class TestChecksumGenerationScript:
         # Should succeed using library_path for books
         assert result.returncode == 0
         _skip_if_koreader_disabled(result)
-        assert "Normal Mode Book" in result.stdout
-        assert "✓" in result.stdout
+        assert _queued(result) == 1
+        assert _checksum_count(library_path) == 1
         # Should NOT show split library mode message
         assert "Books path: " in result.stdout
 

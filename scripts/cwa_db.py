@@ -9,7 +9,7 @@ import os
 import threading
 from sqlite3 import Error as sqlError
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 from tabulate import tabulate
 
@@ -77,6 +77,61 @@ def _read_schema_file(schema_path: str) -> tuple[list[str], list[str]]:
     return list(tables), list(schema)
 
 
+def _strip_sql_comment(line: str) -> str:
+    """Removes a trailing `-- comment` that is not inside a quoted string."""
+    quote = None
+    for i, ch in enumerate(line):
+        if quote:
+            if ch == quote:
+                quote = None
+        elif ch in ("'", '"'):
+            quote = ch
+        elif ch == '-' and line[i:i + 2] == '--':
+            return line[:i]
+    return line
+
+
+def parse_schema_columns(tables: list[str]) -> dict[str, dict[str, str]]:
+    """{table: {column: column definition}} for each CREATE TABLE statement.
+
+    Column names are matched as whole identifiers (the first token of the line),
+    never as substrings, so e.g. `timestamp` never matches `scan_timestamp`.
+    Definition order is preserved.
+    """
+    columns: dict[str, dict[str, str]] = {}
+    for statement in tables:
+        table_name = None
+        table_columns: dict[str, str] = {}
+        for line in statement.split('\n'):
+            if line.startswith("CREATE TABLE IF NOT EXISTS "):
+                table_name = line[len("CREATE TABLE IF NOT EXISTS "):].replace('(', '').strip()
+            elif table_name is not None and line[:4] == "    ":
+                definition = _strip_sql_comment(line).strip().rstrip(',').strip()
+                if not definition or definition.startswith(')'):
+                    continue
+                name = definition.split()[0]
+                if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+                    table_columns[name] = definition
+        if table_name is not None:
+            columns[table_name] = table_columns
+    return columns
+
+
+# Explicit, ordered, run-once migrations for cwa.db, applied after the additive
+# schema sync. Each entry is (version, name, fn(cursor)). Versions must be unique
+# and increasing; never renumber or edit an entry once released. Use these for
+# anything the additive "add missing column" pass cannot express (renames, data
+# rewrites, dropping a column after its data was moved). A migration runs inside
+# a transaction together with its bookkeeping row, so it is applied exactly once.
+#
+# Example:
+#   def _m2_rename_foo(cur):
+#       cur.execute("ALTER TABLE cwa_import RENAME COLUMN foo TO bar")
+#   MIGRATIONS = [(2, "rename cwa_import.foo to bar", _m2_rename_foo)]
+MIGRATIONS: list = []
+SCHEMA_MIGRATIONS_TABLE = "cwa_schema_migrations"
+
+
 class CWA_DB(CWAStatsQueries):
     def __init__(self, verbose=False):
         self.verbose = verbose
@@ -118,7 +173,47 @@ class CWA_DB(CWAStatsQueries):
         self.ensure_settings_schema_match()
         self.match_stat_table_columns_with_schema()
         self.ensure_scheduled_jobs_schema()
+        self.run_migrations()
         self.set_default_settings()
+
+
+    def run_migrations(self, migrations=None) -> list[int]:
+        """Applies each pending migration in MIGRATIONS once, in version order.
+
+        Applied versions are recorded in cwa_schema_migrations. A failing migration
+        is rolled back and stops the run (later ones depend on it); it is retried
+        on the next start. Returns the versions applied by this call.
+        """
+        migrations = MIGRATIONS if migrations is None else migrations
+        self.cur.execute(
+            f"CREATE TABLE IF NOT EXISTS {SCHEMA_MIGRATIONS_TABLE}("
+            "version INTEGER PRIMARY KEY NOT NULL, "
+            "name TEXT NOT NULL, "
+            "applied_at TEXT NOT NULL)"
+        )
+        self.con.commit()
+        applied = {row[0] for row in self.cur.execute(f"SELECT version FROM {SCHEMA_MIGRATIONS_TABLE}")}
+        newly_applied = []
+        for version, name, fn in sorted(migrations, key=lambda m: m[0]):
+            if version in applied:
+                continue
+            try:
+                # Explicit BEGIN: the sqlite3 module does not open a transaction
+                # before DDL, so without it an ALTER could commit on its own.
+                self.cur.execute("BEGIN")
+                fn(self.cur)
+                self.cur.execute(
+                    f"INSERT INTO {SCHEMA_MIGRATIONS_TABLE}(version, name, applied_at) VALUES (?, ?, ?)",
+                    (version, name, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                self.con.commit()
+                newly_applied.append(version)
+                print(f"[cwa-db] Applied migration {version}: {name}", flush=True)
+            except Exception as e:
+                self.con.rollback()
+                print(f"[cwa-db] Migration {version} ({name}) failed and was rolled back; "
+                      f"later migrations were not applied: {e}", flush=True)
+                break
+        return newly_applied
 
 
     def close(self) -> None:
@@ -281,16 +376,13 @@ class CWA_DB(CWAStatsQueries):
         # Fix for issue #903: Repair incorrectly parsed default values from older versions
         self.fix_malformed_setting_values()
         
-        # Delete any settings in the db but not in the schema file
-        for setting in cwa_setting_names:
-            if setting not in self.cwa_default_settings.keys():
-                try:
-                    print(f"[cwa-db] Deprecated setting found from previous version of CWA, removing setting '{setting}' from cwa.db...")
-                    self.cur.execute(f"ALTER TABLE cwa_settings DROP COLUMN {setting}")  
-                    self.con.commit()
-                    print(f"[cwa-db] Deprecated setting '{setting}' successfully removed from cwa.db!")
-                except Exception as e:
-                    print(f"[cwa-db] The following error occurred when trying to remove {setting} from cwa.db:\n{e}")
+        # Settings in the db but not in the schema file are left in place. They may
+        # belong to a newer version (downgrade) or a renamed setting whose value a
+        # migration still needs; dropping them silently deleted user config.
+        unknown_settings = [s for s in cwa_setting_names if s not in self.cwa_default_settings]
+        if unknown_settings:
+            print(f"[cwa-db] Keeping {len(unknown_settings)} cwa_settings column(s) not in the current schema "
+                  f"(from another version?): {', '.join(unknown_settings)}", flush=True)
     
     
     def sync_new_settings_with_defaults(self, newly_added_settings) -> None:
@@ -445,101 +537,61 @@ class CWA_DB(CWAStatsQueries):
 
 
     def add_missing_setting(self, setting) -> bool:
-        for line in self.schema:
-            match = re.findall(setting, line)
-            if match:
-                try:
-                    command = line.replace('\n', '').strip()
-                    # Skip SQL comments
-                    if command.startswith('--') or not command:
-                        continue
-                    command = command.replace(',', ';')
-                    with open(os.path.join(self.db_path, '.cwa_db_debug'), 'a') as f:
-                        f.write(command)
-                    self.cur.execute(f"ALTER TABLE cwa_settings ADD {command}")  
-                    self.con.commit()
-                    return True
-                except Exception as e:
-                    print(f"[cwa-db] The following error occurred when trying to add {setting} to cwa.db:\n{e}")
-                    return False
-        print(f"[cwa-db] Error adding new setting to cwa.db: {setting}: Matching setting could not be found in schema file")
-        return False
+        # Exact identifier match within the cwa_settings table definition
+        definition = parse_schema_columns(self.tables).get("cwa_settings", {}).get(setting)
+        if definition is None:
+            print(f"[cwa-db] Error adding new setting to cwa.db: {setting}: Matching setting could not be found in schema file")
+            return False
+        try:
+            self.cur.execute(f"ALTER TABLE cwa_settings ADD COLUMN {definition}")
+            self.con.commit()
+            return True
+        except Exception as e:
+            print(f"[cwa-db] The following error occurred when trying to add {setting} to cwa.db:\n{e}")
+            return False
 
     def match_stat_table_columns_with_schema(self) -> None:
-        """ Used to rename columns whose names have been changed in later versions and add columns added in later versions """
-        # Produces a dict with all of the column names for each table, from the existing DB
-        current_column_names = {}
+        """Adds columns that exist in the schema file but not yet in the db (additive only).
+
+        Columns are never renamed or dropped here: the old heuristic renamed columns
+        by position whenever the column counts matched, which could relabel data
+        under the wrong name. Renames belong in MIGRATIONS. Extra columns (e.g. from
+        a newer version) are preserved and logged.
+        """
+        schema_columns = parse_schema_columns(self.tables)
         for table in self.stats_tables:
             try:
-                self.cur.execute(f"SELECT * FROM {table}")
-                setting_names = [header[0] for header in self.cur.description]
-                current_column_names |= {table:setting_names}
+                existing = [row[1] for row in self.cur.execute(f"PRAGMA table_info('{table}')").fetchall()]
             except sqlite3.OperationalError:
-                # Table might not exist yet if it's new, skip it for now
-                # It will be created by make_tables() if it doesn't exist
-                current_column_names |= {table: []}
-
-        # Produces a dict with all of the column names for each table, from the schema
-        column_names_in_schema = {}
-        for table in self.tables:
-            column_names = []
-            table_name = None  # Reset for each table
-            table = table.split('\n')
-            for line in table:
-                if line[:27] == "CREATE TABLE IF NOT EXISTS ":
-                    table_name = line[27:].replace('(', '').strip()
-                elif line[:4] == "    ":
-                    column_names.append(line.strip().split(' ')[0])
-            if table_name is not None:  # Only add if table_name was actually found
-                column_names_in_schema[table_name] = column_names
-
-        for table in self.stats_tables:
-            # Skip if table wasn't found in current DB (it was just created empty)
-            if not current_column_names[table]:
+                existing = []
+            # Table missing: make_tables() creates it from the schema
+            if not existing:
                 continue
-            
-            # Skip if table not found in schema (shouldn't happen but safety check)
-            if table not in column_names_in_schema:
+            if table not in schema_columns:
                 print(f"[cwa-db] Warning: Table '{table}' in stats_tables but not found in schema")
                 continue
-            
-            columns_added = False  # Track if we added any columns this iteration
-                
-            if len(current_column_names[table]) < len(column_names_in_schema[table]): # Adds new columns not yet in existing db
-                num_new_columns = len(column_names_in_schema[table]) - len(current_column_names[table])
-                for x in range(1, num_new_columns + 1):
-                    if column_names_in_schema[table][-x] not in current_column_names[table]:
-                        for line in self.schema:
-                            matches = re.findall(column_names_in_schema[table][-x], line)
-                            if matches:
-                                # Extract column definition, remove trailing comma and SQL comments
-                                new_column = line.strip()
-                                if '--' in new_column:
-                                    new_column = new_column[:new_column.index('--')].strip()
-                                new_column = new_column.rstrip(',')
-                                self.cur.execute(f"ALTER TABLE {table} ADD COLUMN {new_column}")
-                                self.con.commit()
-                                print(f'[cwa-db] Missing Column detected in cwa.db. Added new column "{column_names_in_schema[table][-x]}" to table "{table}" in cwa.db')
-                                columns_added = True
-                                break  # Found and added the column, move to next missing column
-            
-            # Only check for column renames if we didn't just add columns
-            # (newly added columns are correct, don't try to rename them)
-            if not columns_added and len(current_column_names[table]) == len(column_names_in_schema[table]):
-                # Check if all columns exist but just in different order (SQLite ADD COLUMN always appends)
-                current_set = set(current_column_names[table])
-                schema_set = set(column_names_in_schema[table])
-                
-                if current_set == schema_set:
-                    # All columns exist, just in different order - this is fine, SQLite can't reorder
+
+            for column, definition in schema_columns[table].items():
+                if column in existing:
                     continue
-                
-                # Columns differ, check for actual renames needed
-                for x in range(len(column_names_in_schema[table])):
-                    if current_column_names[table][x] != column_names_in_schema[table][x]:
-                        self.cur.execute(f"ALTER TABLE {table} RENAME COLUMN {current_column_names[table][x]} TO {column_names_in_schema[table][x]}")
-                        self.con.commit()
-                        print(f'[cwa-db] Fixed column mismatch between versions. Column "{current_column_names[table][x]}" in table "{table}" renamed to "{column_names_in_schema[table][x]}"', flush=True)
+                try:
+                    try:
+                        self.cur.execute(f"ALTER TABLE {table} ADD COLUMN {definition}")
+                    except sqlite3.OperationalError as e:
+                        # SQLite refuses NOT NULL without a default on a non-empty
+                        # table; existing rows can only get NULL, so add it nullable.
+                        if "NOT NULL" not in str(e):
+                            raise
+                        relaxed = re.sub(r"\s+NOT\s+NULL", "", definition, flags=re.IGNORECASE)
+                        self.cur.execute(f"ALTER TABLE {table} ADD COLUMN {relaxed}")
+                    self.con.commit()
+                    print(f'[cwa-db] Missing Column detected in cwa.db. Added new column "{column}" to table "{table}" in cwa.db')
+                except Exception as e:
+                    print(f'[cwa-db] Could not add column "{column}" to table "{table}": {e}', flush=True)
+
+            extra = [c for c in existing if c not in schema_columns[table]]
+            if extra:
+                print(f'[cwa-db] Keeping column(s) in "{table}" not in the current schema: {", ".join(extra)}', flush=True)
 
 
     def set_default_settings(self, force=False) -> None:
@@ -566,7 +618,8 @@ class CWA_DB(CWAStatsQueries):
 
         default_check = True
         for setting in setting_names:
-            if setting == "default_settings":
+            if setting == "default_settings" or setting not in self.cwa_default_settings:
+                # Columns kept from another version don't count towards "defaults"
                 continue
             elif current_settings[setting] != self.cwa_default_settings[setting]:
                 default_check = False
@@ -763,7 +816,7 @@ class CWA_DB(CWAStatsQueries):
     def scheduled_add_autosend(self, book_id: int, user_id: int, run_at_utc_iso: str, username: str, title: str) -> int | None:
         """Insert a scheduled auto-send job and return its row id."""
         try:
-            created_at = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+            created_at = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
             self.cur.execute(
                 """
                 INSERT INTO cwa_scheduled_jobs(job_type, book_id, user_id, username, title, run_at_utc, created_at_utc, state)
@@ -837,7 +890,7 @@ class CWA_DB(CWAStatsQueries):
 
     def scheduled_get_upcoming_autosend(self, limit: int = 50):
         try:
-            now_utc = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+            now_utc = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
             rows = self.cur.execute(
                 """
                 SELECT id, book_id, user_id, username, title, run_at_utc, state
@@ -857,7 +910,7 @@ class CWA_DB(CWAStatsQueries):
     def scheduled_get_pending_autosend(self):
         """Return all not-yet-dispatched auto-sends due in the future (for rehydration)."""
         try:
-            now_utc = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+            now_utc = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
             rows = self.cur.execute(
                 """
                 SELECT id, book_id, user_id, username, title, run_at_utc

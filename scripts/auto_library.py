@@ -115,7 +115,7 @@ class AutoLibrary:
                 print("[cwa-auto-library]: Updating Settings Database with library location...")
                 con = sqlite3.connect(self.app_db, timeout=30)
                 cur = con.cursor()
-                cur.execute(f'UPDATE settings SET config_calibre_dir="{self.lib_path}";')
+                cur.execute('UPDATE settings SET config_calibre_dir = ?;', (self.lib_path,))
                 con.commit()
                 return
             except Exception as e:

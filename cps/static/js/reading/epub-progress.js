@@ -1,3 +1,5 @@
+/* global reader, ePub, calibre, LilyProgress */
+
 /**
  * waits until queue is finished, meaning the book is done loading
  * @param callback
@@ -12,15 +14,22 @@ function qFinished(callback){
     )
 }
 
-function calculateProgress(){
+/** Fraction (0..1) of the book read at the current location, or null before locations exist. */
+function currentFraction(){
     if (!reader || !reader.rendition || !reader.rendition.location || !reader.rendition.location.end) {
-        return 0;
+        return null;
     }
     let data=reader.rendition.location.end;
     if (!data || !data.cfi || !epub || !epub.locations) {
-        return 0;
+        return null;
     }
-    return Math.round(epub.locations.percentageFromCfi(data.cfi)*100);
+    let fraction = epub.locations.percentageFromCfi(data.cfi);
+    return typeof fraction === "number" && !isNaN(fraction) ? fraction : null;
+}
+
+function calculateProgress(){
+    let fraction = currentFraction();
+    return fraction === null ? 0 : Math.round(fraction*100);
 }
 
 // register new event emitter locationchange that fires on urlchange
@@ -45,51 +54,98 @@ function calculateProgress(){
     });
 })();
 
+// Position sync: localStorage for this device, /ajax/progress/<id> for every other one.
+const progressSync = LilyProgress.create({
+    url: calibre.progressUrl,
+    storageKey: calibre.progressKey || calibre.bookUrl,
+    enabled: calibre.syncProgress === true
+});
+// Nothing is saved until the starting position has been restored, otherwise the
+// first page render would overwrite the position we are about to jump to.
+let progressRestored = false;
+
+function saveProgress(){
+    if (!progressRestored || !reader || !reader.rendition || !reader.rendition.location) {
+        return;
+    }
+    let start = reader.rendition.location.start;
+    let fraction = currentFraction();
+    if (!start || !start.cfi || fraction === null) {
+        return;
+    }
+    progressSync.save(start.cfi, fraction);
+}
+
 window.addEventListener('locationchange',()=>{
     let newPos=calculateProgress();
     if (progressDiv) {
         progressDiv.textContent=newPos+"%";
     }
-    // Save progress to localStorage per book
-    if (window.calibre && window.calibre.bookUrl) {
-        // Use bookUrl as a unique key, or use bookid if available
-        let bookKey = window.calibre.bookUrl;
-        localStorage.setItem("calibre.reader.progress." + bookKey, newPos);
-    }
+    saveProgress();
 });
 
 var epub=ePub(calibre.bookUrl)
 
 let progressDiv=document.getElementById("progress");
 
+/** Pre-sync builds kept an integer percentage under this key; read it once as a fallback. */
+function legacyLocalPercent(){
+    try {
+        let saved = localStorage.getItem("calibre.reader.progress." + calibre.bookUrl);
+        let percent = parseInt(saved, 10);
+        return isNaN(percent) ? null : percent / 100;
+    } catch (e) {
+        return null;
+    }
+}
+
+function displayPosition(pos){
+    if (!pos) {
+        return false;
+    }
+    if (pos.cfi && pos.cfi.indexOf("epubcfi(") === 0) {
+        reader.rendition.display(pos.cfi);
+        return true;
+    }
+    if (pos.percent !== null && pos.percent !== undefined && pos.percent > 0) {
+        let cfi = epub.locations.cfiFromPercentage(pos.percent);
+        if (cfi) {
+            reader.rendition.display(cfi);
+            return true;
+        }
+    }
+    return false;
+}
+
 qFinished(()=>{
     if (!epub || !epub.locations) {
         return;
     }
-    epub.locations.generate().then(()=> {
-        // Restore progress from localStorage if available
-        if (window.calibre && window.calibre.bookUrl && reader && reader.rendition) {
-            let bookKey = window.calibre.bookUrl;
-            let savedProgress = localStorage.getItem("calibre.reader.progress." + bookKey);
+    Promise.all([epub.locations.generate(), progressSync.load()]).then(([, saved])=> {
+        if (reader && reader.rendition) {
             let hasBookmark = window.calibre.bookmark && window.calibre.bookmark.length > 0;
-            if (savedProgress) {
-                // Try to jump to the saved progress (percentage)
-                let percentage = parseInt(savedProgress, 10) / 100;
-                let cfi = epub.locations.cfiFromPercentage(percentage);
-                if (cfi) {
-                    reader.rendition.display(cfi);
+            let restored = displayPosition(saved);
+            if (!restored) {
+                let legacy = legacyLocalPercent();
+                if (legacy !== null) {
+                    restored = displayPosition({cfi: "", percent: legacy});
                 }
-            } else if (!hasBookmark && window.calibre.kosyncPercent !== null && window.calibre.kosyncPercent !== undefined) {
+            }
+            if (!restored && !hasBookmark && window.calibre.kosyncPercent !== null && window.calibre.kosyncPercent !== undefined) {
                 let kosyncPercent = parseFloat(window.calibre.kosyncPercent);
                 if (!isNaN(kosyncPercent) && kosyncPercent > 0) {
-                    let percentage = kosyncPercent / 100;
-                    let cfi = epub.locations.cfiFromPercentage(percentage);
-                    if (cfi) {
-                        reader.rendition.display(cfi);
-                    }
+                    displayPosition({cfi: "", percent: kosyncPercent / 100});
                 }
             }
         }
+        progressRestored = true;
         window.dispatchEvent(new Event('locationchange'))
+    }).catch(()=>{
+        progressRestored = true;
     });
 })
+
+if (reader && reader.rendition && typeof reader.rendition.on === "function") {
+    // History pushes are skipped when the hash already matches, so listen here as well.
+    reader.rendition.on("relocated", saveProgress);
+}

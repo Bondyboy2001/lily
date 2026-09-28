@@ -315,7 +315,7 @@ class HardcoverClient:
             "privacySettingId": self.privacy,
             "editionId": int(book.get("edition", {}).get("id")) if book.get("edition") else None,
             "tags": [
-                {"tag": "CWA", "category": "general", "spoiler": False},
+                {"tag": "Lily", "category": "general", "spoiler": False},
                 {"tag": "Kobo", "category": "general", "spoiler": False}
             ],
             "metadata": metadata if metadata else None

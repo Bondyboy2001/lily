@@ -69,8 +69,11 @@
     var tone = type === "error" ? "danger" : type;
     $("#flash_danger, #flash_success").closest(".row-fluid").remove();
     var $row = $("<div class='row-fluid'></div>");
-    $("<div role='status'></div>").attr({ id: "flash_" + tone, "class": "alert alert-" + tone }).text(message).appendTo($row);
-    $(".navbar").first().after($row);
+    var $alert = $("<div></div>").attr({ id: "flash_" + tone, "class": "alert alert-" + tone }).text(message).appendTo($row);
+    // #messageContainer (layout.html) is the page's polite live region; errors also interrupt.
+    if (tone === "danger") { $alert.attr("role", "alert"); }
+    var $region = $("#messageContainer");
+    if ($region.length) { $region.append($row); } else { $(".navbar").first().after($row); }
   }
 
   // Exposed so other scripts (e.g. table.js) can report failures the same way.
@@ -448,3 +451,62 @@ window.lilyPickOption = function (item) {
     });
   });
 })(window.jQuery);
+
+/*
+ * Colour theme button (layout.html #lily-theme-toggle): System → Light → Dark → System.
+ * lily_theme_head.html applies the stored choice before first paint; this keeps it in step.
+ */
+(function () {
+  "use strict";
+
+  var ORDER = ["system", "light", "dark"];
+  var COLOURS = { light: "#FDFCFA", dark: "#1B1719" };
+
+  function apply(pref) {
+    var root = document.documentElement;
+    root.setAttribute("data-theme-pref", pref);
+    if (pref === "system") { root.removeAttribute("data-theme"); } else { root.setAttribute("data-theme", pref); }
+    var metas = document.querySelectorAll('meta[name="theme-color"]');
+    for (var i = 0; i < metas.length; i++) {
+      var media = metas[i].getAttribute("media") || "";
+      var scheme = pref !== "system" ? pref : (media.indexOf("dark") !== -1 ? "dark" : "light");
+      metas[i].setAttribute("content", COLOURS[scheme]);
+    }
+  }
+
+  function label(btn, pref) {
+    var text = btn.getAttribute("data-label-" + pref) || pref;
+    btn.setAttribute("title", text);
+    btn.setAttribute("aria-label", text);
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    var btn = document.getElementById("lily-theme-toggle");
+    if (!btn) { return; }
+    var current = document.documentElement.getAttribute("data-theme-pref") || "system";
+    label(btn, current);
+    btn.addEventListener("click", function () {
+      current = ORDER[(ORDER.indexOf(current) + 1) % ORDER.length];
+      try { localStorage.setItem("lily-theme", current); } catch (e) {}
+      apply(current);
+      label(btn, current);
+      // Charts read their colours once when drawn; redraw them in the new scheme.
+      if (document.querySelector("[_echarts_instance_]")) { window.location.reload(); }
+    });
+  });
+})();
+
+/* Admin "Get started" card (index.html): dismissed per user, per browser. */
+(function () {
+  "use strict";
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest && e.target.closest(".lily-setup-dismiss");
+    if (!btn) { return; }
+    var card = btn.closest(".lily-setup");
+    if (!card) { return; }
+    try { localStorage.setItem(card.getAttribute("data-dismiss-key"), "1"); } catch (err) {}
+    card.hidden = true;
+    var main = document.getElementById("lily-content");
+    if (main) { main.focus(); }
+  });
+})();

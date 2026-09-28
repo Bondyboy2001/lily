@@ -25,7 +25,6 @@
     {{ f.link(url_for('cwa_check_status.cwa_flash_status'), _('Service Status'), help=_('Check that ingest and the other Lily services are running'), id='check_mon_srvs') }}
     {{ f.link(url_for('duplicates.show_duplicates'), _('Duplicate Books'), id='admin_duplicates') }}
     {{ f.link(url_for('admin.hardcover_review_matches'), _('Hardcover Matches'), help=_('Review matches that need a decision'), id='hardcover_review_matches') }}
-    {{ f.link(url_for('kosync.kosync_plugin_page'), _('KOReader Sync'), help=_('Set up the plugin on your device'), id='kosync') }}
   {% endcall %}
 
   {% call f.group(_('Maintenance')) %}

@@ -6,6 +6,8 @@
 
 """Stats pages, CSV export and scheduled auto-send listing and cancel routes."""
 
+from datetime import datetime
+
 from flask import request, jsonify
 from flask_babel import gettext as _
 
@@ -22,6 +24,21 @@ from ..web import cwa_get_num_books_in_library
 from .common import cwa_stats, log
 from cwa_db import CWA_DB
 from ..services.background_scheduler import BackgroundScheduler
+
+def parse_stats_date_range(start_date, end_date):
+    """Validate a 'YYYY-MM-DD' start/end pair from the query string.
+
+    Returns both dates normalised, or (None, None) when either is missing or malformed, in
+    which case callers fall back to the days-based range (as the main stats page does).
+    """
+    if not start_date or not end_date:
+        return None, None
+    try:
+        return (datetime.strptime(start_date, '%Y-%m-%d').strftime('%Y-%m-%d'),
+                datetime.strptime(end_date, '%Y-%m-%d').strftime('%Y-%m-%d'))
+    except (TypeError, ValueError):
+        return None, None
+
 
 @cwa_stats.route('/cwa-scheduled/cancel', methods=["POST"])
 @login_required_if_no_ano
@@ -339,8 +356,7 @@ def export_stats_csv(tab_name):
     from datetime import datetime
     
     # Parse same filter parameters as main stats route
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
+    start_date, end_date = parse_stats_date_range(request.args.get('start_date'), request.args.get('end_date'))
     days_param = request.args.get('days')
     user_id = request.args.get('user_id', type=int)
     
@@ -348,7 +364,10 @@ def export_stats_csv(tab_name):
     if days_param == 'all':
         days = None
     else:
-        days = int(days_param) if days_param else 30
+        try:
+            days = max(0, int(days_param)) if days_param else 30
+        except ValueError:
+            days = 30
     
     cwa_db = CWA_DB()
     output = StringIO()

@@ -11,7 +11,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Lily">
-    <meta name="theme-color" content="#FDFCFA">
+{% include 'lily_theme_head.html' %}
     {% if g.google_site_verification|length > 0 %}
       <meta name="google-site-verification" content="{{g.google_site_verification}}">
     {% endif %}
@@ -44,6 +44,7 @@
     </script>
   </head>
   <body class="{{ page }} {{ bodyClass }}" data-book-view="{{ current_user.get_view_property('books', 'view') or 'grid' }}" data-text="{{_('Home')}}" data-textback="{{_('Back')}}">
+    <a class="lily-skip-link" href="#lily-content">{{_('Skip to content')}}</a>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% set show_sidebar = current_user.is_authenticated or g.allow_anonymous %}
     <div class="lily-app">
@@ -70,7 +71,7 @@
             {% endfor %}
             <li class="nav-head">{{_('Shelves')}}</li>
             {% for shelf in g.shelves_access %}
-              {% set book_count = shelf.books.count() %}
+              {% set book_count = (g.shelf_book_counts or {}).get(shelf.id, 0) %}
               <li><a href="{{url_for('shelf.show_shelf', shelf_id=shelf.id)}}" title="{{shelf.name}} ({{book_count}})"><span class="glyphicon glyphicon-list shelf" aria-hidden="true"></span><span class="nav-name">{{shelf.name|shortentitle(40)}}{% if shelf.is_public == 1 %} {{_('(Public)')}}{% endif %}</span>{% if book_count %}<span class="nav-count">{{book_count}}</span>{% endif %}</a></li>
             {% endfor %}
             {% if not current_user.is_anonymous %}
@@ -110,6 +111,14 @@
             {% if current_user.role_admin() %}
             <a id="refresh-library" class="icon-btn" href="#" role="button" title="{{_('Refresh Library')}}" aria-label="{{_('Refresh Library')}}" onclick="refreshLibrary(); return false;"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></a>
             {% endif %}
+            {# Light / Dark / System: lily.js cycles it; lily_theme_head.html applies it before first paint #}
+            <button type="button" id="lily-theme-toggle" class="icon-btn lily-theme-toggle"
+                    data-label-system="{{_('Theme: System')}}" data-label-light="{{_('Theme: Light')}}" data-label-dark="{{_('Theme: Dark')}}"
+                    title="{{_('Theme: System')}}" aria-label="{{_('Theme: System')}}">
+              <span class="glyphicon glyphicon-theme-system" aria-hidden="true"></span>
+              <span class="glyphicon glyphicon-theme-light" aria-hidden="true"></span>
+              <span class="glyphicon glyphicon-theme-dark" aria-hidden="true"></span>
+            </button>
             {# Settings goes straight to the settings pages (account, tasks, admin, logout) #}
             {% if current_user.is_anonymous %}
             <a id="login" class="icon-btn" href="{{url_for('web.login', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}" title="{{_('Login')}}" aria-label="{{_('Login')}}"><span class="glyphicon glyphicon-log-in" aria-hidden="true"></span></a>
@@ -130,71 +139,67 @@
       </button>
     </div>
 
-    {% for message in get_flashed_messages(with_categories=True) %}
-      {%if message[0] == "error" %}
-      <div class="row-fluid text-center" >
-        <div id="flash_danger" class="alert alert-danger">{{ message[1] }}</div>
+    {# One live region for every notice: layout-rendered ones and those lily.js adds later.
+       Errors also carry role=alert so they interrupt. #}
+    <div id="messageContainer" class="lily-flashes" role="status" aria-live="polite">
+    {% for category, text in get_flashed_messages(with_categories=True) %}
+      {% if category == "error" %}
+      <div class="row-fluid">
+        <div id="flash_danger" class="alert alert-danger" role="alert">{{ text }}</div>
       </div>
-      {%endif%}
-      {%if message[0] == "info" %}
-      <div class="row-fluid text-center">
-        <div id="flash_info" class="alert alert-info">{{ message[1] }}</div>
+      {% elif category == "info" %}
+      <div class="row-fluid">
+        <div id="flash_info" class="alert alert-info">{{ text }}</div>
       </div>
-      {%endif%}
-      <div id="messageContainer"></div>
-      {%if message[0] == "cwa_update" %}
-      <div class="row-fluid text-center">
+      {% elif category == "cwa_update" %}
+      <div class="row-fluid">
         <div id="flash_info" class="alert alert-info alert-cwa">
-          {{ message[1] }} <a href="https://github.com/Bondyboy2001/lily/releases">{{ _('See Changelog') }}</a>
-          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          {{ text }} <a href="https://github.com/Bondyboy2001/lily/releases">{{ _('See Changelog') }}</a>
+          <button type="button" class="close" data-dismiss="alert" aria-label="{{_('Close')}}">
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
       </div>
-      {%endif%}
-      {%if message[0] == "duplicate_scan_setup" %}
-      <div class="row-fluid text-center">
+      {% elif category == "duplicate_scan_setup" %}
+      <div class="row-fluid">
         <div id="flash_info" class="alert alert-info alert-cwa">
-          {{ message[1] }} <a href="{{ url_for('duplicates.show_duplicates') }}">{{ _('Open Duplicates') }}</a>
+          {{ text }} <a href="{{ url_for('duplicates.show_duplicates') }}">{{ _('Open Duplicates') }}</a>
           <button type="button" class="close duplicate-scan-setup-dismiss"
                   data-dismiss-url="{{ url_for('duplicates.dismiss_duplicate_scan_setup_notice') }}"
-                  data-dismiss="alert" aria-label="Close">
+                  data-dismiss="alert" aria-label="{{_('Close')}}">
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
       </div>
-      {%endif%}
-      {%if message[0] == "cwa_arch_warning" %}
-      <div class="row-fluid text-center">
-        <div id="flash_danger" class="alert alert-danger alert-cwa">
-          {{ message[1] }}
-          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+      {% elif category == "cwa_arch_warning" %}
+      <div class="row-fluid">
+        <div id="flash_danger" class="alert alert-danger alert-cwa" role="alert">
+          {{ text }}
+          <button type="button" class="close" data-dismiss="alert" aria-label="{{_('Close')}}">
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
       </div>
-      {%endif%}
-      {%if message[0] == "cwa_refresh" %}
-      <div class="row-fluid text-center">
+      {% elif category == "cwa_refresh" %}
+      <div class="row-fluid">
         <div id="flash_success" class="alert alert-info refresh-cwa">
-          {{ message[1] }}
-          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          {{ text }}
+          <button type="button" class="close" data-dismiss="alert" aria-label="{{_('Close')}}">
             <span aria-hidden="true">&times;</span>
           </button>
         </div>
       </div>
-      {%endif%}
-      {%if message[0] == "warning" %}
-      <div class="row-fluid text-center">
-        <div id="flash_warning" class="alert alert-warning">{{ message[1] }}</div>
+      {% elif category == "warning" %}
+      <div class="row-fluid">
+        <div id="flash_warning" class="alert alert-warning">{{ text }}</div>
       </div>
-      {%endif%}
-      {%if message[0] == "success" %}
-      <div class="row-fluid text-center">
-        <div id="flash_success" class="alert alert-success">{{ message[1] }}</div>
+      {% elif category == "success" %}
+      <div class="row-fluid">
+        <div id="flash_success" class="alert alert-success">{{ text }}</div>
       </div>
-      {%endif%}
+      {% endif %}
     {% endfor %}
+    </div>
     {% block flash %}{% endblock %}
         <div id="loader" hidden>
           <h3>{{_('Uploading...')}}</h3>
@@ -202,7 +207,7 @@
         </div>
         <div class="container-fluid">
           <div class="row-fluid">
-            <div class="col-sm-10 lily-content">
+            <main class="col-sm-10 lily-content" id="lily-content" tabindex="-1">
           {% block body %}{% endblock %}
           {% if pagination and (pagination.has_next or pagination.has_prev) %}
             <ul class="pagination" role="navigation" aria-label="{{_('Pagination')}}">
@@ -237,7 +242,7 @@
             {% endif %}
             </ul>
           {% endif %}
-            </div>
+            </main>
           </div>
         </div>
       </div>

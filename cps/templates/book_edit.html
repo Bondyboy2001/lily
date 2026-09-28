@@ -37,7 +37,7 @@
       {# Decouple cover changes from global uploads: allow users with edit rights to change covers #}
       {% if current_user.role_edit() %}
       <div class="editbook-side-group">
-        <h4>{{_('Replace Cover')}}</h4>
+        <h3>{{_('Replace Cover')}}</h3>
         <div class="form-group" aria-label="Upload cover from local drive">
           <label class="btn btn-default btn-block btn-file" for="btn-upload-cover">{{ _('Upload from Disk') }}</label>
           <div class="upload-cover-input-text" id="upload-cover"></div>

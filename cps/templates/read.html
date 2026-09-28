@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="no-js">
+<html class="no-js lily-reader-page">
 
 <head>
     <meta charset="utf-8">
@@ -15,45 +15,43 @@
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/libs/normalize.css') }}">
+    {# main.css still lays out the epub.js viewer; lily-reader.css restyles the chrome over it. #}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/popup.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/reader.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/lily.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/lily-icons.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/lily-reader.css') }}">
 </head>
 
-<body>
+<body class="lily-reader lily-epub">
     <div id="sidebar">
         <div id="panels">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <!--input id="searchBox" placeholder="search" type="search"-->
-
-            <!--a id="show-Search" class="show_view icon-search" data-view="Search">Search</a-->
-            <a id="show-Toc" class="show_view icon-list-1 active" data-view="Toc">TOC</a>
-            <a id="show-Bookmarks" class="show_view icon-bookmark" data-view="Bookmarks">Bookmarks</a>
-            <a id="back-button" data-view="Back to Books" href="{{ url_for('web.index') }}">Books</a>
-            <!--a id="show-Notes" class="show_view icon-edit" data-view="Notes">Notes</a-->
-
+            <button type="button" id="show-Toc" class="show_view reader-tab active" data-view="Toc">{{_('Contents')}}</button>
+            <button type="button" id="show-Bookmarks" class="show_view reader-tab" data-view="Bookmarks">{{_('Bookmarks')}}</button>
+            <button type="button" id="show-Search" class="show_view reader-tab" data-view="Search">{{_('Search')}}</button>
         </div>
         <div id="tocView" class="view">
         </div>
-        <!--div id="searchView" class="view">
-          <ul id="searchResults"></ul>
-        </div-->
+        <div id="searchView" class="view" data-searching="{{_('Searching…')}}" data-results="{{_('%(count)s results', count='%(count)s')}}"
+             data-none="{{_('No Results')}}" data-short="{{_('Type at least two letters.')}}">
+            <form id="searchForm" role="search">
+                <input id="searchBox" type="search" placeholder="{{_('Search this book')}}" aria-label="{{_('Search this book')}}" autocomplete="off">
+                <button type="submit" class="reader-btn" aria-label="{{_('Search')}}"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
+            </form>
+            <p id="searchStatus" aria-live="polite"></p>
+            <ul id="searchResults"></ul>
+        </div>
         <div id="bookmarksView" class="view">
             <ul id="bookmarks"></ul>
         </div>
-        <!--div id="notesView" class="view">
-          <div id="new-note">
-            <textarea id="note-text"></textarea>
-            <button id="note-anchor">Anchor</button>
-          </div>
-          <ol id="notes"></ol>
-        </div-->
     </div>
     <div id="main">
 
         <div id="titlebar">
             <div id="opener">
-                <a id="slider" class="icon-menu">Menu</a>
+                <a id="back-button" class="reader-btn" href="{{ url_for('web.show_book', book_id=bookid) }}" aria-label="{{_('Back to book')}}" title="{{_('Back to book')}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="reader-btn-label">{{_('Book')}}</span></a>
+                <button type="button" id="slider" class="reader-btn icon-menu" aria-label="{{_('Contents, bookmarks and search')}}" title="{{_('Contents, bookmarks and search')}}" aria-controls="sidebar"><span class="glyphicon glyphicon-menu-hamburger" aria-hidden="true"></span></button>
             </div>
             <div id="metainfo">
 	            <span id="book-title"></span>
@@ -61,59 +59,50 @@
 	            <span id="chapter-title"></span>
 	        </div>
 	        <div id="title-controls">
-	            <a id="bookmark" class="icon-bookmark-empty">Bookmark</a>
-	            <a id="setting" class="icon-cog">Settings</a>
-	            <a id="fullscreen" class="icon-resize-full">Fullscreen</a>            
+	            <button type="button" id="bookmark" class="reader-btn icon-bookmark-empty" aria-label="{{_('Bookmark this page')}}" title="{{_('Bookmark this page')}}"><span class="glyphicon glyphicon-bookmark" aria-hidden="true"></span></button>
+	            <button type="button" id="setting" class="reader-btn icon-cog" aria-label="{{_('Reader settings')}}" title="{{_('Reader settings')}}" aria-controls="settings-modal"><span class="glyphicon glyphicon-cog" aria-hidden="true"></span></button>
+	            <button type="button" id="fullscreen" class="reader-btn icon-resize-full" aria-label="{{_('Fullscreen')}}" title="{{_('Fullscreen')}}"><span class="glyphicon glyphicon-fullscreen" aria-hidden="true"></span></button>
 	        </div>
 	    </div>
 
 	    <div id="divider"></div>
-	    <div id="prev" class="arrow">‹</div>
+	    <button type="button" id="prev" class="arrow" aria-label="{{_('Previous Page')}}">‹</button>
 	    <div id="viewer"></div>
-	    <div id="next" class="arrow">›</div>
-	    <div id="progress">0%</div>
+	    <button type="button" id="next" class="arrow" aria-label="{{_('Next Page')}}">›</button>
+	    <div id="progress" aria-live="off">0%</div>
 	    <div id="loader"><img src="{{ url_for('static', filename='img/loader.gif') }}" alt="{{_('Loading...')}}"></div>
 	</div>
-    <div class="modal md-effect-1" id="settings-modal">
+    <div class="modal md-effect-1" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <div class="md-content">
-            <h3>{{_('Settings')}}</h3>
-            <div class="form-group themes" id="themes">
-                {{_('Choose a theme below:')}} <br />
-
+            <h3 id="settings-title">{{_('Settings')}}</h3>
+            <div class="reader-setting themes" id="themes">
+                <span class="reader-setting-label">{{_('Theme')}}</span>
                 <!-- The tick is set from the saved theme by markSelectedTheme() below and again by selectTheme() on startup -->
                 <button type="button" id="lightTheme" class="lightTheme" onclick="selectTheme(this.id)"><span
-                        id="lightSelected"> </span>{{_('Light')}}</button>
+                        id="lightSelected"></span>{{_('Light')}}</button>
                 <button type="button" id="darkTheme" class="darkTheme" onclick="selectTheme(this.id)"><span
-                        id="darkSelected"> </span>{{_('Dark')}}</button>
+                        id="darkSelected"></span>{{_('Dark')}}</button>
                 <button type="button" id="sepiaTheme" class="sepiaTheme" onclick="selectTheme(this.id)"><span
-                        id="sepiaSelected"> </span>{{_('Sepia')}}</button>
+                        id="sepiaSelected"></span>{{_('Sepia')}}</button>
                 <button type="button" id="blackTheme" class="blackTheme" onclick="selectTheme(this.id)"><span
-                        id="blackSelected"> </span>{{_('Black')}}</button>
+                        id="blackSelected"></span>{{_('Black')}}</button>
             </div>
-            <div class="form-group">
-                <p>
-                    <input type="checkbox" id="sidebarReflow"
-                        name="sidebarReflow">{{_('Reflow text when sidebars are open.')}}
-                </p>
+            <div class="reader-setting fontSizeWrapper">
+                <label class="reader-setting-label" for="fontSizeFader">{{ _('Font Sizes') }}</label>
+                <input type="range" min="75" max="200" value="100" id="fontSizeFader" step="25">
             </div>
-            <div class="form-group fontSizeWrapper">
-                <div class="slider">
-                    <label for="fader">{{ _('Font Sizes') }}</label>
-                    <input type="range" min="75" max="200" value="100" id="fontSizeFader" step="25">
-                </div>            
-            </div>
-              <div class="font" id="font">
-                <label class="item">{{_('Font')}}:</label>
-                <button type="button" id="default" onclick="selectFont(this.id)"><span>✓</span>{{_('Default')}}</button> 
+            <div class="reader-setting font" id="font">
+                <span class="reader-setting-label">{{_('Font')}}</span>
+                <button type="button" id="default" onclick="selectFont(this.id)"><span>✓</span>{{_('Default')}}</button>
                 <button type="button" id="Yahei" onclick="selectFont(this.id)"><span></span>{{_('Yahei')}}</button>
                 <button type="button" id="SimSun" onclick="selectFont(this.id)"><span></span>{{_('SimSun')}}</button>
                 <button type="button" id="KaiTi" onclick="selectFont(this.id)"><span></span>{{_('KaiTi')}}</button>
                 <button type="button" id="Serif" onclick="selectFont(this.id)"><span></span>{{_('Serif')}}</button>
                 <button type="button" id="SansSerif" onclick="selectFont(this.id)"><span></span>{{_('Sans-serif')}}</button>
                 <button type="button" id="Arial" onclick="selectFont(this.id)"><span></span>{{_('Arial')}}</button>
-              </div>
-              <div class="readerLayout" id="readerLayout">
-                <label class="item" for="lineHeightSelect">{{_('Line spacing')}}:</label>
+            </div>
+            <div class="reader-setting readerLayout" id="readerLayout">
+                <label class="reader-setting-label" for="lineHeightSelect">{{_('Line spacing')}}</label>
                 <select id="lineHeightSelect">
                   <option value="default">{{_('Default')}}</option>
                   <option value="1.2">1.2</option>
@@ -122,20 +111,24 @@
                   <option value="1.8">1.8</option>
                   <option value="2.0">2.0</option>
                 </select>
-                <label class="item" for="marginSelect">{{_('Margins')}}:</label>
+                <label class="reader-setting-label" for="marginSelect">{{_('Margins')}}</label>
                 <select id="marginSelect">
                   <option value="0">{{_('Default')}}</option>
                   <option value="1">{{_('Small')}}</option>
                   <option value="2">{{_('Medium')}}</option>
                   <option value="4">{{_('Large')}}</option>
                 </select>
-              </div>
-              <div class="layou" id="layout">
-                <label class="item">{{ _('Spread') }}:</label>
+            </div>
+            <div class="reader-setting layou" id="layout">
+                <span class="reader-setting-label">{{ _('Spread') }}</span>
                 <button type="button" id="spread" onclick="spread(this.id)"><span>✓</span>{{_('Two columns')}}</button>
                 <button type="button" id="nonespread" onclick="spread(this.id)"><span></span>{{_('One column')}}</button>
-              </div>            
-            <button type="button" class="closer icon-cancel-circled" aria-label="{{_('Close')}}"></button>
+            </div>
+            <div class="reader-setting">
+                <label class="reader-check" for="sidebarReflow"><input type="checkbox" id="sidebarReflow"
+                        name="sidebarReflow">{{_('Reflow text when sidebars are open.')}}</label>
+            </div>
+            <button type="button" class="closer icon-cancel-circled" aria-label="{{_('Close')}}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></button>
         </div>
     </div>
     <div class="overlay"></div>
@@ -152,7 +145,11 @@
             bookUrl: "{{ url_for('web.serve_book', book_id=bookid, book_format=book_format, anyname='file.epub') }}",
             bookmark: "{{ bookmark.bookmark_key if bookmark != None }}",
             useBookmarks: "{{ current_user.is_authenticated | tojson }}",
-            kosyncPercent: {{ kosync_progress | tojson if kosync_progress is not none else 'null' }}
+            kosyncPercent: {{ kosync_progress | tojson if kosync_progress is not none else 'null' }},
+            // Reading position sync (GET/POST {cfi, percent}); only for signed-in users.
+            progressUrl: "{{ url_for('web.index') }}ajax/progress/{{ bookid }}",
+            progressKey: "{{ bookid }}.{{ book_format }}",
+            syncProgress: {{ current_user.is_authenticated | tojson }}
         };
 
         window.themes = {
@@ -214,6 +211,8 @@
             reader.rendition.themes.select(id);
             // Apply theme to rest of the page. 
             document.getElementById("main").style.backgroundColor = themes[id]["bgColor"];
+            // The toolbar and page arrows follow the page colours.
+            document.getElementById("main").style.color = themes[id]["title-color"] || "#fff";
             document.getElementById("titlebar").style.color = themes[id]["title-color"] || "#fff";
           }
 
@@ -292,6 +291,8 @@
       <script src="{{ url_for('static', filename='js/libs/screenfull.min.js') }}"></script>
       <script src="{{ url_for('static', filename='js/libs/reader.min.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/epub.js') }}"></script>
-      <script src="{{ url_for('static', filename='js/reading/epub-progress.js') }}"></script>      
+      <script src="{{ url_for('static', filename='js/reading/progress-sync.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/reading/epub-progress.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/reading/epub-search.js') }}"></script>
     </body>
 </html>

@@ -1,17 +1,20 @@
-{% extends "layout.html" %}
-{% block body %}
+{% extends "settings_layout.html" %}
+{% block heading %}{{ _('Hardcover Matches') }}{% endblock %}
+{% block pane_class %} is-wide{% endblock %}
+{% block settings %}
 <div class="discover lily-admin lily-admin-wide hardcover-review-page">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
   {% if matches|length == 0 %}
-  <div class="lily-empty">
-    <span class="glyphicon glyphicon-ok-circle lily-empty-glyph" aria-hidden="true"></span>
-    <h2 class="lily-empty-title">{{_('All Caught Up!')}}</h2>
-    <p>{{_('There are no pending Hardcover matches requiring review. New matches will appear here when the auto-fetch task runs.')}}</p>
-    <div class="lily-actions">
-      <a href="{{url_for('admin.admin')}}" class="btn btn-primary">{{_('Back to Admin Panel')}}</a>
+  <section class="lp-group">
+    <div class="lp-list">
+      <div class="stats-empty">
+        <span class="glyphicon glyphicon-ok-circle stats-empty-glyph" aria-hidden="true"></span>
+        <h3 class="stats-empty-title">{{_('All caught up')}}</h3>
+        <p>{{_('There are no pending Hardcover matches requiring review. New matches will appear here when the auto-fetch task runs.')}}</p>
+      </div>
     </div>
-  </div>
+  </section>
   {% else %}
 
   <div class="alert alert-warning">

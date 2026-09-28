@@ -1,5 +1,7 @@
-{% extends "layout.html" %}
-{% block body %}
+{% extends "settings_layout.html" %}
+{% block heading %}{{ _('Stats') }}{% endblock %}
+{% block pane_class %} is-wide{% endblock %}
+{% block settings %}
 
 <script>
 // Lazy chart init registry: each tab partial registers its init / resize function here

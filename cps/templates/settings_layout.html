@@ -24,6 +24,16 @@
         {{ rail_item(_('Tasks'), url_for('tasks.get_tasks_status'), ep == 'tasks.get_tasks_status', id='top_tasks') }}
         {% endif %}
       {% endif %}
+      {% if current_user.role_admin() or current_user.role_edit() %}
+        <li class="lp-rail-head" role="presentation">{{ _('Tools') }}</li>
+        {% if current_user.role_admin() %}
+        {{ rail_item(_('Stats'), url_for('cwa_stats.cwa_stats_show'), ep == 'cwa_stats.cwa_stats_show') }}
+        {% endif %}
+        {{ rail_item(_('Duplicate Books'), url_for('duplicates.show_duplicates'), ep == 'duplicates.show_duplicates') }}
+        {% if current_user.role_admin() %}
+        {{ rail_item(_('Hardcover Matches'), url_for('admin.hardcover_review_matches'), ep == 'admin.hardcover_review_matches') }}
+        {% endif %}
+      {% endif %}
       {% if current_user.role_admin() %}
         <li class="lp-rail-head" role="presentation">{{ _('Server') }}</li>
         {{ rail_item(_('Overview'), url_for('admin.admin'), ep == 'admin.admin') }}
@@ -31,8 +41,8 @@
         {{ rail_item(_('General'), url_for('admin.configuration'), ep == 'admin.configuration') }}
         {{ rail_item(_('Library View'), url_for('admin.view_configuration'), ep == 'admin.view_configuration') }}
         {{ rail_item(_('Calibre Database'), url_for('admin.db_configuration'), ep == 'admin.db_configuration') }}
-        {{ rail_item(_('Email Server'), url_for('admin.edit_mailsettings'), ep == 'admin.edit_mailsettings') }}
         {{ rail_item(_('Scheduled Tasks'), url_for('admin.edit_scheduledtasks'), ep == 'admin.edit_scheduledtasks') }}
+        {{ rail_item(_('Database Backups'), url_for('admin.db_backups'), ep == 'admin.db_backups') }}
         <li class="lp-rail-head" role="presentation">{{ _('Lily') }}</li>
         {{ rail_item(_('Services'), cwa_url ~ '#services', tab='services', on_cwa=on_cwa) }}
         {{ rail_item(_('Ingest'), cwa_url ~ '#ingest', tab='ingest', on_cwa=on_cwa) }}

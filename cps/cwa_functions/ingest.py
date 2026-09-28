@@ -14,6 +14,7 @@ from .. import csrf
 from ..usermanagement import login_required_if_no_ano
 from ..admin import admin_required
 
+import os
 import subprocess
 
 import json
@@ -98,17 +99,36 @@ def get_ingest_queue_size():
     except (FileNotFoundError, IOError):
         return 0
 
+def _library_refresh_timeout() -> int:
+    """Seconds a manual library refresh may run (CWA_LIBRARY_REFRESH_TIMEOUT, default 2h).
+    The processor enforces its own per-book timeout; this only stops a hung run."""
+    try:
+        value = int(os.environ.get("CWA_LIBRARY_REFRESH_TIMEOUT", "7200"))
+    except ValueError:
+        value = 7200
+    return value if value > 0 else 7200
+
+
 def refresh_library(app):
     with app.app_context():  # Create app context for session
         ingest_dir = get_ingest_dir()
-        result = subprocess.run(['python3', '/app/calibre-web-automated/scripts/ingest_processor.py', ingest_dir])
-        return_code = result.returncode
+        timeout = _library_refresh_timeout()
+        try:
+            result = subprocess.run(['python3', '/app/calibre-web-automated/scripts/ingest_processor.py', ingest_dir],
+                                    timeout=timeout)
+            return_code = result.returncode
+        except subprocess.TimeoutExpired:
+            # run() has already killed the processor; its flock is released with it
+            log.error("Library refresh: ingest processor did not finish within %s seconds and was stopped", timeout)
+            return_code = None
 
         # Add empty list for messages in app context if a list doesn't already exist
         if "library_refresh_messages" not in current_app.config:
             current_app.config["library_refresh_messages"] = []
 
-        if return_code == 2:
+        if return_code is None:
+            message = _l("Library Refresh 🔄 The ingest process took too long and was stopped, check the logs ⛔")
+        elif return_code == 2:
             message = _l("Library Refresh 🔄 The book ingest service is already running ✋ Please wait until it has finished before trying again ⌛")
         elif return_code == 0:
             message = _l("Library Refresh 🔄 Library refreshed & ingest process complete! ✅")

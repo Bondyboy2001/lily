@@ -1,30 +1,24 @@
-{% extends "layout.html" %}
-
-{% block body %}
-<div class="dup-page">
+{% extends "settings_layout.html" %}
+{% import "lily_form.html" as f with context %}
+{% block heading %}{{ _('Duplicates') }}{% endblock %}
+{% block pane_class %} is-wide{% endblock %}
+{% block settings %}
+<div class="lp dup-page">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  <p class="stats-intro">{{_('Books with matching titles, authors, and languages. Books in different languages are not considered duplicates.')}}</p>
 
-  <!-- Action bar - always shown for the manual scan trigger -->
-  <div class="dup-toolbar bulk-actions">
-    <button type="button" class="btn btn-primary" id="trigger_scan">
-      <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span>
-      {% if duplicate_index_needs_full_scan %}
-        {{_('Run Full Duplicate Scan')}}
-      {% else %}
-        {{_('Scan for duplicates')}}
-      {% endif %}
-    </button>
-    {% if duplicate_groups %}
-      <button type="button" class="btn btn-default" id="select_all">{{_('Select duplicates')}}</button>
-      <button type="button" class="btn btn-default" id="select_none">{{_('Select none')}}</button>
-      <button type="button" class="btn btn-danger disabled" id="delete_selected" aria-disabled="true">{{_('Delete selected')}}</button>
-      <span id="selection_count" class="selection-info" aria-live="polite"></span>
+  {% call f.group(_('Scan'), help=_('Books with matching titles, authors, and languages. Books in different languages are not considered duplicates.')) %}
+    {% call f.row(_('Duplicate scan') if not duplicate_index_needs_full_scan else _('Full duplicate scan'),
+                  help=(_('Next scheduled scan:') ~ ' ' ~ next_scan_run) if next_scan_run else _('Check the library for books that appear more than once')) %}
+      <button type="button" class="btn btn-primary" id="trigger_scan">
+        {% if duplicate_index_needs_full_scan %}{{_('Run Full Duplicate Scan')}}{% else %}{{_('Scan for duplicates')}}{% endif %}
+      </button>
+    {% endcall %}
+    {% if current_user.role_admin() %}
+    {% call f.row(_('Scan schedule'), help=_('How often scans run and which formats win')) %}
+      <a class="btn btn-default" href="{{ url_for('cwa_settings.set_cwa_settings') }}#duplicates">{{_('Duplicate settings')}}</a>
+    {% endcall %}
     {% endif %}
-    {% if next_scan_run %}
-      <span class="dup-next-scan">{{_('Next scheduled scan:')}} <span id="next_scan_run">{{ next_scan_run }}</span></span>
-    {% endif %}
-  </div>
+  {% endcall %}
 
   {% if duplicate_index_needs_full_scan %}
     <div id="duplicate_index_setup_notice" class="alert alert-warning dup-notice">
@@ -96,6 +90,13 @@
         </div>
       </section>
 
+      <div class="dup-toolbar bulk-actions">
+        <button type="button" class="btn btn-default" id="select_all">{{_('Select duplicates')}}</button>
+        <button type="button" class="btn btn-default" id="select_none">{{_('Select none')}}</button>
+        <button type="button" class="btn btn-danger disabled" id="delete_selected" aria-disabled="true">{{_('Delete selected')}}</button>
+        <span id="selection_count" class="selection-info" aria-live="polite"></span>
+      </div>
+
       <div class="duplicates-container">
         {% for group in duplicate_groups %}
         <section class="duplicate-group" data-group-hash="{{ group.group_hash }}">
@@ -165,11 +166,14 @@
       </div>
     </div>
   {% elif not duplicate_index_needs_full_scan %}
-    <div id="no_duplicate_books_message" class="stats-empty dup-empty">
-      <span class="glyphicon glyphicon-duplicate stats-empty-glyph" aria-hidden="true"></span>
-      <h3 class="stats-empty-title">{{_('No duplicate books')}}</h3>
-      <p>{{_('No two books share the same title, author, and language. Scan again after adding books to check.')}}</p>
-      <a class="btn btn-default" href="{{ url_for('web.index') }}">{{_('Browse library')}}</a>
+    <div id="no_duplicate_books_message">
+      {% call f.group(_('Results')) %}
+        <div class="stats-empty dup-empty">
+          <span class="glyphicon glyphicon-ok-circle stats-empty-glyph" aria-hidden="true"></span>
+          <h3 class="stats-empty-title">{{_('No duplicate books')}}</h3>
+          <p>{{_('No two books share the same title, author, and language.')}}</p>
+        </div>
+      {% endcall %}
     </div>
   {% endif %}
 </div>

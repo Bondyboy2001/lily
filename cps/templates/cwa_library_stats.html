@@ -184,7 +184,7 @@ function updateLibraryGrowthChart() {
     const data = currentLibraryData.growth || [];
 
     if (data.length === 0) {
-        LilyCharts.empty(growthChart, 'No books added in this period');
+        LilyCharts.empty(growthChart, {{ _('No books added in this period')|tojson }});
         return;
     }
 
@@ -221,7 +221,7 @@ function updateLibraryFormatsChart() {
     const data = (currentLibraryData.formats || []).slice().sort((a, b) => a[1] - b[1]);
 
     if (data.length === 0) {
-        LilyCharts.empty(libraryFormatsChart, 'No formats in the library yet');
+        LilyCharts.empty(libraryFormatsChart, {{ _('No formats in the library yet')|tojson }});
         return;
     }
 
@@ -248,7 +248,7 @@ function updateSeriesCompletionChart() {
     const data = currentLibraryData.seriesCompletion || [];
 
     if (data.length === 0) {
-        LilyCharts.empty(seriesChart, 'No series in the library yet');
+        LilyCharts.empty(seriesChart, {{ _('No series in the library yet')|tojson }});
         return;
     }
 
@@ -284,7 +284,7 @@ function updatePublicationYearChart() {
     const data = currentLibraryData.publicationYears || [];
 
     if (data.length === 0) {
-        LilyCharts.empty(publicationYearChart, 'No publication years recorded');
+        LilyCharts.empty(publicationYearChart, {{ _('No publication years recorded')|tojson }});
         return;
     }
 
@@ -315,7 +315,7 @@ function updateRatingStatsChart() {
 
     if (!data.rating_distribution || data.rating_distribution.length === 0) {
         if (summary) summary.textContent = '';
-        LilyCharts.empty(ratingStatsChart, 'No ratings yet');
+        LilyCharts.empty(ratingStatsChart, {{ _('No ratings yet')|tojson }});
         return;
     }
 
@@ -353,7 +353,7 @@ function updateTopEnforcedChart() {
     const data = currentLibraryData.topEnforced || [];
 
     if (data.length === 0) {
-        LilyCharts.empty(topEnforcedChart, 'No enforcements recorded');
+        LilyCharts.empty(topEnforcedChart, {{ _('No enforcements recorded')|tojson }});
         return;
     }
 

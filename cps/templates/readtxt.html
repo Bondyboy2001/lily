@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html class="no-js">
+<html class="no-js lily-reader-page">
     <head>
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
@@ -9,13 +9,15 @@
         <meta name="mobile-web-app-capable" content="yes">
         {% if g.google_site_verification|length > 0 %}
           <meta name="google-site-verification" content="{{g.google_site_verification}}">
-        {% endif %}  
+        {% endif %}
 
         <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
         <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
 
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" type="text/css"/>
         <link rel="stylesheet" href="{{ url_for('static', filename='css/text.css') }}" type="text/css"/>
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/lily.css') }}" type="text/css"/>
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/lily-icons.css') }}" type="text/css"/>
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/lily-reader.css') }}" type="text/css"/>
 
         <script src="{{ url_for('static', filename='js/libs/jquery.min.js') }}"></script>
         <script src="{{ url_for('static', filename='js/libs/jquery-migrate.min.js') }}"></script>
@@ -25,11 +27,16 @@
         </script>
         <script src="{{ url_for('static', filename='js/reading/txt_reader.js') }}"></script>
     </head>
-    <body>
+    <body class="lily-reader lily-txt">
+      <header class="lily-reader-bar">
+        <a id="back-button" class="reader-btn" href="{{ url_for('web.show_book', book_id=txtfile) }}" aria-label="{{_('Back to book')}}" title="{{_('Back to book')}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="reader-btn-label">{{_('Book')}}</span></a>
+        <h1 class="reader-title">{{ title }}</h1>
+        <span class="reader-bar-spacer" aria-hidden="true"></span>
+      </header>
       <div id="readmain" data-load="{{ url_for('web.serve_book', book_id=txtfile, book_format='txt') }}">
-        <div id="left" class="arrow" >‹</div>
+        <button type="button" id="left" class="arrow" aria-label="{{_('Previous Page')}}">‹</button>
         <div id="area"><pre id="content" class="content"></pre></div>
-        <div id="right" class="arrow">›</div>
+        <button type="button" id="right" class="arrow" aria-label="{{_('Next Page')}}">›</button>
       </div>
     </body>
 </html>

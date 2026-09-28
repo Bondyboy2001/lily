@@ -112,14 +112,16 @@ Keep these as separate directories — nesting binds inside each other causes er
 
 ### After installing
 
-1. Log in with the default credentials below and change the password when prompted.
+1. Log in with the default credentials below. Lily sends you straight to a
+   *Change Password* page and won't open anything else until you pick a new password.
 2. **Admin → Configuration**: enable uploads under *Basic Configuration → Feature
    Configuration*. The [Calibre-Web wiki](https://github.com/crocodilestick/Calibre-Web-Automated/wiki)
    documents individual settings.
 3. **Lily Settings**: toggle features and choose which formats to ignore.
 4. Drop a book in the ingest folder to confirm it works.
 
-> **Default login** — username `harry`, password `harry10`
+> **Default login** — username `harry`, password `harry10`. The password must be changed at
+> first login; OPDS, Kobo and KOReader sync keep working in the meantime.
 
 ### Environment variables
 

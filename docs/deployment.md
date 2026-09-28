@@ -72,11 +72,33 @@ chain depth is wrong — adjust this variable to match.
 | Variable | Default | Purpose |
 |---|---|---|
 | `TRUSTED_PROXY_COUNT` | `0` | Number of reverse proxies whose `X-Forwarded-*` headers are trusted. Set to `1` behind a single reverse proxy. |
-| `TRUSTED_PROXY_IPS` | `127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7` | CIDRs allowed to send the *reverse proxy login header* (Admin → Configuration → "Allow Reverse Proxy Authentication"). The header is ignored from any other source address. Checked against the socket that actually connected, not `X-Forwarded-For`. Narrow this to your proxy's address (e.g. `172.18.0.5/32`) where possible. |
+| `TRUSTED_PROXY_IPS` | `127.0.0.0/8,::1/128` (loopback only) | CIDRs allowed to send the *reverse proxy login header* (Admin → Configuration → "Allow Reverse Proxy Authentication"). The header is ignored from any other source address. Checked against the socket that actually connected, not `X-Forwarded-For`. If your proxy runs in another container or on another host, list its address, e.g. `172.18.0.5/32`. See [Reverse proxy authentication](#reverse-proxy-authentication-header-login) below. |
 | `SESSION_COOKIE_SECURE` | `false` | Set to `true` when Lily is served over HTTPS, so session and remember-me cookies are only sent over HTTPS. |
 | `NETWORK_SHARE_MODE` | `false` | See [Network shares](#network-shares-nfssmb) above. |
 | `CWA_WATCH_MODE` | `auto` | Force `poll` to override watcher auto-detection. |
 | `CWA_PORT_OVERRIDE` | `8083` | Change the web server port. |
+
+### Reverse proxy authentication (header login)
+
+With "Allow Reverse Proxy Authentication" enabled, Lily logs in whichever user the
+configured header names, so it must only accept that header from your proxy.
+`TRUSTED_PROXY_IPS` lists the addresses it is accepted from.
+
+**Upgrade note:** earlier versions trusted loopback *and* every private range
+(`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`) by default, which let any
+device on the LAN, or any container on a shared Docker network, log in as any user by
+sending the header itself. The default is now loopback only. If header login stops
+working after upgrading, Lily logs `Ignoring reverse proxy login header from untrusted
+address <ip>`: add that address (your proxy's) to `TRUSTED_PROXY_IPS`, for example
+
+```yaml
+    environment:
+      - TRUSTED_PROXY_IPS=172.18.0.5/32
+```
+
+Give the proxy container a fixed IP (or a dedicated Docker network with a small subnet)
+so the entry stays valid. Setting the old private ranges again restores the previous
+behaviour, but only do that if nothing untrusted can reach Lily's port directly.
 
 Other hardening defaults:
 
@@ -92,10 +114,23 @@ of the maintenance window, into `/config/backup/db/<timestamp>/`, keeping the la
 default (configurable in Lily Settings).
 
 Snapshots on the same volume as `/config` will not survive losing that volume. To keep
-them elsewhere, set `DB_BACKUP_DIR=/backups` and mount a separate folder at `/backups`
-(see `docker-compose.yml`).
+them elsewhere, mount a separate folder (e.g. at `/backups`, see `docker-compose.yml`) and
+either set `DB_BACKUP_DIR=/backups` or enter the folder under Settings → Database Backups
+(`/admin/db_backups`; the setting wins over the env var). Rotation counts each database
+separately, so if one database's backups keep failing its last good snapshots are kept.
 
-### Restoring a snapshot
+The same page sets how long copies in `/config/processed_books/imported` and `failed`
+are kept (default 30 days, 0 = forever); older files are removed nightly.
+
+### Restoring a snapshot from the web UI
+
+Settings → Database Backups lists every snapshot with its date, size and databases.
+Restore runs as a background task (see Tasks): it checks each snapshot file with
+`PRAGMA integrity_check`, saves the current databases to a `<timestamp>_pre-restore`
+snapshot, pauses ingest, swaps the databases in and reconnects. Restart Lily after
+restoring `app.db`. Pre-restore snapshots are never rotated; delete them by hand.
+
+### Restoring a snapshot by hand
 
 1. Stop the container: `docker compose stop lily`
 2. Pick a snapshot folder, e.g. `/config/backup/db/20260927_030000/`

@@ -540,7 +540,7 @@ function updateMetrics() {
 function updateTimelineChart() {
     const timelineData = currentData.timeline || [];
     if (timelineData.length === 0) {
-        LilyCharts.empty(timelineChart, 'No activity in this period');
+        LilyCharts.empty(timelineChart, {{ _('No activity in this period')|tojson }});
         return;
     }
 
@@ -585,7 +585,7 @@ function updateTimelineChart() {
 function updateEventsChart() {
     const data = currentData.eventBreakdown || [];
     if (data.length === 0) {
-        LilyCharts.empty(eventsChart, 'No events yet');
+        LilyCharts.empty(eventsChart, {{ _('No events yet')|tojson }});
         return;
     }
     eventsChart.setOption(rankedBarOption(data.map(([name, value]) => [prettyLabel(name), value]), 'events'), true);
@@ -594,7 +594,7 @@ function updateEventsChart() {
 function updateFormatsChart() {
     const data = currentData.formatDistribution || [];
     if (data.length === 0) {
-        LilyCharts.empty(formatsChart, 'No downloads yet');
+        LilyCharts.empty(formatsChart, {{ _('No downloads yet')|tojson }});
         return;
     }
     formatsChart.setOption(rankedBarOption(data, 'downloads'), true);
@@ -603,7 +603,7 @@ function updateFormatsChart() {
 function updateHeatmapChart() {
     const data = currentData.heatmap || [];
     if (data.length === 0) {
-        LilyCharts.empty(heatmapChart, 'No activity yet');
+        LilyCharts.empty(heatmapChart, {{ _('No activity yet')|tojson }});
         return;
     }
 
@@ -643,7 +643,7 @@ function updateHeatmapChart() {
 function updateVelocityChart() {
     const data = currentData.velocity || [];
     if (data.length === 0) {
-        LilyCharts.empty(velocityChart, 'No finished books yet');
+        LilyCharts.empty(velocityChart, {{ _('No finished books yet')|tojson }});
         return;
     }
 
@@ -682,7 +682,7 @@ function updateVelocityChart() {
 function updateFormatPreferencesChart() {
     const data = currentData.formatPreferences || [];
     if (data.length === 0) {
-        LilyCharts.empty(formatPreferencesChart, 'No format preferences yet');
+        LilyCharts.empty(formatPreferencesChart, {{ _('No format preferences yet')|tojson }});
         return;
     }
 
@@ -720,7 +720,7 @@ function updateFormatPreferencesChart() {
 function updateDiscoveryChart() {
     const data = currentData.discoverySources || [];
     if (data.length === 0) {
-        LilyCharts.empty(discoveryChart, 'No discovery data yet');
+        LilyCharts.empty(discoveryChart, {{ _('No discovery data yet')|tojson }});
         return;
     }
     const sourceLabels = {
@@ -734,7 +734,7 @@ function updateDiscoveryChart() {
 function updateDeviceChart() {
     const data = currentData.deviceBreakdown || [];
     if (data.length === 0) {
-        LilyCharts.empty(deviceChart, 'No device data yet');
+        LilyCharts.empty(deviceChart, {{ _('No device data yet')|tojson }});
         return;
     }
     deviceChart.setOption(rankedBarOption(data.map(([device, count]) => [prettyLabel(device), count]), 'sessions'), true);
@@ -747,7 +747,7 @@ function updateFailedLogins() {
 
     const list = document.getElementById('failed-logins-list');
     if (data.length === 0) {
-        list.innerHTML = noneHtml('No failed logins in this period');
+        list.innerHTML = noneHtml({{ _('No failed logins in this period')|tojson }});
         return;
     }
     list.innerHTML = '<ul class="stats-list">' + data.map(([ip, username, timestamp, attempts]) => {
@@ -787,7 +787,7 @@ function updateTopLists() {
                         <span class="stats-row-value">${count}</span>
                     </li>`;
             }))
-            : noneHtml('No activity in this period');
+            : noneHtml({{ _('No activity in this period')|tojson }});
     } else {
         const el = document.getElementById('top-users-list');
         el.innerHTML = currentData.topUsers.length > 0
@@ -802,7 +802,7 @@ function updateTopLists() {
                         <span class="stats-row-value">${count}</span>
                     </li>`;
             }))
-            : noneHtml('No user activity yet');
+            : noneHtml({{ _('No user activity yet')|tojson }});
     }
 
     document.getElementById('top-books-list').innerHTML = currentData.topBooks.length > 0
@@ -812,7 +812,7 @@ function updateTopLists() {
                 <span class="stats-row-main"><a class="stats-row-title" href="/book/${encodeURIComponent(id)}" title="${escapeHtml(title)}">${escapeHtml(title)}</a></span>
                 <span class="stats-row-value">${count}</span>
             </li>`))
-        : noneHtml('No popular books yet');
+        : noneHtml({{ _('No popular books yet')|tojson }});
 
     document.getElementById('recent-searches-list').innerHTML = currentData.recentSearches.length > 0
         ? rowsHtml(currentData.recentSearches.map(([term, timestamp, user]) => `
@@ -822,7 +822,7 @@ function updateTopLists() {
                     <span class="stats-row-meta">${user ? escapeHtml(user) + ' · ' : ''}${escapeHtml(String(timestamp).split('T')[0])}</span>
                 </span>
             </li>`))
-        : noneHtml('No searches yet');
+        : noneHtml({{ _('No searches yet')|tojson }});
 }
 
 function updateSessionDuration() {
@@ -831,7 +831,7 @@ function updateSessionDuration() {
     document.getElementById('avg-session-duration').textContent = `${avgMin} min`;
 
     if (!data.distribution || data.distribution.length === 0) {
-        LilyCharts.empty(sessionDurationChart, 'No sessions yet');
+        LilyCharts.empty(sessionDurationChart, {{ _('No sessions yet')|tojson }});
         return;
     }
     sessionDurationChart.setOption({
@@ -872,7 +872,7 @@ function updateShelfActivity() {
     const data = currentData.shelfActivity || [];
     const el = document.getElementById('shelf-activity-list');
     if (data.length === 0) {
-        el.innerHTML = noneHtml('No shelf activity yet');
+        el.innerHTML = noneHtml({{ _('No shelf activity yet')|tojson }});
         return;
     }
     el.innerHTML = rowsHtml(data.map(([shelfName, addCount, removeCount, netChange]) => {

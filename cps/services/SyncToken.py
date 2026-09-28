@@ -8,7 +8,7 @@
 
 from base64 import b64decode, b64encode
 from jsonschema import validate, exceptions
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import json
 from .. import logger
@@ -28,7 +28,8 @@ def to_epoch_timestamp(datetime_object):
 
 def get_datetime_from_json(json_object, field_name):
     try:
-        return datetime.utcfromtimestamp(json_object[field_name])
+        # Naive UTC, as utcfromtimestamp() returned (callers compare against naive UTC)
+        return datetime.fromtimestamp(json_object[field_name], timezone.utc).replace(tzinfo=None)
     except (KeyError, OSError, OverflowError):
         # OSError is thrown on Windows if timestamp is <1970 or >2038
         return datetime.min

@@ -2,7 +2,8 @@
  * Lily design language — tokens and base components.
  *
  * Source of truth: ~/projects/DESIGN.md (palette "Lily", §2; components §5; tokens §7).
- * Lily has one theme, so the tokens live directly on :root. Bootstrap 3 classes are restyled here
+ * The light tokens live directly on :root; the dark theme redefines the same tokens below, for
+ * "system" (prefers-color-scheme) and for an explicit data-theme="dark" set by the head script in layout.html. Bootstrap 3 classes are restyled here
  * into the guide's components, so existing markup picks them up without template changes:
  *   .btn / .btn-default → Quiet    .btn-primary → Primary    .btn-danger → Danger
  *   .form-control → Field          .dropdown-menu → Menu     .modal → Sheet
@@ -22,11 +23,17 @@
     /* Darkened so dividers and field edges read clearly (≈2:1 and 1.6:1 on paper). */
     --line: #C2B3A6;
     --line-soft: #D6CABE;
+    /* Control edges and empty rating stars: ≥3:1 on paper, surface and sunk (WCAG 1.4.11).
+       --line stays the subtle divider. */
+    --line-strong: #8C7D72;
     --accent: #9E2F55;
     --heading: #9E2F55;
     --success: #4F6B4B;
     --warning: #A13F0E;
     --danger: #B3261E;
+    /* Text and marks drawn on an accent fill (primary buttons, checked boxes). */
+    --on-accent: #FFFFFF;
+    --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 
     --hover: color-mix(in srgb, var(--accent) 10%, transparent);
     --selected: color-mix(in srgb, var(--accent) 17%, transparent);
@@ -48,6 +55,64 @@
     --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
     --font-body: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
     --font-mono: "SF Mono", ui-monospace, Menlo, monospace;
+}
+
+/* Dark theme: the same tokens, redefined. Every text token keeps ≥4.5:1 on paper, surface and sunk;
+   --line-strong keeps ≥3:1. "System" follows prefers-color-scheme unless the reader chose Light. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --paper: #1B1719;
+        --surface: #241F21;
+        --sunk: #141112;
+        --ink: #EDE6E3;
+        --ink-soft: #D9CFCB;
+        --muted: #B5AAA8;
+        --faint: #A69A99;
+        --line: #4D4346;
+        --line-soft: #3B3336;
+        --line-strong: #83767A;
+        --accent: #E88AAA;
+        --heading: #E88AAA;
+        --success: #9CC491;
+        --warning: #EFA474;
+        --danger: #F2948B;
+        --on-accent: #1B1719;
+        --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%231B1719' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        --series-1: #E88AAA;
+        --series-2: #72A9E6;
+        --series-3: #D8A94A;
+        --series-4: #5DC39F;
+        --series-5: #AD91E3;
+        --menu-shadow: 0 1px 2px color-mix(in srgb, #000 30%, transparent), 0 8px 24px color-mix(in srgb, #000 45%, transparent);
+    }
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #1B1719;
+    --surface: #241F21;
+    --sunk: #141112;
+    --ink: #EDE6E3;
+    --ink-soft: #D9CFCB;
+    --muted: #B5AAA8;
+    --faint: #A69A99;
+    --line: #4D4346;
+    --line-soft: #3B3336;
+    --line-strong: #83767A;
+    --accent: #E88AAA;
+    --heading: #E88AAA;
+    --success: #9CC491;
+    --warning: #EFA474;
+    --danger: #F2948B;
+    --on-accent: #1B1719;
+    --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%231B1719' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --series-1: #E88AAA;
+    --series-2: #72A9E6;
+    --series-3: #D8A94A;
+    --series-4: #5DC39F;
+    --series-5: #AD91E3;
+    --menu-shadow: 0 1px 2px color-mix(in srgb, #000 30%, transparent), 0 8px 24px color-mix(in srgb, #000 45%, transparent);
 }
 
 /* ------------------------------------------------------------------ */
@@ -174,7 +239,7 @@ hr { border-top: 1px solid var(--line); }
 .btn-primary,
 .btn-primary:focus {
     background: var(--accent);
-    color: var(--paper);
+    color: var(--on-accent);
     font-weight: 600;
 }
 
@@ -184,7 +249,7 @@ hr { border-top: 1px solid var(--line); }
 .btn-primary:active:hover,
 .btn-primary:active:focus {
     background: var(--accent);
-    color: var(--paper);
+    color: var(--on-accent);
     filter: brightness(1.08);
 }
 
@@ -198,7 +263,7 @@ hr { border-top: 1px solid var(--line); }
 .btn-danger.active,
 .btn-danger:active:focus {
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
 }
 
 .btn-danger:hover { filter: brightness(1.08); }
@@ -364,7 +429,7 @@ select,
 textarea {
     height: 30px;
     padding: 0 10px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     border-radius: 7px;
     background: var(--paper);
     color: var(--ink);
@@ -380,6 +445,73 @@ select[multiple],
 select[size] {
     height: auto;
     padding: 6px 10px;
+}
+
+/* Select menus: where the browser allows it (Chromium's customizable select), the open list is
+   drawn like the app's other menus (.dropdown-menu) instead of the system's blue popup.
+   Elsewhere the native list stays. */
+@supports (appearance: base-select) {
+    select:not([multiple]):not([size]),
+    select:not([multiple]):not([size])::picker(select) { appearance: base-select; }
+
+    select:not([multiple]):not([size]) {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        cursor: pointer;
+    }
+    select.form-control:not([multiple]):not([size]) { display: flex; }
+
+    select:not([multiple]):not([size])::picker-icon {
+        content: "";
+        width: 10px;
+        height: 10px;
+        margin-inline-start: auto;
+        background: var(--muted);
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 3.5 5 7l3.5-3.5' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 3.5 5 7l3.5-3.5' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+        transition: rotate .12s ease-out;
+    }
+    select:not([multiple]):not([size]):open::picker-icon { rotate: 180deg; }
+
+    select::picker(select) {
+        margin-block: 4px;
+        padding: 6px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+        color: var(--ink-soft);
+        box-shadow: var(--menu-shadow);
+        font-family: var(--font-ui);
+        font-size: 15px;
+        max-height: min(60vh, 360px);
+    }
+
+    select:not([multiple]):not([size]) option {
+        padding: 7px 11px;
+        border-radius: 6px;
+        color: var(--ink-soft);
+        white-space: normal;
+    }
+    select:not([multiple]):not([size]) option:hover,
+    select:not([multiple]):not([size]) option:focus-visible {
+        background: var(--hover);
+        color: var(--ink);
+        outline: none;
+    }
+    select:not([multiple]):not([size]) option:checked {
+        background: var(--selected);
+        color: var(--ink);
+        font-weight: 500;
+    }
+    select:not([multiple]):not([size]) option::checkmark { color: var(--accent); }
+    select:not([multiple]):not([size]) option:disabled { color: var(--faint); background: none; }
+    select:not([multiple]):not([size]) optgroup { padding-top: 4px; color: var(--muted); font-size: 12px; font-weight: 600; }
+
+    @media (prefers-reduced-motion: reduce) {
+        select:not([multiple]):not([size])::picker-icon { transition: none; }
+    }
 }
 
 .form-control:focus,
@@ -400,7 +532,7 @@ textarea::placeholder {
 
 .has-error .form-control,
 .form-control:user-invalid {
-    border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--line-strong));
     box-shadow: none;
 }
 
@@ -415,7 +547,7 @@ fieldset[disabled] .form-control {
 }
 
 .input-group-addon {
-    border: 1px solid var(--line);
+    border: 1px solid var(--line-strong);
     border-radius: 7px;
     background: var(--sunk);
     color: var(--muted);
@@ -750,6 +882,14 @@ input[type="radio"] {
     gap: 8px;
     margin-top: 22px;
 }
+
+/* Busy icons (duplicates.js: "glyphicon-refresh glyphicon-spin"). Reduced motion stops it below. */
+.glyphicon-spin {
+    display: inline-block;
+    animation: lily-glyph-spin 1s linear infinite;
+}
+
+@keyframes lily-glyph-spin { to { transform: rotate(360deg); } }
 
 /* ------------------------------------------------------------------ */
 /* Focus, forced colours, reduced motion                                */

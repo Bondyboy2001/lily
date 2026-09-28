@@ -35,19 +35,6 @@ class TestAutoSendDelayValidation:
         # Verify column exists with proper default
         assert 'auto_send_delay_minutes INTEGER DEFAULT 5 NOT NULL' in content
     
-    def test_template_has_validation(self):
-        """Verify settings template has min/max validation"""
-        template_file = project_root / 'cps' / 'templates' / 'cwa_settings.html'
-        
-        with open(template_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        # Verify input has type=number with min/max
-        assert 'name="auto_send_delay_minutes"' in content
-        assert 'type="number"' in content
-        assert 'min="1"' in content
-        assert 'max="60"' in content
-    
     def test_cwa_functions_validates_range(self):
         """Verify the settings route validates 1-60 range"""
         cwa_functions_file = project_root / 'cps' / 'cwa_functions' / 'settings.py'

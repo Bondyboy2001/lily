@@ -73,6 +73,7 @@ def register_scheduled_tasks(reconnect=True):
         _schedule_hardcover_auto_fetch(scheduler, timezone_info)
         _schedule_archived_book_cleanup(scheduler, timezone_info)
         _schedule_db_backup(scheduler, start, timezone_info)
+        _schedule_processed_books_cleanup(scheduler, start, timezone_info)
 
         # Kick-off tasks, if they should currently be running
         if should_task_be_running(start, duration):
@@ -343,6 +344,19 @@ def _schedule_db_backup(scheduler, start_hour, timezone_info):
         scheduler.schedule_task(lambda: TaskBackupDatabases(), user='System',
                                 trigger=CronTrigger(hour=start_hour, minute=0, timezone=timezone_info),
                                 name='backup databases', hidden=False)
+    except Exception:
+        # Scheduling is best-effort; never block startup
+        pass
+
+
+def _schedule_processed_books_cleanup(scheduler, start_hour, timezone_info):
+    """Nightly retention cleanup of /config/processed_books/{imported,failed}
+    (cwa_settings.processed_books_retention_days, default 30, 0 = keep forever)."""
+    try:
+        from .tasks.processed_cleanup import TaskCleanProcessedBooks
+        scheduler.schedule_task(lambda: TaskCleanProcessedBooks(), user='System',
+                                trigger=CronTrigger(hour=start_hour, minute=30, timezone=timezone_info),
+                                name='clean processed books', hidden=True)
     except Exception:
         # Scheduling is best-effort; never block startup
         pass

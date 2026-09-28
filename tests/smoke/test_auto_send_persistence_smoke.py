@@ -84,18 +84,6 @@ class TestAutoSendPersistence:
         # Verify task checks if user has auto_send_enabled
         assert 'user.auto_send_enabled' in content
     
-    def test_template_has_checkbox(self):
-        """Verify user_edit.html template has auto_send_enabled checkbox"""
-        template_file = project_root / 'cps' / 'templates' / 'user_edit.html'
-        
-        with open(template_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        # Verify checkbox exists with correct attributes
-        assert 'id="auto_send_enabled"' in content
-        assert 'name="auto_send_enabled"' in content
-        assert 'content.auto_send_enabled' in content
-    
     def test_migration_adds_column(self):
         """Verify ub.py has migration logic for auto_send_enabled column"""
         ub_file = project_root / 'cps' / 'ub.py'
