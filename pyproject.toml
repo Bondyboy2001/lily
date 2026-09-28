@@ -136,7 +136,13 @@ target-version = "py313"
 extend-exclude = ["cps/static", "cps/translations", "koreader"]
 
 [tool.ruff.lint]
-# Bug-catching rules only: syntax errors, undefined names, shadowed definitions,
-# repeated dict keys, bad format calls, loop variables that clobber their iterable.
-# Widen this as the existing style warnings (unused imports etc.) are cleaned up.
-select = ["E9", "F63", "F7", "F82", "F811", "F601", "F523", "B020"]
+# E9/F63/F7/F82/F811/F601/F523/B020: bug-catching rules (syntax errors, undefined
+# names, shadowed definitions, repeated dict keys, bad format calls).
+# F401/F841 were added once the existing unused imports and variables were cleared;
+# they now keep dead imports and dead locals from coming back.
+select = ["E9", "F63", "F7", "F82", "F401", "F811", "F601", "F523", "F841", "B020"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests deliberately keep a few unused locals: they are leftovers from iterative
+# test writing, and removing the call could drop the behaviour under test.
+"tests/**" = ["F841"]

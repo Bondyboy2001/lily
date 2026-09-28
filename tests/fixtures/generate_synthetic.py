@@ -18,7 +18,6 @@ Usage:
 import zipfile
 from pathlib import Path
 import sys
-import io
 
 
 def create_minimal_epub(output_path: Path) -> None:

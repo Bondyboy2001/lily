@@ -20,7 +20,6 @@ import time
 from pathlib import Path
 import sqlite3
 import subprocess
-import json
 import sys
 
 # Ensure fixtures directory is importable

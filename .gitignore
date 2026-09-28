@@ -222,3 +222,4 @@ pr-analysis-*
 
 # Personal local deploy config
 docker-compose.local.yml
+.commandcode/

@@ -488,27 +488,6 @@ input[type="radio"] {
     font-weight: 600;
 }
 
-.tooltip { font-family: var(--font-ui); font-size: 12px; }
-
-/* .tooltip.bottom matches style.css's legacy white-on-#ddd tooltip, which outranks a bare .tooltip-inner. */
-.tooltip-inner,
-.tooltip.bottom .tooltip-inner {
-    margin-top: 0 !important;
-    padding: 4px 8px;
-    border-radius: 5px;
-    background: var(--ink);
-    box-shadow: none;
-    font-family: var(--font-ui);
-    font-size: 12px;
-    line-height: 1.5;
-    color: var(--paper);
-}
-
-.tooltip.top .tooltip-arrow { border-top-color: var(--ink); }
-.tooltip.bottom .tooltip-arrow { border-bottom-color: var(--ink); }
-.tooltip.left .tooltip-arrow { border-left-color: var(--ink); }
-.tooltip.right .tooltip-arrow { border-right-color: var(--ink); }
-
 /* ------------------------------------------------------------------ */
 /* Sheets and dialogs (§5)                                              */
 /* ------------------------------------------------------------------ */
@@ -713,11 +692,9 @@ input[type="radio"] {
 
 .table > thead > tr > th {
     border-bottom: 1px solid var(--line);
-    color: var(--faint);
-    font-size: 11px;
+    color: var(--muted);
+    font-size: 12px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .8px;
 }
 
 .table > tbody > tr > td,

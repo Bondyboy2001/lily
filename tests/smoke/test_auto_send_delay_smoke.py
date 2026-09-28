@@ -13,8 +13,6 @@ and usage code structure exists.
 """
 
 import pytest
-import sys
-import os
 from pathlib import Path
 
 # Mark all tests in this file as smoke tests

@@ -17,7 +17,7 @@ import subprocess
 import time
 import uuid
 from pathlib import Path
-from typing import Generator, List, Union
+from typing import List, Union
 
 import pytest
 
@@ -45,7 +45,6 @@ def volume_copy(src: Union[Path, str], dst: Union['VolumePath', Path, str]):
     
     This is a drop-in replacement for shutil.copy2() in volume mode.
     """
-    from pathlib import Path as PathLib
     
     # If destination is a VolumePath, use its volume helper
     if isinstance(dst, VolumePath):

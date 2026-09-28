@@ -97,9 +97,6 @@ except Exception:  # pragma: no cover - CLI/testing path
         def __init__(self):
             self.active = True
 
-        def set_status(self, state):
-            self.active = state
-
     def get_language_name(locale: str, code3: str) -> str:  # type: ignore
         return code3 or ""
 

@@ -51,7 +51,7 @@ def test_python_services_drop_root(service):
 
 # --------------------------------------------------------------------------- stored XSS
 @pytest.mark.unit
-@pytest.mark.parametrize("template", ["cwa_stats.html", "cwa_stats_full.html",
+@pytest.mark.parametrize("template", ["cwa_stats_full.html",
                                       "cwa_stats_system.html", "cwa_read_log.html"])
 def test_stats_and_log_templates_do_not_mark_content_safe(template):
     text = (REPO / "cps/templates" / template).read_text()
@@ -60,7 +60,7 @@ def test_stats_and_log_templates_do_not_mark_content_safe(template):
 
 @pytest.mark.unit
 def test_log_content_is_escaped_when_rendered():
-    from jinja2 import Environment, FileSystemLoader
+    from jinja2 import Environment
     env = Environment(autoescape=True)
     src = (REPO / "cps/templates/cwa_stats_full.html").read_text()
     row_tpl = re.search(r"<div class=\"stats-cell\">\{\{ cell \}\}</div>", src).group(0)

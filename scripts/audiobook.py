@@ -29,7 +29,6 @@ COVER_EXTENSIONS = [".png", ".webp", ".bmp", ".jpg", ".jpeg"]
 
 
 def cover_processing(tmp_file_path, img, extension):
-    # tmp_cover_name = os.path.join(os.path.dirname(tmp_file_name), 'cover.jpg')
     tmp_cover_name = tmp_file_path + ".jpg"
     if extension in NO_JPEG_EXTENSIONS:
         if use_IM:
@@ -217,8 +216,6 @@ def get_audio_file_info(
                     break
             if cover_type:
                 tmp_cover_name = cover_processing(tmp_file_path, cover_bin, cover_type)
-            # else:
-            # logger.error("Unknown covertype in file {} ".format(original_file_name))
 
     return BookMeta(
         file_path=tmp_file_path,

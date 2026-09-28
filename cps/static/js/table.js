@@ -160,18 +160,13 @@ $(function() {
         lastBooksTableIndex = null;
     });
 
-    // Add tooltip to row-select checkboxes (and reapply on table updates)
+    // Label the row-select checkboxes (reapplied on table updates). The title attribute
+    // gives the browser's own popup; the app no longer builds Bootstrap tooltips.
     function applyBooksTableCheckboxTooltips() {
         var $checks = $('#books-table tbody td.bs-checkbox input[type="checkbox"]');
         if (!$checks.length) return;
         $checks.attr('title', 'Shift-click to select a range');
         $checks.attr('aria-label', 'Select row (Shift-click to select a range)');
-        if ($.fn.tooltip) {
-            try {
-                $checks.tooltip('destroy');
-            } catch (__) { /* ignore if not initialized */ }
-            $checks.tooltip({ container: 'body', placement: 'right' });
-        }
     }
 
     // Move Select/Clear buttons into the columns-right toolbar group
@@ -413,8 +408,6 @@ $(function() {
                 $("#languages_input").val("");
                 $("#publishers_input").val("");
                 $("#comments_input").val("");
-
-                handleListServerResponse;
             }
         });
     });
@@ -556,7 +549,11 @@ $(function() {
             dataType: "json",
             url: window.location.pathname + "/../ajax/readselectedbooks",
             data: JSON.stringify({"selections":selections, "markAsRead": true}),
-            success: function success(booTitles) {
+            success: function success(response) {
+                if (response && response.success === false) {
+                    if (window.lilyFlash) { window.lilyFlash(response.msg || "Could not update the read status.", "danger"); }
+                    return;
+                }
                 $("#books-table").bootstrapTable("refresh");
                 $("#books-table").bootstrapTable("uncheckAll");
             }
@@ -634,7 +631,6 @@ $(function() {
                 }
             };
             if ($(this).attr("data-editable-type") == "wysihtml5") {
-                //if (this.id == "comments") {
                 element.editable.display = shorten_html;
             }
             var validateText = $(this).attr("data-edit-validate");
@@ -646,7 +642,6 @@ $(function() {
         }
         column.push(element);
     });
-    // $.fn.editable.defaults.display = comment_display;
 
     $("#books-table").bootstrapTable({
         sidePagination: "server",
@@ -1389,15 +1384,6 @@ function queryParams(params)
 
 function storeLocation() {
     window.sessionStorage.setItem("back", window.location.pathname);
-}
-
-function user_handle (userId) {
-    $.ajax({
-        method:"post",
-        url: window.location.pathname + "/../../ajax/deleteuser",
-        data: {"userid":userId}
-    });
-    $("#user-table").bootstrapTable("refresh");
 }
 
 function shorten_html(value, response) {

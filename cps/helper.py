@@ -15,7 +15,7 @@ import regex
 import shutil
 import socket
 import platform
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import requests
 import unidecode
 from uuid import uuid4
@@ -737,7 +737,6 @@ def generate_random_password(min_length):
     # generate other characters
     password.extend([random_source[c % len(random_source)] for c in os.urandom(min_length)])
 
-    # password_list = list(password)
     # shuffle all characters
     random.SystemRandom().shuffle(password)
     return ''.join(password)

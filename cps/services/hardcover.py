@@ -167,7 +167,6 @@ class HardcoverClient:
                 pages_read = round(pages * (progress_percent / 100))
                 read = next(iter(book.get("user_book_reads")), None)
                 if not read:
-                    # read = self.add_read(book, pages_read)
                     # No read exists for some reason, return since we can't update anything.
                     return
                 else:
@@ -487,37 +486,6 @@ class HardcoverClient:
         }
         response = self.execute(query=mutation, variables=variables)
         return response.get("insert_user_book", {}).get("user_book", {})
-
-    def add_read(self, book, pages=0):
-        mutation = """
-            mutation ($id: Int!, $pages: Int, $editionId: Int, $startedAt: date) {
-                insert_user_book_read(user_book_id: $id, user_book_read: {
-                    progress_pages: $pages,
-                    edition_id: $editionId,
-                    started_at: $startedAt,
-                }) {
-                    error
-                    user_book_read {
-                        id
-                        started_at
-                        finished_at
-                        edition_id
-                        progress_pages
-                    }
-                }
-            }"""
-        variables = {
-            "id": int(book.get("id")),
-            "editionId": (
-                int(book.get("edition").get("id"))
-                if book.get("edition").get("id")
-                else None
-            ),
-            "pages": pages,
-            "startedAt": datetime.now().strftime("%Y-%m-%d"),
-        }
-        response = self.execute(query=mutation, variables=variables)
-        return response.get("insert_user_book_read").get("user_book_read")
 
     def parse_identifiers(self, identifiers):
         if type(identifiers) != dict:

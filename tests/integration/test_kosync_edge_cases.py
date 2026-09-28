@@ -8,7 +8,6 @@
 
 import pytest
 import base64
-import json
 
 
 @pytest.mark.docker_integration

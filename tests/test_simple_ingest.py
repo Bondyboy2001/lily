@@ -11,7 +11,6 @@ Simple test to verify basic EPUB ingest works.
 
 import pytest
 import time
-import shutil
 import subprocess
 from pathlib import Path
 

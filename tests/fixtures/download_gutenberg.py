@@ -19,7 +19,6 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 import sys
-import hashlib
 
 # Project Gutenberg mirror (official)
 BASE_URL = "https://www.gutenberg.org/cache/epub"

@@ -158,13 +158,11 @@ $(function () {
             return;
         }
         $btn.attr({
-            "data-toggle-two": "tooltip",
             "data-placement": "bottom",
             "data-viewport": "body",
             "title": title
         });
     });
-    try {
-        $("[data-toggle-two='tooltip']").tooltip({ container: "body", trigger: "hover focus", placement: "bottom", viewport: "body" });
-    } catch (e) { /* noop */ }
+    // No JS tooltip: the title attribute alone gives the browser's own popup, and the
+    // app no longer builds Bootstrap tooltips anywhere.
 });

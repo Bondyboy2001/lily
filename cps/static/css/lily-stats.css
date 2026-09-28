@@ -57,11 +57,9 @@
 .stats-field > label,
 .stats-field-label {
     margin: 0;
-    color: var(--faint);
-    font-size: 11px;
+    color: var(--muted);
+    font-size: 12px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .8px;
 }
 
 .stats-field .form-control,
@@ -124,11 +122,9 @@
 }
 
 .stats-tile-label {
-    color: var(--faint);
-    font-size: 11px;
+    color: var(--muted);
+    font-size: 12px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .8px;
 }
 
 .stats-tile-value {
@@ -521,11 +517,9 @@ a.stats-row-title:focus { color: var(--accent); }
 
 .dup-field label {
     margin: 0;
-    color: var(--faint);
-    font-size: 11px;
+    color: var(--muted);
+    font-size: 12px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .8px;
 }
 
 .dup-field .form-control { width: 100%; }
@@ -671,11 +665,9 @@ a.stats-row-title:focus { color: var(--accent); }
 }
 
 .resolution-success-label {
-    color: var(--faint);
-    font-size: 11px;
+    color: var(--muted);
+    font-size: 12px;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .8px;
 }
 
 .dup-preview-body { max-height: 60vh; overflow-y: auto; }

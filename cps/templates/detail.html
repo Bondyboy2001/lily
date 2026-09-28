@@ -13,6 +13,23 @@
         <div class="book-detail-cover cover">
             <img id="detailcover" alt="{{ entry.title }}" title="{{ entry.title }}"
                  src="{{ url_for('web.get_cover', book_id=entry.id, resolution='og', c=entry|last_modified) }}"/>
+            {# Read-only here; shelves and tags are changed on the edit page. Squares are
+               shelves and pills are tags, so the two kinds read apart at a glance. #}
+            {% set shelves = (g.shelves_access|selectattr('id', 'in', books_shelfs)|list) if (current_user.is_authenticated and books_shelfs) else [] %}
+            {% if shelves or entry.tags|length > 0 %}
+            <div class="book-detail-taxonomy">
+                {# Five tones per kind, wired to .tone-1..5 in lily-library.css. A new tag or shelf
+                   takes the next tone, and tags are offset so a shelf and a tag rarely match. #}
+                {% for shelf in shelves %}
+                    <a class="btn lily-chip is-shelf tone-{{ (shelf.id % 5) + 1 }}" href="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}"
+                       aria-label="{{ _('Shelves') }}: {{ shelf.name }}{% if shelf.is_public == 1 %} {{ _('(Public)') }}{% endif %}">{{ shelf.name }}{% if shelf.is_public == 1 %} {{ _('(Public)') }}{% endif %}</a>
+                {% endfor %}
+                {% for tag in entry.tags|sort(attribute='name') %}
+                    <a class="btn lily-chip is-tag tone-{{ ((tag.id + 2) % 5) + 1 }}" href="{{ url_for('web.books_list', data='category', sort_param='stored', book_id=tag.id) }}"
+                       aria-label="{{ _('Tags') }}: {{ tag.name }}">{{ tag.name }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
         </div>
         <div class="book-detail-meta">
             <h2 id="title">{{ entry.title }}</h2>
@@ -122,30 +139,6 @@
             </div>
 
             <dl class="book-metadata">
-                {# Read-only here; shelves and tags are changed on the edit page #}
-                {% if current_user.is_authenticated and books_shelfs %}
-                    {% set shelves = g.shelves_access|selectattr('id', 'in', books_shelfs)|list %}
-                    {% if shelves %}
-                    <div class="shelves" id="detail-shelves">
-                        <dt>{{ _('Shelves') }}</dt>
-                        <dd>
-                            {% for shelf in shelves %}
-                                <span><a href="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}">{{ shelf.name }}{% if shelf.is_public == 1 %} {{ _('(Public)') }}{% endif %}</a>{% if not loop.last %},{% endif %}</span>
-                            {% endfor %}
-                        </dd>
-                    </div>
-                    {% endif %}
-                {% endif %}
-                {% if entry.tags|length > 0 %}
-                    <div class="tags" id="detail-tags">
-                        <dt>{{ _('Tags') }}</dt>
-                        <dd>
-                            {% for tag in entry.tags|sort(attribute='name') %}
-                                <span><a href="{{ url_for('web.books_list', data='category', sort_param='stored', book_id=tag.id) }}">{{ tag.name }}</a>{% if not loop.last %},{% endif %}</span>
-                            {% endfor %}
-                        </dd>
-                    </div>
-                {% endif %}
                 {% if entry.publishers|length > 0 %}
                     <div class="publishers">
                         <dt>{{ _('Publisher') }}</dt>
@@ -169,11 +162,7 @@
                         <dt>{{ _('File sizes') }}</dt>
                         <dd>
                             {% for format in entry.data %}
-                                {% if current_user.role_download() %}
-                                    <a href="{{ url_for('web.download_link', book_id=entry.id, book_format=format.format|lower, anyname=entry.id|string+'.'+format.format|lower|replace('kepub', 'kepub.epub')) }}">{{ format.format }} ({{ format.uncompressed_size|filesizeformat_binary }})</a>{% if not loop.last %}, {% endif %}
-                                {% else %}
-                                    {{ format.format }} ({{ format.uncompressed_size|filesizeformat_binary }}){% if not loop.last %}, {% endif %}
-                                {% endif %}
+                                {{ format.format }} ({{ format.uncompressed_size|filesizeformat_binary }}){% if not loop.last %}, {% endif %}
                             {% endfor %}
                         </dd>
                     </div>
@@ -374,8 +363,6 @@
 <script src="{{ url_for('static', filename='js/details.js') }}"></script>
 <script src="{{ url_for('static', filename='js/email_selection.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fullscreen.js') }}"></script>
-{% if current_user.role_edit() %}
-{% endif %}
 <script type="text/javascript">
     $(function () {
         var toastTimer;
@@ -418,7 +405,7 @@
                     $icon.toggleClass("glyphicon-eye-open", isRead)
                          .toggleClass("glyphicon-eye-close", !isRead);
                     var title = isRead ? $cb.data("checked") : $cb.data("unchecked");
-                    $("#toggle-read-btn").attr("title", title).attr("aria-label", title).attr("aria-pressed", isRead ? "true" : "false").attr("data-original-title", title);
+                    $("#toggle-read-btn").attr("title", title).attr("aria-label", title).attr("aria-pressed", isRead ? "true" : "false");
                     var $btn = $("#toggle-read-btn");
                     var toastMsg = isRead ? $btn.data("toast-on") : $btn.data("toast-off");
                     showActionToast(toastMsg, $btn[0]);
@@ -450,7 +437,7 @@
                     $icon.toggleClass("glyphicon-folder-open", isArchived)
                         .toggleClass("glyphicon-folder-close", !isArchived);
                     var title = isArchived ? $cb.data("checked") : $cb.data("unchecked");
-                    $("#toggle-archive-btn").attr("title", title).attr("aria-label", title).attr("aria-pressed", isArchived ? "true" : "false").attr("data-original-title", title);
+                    $("#toggle-archive-btn").attr("title", title).attr("aria-label", title).attr("aria-pressed", isArchived ? "true" : "false");
                     var $btn = $("#toggle-archive-btn");
                     var toastMsg = isArchived ? $btn.data("toast-on") : $btn.data("toast-off");
                     showActionToast(toastMsg, $btn[0]);

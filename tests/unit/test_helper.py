@@ -18,8 +18,7 @@ are tested in integration tests instead.
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock, PropertyMock
-import re
+from unittest.mock import Mock, patch
 from types import SimpleNamespace
 
 # Import config for accessing in tests

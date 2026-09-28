@@ -15,7 +15,6 @@ Note: These are integration tests that require a running CWA container.
 
 import pytest
 import sys
-import json
 import base64
 from pathlib import Path
 
@@ -149,8 +148,6 @@ class TestKOSyncBookEnrichment:
     @pytest.fixture
     def book_with_checksum(self, cwa_container, library_folder, tmp_path):
         """Create a test book with a known checksum in the library."""
-        import sqlite3
-        from cps.progress_syncing.checksums import calculate_koreader_partial_md5
 
         # This would need actual book ingestion in a real test
         # For now, we'll skip if library is empty

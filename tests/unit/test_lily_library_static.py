@@ -105,8 +105,11 @@ def test_lily_js_keeps_the_caliblur_behaviours_that_are_still_needed():
     js = read(JS / "lily.js")
     # "readmore" was dropped on purpose when lily.js replaced caliblur.js, so it is
     # deliberately not in this list.
-    for needle in ("shown.bs.dropdown", "dropdown-menu-right", ".tooltip(", 'target: "_blank"'):
+    for needle in ("shown.bs.dropdown", "dropdown-menu-right", 'target: "_blank"'):
         assert needle in js, needle
+    # The app builds no JS tooltips: the design has none, and the one Bootstrap tooltip
+    # that did exist flickered because it was appended to <body> over its own trigger.
+    assert ".tooltip(" not in js
     # The shell behaviour is still there.
     assert "drawer-open" in js
 
@@ -119,5 +122,5 @@ def test_style_css_has_no_legacy_colours():
 
 
 def test_book_links_open_the_book_page_not_a_modal():
-    for name in ["index.html", "author.html", "search.html", "shelf.html", "image.html", "book_exists_flash.html"]:
+    for name in ["index.html", "author.html", "search.html", "shelf.html", "image.html"]:
         assert "#bookDetailsModal" not in read(TEMPLATES / name), name

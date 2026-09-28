@@ -6,13 +6,11 @@
 # See CONTRIBUTORS for full list of authors.
 
 import os
-import hashlib
 from flask_babel import gettext as _
 
 from . import logger, comic, isoLanguages
 from .constants import BookMeta
 from .helper import split_authors
-from .file_helper import get_temp_dir
 from .string_helper import strip_whitespaces
 
 log = logger.create()

@@ -263,7 +263,6 @@ class CWA_DB(CWAStatsQueries):
     def ensure_settings_schema_match(self) -> None:
         self.cur.execute("SELECT * FROM cwa_settings")
         cwa_setting_names = [header[0] for header in self.cur.description]
-        # print(f"[cwa-db] DEBUG: Current available cwa_settings: {cwa_setting_names}")
 
         # Add any settings present in the schema file but not in the db
         newly_added_settings = []
@@ -1065,7 +1064,9 @@ class CWA_DB(CWAStatsQueries):
 
 
 def main():
+    """Create the CWA database if missing and apply any pending schema migration."""
     db = CWA_DB()
+    print(f"[cwa-db] Schema ready: {os.path.abspath(db.db_path + db.db_file)}")
 
 
 if __name__ == "__main__":

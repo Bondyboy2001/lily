@@ -163,16 +163,6 @@ def create_app():
 
     ub.password_change(cli_param.user_credentials)
 
-    if sys.version_info < (3, 0):
-        log.info(
-            '*** Python2 is EOL since end of 2019, this version of Calibre-Web is no longer supporting Python2, '
-            'please update your installation to Python3 ***')
-        print(
-            '*** Python2 is EOL since end of 2019, this version of Calibre-Web is no longer supporting Python2, '
-            'please update your installation to Python3 ***')
-        web_server.stop(True)
-        sys.exit(5)
-
     lm.login_view = 'web.login'
     lm.anonymous_user = ub.Anonymous
     lm.session_protection = 'strong' if config.config_session == 1 else "basic"

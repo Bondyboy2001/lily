@@ -254,7 +254,6 @@ class TaskConvert(CalibreTask):
     def _convert_calibre(self, file_path, format_old_ext, format_new_ext, has_cover):
         path_tmp_opf = None
         try:
-            # path_tmp_opf = self._embed_metadata()
             if config.config_embed_metadata:
                 quotes = [5]
                 tmp_dir = get_temp_dir()

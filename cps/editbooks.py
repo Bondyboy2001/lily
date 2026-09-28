@@ -24,7 +24,7 @@ from sqlalchemy.exc import OperationalError, IntegrityError, InterfaceError, Inv
 from sqlalchemy.orm.exc import StaleDataError
 from sqlalchemy.sql.expression import func, or_
 
-from . import constants, logger, isoLanguages, gdriveutils, uploader, helper, kobo_sync_status
+from . import logger, isoLanguages, gdriveutils, uploader, helper, kobo_sync_status
 from .clean_html import clean_string
 from . import config, ub, db, calibre_db
 from .services.worker import WorkerThread
@@ -691,11 +691,14 @@ def read_selected_books():
         try:
             for book_id in vals:
                 ret = helper.edit_book_read_status(book_id, markAsRead)
+                # edit_book_read_status returns an error message (truthy) or "" on success
+                if ret:
+                    return json.dumps({'success': False, 'msg': ret})
 
         except (OperationalError, IntegrityError, StaleDataError) as e:
             calibre_db.session.rollback()
             log.error_or_exception("Database error: {}".format(e))
-            ret = Response(json.dumps({'success': False,
+            return Response(json.dumps({'success': False,
                     'msg': 'Database error: {}'.format(e.orig if hasattr(e, "orig") else e)}),
                     mimetype='application/json')
 
@@ -786,9 +789,14 @@ def table_xchange_author_title():
             if config.config_use_google_drive:
                 gdriveutils.updateGdriveCalibreFromLocal()
 
+            dir_error = None
             if edited_books_id:
-                # toDo: Handle error
-                edit_error = helper.update_dir_structure(edited_books_id, config.get_book_path(), input_authors[0])
+                # Returns False on success, or an error message when the move failed.
+                dir_error = helper.update_dir_structure(
+                    edited_books_id, config.get_book_path(), input_authors[0])
+                if dir_error:
+                    log.error("Directory structure update failed for book {}: {}",
+                              edited_books_id, dir_error)
             if modify_date:
                 book.last_modified = datetime.now(timezone.utc)
                 calibre_db.set_metadata_dirty(book.id)
@@ -801,6 +809,11 @@ def table_xchange_author_title():
 
             if config.config_use_google_drive:
                 gdriveutils.updateGdriveCalibreFromLocal()
+
+            if dir_error:
+                # The metadata edit is saved, but the files were not moved, so the book
+                # path no longer matches the database. Report it instead of claiming success.
+                return json.dumps({'success': False, 'msg': str(dir_error)})
         return json.dumps({'success': True})
     return ""
 
@@ -1185,7 +1198,6 @@ def prepare_authors(authr, calibre_path, gdrive=False):
                     new_author_dir = helper.rename_author_path(in_aut, one_old_authordir, in_aut, calibre_path, gdrive)
                     one_book.path = os.path.join(new_author_dir, one_titledir).replace('\\', '/')
                     # rename all books in book data with the new author name and move corresponding files to new locations
-                    # old_path = os.path.join(calibre_path, new_author_dir, one_titledir)
                     new_path = os.path.join(calibre_path, new_author_dir, one_titledir)
                     # Use the NEW author for filenames as well
                     all_new_name = helper.get_valid_filename(one_book.title, chars=42) + ' - ' \

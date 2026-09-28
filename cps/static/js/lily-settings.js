@@ -180,9 +180,10 @@
       function update() {
         var type = select.value;
         var lockedByServer = select.disabled; // e.g. no Hardcover token
-        if (day) { day.style.display = type === "weekly" ? "block" : "none"; }
-        if (monthday) { monthday.style.display = type === "monthly" ? "block" : "none"; }
-        if (hour) { hour.style.display = (type === "daily" || type === "weekly" || type === "monthly") ? "block" : "none"; }
+        // "" hands display back to the stylesheet (the rows are grids).
+        if (day) { day.style.display = type === "weekly" ? "" : "none"; }
+        if (monthday) { monthday.style.display = type === "monthly" ? "" : "none"; }
+        if (hour) { hour.style.display = (type === "daily" || type === "weekly" || type === "monthly") ? "" : "none"; }
         if (!lockedByServer) {
           setControlsDisabled(day, type === "monthly");
           setControlsDisabled(monthday, type !== "monthly");

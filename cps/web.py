@@ -313,13 +313,34 @@ def get_languages_json():
     return json_dumps
 
 
+@web.route("/get_book_titles_json", methods=['GET'])
+@login_required_if_no_ano
+def get_book_titles_json():
+    # Suggestions for the top bar search box: books whose title or author matches.
+    # common_filters() keeps hidden/archived books out of the suggestions, exactly as the lists do.
+    query = strip_whitespaces(request.args.get('q') or '')
+    if len(query) < 2:
+        return json.dumps([])
+    pattern = "%" + query + "%"
+    books = calibre_db.session.query(db.Books) \
+        .filter(calibre_db.common_filters()) \
+        .filter(or_(db.Books.title.ilike(pattern),
+                    db.Books.authors.any(db.Authors.name.ilike(pattern)))) \
+        .order_by(func.lower(db.Books.title)).limit(8).all()
+    # Each suggestion carries its small cover thumbnail, cache-busted like the library grid.
+    return json.dumps([dict(name=book.title,
+                            author=" & ".join(a.name.replace("|", ",") for a in book.authors),
+                            cover=url_for('web.get_cover', book_id=book.id, resolution='sm',
+                                          c=str(int(book.last_modified.timestamp()))))
+                       for book in books])
+
+
 @web.route("/get_matching_tags", methods=['GET'])
 @login_required_if_no_ano
 def get_matching_tags():
     tag_dict = {'tags': []}
     q = calibre_db.session.query(db.Books).filter(calibre_db.common_filters(True))
     calibre_db.create_functions()
-    # calibre_db.session.connection().connection.connection.create_function("lower", 1, db.lcase)
     author_input = request.args.get('authors') or ''
     title_input = request.args.get('title') or ''
     include_tag_inputs = request.args.getlist('include_tag') or ''

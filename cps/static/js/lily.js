@@ -73,6 +73,30 @@
     $(".navbar").first().after($row);
   }
 
+  // Exposed so other scripts (e.g. table.js) can report failures the same way.
+  window.lilyFlash = flash;
+
+  // Flash messages step aside by themselves: a short while for news, a little longer for
+  // errors. Notices with their own close button (update, setup) stay until dismissed.
+  var FLASH_MS = 3000, FLASH_ERROR_MS = 5000;
+  function autoHide(el) {
+    if (el.dataset.lilyAutoHide || $(el).is(".alert-cwa") || $(el).find(".close").length) { return; }
+    el.dataset.lilyAutoHide = "1";
+    setTimeout(function () {
+      var $row = $(el).closest(".row-fluid");
+      ($row.length ? $row : $(el)).remove();
+    }, $(el).is(".alert-danger") ? FLASH_ERROR_MS : FLASH_MS);
+  }
+  function hideFlashes() {
+    $("[id^='flash_'].alert").each(function () { autoHide(this); });
+  }
+  $(hideFlashes);
+  if (window.MutationObserver) {
+    $(function () {
+      new MutationObserver(hideFlashes).observe(document.body, { childList: true, subtree: true });
+    });
+  }
+
   function pickFormat(formats, priority) {
     for (var i = 0; i < priority.length; i++) {
       if (formats.indexOf(priority[i]) !== -1) { return priority[i]; }
@@ -81,16 +105,15 @@
   }
 
   function setLabel($btn, label) {
-    $btn.attr({ title: label, "aria-label": label, "data-original-title": label });
+    $btn.attr({ title: label, "aria-label": label });
   }
 
   $(function () {
-    // Tooltips for anything that asks for one; hide them once the control is used.
-    if (!$("body").hasClass("epub")) {
-      var $tips = $("[data-toggle='tooltip'], [data-toggle-two='tooltip'], .lily-chip[title], .lily-cover-actions .icon-btn[title], .book-action-icons .icon-btn[title], .book-metadata .icon-btn[title]");
-      $tips.tooltip({ container: "body", trigger: "hover focus", placement: "bottom" });
-      $tips.on("click", function () { $tips.tooltip("hide"); });
-    }
+    // No JS tooltips: the design calls for none. The controls keep their title/aria-label
+    // attributes, so the browser's own tooltip is the only popup and screen readers still
+    // announce the control. (An earlier Bootstrap tooltip was also the cause of a hover
+    // flicker on the book page's action icons, since the tooltip was appended to <body>
+    // and could land on top of the button that opened it.)
 
     // Links to other sites open in a new tab.
     $("a[href]").filter(function () {
@@ -183,7 +206,7 @@
 })(window.jQuery);
 
 /*
- * Library refresh button (#refresh-library) and its status notice (#message_library_refresh).
+ * Library refresh button (#refresh-library) and its status toast (#message_library_refresh).
  * Globals because layout.html wires them with onclick attributes.
  */
 (function () {
@@ -196,12 +219,59 @@
   var attempts = 0;
   var inFlight = false;
 
-  function showMessage(message) {
-    var box = document.getElementById("message_library_refresh");
+  var TOAST_MS = 2500; // how long a finished result stays up
+  var hideTimer = null;
+
+  function toast() { return document.getElementById("message_library_refresh"); }
+
+  // The server's messages start with "Library Refresh 🔄" and end with a status emoji.
+  // The toast's own icon carries both, so they are trimmed from the text.
+  function tidy(text) {
+    return String(text).replace(/^[^🔄]*🔄\s*/, "").replace(/\s*[✅⛔⌛]\s*$/, "");
+  }
+
+  function cancelHide() {
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+  }
+
+  function scheduleHide() {
+    cancelHide();
+    hideTimer = setTimeout(window.dismissLibraryRefreshMessage, TOAST_MS);
+  }
+
+  // state: "busy" while the refresh runs (stays up), "done" or "error" once it has finished
+  // (leaves by itself after TOAST_MS, but not while the pointer is over it).
+  function showMessage(messages, state) {
+    var box = toast();
     var para = document.getElementById("library_refresh_message");
-    if (box && para) {
-      para.innerHTML = message;
-      box.style.display = "inline-flex";
+    if (!box || !para) { return; }
+    para.textContent = "";
+    [].concat(messages).forEach(function (text, i) {
+      if (i) { para.appendChild(document.createElement("br")); }
+      para.appendChild(document.createTextNode(tidy(text)));
+    });
+    box.classList.remove("is-busy", "is-done", "is-error", "is-leaving");
+    box.classList.add("is-" + state);
+    var icon = box.querySelector(".lily-refresh-toast-icon");
+    if (icon) {
+      icon.className = "glyphicon lily-refresh-toast-icon " +
+        (state === "busy" ? "glyphicon-refresh" : state === "error" ? "glyphicon-warning-sign" : "glyphicon-ok");
+    }
+    // Sit just under the top bar, whose height grows when the search box wraps on phones.
+    var bar = document.querySelector(".lily-topbar");
+    if (bar) { box.style.top = Math.max(0, bar.getBoundingClientRect().bottom) + 12 + "px"; }
+    box.hidden = false;
+    cancelHide();
+    if (state !== "busy") { scheduleHide(); }
+    if (!box.dataset.hoverWired) {
+      box.dataset.hoverWired = "1";
+      box.addEventListener("mouseenter", cancelHide);
+      box.addEventListener("mouseleave", function () {
+        if (!box.hidden && !box.classList.contains("is-busy")) { scheduleHide(); }
+      });
     }
   }
 
@@ -225,7 +295,8 @@
       .then(function (response) { return response.json(); })
       .then(function (data) {
         if (data.messages.length > 0) {
-          showMessage(data.messages.join("<br>"));
+          var failed = data.messages.some(function (m) { return m.indexOf("⛔") !== -1; });
+          showMessage(data.messages, failed ? "error" : "done");
           stopChecking();
         }
       })
@@ -248,7 +319,7 @@
         return response.json();
       })
       .then(function (data) {
-        showMessage(data.message);
+        showMessage(data.message, "busy");
         if (!interval) {
           attempts = 0;
           interval = setInterval(checkMessages, POLL_MS);
@@ -256,19 +327,24 @@
       })
       .catch(function (error) {
         console.error("Error:", error);
-        var box = document.getElementById("message_library_refresh");
-        showMessage(box ? box.getAttribute("data-error-message") : "Library refresh failed.");
+        var box = toast();
+        showMessage(box ? box.getAttribute("data-error-message") : "Library refresh failed.", "error");
       });
   };
 
   window.dismissLibraryRefreshMessage = function () {
-    var box = document.getElementById("message_library_refresh");
-    var para = document.getElementById("library_refresh_message");
-    if (box && para) {
-      para.innerHTML = "";
-      box.style.display = "none";
-    }
+    var box = toast();
+    cancelHide();
+    if (!box || box.hidden) { return; }
+    box.classList.add("is-leaving");
+    setTimeout(function () {
+      if (box.classList.contains("is-leaving")) {
+        box.hidden = true;
+        box.classList.remove("is-leaving");
+      }
+    }, 200);
   };
+
 })();
 
 /*
@@ -323,3 +399,52 @@ window.lilyPickOption = function (item) {
   }
   return true;
 };
+
+/*
+ * Top bar search: suggest matching books while typing. The endpoint applies the same
+ * visibility rules as the library lists, so nothing hidden is ever suggested.
+ * Markup: layout.html (#query + data-suggest-url); menu look: lily-library.css.
+ */
+(function ($) {
+  "use strict";
+  if (!$ || !$.fn.typeahead || !window.Bloodhound) { return; }
+
+  $(function () {
+    var input = document.getElementById("query");
+    var suggestUrl = input && input.getAttribute("data-suggest-url");
+    if (!suggestUrl) { return; }
+
+    var books = new Bloodhound({
+      datumTokenizer: Bloodhound.tokenizers.obj.whitespace("name"),
+      queryTokenizer: Bloodhound.tokenizers.whitespace,
+      remote: {url: suggestUrl + "?q=%QUERY", wildcard: "%QUERY"}
+    });
+
+    $(input).typeahead({hint: false, minLength: 2}, {
+      name: "books",
+      display: "name",
+      limit: 8,
+      source: books,
+      templates: {
+        // Built as DOM nodes, so titles and authors are escaped rather than injected as HTML.
+        suggestion: function (book) {
+          var $item = $("<div>").addClass("tt-book");
+          if (book.cover) {
+            $("<img>").addClass("tt-cover").attr({src: book.cover, alt: "", loading: "lazy"}).appendTo($item);
+          }
+          var $text = $("<div>").addClass("tt-text").appendTo($item);
+          $("<span>").addClass("tt-title").text(book.name).appendTo($text);
+          if (book.author) {
+            $("<span>").addClass("tt-author").text(book.author).appendTo($text);
+          }
+          return $item;
+        }
+      }
+    });
+
+    // The box is a search form, so picking a suggestion runs that search.
+    $(input).on("typeahead:select typeahead:autocomplete", function () {
+      $(this).closest("form").trigger("submit");
+    });
+  });
+})(window.jQuery);

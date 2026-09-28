@@ -1,11 +1,12 @@
-{% extends "layout.html" %}
+{% extends "settings_layout.html" %}
 {% block header %}
 <link href="{{ url_for('static', filename='css/libs/bootstrap-table.min.css') }}" rel="stylesheet">
 {% endblock %}
-{% block body %}
-<div class="discover lily-admin lily-admin-wide lily-tasks">
+{% block heading %}{{ _('Tasks') }}{% endblock %}
+{% block pane_class %} is-wide{% endblock %}
+{% block settings %}
+<div class="lily-admin lily-admin-wide lily-tasks">
   <section class="lily-admin-section">
-    <h2 class="lily-admin-heading">{{ _('Background Tasks Overview') }}</h2>
     <table class="table table-no-bordered" id="tasktable" data-url="{{  url_for('tasks.get_email_status_json') }}"  data-sort-name="starttime" data-sort-order="asc" data-locale="{{ current_user.locale }}" data-classes="table table-no-bordered table-hover">
       <thead>
         <tr>
@@ -99,7 +100,7 @@
     // Auto-dismiss after 4 seconds
     setTimeout(function() {
       alertDiv.alert('close');
-    }, 4000);
+    }, 2500);
   }
 
   function upcomingResponse(res) {

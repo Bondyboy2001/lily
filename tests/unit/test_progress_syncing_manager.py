@@ -8,7 +8,6 @@
 
 import pytest
 import sqlite3
-from datetime import datetime
 
 from cps.progress_syncing.checksums import (
     store_checksum,

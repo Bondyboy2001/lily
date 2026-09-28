@@ -52,9 +52,6 @@ class Metadata:
     def __init__(self):
         self.active = True
 
-    def set_status(self, state):
-        self.active = state
-
     def is_globally_enabled(self, enabled_map: Dict[str, bool]) -> bool:
         return bool(enabled_map.get(self.__id__, self.default_enabled))
 

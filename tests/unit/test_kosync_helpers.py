@@ -11,8 +11,6 @@ from cps.progress_syncing.protocols.kosync import (
     is_valid_field,
     is_valid_key_field,
     KOSyncError,
-    create_sync_response,
-    handle_sync_error,
     MAX_DOCUMENT_LENGTH,
     MAX_PROGRESS_LENGTH,
     MAX_DEVICE_LENGTH,

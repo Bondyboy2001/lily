@@ -75,7 +75,6 @@ class OAuthBackend(SQLAlchemyBackend):
             use_provider_user_id = True
 
         if self.user_required and not u and not uid and not use_provider_user_id:
-            # raise ValueError("Cannot get OAuth token without an associated user")
             return None
         # check for user ID
         if hasattr(self.model, "user_id") and uid:

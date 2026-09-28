@@ -89,11 +89,12 @@
           <a class="lily-brand" href="{{url_for('web.index')}}"><img src="{{ url_for('static', filename='icon.svg') }}" alt="" width="44" height="44">{{instance}}</a>
           {% endif %}
           {# The book page shows its title as the page heading, so the top bar leaves it out #}
-          <h1 class="lily-page-title">{% if page != 'book' %}{{ title }}{% endif %}</h1>
+          <h1 class="lily-page-title">{% block page_title %}{% if page != 'book' %}{{ title }}{% endif %}{% endblock %}</h1>
           {% if show_sidebar %}
           <form class="lily-search" role="search" action="{{url_for('search.simple_search')}}" method="GET">
             <label for="query" class="sr-only">{{_('Search')}}</label>
-            <input type="search" class="form-control" id="query" name="query" placeholder="{{_('Search Library')}}" value="{{searchterm}}">
+            <input type="search" class="form-control" id="query" name="query" placeholder="{{_('Search Library')}}" value="{{searchterm}}"
+                   autocomplete="off" data-suggest-url="{{url_for('web.get_book_titles_json')}}">
             <button type="submit" id="query_submit" class="sr-only">{{_('Search')}}</button>
           </form>
           <a href="{{url_for('search.advanced_search')}}" id="advanced_search" class="icon-btn" title="{{_('Advanced Search')}}" aria-label="{{_('Advanced Search')}}"><span class="glyphicon glyphicon-filter" aria-hidden="true"></span></a>
@@ -106,43 +107,27 @@
               <input class="hide" id="btn-upload2" name="btn-upload2" type="file" accept="{% for format in accept %}.{% if format != ''%}{{format}}{% else %}*{% endif %}{{ ',' if not loop.last }}{% endfor %}">
             </form>
             {% endif %}
-            {% if not current_user.is_anonymous and not simple %}
-            <a id="top_tasks" class="icon-btn" href="{{url_for('tasks.get_tasks_status')}}" title="{{_('Tasks')}}" aria-label="{{_('Tasks')}}"><span class="glyphicon glyphicon-tasks" aria-hidden="true"></span></a>
-            {% endif %}
             {% if current_user.role_admin() %}
             <a id="refresh-library" class="icon-btn" href="#" role="button" title="{{_('Refresh Library')}}" aria-label="{{_('Refresh Library')}}" onclick="refreshLibrary(); return false;"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></a>
-            <a id="top_admin" class="icon-btn" href="{{url_for('admin.admin')}}" title="{{_('Admin')}}" aria-label="{{_('Admin')}}"><span class="glyphicon glyphicon-dashboard" aria-hidden="true"></span></a>
             {% endif %}
-            <div class="dropdown">
-              <button type="button" class="icon-btn dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="{{_('Account')}}" aria-label="{{_('Account')}}">
-                <span class="glyphicon glyphicon-user" aria-hidden="true"></span>
-              </button>
-              <ul class="dropdown-menu dropdown-menu-right lily-profile-menu">
-                {% if current_user.is_anonymous %}
-                <li><a id="login" href="{{url_for('web.login', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}">{{_('Login')}}</a></li>
-                {% if g.allow_registration %}
-                <li><a id="register" href="{{url_for('web.register')}}">{{_('Register')}}</a></li>
-                {% endif %}
-                {% endif %}
-                {% if not current_user.is_anonymous %}
-                <li class="lily-profile-name">{{current_user.name}}</li>
-                <li><a id="top_user" href="{{url_for('web.profile')}}">{{_('Account')}}</a></li>
-                <li role="separator" class="divider"></li>
-                <li><a id="logout" href="{{url_for('web.logout', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}">{{_('Logout')}}</a></li>
-                {% endif %}
-              </ul>
-            </div>
+            {# Settings goes straight to the settings pages (account, tasks, admin, logout) #}
+            {% if current_user.is_anonymous %}
+            <a id="login" class="icon-btn" href="{{url_for('web.login', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}" title="{{_('Login')}}" aria-label="{{_('Login')}}"><span class="glyphicon glyphicon-log-in" aria-hidden="true"></span></a>
+            {% else %}
+            <a id="top_settings" class="icon-btn" href="{{url_for('web.profile')}}" title="{{_('Settings')}}" aria-label="{{_('Settings')}}"><span class="glyphicon glyphicon-cog" aria-hidden="true"></span></a>
+            {% endif %}
           </div>
           {% endif %}
         </header>
     
-    <div class="row-fluid text-center">
-      <div id="message_library_refresh" style="display: none;" class="alert alert-info refresh-cwa" data-error-message="{{ _('Library refresh failed. Please try again or check the logs.') }}">
-        <p id="library_refresh_message"></p>
-        <button id="refresh_message_dismiss_btn" type="button" class="close" onclick="dismissLibraryRefreshMessage()" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
+    {# Library refresh status: a temporary toast in the top right (lily.js shows and hides it) #}
+    <div id="message_library_refresh" class="lily-refresh-toast" role="status" aria-live="polite" hidden
+         data-error-message="{{ _('Library refresh failed. Please try again or check the logs.') }}">
+      <span class="glyphicon glyphicon-refresh lily-refresh-toast-icon" aria-hidden="true"></span>
+      <p id="library_refresh_message"></p>
+      <button id="refresh_message_dismiss_btn" type="button" class="lily-refresh-toast-close" onclick="dismissLibraryRefreshMessage()" aria-label="{{_('Close')}}">
+        <span aria-hidden="true">&times;</span>
+      </button>
     </div>
 
     {% for message in get_flashed_messages(with_categories=True) %}
@@ -284,6 +269,9 @@
     <script src="{{ url_for('static', filename='js/libs/underscore-umd-min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/libs/plugins.js') }}"></script>
     <script src="{{ url_for('static', filename='js/libs/jquery.form.min.js') }}"></script>
+    {% if show_sidebar %}
+    <script src="{{ url_for('static', filename='js/libs/typeahead.bundle.js') }}"></script>
+    {% endif %}
     <script src="{{ url_for('static', filename='js/uploadprogress.js') }}"> </script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     <script src="{{ url_for('static', filename='js/lily.js') }}"></script>

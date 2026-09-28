@@ -541,7 +541,6 @@ class AlchemyEncoder(json.JSONEncoder):
                         data = data.replace("'", "\'")
                     elif isinstance(data, InstrumentedList):
                         el = list()
-                        # ele = None
                         for ele in data:
                             if hasattr(ele, 'value'):       # converter for custom_column values
                                 if isinstance(ele.value, datetime):
@@ -757,7 +756,6 @@ class CalibreDB:
                 local_session = scoped_session(sessionmaker())
                 local_session.configure(bind=connection)
                 database_uuid = local_session().query(Library_Id).one_or_none()
-                # local_session.dispose()
 
             check_engine.connect()
             db_change = config_calibre_uuid != database_uuid.uuid
@@ -1144,7 +1142,6 @@ class CalibreDB:
             book_authors = entry.Books.authors if combined else entry.authors
             authors_by_id = {a.id: a for a in book_authors}
             authors_ordered = list()
-            # error = False
             for auth in sort_authors:
                 auth = strip_whitespaces(auth)
                 # Skip empty author strings to prevent spurious errors
@@ -1165,7 +1162,6 @@ class CalibreDB:
                 # ToDo: How to handle not found author name
                 if not len(results):
                     log.error("Author '{}' not found to display name in right order".format(auth))
-                    # error = True
                     break
                 for r in results:
                     if r.id in ids:
@@ -1192,7 +1188,6 @@ class CalibreDB:
         self.create_functions()
         entries = self.session.query(database).filter(tag_filter). \
             filter(func.lower(database.name).ilike("%" + query + "%")).all()
-        # json_dumps = json.dumps([dict(name=escape(r.name.replace(*replace))) for r in entries])
         json_dumps = json.dumps([dict(name=r.name.replace(*replace)) for r in entries])
         return json_dumps
 

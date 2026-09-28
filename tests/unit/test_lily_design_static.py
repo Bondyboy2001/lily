@@ -80,12 +80,13 @@ def test_no_gradients_or_blur():
             assert banned not in css, (name, banned)
 
 
-def test_shadows_only_on_menus_and_popovers():
+def test_shadows_only_on_menus_popovers_and_toasts():
+    # Only layers that float above the page cast a shadow.
     for name in LILY_STYLESHEETS:
         for selector, body in css_rules(read(CSS / name)):
             for value in re.findall(r"box-shadow\s*:\s*([^;]+)", body):
                 if value.strip() not in ("none", "none !important"):
-                    assert "dropdown-menu" in selector or "popover" in selector, (name, selector)
+                    assert any(k in selector for k in ("dropdown-menu", "popover", "toast")), (name, selector)
 
 
 def test_buttons_have_no_border():
@@ -98,7 +99,7 @@ LILY_STYLESHEETS.append("lily-shell.css")
 
 KEPT_IDS = [
     "query", "query_submit", "advanced_search", "form-upload", "btn-upload", "btn-upload2",
-    "top_tasks", "top_admin", "refresh-library", "top_user", "logout", "login", "register",
+    "refresh-library", "top_settings", "login",
     "scnd-nav", "nav_createshelf", "duplicate-count-badge",
     "message_library_refresh", "library_refresh_message", "loader", "bookDetailsModal",
 ]
@@ -136,14 +137,10 @@ def test_layout_keeps_hooks_other_scripts_use():
         assert f'id="{element_id}"' in layout, element_id
 
 
-def test_profile_menu_guards_anonymous_users():
+def test_settings_button_guards_anonymous_users():
     layout = read(TEMPLATES / "layout.html")
-    menu = layout[layout.index('class="dropdown-menu dropdown-menu-right lily-profile-menu"'):]
-    menu = menu[:menu.index("</ul>")]
-    assert "{% if current_user.is_anonymous %}" in menu
-    assert menu.index("{% if current_user.is_anonymous %}") < menu.index('id="login"')
-    assert "{% if not current_user.is_anonymous %}" in menu
-    assert menu.index("{% if not current_user.is_anonymous %}") < menu.index('id="logout"')
+    bar = layout[layout.index('class="navbar lily-topbar"'):layout.index("</header>")]
+    assert bar.index("{% if current_user.is_anonymous %}") < bar.index('id="login"') < bar.index('id="top_settings"')
 
 
 def test_layout_loads_lily_js_after_main_js():
@@ -206,3 +203,27 @@ def test_hidden_sidebar_links_leave_the_tab_order():
     assert any(s == ".lily-app.drawer-open .lily-sidebar" and "visibility: visible" in b for s, b in rules)
     login = css_rules(read(CSS / "login.css"))
     assert any("body.login .lily-sidebar" in s and "display: none" in b for s, b in login)
+
+
+def test_library_refresh_notice_is_a_temporary_toast():
+    # The refresh result pops up in the top right and goes away on its own, rather than
+    # sitting as a full-width banner above the page.
+    layout = read(TEMPLATES / "layout.html")
+    assert re.search(r'<div id="message_library_refresh" class="lily-refresh-toast"[^>]*\shidden', layout)
+    assert 'class="alert alert-info refresh-cwa"' not in layout.split("get_flashed_messages")[0]
+    rules = css_rules(read(CSS / "lily-shell.css"))
+    toast = [b for s, b in rules if s == ".lily-refresh-toast"]
+    assert toast and "position: fixed" in toast[0] and re.search(r"right\s*:", toast[0])
+    assert "TOAST_MS" in read(REPO_ROOT / "cps/static/js/lily.js")
+
+
+def test_settings_button_opens_settings_with_tasks_and_logout_in_rail():
+    layout = read(TEMPLATES / "layout.html")
+    bar = layout[layout.index('class="navbar lily-topbar"'):layout.index("</header>")]
+    assert 'id="top_settings"' in bar and "glyphicon-cog" in bar
+    assert "dropdown-menu" not in bar and "url_for('web.profile')" in bar
+    for gone in ("glyphicon-user", "glyphicon-dashboard", "glyphicon-tasks"):
+        assert gone not in bar, gone
+    rail = read(TEMPLATES / "settings_layout.html")
+    assert "id='top_tasks'" in rail and "id='logout'" in rail
+    assert 'extends "settings_layout.html"' in read(TEMPLATES / "tasks.html")

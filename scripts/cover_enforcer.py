@@ -17,7 +17,6 @@ import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
-import unicodedata
 
 from cwa_db import CWA_DB
 try:

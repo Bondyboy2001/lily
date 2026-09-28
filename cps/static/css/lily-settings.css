@@ -301,3 +301,65 @@ div#metadata_provider_enabled_list {
     padding: 8px 0;
     color: var(--danger);
 }
+
+/* ================================================================== */
+/* lp-* rows on this page (patterns in lily-admin.css). This sheet     */
+/* loads before lily-admin.css, so overrides carry .lily-settings.     */
+/* ================================================================== */
+.lp.lily-settings .lily-settings-nav { margin-bottom: 22px; }
+
+/* Numbers are short: a narrow field with its unit beside it. */
+.lily-settings .lp-control > input[type="number"] {
+    flex: 0 0 110px;
+    width: 110px;
+}
+
+/* Schedule sub-rows are shown one at a time by lily-settings.js, so each
+   draws its own top line instead of the group drawing one. */
+.lily-settings .lp-sub { border-top: 0; }
+.lily-settings .lp-sub > .lp-row,
+.lily-settings .lp-sub > .lp-row:first-child { border-top: 1px solid var(--line-soft); }
+
+/* A checks grid that is not the list's first child still sits flush. */
+.lily-settings .lp-list > div > .lp-checks { border-top: 0; }
+
+.lily-settings .lily-format-grid {
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 2px 14px;
+    margin: 0;
+}
+
+.lily-settings .lp-check.lily-format-option { font-size: 14px; }
+
+/* Provider toggles drawn by lily-settings.js look like .lp-check. */
+.lily-settings #metadata_provider_enabled_list .provider_enable_item {
+    gap: 8px;
+    min-height: 30px;
+}
+
+.lily-settings #metadata_provider_enabled_list .provider_enable_item input { margin: 0; }
+
+.lily-settings #metadata_provider_enabled_list .provider_enable_item label {
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--ink-soft);
+    cursor: pointer;
+}
+
+/* Drag lists: bare rows on the surface, tinted like quiet controls. */
+.lily-settings #metadata_provider_list_outer {
+    padding: 0;
+    background: transparent;
+}
+
+.lily-settings .metadata-provider-item,
+.lily-settings .lily-format-priority-row {
+    min-height: 28px;
+    margin: 0 0 2px;
+    background: var(--control-tint);
+}
+
+.lily-settings .metadata-provider-item:hover,
+.lily-settings .lily-format-priority-row:hover { background: var(--hover); }
+
+.lily-settings .lp-notice { margin-bottom: 14px; }

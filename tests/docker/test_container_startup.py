@@ -15,7 +15,6 @@ import pytest
 import time
 import requests
 import os
-from pathlib import Path
 
 
 @pytest.mark.docker_integration

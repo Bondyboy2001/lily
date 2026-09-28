@@ -9,8 +9,6 @@ import sys
 import os
 from collections import namedtuple
 
-from flask_babel import gettext as _
-
 # APP_MODE - production, development, or test
 APP_MODE            = os.environ.get('APP_MODE', 'production')
 
@@ -79,7 +77,6 @@ SIDEBAR_BEST_RATED      = 1 <<  7
 SIDEBAR_READ_AND_UNREAD = 1 <<  8
 SIDEBAR_RECENT          = 1 <<  9
 SIDEBAR_SORTED          = 1 << 10
-MATURE_CONTENT          = 1 << 11
 SIDEBAR_PUBLISHER       = 1 << 12
 SIDEBAR_RATING          = 1 << 13
 SIDEBAR_FORMAT          = 1 << 14
@@ -117,11 +114,7 @@ DEFAULT_SIDEBAR         = (SIDEBAR_RECENT | SIDEBAR_CATEGORY | SIDEBAR_SERIES | 
 ADMIN_USER_SIDEBAR      = DEFAULT_SIDEBAR
 
 UPDATE_STABLE       = 0 << 0
-AUTO_UPDATE_STABLE  = 1 << 0
-UPDATE_NIGHTLY      = 1 << 1
-AUTO_UPDATE_NIGHTLY = 1 << 2
 
-LOGIN_STANDARD      = 0
 LOGIN_LDAP          = 1
 LOGIN_OAUTH         = 2
 
@@ -144,10 +137,6 @@ if env_CWA_PORT_OVERRIDE:
 
 
 EXTENSIONS_AUDIO = {'mp3', 'mp4', 'ogg', 'opus', 'wav', 'flac', 'm4a', 'm4b'}
-EXTENSIONS_CONVERT_FROM = ['pdf', 'epub', 'mobi', 'azw3', 'docx', 'rtf', 'fb2', 'lit', 'lrf',
-                           'txt', 'htmlz', 'rtf', 'odt', 'cbz', 'cbr', 'prc', 'acsm']
-EXTENSIONS_CONVERT_TO = ['pdf', 'epub', 'mobi', 'azw3', 'docx', 'rtf', 'fb2',
-                         'lit', 'lrf', 'txt', 'htmlz', 'rtf', 'odt']
 EXTENSIONS_UPLOAD = {'txt', 'pdf', 'epub', 'kepub', 'mobi', 'azw', 'azw3', 'cbr', 'cbz', 'cbt', 'cb7', 'djvu', 'djv',
                      'prc', 'doc', 'docx', 'fb2', 'html', 'rtf', 'lit', 'odt', 'mp3', 'mp4', 'ogg',
                      'opus', 'wav', 'flac', 'm4a', 'm4b', 'acsm', 'kfx', 'kfx-zip'}
@@ -194,7 +183,6 @@ CACHE_TYPE_THUMBNAILS    = 'thumbnails'
 # Thumbnail Types
 THUMBNAIL_TYPE_COVER     = 1
 THUMBNAIL_TYPE_SERIES    = 2
-THUMBNAIL_TYPE_AUTHOR    = 3
 
 # Thumbnails Sizes
 COVER_THUMBNAIL_ORIGINAL = 0
@@ -204,34 +192,3 @@ COVER_THUMBNAIL_LARGE    = 4
 
 # clean-up the module namespace
 del sys, os, namedtuple
-
-# Mapping of language codes to full language names
-LANGUAGE_NAMES = {
-    "cs": _("Czech"),
-    "de": _("German"),
-    "el": _("Greek"),
-    "es": _("Spanish"),
-    "fi": _("Finnish"),
-    "fr": _("French"),
-    "gl": _("Galician"),
-    "hu": _("Hungarian"),
-    "id": _("Indonesian"),
-    "it": _("Italian"),
-    "ja": _("Japanese"),
-    "km": _("Khmer"),
-    "ko": _("Korean"),
-    "nl": _("Dutch"),
-    "no": _("Norwegian"),
-    "pl": _("Polish"),
-    "pt": _("Portuguese"),
-    "pt_BR": _("Portuguese (Brazil)"),
-    "ru": _("Russian"),
-    "sk": _("Slovak"),
-    "sl": _("Slovenian"),
-    "sv": _("Swedish"),
-    "tr": _("Turkish"),
-    "uk": _("Ukrainian"),
-    "vi": _("Vietnamese"),
-    "zh_Hans_CN": _("Chinese (Simplified, China)"),
-    "zh_Hant_TW": _("Chinese (Traditional, Taiwan)"),
-}

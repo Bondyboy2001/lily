@@ -526,21 +526,6 @@ class KoboSyncedBooks(Base):
     book_id = Column(Integer)
 
 
-def is_opds_shelf_exposed_for_user(user_id, shelf_id, _session=None):
-    s = _session if _session else session
-    return s.query(OpdsShelfExposure).filter_by(user_id=user_id, shelf_id=shelf_id).first() is not None
-
-
-def set_opds_shelf_exposed_for_user(user_id, shelf_id, exposed, _session=None):
-    s = _session if _session else session
-    existing = s.query(OpdsShelfExposure).filter_by(user_id=user_id, shelf_id=shelf_id).first()
-    if exposed:
-        if existing is None:
-            s.add(OpdsShelfExposure(user_id=user_id, shelf_id=shelf_id))
-    elif existing is not None:
-        s.delete(existing)
-
-
 # The Kobo ReadingState API keeps track of 4 timestamped entities:
 #   ReadingState, StatusInfo, Statistics, CurrentBookmark
 # Which we map to the following 4 tables:

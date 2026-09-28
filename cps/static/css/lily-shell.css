@@ -6,7 +6,7 @@
 
 :root {
     --sidebar-width: 232px;
-    --topbar-height: 52px;
+    --topbar-height: 60px;
 }
 
 body { margin: 0; }
@@ -197,6 +197,81 @@ body { margin: 0; }
 
 .lily-search .form-control { width: 100%; }
 
+/* Top bar controls match the book page's action icons: 38px control, 21px glyph. */
+.lily-topbar .icon-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 21px;
+}
+
+.lily-topbar .lily-search .form-control {
+    height: 38px;
+    padding: 0 14px;
+    font-size: 16px;
+}
+
+/* typeahead wraps the field and hangs its menu off that wrapper. The vendor stylesheet
+   is only loaded on the editor pages, so the top bar sets its own width and scroll. */
+.lily-topbar .lily-search .twitter-typeahead { width: 100%; }
+
+/* The field is narrow, so the menu is allowed to grow wider than it. It stays centred
+   under the field and never grows past the viewport.
+   typeahead writes left:0 inline, hence the !important. */
+.lily-topbar .lily-search .tt-menu {
+    right: auto;
+    left: 50% !important;
+    transform: translateX(-50%);
+    width: max-content;
+    min-width: 100%;
+    max-width: min(480px, calc(100vw - 32px));
+    max-height: 60vh;
+    margin-top: 6px;
+    overflow-y: auto;
+}
+
+.lily-topbar .lily-search .tt-suggestion {
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+/* Cover thumbnail on the left, text beside it. */
+.lily-topbar .tt-book {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.lily-topbar .tt-cover {
+    flex: none;
+    width: 36px;
+    height: 54px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: var(--hover);
+    object-fit: cover;
+}
+
+.lily-topbar .tt-text { min-width: 0; }
+
+/* Title on the first line, author underneath in the muted tone. Both wrap rather than clip. */
+.lily-topbar .tt-title {
+    display: block;
+    color: var(--ink);
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.lily-topbar .tt-author {
+    display: block;
+    margin-top: 2px;
+    color: var(--faint);
+    font-size: 13px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
 .lily-topbar-actions {
     display: flex;
     align-items: center;
@@ -247,7 +322,7 @@ label.lily-upload-btn { margin-bottom: 0; cursor: pointer; }
 .lily-drawer-toggle { display: none; }
 
 /* ---- Flash messages (layout.html and scripts insert them after .navbar) ---- */
-/* Spacing sits on the notice, so the hidden #message_library_refresh row adds none. */
+/* Spacing sits on the notice, so a row with nothing visible in it adds none. */
 .lily-topbar ~ .row-fluid {
     margin: 0;
     padding: 0 24px;
@@ -256,12 +331,77 @@ label.lily-upload-btn { margin-bottom: 0; cursor: pointer; }
 
 .lily-topbar ~ .row-fluid > .alert { margin: 14px 0 0; }
 
-#message_library_refresh {
-    align-items: center;
-    gap: 8px;
+/* ---- Toast (library refresh status) ----
+   Pops up under the top bar on the right, above the page, and leaves on its own. */
+.lily-refresh-toast {
+    position: fixed;
+    top: calc(var(--topbar-height) + 12px);
+    right: 16px;
+    z-index: 1040;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: max-content;
+    max-width: min(440px, calc(100vw - 32px));
+    padding: 12px 10px 12px 14px;
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: var(--menu-shadow);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.4;
+    animation: lily-refresh-toast-in 180ms ease-out;
 }
 
-#message_library_refresh p { margin: 0; }
+.lily-refresh-toast[hidden] { display: none; }
+
+.lily-refresh-toast.is-leaving {
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 200ms ease-in, transform 200ms ease-in;
+}
+
+.lily-refresh-toast p { margin: 0; }
+
+.lily-refresh-toast-icon {
+    flex: none;
+    margin-top: 2px;
+    color: var(--accent);
+    font-size: 15px;
+}
+
+.lily-refresh-toast.is-busy .lily-refresh-toast-icon { animation: lily-spin 1s linear infinite; }
+.lily-refresh-toast.is-done .lily-refresh-toast-icon { color: var(--success); }
+.lily-refresh-toast.is-error .lily-refresh-toast-icon { color: var(--danger); }
+
+.lily-refresh-toast-close {
+    flex: none;
+    margin: -4px 0 -4px 4px;
+    padding: 2px 6px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--faint);
+    font-size: 20px;
+    line-height: 1;
+}
+
+.lily-refresh-toast-close:hover { background: var(--hover); color: var(--ink); }
+
+@keyframes lily-refresh-toast-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes lily-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+    .lily-refresh-toast,
+    .lily-refresh-toast.is-busy .lily-refresh-toast-icon { animation: none; }
+    .lily-refresh-toast.is-leaving { transition: none; }
+}
 
 /* ---- Content ---- */
 .lily-main > .container-fluid {

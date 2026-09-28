@@ -13,7 +13,6 @@ This helps us understand why the ingest service isn't processing files.
 import pytest
 import time
 import subprocess
-from pathlib import Path
 
 
 def test_debug_container_services(cwa_container, test_volumes, ingest_folder):

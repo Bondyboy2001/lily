@@ -19,7 +19,6 @@ Environment Variables:
 import os
 import sys
 import pytest
-import tempfile
 import shutil
 import time
 import requests
@@ -937,7 +936,7 @@ def library_folder(test_volumes: dict, container_name: str) -> Path:
 
 if USE_DOCKER_VOLUMES:
     # Import volume-based fixtures
-    from conftest_volumes import (
+    from conftest_volumes import (  # noqa: F401 - pytest resolves the fixtures by name
         test_volumes_dind,
         cwa_container_dind,
         ingest_folder_dind,

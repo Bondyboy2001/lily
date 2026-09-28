@@ -12,10 +12,7 @@ Fast static checks that the NFS ingest reconnect/retry hardening stays in place.
 """
 
 import pytest
-import sys
-import os
 import ast
-import re
 from pathlib import Path
 
 # Mark all tests in this file as smoke tests

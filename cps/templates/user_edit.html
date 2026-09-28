@@ -1,281 +1,136 @@
-{% extends "layout.html" %}
-{% block body %}
-<div name="profile-page" class="discover lily-admin lily-profile">
-  <!-- Profile header: name -->
-  <div class="profile-header-container">
-    <div class="profile-title-section">
-      {% if not new_user %}<h2>{{ content.name }}</h2>{% endif %}
-      <p class="profile-subtitle">{% if profile %}{{_('Your Profile')}}{% else %}{{_('User Settings')}}{% endif %}</p>
-    </div>
-  </div>
+{% extends "settings_layout.html" %}
+{% import "lily_form.html" as f with context %}
+{% block heading %}{% if profile %}{{ _('Account') }}{% elif new_user %}{{ _('New User') }}{% else %}{{ content.name }}{% endif %}{% endblock %}
+{% block settings %}
+<div class="lp lp-profile" name="profile-page">
   <form role="form" method="POST" autocomplete="off">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    
-    <!-- User Account Information Card -->
-    <div class="settings-container">
-      <h4 class="settings-section-header">{{_('Account Information')}}</h4>
-      
+    {# Lily has one theme; the field stays so the form posts what it always has. #}
+    {% if not content.role_anonymous() %}<input type="hidden" name="theme" id="theme" value="1">{% endif %}
+
+    {% call f.group(_('Account')) %}
       {% if new_user or ( current_user and content.name != "Guest" and current_user.role_admin() ) %}
-      <div class="form-group required">
-        <label for="name">{{_('Username')}}</label>
-        <input type="text" class="form-control" name="name" id="name" value="{{ content.name if content.name != None }}" autocomplete="off">
-      </div>
+        {{ f.input('name', _('Username'), content.name) }}
       {% endif %}
-
-      <p class="help-block">{{_('If you need to change your email address or password, you can do so here.')}}</p>
-      
-      <div class="form-group">
-        <label for="email">{{_('Email')}}</label>
-        <input type="email" class="form-control" name="email" id="email" value="{{ content.email if content.email != None }}" autocomplete="off">
-      </div>
-      
+      {{ f.input('email', _('Email'), content.email, type='email') }}
       {% if ( current_user and current_user.role_passwd() or current_user.role_admin() ) and not content.role_anonymous() %}
-        {% if current_user and current_user.role_admin() and not new_user and not profile and ( mail_configured and content.email if content.email != None ) %}
-        <div class="lily-actions lily-mb">
-          <a class="btn btn-default postAction" id="resend_password" role="button" data-action="{{url_for('admin.reset_user_password', user_id = content.id) }}">{{_('Reset user Password')}}</a>
-        </div>
-        {% endif %}
-        <div class="form-group">
-          <label for="password">{{_('Password')}}</label>
+        {% call f.row(_('Password'), for_id='password', help=_('Leave empty to keep the current password.') if not new_user else None) %}
           <input type="password" class="form-control" name="password" id="password" data-lang="{{ current_user.locale }}" data-verify="{{ config.config_password_policy }}" {% if config.config_password_policy %} data-min={{ config.config_password_min_length }} data-word={{ config.config_password_character }} data-special={{ config.config_password_special }} data-upper={{ config.config_password_upper }} data-lower={{ config.config_password_lower }} data-number={{ config.config_password_number }}{% endif %} value="" autocomplete="off">
-        </div>
+        {% endcall %}
+        {% if current_user and current_user.role_admin() and not new_user and not profile and ( mail_configured and content.email if content.email != None ) %}
+          {% call f.row(_('Password Reset'), help=_('Email this user a new password.')) %}
+            <a class="btn btn-default postAction" id="resend_password" role="button" data-action="{{url_for('admin.reset_user_password', user_id = content.id) }}">{{_('Reset user Password')}}</a>
+          {% endcall %}
+        {% endif %}
       {% endif %}
-    </div>
-    
-    <!-- eReader Configuration Card -->
-    <div class="settings-container">
-      <h4 class="settings-section-header">{{_('eReader Configuration')}}</h4>
-      
-      <div class="form-group">
-        <label for="kindle_mail">{{_('Send to eReader Email Address')}}</label>
-        <input type="email" class="form-control" name="kindle_mail" id="kindle_mail" value="{{ content.kindle_mail if content.kindle_mail != None }}" placeholder="{{_('Use comma to separate multiple addresses')}}">
-        <p class="help-block">{{_('Email address(es) for your eReader devices. Separate multiple addresses with commas.')}}</p>
-      </div>
-      
-      <div class="form-group">
-        <label for="kindle_mail_subject">{{_('Send to eReader Subject')}}</label>
-        <input type="text" class="form-control" name="kindle_mail_subject" id="kindle_mail_subject" value="{{ content.kindle_mail_subject if content.kindle_mail_subject != None }}">
-      </div>
+    {% endcall %}
 
+    {% call f.group(_('Send to eReader')) %}
+      {{ f.input('kindle_mail', _('eReader Email'), content.kindle_mail, type='email', help=_('Separate several addresses with commas.'), placeholder=_('Use comma to separate multiple addresses')) }}
+      {{ f.input('kindle_mail_subject', _('Email Subject'), content.kindle_mail_subject) }}
       {% if not content.role_anonymous() %}
-      <div class="lily-mt">
-        <input type="checkbox" id="allow_additional_ereader_emails" name="allow_additional_ereader_emails" {% if content.allow_additional_ereader_emails %}checked{% endif %}>
-        <label for="allow_additional_ereader_emails">{{_('Enable Send-to-eReader Pop-up Modal')}}</label>
-        <p class="cwa-settings-tooltip">
-          {{_('Enables or disables the Send-to-eReader Pop-up Modal that allows users to enter extra email addresses and only send to a selection of saved addresses when sending to eReader.')}}
-          <br><br>
-          {{_('When disabled, emails will be sent to all configured eReader addresses without prompting.')}}
-        </p>
-      </div>
+        {{ f.toggle('allow_additional_ereader_emails', _('Ask Before Sending'), content.allow_additional_ereader_emails, help=_('Pick addresses, or add one, each time. Off sends to all of them.')) }}
+        {{ f.toggle('auto_send_enabled', _('Send New Books Automatically'), content.auto_send_enabled, help=_('Newly added books go to every address above.')) }}
       {% endif %}
-      
+    {% endcall %}
+
+    {% call f.group(_('Language')) %}
       {% if not content.role_anonymous() %}
-      <div class="lily-mt">
-        <input type="checkbox" id="auto_send_enabled" name="auto_send_enabled" {% if content.auto_send_enabled %}checked{% endif %}>
-        <label for="auto_send_enabled">{{_('Automatically send new books to my eReader(s)')}}</label>
-        <p class="cwa-settings-tooltip">{{_('When enabled, newly ingested books will be automatically sent to all configured eReader email addresses above.')}}</p>
-      </div>
-      {% endif %}
-    </div>
-    
-    <!-- Language & Theme Preferences Card -->
-    {% if not content.role_anonymous() %}
-    <div class="settings-container">
-      <h4 class="settings-section-header">{{_('Language')}}</h4>
-      
-      <div class="form-group">
-        <label for="locale">{{_('Interface Language')}}</label>
+      {% call f.row(_('Interface Language'), for_id='locale') %}
         <select name="locale" id="locale" class="form-control">
-          {%  for translation in translations %}
+          {% for translation in translations %}
             <option value="{{translation}}" {% if translation|string == content.locale %}selected{% endif %}>{{ translation.display_name|capitalize }}</option>
           {% endfor %}
         </select>
-      </div>
-      
-      <div class="form-group">
-        <label for="default_language">{{_('Language of Books')}}</label>
+      {% endcall %}
+      {% endif %}
+      {% call f.row(_('Language of Books'), for_id='default_language', help=_('Only show books in this language.')) %}
         <select name="default_language" id="default_language" class="form-control">
           <option value="all" {% if content.default_language == "all" %}selected{% endif %}>{{ _('Show All') }}</option>
-          {%  for language in languages %}
+          {% for language in languages %}
           <option value="{{ language.lang_code }}" {% if content.default_language == language.lang_code %}selected{% endif %}>{{ language.name }}</option>
           {% endfor %}
         </select>
-        <p class="help-block">{{_('Filter the library to only show books in a specific language.')}}</p>
-      </div>
-      
-      {# Lily has one theme; the field stays so the form posts what it always has. #}
-      <input type="hidden" name="theme" id="theme" value="1">
-    </div>
-    {% else %}
-    <div class="settings-container">
-      <h4 class="settings-section-header">{{_('Book Language Filter')}}</h4>
-      
-      <div class="form-group">
-        <label for="default_language">{{_('Language of Books')}}</label>
-        <select name="default_language" id="default_language" class="form-control">
-          <option value="all" {% if content.default_language == "all" %}selected{% endif %}>{{ _('Show All') }}</option>
-          {%  for language in languages %}
-          <option value="{{ language.lang_code }}" {% if content.default_language == language.lang_code %}selected{% endif %}>{{ language.name }}</option>
-          {% endfor %}
-        </select>
-        <p class="settings-explanation">{{_('Filter the library to only show books in a specific language.')}}</p>
-      </div>
-    </div>
-    {% endif %}
-    
-    <!-- OAuth & API Integrations Card -->
+      {% endcall %}
+    {% endcall %}
+
     {% if (registered_oauth.keys()| length > 0 and not new_user and profile) or (hardcover_support and not new_user) or (kobo_support and not new_user) %}
-    <div class="settings-container">
-      <h4 class="settings-section-header">{{_('OAuth & API Integrations')}}</h4>
-      
+    {% call f.group(_('Connections')) %}
       {% if registered_oauth.keys()| length > 0 and not new_user and profile %}
         {% for id, name in registered_oauth.items() %}
-        <div class="form-group">
-          <label class="lily-block-label">{{ name|capitalize }} {{_('OAuth Settings')}}</label>
-          {% if id not in oauth_status %}
-          <a href="{{ url_for('oauth.'+ name +'_login') }}" id="config_{{ id }}_oauth" class="btn btn-default">{{_('Link')}} {{ name|capitalize }} {{_('Account')}}</a>
-          {% else %}
-          <a href="{{ url_for('oauth.'+ name +'_login_unlink') }}" id="config_{{ id }}_oauth" class="btn btn-danger">{{_('Unlink')}} {{ name|capitalize }} {{_('Account')}}</a>
-          {% endif %}
-        </div>
+          {% call f.row(name|capitalize) %}
+            {% if id not in oauth_status %}
+            <a href="{{ url_for('oauth.'+ name +'_login') }}" id="config_{{ id }}_oauth" class="btn btn-default">{{_('Link')}} {{ name|capitalize }} {{_('Account')}}</a>
+            {% else %}
+            <a href="{{ url_for('oauth.'+ name +'_login_unlink') }}" id="config_{{ id }}_oauth" class="btn btn-danger">{{_('Unlink')}} {{ name|capitalize }} {{_('Account')}}</a>
+            {% endif %}
+          {% endcall %}
         {% endfor %}
       {% endif %}
-      
       {% if hardcover_support and not new_user %}
-      <div class="form-group">
-        <label for="hardcover_token">{{_('Hardcover API Token')}}</label>
-        <input type="text" class="form-control" name="hardcover_token" id="hardcover_token" value="{{ content.hardcover_token if content.hardcover_token != None }}">
-        <p class="help-block">{{_('API token for Hardcover metadata provider integration.')}}</p>
-      </div>
+        {{ f.input('hardcover_token', _('Hardcover API Token'), content.hardcover_token, help=_('For Hardcover metadata and progress sync.')) }}
       {% endif %}
-      
       {% if kobo_support and not new_user %}
-      <div class="lily-mt">
-        <label class="lily-block-label">{{ _('Kobo Sync Token')}}</label>
-        <div class="lily-actions">
-          <a class="btn btn-default" id="config_create_kobo_token" data-toggle="modal" data-target="#modal_kobo_token" data-remote="false" href="{{ url_for('kobo_auth.generate_auth_token', user_id=content.id) }}">{{_('Create/View')}}</a>
+        {% call f.row(_('Kobo Sync Token')) %}
           <div class="btn btn-danger" id="config_delete_kobo_token" data-value="{{ content.id }}" data-remote="false" {% if not content.remote_auth_token.first() %} style="display: none;" {% endif %}>{{_('Delete')}}</div>
           <div class="btn btn-default" id="kobo_full_sync" data-value="{% if current_user.role_admin() %}{{ content.id }}{% else %}0{% endif %}" {% if not content.remote_auth_token.first() %} style="display: none;" {% endif %}>{{_('Force full kobo sync')}}</div>
-        </div>
-        {% if kobo_support and not content.role_anonymous() and not simple %}
-        <div class="lily-mt">
-          <input type="checkbox" name="kobo_only_shelves_sync" id="kobo_only_shelves_sync" {% if content.kobo_only_shelves_sync %}checked{% endif %}>
-          <label for="kobo_only_shelves_sync">{{_('Sync only books in selected shelves with Kobo')}}</label>
-        </div>
+          <a class="btn btn-default" id="config_create_kobo_token" data-toggle="modal" data-target="#modal_kobo_token" data-remote="false" href="{{ url_for('kobo_auth.generate_auth_token', user_id=content.id) }}">{{_('Create/View')}}</a>
+        {% endcall %}
+        {% if not content.role_anonymous() and not simple %}
+          {{ f.toggle('kobo_only_shelves_sync', _('Sync only books in selected shelves with Kobo'), content.kobo_only_shelves_sync) }}
         {% endif %}
-      </div>
       {% endif %}
-    </div>
-    {% endif %}
-    
-    <!-- Sidebar Display Settings Card -->
-    <div class="settings-container">
-      <h4 class="settings-section-header">{{_('Sidebar Display Settings')}}</h4>
-      <p class="settings-explanation">{{_('Choose which sections to display in your sidebar navigation.')}}</p>
-      
-      <div class="lily-check-grid">
-        {% for element in sidebar %}
-          {% if element['config_show'] %}
-          <div>
-            <input type="checkbox" name="show_{{element['visibility']}}" id="show_{{element['visibility']}}" {% if content.check_visibility(element['visibility']) %}checked{% endif %}>
-            <label for="show_{{element['visibility']}}">{{element['show_text']}}</label>
-          </div>
-          {% endif %}
-        {% endfor %}
-        <div>
-          <input type="checkbox" name="Show_detail_random" id="Show_detail_random" {% if content.show_detail_random() %}checked{% endif %}>
-          <label for="Show_detail_random">{{_('Show Random Books in Detail View')}}</label>
-        </div>
-      </div>
-      
-      {% if ( current_user and current_user.role_admin() and not new_user ) and not simple %}
-      <div class="lily-actions lily-divided">
-        <a href="#" id="get_user_tags" class="btn btn-default" data-id="{{content.id}}" data-toggle="modal" data-target="#restrictModal">{{_('Add Allowed/Denied Tags')}}</a>
-        <a href="#" id="get_user_column_values" data-id="{{content.id}}" class="btn btn-default" data-toggle="modal" data-target="#restrictModal">{{_('Add allowed/Denied Custom Column Values')}}</a>
-      </div>
-      {% endif %}
-    </div>
-    
-    <!-- User Permissions Card (Admin Only) -->
-    {% if not content.role_anonymous() and (profile or (current_user and current_user.role_admin() and not new_user)) %}
-    <div class="settings-container">
-      <h4 class="settings-section-header">{{_('OPDS Catalog Order')}}</h4>
-      <p class="settings-explanation">{{_('Reorder the OPDS root catalog by listing entry IDs in the order you want. Unknown IDs are ignored and missing entries are appended automatically.')}}</p>
-      <input type="hidden" name="opds_root_order" id="opds_root_order" value="{{ opds_root_order_string }}">
-      <input type="hidden" name="opds_hidden_entries" id="opds_hidden_entries" value="{{ opds_hidden_entries_string }}">
-      <div id="opds_root_order_container" class="lily-mt">
-        <ul id="opds_root_order_list" class="lily-order-list"></ul>
-      </div>
-      <div class="cwa-settings-tip">
-        <small class="settings-explanation">
-          <strong>{{_('Tip')}}:</strong> {{_('Drag to reorder OPDS root entries. Missing entries are appended automatically.') }}
-        </small>
-      </div>
-    </div>
+    {% endcall %}
     {% endif %}
 
-    <!-- User Permissions Card (Admin Only) -->
+    {% set restrict_actions %}{% if ( current_user and current_user.role_admin() and not new_user ) and not simple %}<a href="#" id="get_user_tags" class="btn btn-default" data-id="{{content.id}}" data-toggle="modal" data-target="#restrictModal">{{_('Tags')}}</a><a href="#" id="get_user_column_values" data-id="{{content.id}}" class="btn btn-default" data-toggle="modal" data-target="#restrictModal">{{_('Column Values')}}</a>{% endif %}{% endset %}
+    {% call f.group(_('Sidebar'), actions=restrict_actions) %}
+      <div class="lp-checks">
+        {% for element in sidebar %}
+          {% if element['config_show'] %}{{ f.check('show_' ~ element['visibility'], element['show_text'], content.check_visibility(element['visibility'])) }}{% endif %}
+        {% endfor %}
+        {{ f.check('Show_detail_random', _('Show Random Books in Detail View'), content.show_detail_random()) }}
+      </div>
+    {% endcall %}
+
     {% if current_user and current_user.role_admin() and not profile %}
-    <div class="settings-container">
-      <h4 class="settings-section-header">{{_('User Permissions')}}</h4>
-      <p class="settings-explanation">{{_('Configure what actions this user is allowed to perform.')}}</p>
-      
-      <div class="lily-check-grid">
+    {% call f.group(_('Permissions')) %}
+      <div class="lp-checks">
+        {% if not content.role_anonymous() %}{{ f.check('admin_role', _('Admin User'), content.role_admin()) }}{% endif %}
+        {{ f.check('download_role', _('Allow Downloads'), content.role_download()) }}
+        {{ f.check('viewer_role', _('Allow eBook Viewer'), content.role_viewer()) }}
+        {% if config.config_uploading %}{{ f.check('upload_role', _('Allow Uploads'), content.role_upload()) }}{% endif %}
+        {{ f.check('edit_role', _('Allow Edit'), content.role_edit(), attrs='data-control="edit_settings"') }}
+        <div data-related="edit_settings">{{ f.check('delete_role', _('Allow Delete Books'), content.role_delete_books()) }}</div>
         {% if not content.role_anonymous() %}
-        <div>
-          <input type="checkbox" name="admin_role" id="admin_role" {% if content.role_admin() %}checked{% endif %}>
-          <label for="admin_role">{{_('Admin User')}}</label>
-        </div>
-        {% endif %}
-        
-        <div>
-          <input type="checkbox" name="download_role" id="download_role" {% if content.role_download() %}checked{% endif %}>
-          <label for="download_role">{{_('Allow Downloads')}}</label>
-        </div>
-        
-        <div>
-          <input type="checkbox" name="viewer_role" id="viewer_role" {% if content.role_viewer() %}checked{% endif %}>
-          <label for="viewer_role">{{_('Allow eBook Viewer')}}</label>
-        </div>
-        
-        {% if config.config_uploading %}
-        <div>
-          <input type="checkbox" name="upload_role" id="upload_role" {% if content.role_upload() %}checked{% endif %}>
-          <label for="upload_role">{{_('Allow Uploads')}}</label>
-        </div>
-        {% endif %}
-        
-        <div>
-          <input type="checkbox" name="edit_role" data-control="edit_settings" id="edit_role" {% if content.role_edit() %}checked{% endif %}>
-          <label for="edit_role">{{_('Allow Edit')}}</label>
-        </div>
-        
-        <div data-related="edit_settings">
-          <input type="checkbox" name="delete_role" id="delete_role" {% if content.role_delete_books() %}checked{% endif %}>
-          <label for="delete_role">{{_('Allow Delete Books')}}</label>
-        </div>
-        
-        {% if not content.role_anonymous() %}
-        <div>
-          <input type="checkbox" name="passwd_role" id="passwd_role" {% if content.role_passwd() %}checked{% endif %}>
-          <label for="passwd_role">{{_('Allow Changing Password')}}</label>
-        </div>
-        
-        <div>
-          <input type="checkbox" name="edit_shelf_role" id="edit_shelf_role" {% if content.role_edit_shelfs() %}checked{% endif %}>
-          <label for="edit_shelf_role">{{_('Allow Editing Public Shelves')}}</label>
-        </div>
+          {{ f.check('passwd_role', _('Allow Changing Password'), content.role_passwd()) }}
+          {{ f.check('edit_shelf_role', _('Allow Editing Public Shelves'), content.role_edit_shelfs()) }}
         {% endif %}
       </div>
-    </div>
+    {% endcall %}
     {% endif %}
-    
-    <!-- Action Buttons -->
-    <div class="lily-form-actions">
+
+    {% if not content.role_anonymous() and (profile or (current_user and current_user.role_admin() and not new_user)) %}
+    <section class="lp-group">
+      <details class="lp-list lp-more">
+        <summary>{{_('OPDS Catalog Order')}}</summary>
+        <div class="lp-more-body lp-order">
+          <p class="lp-help">{{_('Drag to reorder OPDS root entries. Missing entries are appended automatically.') }}</p>
+          <input type="hidden" name="opds_root_order" id="opds_root_order" value="{{ opds_root_order_string }}">
+          <input type="hidden" name="opds_hidden_entries" id="opds_hidden_entries" value="{{ opds_hidden_entries_string }}">
+          <div id="opds_root_order_container">
+            <ul id="opds_root_order_list" class="lily-order-list"></ul>
+          </div>
+        </div>
+      </details>
+    </section>
+    {% endif %}
+
+    <div class="lp-actions">
       {% if current_user and current_user.role_admin() and not profile and not new_user and not content.role_anonymous() %}
       <button id="btndeluser" class="btn btn-danger" type="button" data-value="{{ content.id }}" data-remote="false">{{_('Delete User')}}</button>
-      <span class="lily-spacer"></span>
       {% endif %}
+      <span class="lp-spacer"></span>
       {% if not profile %}
       <button id="back" class="btn btn-default" type="button" data-back="{{ url_for('admin.admin') }}">{{_('Cancel')}}</button>
       {% endif %}

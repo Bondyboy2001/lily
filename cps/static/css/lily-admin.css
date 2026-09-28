@@ -414,13 +414,13 @@
 }
 
 /* Drag-to-reorder lists (OPDS order): list rows (§5). */
-.lily-admin .lily-order-list {
+:is(.lily-admin, .lp) .lily-order-list {
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
-.lily-admin .opds-order-item {
+:is(.lily-admin, .lp) .opds-order-item {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -434,20 +434,20 @@
     transition: background-color .12s ease-out;
 }
 
-.lily-admin .opds-order-item + .opds-order-item { border-top: 1px solid var(--line-soft); }
-.lily-admin .opds-order-item:hover { background: var(--hover); }
-.lily-admin .opds-order-item.dragging { background: var(--selected); opacity: .8; }
+:is(.lily-admin, .lp) .opds-order-item + .opds-order-item { border-top: 1px solid var(--line-soft); }
+:is(.lily-admin, .lp) .opds-order-item:hover { background: var(--hover); }
+:is(.lily-admin, .lp) .opds-order-item.dragging { background: var(--selected); opacity: .8; }
 
-.lily-admin .opds-order-drag-handle {
+:is(.lily-admin, .lp) .opds-order-drag-handle {
     top: 0;
     font-size: 12px;
     color: var(--faint);
     user-select: none;
 }
 
-.lily-admin .opds-order-label { font-weight: 400; color: var(--ink); }
+:is(.lily-admin, .lp) .opds-order-label { font-weight: 400; color: var(--ink); }
 
-.lily-admin .opds-order-toggle {
+:is(.lily-admin, .lp) .opds-order-toggle {
     display: flex;
     align-items: center;
     gap: 0;
@@ -457,7 +457,7 @@
     color: var(--muted);
 }
 
-.lily-admin .order-list-disabled .opds-order-item {
+:is(.lily-admin, .lp) .order-list-disabled .opds-order-item {
     opacity: .4;
     cursor: default;
 }
@@ -890,3 +890,490 @@
     .lily-admin .lily-form-actions { justify-content: stretch; }
     .lily-admin .lily-form-actions .btn { flex: 1 1 auto; }
 }
+
+/* ================================================================== */
+/* Settings (lp-*), laid out like Tulip's settings: a rail of sections */
+/* with the search at its head, and beside it the section's name over */
+/* a column of cards. Each card is a few rows split by hairlines; each */
+/* row is a name, a line saying what it does, and one control.         */
+/* Frame: templates/settings_layout.html. Rows: templates/lily_form.html */
+/* ================================================================== */
+.lp-settings {
+    display: grid;
+    grid-template-columns: 180px minmax(0, 680px);
+    column-gap: 40px;
+    align-items: start;
+}
+
+.lily-content:has(> .lp-settings) { container: lp-settings / inline-size; }
+
+/* ---- Rail ---- */
+.lp-rail {
+    position: sticky;
+    top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    padding-top: 8px;
+}
+
+.lp-rail-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.lp-rail-list > li { margin: 0; }
+
+.lp-rail-list > .lp-rail-sep { margin: 10px 10px; border-top: 1px solid var(--line-soft); }
+
+.lp-rail-list > .lp-rail-head {
+    margin: 0;
+    padding: 14px 10px 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--faint);
+}
+
+.lp-rail-item {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 7px;
+    font-size: 15px;
+    line-height: 1.45;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color .12s ease-out, background .12s ease-out;
+}
+
+.lp-rail-item:hover,
+.lp-rail-item:focus { color: var(--ink); text-decoration: none; }
+
+.lp-rail-list > li.active > .lp-rail-item,
+.lp-rail-item[aria-current="page"] {
+    background: var(--row-active);
+    color: var(--ink);
+    font-weight: 500;
+}
+
+.lp-rail-item:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: -2px; }
+
+/* ---- Search: part of the rail, a faint tint and no edge until focused ---- */
+.lp-search { position: relative; }
+
+.lp-search .lp-search-field {
+    width: 100%;
+    border-color: transparent;
+    background: var(--control-tint);
+}
+
+.lp-search .lp-search-field:focus { border-color: var(--faint); background: var(--surface); }
+
+.lp-suggest {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 50;
+    width: max(100%, 300px);
+    max-height: 360px;
+    padding: 6px;
+    overflow-y: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: var(--menu-shadow);
+}
+
+.lp-suggest-row {
+    display: flex;
+    flex-direction: column;
+    padding: 7px 11px;
+    border-radius: 6px;
+    color: var(--ink);
+    text-decoration: none;
+}
+
+.lp-suggest-row:hover,
+.lp-suggest-row[aria-selected="true"] { background: var(--selected); color: var(--ink); text-decoration: none; }
+
+.lp-suggest-name { font-size: 14px; font-weight: 500; }
+.lp-suggest-where { font-size: 12px; color: var(--muted); }
+.lp-suggest-empty { padding: 9px; font-size: 13px; color: var(--muted); }
+
+/* ---- Pane ---- */
+.lp-pane { min-width: 0; }
+.lp-pane.is-wide { grid-column: 2 / -1; }
+.lp-settings:has(> .lp-pane.is-wide) { grid-template-columns: 180px minmax(0, 1fr); }
+
+.lp-heading {
+    margin: 0 0 14px;
+    padding-top: 8px;
+    font-family: var(--font-ui);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -.02em;
+    color: var(--ink);
+}
+
+.lp {
+    padding-bottom: 24px;
+    color: var(--ink);
+}
+
+.lp-intro {
+    max-width: 62ch;
+    margin: 0 0 22px;
+    color: var(--muted);
+}
+
+/* ---- Groups: a title over one card ---- */
+.lp-group { margin: 0 0 22px; }
+
+.lp-group-head {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    min-height: 20px;
+    margin: 0 4px 8px;
+}
+
+.lp-label {
+    flex: 1 1 auto;
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.lp-group-head .btn { flex: none; }
+
+.lp-group-help {
+    max-width: 62ch;
+    margin: -4px 4px 8px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.lp-list {
+    padding: 0 16px;
+    border: 1px solid var(--line-soft);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--ink) 2.5%, var(--paper));
+}
+
+/* ---- Rows: a name and a line of help on the left, one control on the right ---- */
+.lp-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
+    align-items: center;
+    gap: 4px 24px;
+    min-height: 52px;
+    padding: 11px 0;
+    border-top: 1px solid var(--line-soft);
+}
+
+.lp-list > .lp-row:first-child,
+.lp-list > :first-child > .lp-row:first-child,
+.lp-sub > .lp-row:first-child { border-top: 0; }
+
+.lp-list > [data-related] > .lp-row:first-child,
+.lp-sub { border-top: 1px solid var(--line-soft); }
+
+.lp-list > [data-related]:first-child > .lp-row:first-child,
+.lp-list > .lp-sub:first-child { border-top: 0; }
+
+.lp-row.is-wide { grid-template-columns: minmax(0, 1fr); }
+.lp-row.is-wide > .lp-control { width: 100%; }
+
+.lp-text { min-width: 0; }
+
+.lp-text > label,
+.lp-title {
+    display: block;
+    margin: 0;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--ink);
+    cursor: default;
+}
+
+.lp-text > label[for] { cursor: pointer; }
+
+.lp-help,
+.lp-text > .lp-help,
+span.lp-help {
+    display: block;
+    max-width: 52ch;
+    margin: 1px 0 0;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.45;
+    color: var(--muted);
+}
+
+.lp-help a { color: var(--accent); }
+ul.lp-help { padding-left: 18px; }
+ul.lp-help li { margin: 2px 0; }
+
+.lp-control {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
+}
+
+.lp-control > .form-control,
+.lp-control > input:not([type="checkbox"]):not([type="radio"]),
+.lp-control > select,
+.lp-control > textarea { flex: 1 1 0; width: auto; min-width: 0; margin: 0; }
+
+.lp-control > .btn { flex: none; margin: 0; }
+.lp-control > .lp-unit { flex: none; font-size: 13px; color: var(--muted); }
+
+/* Extras a plugin appends inside a control (password rules, test results) take their own line. */
+.lp-control > .error-list,
+.lp-control > .progress { flex: 1 0 100%; margin: 4px 0 0; padding: 0; font-size: 13px; color: var(--muted); list-style: none; }
+.lp-control > .error-list:empty { display: none; }
+.lp-row:has(> #oidc_test_result:empty) { display: none; }
+
+/* Settings that only apply while their parent is on sit indented under it. */
+.lp-sub > .lp-row { padding-left: 22px; }
+
+/* ---- Rows whose whole job is a link (overview) ---- */
+a.lp-row {
+    margin: 0 -16px;
+    padding-right: 16px;
+    padding-left: 16px;
+    color: inherit;
+    text-decoration: none;
+    transition: background .12s ease-out;
+}
+
+a.lp-row:hover,
+a.lp-row:focus-visible { background: var(--hover); color: inherit; text-decoration: none; }
+
+.lp-list > a.lp-row:first-child { border-radius: 11px 11px 0 0; }
+.lp-list > a.lp-row:last-child { border-radius: 0 0 11px 11px; }
+.lp-list > a.lp-row:only-child { border-radius: 11px; }
+
+.lp-value {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 13px;
+    color: var(--muted);
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.is-mono-value .lp-value { font-family: var(--font-mono); font-size: 12px; }
+.lp-chevron { flex: none; font-size: 11px; color: var(--faint); }
+.lp-mono { font-family: var(--font-mono); font-size: 13px; }
+
+/* ---- Pills (§5): small facts, tone at 12% ---- */
+.lp-pill {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.5;
+    vertical-align: 1px;
+}
+
+.lp-pill.is-muted { background: var(--control-tint); color: var(--muted); }
+
+/* ---- Switch (§5): 999 track, round thumb, accent when on ---- */
+input[type="checkbox"].lp-switch {
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    flex: none;
+    justify-self: end;
+    width: 34px;
+    height: 20px;
+    margin: 0;
+    border: 0;
+    border-radius: 999px;
+    background: var(--control-tint-strong);
+    cursor: pointer;
+    transition: background .12s ease-out;
+}
+
+input[type="checkbox"].lp-switch::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--surface);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 25%, transparent);
+    transition: transform .12s ease-out;
+}
+
+input[type="checkbox"].lp-switch:checked { background: var(--accent); }
+input[type="checkbox"].lp-switch:checked::after { transform: translateX(14px); }
+input[type="checkbox"].lp-switch:disabled { opacity: .4; cursor: not-allowed; }
+input[type="checkbox"].lp-switch:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+    outline-offset: 2px;
+}
+
+.lp-row.is-toggle { grid-template-columns: minmax(0, 1fr) auto; }
+
+/* ---- Checkbox grid inside a card (sidebar sections, permissions) ---- */
+.lp-checks {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 2px 22px;
+    padding: 11px 0;
+    border-top: 1px solid var(--line-soft);
+}
+
+.lp-list > .lp-checks:first-child { border-top: 0; }
+
+.lp-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 30px;
+    margin: 0;
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--ink-soft);
+    cursor: pointer;
+}
+
+.lp-check > input { flex: none; margin: 0; }
+
+/* ---- The fold over rarely needed settings ---- */
+.lp-more { padding: 0 16px; }
+
+.lp-more > summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 52px;
+    list-style: none;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.lp-more > summary::-webkit-details-marker { display: none; }
+.lp-more > summary::after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    margin-left: auto;
+    border-right: 1.5px solid var(--faint);
+    border-bottom: 1.5px solid var(--faint);
+    transform: rotate(-45deg);
+    transition: transform .12s ease-out;
+}
+
+.lp-more[open] > summary::after { transform: rotate(45deg); }
+.lp-more > summary:hover { color: var(--ink); }
+.lp-more-body { border-top: 1px solid var(--line-soft); }
+.lp-more-body > .lp-row:first-child { border-top: 0; }
+.lp-order { padding: 11px 0 8px; }
+.lp-order > .lp-help { margin: 0 4px 8px; }
+
+/* ---- Notice inside a page (§5 Notices): tone at 7%, radius 10, no border ---- */
+.lp-notice {
+    margin: 0 0 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--warning) 7%, transparent);
+    font-size: 13px;
+    color: var(--ink-soft);
+}
+
+.lp-notice p, .lp-notice ul { margin: 4px 0 0; }
+
+/* ---- Form actions: pinned under the form, Primary last on the right ---- */
+.lp-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 22px;
+    padding: 14px 0;
+    border-top: 1px solid var(--line-soft);
+    background: var(--paper);
+}
+
+.lp-actions .btn { margin: 0; }
+.lp-actions .lp-spacer { margin-right: auto; }
+.lp-actions [data-related] { display: inline-flex; gap: 8px; }
+
+/* Landing on a setting from search: the row glows once. */
+@keyframes lp-flash { from { background-color: var(--selected); } to { background-color: transparent; } }
+.lp-flash { animation: lp-flash 1.6s ease-out; border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) { .lp-flash { animation: none; } }
+
+.lp-footnote { margin: 0 4px; font-size: 13px; color: var(--faint); }
+.lp-footnote .lp-mono { font-size: 12px; }
+
+/* Legacy wrappers still inside a settings pane. */
+.lily-admin .lp-label { margin: 0; font-family: var(--font-ui); font-size: 11px; color: var(--muted); }
+.lp-pane > .lily-admin { max-width: none; }
+
+/* ---- Narrow: the rail becomes a strip of chips over the page ---- */
+@container lp-settings (max-width: 760px) {
+    .lp-settings,
+    .lp-settings:has(> .lp-pane.is-wide) { grid-template-columns: minmax(0, 1fr); }
+    .lp-pane.is-wide { grid-column: 1; }
+    .lp-rail { position: static; flex-direction: column; gap: 8px; padding: 0 0 8px; }
+    .lp-rail-list {
+        flex-direction: row;
+        gap: 6px;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .lp-rail-list::-webkit-scrollbar { display: none; }
+    .lp-rail-head { display: none; }
+    .lp-rail-item {
+        height: 30px;
+        padding: 0 14px;
+        border-radius: var(--control-radius);
+        background: var(--control-tint);
+        color: var(--ink-soft);
+        font-weight: 500;
+        line-height: 30px;
+        white-space: nowrap;
+    }
+    .lp-rail-list > li.active > .lp-rail-item,
+    .lp-rail-item[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+}
+
+@media (max-width: 640px) {
+    .lp-row { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+    .lp-row.is-toggle { grid-template-columns: minmax(0, 1fr) auto; }
+    .lp-control { justify-content: flex-start; }
+    a.lp-row { grid-template-columns: minmax(0, 1fr) auto; }
+    a.lp-row .lp-value { display: none; }
+    .lp-sub > .lp-row { padding-left: 14px; }
+}
+.lp-group-head.is-echo { display: none; }

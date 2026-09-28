@@ -1,0 +1,72 @@
+{#- Settings-page building blocks (styles: lp-* in css/lily-admin.css).
+    Import with: {% import "lily_form.html" as f with context %}
+    Every macro takes already-translated strings. -#}
+
+{#- A section label over a surface list. `actions` is raw HTML shown right of the label. -#}
+{% macro group(label, help=None, id=None, actions=None) -%}
+{% set gid = id or ('section-' ~ (label or 'group')|lower|replace('&', 'and')|replace(':', '')|replace(' ', '-')) %}
+<section class="lp-group" id="{{ gid }}">
+  {% if label or actions %}<div class="lp-group-head">{% if label %}<h2 class="lp-label">{{ label }}</h2>{% endif %}{% if actions %}{{ actions|safe }}{% endif %}</div>{% endif %}
+  {% if help %}<p class="lp-group-help">{{ help }}</p>{% endif %}
+  <div class="lp-list">{{ caller() }}</div>
+</section>
+{%- endmacro %}
+
+{#- Rows that only apply while `related` is on (main.js shows/hides [data-related]). -#}
+{% macro sub(related, style=None) -%}
+<div class="lp-sub" data-related="{{ related }}"{% if style %} style="{{ style }}"{% endif %}>{{ caller() }}</div>
+{%- endmacro %}
+
+{#- Label and help on the left, whatever the caller renders on the right. -#}
+{% macro row(label, for_id=None, help=None, wide=False, cls='', attrs='') -%}
+<div class="lp-row{% if wide %} is-wide{% endif %}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>
+  <div class="lp-text">{% if for_id %}<label for="{{ for_id }}">{{ label }}</label>{% else %}<span class="lp-title">{{ label }}</span>{% endif %}{% if help %}<p class="lp-help">{{ help }}</p>{% endif %}</div>
+  <div class="lp-control">{{ caller() }}</div>
+</div>
+{%- endmacro %}
+
+{#- An on/off setting. Posts "on" when checked, exactly like the checkbox it replaces. -#}
+{% macro toggle(name, label, checked, help=None, id=None, control=None, attrs='') -%}
+<div class="lp-row is-toggle">
+  <div class="lp-text"><label for="{{ id or name }}">{{ label }}</label>{% if help %}<p class="lp-help">{{ help }}</p>{% endif %}</div>
+  <input type="checkbox" class="lp-switch" id="{{ id or name }}" name="{{ name }}"{% if control %} data-control="{{ control }}"{% endif %}{% if checked %} checked{% endif %} {{ attrs|safe }}>
+</div>
+{%- endmacro %}
+
+{#- A single-line field. `value` None renders empty. `picker` adds the folder-picker icon button. -#}
+{% macro input(name, label, value, help=None, type='text', id=None, placeholder=None, wide=False, picker=False, attrs='') -%}
+{% set fid = id or name %}
+<div class="lp-row{% if wide %} is-wide{% endif %}">
+  <div class="lp-text"><label for="{{ fid }}">{{ label }}</label>{% if help %}<p class="lp-help">{{ help }}</p>{% endif %}</div>
+  <div class="lp-control">
+    <input type="{{ type }}" class="form-control" id="{{ fid }}" name="{{ name }}" value="{% if value != None %}{{ value }}{% endif %}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %} autocomplete="off" {{ attrs|safe }}>
+    {% if picker %}<button type="button" data-toggle="modal" data-link="{{ fid }}" data-target="#fileModal" id="{{ picker }}" class="icon-btn" title="{{ _('Choose a path') }}" aria-label="{{ _('Choose a path') }}"><span class="glyphicon glyphicon-folder-open" aria-hidden="true"></span></button>{% endif %}
+  </div>
+</div>
+{%- endmacro %}
+
+{#- A select. `options` is a list of (value, text) pairs; `selected` is compared as a string. -#}
+{% macro select(name, label, options, selected, help=None, id=None, attrs='') -%}
+{% set fid = id or name %}
+<div class="lp-row">
+  <div class="lp-text"><label for="{{ fid }}">{{ label }}</label>{% if help %}<p class="lp-help">{{ help }}</p>{% endif %}</div>
+  <div class="lp-control">
+    <select name="{{ name }}" id="{{ fid }}" class="form-control" {{ attrs|safe }}>
+      {% for value, text in options %}<option value="{{ value }}"{% if value|string == selected|string %} selected{% endif %}>{{ text }}</option>{% endfor %}
+    </select>
+  </div>
+</div>
+{%- endmacro %}
+
+{#- One checkbox in a .lp-checks grid. -#}
+{% macro check(name, label, checked, id=None, attrs='') -%}
+<label class="lp-check" for="{{ id or name }}"><input type="checkbox" name="{{ name }}" id="{{ id or name }}"{% if checked %} checked{% endif %} {{ attrs|safe }}>{{ label }}</label>
+{%- endmacro %}
+
+{#- A dashboard row that links somewhere: title, one line of help, a value on the right. -#}
+{% macro link(href, label, help=None, value=None, id=None, cls='', attrs='') -%}
+<a class="lp-row{% if cls %} {{ cls }}{% endif %}" href="{{ href }}"{% if id %} id="{{ id }}"{% endif %} {{ attrs|safe }}>
+  <span class="lp-text"><span class="lp-title">{{ label }}</span>{% if help %}<span class="lp-help">{{ help }}</span>{% endif %}</span>
+  <span class="lp-control">{% if value %}<span class="lp-value">{{ value }}</span>{% endif %}<span class="lp-chevron glyphicon glyphicon-chevron-right" aria-hidden="true"></span></span>
+</a>
+{%- endmacro %}

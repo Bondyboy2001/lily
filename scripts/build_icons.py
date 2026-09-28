@@ -22,6 +22,7 @@ ICONS = {
     "book": "book-open",
     "bookmark": "bookmark",
     "collapse-down": "chevron-down",
+    "cog": "settings",
     "collapse-up": "chevron-up",
     "copy": "copy",
     "dashboard": "gauge",

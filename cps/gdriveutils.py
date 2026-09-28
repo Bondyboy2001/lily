@@ -219,7 +219,6 @@ def getEbooksFolder(drive):
 
 
 def getFolderInFolder(parentId, folderName, drive):
-    # drive = getDrive(drive)
     query = ""
     if folderName:
         query = "title = '%s' and " % folderName.replace("'", r"\'")
@@ -320,7 +319,6 @@ def getFolderId(path, drive):
 def getFileFromEbooksFolder(path, fileName, nocase=False):
     drive = getDrive(Gdrive.Instance().drive)
     if path:
-        # sqlCheckPath=path if path[-1] =='/' else path + '/'
         folderId = getFolderId(path, drive)
     else:
         folderId = getEbooksFolderId(drive)
@@ -364,8 +362,6 @@ def moveGdriveFolderRemote(origin_file, target_folder, single_book=False):
                                               removeParents=previous_parents,
                                               fields='id, parents').execute()
     elif origin_file['title'] != target_folder:
-        #gFileTargetDir = getFileFromEbooksFolder(None, target_folder, nocase=True)
-        #if gFileTargetDir:
         deleteDatabasePath(origin_file['title'])
         # Folder is not existing, create, and move folder
         drive.auth.service.files().patch(fileId=origin_file['id'],

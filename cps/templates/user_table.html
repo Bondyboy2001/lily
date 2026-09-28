@@ -1,4 +1,4 @@
-{% extends "layout.html" %}
+{% extends "settings_layout.html" %}
 {% macro user_table_row(parameter, edit_text, show_text, validate, elements=False) -%}
 <th data-field="{{ parameter }}" id="{{ parameter }}"
     data-name="{{ parameter }}"
@@ -116,11 +116,15 @@
 <link href="{{ url_for('static', filename='css/libs/bootstrap-editable.css') }}" rel="stylesheet">
 <link href="{{ url_for('static', filename='css/libs/bootstrap-select.min.css') }}" rel="stylesheet" >
 {% endblock %}
-{% block body %}
+{% block heading %}{{ _('Users') }}{% endblock %}
+{% block pane_class %} is-wide{% endblock %}
+{% block settings %}
 <div class="lily-admin lily-admin-wide lily-user-table">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="lily-actions lily-mb">
+    <div class="lp-group-head">
+      <span class="lp-label">{{_('Users')}}</span>
       <div class="btn btn-default disabled" id="user_delete_selection" aria-disabled="true">{{_('Remove Selections')}}</div>
+      <a class="btn btn-default" id="admin_new_user" href="{{url_for('admin.new_user')}}">{{_('Add New User')}}</a>
     </div>
     <table id="user-table" class="table table-no-bordered table-striped"
            data-url="{{url_for('admin.list_users')}}"  data-locale="{{ current_user.locale }}" data-classes="table table-no-bordered table-hover">
@@ -169,9 +173,6 @@
         </tr>
       </thead>
     </table>
-    <div class="lily-actions errorlink">
-      <div class="btn btn-default" data-back="{{ url_for('admin.admin') }}" id="back" role="button" tabindex="0">{{_('Back')}}</div>
-    </div>
 </div>
 {% endblock %}
 {% block modal %}

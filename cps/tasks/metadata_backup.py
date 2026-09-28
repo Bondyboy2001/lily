@@ -78,7 +78,6 @@ class TaskBackupMetadata(CalibreTask):
             self.calibre_db.session.close()
 
     def open_metadata(self, book, custom_columns):
-        # package = self.create_new_metadata_backup(book, custom_columns)
         package = create_new_metadata_backup(book, custom_columns, self.export_language, self.translated_title)
         if config.config_use_google_drive:
             if not gdriveutils.is_gdrive_ready():

@@ -150,7 +150,6 @@ def bind_user(username, password):
             error = "LDAP admin login failed"
             return None, error
         if ex.message == "Can't contact LDAP server":
-            # log.warning('LDAP Server down: %s', ex)
             error = ('LDAP Server down: %s' % ex)
             return None,  error
         else:

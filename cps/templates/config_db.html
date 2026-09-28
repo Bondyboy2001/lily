@@ -1,126 +1,95 @@
-{% extends "layout.html" %}
+{% extends "settings_layout.html" %}
+{% import "lily_form.html" as f with context %}
 {% block flash %}
 <div id="spinning_success" class="row-fluid text-center" style="display:none;">
     <div class="alert alert-info"><img id="img-spinner" src="{{ url_for('static', filename='css/libs/images/loading-icon.gif') }}" alt="{{_('Loading...')}}"/></div>
 </div>
 {% endblock %}
-{% block body %}
-<div class="discover lily-admin">
+{% block heading %}{{ _('Calibre Database') }}{% endblock %}
+{% block settings %}
+<div class="lp">
   <form role="form" method="POST" action="{{ url_for('admin.db_configuration') }}" autocomplete="off">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="settings-container">
-      <h4 class="settings-section-header">{{_('Location of Calibre Database (metadata.db File)')}}</h4>
-      <label for="config_calibre_dir" class="sr-only">{{_('Location of Calibre Database (metadata.db file)')}}</label>
-      <div class="form-group required input-group">
+    {% call f.group(_('Calibre Library')) %}
+      {% call f.row(_('Database Location'), for_id='config_calibre_dir', help=_('Found automatically inside /calibre-library on start-up. Change the host side of the volume in docker-compose, never the /calibre-library side.')) %}
         <input type="text" class="form-control" id="config_calibre_dir" name="config_calibre_dir" value="{% if config.config_calibre_dir != None %}{{ config.config_calibre_dir }}{% endif %}" autocomplete="off" readonly>
-        <span class="input-group-btn">
-          <button type="button" data-toggle="modal" id="calibre_modal_path" data-link="config_calibre_dir" data-filefilter="metadata.db" data-target="#fileModal" class="icon-btn" title="{{_('Choose a path')}}" aria-label="{{_('Choose a path')}}" disabled><span class="glyphicon glyphicon-folder-open" aria-hidden="true"></span></button>
-        </span>
-      </div>
-      <p class="help-block">
-        {{_("Lily is configured so that your Calibre Database (<code>metadata.db</code> file) should always be somewhere in <code>/calibre-library</code>.
-        Lily automatically searches whatever directory you've bound to <code>/calibre-library</code> in your docker-compose file for existing Calibre
-        Libraries/metadata.db files on start up. If it finds just one existing library, it mounts it automatically, if it find multiple, by default
-        it will mount the largest one automatically and if it doesn't find any, it will automatically create and mount a new one. For more details,
-        see the <a href=\"https://github.com/crocodilestick/Calibre-Web-Automated/wiki/Configuration#database-configuration\" target=\"_blank\" rel=\"noopener\">upstream Calibre-Web Automated docs</a>!") | safe }}
-        <br><br>
-        {{_("Therefore, when configuring your docker-compose file for Lily, <b>DO NOT CHANGE THE PATHS IN THE VOLUMES SECTION ON THE RIGHT SIDE OF THE COLONS!</b>") | safe }}
-        {{_("These paths are internal to Lily only, you can change what they're bind to to your heart's content on the left-hand side but there's no reason to
-        change the paths on the right-hand side.<br><br>If you would like your <code>metadata.db</code> file in a different location to the rest of your
-        library, use the <b>Separate Book Files from Library Option below and there, enter the path to the rest of the library</b>") | safe }}
-        <br><br>
-        {{_("E.g. As long as your library's <code>metadata.db</code> file is bound somewhere within <code>/calibre-library</code>, you could bind the dir
-        containing the corresponding book files ect. to something like <code>/books</code> and enter <code>/books</code> in the field that pops up below
-        once you've checked the <b>Separate Book Files from Library</b> option.") | safe }}
-      </p>
-
-      <h4 class="settings-section-header lily-mt">{{_("Split Library Functionality")}}</h4>
-        <div class="form-group required">
-        <input type="checkbox" id="config_calibre_split" name="config_calibre_split" data-control="split_settings" data-t ="{{ config.config_calibre_split_dir  }}" {% if config.config_calibre_split %}checked{% endif %} >
-        <label for="config_calibre_split">{{_('<b>Separate Book Files from Library</b> - <code>metadata.db</code> file should remain in <code>/calibre-library</code>, however your library files can be wherever you desire') | safe }}</label>
-      </div>
-      <div data-related="split_settings">
-       <div class="form-group required input-group">
-        <input type="text" class="form-control" id="config_calibre_split_dir" name="config_calibre_split_dir" value="{% if config.config_calibre_split_dir != None %}{{ config.config_calibre_split_dir }}{% endif %}" autocomplete="off">
-        <span class="input-group-btn">
-          <button type="button" data-toggle="modal" id="calibre_modal_split_path" data-link="config_calibre_split_dir" data-filefilter="" data-target="#fileModal" id="book_path" class="icon-btn" title="{{_('Choose a path')}}" aria-label="{{_('Choose a path')}}"><span class="glyphicon glyphicon-folder-open" aria-hidden="true"></span></button>
-        </span>
-      </div>
-      </div>
+        <button type="button" data-toggle="modal" id="calibre_modal_path" data-link="config_calibre_dir" data-filefilter="metadata.db" data-target="#fileModal" class="icon-btn" title="{{_('Choose a path')}}" aria-label="{{_('Choose a path')}}" disabled><span class="glyphicon glyphicon-folder-open" aria-hidden="true"></span></button>
+      {% endcall %}
+      {{ f.toggle('config_calibre_split', _('Separate Book Files from Library'), config.config_calibre_split, help=_('Keep metadata.db in /calibre-library and the book files in another folder, such as /books.'), control='split_settings', attrs='data-t="' ~ (config.config_calibre_split_dir|e) ~ '"') }}
+      {% call f.sub('split_settings') %}
+        {% call f.row(_('Book Files Location'), for_id='config_calibre_split_dir') %}
+          <input type="text" class="form-control" id="config_calibre_split_dir" name="config_calibre_split_dir" value="{% if config.config_calibre_split_dir != None %}{{ config.config_calibre_split_dir }}{% endif %}" autocomplete="off">
+          <button type="button" data-toggle="modal" id="calibre_modal_split_path" data-link="config_calibre_split_dir" data-filefilter="" data-target="#fileModal" class="icon-btn" title="{{_('Choose a path')}}" aria-label="{{_('Choose a path')}}"><span class="glyphicon glyphicon-folder-open" aria-hidden="true"></span></button>
+        {% endcall %}
+      {% endcall %}
     {% if feature_support['gdrive'] %}
-      <div class="form-group required">
-        <input type="checkbox" id="config_use_google_drive" name="config_use_google_drive" data-control="gdrive_settings" {% if config.config_use_google_drive %}checked{% endif %} >
-        <label for="config_use_google_drive">{{_('Use Google Drive?')}}</label>
-      </div>
+      {{ f.toggle('config_use_google_drive', _('Google Drive'), config.config_use_google_drive, control='gdrive_settings') }}
       {% if not gdriveError and config.config_use_google_drive %}
         {% if show_authenticate_google_drive and config.config_use_google_drive %}
-          <div class="form-group required">
+          {% call f.row(_('Google Drive')) %}
             <a href="{{ url_for('gdrive.authenticate_google_drive') }}" id="gdrive_auth" class="btn btn-default">{{_('Authenticate Google Drive')}}</a>
-          </div>
+          {% endcall %}
         {% else %}
-            {% if not show_authenticate_google_drive %}
-            <div class="form-group required">
-              <label for="config_google_drive_folder">{{_('Google Drive Calibre folder')}}</label>
+          {% if not show_authenticate_google_drive %}
+            {% call f.row(_('Google Drive Calibre folder'), for_id='config_google_drive_folder') %}
               <select name="config_google_drive_folder" id="config_google_drive_folder" class="form-control">
-                {%  for gdrivefolder in gdrivefolders %}
+                {% for gdrivefolder in gdrivefolders %}
                 <option value="{{ gdrivefolder.title }}" {% if gdrivefolder.title == config.config_google_drive_folder %}selected{% endif %}>{{ gdrivefolder.title }}</option>
                 {% endfor %}
               </select>
-            </div>
+            {% endcall %}
             {% if config.config_google_drive_watch_changes_response %}
-              <label for="config_google_drive_watch_changes_response">{{_('Metadata Watch Channel ID')}}</label>
-              <div class="form-group input-group required">
+              {% call f.row(_('Metadata Watch Channel ID'), for_id='config_google_drive_watch_changes_response') %}
                 <input type="text" class="form-control" name="config_google_drive_watch_changes_response" id="config_google_drive_watch_changes_response" value="{{ config.config_google_drive_watch_changes_response['id'] }} expires on {{ config.config_google_drive_watch_changes_response['expiration'] |  strftime }}" autocomplete="off" disabled="">
-                <span class="input-group-btn"><a href="{{ url_for('gdrive.revoke_watch_gdrive') }}" id="watch_revoke" class="btn btn-danger">{{_('Revoke')}}</a></span>
-              </div>
+                <a href="{{ url_for('gdrive.revoke_watch_gdrive') }}" id="watch_revoke" class="btn btn-danger">{{_('Revoke')}}</a>
+              {% endcall %}
             {% else %}
-              <a href="{{ url_for('gdrive.watch_gdrive') }}" id="enable_gdrive_watch" class="btn btn-default">Enable watch of metadata.db</a>
+              {% call f.row(_('Metadata Watch')) %}
+                <a href="{{ url_for('gdrive.watch_gdrive') }}" id="enable_gdrive_watch" class="btn btn-default">Enable watch of metadata.db</a>
+              {% endcall %}
             {% endif %}
           {% endif %}
         {% endif %}
       {% endif %}
     {% endif %}
-    </div>
+    {% endcall %}
 
-    <div class="lily-form-actions">
+    <div class="lp-actions">
+      <span class="lp-spacer"></span>
       <a href="{{ url_for('admin.admin') }}" id="config_back" class="btn btn-default">{{_('Cancel')}}</a>
       <div id="db_submit" name="submit" class="btn btn-primary" role="button" tabindex="0">{{_('Save')}}</div>
     </div>
   </form>
 
-  <div class="settings-container lily-mt">
-    <h4 class="settings-section-header">Troubleshooting your DB</h4>
-      <p>If you've been sent to this page after updating or migrating, it means there has been an issue mounting your Calibre Database (metadata.db) or less likely, an issue with your app.db</p>
-      <p>Common causes of this include:</p>
-      <ul>
-        <li>You are trying to run Lily & Calibre simultaneously on the same database/ library</li>
-        <li>You are running Lily or parts of it over a network share and haven't enabled <code>NETWORK_SHARE_MODE</code> in your docker compose</li>
-        <li>You are running Lily on <b>unionfs</b> or <b>mergerfs</b>, in this case you should also enable <code>NETWORK_SHARE_MODE</code></li>
-        <li>The path to your Calibre Database has changed or is incorrect</li>
-        <li>The Calibre Database file (metadata.db) is missing or corrupted</li>
-        <li>There are permission issues preventing access to the Calibre Database</li>
-      </ul>
-      <p>To resolve these issues, please ensure that:</p>
-      <ul>
-        <li>No other applications (including Calibre) are accessing the same Calibre Database while Lily is running</li>
-        <li>If you are using network shares, unionfs or mergerfs, ensure that <code>NETWORK_SHARE_MODE</code> is enabled in your docker compose</li>
-        <li>The path to your Calibre Database (metadata.db) is correct and accessible by Lily</li>
-        <li>The Calibre Database file (metadata.db) exists and is not corrupted. You can try opening it with Calibre to verify its integrity</li>
-        <li>Lily has the necessary permissions to access the Calibre Database file</li>
-      </ul>
-      <p>If you have verified all of the above and are still experiencing issues, you may need to restore your Calibre Database from a backup or create a new one.</p>
-      <p>You may also use the Last Resort Restore option at the bottom of this page to attempt to rebuild your Calibre Database from the OPF files in your library.</p>
+  {% call f.group(_('Troubleshooting')) %}
+    <details class="lp-more">
+      <summary>If Lily can't open your library</summary>
+      <div class="lp-more-body">
+        <div class="lp-row is-wide">
+          <div class="lp-text">
+            <span class="lp-title">Common causes</span>
+            <ul class="lp-help">
+              <li>Calibre or another app is using the same metadata.db while Lily runs</li>
+              <li>The library is on a network share, unionfs or mergerfs without <code>NETWORK_SHARE_MODE</code> enabled in docker-compose</li>
+              <li>The path to metadata.db changed or is wrong</li>
+              <li>metadata.db is missing or corrupted (try opening it in Calibre)</li>
+              <li>Lily lacks permission to read or write the file</li>
+            </ul>
+            <p class="lp-help">If none of these apply, restore metadata.db from a backup or use Last Resort below.</p>
+          </div>
+        </div>
+      </div>
+    </details>
+  {% endcall %}
 
-  </div>
-
-  <div class="settings-container">
-    <h4 class="settings-section-header">{{ _('Last Resort: Restore Calibre Database (experimental)') }}</h4>
-    <p>{{ _('If your Calibre library is corrupted and cannot be opened, you can attempt to restore it from the OPF files in your library. This will <b>erase all per-book data</b> (reading progress, bookmarks, shelf links, downloads, etc.) in the app database, but will not affect user accounts or settings. <b>Both databases will be automatically backed up in /config/backup before any destructive action.</b> A restore log will be saved alongside the backups.') | safe }}</p>
-    <form method="POST" action="{{ url_for('admin.restore_calibre_db') }}" class="lily-actions">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit" class="btn btn-danger" data-confirm="{{ _('Are you sure? This cannot be undone.') }}" onclick="return confirm(this.dataset.confirm);">{{ _('Restore Calibre Database (Last Resort)') }}</button>
-    </form>
-  </div>
+  <form method="POST" action="{{ url_for('admin.restore_calibre_db') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% call f.group(_('Last Resort')) %}
+      {% call f.row(_('Restore Calibre Database (experimental)'), help=_('Rebuilds metadata.db from the OPF files in your library. Erases per-book data such as reading progress and shelf links; accounts and settings stay. Both databases are backed up to /config/backup first.')) %}
+        <button type="submit" class="btn btn-danger" data-confirm="{{ _('Are you sure? This cannot be undone.') }}" onclick="return confirm(this.dataset.confirm);">{{ _('Restore') }}</button>
+      {% endcall %}
+    {% endcall %}
+  </form>
 </div>
 {% endblock %}
 {% block modal %}

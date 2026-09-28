@@ -13,6 +13,7 @@ ADMIN_TEMPLATES = [
     "cwa_read_log.html", "logviewer.html", "email_edit.html", "schedule_edit.html", "user_edit.html",
     "user_table.html", "kosync_plugin.html", "hardcover_review_matches.html",
     "generate_kobo_auth_url.html", "tasks.html", "remote_login.html", "http_error.html", "shelfdown.html",
+    "lily_form.html",
 ]
 ADMIN_STYLESHEETS = ["lily-admin.css", "lily-settings.css"]
 HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
@@ -78,8 +79,45 @@ def test_settings_save_bar_has_one_primary_and_quiet_reset():
 
 
 def test_folder_pickers_are_labelled_icon_buttons():
-    for name in ("config_edit.html", "config_db.html"):
+    for name in ("config_edit.html", "config_db.html", "lily_form.html"):
         html = read(TEMPLATES / name)
         for button in re.findall(r"<button[^>]*>\s*<span class=\"glyphicon glyphicon-folder-open", html):
             assert 'class="icon-btn"' in button, (name, button)
             assert "aria-label=" in button and "title=" in button, (name, button)
+
+
+SETTINGS_FORMS = ["admin.html", "config_edit.html", "config_view_edit.html", "config_db.html",
+                  "email_edit.html", "schedule_edit.html", "user_edit.html", "cwa_settings.html"]
+
+
+@pytest.mark.parametrize("name", SETTINGS_FORMS)
+def test_settings_pages_use_the_shared_row_macros(name):
+    html = read(TEMPLATES / name)
+    assert '{% import "lily_form.html" as f with context %}' in html
+    assert 'class="lp' in html or "f.group(" in html
+    # The old stacked cards are gone.
+    assert "settings-container" not in html
+
+
+@pytest.mark.parametrize("name", SETTINGS_FORMS + ["user_table.html"])
+def test_settings_pages_share_the_settings_frame(name):
+    html = read(TEMPLATES / name)
+    assert html.startswith('{% extends "settings_layout.html" %}'), name
+    assert "{% block settings %}" in html and "{% block body %}" not in html, name
+
+
+def test_settings_frame_has_rail_search_and_lily_tabs():
+    html = read(TEMPLATES / "settings_layout.html")
+    assert 'id="lp-search"' in html and "lily-settings-shell.js" in html
+    for tab in ("services", "ingest", "metadata", "hardcover", "duplicates", "maintenance", "interface"):
+        assert f"'#{tab}'" in html, tab
+    # The Lily settings page no longer draws its own chip row; the rail drives its tabs.
+    assert "lily-settings-tabs" not in read(TEMPLATES / "cwa_settings.html")
+
+
+@pytest.mark.parametrize("name", [n for n in SETTINGS_FORMS if n != "admin.html"])
+def test_settings_forms_have_one_primary(name):
+    html = read(TEMPLATES / name)
+    body = html[html.index("{% block settings %}"):]
+    body = re.sub(r'<div[^>]*class="modal.*', "", body, flags=re.S)
+    assert body.count("btn-primary") == 1, name

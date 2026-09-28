@@ -78,7 +78,6 @@ class SyncToken:
         archive_last_modified=datetime.min,
         reading_state_last_modified=datetime.min,
         tags_last_modified=datetime.min
-        # books_last_id=-1
     ):  # nosec
         self.raw_kobo_store_token = raw_kobo_store_token
         self.books_last_created = books_last_created
@@ -86,7 +85,6 @@ class SyncToken:
         self.archive_last_modified = archive_last_modified
         self.reading_state_last_modified = reading_state_last_modified
         self.tags_last_modified = tags_last_modified
-        # self.books_last_id = books_last_id
 
     @staticmethod
     def from_headers(headers):

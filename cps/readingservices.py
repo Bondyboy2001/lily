@@ -39,7 +39,6 @@ KOBO_READING_SERVICES_URL = "https://readingservices.kobo.com"
 
 # Constants for annotation processing
 MAX_PROGRESS_PERCENTAGE = 100  # Cap progress at 100%
-SYNC_CHECK_BATCH_SIZE = 50  # Batch size for checking existing syncs
 REQUEST_TIMEOUT = (2, 10)  # (connect, read) timeouts in seconds
 
 CONNECTION_SPECIFIC_HEADERS = [

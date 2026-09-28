@@ -1269,7 +1269,6 @@ def main(filepath=None):
             filepath = new_path
         ###############################################################################################
         if os.path.isdir(filepath) and Path(filepath).exists():
-            # print(os.listdir(filepath))
             exit_code = 0
             for filename in os.listdir(filepath):
                 f = os.path.join(filepath, filename)

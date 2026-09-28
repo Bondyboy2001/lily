@@ -14,7 +14,6 @@ Note: Most Docker fixtures have been moved to tests/conftest.py to be
 shared between docker/ and integration/ test directories.
 """
 
-import pytest
 import sys
 from pathlib import Path
 

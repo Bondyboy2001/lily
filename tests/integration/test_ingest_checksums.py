@@ -131,7 +131,6 @@ class TestIngestChecksumGeneration:
     ):
         """Test that books with multiple formats get checksums for each."""
         from conftest import volume_copy, get_db_path
-        import shutil
 
         # Copy same book with different extensions (simulating multi-format)
         # In real scenario, you'd add formats via API or manual import

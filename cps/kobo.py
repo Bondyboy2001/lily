@@ -14,7 +14,6 @@ import os
 import threading
 import uuid
 import zipfile
-from time import gmtime, strftime
 import json
 from urllib.parse import unquote
 
@@ -164,7 +163,6 @@ def convert_to_kobo_timestamp_string(timestamp):
 
 @kobo.route("/v1/library/sync")
 @requires_kobo_auth
-# @download_required
 def HandleSyncRequest():
     if not current_user.role_download():
         log.info("Users need download permissions for syncing library to Kobo reader")

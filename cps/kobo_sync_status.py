@@ -9,7 +9,6 @@ from .cw_login import current_user
 from . import ub
 from datetime import datetime, timezone
 from sqlalchemy.sql.expression import or_, and_, true
-# from sqlalchemy import exc
 
 
 # Add the current book id to kobo_synced_books table for current user, if entry is already present,

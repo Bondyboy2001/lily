@@ -138,8 +138,8 @@
 /* ------------------------------------------------------------------ */
 .row.lily-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 22px;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 26px;
     margin: 0;
 }
 
@@ -162,7 +162,9 @@
     position: relative;
     height: auto;
     margin: 0 0 8px;
-    aspect-ratio: 2 / 3;
+    /* A4 is 1:1.414; a taller-than-2:3 box letterboxes a scan with bands top and bottom,
+       so the box is keyed to the page instead. */
+    aspect-ratio: 1 / 1.414;
     border-radius: 8px;
     background: var(--sunk);
     overflow: hidden;
@@ -184,7 +186,8 @@
     width: 100%;
     height: 100%;
     max-height: none;
-    object-fit: cover;
+    /* The whole cover stays visible: a wider page than the box letterboxes instead of cropping. */
+    object-fit: contain;
     border: 0;
     box-shadow: none;
 }
@@ -574,7 +577,6 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
 /* ------------------------------------------------------------------ */
 /* Search results and shelves                                           */
 /* ------------------------------------------------------------------ */
-#shelf-actions.btn-toolbar { margin: 0 0 14px; }
 
 .discover > h2 + p { color: var(--muted); }
 
@@ -602,7 +604,7 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
 
 .book-detail-main {
     display: grid;
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: 340px minmax(0, 1fr);
     gap: 28px 40px;
     align-items: start;
 }
@@ -623,6 +625,42 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
     box-shadow: none;
     outline: 1px solid var(--line-soft);
     outline-offset: -1px;
+}
+
+/* Shelves (squares) and tags (pills) sit under the cover in one row. Each chip takes a tone
+   from the categorical palette, so no two in a row look alike, and the shape still tells the
+   two kinds apart. */
+.book-detail-taxonomy {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 14px;
+}
+
+/* The tone itself is picked in detail.html: (id % 5) + 1, tags offset by two. */
+.book-detail-taxonomy .btn.lily-chip.tone-1 { --chip-tone: var(--series-1); }
+.book-detail-taxonomy .btn.lily-chip.tone-2 { --chip-tone: var(--series-2); }
+.book-detail-taxonomy .btn.lily-chip.tone-3 { --chip-tone: var(--series-3); }
+.book-detail-taxonomy .btn.lily-chip.tone-4 { --chip-tone: var(--series-4); }
+.book-detail-taxonomy .btn.lily-chip.tone-5 { --chip-tone: var(--series-5); }
+
+.book-detail-taxonomy .btn.lily-chip {
+    margin: 0;
+    max-width: 100%;
+    background: color-mix(in srgb, var(--chip-tone, var(--accent)) 12%, transparent);
+    color: var(--chip-tone, var(--accent));
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.book-detail-taxonomy .btn.lily-chip.is-shelf { border-radius: 3px; }
+.book-detail-taxonomy .btn.lily-chip.is-tag { border-radius: 999px; }
+
+.book-detail-taxonomy .btn.lily-chip:hover,
+.book-detail-taxonomy .btn.lily-chip:focus {
+    background: color-mix(in srgb, var(--chip-tone, var(--accent)) 22%, transparent);
+    color: var(--chip-tone, var(--accent));
 }
 
 .book-detail-meta {
@@ -778,7 +816,7 @@ dl.book-metadata {
     }
 
     .book-detail-cover {
-        width: 200px;
+        width: min(100%, 320px);
     }
 
     .book-detail-meta h2#title { font-size: 29px; }
@@ -1053,6 +1091,13 @@ form#search { max-width: 640px; }
     height: 30px;
     flex: none;
     font-size: 12px;
+}
+
+/* Removing a row destroys it, so the highlight is the danger red, not the neutral tint. */
+.icon-btn.lily-edit-remove:hover,
+.icon-btn.lily-edit-remove:focus {
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+    color: var(--danger);
 }
 
 /* Each section: a heading, then plainly labelled fields */

@@ -125,7 +125,6 @@ class TaskEmail(CalibreTask):
 
     def prepare_message(self):
         message = EmailMessage()
-        # message = MIMEMultipart()
         message['From'] = self.settings["mail_from"]
         message['To'] = self.recipient
         message['Subject'] = self.subject

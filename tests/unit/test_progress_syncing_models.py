@@ -8,7 +8,6 @@
 
 import pytest
 import sqlite3
-from sqlalchemy import create_engine, text
 from datetime import datetime
 
 from cps.progress_syncing.models import (

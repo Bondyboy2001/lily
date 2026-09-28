@@ -321,7 +321,7 @@ def order_shelf(shelf_id):
                 .add_columns(calibre_db.common_filters().label("visible")) \
                 .filter(ub.BookShelf.shelf == shelf_id).order_by(ub.BookShelf.order.asc()).all()
         return render_title_template('shelf_order.html', entries=result,
-                                     title=_("Change order of Shelf: '%(name)s'", name=shelf.name),
+                                     title=_("Change order of Shelf: %(name)s", name=shelf.name),
                                      shelf=shelf, page="shelforder")
     else:
         abort(404)
@@ -352,7 +352,6 @@ def check_shelf_view_permissions(cur_shelf):
 # if shelf ID is set, we are editing a shelf
 def create_edit_shelf(shelf, page_title, page, shelf_id=False):
     sync_only_selected_shelves = current_user.kobo_only_shelves_sync
-    # calibre_db.session.query(ub.Shelf).filter(ub.Shelf.user_id == current_user.id).filter(ub.Shelf.kobo_sync).count()
     if request.method == "POST":
         to_save = request.form.to_dict()
         if not current_user.role_edit_shelfs() and to_save.get("is_public") == "on":
@@ -515,7 +514,7 @@ def render_show_shelf(shelf_type, shelf_id, page_no, sort_param):
         return render_title_template(page,
                                      entries=result,
                                      pagination=pagination,
-                                     title=_("Shelf: '%(name)s'", name=shelf.name),
+                                     title=_("Shelf: %(name)s", name=shelf.name),
                                      shelf=shelf,
                                      page="shelf",
                                      status=status,
