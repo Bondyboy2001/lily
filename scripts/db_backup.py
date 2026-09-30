@@ -224,6 +224,34 @@ def restore_sqlite_db(snapshot_path: str, live_path: str, timeout: float = 60) -
     check_integrity(live_path)
 
 
+def verify_snapshot(snapshot_dir: str) -> dict:
+    """Proves a snapshot is restorable by restoring each database into a scratch directory.
+
+    Runs the real restore path (integrity check, sqlite backup into a fresh file, integrity
+    check again) and requires the restored database to contain at least one table.
+    Returns {file_name: table_count}; raises ValueError/FileNotFoundError on the first failure.
+    """
+    import tempfile
+    files = _snapshot_db_files(snapshot_dir)
+    if not files:
+        raise FileNotFoundError(f"No databases in snapshot: {snapshot_dir}")
+    result = {}
+    with tempfile.TemporaryDirectory(prefix="lily-verify-") as scratch:
+        for name in files:
+            path = os.path.join(snapshot_dir, name)
+            target = os.path.join(scratch, name)
+            restore_sqlite_db(path, target)
+            con = sqlite3.connect(f"file:{target}?mode=ro", uri=True)
+            try:
+                tables = con.execute("SELECT count(*) FROM sqlite_master WHERE type='table'").fetchone()[0]
+            finally:
+                con.close()
+            if not tables:
+                raise ValueError(f"Restored {name} contains no tables")
+            result[name] = tables
+    return result
+
+
 def create_pre_restore_snapshot(sources: dict, backup_root: str, now: datetime | None = None) -> tuple[str, dict]:
     """Safety copy of the live databases about to be overwritten by a restore.
 
@@ -290,3 +318,14 @@ def backup_databases(sources: dict, backup_root: str, keep: int = DEFAULT_KEEP_C
     else:
         shutil.rmtree(snapshot_dir, ignore_errors=True)
     return snapshot_dir, done, errors
+
+
+if __name__ == "__main__":
+    # Usage: python db_backup.py <backup_root> [snapshot_name]  -- verify latest (or named) snapshot restores
+    import sys
+    root = sys.argv[1]
+    snaps = list_snapshots(root)
+    if not snaps:
+        sys.exit(f"No snapshots in {root}")
+    snap = resolve_snapshot(root, sys.argv[2] if len(sys.argv) > 2 else os.path.basename(snaps[-1]))
+    print(snap, verify_snapshot(snap))

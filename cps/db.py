@@ -775,8 +775,8 @@ class CalibreDB:
                     else:
                         reason = "NETWORK_SHARE_MODE=true" if nsm else "metadata.db not writable"
                         log.warning("WAL mode disabled for calibre/app_settings (%s)", reason)
-                except Exception:
-                    pass
+                except Exception as e:
+                    log.warning("Could not configure WAL mode for app_settings: %s", e)
                 local_session = scoped_session(sessionmaker())
                 local_session.configure(bind=connection)
                 database_uuid = local_session().query(Library_Id).one_or_none()
@@ -834,8 +834,8 @@ class CalibreDB:
                         else:
                             reason = "NETWORK_SHARE_MODE=true" if nsm else "metadata.db not writable"
                             log.warning("WAL mode disabled for calibre/app_settings (%s)", reason)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        log.warning("Could not configure WAL mode for app_settings: %s", e)
 
                 conn = cls.engine.connect()
                 # conn.text_factory = lambda b: b.decode(errors = 'ignore') possible fix for #1302

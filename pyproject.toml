@@ -131,3 +131,11 @@ select = ["E9", "F63", "F7", "F82", "F401", "F811", "F601", "F523", "F841", "B02
 # Tests deliberately keep a few unused locals: they are leftovers from iterative
 # test writing, and removing the call could drop the behaviour under test.
 "tests/**" = ["F841"]
+
+# Type checking is introduced incrementally: run `mypy` (see requirements-dev.txt) on modules
+# as they are refactored. Unlisted modules are ignored so legacy code does not block CI.
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+follow_imports = "silent"
+files = ["scripts/db_backup.py"]

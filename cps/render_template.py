@@ -287,8 +287,8 @@ def render_title_template(*args, **kwargs):
                                 group for group in duplicate_groups
                                 if group.get('group_hash') not in dismissed_hashes
                             ]
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        log.debug("Could not filter dismissed duplicate groups: %s", e)
 
                     preview = []
                     for group in duplicate_groups[:3]:

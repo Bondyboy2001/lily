@@ -16,7 +16,8 @@ from cps.services.worker import CalibreTask
 if '/app/calibre-web-automated/scripts/' not in sys.path:
     sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from db_backup import (backup_databases, normalize_keep_count, DEFAULT_KEEP_COUNT, BACKUP_SUBDIR,
-                       check_integrity, create_pre_restore_snapshot, resolve_snapshot, restore_sqlite_db)
+                       check_integrity, create_pre_restore_snapshot, resolve_snapshot, restore_sqlite_db,
+                       verify_snapshot)
 
 from cps.tasks.restore import RestoreTask
 
@@ -86,6 +87,13 @@ class TaskBackupDatabases(CalibreTask):
             self.log.error("Database backup of %s failed: %s", name, err)
         if done:
             self.log.info("Backed up %s to %s (keeping last %d)", ", ".join(sorted(done)), snapshot_dir, keep)
+        if done:
+            # A backup that can't be restored is worse than none: prove it by restoring to scratch.
+            try:
+                verify_snapshot(snapshot_dir)
+            except Exception as e:
+                self.log.error("Backup verification failed for %s: %s", snapshot_dir, e)
+                errors["verify"] = str(e)
         if errors:
             self._handleError("Database backup failed for: " + ", ".join(
                 "{} ({})".format(name, err) for name, err in sorted(errors.items())))

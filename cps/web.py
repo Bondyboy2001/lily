@@ -486,7 +486,7 @@ def render_books_list(data, sort_param, book_id, page):
 
         try:
             title = _('Books (%(count)s)', count=pagination.total_count)
-        except:
+        except (AttributeError, TypeError):
             title = _('Books (%(count)s)', count=cwa_get_num_books_in_library())
 
         continue_reading = []

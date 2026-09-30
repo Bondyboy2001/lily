@@ -68,7 +68,7 @@ def validate_mime_type(file_buffer, allowed_extensions):
                 file_buffer.seek(0)
                 if "mimetype" in epub.namelist():
                     return True
-        except:
+        except (zipfile.BadZipFile, OSError, ValueError):
             file_buffer.seek(0)
     log.error("Mimetype '{}' not found in allowed types".format(tmp_mime_type))
     return False

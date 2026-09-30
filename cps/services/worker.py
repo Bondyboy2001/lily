@@ -214,8 +214,8 @@ class WorkerThread(threading.Thread):
                     continue
                 if extra_check is None or extra_check(task):
                     return True
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning("Active-task check for %s failed: %s", task_class_name, e)
         return False
 
 

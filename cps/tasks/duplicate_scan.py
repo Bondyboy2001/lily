@@ -189,8 +189,8 @@ class TaskDuplicateScan(CalibreTask):
                             "(last_scanned_book_id=%s)",
                             max_book_id,
                         )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        log.warning("[cwa-duplicates] Could not update incremental scan cache: %s", e)
                     self.result_count = 0
                 else:
                     try:

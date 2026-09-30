@@ -27,3 +27,4 @@ isort>=9.0.1                # Import sorting
 
 # Optional: E2E testing (Phase 3)
 # playwright>=1.40.0         # Uncomment for browser automation tests
+mypy>=1.10

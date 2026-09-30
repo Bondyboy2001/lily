@@ -1584,8 +1584,8 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
         from cps.ub import init_db_thread
         try:
             init_db_thread()
-        except Exception:
-            pass
+        except Exception as e:
+            log.warning("Could not initialise DB thread session for duplicate scan: %s", e)
         
         calibre_db.ensure_session()
         

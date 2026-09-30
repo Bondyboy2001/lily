@@ -116,3 +116,30 @@ restoring `app.db`. Pre-restore snapshots are never rotated; delete them by hand
 Snapshots are self-contained SQLite files with no `-wal` sidecar, so they can also be
 opened directly with `sqlite3` to inspect or recover individual rows.
 
+
+## Runbook
+
+### Deploying to the NAS
+1. Build the image: `docker buildx build --platform linux/amd64 -t lily:nas-amd64 --load .`
+   (retry if gcc segfaults building `faust-cchardet`), then `docker save lily:nas-amd64 | gzip > lily-amd64.tar.gz`.
+2. Copy the tarball to the NAS `docker/lily/` share and `docker load -i lily-amd64.tar.gz`.
+3. Stop any other app using the same library, and back up `metadata.db`, `app.db` and `cwa.db` first.
+4. `docker compose up -d`. The first start can take about 2 minutes (ownership fix on a large library).
+5. Check `/health` and the log for `Starting Calibre Web...`.
+
+### Upgrading
+Take a snapshot (Admin -> Database backups -> Back up now), deploy the new image, confirm `/health`.
+To roll back, redeploy the previous image tag and restore the snapshot if migrations ran.
+
+### Verifying that backups restore
+The nightly backup task restores every new snapshot into a scratch directory and fails loudly if it
+does not open or has no tables. To check by hand, from the source tree:
+
+```
+python scripts/db_backup.py /config/backups            # newest snapshot
+python scripts/db_backup.py /config/backups 20260930_020000
+```
+
+### Failure modes worth knowing
+- Startup now aborts if Flask-WTF (CSRF) or Flask-Limiter is not installed, instead of running unprotected.
+- Backup failures and verification failures appear as a failed "Backup Databases" task in the task list.
