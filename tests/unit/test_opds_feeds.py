@@ -70,6 +70,29 @@ class TestOpdsAuth:
         resp = env.app.test_client().get("/opds", headers=_auth(env.admin().name, "nope"))
         assert resp.status_code == 401
 
+    def test_password_hash_is_checked_once_and_a_password_change_invalidates_it(self, env, monkeypatch):
+        from werkzeug.security import generate_password_hash
+        from cps import ub, usermanagement
+        monkeypatch.setattr(usermanagement, "_password_checks", {})
+        checks = []
+        real_check = usermanagement.check_password_hash
+        monkeypatch.setattr(usermanagement, "check_password_hash",
+                            lambda stored, pw: checks.append(pw) or real_check(stored, pw))
+        user = env.add_user("reader", password="old-pw")
+        client = env.app.test_client()
+
+        for _ in range(3):
+            assert client.get("/opds", headers=_auth("reader", "old-pw")).status_code == 200
+        assert checks == ["old-pw"]
+        for _ in range(2):
+            assert client.get("/opds", headers=_auth("reader", "wrong")).status_code == 401
+        assert checks == ["old-pw", "wrong", "wrong"]  # failures are never cached
+
+        user.password = generate_password_hash("new-pw")
+        ub.session.commit()
+        assert client.get("/opds", headers=_auth("reader", "old-pw")).status_code == 401
+        assert client.get("/opds", headers=_auth("reader", "new-pw")).status_code == 200
+
     def test_anonymous_browse_allows_guest(self, env):
         from cps import config
         config.config_anonbrowse = 1
