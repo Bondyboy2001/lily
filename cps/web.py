@@ -564,10 +564,12 @@ def render_downloaded_books(page, order, user_id):
                                                             db.Books.id == db.books_series_link.c.book,
                                                             db.Series,
                                                             ub.Downloads, db.Books.id == ub.Downloads.book_id, cards_only=True)
-        for book in entries:
-            if not (calibre_db.session.query(db.Books).filter(calibre_db.common_filters())
-                    .filter(db.Books.id == book.Books.id).first()):
-                ub.delete_download(book.Books.id)
+        page_ids = [book.Books.id for book in entries]
+        visible_ids = {row[0] for row in calibre_db.session.query(db.Books.id)
+                       .filter(calibre_db.common_filters()).filter(db.Books.id.in_(page_ids))} if page_ids else set()
+        for book_id in page_ids:
+            if book_id not in visible_ids:
+                ub.delete_download(book_id)
         return render_title_template('index.html',
                                      random=random,
                                      entries=entries,

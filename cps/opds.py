@@ -316,19 +316,21 @@ def feed_hot():
     off = request.args.get("offset") or 0
     all_books = ub.session.query(ub.Downloads, func.count(ub.Downloads.book_id)).order_by(
         func.count(ub.Downloads.book_id).desc()).group_by(ub.Downloads.book_id)
-    hot_books = all_books.offset(off).limit(config.config_books_per_page)
+    hot_book_ids = [book.Downloads.book_id for book in all_books.offset(off).limit(config.config_books_per_page)]
     entries = list()
-    for book in hot_books:
+    if hot_book_ids:
+        # one query for the page, then back into download-count order
         query = calibre_db.generate_linked_query(config.config_read_column, db.Books)
-        download_book = query.filter(calibre_db.common_filters()).filter(
-            book.Downloads.book_id == db.Books.id).first()
-        if download_book:
-            entries.append(download_book)
-        else:
-            ub.delete_download(book.Downloads.book_id)
-    num_books = entries.__len__()
+        books_by_id = {entry.Books.id: entry for entry in
+                       query.filter(calibre_db.common_filters()).filter(db.Books.id.in_(hot_book_ids)).all()}
+        for book_id in hot_book_ids:
+            if book_id in books_by_id:
+                entries.append(books_by_id[book_id])
+            else:
+                ub.delete_download(book_id)
+    total_hot_books = ub.session.query(func.count(ub.Downloads.book_id.distinct())).scalar()
     pagination = Pagination((int(off) / (int(config.config_books_per_page)) + 1),
-                            config.config_books_per_page, num_books)
+                            config.config_books_per_page, total_hot_books)
     return render_xml_template('feed.xml', entries=entries, pagination=pagination)
 
 
