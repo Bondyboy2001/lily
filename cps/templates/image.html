@@ -130,8 +130,7 @@
 {%- endmacro %}
 
 {# Quick actions on a grid cover: icon bar over the cover's foot, revealed on hover or focus (lily.js wires them). #}
-{% macro cover_actions(book, user, is_read=False) -%}
-    {%- set formats = book.data|map(attribute='format')|map('lower')|list -%}
+{% macro cover_actions(book, user, formats, is_read=False) -%}
     <div class="lily-cover-actions" data-book-id="{{ book.id }}" data-book-formats="{{ formats|join(',') }}">
       {% if formats and user.role_viewer() %}
       <button type="button" class="icon-btn lily-read-now" title="{{ _('Read in Browser') }}" aria-label="{{ _('Read in Browser') }}"><span class="glyphicon glyphicon-book" aria-hidden="true"></span></button>
@@ -149,15 +148,20 @@
 
 {# One book in a cover grid (index, author, search, shelf). Cards are plain: cover, title, authors. #}
 {% macro book_card(book, user, is_read=False, authors_max=0, series_link=True, alt=None, extra_class='') -%}
+    {%- set formats = book.data|map(attribute='format')|map('lower')|list -%}
     <div class="book lily-book {{ extra_class }}">
       <div class="cover">
         <a href="{{ url_for('web.show_book', book_id=book.id) }}" class="book-cover-link" data-book-id="{{ book.id }}">
           <span class="img" title="{{ book.title }}">
             {{ book_cover(book, alt=alt) }}
             {% if is_read %}<span class="badge read glyphicon glyphicon-ok" title="{{ _('Read') }}"></span>{% endif %}
+            {% set marks = ['epub', 'pdf']|select('in', formats)|list %}
+            {% if marks %}
+            <span class="lily-cover-formats">{% for f in marks %}<span class="lily-format lily-format-{{ f }}" title="{{ f|upper }}"></span>{% endfor %}</span>
+            {% endif %}
           </span>
         </a>
-        {{ cover_actions(book, user, is_read) }}
+        {{ cover_actions(book, user, formats, is_read) }}
       </div>
       <div class="meta">
         <a href="{{ url_for('web.show_book', book_id=book.id) }}">
