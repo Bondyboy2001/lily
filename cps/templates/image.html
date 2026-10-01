@@ -1,9 +1,23 @@
-{% macro book_cover(book, alt=None) -%}
+{#- Rendered widths of a cover, for the `sizes` of its srcset (`w` descriptors, see
+    jinjia.get_cover_srcset). Keep in step with lily-library.css: book grid columns are
+    minmax(190px, 1fr) (two per row on phones), list rows 44px, Continue Reading 140px
+    (112px on phones), the series grid 160px (two per row on phones). -#}
+{% set GRID_COVER_SIZES = '(max-width: 767px) 50vw, 220px' %}
+{% set LIST_COVER_SIZES = '44px' %}
+{% set CONTINUE_COVER_SIZES = '(max-width: 767px) 112px, 140px' %}
+{% set SERIES_COVER_SIZES = '(max-width: 767px) 50vw, 160px' %}
+
+{#- `sizes` defaults to a grid card. `list_sizes` (book grids the List view shrinks in
+    place) is what main.js swaps in when the view changes; `list_view` picks it up front. -#}
+{% macro book_cover(book, alt=None, sizes=None, list_sizes=None, list_view=False) -%}
     {%- set image_title = book.title if book.title else book.name -%}
     {%- set image_alt = alt if alt else image_title -%}
+    {%- set grid_sizes = sizes or GRID_COVER_SIZES -%}
     {% set srcset = book|get_cover_srcset %}
     <img
         srcset="{{ srcset }}"
+        sizes="{{ list_sizes if (list_sizes and list_view) else grid_sizes }}"
+        {%- if list_sizes %} data-sizes-grid="{{ grid_sizes }}" data-sizes-list="{{ list_sizes }}"{% endif %}
         src="{{ url_for('web.get_cover', book_id=book.id, resolution='og', c=book|last_modified) }}"
         alt="{{ image_alt }}"
         loading="lazy"
@@ -15,6 +29,7 @@
     {% set srcset = series|get_series_srcset %}
     <img
         srcset="{{ srcset }}"
+        sizes="{{ SERIES_COVER_SIZES }}"
         src="{{ url_for('web.get_series_cover', series_id=series.id, resolution='og', c='day'|cache_timestamp) }}"
         alt="{{ image_alt }}"
         loading="lazy"
@@ -153,7 +168,8 @@
       <div class="cover">
         <a href="{{ url_for('web.show_book', book_id=book.id) }}" class="book-cover-link" data-book-id="{{ book.id }}">
           <span class="img" title="{{ book.title }}">
-            {{ book_cover(book, alt=alt) }}
+            {{ book_cover(book, alt=alt, list_sizes=LIST_COVER_SIZES,
+                          list_view=(user.get_view_property('books', 'view') == 'list')) }}
             {% if is_read %}<span class="badge read glyphicon glyphicon-ok" title="{{ _('Read') }}"></span>{% endif %}
           </span>
         </a>

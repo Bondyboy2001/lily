@@ -39,7 +39,7 @@
            data-book-formats="{% for format in book.data %}{{ format.format.lower() }}{% if not loop.last %},{% endif %}{% endfor %}"
            class="book-cover-link">
           <span class="img" title="{{ book.title }}">
-            {{ image.book_cover(book) }}
+            {{ image.book_cover(book, sizes=image.CONTINUE_COVER_SIZES) }}
           </span>
         </a>
       </div>

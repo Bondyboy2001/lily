@@ -17,7 +17,7 @@
                   <div class="cover">
                       <a href="{{url_for('web.books_list', data=data, sort_param='stored', book_id=entry[0].series[0].id )}}">
                           <span class="img" title="{{entry[0].series[0].name}}">
-                              {{ image.book_cover(entry[0])}}
+                              {{ image.book_cover(entry[0], sizes=image.SERIES_COVER_SIZES) }}
                               <span class="badge lily-cover-count" title="{{_('Books')}}">{{entry.count}}</span>
                             </span>
                       </a>
