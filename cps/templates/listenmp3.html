@@ -81,7 +81,7 @@
     {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
     <section class="lily-audio-description">
       <h2>{{_('Description:')}}</h2>
-      {{ entry.comments[0].text|safe }}
+      {{ entry.comments[0].text|sanitize_html }}
     </section>
     {% endif %}
   </main>
