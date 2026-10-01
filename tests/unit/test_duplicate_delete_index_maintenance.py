@@ -229,6 +229,12 @@ def _load_editbooks_module(delete_key_calls):
         {"func": SimpleNamespace(), "or_": lambda *args: ("or", args)},
     )
 
+    # editbooks.py imports its route submodules at the bottom; they are not under test here
+    _install_stub("cps.editbooks_upload", {name: (lambda *a, **k: None) for name in (
+        "_ensure_ingest_dir_writable", "_get_ingest_path", "_save_to_ingest_atomic_rename",
+        "_validate_uploaded_file")})
+    _install_stub("cps.editbooks_bulk")
+
     editbooks_path = pathlib.Path(__file__).resolve().parents[2] / "cps" / "editbooks.py"
     spec = importlib.util.spec_from_file_location("cps.editbooks", editbooks_path)
     module = importlib.util.module_from_spec(spec)
