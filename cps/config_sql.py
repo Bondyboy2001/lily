@@ -10,8 +10,9 @@
 import os
 import sys
 import json
+import hashlib
 
-from sqlalchemy import Column, String, Integer, SmallInteger, Boolean, BLOB, JSON
+from sqlalchemy import Column, String, Integer, SmallInteger, Boolean, BLOB, JSON, inspect
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql.expression import text
 from cryptography.fernet import Fernet
@@ -479,11 +480,30 @@ def load_configuration(session, secret_key):
         session.commit()
 
 
+# SHA-256 of session-signing keys that shipped inside the empty_library/app.db template.
+# Anyone with the repository knows them, so an install that inherited one must not keep it.
+_KNOWN_TEMPLATE_KEY_HASHES = frozenset({
+    "0d5bba2709d1cad87280c370d388459da5ade12a5cb34c5c4fa86b5c89e7caab",
+})
+
+
+def _is_template_key(key):
+    return bool(key) and hashlib.sha256(bytes(key)).hexdigest() in _KNOWN_TEMPLATE_KEY_HASHES
+
+
 def get_flask_session_key(_session):
     flask_settings = _session.query(_Flask_Settings).one_or_none()
     if flask_settings is None:
         flask_settings = _Flask_Settings(os.urandom(32))
         _session.add(flask_settings)
+        _session.commit()
+    elif not flask_settings.flask_session_key or _is_template_key(flask_settings.flask_session_key):
+        log.warning("The stored session-signing key is empty or the publicly known template key; "
+                    "generating a new one. Everyone will need to sign in again.")
+        flask_settings.flask_session_key = os.urandom(32)
+        # Sessions created under the old key may have been forged by anyone who knew it.
+        if inspect(_session.bind).has_table("user_session"):
+            _session.execute(text("DELETE FROM user_session"))
         _session.commit()
     return flask_settings.flask_session_key
 
