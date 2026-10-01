@@ -16,14 +16,13 @@ from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
 from . import calibre_db, db, logger
-from .duplicates import (
+from .duplicate_rules import (
     _AWARE_MIN,
     _timestamp_or_default,
-    filter_dismissed_groups,
     generate_group_hash,
-    get_common_filters,
     normalize_title_for_duplicates,
 )
+from .duplicates import filter_dismissed_groups, get_common_filters
 
 sys.path.insert(1, "/app/calibre-web-automated/scripts/")
 from cwa_db import CWA_DB

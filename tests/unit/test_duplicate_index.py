@@ -99,6 +99,8 @@ def _load_duplicate_index_module():
         },
     )
     cps.duplicates = duplicates
+    _install_stub("cps.duplicate_rules", {name: duplicates.__dict__[name] for name in (
+        "_AWARE_MIN", "_timestamp_or_default", "generate_group_hash", "normalize_title_for_duplicates")})
 
     _install_stub("cwa_db", {"CWA_DB": object})
 
@@ -259,6 +261,7 @@ def duplicate_index(monkeypatch):
     for name in (
         "cps.duplicate_index",
         "cps.duplicates",
+        "cps.duplicate_rules",
         "cps.calibre_db",
         "cps.db",
         "cps.logger",

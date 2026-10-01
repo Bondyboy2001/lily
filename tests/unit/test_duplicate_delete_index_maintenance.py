@@ -311,6 +311,9 @@ def _load_duplicates_module(delete_key_calls):
     _install_stub("sqlalchemy.sql.expression", {"true": lambda: True, "false": lambda: False})
     _install_stub("sqlalchemy.orm", {"joinedload": lambda *args, **kwargs: None})
 
+    from tests.unit.duplicate_loader import load_duplicate_rules
+    load_duplicate_rules()
+
     duplicates_path = pathlib.Path(__file__).resolve().parents[2] / "cps" / "duplicates.py"
     spec = importlib.util.spec_from_file_location("cps.duplicates", duplicates_path)
     module = importlib.util.module_from_spec(spec)
