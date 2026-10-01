@@ -91,7 +91,7 @@
           <form class="lily-search" role="search" action="{{url_for('search.simple_search')}}" method="GET">
             <label for="query" class="sr-only">{{_('Search')}}</label>
             <input type="search" class="form-control" id="query" name="query" placeholder="{{_('Search Library')}}" value="{{searchterm}}"
-                   autocomplete="off" data-suggest-url="{{url_for('web.get_book_titles_json')}}">
+                   autocomplete="off" data-suggest-url="{{url_for('web.get_book_titles_json')}}" data-label-authors="{{_('Authors')}}">
             <button type="submit" id="query_submit" class="sr-only">{{_('Search')}}</button>
           </form>
           <a href="{{url_for('search.advanced_search')}}" id="advanced_search" class="icon-btn" title="{{_('Advanced Search')}}" aria-label="{{_('Advanced Search')}}"><span class="glyphicon glyphicon-filter" aria-hidden="true"></span></a>

@@ -1547,3 +1547,23 @@ body.book_table .pagination {
 .up-next > h2 > a { color: inherit; text-decoration: none; }
 
 .up-next > h2 > a:hover { color: var(--accent); }
+
+/* Top bar suggestions: the Authors group under the books (lily.js). */
+.lily-topbar .tt-header {
+    margin-top: 6px;
+    padding: 8px 12px 4px;
+    border-top: 1px solid var(--line-soft);
+    color: var(--faint);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.lily-topbar .tt-dataset:first-child .tt-header,
+.lily-topbar .tt-dataset-books:empty + .tt-dataset .tt-header { margin-top: 0; border-top: 0; }
+
+.lily-topbar .tt-author-item .tt-icon {
+    flex: none;
+    width: 36px;
+    color: var(--muted);
+    text-align: center;
+}

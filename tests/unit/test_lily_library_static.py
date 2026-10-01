@@ -153,3 +153,11 @@ def test_style_css_has_no_legacy_colours():
 def test_book_links_open_the_book_page_not_a_modal():
     for name in ["index.html", "author.html", "search.html", "shelf.html", "image.html"]:
         assert "#bookDetailsModal" not in read(TEMPLATES / name), name
+
+
+def test_search_suggestions_open_the_picked_book_or_author():
+    js = read(JS / "lily.js")
+    block = js[js.index("Top bar search"):js.index("Colour theme button")]
+    assert 'name: "authors"' in block and "window.location.href = item.url" in block
+    assert "minLength: MIN_LENGTH" in block and "MIN_LENGTH = 2" in block
+    assert "data-label-authors" in read(TEMPLATES / "layout.html")

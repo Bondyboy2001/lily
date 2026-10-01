@@ -427,30 +427,56 @@ window.lilyPickOption = function (item) {
 };
 
 /*
- * Top bar search: suggest matching books while typing. The endpoint applies the same
- * visibility rules as the library lists, so nothing hidden is ever suggested.
+ * Top bar search: suggest matching books, then authors, while typing. The endpoint applies the
+ * same visibility rules as the library lists, so nothing hidden is ever suggested. Picking a
+ * suggestion opens that book or author; Enter on the text still runs a full search.
  * Markup: layout.html (#query + data-suggest-url); menu look: lily-library.css.
  */
 (function ($) {
   "use strict";
-  if (!$ || !$.fn.typeahead || !window.Bloodhound) { return; }
+  if (!$ || !$.fn.typeahead) { return; }
+
+  var MIN_LENGTH = 2;
+  var WAIT_MS = 200;
 
   $(function () {
     var input = document.getElementById("query");
     var suggestUrl = input && input.getAttribute("data-suggest-url");
     if (!suggestUrl) { return; }
 
-    var books = new Bloodhound({
-      datumTokenizer: Bloodhound.tokenizers.obj.whitespace("name"),
-      queryTokenizer: Bloodhound.tokenizers.whitespace,
-      remote: {url: suggestUrl + "?q=%QUERY", wildcard: "%QUERY"}
-    });
+    // One request per query, shared by the two groups, sent once typing pauses.
+    var last = { query: null, promise: null };
+    var timer = null;
+    function suggestions(query) {
+      if (last.query !== query) {
+        var deferred = $.Deferred();
+        last = { query: query, promise: deferred.promise() };
+        clearTimeout(timer);
+        timer = setTimeout(function () {
+          $.getJSON(suggestUrl, { q: query }).done(deferred.resolve).fail(function () { deferred.resolve([]); });
+        }, WAIT_MS);
+      }
+      return last.promise;
+    }
 
-    $(input).typeahead({hint: false, minLength: 2}, {
+    function source(type) {
+      return function (query, sync, async) {
+        suggestions(query).done(function (items) {
+          async((items || []).filter(function (item) { return (item.type || "book") === type; }));
+        });
+      };
+    }
+
+    function header(label) {
+      return function () { return $("<div>").addClass("tt-header").text(label)[0].outerHTML; };
+    }
+
+    $(input).typeahead({hint: false, minLength: MIN_LENGTH}, {
       name: "books",
       display: "name",
       limit: 8,
-      source: books,
+      async: true,
+      source: source("book"),
       templates: {
         // Built as DOM nodes, so titles and authors are escaped rather than injected as HTML.
         suggestion: function (book) {
@@ -466,11 +492,30 @@ window.lilyPickOption = function (item) {
           return $item;
         }
       }
+    }, {
+      name: "authors",
+      display: "name",
+      limit: 4,
+      async: true,
+      source: source("author"),
+      templates: {
+        header: header(input.getAttribute("data-label-authors") || "Authors"),
+        suggestion: function (author) {
+          var $item = $("<div>").addClass("tt-book tt-author-item");
+          $("<span class='glyphicon glyphicon-user tt-icon' aria-hidden='true'></span>").appendTo($item);
+          $("<span>").addClass("tt-title").text(author.name).appendTo($item);
+          return $item;
+        }
+      }
     });
 
-    // The box is a search form, so picking a suggestion runs that search.
-    $(input).on("typeahead:select typeahead:autocomplete", function () {
-      $(this).closest("form").trigger("submit");
+    // A suggestion opens its book or author page; without a url (an older server) it searches.
+    $(input).on("typeahead:select", function (e, item) {
+      if (item && item.url) {
+        window.location.href = item.url;
+      } else {
+        $(this).closest("form").trigger("submit");
+      }
     });
   });
 })(window.jQuery);
