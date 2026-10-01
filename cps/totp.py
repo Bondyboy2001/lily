@@ -23,6 +23,7 @@ TOKEN_PREFIX = "lily_"
 
 MAX_FAILURES = 5
 LOCKOUT_SECONDS = 15 * 60
+MAX_LOCKOUT_SECONDS = 24 * 60 * 60
 
 
 def generate_secret() -> str:
@@ -74,30 +75,48 @@ def looks_like_api_token(value: str) -> bool:
 
 
 class FailureTracker:
-    """Per-key failure counter with a timed lockout (process-local). Stops an
-    attacker who knows a password from guessing 6-digit codes by restarting login."""
+    """Per-key failure counter with a timed lockout. Stops an attacker who knows a
+    password from guessing 6-digit codes by restarting login.
 
-    def __init__(self, max_failures: int = MAX_FAILURES, lockout: int = LOCKOUT_SECONDS):
+    Each lockout in a row doubles the next one (up to ``max_lockout``); a success clears
+    everything. ``store`` is any dict-like mapping key -> {"count", "until", "lockouts"}
+    (get, item assignment, pop, iteration); the web app passes one backed by app.db so a
+    restart doesn't reset a lockout."""
+
+    def __init__(self, max_failures: int = MAX_FAILURES, lockout: int = LOCKOUT_SECONDS,
+                 max_lockout: int = MAX_LOCKOUT_SECONDS, store=None):
         self.max_failures = max_failures
         self.lockout = lockout
-        self._state: dict = {}
+        self.max_lockout = max_lockout
+        self._state = {} if store is None else store
 
     def locked(self, key, now: float | None = None) -> bool:
         now = time.time() if now is None else now
         entry = self._state.get(key)
-        if not entry:
+        if not entry or not entry.get("until"):
             return False
-        if entry["until"] and now >= entry["until"]:
-            del self._state[key]
+        if now >= entry["until"]:
+            # Lockout over: fresh attempts, but the next lockout will be longer
+            self._state[key] = {"count": 0, "until": 0, "lockouts": entry.get("lockouts", 0)}
             return False
-        return bool(entry["until"])
+        return True
 
     def failure(self, key, now: float | None = None) -> None:
         now = time.time() if now is None else now
-        entry = self._state.setdefault(key, {"count": 0, "until": 0})
-        entry["count"] += 1
+        entry = dict(self._state.get(key) or {"count": 0, "until": 0, "lockouts": 0})
+        entry["count"] = entry.get("count", 0) + 1
         if entry["count"] >= self.max_failures:
-            entry["until"] = now + self.lockout
+            lockouts = entry.get("lockouts", 0)
+            entry["until"] = now + min(self.lockout * 2 ** lockouts, self.max_lockout)
+            entry["lockouts"] = lockouts + 1
+            entry["count"] = 0
+        self._state[key] = entry
+
+    def seconds_left(self, key, now: float | None = None) -> int:
+        now = time.time() if now is None else now
+        if not self.locked(key, now):
+            return 0
+        return int(self._state.get(key)["until"] - now) + 1
 
     def success(self, key) -> None:
         self._state.pop(key, None)

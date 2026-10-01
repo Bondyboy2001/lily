@@ -289,6 +289,10 @@ class User(UserBase, Base):
     totp_secret = Column(String, default=None)
     totp_enabled = Column(Boolean, default=False)
     totp_last_step = Column(Integer, default=0)
+    # Wrong-code lockout state, kept here so a restart doesn't reset it (see web_auth)
+    totp_failures = Column(Integer, default=0)
+    totp_lockouts = Column(Integer, default=0)
+    totp_locked_until = Column(Float, default=0)
     # SHA-256 of the user's personal API token (accepted by OPDS and as a Bearer token)
     api_token_hash = Column(String, default=None)
 
@@ -678,7 +682,9 @@ def migrate_user_table(engine, _session):
         _run_ddl_with_retry(engine, "ALTER TABLE user ADD column 'force_password_change' Boolean DEFAULT 0")
 
     for column, ddl in (("totp_secret", "String"), ("totp_enabled", "Boolean DEFAULT 0"),
-                        ("totp_last_step", "Integer DEFAULT 0"), ("api_token_hash", "String")):
+                        ("totp_last_step", "Integer DEFAULT 0"), ("api_token_hash", "String"),
+                        ("totp_failures", "Integer DEFAULT 0"), ("totp_lockouts", "Integer DEFAULT 0"),
+                        ("totp_locked_until", "Float DEFAULT 0")):
         try:
             _session.query(exists().where(getattr(User, column))).scalar()
             _session.commit()
