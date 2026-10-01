@@ -8,7 +8,7 @@
  *   .btn / .btn-default → Quiet    .btn-primary → Primary    .btn-danger → Danger
  *   .form-control → Field          .dropdown-menu → Menu     .modal → Sheet
  *   .alert → Notice                .label / .badge → Pill    .pagination / .nav-tabs → Chips
- * Loaded after bootstrap.min.css, style.css, upload.css and cwa.css in layout.html.
+ * Loaded after bootstrap.min.css, style.css, upload.css and lily-fixes.css in layout.html.
  */
 
 :root {

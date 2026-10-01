@@ -111,7 +111,7 @@ def test_layout_loads_lily_styles_and_not_caliblur_css():
         assert asset in layout, asset
     for asset in ("caliBlur.css", "caliBlur_override.css", "lily-light.css"):
         assert asset not in layout, asset
-    assert layout.index("css/cwa.css") < layout.index("css/lily.css") < layout.index("css/lily-shell.css")
+    assert layout.index("css/lily-fixes.css") < layout.index("css/lily.css") < layout.index("css/lily-shell.css")
 
 
 def test_legacy_caliblur_assets_are_deleted():
