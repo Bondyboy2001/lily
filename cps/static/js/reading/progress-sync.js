@@ -11,6 +11,8 @@
  *   var sync = LilyProgress.create({url: "/ajax/progress/12", storageKey: "12.epub", enabled: true});
  *   sync.load().then(function (pos) { if (pos) { ...jump to pos.cfi / pos.percent... } });
  *   sync.save(cfi, percent);   // debounced POST, flushed on pagehide / tab hidden
+ * A POST that fails (offline, server error) keeps its position pending; it is sent again on
+ * the next save, when the browser comes back online, or when the page is hidden.
  */
 (function (window) {
     "use strict";
@@ -119,13 +121,25 @@
             if (!enabled || !pending || !window.fetch) {
                 return;
             }
-            var body = JSON.stringify({cfi: pending.cfi, percent: pending.percent === null ? 0 : pending.percent});
+            var sending = pending;
+            var body = JSON.stringify({cfi: sending.cfi, percent: sending.percent === null ? 0 : sending.percent});
             pending = null;
             if (body === lastSent) {
                 return;
             }
             lastSent = body;
+
+            function failed() {
+                lastSent = "";
+                // Keep the position for the next try (the next page turn, the 'online' event or
+                // leaving the page) unless a newer one has been recorded since.
+                if (!pending) {
+                    pending = sending;
+                }
+            }
+
             try {
+                // keepalive lets the request outlive the page (pagehide, app switch on iOS).
                 window.fetch(url, {
                     method: "POST",
                     credentials: "same-origin",
@@ -134,13 +148,11 @@
                     body: body
                 }).then(function (response) {
                     if (!response.ok) {
-                        lastSent = "";
+                        failed();
                     }
-                }).catch(function () {
-                    lastSent = "";
-                });
+                }).catch(failed);
             } catch (e) {
-                lastSent = "";
+                failed();
             }
         }
 
@@ -154,6 +166,12 @@
             }
         });
         window.addEventListener("pagehide", flush);
+        // Back from a network drop: send what could not be sent.
+        window.addEventListener("online", function () {
+            if (pending) {
+                post(false);
+            }
+        });
 
         return {
             /** Resolves to the newest known position ({cfi, percent, updated}) or null. */
