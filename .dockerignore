@@ -1,4 +1,4 @@
-README_images
+docs/screenshot.jpg
 docker-compose.yml
 .git
 .github
@@ -12,7 +12,6 @@ Dockerfile
 .dockerignore
 .history
 docker-compose.yml.dev
-cwa-wiki
 .devcontainer
 
 # Test infrastructure (not needed in production image)

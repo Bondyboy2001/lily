@@ -4,9 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lily"
-description = "Lily: a personal redesign of Calibre-Web Automated, a self-hosted ebook library"
-authors = [{name = "CrocodileStick", email = "crocodilestick@users.noreply.github.com"}]
-maintainers = [{name = "Bondyboy2001"}]
+description = "A self-hosted home for your books and papers"
+authors = [{name = "Bondyboy2001"}]
 license = {text = "GPLv3+"}
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -18,14 +17,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
 ]
-keywords = [
-    "calibre",
-    "calibre-web",
-    "calibre-web-automated",
-    "library",
-    "ebook",
-    "automated",
-]
+keywords = ["ebook", "library", "calibre", "self-hosted"]
 requires-python = ">=3.10"
 dependencies = [
     # <4: APScheduler 4 is a rewrite (async data stores, no BackgroundScheduler); see requirements.txt
@@ -65,10 +57,8 @@ dynamic = ["version"]
 
 [project.urls]
 Homepage = "https://github.com/Bondyboy2001/lily"
-"Bug Tracker" = "https://github.com/Bondyboy2001/lily/issues"
-"Release Management" = "https://github.com/Bondyboy2001/lily/releases"
-Upstream = "https://github.com/crocodilestick/Calibre-Web-Automated"
-"Source Code" = "https://github.com/crocodilestick/Calibre-Web-Automated"
+Issues = "https://github.com/Bondyboy2001/lily/issues"
+Upstream = "https://github.com/crocodilestick/calibre-web-automated"
 
 [project.readme]
 file = "README.md"

@@ -2,10 +2,10 @@ name: Test Suite
 
 on:
   push:
-    branches: ['**']  # Run Job 1 on all branches
+    branches: ['**']
   pull_request:
-    branches: [main, dev]  # Run Job 1 on PRs to main/dev
-  workflow_dispatch:  # Manual trigger button in Actions tab
+    branches: [main, dev]
+  workflow_dispatch:
     inputs:
       run_integration:
         description: 'Run integration tests'
@@ -124,31 +124,8 @@ jobs:
             -v \
             --tb=short \
             --cov=cps \
-            --cov-report=xml \
             --cov-report=term-missing
       
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        if: always()
-        with:
-          files: ./coverage.xml
-          flags: unittests
-          name: fast-tests
-          fail_ci_if_error: false
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      
-      - name: Comment PR with results
-        uses: actions/github-script@v9
-        if: github.event_name == 'pull_request' && failure()
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '⚠️ **Fast tests failed!** Please check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) and fix before merging.'
-            })
 
   # ============================================================================
   # Docker build check
@@ -287,23 +264,7 @@ jobs:
             tests/logs/
             tests/tmp/
           retention-days: 7
-      
-      - name: Notify on failure
-        uses: sarisia/actions-status-discord@v1
-        if: failure() && env.DISCORD_WEBHOOK != ''
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          title: "❌ Integration tests failed on ${{ github.ref_name }}"
-          description: |
-            **Commit**: ${{ github.sha }}
-            **Author**: ${{ github.actor }}
-            **Branch**: ${{ github.ref_name }}
-            
-            [View logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          color: 0xFF0000
-          username: GitHub Actions
+
 
   # ============================================================================
   # Summary Job (Optional)
