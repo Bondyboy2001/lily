@@ -142,21 +142,31 @@ def undo_trash_book(library_path, book_id):
     entry_id = candidates[0]  # list_entries is newest first
     folder, manifest_path = store.entry_paths(root, entry_id)
     try:
-        book_path = store.read_manifest(root, entry_id)["path"]
+        manifest = store.read_manifest(root, entry_id)
         if os.path.isdir(folder):
-            store.move_path(folder, os.path.join(library_path, book_path))
-        os.remove(manifest_path)
-        return True
+            store.move_path(folder, os.path.join(library_path, manifest["path"]))
     except (OSError, KeyError, ValueError) as e:
         log.error("Could not put book %s back from the Trash entry %s: %s", book_id, entry_id, e)
         return False
+    try:
+        # delete_whole_book commits the app.db deletes before the metadata.db ones
+        store.restore_app_rows(SessionExecutor(ub.session), manifest.get("app", {}), book_id, only_empty_tables=True)
+        ub.session.commit()
+    except Exception as e:
+        ub.session.rollback()
+        log.error("Could not re-link shelves and reading data of book %s: %s", book_id, e)
+    os.remove(manifest_path)
+    return True
 
 
 def trash_format(book, library_path, book_format, reason="delete"):
-    """Moves one format's file(s) of a book to the Trash. Returns the entry id."""
+    """Moves one format's file(s) of a book to the Trash. Returns the entry id, or None
+    when there was no file to keep (only the database row goes)."""
     book_format = book_format.upper()
     folder = os.path.join(library_path, book.path)
     files = [f for f in os.listdir(folder) if f.upper().endswith("." + book_format)] if os.path.isdir(folder) else []
+    if not files:
+        return None
     calibre_db.ensure_session()
     rows = SessionExecutor(calibre_db.session).fetch(
         "SELECT * FROM calibre.data WHERE book = :id AND format = :fmt", {"id": book.id, "fmt": book_format})

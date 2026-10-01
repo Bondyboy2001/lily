@@ -386,13 +386,22 @@ def test_failed_row_delete_puts_the_folder_back(env, monkeypatch):
     book_id = env.add_library_book("Fragile", author="Some One")
     folder = env.library_dir / "Some One" / f"Fragile ({book_id})"
 
+    from cps import ub
+    ub.session.add(ub.ReadBook(user_id=env.admin().id, book_id=book_id, read_status=ub.ReadBook.STATUS_FINISHED))
+    ub.session.commit()
+
     def boom(book_id, book):
+        # Like delete_whole_book: app.db rows go (and are committed) before metadata.db fails
+        ub.session.query(ub.ReadBook).filter(ub.ReadBook.book_id == book_id).delete()
+        ub.session.commit()
         raise RuntimeError("database is locked")
 
     monkeypatch.setattr(editbooks, "delete_whole_book", boom)
     admin.post(f"/ajax/delete/{book_id}")
     assert folder.is_dir() and _book_exists(env, book_id)
     assert _entries(env) == []
+    ub.session.expire_all()
+    assert ub.session.query(ub.ReadBook).filter(ub.ReadBook.book_id == book_id).one().read_status == 1
 
 
 def test_unreferenced_folders_can_be_sent_back_through_ingest(env, tmp_path, monkeypatch):

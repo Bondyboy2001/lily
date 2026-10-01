@@ -219,15 +219,21 @@ def capture_app_rows(ex: Executor, book_id: int, schema: str = "main") -> dict:
     return out
 
 
-def restore_app_rows(ex: Executor, captured: dict, book_id: int, schema: str = "main") -> int:
+def restore_app_rows(ex: Executor, captured: dict, book_id: int, schema: str = "main",
+                     only_empty_tables: bool = False) -> int:
     """Re-links captured app.db rows to `book_id`, skipping users and shelves that no
-    longer exist. Returns the number of rows inserted. The caller commits."""
+    longer exist. only_empty_tables: leave a table alone when it still has rows for the
+    book (undoing a half-finished delete). Returns the number of rows inserted. The
+    caller commits."""
     tables = _tables(ex, schema)
     users = {r["id"] for r in ex.fetch("SELECT id FROM %s.user" % _q(schema))} if "user" in tables else set()
     shelves = {r["id"] for r in ex.fetch("SELECT id FROM %s.shelf" % _q(schema))} if "shelf" in tables else set()
     count = 0
     for table, items in captured.items():
         if table not in APP_TABLES or table not in tables:
+            continue
+        if only_empty_tables and ex.fetch("SELECT 1 FROM %s.%s WHERE book_id = :id LIMIT 1"
+                                          % (_q(schema), _q(table)), {"id": book_id}):
             continue
         for item in items:
             if "user_id" in item and item["user_id"] is not None and item["user_id"] not in users:
