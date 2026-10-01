@@ -225,7 +225,7 @@
       <input type="hidden" id="duplicate_detection_use_sql" name="duplicate_detection_use_sql" value="1">
     {% endcall %}
 
-    {% call f.group(_('Match On'), help=_('Books must match every checked field. Title and Author are recommended; choose at least one.')) %}
+    {% call f.group(_('Match On'), help=_('Books must match every checked field. Title and Author are recommended; choose at least one. Automatic resolution needs Title.')) %}
       <div class="lp-checks">
         {{ f.check('duplicate_detection_title', _('Title'), cwa_settings['duplicate_detection_title'], attrs='value="1"') }}
         {{ f.check('duplicate_detection_author', _('Author'), cwa_settings['duplicate_detection_author'], attrs='value="1"') }}
@@ -258,8 +258,20 @@
     {% call f.group(_('Resolution')) %}
       {{ f.toggle('duplicate_notifications_enabled', _('Notify about duplicates'), cwa_settings['duplicate_notifications_enabled'],
          help=_('Admins and editors see a badge and a popup when unresolved duplicates exist.'), attrs='value="1"') }}
+      {% set dup_previewed = cwa_settings.get('duplicate_auto_resolve_previewed_at') %}
+      {% set dup_last_abort = cwa_settings.get('duplicate_auto_resolve_last_abort') %}
+      {% if dup_last_abort is iterable and dup_last_abort is not string %}{% set dup_last_abort = dup_last_abort|join(',') %}{% endif %}
       {{ f.toggle('duplicate_auto_resolve_enabled', _('Resolve automatically'), cwa_settings['duplicate_auto_resolve_enabled'],
-         help=_('Deletes copies using the strategy below; originals are backed up to /config/processed_books/. Dismissed groups are skipped.'), attrs='value="1"') }}
+         help=_('Moves copies to the Trash using the strategy below, keeping any copy someone is reading, has shelved or marked read. Needs Title among the match criteria and a Preview on the Duplicate Books page first. A run that would remove more than 20 books (or 1%% of the library) stops without deleting anything. Dismissed groups are skipped.'),
+         attrs='value="1" data-needs-title="1"' ~ ('' if dup_previewed or cwa_settings['duplicate_auto_resolve_enabled'] else ' disabled')) }}
+      {% if not dup_previewed %}
+      {% call f.row(_('Preview first'), help=_('Run Preview on the Duplicate Books page to see what would be removed; then this can be turned on.')) %}
+        <a class="btn btn-default" href="{{ url_for('duplicates.show_duplicates') }}">{{ _('Duplicate Books') }}</a>
+      {% endcall %}
+      {% endif %}
+      {% if dup_last_abort %}
+      {% call f.row(_('Last automatic run refused'), help=dup_last_abort, wide=True) %}{% endcall %}
+      {% endif %}
       <div class="lp-sub">
       {% call f.row(_('Keep'), for_id='duplicate_auto_resolve_strategy') %}
         <select class="form-control" id="duplicate_auto_resolve_strategy" name="duplicate_auto_resolve_strategy">

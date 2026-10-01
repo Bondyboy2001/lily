@@ -288,7 +288,12 @@ class TaskDuplicateScan(CalibreTask):
                             duplicate_groups=groups_to_pass
                         )
 
-                        if result['success']:
+                        if result.get('aborted'):
+                            # Guardrail refusal (no Title criterion, no preview yet, too many deletions)
+                            log.warning("[cwa-duplicates] Auto-resolution refused: %s", result.get('message'))
+                            self.message = N_('Duplicate scan completed: %(count)s groups; automatic resolution '
+                                              'refused: %(why)s', count=self.result_count, why=result.get('message'))
+                        elif result['success']:
                             log.info("[cwa-duplicates] Auto-resolution completed: resolved=%s, kept=%s, deleted=%s",
                                     result['resolved_count'], result['kept_count'], result['deleted_count'])
 

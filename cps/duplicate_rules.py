@@ -80,19 +80,65 @@ def validate_resolution_strategy(strategy):
     return strategy in valid_strategies
 
 
-def select_book_to_keep(books, strategy):
+# Automatic resolution never deletes more than this many books in one run, or 1% of
+# the library when that is larger; a bigger run means the match settings are wrong.
+AUTO_RESOLVE_MIN_DELETE_CAP = 20
+
+
+def auto_resolve_delete_cap(library_size):
+    return max(AUTO_RESOLVE_MIN_DELETE_CAP, int(library_size or 0) // 100)
+
+
+def planned_deletions(duplicate_groups):
+    """How many books resolving these groups would delete (all but one per group)."""
+    return sum(max(0, len(group.get('books') or []) - 1) for group in duplicate_groups or [])
+
+
+def _setting_on(value, default=True):
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value.strip().lower() in ('1', 'true', 'on', 'yes')
+    return bool(value)
+
+
+def auto_resolve_block_reason(settings, require_preview=True):
+    """Why automatic resolution may not be enabled or run with these settings, or None.
+
+    Title must be a match criterion: without it, books by one author (or in one language)
+    all look like duplicates of each other. And a preview must have been run at least once,
+    so the admin has seen what the chosen strategy would delete."""
+    if not _setting_on(settings.get('duplicate_detection_title'), default=True):
+        return "Automatic resolution needs Title among the duplicate match criteria."
+    if require_preview:
+        previewed = settings.get('duplicate_auto_resolve_previewed_at') or ''
+        if isinstance(previewed, list):
+            previewed = ''.join(previewed)
+        if not str(previewed).strip():
+            return "Run Preview on the Duplicate Books page before turning on automatic resolution."
+    return None
+
+
+def select_book_to_keep(books, strategy, preferred_ids=None):
     """
     Select which book to keep from a duplicate group based on strategy.
 
     Args:
         books: List of book objects from find_duplicate_books()
         strategy: One of 'newest', 'highest_quality_format', 'most_metadata', 'largest_file_size'
+        preferred_ids: ids of books someone is reading, has shelved or marked read. When
+            any are in the group, the strategy only chooses among those, so a resolution
+            never throws away reading progress for a fresher copy.
 
     Returns:
         The book object to keep
     """
     if not books:
         return None
+    if preferred_ids:
+        preferred = [b for b in books if b.id in preferred_ids]
+        if preferred:
+            books = preferred
 
     if strategy == 'newest':
         # Keep the most recently added book

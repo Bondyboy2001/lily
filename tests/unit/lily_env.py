@@ -107,11 +107,11 @@ class LilyEnv:
         return book_id
 
     def add_library_book(self, title, *, author="Test Author", files=("test_minimal_valid.epub",),
-                         tags=(), series=None, publisher=None, identifiers=None, comment=None):
+                         tags=(), series=None, publisher=None, identifiers=None, comment=None, timestamp=None):
         """A book with a real Calibre folder ('Author/Title (id)') holding copies of small
         files from tests/fixtures/sample_books, a cover and a metadata.opf, plus the
         matching data rows. Returns the book id."""
-        book_id = self.add_book(title, author=author, fmt=None, tags=tags)
+        book_id = self.add_book(title, author=author, fmt=None, tags=tags, timestamp=timestamp)
         rel = f"{author}/{title} ({book_id})"
         folder = self.library_dir / author / f"{title} ({book_id})"
         folder.mkdir(parents=True)

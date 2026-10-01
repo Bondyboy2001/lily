@@ -379,7 +379,7 @@ def test_auto_resolve_duplicates_deletes_duplicate_keys_and_refreshes_cache():
     calibre_books[1] = kept
     calibre_books[2] = deleted
 
-    with patch("os.path.exists", return_value=False), patch("os.makedirs"):
+    with patch("os.path.isdir", return_value=True), patch("os.makedirs"), patch("shutil.copytree"):
         result = module.auto_resolve_duplicates(
             strategy="newest",
             duplicate_groups=[
