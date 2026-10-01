@@ -29,7 +29,7 @@ modules['Jinja2'] = importlib.metadata.version("jinja2")
 if sys.version_info < (3, 12):
     modules['pySqlite'] = sqlite3.version
 modules['SQLite'] = sqlite3.sqlite_version
-sorted_modules = OrderedDict((sorted(modules.items(), key=lambda x: x[0].casefold())))
+sorted_modules = OrderedDict(sorted(modules.items(), key=lambda x: x[0].casefold()))
 
 
 def collect_stats():

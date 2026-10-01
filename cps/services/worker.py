@@ -151,16 +151,16 @@ class WorkerThread(threading.Thread):
 
     def cancel_tasks_for_book(self, book_id):
         """Cancel all pending tasks associated with a specific book ID
-        
+
         Args:
             book_id: The book ID whose tasks should be cancelled
-            
+
         Returns:
             int: Number of tasks cancelled
         """
         cancelled_count = 0
         ins = self.get_instance()
-        
+
         try:
             with ins.doLock:
                 # Access queue and dequeued directly to avoid recursive lock from .tasks property
@@ -168,7 +168,7 @@ class WorkerThread(threading.Thread):
         except Exception as e:
             log.warning("[worker] Could not get tasks snapshot: %s", str(e))
             return 0
-        
+
         # Process outside the lock to avoid deadlock
         tasks_to_cancel = []
         for queued_task in tasks_snapshot:
@@ -182,7 +182,7 @@ class WorkerThread(threading.Thread):
             elif hasattr(task, 'bookId') and task.bookId == book_id:
                 if task.stat in (STAT_WAITING,) and task.is_cancellable:
                     tasks_to_cancel.append((task, 'bookId'))
-        
+
         # Cancel tasks without holding the main lock
         for task, attr_name in tasks_to_cancel:
             try:
@@ -192,7 +192,7 @@ class WorkerThread(threading.Thread):
                 cancelled_count += 1
             except Exception as e:
                 log.warning("[worker] Failed to cancel task %s: %s", task.name, str(e))
-        
+
         return cancelled_count
 
     def has_active_task_of_type(self, task_class_name, extra_check=None):

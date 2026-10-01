@@ -405,7 +405,7 @@ class Hardcover(Metadata):
     ) -> tuple[float, str]:
         """
         Calculate confidence score for a metadata match.
-        
+
         Args:
             result: The MetaRecord from Hardcover search
             query_title: Title to match against
@@ -415,7 +415,7 @@ class Hardcover(Metadata):
             query_series_index: Series position to match against
             query_publisher: Publisher to match against
             query_year: Publication year to match against
-            
+
         Returns:
             tuple: (confidence_score, match_reason)
                 - confidence_score: 0.0 to 1.0
@@ -423,14 +423,14 @@ class Hardcover(Metadata):
         """
         score = 0.0
         reasons = []
-        
+
         # ISBN match (if available) - highest confidence
         if query_isbn and result.identifiers.get('isbn'):
             result_isbn = str(result.identifiers.get('isbn', '')).replace('-', '').replace(' ', '')
             query_isbn_clean = query_isbn.replace('-', '').replace(' ', '')
             if result_isbn == query_isbn_clean:
                 return (1.0, "ISBN exact match")
-        
+
         # Title similarity (base score: 0.5-0.95)
         if query_title and result.title:
             title_similarity = normalized_levenshtein_similarity(query_title, result.title)
@@ -441,7 +441,7 @@ class Hardcover(Metadata):
                 reasons.append(f"title close match ({title_similarity:.2f})")
             else:
                 reasons.append(f"title partial match ({title_similarity:.2f})")
-        
+
         # Author similarity (base score: 0.0-0.45)
         if query_authors and result.authors:
             author_similarity, is_and_match = author_list_similarity(query_authors, result.authors)
@@ -452,7 +452,7 @@ class Hardcover(Metadata):
             else:
                 score += author_similarity * 0.35  # Lower weight for partial matches
                 reasons.append(f"some authors match ({author_similarity:.2f})")
-        
+
         # Series matching (bonus: +0.0 to +0.15)
         if query_series and result.series:
             series_similarity = normalized_levenshtein_similarity(query_series, result.series)
@@ -460,7 +460,7 @@ class Hardcover(Metadata):
                 bonus = 0.1 * series_similarity
                 score += bonus
                 reasons.append(f"series match ({series_similarity:.2f})")
-                
+
                 # Series index exact match (additional bonus: +0.05)
                 if query_series_index is not None and result.series_index:
                     try:
@@ -471,24 +471,24 @@ class Hardcover(Metadata):
                             reasons.append(f"series position {query_idx} matches")
                     except (ValueError, TypeError):
                         pass
-        
+
         # Publisher match (bonus: +0.1)
         if query_publisher and result.publisher:
             publisher_similarity = normalized_levenshtein_similarity(query_publisher, result.publisher)
             if publisher_similarity >= 0.8:
                 score += 0.1
                 reasons.append("publisher match")
-        
+
         # Publication year match (bonus: +0.05 for exact, +0.025 for ±1 year)
         if query_year and result.publishedDate:
             year_similarity = calculate_year_similarity(query_year, result.publishedDate)
             score += year_similarity * 0.05
             if year_similarity > 0:
                 reasons.append(f"year match ({year_similarity:.2f})")
-        
+
         # Cap score at 1.0
         score = min(score, 1.0)
-        
+
         # Generate match reason string
         if score >= 0.95:
             reason = "Excellent match: " + ", ".join(reasons)
@@ -500,7 +500,7 @@ class Hardcover(Metadata):
             reason = "Possible match: " + ", ".join(reasons)
         else:
             reason = "Low confidence: " + ", ".join(reasons)
-        
+
         return (score, reason)
 
 

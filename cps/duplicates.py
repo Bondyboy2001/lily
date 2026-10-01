@@ -13,7 +13,7 @@ from shutil import copyfile
 
 from . import db, calibre_db, logger, ub, csrf, config, helper
 from .services.worker import WorkerThread, STAT_FINISH_SUCCESS, STAT_FAIL, STAT_ENDED, STAT_CANCELLED
-from .admin import admin_required  
+from .admin import admin_required
 from .usermanagement import login_required_if_no_ano
 from .internal_api import internal_only
 from .render_template import render_title_template
@@ -80,7 +80,7 @@ def show_duplicates():
     """Display cached duplicate groups and prompt for the initial index scan."""
     print("[cwa-duplicates] Loading duplicates page...", flush=True)
     log.info("[cwa-duplicates] Loading duplicates page for user: %s", current_user.name)
-    
+
     try:
         cwa_db = CWA_DB()
         settings = cwa_db.cwa_settings
@@ -112,26 +112,26 @@ def show_duplicates():
 
         # Compute next scheduled scan run
         next_scan_run = get_next_duplicate_scan_run(settings)
-        
+
         print(f"[cwa-duplicates] Found {len(duplicate_groups)} duplicate groups total", flush=True)
         log.info("[cwa-duplicates] Found %s duplicate groups total", len(duplicate_groups))
-        
-        return render_title_template('duplicates.html', 
+
+        return render_title_template('duplicates.html',
                                      duplicate_groups=duplicate_groups,
                                      duplicate_index_needs_full_scan=duplicate_index_needs_full_scan,
                                      next_scan_run=next_scan_run,
-                                     title=_("Duplicate Books"), 
+                                     title=_("Duplicate Books"),
                                      page="duplicates")
-                                     
+
     except Exception as e:
         print(f"[cwa-duplicates] Critical error loading duplicates page: {str(e)}", flush=True)
         log.error("[cwa-duplicates] Critical error loading duplicates page: %s", str(e))
         # Return empty page on error
-        return render_title_template('duplicates.html', 
+        return render_title_template('duplicates.html',
                                      duplicate_groups=[],
                                      duplicate_index_needs_full_scan=False,
                                      next_scan_run=None,
-                                     title=_("Duplicate Books"), 
+                                     title=_("Duplicate Books"),
                                      page="duplicates")
 
 
@@ -161,7 +161,7 @@ def get_next_duplicate_scan_run(settings):
 @admin_or_edit_required
 def get_duplicate_status():
     """API endpoint to get unresolved duplicate count and sample groups
-    
+
     Returns JSON with:
         - enabled: Whether notifications are enabled
         - count: Number of unresolved duplicate groups
@@ -172,7 +172,7 @@ def get_duplicate_status():
         # Check if duplicate detection is enabled
         cwa_db = CWA_DB()
         detection_enabled = cwa_db.cwa_settings.get('duplicate_detection_enabled', 1)
-        
+
         if not detection_enabled:
             return jsonify({
                 'success': True,
@@ -180,10 +180,10 @@ def get_duplicate_status():
                 'count': 0,
                 'preview': []
             })
-        
+
         # Check if notifications are enabled
         notifications_enabled = cwa_db.cwa_settings.get('duplicate_notifications_enabled', 1)
-        
+
         try:
             from cps.duplicate_index import library_has_books
             duplicate_library_has_books = library_has_books()
@@ -213,7 +213,7 @@ def get_duplicate_status():
             except Exception as index_ex:
                 log.warning("[cwa-duplicates] Could not check duplicate index baseline in status endpoint: %s", str(index_ex))
                 duplicate_index_needs_full_scan = True
-        
+
         if cache_data and cache_data.get('duplicate_groups') is not None:
             if duplicate_index_needs_full_scan:
                 return jsonify({
@@ -229,15 +229,15 @@ def get_duplicate_status():
 
             # Cache is available; use it even if scan is pending
             duplicate_groups = cache_data['duplicate_groups']
-            
+
             # Filter out dismissed groups for this user
             duplicate_groups = filter_dismissed_groups(
                 duplicate_groups,
                 current_user.id if current_user and current_user.id else None
             )
-            
+
             count = len(duplicate_groups)
-            
+
             # Get preview of first 3 groups
             preview = []
             for group in duplicate_groups[:3]:
@@ -258,7 +258,7 @@ def get_duplicate_status():
                 'needs_scan': duplicate_index_needs_full_scan,
                 'needs_full_scan': duplicate_index_needs_full_scan
             })
-        
+
         # Cache is missing - DO NOT trigger scan here!
         # This endpoint is called on every page load via duplicate-notifier.js
         # Scans should ONLY be triggered by:
@@ -266,7 +266,7 @@ def get_duplicate_status():
         # 2. After ingest operations (via cache invalidation + manual trigger)
         # 3. Scheduled background scans (Phase 2 - not yet implemented)
         log.debug("[cwa-duplicates] Cache invalid/pending in status check, returning empty (no auto-scan)")
-        
+
         return jsonify({
             'success': True,
             'enabled': bool(notifications_enabled),
@@ -311,10 +311,10 @@ def dismiss_duplicate_scan_setup_notice():
 @admin_or_edit_required
 def dismiss_duplicate_group(group_hash):
     """API endpoint to dismiss a duplicate group
-    
+
     Args:
         group_hash: MD5 hash of the duplicate group
-        
+
     Returns:
         JSON response with success status and new count
     """
@@ -324,14 +324,14 @@ def dismiss_duplicate_group(group_hash):
             .filter(ub.DismissedDuplicateGroup.user_id == current_user.id)\
             .filter(ub.DismissedDuplicateGroup.group_hash == group_hash)\
             .first()
-        
+
         if existing:
             return jsonify({
                 'success': True,
                 'message': _('Duplicate group already dismissed'),
                 'count': get_unresolved_duplicate_count()
             })
-        
+
         # Create dismissal record
         dismissal = ub.DismissedDuplicateGroup(
             user_id=current_user.id,
@@ -339,19 +339,19 @@ def dismiss_duplicate_group(group_hash):
         )
         ub.session.add(dismissal)
         ub.session.commit()
-        
-        log.info("[cwa-duplicates] User %s dismissed duplicate group %s", 
+
+        log.info("[cwa-duplicates] User %s dismissed duplicate group %s",
                 current_user.name, group_hash)
-        
+
         # Get new count
         new_count = get_unresolved_duplicate_count()
-        
+
         return jsonify({
             'success': True,
             'message': _('Duplicate group dismissed'),
             'count': new_count
         })
-        
+
     except Exception as e:
         ub.session.rollback()
         log.error("[cwa-duplicates] Error dismissing duplicate group: %s", str(e))
@@ -366,10 +366,10 @@ def dismiss_duplicate_group(group_hash):
 @admin_or_edit_required
 def undismiss_duplicate_group(group_hash):
     """API endpoint to un-dismiss a duplicate group
-    
+
     Args:
         group_hash: MD5 hash of the duplicate group
-        
+
     Returns:
         JSON response with success status and new count
     """
@@ -379,25 +379,25 @@ def undismiss_duplicate_group(group_hash):
             .filter(ub.DismissedDuplicateGroup.user_id == current_user.id)\
             .filter(ub.DismissedDuplicateGroup.group_hash == group_hash)\
             .delete()
-        
+
         ub.session.commit()
-        
+
         if deleted:
-            log.info("[cwa-duplicates] User %s un-dismissed duplicate group %s", 
+            log.info("[cwa-duplicates] User %s un-dismissed duplicate group %s",
                     current_user.name, group_hash)
             message = _('Duplicate group restored')
         else:
             message = _('Duplicate group was not dismissed')
-        
+
         # Get new count
         new_count = get_unresolved_duplicate_count()
-        
+
         return jsonify({
             'success': True,
             'message': message,
             'count': new_count
         })
-        
+
     except Exception as e:
         ub.session.rollback()
         log.error("[cwa-duplicates] Error un-dismissing duplicate group: %s", str(e))
@@ -415,13 +415,13 @@ def invalidate_cache():
     try:
         cwa_db = CWA_DB()
         success = cwa_db.invalidate_duplicate_cache()
-        
+
         if success:
             log.info("[cwa-duplicates] Cache invalidated - will refresh on next status check")
             return jsonify({'success': True, 'message': 'Cache invalidated'})
         else:
             return jsonify({'success': False, 'error': 'Failed to invalidate cache'}), 500
-            
+
     except Exception as e:
         log.error("[cwa-duplicates] Error invalidating cache: %s", str(e))
         return jsonify({'success': False, 'error': 'Internal error; see server log for details'}), 500
@@ -456,7 +456,7 @@ def trigger_scan():
             task = TaskDuplicateScan(full_scan=True, trigger_type='manual', user_id=current_user.id)
             WorkerThread.add(current_user.name, task, hidden=False)
 
-            log.info("[cwa-duplicates] Manual scan queued by user %s (task_id=%s)", 
+            log.info("[cwa-duplicates] Manual scan queued by user %s (task_id=%s)",
                     current_user.name, task.id)
             print(f"[cwa-duplicates] Manual scan queued for user {current_user.name}, task_id={task.id}", flush=True)
 
@@ -489,13 +489,13 @@ def trigger_scan():
                 try:
                     auto_resolve_enabled = cwa_db.cwa_settings.get('duplicate_auto_resolve_enabled', 0)
                     auto_resolve_strategy = cwa_db.cwa_settings.get('duplicate_auto_resolve_strategy', 'newest')
-                    
+
                     if auto_resolve_enabled:
-                        log.info("[cwa-duplicates] Auto-resolution enabled in fallback, triggering with strategy: %s", 
+                        log.info("[cwa-duplicates] Auto-resolution enabled in fallback, triggering with strategy: %s",
                                 auto_resolve_strategy)
-                        print(f"[cwa-duplicates] Fallback scan complete, triggering auto-resolution (strategy: {auto_resolve_strategy})", 
+                        print(f"[cwa-duplicates] Fallback scan complete, triggering auto-resolution (strategy: {auto_resolve_strategy})",
                               flush=True)
-                        
+
                         # Pass the pre-scanned duplicate groups to avoid re-scanning
                         result = auto_resolve_duplicates(
                             strategy=auto_resolve_strategy,
@@ -504,13 +504,13 @@ def trigger_scan():
                             trigger_type='manual',
                             duplicate_groups=duplicate_groups
                         )
-                        
+
                         if result['success'] and result['resolved_count'] > 0:
                             log.info("[cwa-duplicates] Fallback auto-resolution completed: resolved=%s, kept=%s, deleted=%s",
                                     result['resolved_count'], result['kept_count'], result['deleted_count'])
-                            print(f"[cwa-duplicates] Fallback auto-resolution completed: {result['resolved_count']} groups resolved", 
+                            print(f"[cwa-duplicates] Fallback auto-resolution completed: {result['resolved_count']} groups resolved",
                                   flush=True)
-                            
+
                             # Re-scan to get updated counts after resolution
                             rebuild_metadata = rebuild_duplicate_index(settings)
                             duplicate_groups = get_duplicate_groups_from_index(
@@ -537,7 +537,7 @@ def trigger_scan():
                 'queued': False,
                 'fallback_reason': str(e)
             })
-        
+
     except Exception as e:
         log.error("[cwa-duplicates] Error triggering scan: %s", str(e))
         return jsonify({
@@ -558,7 +558,7 @@ def preview_resolution():
         strategy = request.json.get('strategy', 'newest')
         print(f"[cwa-duplicates] Preview strategy: {strategy}", flush=True)
         log.info("[cwa-duplicates] Preview strategy: %s", strategy)
-        
+
         if not validate_resolution_strategy(strategy):
             error_msg = f'Invalid resolution strategy: {strategy}'
             print(f"[cwa-duplicates] {error_msg}", flush=True)
@@ -567,7 +567,7 @@ def preview_resolution():
                 'success': False,
                 'error': _(error_msg)
             }), 400
-        
+
         print("[cwa-duplicates] Calling auto_resolve_duplicates in dry_run mode...", flush=True)
         duplicate_groups = _get_duplicate_groups_for_resolution(current_user.id)
         result = auto_resolve_duplicates(
@@ -579,10 +579,10 @@ def preview_resolution():
         )
         if 'preview' not in result:
             result['preview'] = []
-        
+
         print(f"[cwa-duplicates] Preview result: {result.get('success', False)}, resolved_count={result.get('resolved_count', 0)}", flush=True)
         return jsonify(result)
-        
+
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
@@ -602,7 +602,7 @@ def execute_resolution():
     try:
         from flask import request
         strategy = request.json.get('strategy', 'newest')
-        
+
         if not validate_resolution_strategy(strategy):
             return jsonify({
                 'success': False,
@@ -621,7 +621,7 @@ def execute_resolution():
                 }), 409
         except Exception as ex:
             log.warning("[cwa-duplicates] Could not check ingest state before auto-resolution: %s", str(ex))
-        
+
         duplicate_groups = _get_duplicate_groups_for_resolution(current_user.id)
         result = auto_resolve_duplicates(
             strategy=strategy,
@@ -630,9 +630,9 @@ def execute_resolution():
             trigger_type='manual',
             duplicate_groups=duplicate_groups
         )
-        
+
         return jsonify(result)
-        
+
     except Exception as e:
         log.error("[cwa-duplicates] Error executing resolution: %s", str(e))
         return jsonify({
@@ -677,14 +677,14 @@ def _refresh_duplicate_cache_after_resolution(cwa_db):
 def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trigger_type='manual', duplicate_groups=None):
     """
     Automatically resolve duplicate books by keeping one and deleting others.
-    
+
     Args:
         strategy: Resolution strategy ('newest', 'highest_quality_format', 'most_metadata', 'largest_file_size')
         dry_run: If True, return preview without actually deleting
         user_id: User ID triggering the resolution (for audit), None for system-initiated
         trigger_type: 'manual', 'scheduled', or 'automatic'
         duplicate_groups: Pre-scanned duplicate groups (avoids re-scanning). If None, will scan.
-    
+
     Returns:
         dict with keys:
             'success': bool
@@ -697,36 +697,36 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
     try:
         import time
         start_time = time.time()
-        
-        log.info("[cwa-duplicates] Starting auto-resolution (strategy=%s, dry_run=%s, trigger=%s, pre_scanned=%s)", 
+
+        log.info("[cwa-duplicates] Starting auto-resolution (strategy=%s, dry_run=%s, trigger=%s, pre_scanned=%s)",
                  strategy, dry_run, trigger_type, duplicate_groups is not None)
-        print(f"[cwa-duplicates] Auto-resolve starting: strategy={strategy}, dry_run={dry_run}, trigger={trigger_type}, " 
+        print(f"[cwa-duplicates] Auto-resolve starting: strategy={strategy}, dry_run={dry_run}, trigger={trigger_type}, "
               f"pre_scanned={duplicate_groups is not None}", flush=True)
-        
+
         # Initialize database sessions for thread safety
         from cps.ub import init_db_thread
         try:
             init_db_thread()
         except Exception as e:
             log.warning("Could not initialise DB thread session for duplicate scan: %s", e)
-        
+
         calibre_db.ensure_session()
-        
+
         # Disk space check (strategy-dependent thresholds)
         try:
             import shutil as shutil_disk
             stat = shutil_disk.disk_usage('/config')
             available_gb = stat.free / (1024**3)
-            
+
             # Merge strategy needs more space (copies formats before deletion)
             min_space_gb = 2.0 if strategy == 'merge' else 0.5
-            
+
             if available_gb < min_space_gb:
-                log.warning("[cwa-duplicates] Low disk space (%.2f GB available, %.2f GB recommended for %s strategy)", 
+                log.warning("[cwa-duplicates] Low disk space (%.2f GB available, %.2f GB recommended for %s strategy)",
                            available_gb, min_space_gb, strategy)
                 print(f"[cwa-duplicates] WARNING: Low disk space ({available_gb:.2f} GB available, "
                       f"{min_space_gb:.2f} GB recommended for {strategy} strategy)", flush=True)
-                
+
                 if trigger_type == 'automatic' and available_gb < min_space_gb * 0.5:
                     # For automatic triggers, abort if critically low
                     return {
@@ -738,13 +738,13 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
                     }
         except Exception as e:
             log.debug("[cwa-duplicates] Disk space check failed: %s", str(e))
-        
+
         import shutil
-        
+
         # Validate strategy
         if not validate_resolution_strategy(strategy):
             return {'success': False, 'errors': [f'Invalid strategy: {strategy}']}
-        
+
         # Get duplicate groups (exclude dismissed)
         # If groups were passed in, use them (avoids expensive re-scan)
         if duplicate_groups is None:
@@ -753,9 +753,9 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
             duplicate_groups = find_duplicate_books(include_dismissed=False)
         else:
             log.debug("[cwa-duplicates] Using %d pre-scanned duplicate groups", len(duplicate_groups))
-            print(f"[cwa-duplicates] auto_resolve using {len(duplicate_groups)} pre-scanned groups (type: {type(duplicate_groups).__name__})", 
+            print(f"[cwa-duplicates] auto_resolve using {len(duplicate_groups)} pre-scanned groups (type: {type(duplicate_groups).__name__})",
                   flush=True)
-        
+
         if not duplicate_groups:
             return {
                 'success': True,
@@ -765,7 +765,7 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
                 'errors': [],
                 'message': 'No unresolved duplicates found'
             }
-        
+
         result = {
             'success': True,
             'resolved_count': 0,
@@ -774,24 +774,24 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
             'errors': [],
             'preview': [] if dry_run else None
         }
-        
+
         cwa_db = CWA_DB()
-        
+
         for group in duplicate_groups:
             try:
                 # Select book to keep
                 book_to_keep = select_book_to_keep(group['books'], strategy)
-                
+
                 if not book_to_keep:
                     result['errors'].append(f"Could not select book to keep for group: {group['title']}")
                     continue
-                
+
                 # Get books to delete
                 books_to_delete = [b for b in group['books'] if b.id != book_to_keep.id]
-                
+
                 if not books_to_delete:
                     continue  # Only one book in group, nothing to resolve
-                
+
                 if dry_run:
                     kept_formats = []
                     if book_to_keep.data:
@@ -823,7 +823,7 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
                     result['deleted_count'] += len(books_to_delete)
                     result['resolved_count'] += 1
                     continue
-                
+
                 # Actual resolution mode
                 # Re-fetch books in the active session to avoid detached object issues
                 book_to_keep_id = book_to_keep.id
@@ -849,12 +849,12 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
                         log.error("[cwa-duplicates] Error merging books for group '%s': %s", group.get('title', 'unknown'), e)
                         result['errors'].append(f"Group '{group.get('title', 'unknown')}': merge failed: {str(e)}")
                         continue
-                
+
                 # Backup and delete each duplicate
                 for book in books_to_delete:
                     try:
                         print(f"[cwa-duplicates-auto] Starting deletion of book {book.id}...", flush=True)
-                        
+
                         # Backup book files
                         book_path = os.path.join(config.config_calibre_dir, book.path)
                         if os.path.exists(book_path):
@@ -862,24 +862,24 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
                             print(f"[cwa-duplicates-auto] Backing up book {book.id} to {backup_path}...", flush=True)
                             shutil.copytree(book_path, backup_path)
                             log.info("[cwa-duplicates] Backed up book %s to %s", book.id, backup_path)
-                        
+
                         print(f"[cwa-duplicates-auto] Deleting book {book.id} from library...", flush=True)
                         # Delete from Calibre library (bypass user permission check for automatic resolution)
                         from cps import helper
                         delete_result, delete_error = helper.delete_book(book, config.get_book_path(), book_format="")
-                        
+
                         if not delete_result:
                             raise Exception(f"Delete failed: {delete_error}")
-                        
+
                         print(f"[cwa-duplicates-auto] Cleaning up database for book {book.id}...", flush=True)
                         # Clean up database references
                         from cps.editbooks import delete_whole_book
                         delete_whole_book(book.id, book)
-                        
+
                         calibre_db.session.commit()
                         deleted_ids.append(book.id)
                         log.info("[cwa-duplicates] Deleted duplicate book %s: %s", book.id, book.title)
-                        
+
                         print(f"[cwa-duplicates-auto] Cancelling tasks for book {book.id}...", flush=True)
                         # Cancel any pending tasks for this book
                         try:
@@ -888,19 +888,19 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
                             if worker:
                                 cancelled_count = worker.cancel_tasks_for_book(book.id)
                                 if cancelled_count > 0:
-                                    log.info("[cwa-duplicates] Cancelled %d pending task(s) for deleted book %s", 
+                                    log.info("[cwa-duplicates] Cancelled %d pending task(s) for deleted book %s",
                                             cancelled_count, book.id)
-                                    print(f"[cwa-duplicates-auto] Cancelled {cancelled_count} pending task(s) for book {book.id}", 
+                                    print(f"[cwa-duplicates-auto] Cancelled {cancelled_count} pending task(s) for book {book.id}",
                                           flush=True)
                         except Exception as cancel_ex:
                             log.warning("[cwa-duplicates] Failed to cancel tasks for book %s: %s", book.id, cancel_ex)
-                        
+
                         print(f"[cwa-duplicates-auto] Book {book.id} deletion complete", flush=True)
-                        
+
                     except Exception as e:
                         log.error("[cwa-duplicates] Error deleting book %s: %s", book.id, e)
                         result['errors'].append(f"Failed to delete book {book.id}: {str(e)}")
-                
+
                 if deleted_ids:
                     try:
                         from cps.duplicate_index import delete_book_keys
@@ -921,33 +921,33 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
                         user_id=user_id,
                         notes=f"Resolved {len(deleted_ids)} duplicate(s) using {strategy} strategy"
                     )
-                    
+
                     result['resolved_count'] += 1
                     result['kept_count'] += 1
                     result['deleted_count'] += len(deleted_ids)
-                    
-                    log.info("[cwa-duplicates] Resolved duplicate group '%s' by %s: kept book %s, deleted %s duplicates", 
+
+                    log.info("[cwa-duplicates] Resolved duplicate group '%s' by %s: kept book %s, deleted %s duplicates",
                             group['title'], group['author'], book_to_keep.id, len(deleted_ids))
-                    
+
                     # Docker log for automatic triggers
                     if trigger_type == 'automatic':
                         print(f"[cwa-duplicates-auto] ✓ Resolved '{group['title']}' by {group['author']}: "
-                              f"kept book {book_to_keep.id}, deleted {len(deleted_ids)} duplicate(s) [{strategy} strategy]", 
+                              f"kept book {book_to_keep.id}, deleted {len(deleted_ids)} duplicate(s) [{strategy} strategy]",
                               flush=True)
-            
+
             except Exception as e:
                 log.error("[cwa-duplicates] Error resolving duplicate group '%s': %s", group.get('title', 'unknown'), e)
                 result['errors'].append(f"Group '{group.get('title', 'unknown')}': {str(e)}")
-        
+
 
         if result['errors']:
             result['success'] = False
-        
+
         # Refresh cache only after real deletions. Dry-run previews report the
         # would-be deleted count but must not mutate scan/index state.
         if not dry_run and result['deleted_count'] > 0:
             _refresh_duplicate_cache_after_resolution(cwa_db)
-        
+
         # Log timing information
         elapsed_time = time.time() - start_time
         log.info("[cwa-duplicates] Auto-resolution completed in %.2f seconds: resolved=%d, kept=%d, deleted=%d, errors=%d",
@@ -955,9 +955,9 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
         print(f"[cwa-duplicates] Auto-resolution completed in {elapsed_time:.2f}s: "
               f"resolved={result['resolved_count']}, kept={result['kept_count']}, deleted={result['deleted_count']}, "
               f"errors={len(result['errors'])}", flush=True)
-        
+
         return result
-        
+
     finally:
         # Always cleanup sessions
         try:

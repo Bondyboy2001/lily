@@ -125,12 +125,17 @@ extend-exclude = ["cps/static", "cps/translations"]
 # names, shadowed definitions, repeated dict keys, bad format calls).
 # F401/F841 were added once the existing unused imports and variables were cleared;
 # they now keep dead imports and dead locals from coming back.
-select = ["E9", "F63", "F7", "F82", "F401", "F811", "F601", "F523", "F841", "B020"]
+# W291/W293/W292 keep whitespace tidy (.editorconfig asks for it); F541 flags f-strings
+# with nothing to interpolate; E401 flags `import a, b`; UP034 flags redundant parentheses.
+select = ["E9", "F63", "F7", "F82", "F401", "F811", "F601", "F523", "F841", "B020",
+          "W291", "W293", "W292", "F541", "E401", "UP034"]
 
 [tool.ruff.lint.per-file-ignores]
 # Tests deliberately keep a few unused locals: they are leftovers from iterative
 # test writing, and removing the call could drop the behaviour under test.
 "tests/**" = ["F841"]
+# Generated data file; its generator decides the whitespace.
+"cps/iso_language_names.py" = ["W291", "W292"]
 
 # Type checking is introduced incrementally: run `mypy` (see requirements-dev.txt) on modules
 # as they are refactored. Unlisted modules are ignored so legacy code does not block CI.

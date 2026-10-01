@@ -28,7 +28,7 @@ class FileSystem:
             cache_dir = join(CONFIG_DIR, 'thumbnails')
         else:
             cache_dir = self._cache_dir
-            
+
         if not isdir(cache_dir):
             try:
                 makedirs(cache_dir)
@@ -51,7 +51,7 @@ class FileSystem:
         # instead of creating subdirectories based on first 2 characters
         if cache_type == CACHE_TYPE_THUMBNAILS:
             return self.get_cache_dir(cache_type)
-        
+
         # For other cache types, maintain subdirectory structure
         path = join(self.get_cache_dir(cache_type), filename[:2])
         if not isdir(path):
@@ -83,7 +83,7 @@ class FileSystem:
             path = join(CONFIG_DIR, 'thumbnails')
         else:
             path = join(self._cache_dir, cache_type)
-            
+
         if cache_type and isdir(path):
             try:
                 rmtree(path)

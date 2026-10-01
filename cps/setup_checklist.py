@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
+# Calibre-Web Automated – fork of Calibre-Web
+# Copyright (C) 2018-2026 Calibre-Web contributors
+# Copyright (C) 2024-2026 Calibre-Web Automated contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
+# See CONTRIBUTORS for full list of authors.
+
 """The admin "Get started" card on the home page: which first-run steps are still open.
 
 Everything is computed from config on the server; dismissal is per user in localStorage (index.html).

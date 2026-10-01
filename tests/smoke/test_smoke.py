@@ -21,11 +21,11 @@ import sys
 @pytest.mark.smoke
 class TestBasicFunctionality:
     """Verify core application can start and basic functions work."""
-    
+
     def test_python_version(self):
         """Verify Python 3.10+ is being used."""
         assert sys.version_info >= (3, 10), "Python 3.10 or higher required"
-    
+
     def test_required_directories_exist(self):
         """Verify critical directories exist."""
         # /config exists in the container and is provisioned by the CI workflow
@@ -36,18 +36,18 @@ class TestBasicFunctionality:
         if not os.path.exists('/config') and not (in_ci or in_container):
             pytest.skip("/config not provisioned (local run outside CI/Docker)")
         assert os.path.exists('/config'), "Missing critical directory: /config"
-        
+
         # These are container-specific paths - skip if not in container
         container_dirs = [
             '/app/calibre-web-automated',
             '/calibre-library',
             '/cwa-book-ingest'
         ]
-        
+
         # Check if we're in a container environment
         if not all(os.path.exists(d) for d in container_dirs):
             pytest.skip("Container mount points not available (running outside Docker)")
-    
+
     def test_flask_app_can_be_imported(self):
         """Verify Flask app module can be imported without errors."""
         try:
@@ -55,7 +55,7 @@ class TestBasicFunctionality:
             assert app is not None
         except ImportError as e:
             pytest.fail(f"Failed to import Flask app: {e}")
-    
+
     def test_cwa_db_can_be_imported(self):
         """Verify CWA database module can be imported."""
         # Try container path first, fall back to workspace
@@ -64,7 +64,7 @@ class TestBasicFunctionality:
             # Running outside container - use workspace path
             workspace_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
             scripts_path = os.path.join(workspace_root, 'scripts')
-        
+
         sys.path.insert(0, scripts_path)
         try:
             from cwa_db import CWA_DB
@@ -77,31 +77,31 @@ class TestBasicFunctionality:
 @pytest.mark.requires_calibre
 class TestCalibreTools:
     """Verify Calibre CLI tools are installed and accessible."""
-    
+
     def test_calibredb_exists(self):
         """Verify calibredb binary is installed."""
         import shutil
         calibredb_path = shutil.which('calibredb')
         assert calibredb_path is not None, "calibredb not found in PATH"
-    
+
     def test_ebook_convert_exists(self):
         """Verify ebook-convert binary is installed."""
         import shutil
         convert_path = shutil.which('ebook-convert')
         assert convert_path is not None, "ebook-convert not found in PATH"
-    
+
     def test_ebook_meta_exists(self):
         """Verify ebook-meta binary is installed."""
         import shutil
         meta_path = shutil.which('ebook-meta')
         assert meta_path is not None, "ebook-meta not found in PATH"
-    
+
     def test_kepubify_exists(self):
         """Verify kepubify binary is installed."""
         import shutil
         kepubify_path = shutil.which('kepubify')
         assert kepubify_path is not None, "kepubify not found in PATH"
-    
+
     def test_calibre_version(self):
         """Verify Calibre version can be queried."""
         import subprocess
@@ -118,13 +118,13 @@ class TestCalibreTools:
 @pytest.mark.smoke
 class TestDatabaseAccess:
     """Verify database modules and connections work."""
-    
+
     def test_cwa_db_initialization(self, temp_cwa_db):
         """Verify CWA database can be initialized."""
         assert temp_cwa_db is not None
         assert temp_cwa_db.con is not None
         assert temp_cwa_db.cur is not None
-    
+
     def test_cwa_db_has_required_tables(self, temp_cwa_db):
         """Verify CWA database has all required tables."""
         expected_tables = [
@@ -132,7 +132,7 @@ class TestDatabaseAccess:
             'cwa_import',
             'cwa_settings'
         ]
-        
+
         # Extract table names from CREATE TABLE statements
         import re
         actual_table_names = []
@@ -140,10 +140,10 @@ class TestDatabaseAccess:
             match = re.search(r'CREATE TABLE IF NOT EXISTS (\w+)\(', table_stmt)
             if match:
                 actual_table_names.append(match.group(1))
-        
+
         for table in expected_tables:
             assert table in actual_table_names, f"Missing required table: {table}"
-    
+
     def test_cwa_db_settings_accessible(self, temp_cwa_db):
         """Verify CWA settings can be read from database."""
         settings = temp_cwa_db.get_cwa_settings()
@@ -154,26 +154,26 @@ class TestDatabaseAccess:
 @pytest.mark.smoke
 class TestFileFormatDetection:
     """Verify file format detection logic works correctly."""
-    
+
     def test_supported_formats_recognized(self):
         """Verify all supported ebook formats are recognized."""
         # Import the function that checks file formats
         # This is a simplified test - adjust based on actual implementation
-        
+
         supported_extensions = [
             'epub', 'mobi', 'azw', 'azw3', 'azw4', 'pdf', 'txt',
             'cbz', 'cbr', 'cb7', 'cbc', 'fb2', 'fbz', 'docx',
             'html', 'htmlz', 'lit', 'lrf', 'odt', 'prc', 'pdb',
             'pml', 'rb', 'snb', 'tcr', 'txtz', 'kepub', 'acsm'
         ]
-        
+
         # Test that we have all 27+ formats
         assert len(supported_extensions) >= 27, "Missing supported format definitions"
-    
+
     def test_temp_file_suffixes_defined(self):
         """Verify temp file suffixes are properly defined for filtering."""
         temp_suffixes = ['crdownload', 'download', 'part', 'uploading']
-        
+
         # These should be filtered out during ingest
         assert len(temp_suffixes) > 0, "Temp file suffixes not defined"
 
@@ -181,50 +181,50 @@ class TestFileFormatDetection:
 @pytest.mark.smoke
 class TestLockMechanism:
     """Verify process locking mechanism works."""
-    
+
     @pytest.mark.timeout(10)
     def test_lock_can_be_acquired(self, tmp_path, monkeypatch):
         """Verify lock can be acquired successfully."""
         sys.path.insert(0, '/app/calibre-web-automated/scripts/')
-        
+
         # Override temp directory for test isolation
         import tempfile
         monkeypatch.setattr(tempfile, 'gettempdir', lambda: str(tmp_path))
-        
+
         # Skip if required directories don't exist (not in container)
         if not os.path.exists('/config/processed_books'):
             pytest.skip("Required directories not available (running outside container)")
-        
+
         from ingest_processor import ProcessLock
-        
+
         lock = ProcessLock("test_lock")
         assert lock.acquire(timeout=2), "Failed to acquire lock"
         lock.release()
-    
+
     @pytest.mark.timeout(10)
     def test_lock_prevents_concurrent_access(self, tmp_path, monkeypatch):
         """Verify second process cannot acquire lock while held."""
         sys.path.insert(0, '/app/calibre-web-automated/scripts/')
-        
+
         import tempfile
         monkeypatch.setattr(tempfile, 'gettempdir', lambda: str(tmp_path))
-        
+
         # Skip if required directories don't exist (not in container)
         if not os.path.exists('/config/processed_books'):
             pytest.skip("Required directories not available (running outside container)")
-        
+
         from ingest_processor import ProcessLock
-        
+
         lock1 = ProcessLock("test_lock")
         assert lock1.acquire(timeout=2), "First lock acquisition failed"
-        
+
         # Second lock should fail
         lock2 = ProcessLock("test_lock")
         assert not lock2.acquire(timeout=1), "Second lock should have failed but succeeded"
-        
+
         # Release first lock
         lock1.release()
-        
+
         # Now second lock should succeed
         assert lock2.acquire(timeout=2), "Lock should be available after release"
         lock2.release()
@@ -233,7 +233,7 @@ class TestLockMechanism:
 @pytest.mark.smoke
 class TestEnvironmentConfiguration:
     """Verify environment variables and configuration work."""
-    
+
     def test_can_read_cwa_version(self):
         """Verify CWA version file exists and can be read."""
         if os.path.exists('/app/CWA_RELEASE'):
@@ -244,7 +244,7 @@ class TestEnvironmentConfiguration:
                     f"Version format unexpected: {version}"
         else:
             pytest.skip("Not in Docker environment - /app/CWA_RELEASE not found")
-    
+
     def test_network_share_mode_detection(self):
         """Verify network share mode can be detected from environment."""
         # This should not crash
@@ -261,7 +261,7 @@ class TestEnvironmentConfiguration:
 def test_smoke_suite_itself():
     """
     Meta-test: Verify the smoke test suite can run.
-    
+
     This test should always pass. If it fails, something is very wrong
     with the test infrastructure itself.
     """

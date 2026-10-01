@@ -932,7 +932,7 @@ def delete_book_from_table(book_id, book_format, json_response, location=""):
                         refreshed_duplicate_cache = True
                     except Exception as e:
                         log.warning("Failed to refresh duplicate index/cache after deleting book %s: %s", book_id, str(e))
-                
+
                 # Format-only deletions and refresh failures need a later cache refresh.
                 if not refreshed_duplicate_cache:
                     try:
@@ -942,7 +942,7 @@ def delete_book_from_table(book_id, book_format, json_response, location=""):
                         cwa_db.invalidate_duplicate_cache()
                     except Exception as e:
                         log.error("Failed to invalidate duplicate cache after deletion: %s", str(e))
-                
+
             except Exception as ex:
                 log.error_or_exception(ex)
                 calibre_db.session.rollback()
@@ -1417,7 +1417,7 @@ def add_objects(db_book_object, db_object, db_session, db_type, add_elements):
     for add_element in add_elements:
         # check if an element with that name exists
         changed = True
-        db_element = db_session.query(db_object).filter((func.lower(db_filter).ilike(add_element))).all()
+        db_element = db_session.query(db_object).filter(func.lower(db_filter).ilike(add_element)).all()
         # if no element is found add it
         if not db_element:
             if db_type == 'author':

@@ -1042,7 +1042,7 @@ def read_book(book_id, book_format):
         try:
             from scripts.cwa_db import CWA_DB
             import json
-            
+
             # Detect source of book discovery
             source = request.args.get('from', 'direct')
             referer = request.headers.get('Referer', '')
@@ -1057,7 +1057,7 @@ def read_book(book_id, book_format):
                     source = 'category'
                 elif '/shelf' in referer:
                     source = 'shelf'
-            
+
             cwa_db = CWA_DB()
             cwa_db.log_activity(
                 user_id=int(current_user.id),
@@ -1069,7 +1069,7 @@ def read_book(book_id, book_format):
             )
         except Exception as e:
             log.debug(f"Failed to log read activity: {e}")
-    
+
     if book_format.lower() in ("epub", "kepub"):
         log.debug("Start epub reader for %d (%s)", book_id, book_format.lower())
         return render_title_template('read.html', bookid=book_id, title=book.title,
@@ -1136,16 +1136,16 @@ def show_book(book_id):
             book_in_shelves.append(sh.shelf)
 
         entry.tags = sort(entry.tags, key=lambda tag: tag.name)
-        
+
         # Filter tags based on user's allowed/denied tags (Issue #906)
         if current_user.is_authenticated:
             allowed_tags = current_user.list_allowed_tags()
             denied_tags = current_user.list_denied_tags()
-            
+
             # If allowed tags are configured (not empty), filter to only show allowed tags
             if allowed_tags and allowed_tags != ['']:
                 entry.tags = [tag for tag in entry.tags if tag.name in allowed_tags]
-            
+
             # Remove denied tags
             if denied_tags and denied_tags != ['']:
                 entry.tags = [tag for tag in entry.tags if tag.name not in denied_tags]

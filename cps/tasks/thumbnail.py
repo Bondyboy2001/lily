@@ -37,7 +37,7 @@ def get_resize_height(resolution):
 def get_resize_width(resolution, original_width, original_height):
     height = get_resize_height(resolution)
     percent = (height / float(original_height))
-    width = int((float(original_width) * float(percent)))
+    width = int(float(original_width) * float(percent))
     return width if width % 2 == 0 else width + 1
 
 
@@ -116,7 +116,7 @@ class TaskGenerateCoverThumbnails(CalibreTask):
                     helper._pending_thumbnail_books.discard(self.book_id)
                 except Exception:
                     pass  # Silently fail if helper module not available
-            
+
             # Always clean up database session
             self.app_db_session.remove()
 

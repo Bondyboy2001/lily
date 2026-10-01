@@ -93,7 +93,7 @@ class _Settings(_Base):
     config_goodreads_api_key = Column(String)
     config_hardcover_token = Column(String)
     config_google_books_api_key = Column(String)
-    
+
 
 
 
@@ -341,7 +341,7 @@ class ConfigSQL(object):
             db_file = os.path.join(self.config_calibre_dir, 'metadata.db')
             have_metadata_db = os.path.isfile(db_file)
         self.db_configured = have_metadata_db
-        
+
         from . import cli_param
         if os.environ.get('FLASK_DEBUG'):
             logfile = logger.setup(logger.LOG_TO_STDOUT, logger.logging.DEBUG)
@@ -469,7 +469,7 @@ def autodetect_calibre_binaries():
             if all(values):
                 version = values[0].group(1)
                 log.debug("calibre version %s", version)
-                return element 
+                return element
     return ""
 
 

@@ -9,7 +9,7 @@ import sys
 from os.path import isfile, join
 from datetime import datetime
 import pathlib
-from zipfile import ZipFile 
+from zipfile import ZipFile
 
 from cwa_db import CWA_DB
 
@@ -35,7 +35,7 @@ class AutoZipper:
 
     def last_mod_date(self, path_to_file) -> str:
         """ Returns the date a given file was last modified as a string """
-        
+
         stat = os.stat(path_to_file)
         return datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d') #%H:%M:%S
 
@@ -71,7 +71,7 @@ class AutoZipper:
         for dir in self.archive_dirs:
             dir_name = dir.split('/')[-2]
             for file in self.to_zip[dir_name]:
-                os.remove(file)     
+                os.remove(file)
 
 def main():
     try:

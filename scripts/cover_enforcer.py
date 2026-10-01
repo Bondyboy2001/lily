@@ -189,12 +189,12 @@ class Book:
                     # follow our own already-exited subprocesses, and "database is locked" is retried above.
                     _export_settle_done = True
                     time.sleep(0.5)
-                
+
                 result = subprocess.run(
                     ["calibredb", "export", "--with-library", self.calibre_library, "--to-dir", metadata_temp_dir, self.book_id],
                     env=self.calibre_env, check=False, capture_output=True, text=True, timeout=60
                 )
-                
+
                 if result.returncode == 0:
                     temp_files = [os.path.join(dirpath,f) for (dirpath, dirnames, filenames) in os.walk(metadata_temp_dir) for f in filenames]
                     opf_files = [f for f in temp_files if f.endswith('.opf')]
@@ -212,7 +212,7 @@ class Book:
                     continue
                 else:
                     raise
-        
+
         # If all retries failed
         raise RuntimeError(f"Failed to export metadata for book {self.book_id} after {max_retries} attempts")
 
@@ -301,7 +301,7 @@ class Enforcer:
             log_name = os.path.basename(log_path)
             book_id = (log_name.split('-')[1]).split('.')[0]
             timestamp_raw = log_name.split('-')[0]
-        
+
         try:
             timestamp = datetime.strptime(timestamp_raw, '%Y%m%d%H%M%S')
         except ValueError as e:
@@ -311,7 +311,7 @@ class Enforcer:
         # Retry logic to handle race conditions where file is detected but not yet fully written
         max_retries = 3
         retry_delay = 0.5  # seconds
-        
+
         for attempt in range(max_retries):
             try:
                 # Check if file exists first
@@ -323,15 +323,15 @@ class Enforcer:
                         print(f"[cover-metadata-enforcer] WARNING: Log file '{os.path.basename(file_path)}' not found after {max_retries} attempts. "
                               f"This may be due to a race condition or the file was already processed and deleted.", flush=True)
                         return None
-                
+
                 # Try to read the file
                 with open(file_path, 'r', encoding='utf-8') as f:
                     log_info = json.load(f)
-                
+
                 log_info['book_id'] = book_id
                 log_info['timestamp'] = timestamp.strftime('%Y-%m-%d %H:%M:%S')
                 return log_info
-                
+
             except FileNotFoundError:
                 if attempt < max_retries - 1:
                     time.sleep(retry_delay)
@@ -351,7 +351,7 @@ class Enforcer:
             except Exception as e:
                 print(f"[cover-metadata-enforcer] ERROR: Unexpected error reading log file '{os.path.basename(file_path)}': {e}", flush=True)
                 return None
-        
+
         return None
 
 
@@ -541,7 +541,7 @@ class Enforcer:
                     ['ebook-polish', '-o', book.new_metadata_path, '-U', file, file],
                     capture_output=True, text=True, timeout=120, check=False
                 )
-            
+
             if result.returncode != 0:
                 print(f"[cover-metadata-enforcer] Warning: ebook-polish returned {result.returncode} for {file}", flush=True)
                 if result.stderr:
@@ -550,7 +550,7 @@ class Enforcer:
             print(f"[cover-metadata-enforcer] Error: ebook-polish timed out for {file}", flush=True)
         except Exception as e:
             print(f"[cover-metadata-enforcer] Error running ebook-polish for {file}: {e}", flush=True)
-        
+
         print(f"[cover-metadata-enforcer]: DONE: '{book.title_author}.{book.file_format}': Cover & Metadata updated", flush=True)
 
         return book
@@ -797,7 +797,7 @@ def main():
     elif args.log is not None and args.dir is None and args.all is False and args.list is False and args.history is False:
         ### log passed: (args.log), no dir
         log_info = enforcer.read_log()
-        
+
         # Handle case where log file doesn't exist (race condition)
         if log_info is None:
             print("[cover-metadata-enforcer] Skipping processing due to missing or invalid log file. This is normal if the file was already processed.")
@@ -813,7 +813,7 @@ def main():
             if log_info is None:
                 print("[cover-metadata-enforcer] Skipping processing due to missing or invalid log file. This is normal if the file was already processed.")
                 sys.exit(0)
-        
+
         book_dir = enforcer.get_book_dir_from_log(log_info)
         if enforcer.enforcer_on:
             try:

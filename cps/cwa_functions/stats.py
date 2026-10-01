@@ -70,45 +70,45 @@ headers = {
 @admin_required
 def cwa_stats_show():
     from datetime import datetime
-    
+
     # Check which tab to show (default to user activity)
     active_tab = request.args.get('tab', 'activity')
-    
+
     # Parse date range parameters
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     days_param = request.args.get('days')
-    
+
     # Initialize defaults
     date_range_label = None
     show_warning = False
     today = datetime.now().strftime('%Y-%m-%d')
-    
+
     # Handle 'all' as a special string value, otherwise parse as int
     if days_param == 'all':
         days = None  # None means all time
         date_range_label = "All Time"
     else:
         days = int(days_param) if days_param else None
-    
+
     user_id = request.args.get('user_id', type=int)
-    
+
     # Set default label if not set
     if not date_range_label:
         date_range_label = "Last 30 days"
-    
+
     if start_date and end_date:
         try:
             start_dt = datetime.strptime(start_date, '%Y-%m-%d')
             end_dt = datetime.strptime(end_date, '%Y-%m-%d')
-            
+
             # Calculate range in days
             range_days = (end_dt - start_dt).days
-            
+
             # Show warning if range > 1 year
             if range_days > 365:
                 show_warning = True
-            
+
             date_range_label = f"{start_date} to {end_date}"
         except ValueError:
             # Invalid date format, fall back to 30 days
@@ -125,9 +125,9 @@ def cwa_stats_show():
         # Default to 30 days if no parameters provided
         days = 30
         date_range_label = "Last 30 days"
-    
+
     cwa_db = CWA_DB()
-    
+
     # Get list of active users for dropdown (resolve names via app.db)
     active_users_raw = cwa_db.get_active_users()
     active_user_ids = [row[0] for row in active_users_raw if row and row[0] is not None]
@@ -174,7 +174,7 @@ def cwa_stats_show():
     user_id_filter = user_id
     if user_id == -1:
         user_id_filter = list(unknown_user_ids)
-    
+
     # Get user activity dashboard stats with date range and optional user filter
     if start_date and end_date:
         dashboard_stats = cwa_db.get_dashboard_stats(start_date=start_date, end_date=end_date, user_id=user_id_filter)
@@ -192,7 +192,7 @@ def cwa_stats_show():
         discovery_sources = cwa_db.get_discovery_sources(days=days, user_id=user_id_filter)
         device_breakdown = cwa_db.get_device_breakdown(days=days, user_id=user_id_filter)
         failed_logins = cwa_db.get_failed_logins(days=days)
-    
+
     # Get library stats (for Library tab)
     if start_date and end_date:
         library_growth = cwa_db.get_library_growth(start_date=start_date, end_date=end_date)
@@ -202,19 +202,19 @@ def cwa_stats_show():
         library_growth = cwa_db.get_library_growth(days=days)
         library_formats = cwa_db.get_library_formats(days=days)
         books_added_stats = cwa_db.get_books_added_count(days=days)
-    
+
     # Get additional library stats (not time-dependent)
     series_completion = cwa_db.get_series_completion_stats(limit=10)
     publication_years = cwa_db.get_publication_year_distribution()
-    
+
     # Get Sprint 6 advanced library metrics
     if start_date and end_date:
         rating_statistics = cwa_db.get_rating_statistics(start_date=start_date, end_date=end_date)
     else:
         rating_statistics = cwa_db.get_rating_statistics(days=days)
-    
+
     top_enforced_books = cwa_db.get_top_enforced_books(limit=10)
-    
+
     # Get Sprint 5 user activity enhancements
     if start_date and end_date:
         session_duration = cwa_db.get_session_duration_stats(start_date=start_date, end_date=end_date, user_id=user_id_filter)
@@ -230,7 +230,7 @@ def cwa_stats_show():
         api_usage_breakdown = cwa_db.get_api_usage_breakdown(days=days, user_id=user_id_filter)
         endpoint_frequency = cwa_db.get_endpoint_frequency_grouped(days=days, user_id=user_id_filter, limit=20)
         api_timing = cwa_db.get_api_timing_heatmap(days=days, user_id=user_id_filter)
-    
+
     # Get system logs data
     data_enforcement = cwa_db.enforce_show(paths=False, verbose=False, web_ui=True)
     data_enforcement_with_paths = cwa_db.enforce_show(paths=True, verbose=False, web_ui=True)
@@ -246,18 +246,18 @@ def cwa_stats_show():
         total_auto_matched = cwa_db.execute_read(
             "SELECT SUM(auto_matched) FROM hardcover_auto_fetch_stats"
         )
-        
+
         # Get pending review count
         pending_review = ub.session.query(ub.HardcoverMatchQueue).filter(
             ub.HardcoverMatchQueue.reviewed == 0
         ).count()
-        
+
         # Get manually reviewed count
         manually_reviewed = ub.session.query(ub.HardcoverMatchQueue).filter(
             ub.HardcoverMatchQueue.reviewed == 1,
             ub.HardcoverMatchQueue.review_action == 'accept'
         ).count()
-        
+
         hardcover_stats = {
             'total_processed': total_processed[0][0] if total_processed and total_processed[0][0] else 0,
             'total_auto_matched': total_auto_matched[0][0] if total_auto_matched and total_auto_matched[0][0] else 0,
@@ -302,8 +302,8 @@ def cwa_stats_show():
                                 selected_user_id=user_id,
                                 cwa_stats=get_cwa_stats(),
                                 hardcover_stats=hardcover_stats,
-                                data_enforcement=data_enforcement, headers_enforcement=headers["enforcement"]["no_paths"], 
-                                data_enforcement_with_paths=data_enforcement_with_paths, headers_enforcement_with_paths=headers["enforcement"]["with_paths"], 
+                                data_enforcement=data_enforcement, headers_enforcement=headers["enforcement"]["no_paths"],
+                                data_enforcement_with_paths=data_enforcement_with_paths, headers_enforcement_with_paths=headers["enforcement"]["with_paths"],
                                 data_imports=data_imports, headers_import=headers["imports"])
 
 @cwa_stats.route("/cwa-stats-export-csv/<tab_name>", methods=["GET"])
@@ -315,12 +315,12 @@ def export_stats_csv(tab_name):
     from io import StringIO
     from flask import make_response
     from datetime import datetime
-    
+
     # Parse same filter parameters as main stats route
     start_date, end_date = parse_stats_date_range(request.args.get('start_date'), request.args.get('end_date'))
     days_param = request.args.get('days')
     user_id = request.args.get('user_id', type=int)
-    
+
     # Handle 'all' as special value
     if days_param == 'all':
         days = None
@@ -329,28 +329,28 @@ def export_stats_csv(tab_name):
             days = max(0, int(days_param)) if days_param else 30
         except ValueError:
             days = 30
-    
+
     cwa_db = CWA_DB()
     output = StringIO()
     writer = csv.writer(output)
-    
+
     try:
         if tab_name == 'activity':
             # User Activity Tab Export
             writer.writerow(['=== USER ACTIVITY STATISTICS ==='])
             writer.writerow([])
-            
+
             # Dashboard stats
             if start_date and end_date:
                 dashboard_stats = cwa_db.get_dashboard_stats(start_date=start_date, end_date=end_date, user_id=user_id)
             else:
                 dashboard_stats = cwa_db.get_dashboard_stats(days=days, user_id=user_id)
-            
+
             writer.writerow(['Metric', 'Value'])
             for key, value in dashboard_stats.get('totals', {}).items():
                 writer.writerow([key, value])
             writer.writerow([])
-            
+
             # Top users or most active days
             top_users = dashboard_stats.get('top_users', [])
             if user_id:
@@ -364,14 +364,14 @@ def export_stats_csv(tab_name):
                 for uid, username, count in top_users:
                     writer.writerow([uid, username, count])
             writer.writerow([])
-            
+
             # Format distribution
             writer.writerow(['=== FORMAT DISTRIBUTION ==='])
             writer.writerow(['Format', 'Download Count'])
             for format_name, count in dashboard_stats.get('format_distribution', []):
                 writer.writerow([format_name, count])
             writer.writerow([])
-            
+
             # Discovery sources
             writer.writerow(['=== DISCOVERY SOURCES ==='])
             writer.writerow(['Source', 'Access Count'])
@@ -382,7 +382,7 @@ def export_stats_csv(tab_name):
             for source, count in discovery:
                 writer.writerow([source, count])
             writer.writerow([])
-            
+
             # Device breakdown
             writer.writerow(['=== DEVICE BREAKDOWN ==='])
             writer.writerow(['Device', 'Access Count'])
@@ -392,12 +392,12 @@ def export_stats_csv(tab_name):
                 devices = cwa_db.get_device_breakdown(days=days, user_id=user_id)
             for device, count in devices:
                 writer.writerow([device, count])
-            
+
         elif tab_name == 'library':
             # Library Stats Tab Export
             writer.writerow(['=== LIBRARY STATISTICS ==='])
             writer.writerow([])
-            
+
             # Summary stats
             cwa_stats = get_cwa_stats()
             writer.writerow(['Total Books', cwa_stats['total_books']])
@@ -407,7 +407,7 @@ def export_stats_csv(tab_name):
                 books_added = cwa_db.get_books_added_count(days=days)
             writer.writerow(['Books Added', books_added.get('total', 0)])
             writer.writerow([])
-            
+
             # Library growth
             writer.writerow(['=== LIBRARY GROWTH ==='])
             writer.writerow(['Date', 'Books Added'])
@@ -418,7 +418,7 @@ def export_stats_csv(tab_name):
             for date, count in growth:
                 writer.writerow([date, count])
             writer.writerow([])
-            
+
             # Format distribution
             writer.writerow(['=== FORMAT DISTRIBUTION ==='])
             writer.writerow(['Format', 'Book Count'])
@@ -429,7 +429,7 @@ def export_stats_csv(tab_name):
             for format_name, count in formats:
                 writer.writerow([format_name, count])
             writer.writerow([])
-            
+
             # Series completion
             writer.writerow(['=== SERIES STATISTICS ==='])
             writer.writerow(['Series Name', 'Book Count', 'Highest Index'])
@@ -437,7 +437,7 @@ def export_stats_csv(tab_name):
             for series_name, book_count, highest_index in series:
                 writer.writerow([series_name, book_count, highest_index])
             writer.writerow([])
-            
+
             # Rating statistics
             writer.writerow(['=== RATING STATISTICS ==='])
             if start_date and end_date:
@@ -451,19 +451,19 @@ def export_stats_csv(tab_name):
             for stars, count in ratings.get('rating_distribution', []):
                 writer.writerow([stars, count])
             writer.writerow([])
-            
+
             # Top enforced books
             writer.writerow(['=== TOP ENFORCED BOOKS ==='])
             writer.writerow(['Book Title', 'Enforcement Count', 'Last Enforced'])
             top_enforced = cwa_db.get_top_enforced_books(limit=20)
             for book_id, title, count, last_enforced in top_enforced:
                 writer.writerow([title, count, last_enforced])
-            
+
         elif tab_name == 'api':
             # API Usage Tab Export
             writer.writerow(['=== API USAGE STATISTICS ==='])
             writer.writerow([])
-            
+
             # API usage breakdown
             writer.writerow(['=== USAGE BREAKDOWN ==='])
             writer.writerow(['Category', 'Access Count'])
@@ -474,7 +474,7 @@ def export_stats_csv(tab_name):
             for category, count in breakdown:
                 writer.writerow([category, count])
             writer.writerow([])
-            
+
             # Endpoint frequency
             writer.writerow(['=== ENDPOINT ACCESS FREQUENCY ==='])
             writer.writerow(['Endpoint', 'Category', 'Access Count', 'Last Accessed'])
@@ -484,29 +484,29 @@ def export_stats_csv(tab_name):
                 endpoints = cwa_db.get_endpoint_frequency_grouped(days=days, user_id=user_id, limit=50)
             for endpoint, category, count, last_accessed in endpoints:
                 writer.writerow([endpoint, category, count, last_accessed])
-        
+
         else:
             # Unknown tab
             writer.writerow(['Error: Unknown tab name'])
-        
+
         # Create response
         output.seek(0)
         csv_data = output.getvalue()
         response = make_response(csv_data)
         response.headers['Content-Type'] = 'text/csv; charset=utf-8'
-        
+
         # Generate filename with timestamp
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f'cwa_stats_{tab_name}_{timestamp}.csv'
         response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
-        
+
         return response
-        
+
     except Exception as e:
         log.error(f"Error generating CSV export for tab {tab_name}: {e}")
         import traceback
         traceback.print_exc()
-        
+
         # Return error CSV
         output = StringIO()
         writer = csv.writer(output)

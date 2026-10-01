@@ -91,7 +91,7 @@ from .web import web, log
 
 def handle_login_user(user, remember, message, category, next_url=None):
     login_user(user, remember=remember)
-    
+
     # Track login activity
     try:
         from scripts.cwa_db import CWA_DB
@@ -103,7 +103,7 @@ def handle_login_user(user, remember, message, category, next_url=None):
         )
     except Exception as e:
         log.debug(f"Failed to log login activity: {e}")
-    
+
     flash(message, category=category)
     [limiter.limiter.storage.clear(k.key) for k in limiter.current_limits]
 
@@ -171,7 +171,7 @@ def login_post():
                                  "success")
     else:
         log.warning('Login failed for user "{}" IP-address: {}'.format(username, ip_address))
-        
+
         # Track failed login attempt
         try:
             from scripts.cwa_db import CWA_DB
@@ -187,7 +187,7 @@ def login_post():
             )
         except Exception as e:
             log.debug(f"Failed to log failed login attempt: {e}")
-        
+
         flash(_(u"Wrong Username or Password"), category="error")
     return render_login(username, form.get("password", ""))
 
@@ -342,7 +342,7 @@ def change_profile(translations, languages):
         if "hardcover_token" in to_save:
             current_user.hardcover_token = to_save["hardcover_token"].replace("Bearer ", "") or None
         current_user.auto_metadata_fetch = to_save.get("auto_metadata_fetch") == "on"
-        
+
         # OPDS root order
         opds_order_raw = to_save.get("opds_root_order", "").strip()
         if opds_order_raw:
@@ -444,7 +444,7 @@ def profile():
     translations = get_available_locale()
     if request.method == "POST":
         return change_profile(translations, languages)
-    
+
     from .opds import get_opds_root_order_for_user, get_opds_hidden_entries_for_user, OPDS_ROOT_ENTRY_DEFS, OPDS_ROOT_ORDER_DEFAULT
     opds_root_order = get_opds_root_order_for_user(current_user)
     opds_root_order_string = ",".join(opds_root_order)

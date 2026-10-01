@@ -103,7 +103,7 @@ def formatfloat(value, decimals=1):
     # Handle None and empty string cases
     if value is None or (isinstance(value, str) and value.strip() == ''):
         return ''
-    
+
     try:
         # Convert to float if it's a string (series_index is stored as String in DB)
         float_value = float(value) if isinstance(value, str) else value
@@ -174,21 +174,21 @@ def filesizeformat_binary(num_bytes):
     """
     if num_bytes is None:
         return '0 B'
-    
+
     try:
         num_bytes = float(num_bytes)
     except (ValueError, TypeError):
         return '0 B'
-    
+
     # Binary (power-of-2) units
     units = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB']
     unit_index = 0
     size = float(num_bytes)
-    
+
     while size >= 1024.0 and unit_index < len(units) - 1:
         size /= 1024.0
         unit_index += 1
-    
+
     # Format with 1 decimal place, but remove if .0
     if unit_index == 0:  # Bytes - no decimal
         return f"{int(size)} {units[unit_index]}"

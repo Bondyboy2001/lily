@@ -40,21 +40,21 @@ _AWARE_MAX = datetime.max.replace(tzinfo=timezone.utc)
 
 def generate_group_hash(title, author):
     """Generate MD5 hash for a duplicate group based on title and author
-    
+
     Args:
         title: Book title (will be normalized)
         author: Primary author name (will be normalized)
-        
+
     Returns:
         32-character MD5 hash string
     """
     # Normalize inputs - lowercase, strip whitespace
     normalized_title = (title or "untitled").lower().strip()
     normalized_author = (author or "unknown").lower().strip()
-    
+
     # Create composite key
     composite = f"{normalized_title}|{normalized_author}"
-    
+
     # Generate MD5 hash
     return hashlib.md5(composite.encode('utf-8')).hexdigest()
 
@@ -83,17 +83,17 @@ def validate_resolution_strategy(strategy):
 def select_book_to_keep(books, strategy):
     """
     Select which book to keep from a duplicate group based on strategy.
-    
+
     Args:
         books: List of book objects from find_duplicate_books()
         strategy: One of 'newest', 'highest_quality_format', 'most_metadata', 'largest_file_size'
-    
+
     Returns:
         The book object to keep
     """
     if not books:
         return None
-    
+
     if strategy == 'newest':
         # Keep the most recently added book
         return max(books, key=lambda b: _timestamp_or_default(b.timestamp, _AWARE_MIN))
@@ -105,7 +105,7 @@ def select_book_to_keep(books, strategy):
     elif strategy == 'merge':
         # Merge into the newest book by default
         return max(books, key=lambda b: _timestamp_or_default(b.timestamp, _AWARE_MIN))
-    
+
     elif strategy == 'highest_quality_format':
         # Get format priority from settings
         try:
@@ -133,73 +133,73 @@ def select_book_to_keep(books, strategy):
                 'DOC': 10,
                 'DOCX': 10,
             }
-        
+
         def get_best_format_score(book):
             """Calculate best format score for a book"""
             if not book.data:
                 return 0
             scores = [format_priority.get(data.format.upper(), 0) for data in book.data if data.format]
             return max(scores) if scores else 0
-        
+
         # Keep book with highest quality format, fallback to newest if tie
         return max(books, key=lambda b: (get_best_format_score(b), _timestamp_or_default(b.timestamp, _AWARE_MIN)))
-    
+
     elif strategy == 'most_metadata':
         # Count metadata completeness
         def metadata_score(book):
             score = 0
-            
+
             # Tags
             if hasattr(book, 'tags') and book.tags:
                 score += len(book.tags) * 2
-            
+
             # Series
             if hasattr(book, 'series') and book.series:
                 score += 5
-            
+
             # Rating
             if hasattr(book, 'ratings') and book.ratings:
                 for rating in book.ratings:
                     if rating.rating and rating.rating > 0:
                         score += 3
-            
+
             # Description/comments
             if hasattr(book, 'comments') and book.comments:
                 for comment in book.comments:
                     if comment.text and len(comment.text.strip()) > 50:
                         score += 10
-            
+
             # Publisher
             if hasattr(book, 'publishers') and book.publishers:
                 score += 2
-            
+
             # Published date
             if hasattr(book, 'pubdate') and book.pubdate:
                 score += 2
-            
+
             # Identifiers (ISBN, etc.)
             if hasattr(book, 'identifiers') and book.identifiers:
                 score += len(book.identifiers) * 3
-            
+
             # Number of formats
             if hasattr(book, 'data') and book.data:
                 score += len(book.data)
-            
+
             return score
-        
+
         # Keep book with most complete metadata, fallback to newest if tie
         return max(books, key=lambda b: (metadata_score(b), _timestamp_or_default(b.timestamp, _AWARE_MIN)))
-    
+
     elif strategy == 'largest_file_size':
         # Sum all format file sizes
         def total_file_size(book):
             if not book.data:
                 return 0
             return sum(data.uncompressed_size for data in book.data if hasattr(data, 'uncompressed_size') and data.uncompressed_size)
-        
+
         # Keep book with largest total file size, fallback to newest if tie
         return max(books, key=lambda b: (total_file_size(b), _timestamp_or_default(b.timestamp, _AWARE_MIN)))
-    
+
     else:
         # Default fallback: keep newest
         return max(books, key=lambda b: _timestamp_or_default(b.timestamp, _AWARE_MIN))

@@ -45,80 +45,80 @@ from cps.helper import (
 
 class TestGetValidFilename:
     """Test filename sanitization logic"""
-    
+
     @patch('cps.helper.config')
     def test_basic_valid_filename(self, mock_config):
         """Test basic valid filename passes through"""
         # Mock the config attribute used by get_valid_filename
         mock_config.config_unicode_filename = False
-        
+
         result = get_valid_filename("My Book Title")
         # Plain spaces are preserved, not replaced with underscores
         assert result == "My Book Title"
-    
+
     @patch('cps.helper.config')
     def test_replace_whitespace_enabled(self, mock_config):
         """Test whitespace replacement when enabled"""
         mock_config.config_unicode_filename = False
-        
+
         result = get_valid_filename("Test   Book", replace_whitespace=True)
         # Note: replace_whitespace only affects special chars, not regular spaces
         # Multiple spaces are preserved by the sanitizer
         assert result == "Test   Book"
-    
+
     @patch('cps.helper.config')
     def test_replace_whitespace_disabled(self, mock_config):
         """Test whitespace preserved when disabled"""
         mock_config.config_unicode_filename = False
-        
+
         result = get_valid_filename("Test Book", replace_whitespace=False)
         assert " " in result or "_" in result  # May be normalized
-    
+
     @patch('cps.helper.config')
     def test_special_characters_sanitized(self, mock_config):
         """Test special characters are replaced"""
         mock_config.config_unicode_filename = False
-        
+
         result = get_valid_filename('Test<>:"/\\|?*Book')
         # Dangerous characters should be replaced
         for char in '<>:"/\\|?*':
             assert char not in result
         assert "Test" in result
         assert "Book" in result
-    
+
     @patch('cps.helper.config')
     def test_trailing_dot_removed(self, mock_config):
         """Test trailing dot is replaced with underscore"""
         mock_config.config_unicode_filename = False
-        
+
         result = get_valid_filename("Test.")
         assert not result.endswith(".")
         assert result.endswith("_")
-    
+
     @patch('cps.helper.config')
     def test_max_length_truncation(self, mock_config):
         """Test filename truncation to max chars"""
         mock_config.config_unicode_filename = False
-        
+
         long_name = "A" * 200
         result = get_valid_filename(long_name, chars=50)
         assert len(result.encode('utf-8')) <= 50
-    
+
     @patch('cps.helper.config')
     def test_unicode_handling(self, mock_config):
         """Test unicode characters in filename"""
         mock_config.config_unicode_filename = True
-        
+
         result = get_valid_filename("Test äöüß Book")
         # Should be transliterated or preserved based on config
         assert result  # Should not raise
         assert len(result) > 0
-    
+
     @patch('cps.helper.config')
     def test_null_bytes_removed(self, mock_config):
         """Test null bytes are stripped from edges"""
         mock_config.config_unicode_filename = False
-        
+
         result = get_valid_filename("Test\x00Book")
         # .strip('\0') only removes from start/end, not middle
         # So null byte in middle will remain
@@ -126,46 +126,46 @@ class TestGetValidFilename:
         result2 = get_valid_filename("\x00TestBook\x00")
         assert "\x00" not in result2
         assert result2 == "TestBook"
-    
+
     @patch('cps.helper.config')
     def test_slash_and_colon_replaced(self, mock_config):
         """Test path separators are replaced"""
         mock_config.config_unicode_filename = False
-        
+
         result = get_valid_filename("Test/Book:Title")
         assert "/" not in result
         assert ":" not in result
         assert "_" in result
-    
+
     @patch('cps.helper.config')
     def test_empty_string_raises_error(self, mock_config):
         """Test empty filename raises ValueError"""
         mock_config.config_unicode_filename = False
-        
+
         with pytest.raises(ValueError, match="Filename cannot be empty"):
             get_valid_filename("")
-    
+
     @patch('cps.helper.config')
     def test_none_value_handled(self, mock_config):
         """Test None value converted to empty string and raises ValueError"""
         mock_config.config_unicode_filename = False
-        
+
         # Production code converts None to "" which then raises ValueError
         with pytest.raises(ValueError, match="Filename cannot be empty"):
             get_valid_filename(None)
-    
+
     @patch('cps.helper.config')
     def test_integer_value_converted(self, mock_config):
         """Test integer values are converted to string"""
         mock_config.config_unicode_filename = False
         result = get_valid_filename(12345)
         assert "12345" in result
-    
+
     @patch('cps.helper.config')
     def test_pipe_replaced_with_comma(self, mock_config):
         """Test pipe character replaced with comma"""
         mock_config.config_unicode_filename = False
-        
+
         result = get_valid_filename("Author1|Author2|Author3")
         assert "|" not in result
         assert "," in result  # Pipes become commas
@@ -213,37 +213,37 @@ class TestDeleteBookFile:
 
 class TestSplitAuthors:
     """Test author name splitting logic"""
-    
+
     def test_single_author_no_delimiter(self):
         """Test single author without delimiter"""
         result = split_authors(["John Doe"])
         assert result == ["John Doe"]
-    
+
     def test_ampersand_delimiter(self):
         """Test authors split by ampersand"""
         result = split_authors(["John Doe & Jane Smith"])
         assert len(result) == 2
         assert "John Doe" in result
         assert "Jane Smith" in result
-    
+
     def test_semicolon_delimiter(self):
         """Test authors split by semicolon"""
         result = split_authors(["John Doe;Jane Smith"])
         assert len(result) == 2
         assert "John Doe" in result
         assert "Jane Smith" in result
-    
+
     def test_lastname_firstname_format(self):
         """Test 'Lastname, Firstname' format is reversed"""
         result = split_authors(["Doe, John"])
         assert result == ["John Doe"]
-    
+
     def test_multiple_commas_preserved(self):
         """Test names with multiple commas are split"""
         result = split_authors(["Doe, John, Jr."])
         # Multiple commas should result in split
         assert len(result) >= 2
-    
+
     def test_whitespace_stripped(self):
         """Test whitespace is stripped from author names"""
         result = split_authors(["  John Doe  &  Jane Smith  "])
@@ -252,7 +252,7 @@ class TestSplitAuthors:
         # No leading/trailing whitespace
         for author in result:
             assert author == author.strip()
-    
+
     def test_mixed_delimiters(self):
         """Test mixed delimiters in same string"""
         result = split_authors(["John Doe & Jane Smith;Bob Jones"])
@@ -260,12 +260,12 @@ class TestSplitAuthors:
         assert "John Doe" in result
         assert "Jane Smith" in result
         assert "Bob Jones" in result
-    
+
     def test_empty_list_returns_empty(self):
         """Test empty list returns empty list"""
         result = split_authors([])
         assert result == []
-    
+
     def test_multiple_input_values(self):
         """Test multiple input values are processed"""
         result = split_authors(["John Doe", "Jane Smith & Bob Jones"])
@@ -281,45 +281,45 @@ class TestSplitAuthors:
 
 class TestGetSortedAuthor:
     """Test author name sorting logic"""
-    
+
     def test_single_name_unchanged(self):
         """Test single name is unchanged"""
         result = get_sorted_author("Aristotle")
         assert result == "Aristotle"
-    
+
     def test_first_last_sorted(self):
         """Test 'First Last' becomes 'Last, First'"""
         result = get_sorted_author("John Doe")
         assert result == "Doe, John"
-    
+
     def test_jr_suffix_preserved(self):
         """Test Jr. suffix is preserved correctly"""
         result = get_sorted_author("John Doe Jr.")
         assert "Jr." in result
         assert "Doe" in result
-    
+
     def test_sr_suffix_preserved(self):
         """Test Sr. suffix is preserved correctly"""
         result = get_sorted_author("John Doe SR")
         assert "SR" in result or "Sr" in result
         assert "Doe" in result
-    
+
     def test_roman_numeral_suffix_preserved(self):
         """Test Roman numeral suffixes (I, II, III, IV)"""
         result = get_sorted_author("John Doe III")
         assert "III" in result
         assert "Doe" in result
-    
+
     def test_already_sorted_unchanged(self):
         """Test 'Last, First' format is preserved"""
         result = get_sorted_author("Doe, John")
         assert result == "Doe, John"
-    
+
     def test_three_part_name_sorted(self):
         """Test 'First Middle Last' becomes 'Last, First Middle'"""
         result = get_sorted_author("John William Doe")
         assert result == "Doe, John William"
-    
+
     def test_error_handling(self):
         """Test error handling returns original value"""
         # This should handle errors gracefully
@@ -334,49 +334,49 @@ class TestGetSortedAuthor:
 
 class TestValidEmail:
     """Test email validation logic"""
-    
+
     def test_valid_single_email(self):
         """Test valid single email passes"""
         result = valid_email("test@example.com")
         assert result == "test@example.com"
-    
+
     def test_valid_multiple_emails(self):
         """Test multiple comma-separated emails"""
         result = valid_email("test1@example.com,test2@example.com")
         assert "test1@example.com" in result
         assert "test2@example.com" in result
-    
+
     def test_invalid_email_format_raises(self):
         """Test invalid email format raises exception"""
         with pytest.raises(Exception, match="Invalid Email address format"):
             valid_email("not_an_email")
-    
+
     def test_whitespace_stripped(self):
         """Test whitespace is stripped from emails"""
         result = valid_email("  test@example.com  ")
         assert result == "test@example.com"
-    
+
     def test_multiple_with_whitespace(self):
         """Test multiple emails with whitespace"""
         result = valid_email(" test1@example.com , test2@example.com ")
         assert "test1@example.com" in result
         assert "test2@example.com" in result
-    
+
     def test_empty_string_returns_empty(self):
         """Test empty string returns empty string"""
         result = valid_email("")
         assert result == ""
-    
+
     def test_invalid_domain_raises(self):
         """Test invalid domain raises exception"""
         with pytest.raises(Exception, match="Invalid Email address format"):
             valid_email("test@")
-    
+
     def test_missing_at_symbol_raises(self):
         """Test missing @ symbol raises exception"""
         with pytest.raises(Exception, match="Invalid Email address format"):
             valid_email("testexample.com")
-    
+
     def test_special_chars_in_local_part(self):
         """Test special characters allowed in local part"""
         result = valid_email("test.name+tag@example.com")
@@ -446,35 +446,35 @@ class TestValidPassword:
 
 class TestCheckEmailAndUsername:
     """Test email and username uniqueness checks"""
-    
+
     @patch('cps.ub.session')
     def test_check_email_unique_passes(self, mock_session):
         """Test unique email passes check"""
         mock_session.query().filter().first.return_value = None
         result = check_email("new@example.com")
         assert result == "new@example.com"
-    
+
     @patch('cps.ub.session')
     def test_check_email_duplicate_raises(self, mock_session):
         """Test duplicate email raises exception"""
         mock_session.query().filter().first.return_value = Mock()
         with pytest.raises(Exception, match="Found an existing account"):
             check_email("existing@example.com")
-    
+
     @patch('cps.ub.session')
     def test_check_username_unique_passes(self, mock_session):
         """Test unique username passes check"""
         mock_session.query().filter().scalar.return_value = None
         result = check_username("newuser")
         assert result == "newuser"
-    
+
     @patch('cps.ub.session')
     def test_check_username_duplicate_raises(self, mock_session):
         """Test duplicate username raises exception"""
         mock_session.query().filter().scalar.return_value = True
         with pytest.raises(Exception, match="This username is already taken"):
             check_username("existinguser")
-    
+
     @patch('cps.ub.session')
     def test_check_username_strips_whitespace(self, mock_session):
         """Test username whitespace is stripped"""
@@ -489,7 +489,7 @@ class TestCheckEmailAndUsername:
 
 class TestUniq:
     """Test unique list function"""
-    
+
     def test_removes_duplicates(self):
         """Test duplicate items are removed"""
         result = uniq(["a", "b", "a", "c", "b"])
@@ -497,25 +497,25 @@ class TestUniq:
         assert "a" in result
         assert "b" in result
         assert "c" in result
-    
+
     def test_preserves_order(self):
         """Test first occurrence order is preserved"""
         result = uniq(["c", "a", "b", "a"])
         # First occurrence of each should be preserved
         assert result.index("c") < result.index("a")
         assert result.index("a") < result.index("b")
-    
+
     def test_normalizes_whitespace(self):
         """Test multiple spaces are normalized"""
         result = uniq(["a  b", "a b", "c"])
         # "a  b" and "a b" should be treated as same
         assert len(result) == 2
-    
+
     def test_empty_list_returns_empty(self):
         """Test empty list returns empty list"""
         result = uniq([])
         assert result == []
-    
+
     def test_single_item_unchanged(self):
         """Test single item list is unchanged"""
         result = uniq(["only"])

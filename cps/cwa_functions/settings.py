@@ -38,24 +38,24 @@ def _monthly_schedule_day(submitted_values, current_value):
 def parse_metadata_providers_enabled(raw_value):
     """
     Parse the metadata_providers_enabled setting from various formats into a dict.
-    
+
     Args:
         raw_value: The raw value from database/settings (str, dict, bytes, or None)
-        
+
     Returns:
         dict: Provider ID to enabled status mapping. Empty dict on error.
     """
     import json
-    
+
     try:
         # Handle None/null values
         if raw_value is None:
             return {}
-            
+
         # Handle bytes (from some database drivers)
         if isinstance(raw_value, bytes):
             raw_value = raw_value.decode('utf-8', errors='ignore')
-        
+
         # Handle string (most common case)
         if isinstance(raw_value, str):
             s = raw_value.strip()
@@ -70,44 +70,44 @@ def parse_metadata_providers_enabled(raw_value):
                 return {}
             data = json.loads(s)
             return data if isinstance(data, dict) else {}
-        
+
         # Handle dict (already parsed)
         elif isinstance(raw_value, dict):
             return raw_value
-        
+
         # Unknown type, return empty dict
         else:
             return {}
-            
+
     except (json.JSONDecodeError, ValueError, TypeError, AttributeError):
         return {}
 
 def validate_and_cleanup_provider_enabled_map(enabled_map, available_provider_ids):
     """
     Validate and cleanup the provider enabled map.
-    
+
     Args:
         enabled_map (dict): Current provider enabled map
         available_provider_ids (list): List of valid provider IDs
-        
+
     Returns:
         dict: Cleaned up enabled map with only valid providers
     """
     if not isinstance(enabled_map, dict):
         return {}
-    
+
     if not isinstance(available_provider_ids, (list, tuple, set)):
         return {}
-    
+
     # Keep only valid provider IDs and boolean values
     cleaned_map = {}
     for provider_id, enabled in enabled_map.items():
-        if (isinstance(provider_id, str) and 
+        if (isinstance(provider_id, str) and
             provider_id.strip() and  # Non-empty string
             provider_id in available_provider_ids):
             # Convert to boolean, handling various truthy/falsy values
             cleaned_map[provider_id] = bool(enabled)
-    
+
     return cleaned_map
 
 ##————————————————————————————————————————————————————————————————————————————##
@@ -143,7 +143,7 @@ def set_cwa_settings():
     json_settings = ['metadata_provider_hierarchy', 'metadata_providers_enabled', 'duplicate_format_priority']  # Special handling for JSON settings
     # Handled through individual format checkboxes, or left over from removed features
     skip_settings = ['auto_ingest_ignored_formats', 'auto_send_delay_minutes', 'koreader_sync_enabled']
-    
+
     for setting in cwa_default_settings:
         if setting in integer_settings or setting in float_settings or setting in json_settings or setting in skip_settings:
             continue  # Handle separately
@@ -196,7 +196,7 @@ def set_cwa_settings():
                     day_setting = f"{schedule_setting}_day"
                     result[day_setting] = _monthly_schedule_day(request.form.getlist(day_setting),
                                                                 cwa_settings.get(day_setting))
-            
+
             # Handle integer settings
             for setting in integer_settings:
                 value = request.form.get(setting)
@@ -405,7 +405,7 @@ def set_cwa_settings():
     # Check if Hardcover token is available
     from os import getenv
     hardcover_token_available = bool(
-        getattr(config, "config_hardcover_token", None) or 
+        getattr(config, "config_hardcover_token", None) or
         getenv("HARDCOVER_TOKEN")
     )
 

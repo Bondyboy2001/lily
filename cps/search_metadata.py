@@ -79,11 +79,11 @@ def _get_global_provider_enabled_map() -> dict:
         from cwa_db import CWA_DB  # type: ignore
         cwa_db = CWA_DB()
         settings = cwa_db.get_cwa_settings()
-        
+
         if not settings:
             log.warning("Could not get CWA settings for provider enabled map")
             return {}
-        
+
         from cps.cwa_functions import parse_metadata_providers_enabled
         return parse_metadata_providers_enabled(
             settings.get('metadata_providers_enabled', '{}')

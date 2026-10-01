@@ -333,7 +333,7 @@ def get_internal_api_url(path):
     port = os.getenv('CWA_PORT_OVERRIDE', '8083').strip()
     if not port.isdigit():
         port = '8083'
-    
+
     protocol = "http"
     certfile = None
     keyfile = None
@@ -355,10 +355,10 @@ def get_internal_api_url(path):
 
     if certfile and keyfile and os.path.isfile(certfile) and os.path.isfile(keyfile):
         protocol = "https"
-            
+
     if not path.startswith("/"):
         path = "/" + path
-        
+
     return f"{protocol}://127.0.0.1:{port}{path}"
 
 
@@ -977,7 +977,7 @@ class NewBookProcessor:
             if not result:
                 print(f"[ingest-processor] Could not find book ID for metadata fetch: {book_title}", flush=True)
                 return
-                
+
             book_id = int(result[0])
             actual_title = result[1]
 
@@ -1087,7 +1087,7 @@ def main(filepath=None):
                         book_id = int(manifest.get("book_id", -1))
                     except Exception:
                         book_id = -1
-                    
+
                     if book_id > -1:
                         # Validate book exists before attempting add_format
                         if nbp._validate_book_exists(book_id):
@@ -1096,7 +1096,7 @@ def main(filepath=None):
                             print(f"[ingest-processor] ERROR: Book ID {book_id} not found in library for {os.path.basename(filepath)}", flush=True)
                     else:
                         print(f"[ingest-processor] ERROR: Invalid book_id in manifest for {os.path.basename(filepath)}", flush=True)
-                    
+
                     # Cleanup manifest: delete on success, preserve on failure for debugging
                     try:
                         if success:
@@ -1107,7 +1107,7 @@ def main(filepath=None):
                             print(f"[ingest-processor] Preserved failed manifest: {os.path.basename(failed_manifest_path)}", flush=True)
                     except Exception as e:
                         print(f"[ingest-processor] WARN: Failed to handle manifest cleanup: {e}", flush=True)
-                    
+
                     # The finally block deletes the source on success or moves it to failed/
                     source_outcome = "delete" if success else "failed"
                     return 0

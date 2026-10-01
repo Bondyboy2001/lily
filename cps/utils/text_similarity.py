@@ -19,10 +19,10 @@ def levenshtein_distance(s1: str, s2: str) -> int:
     """
     if len(s1) < len(s2):
         return levenshtein_distance(s2, s1)
-    
+
     if len(s2) == 0:
         return len(s1)
-    
+
     previous_row = range(len(s2) + 1)
     for i, c1 in enumerate(s1):
         current_row = [i + 1]
@@ -33,7 +33,7 @@ def levenshtein_distance(s1: str, s2: str) -> int:
             substitutions = previous_row[j] + (c1 != c2)
             current_row.append(min(insertions, deletions, substitutions))
         previous_row = current_row
-    
+
     return previous_row[-1]
 
 
@@ -44,14 +44,14 @@ def normalized_levenshtein_similarity(s1: str, s2: str) -> float:
     """
     s1_norm = normalize_string(s1)
     s2_norm = normalize_string(s2)
-    
+
     if not s1_norm or not s2_norm:
         return 0.0
-    
+
     max_len = max(len(s1_norm), len(s2_norm))
     if max_len == 0:
         return 1.0
-    
+
     distance = levenshtein_distance(s1_norm, s2_norm)
     return 1.0 - (distance / max_len)
 
@@ -65,29 +65,29 @@ def normalize_string(s: str) -> str:
     """
     if not s:
         return ""
-    
+
     # Convert to lowercase
     s = s.lower()
-    
+
     # Remove common articles and conjunctions
     articles = ['the', 'a', 'an', 'and', '&']
     words = s.split()
     words = [w for w in words if w not in articles]
     s = ' '.join(words)
-    
+
     # Remove special characters except spaces and alphanumeric
     s = re.sub(r'[^\w\s]', '', s)
-    
+
     # Collapse multiple spaces
     s = re.sub(r'\s+', ' ', s)
-    
+
     return s.strip()
 
 
 def author_list_similarity(authors1: List[str], authors2: List[str]) -> tuple[float, bool]:
     """
     Calculate similarity between two author lists.
-    
+
     Returns:
         tuple: (similarity_score, is_and_match)
             - similarity_score: 0.0 to 1.0
@@ -95,11 +95,11 @@ def author_list_similarity(authors1: List[str], authors2: List[str]) -> tuple[fl
     """
     if not authors1 or not authors2:
         return 0.0, False
-    
+
     # Normalize author names
     norm_authors1 = [normalize_string(a) for a in authors1]
     norm_authors2 = [normalize_string(a) for a in authors2]
-    
+
     # Calculate per-author similarities
     max_scores = []
     for auth1 in norm_authors1:
@@ -109,14 +109,14 @@ def author_list_similarity(authors1: List[str], authors2: List[str]) -> tuple[fl
             for auth2 in norm_authors2
         ])
         max_scores.append(best_score)
-    
+
     # Check if all authors from smaller list have good matches (>0.8)
     threshold = 0.8
     is_and_match = all(score >= threshold for score in max_scores)
-    
+
     # Overall similarity is average of best matches
     avg_similarity = sum(max_scores) / len(max_scores) if max_scores else 0.0
-    
+
     return avg_similarity, is_and_match
 
 
@@ -127,18 +127,18 @@ def calculate_year_similarity(year1: str, year2: str) -> float:
     """
     if not year1 or not year2:
         return 0.0
-    
+
     try:
         # Extract 4-digit year from date string
         y1_match = re.search(r'\b(\d{4})\b', str(year1))
         y2_match = re.search(r'\b(\d{4})\b', str(year2))
-        
+
         if not y1_match or not y2_match:
             return 0.0
-        
+
         y1 = int(y1_match.group(1))
         y2 = int(y2_match.group(1))
-        
+
         diff = abs(y1 - y2)
         if diff == 0:
             return 1.0

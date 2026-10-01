@@ -157,14 +157,14 @@ def _schedule_hardcover_auto_fetch(scheduler, timezone_info):
 
         db = CWA_DB()
         cwa_settings = db.get_cwa_settings()
-        
+
         # Check if enabled and token available
         enabled = bool(cwa_settings.get('hardcover_auto_fetch_enabled', False))
         token_available = bool(
-            getattr(config, "config_hardcover_token", None) or 
+            getattr(config, "config_hardcover_token", None) or
             getenv("HARDCOVER_TOKEN")
         )
-        
+
         if not enabled or not token_available:
             return
 
@@ -174,24 +174,24 @@ def _schedule_hardcover_auto_fetch(scheduler, timezone_info):
         min_confidence = float(cwa_settings.get('hardcover_auto_fetch_min_confidence', 0.85))
         batch_size = int(cwa_settings.get('hardcover_auto_fetch_batch_size', 50))
         rate_limit = float(cwa_settings.get('hardcover_auto_fetch_rate_limit', 5.0))
-        
+
         # Create lambda that returns task instance with configured settings
         task_lambda = lambda: TaskAutoHardcoverID(
             min_confidence=min_confidence,
             batch_size=batch_size,
             rate_limit_delay=rate_limit
         )
-        
+
         # Map day names to APScheduler format
         day_map = {
             'monday': 'mon', 'tuesday': 'tue', 'wednesday': 'wed',
             'thursday': 'thu', 'friday': 'fri', 'saturday': 'sat', 'sunday': 'sun'
         }
-        
+
         # Determine trigger based on schedule type
         trigger = None
         name = "hardcover auto-fetch"
-        
+
         if schedule_type == '15min':
             trigger = IntervalTrigger(minutes=15, timezone=timezone_info)
         elif schedule_type == '30min':
@@ -219,7 +219,7 @@ def _schedule_hardcover_auto_fetch(scheduler, timezone_info):
             except (ValueError, TypeError):
                 day_of_month = 1
             trigger = CronTrigger(day=day_of_month, hour=schedule_hour, minute=0, timezone=timezone_info)
-        
+
         if trigger:
             scheduler.schedule_task(task_lambda, user='System', trigger=trigger, name=name, hidden=False)
     except Exception:

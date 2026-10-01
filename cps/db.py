@@ -630,14 +630,14 @@ class CalibreDB:
         """
         if self.session is not None:
             return  # Fast path - session already exists
-        
+
         # Session is None - need to recreate it
         # Acquire lock to ensure atomic recreation (no interruption by dispose)
         with self._reconnect_lock:
             # Double-check after acquiring lock (another thread may have recreated it)
             if self.session is not None:
                 return
-            
+
             # Try to recreate session from factory
             if self.session_factory is not None:
                 try:
@@ -645,7 +645,7 @@ class CalibreDB:
                     return  # Success
                 except Exception as ex:
                     log.error(f"Failed to init session from factory: {ex}")
-            
+
             # Factory is None or init failed - try to rebuild entire database setup
             if self.config and getattr(self.config, 'config_calibre_dir', None):
                 try:
@@ -671,7 +671,7 @@ class CalibreDB:
                             return
                 except Exception as ex:
                     log.error(f"Failed to init session from app.db in ensure_session: {ex}")
-            
+
             # If we still don't have a session, log warning
             # Don't raise exception - let caller handle AttributeError if they try to use None session
             if self.session is None:
@@ -980,7 +980,7 @@ class CalibreDB:
         negtags_list = current_user.list_denied_tags()
         postags_list = current_user.list_allowed_tags()
         neg_content_tags_filter = false() if negtags_list == [''] else Books.tags.any(Tags.name.in_(negtags_list))
-        
+
         # Issue #906: When viewing a specific tag category, include that tag in allowed tags
         if viewing_tag_id is not None and postags_list != ['']:
             # Get the tag name for the viewing_tag_id
@@ -988,7 +988,7 @@ class CalibreDB:
             if viewing_tag and viewing_tag.name not in postags_list:
                 # Temporarily add the viewed tag to the allowed list for this query
                 postags_list = postags_list + [viewing_tag.name]
-        
+
         pos_content_tags_filter = true() if postags_list == [''] else Books.tags.any(Tags.name.in_(postags_list))
         if self.config.config_restricted_column:
             try:
@@ -1073,7 +1073,7 @@ class CalibreDB:
             query = self.generate_linked_query(config_read_column, database)
         else:
             query = self.session.query(database)
-        
+
         # Eagerly load template relationships to prevent DetachedInstanceError
         # during rendering under concurrent status/notification requests.
         # The same helper feeds OPDS (comments, tags, languages, publishers) and the
@@ -1082,7 +1082,7 @@ class CalibreDB:
         # Callers that only render book cards pass cards_only=True to skip them.
         if database == Books:
             query = query.options(*_card_load_options(skip_others=bool(kwargs.get('cards_only'))))
-        
+
         off = int(int(pagesize) * (page - 1))
 
         indx = len(join)
@@ -1291,7 +1291,7 @@ class CalibreDB:
         if self.session is None:
             log.error("create_functions: Cannot create functions because session is None")
             return
-        
+
         # user defined sort function for calibre databases (Series, etc.)
         if config:
             def _title_sort(title):

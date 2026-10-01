@@ -73,7 +73,7 @@ class AutoLibrary:
     # Check for a metadata.db file in the given library dir and returns False if one doesn't exist
     # and True if one does exist, while also updating metadb_path to the path of the found metadata.db file
     # In the case of multiple metadata.db files, the user is notified and the one with the largest filesize is chosen
-    def check_for_existing_library(self) -> bool: 
+    def check_for_existing_library(self) -> bool:
         files_in_library = [os.path.join(dirpath,f) for (dirpath, dirnames, filenames) in os.walk(self.library_dir) for f in filenames]
         # Consider metadata.db files across subfolders, but ignore SQLite sidecars created by WAL/journal modes
         db_files = []
