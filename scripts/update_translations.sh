@@ -83,6 +83,9 @@ for po in "$ROOT_DIR"/cps/translations/*/LC_MESSAGES/messages.po; do
             continue
         fi
     fi
+
+    # Drop obsolete (#~) entries so strings of removed features don't linger in the catalogs
+    msgattrib --no-obsolete -o "$po" "$po" || echo "[!] Could not drop obsolete entries from $po"
 done
 
 # 3. Final validation and compile
