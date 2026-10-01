@@ -38,6 +38,8 @@ docker-compose.local.yml
 docs/
 private/
 *.db
+# Local Fernet key left in the tree by a dev run — never bake it into the image
+.key
 **/__pycache__/
 *.pyc
 messages.pot

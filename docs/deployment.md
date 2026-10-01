@@ -120,6 +120,9 @@ opened directly with `sqlite3` to inspect or recover individual rows.
 ## Runbook
 
 ### Deploying to the NAS
+If the NAS can reach Docker Hub, pull the published multi-arch image directly:
+`docker pull coldestpillow/lily:latest`. To deploy to an offline NAS, build and transfer a
+tarball instead:
 1. Build the image: `docker buildx build --platform linux/amd64 -t lily:nas-amd64 --load .`
    (retry if gcc segfaults building `faust-cchardet`), then `docker save lily:nas-amd64 | gzip > lily-amd64.tar.gz`.
 2. Copy the tarball to the NAS `docker/lily/` share and `docker load -i lily-amd64.tar.gz`.

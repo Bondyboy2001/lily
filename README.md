@@ -4,7 +4,7 @@
 
 **A self-hosted digital library that gives you Calibre-Web's web UI with Calibre's full feature set.**
 
-[![Docker](https://img.shields.io/badge/docker-build--local-2496ed)](docker-compose.yml)
+[![Docker Hub](https://img.shields.io/badge/docker-coldestpillow%2Flily-2496ed)](https://hub.docker.com/r/coldestpillow/lily)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 [![Upstream](https://img.shields.io/badge/fork%20of-Calibre--Web%20Automated-8a8a8a)](https://github.com/crocodilestick/calibre-web-automated)
 
@@ -52,14 +52,18 @@ Most of these are toggleable in the Lily Settings panel.
 
 ## Install
 
-Lily is not published to Docker Hub — the image builds from this repo.
+Multi-arch images (`linux/amd64`, `linux/arm64`) are published to Docker Hub as
+**[`coldestpillow/lily`](https://hub.docker.com/r/coldestpillow/lily)**.
 
 ```bash
 git clone https://github.com/Bondyboy2001/lily.git
 cd lily
 $EDITOR docker-compose.yml    # set your timezone and bind paths
-docker compose up -d --build
+docker compose up -d
 ```
+
+`docker compose up -d` pulls `coldestpillow/lily:latest`. To build from source instead,
+uncomment `build: .` in `docker-compose.yml` and run `docker compose up -d --build`.
 
 Then open <http://localhost:8083>.
 
@@ -69,8 +73,9 @@ Then open <http://localhost:8083>.
 ```yaml
 services:
   lily:
-    image: lily:latest
-    build: .
+    image: coldestpillow/lily:latest
+    # Uncomment to build from source instead of pulling the published image
+    # build: .
     container_name: lily
     environment:
       - PUID=1000
@@ -144,7 +149,7 @@ Behind a reverse proxy or on a network share? See **[docs/deployment.md](docs/de
 1. Stop your Calibre-Web instance.
 2. Map your old `/books` bind to Lily's `/calibre-library`, and mount the **same**
    `/config` folder (copy it first if you want a safety net).
-3. `docker compose up -d --build`.
+3. `docker compose up -d`.
 
 Your users, shelves and settings carry over. If the web UI doesn't load, start on the
 same port Calibre-Web used.

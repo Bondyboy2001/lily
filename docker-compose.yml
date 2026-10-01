@@ -1,8 +1,10 @@
 ---
 services:
   lily:
-    image: lily:latest
-    build: .
+    # Published multi-arch image (linux/amd64 + linux/arm64).
+    # To build from source instead, uncomment the build line and run: docker compose up -d --build
+    image: coldestpillow/lily:latest
+    # build: .
     container_name: lily
     environment:
       # Only change these if you know what you're doing
