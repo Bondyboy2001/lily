@@ -326,3 +326,64 @@ def test_lock_held_by_other_process_blocks_until_it_dies(ingest_processor, tmp_p
         assert contender.acquire(timeout=2)
     finally:
         contender.release()
+
+
+# ── Ownership of new book folders ──────────────────────────────────────────
+
+
+@pytest.fixture
+def chown_env(ingest_processor, monkeypatch, tmp_path):
+    import sqlite3
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "chown.log"
+    chown = bin_dir / "chown"
+    chown.write_text(f'#!/bin/sh\necho "$*" >> "{log}"\n')
+    chown.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
+    monkeypatch.delenv("NETWORK_SHARE_MODE", raising=False)
+    library = tmp_path / "library"
+    for rel in ("Jane Doe/New Book (5)", "Jane Doe/Older (4)", "Other/Formatted (9)"):
+        (library / rel).mkdir(parents=True)
+    with sqlite3.connect(library / "metadata.db") as con:
+        con.execute("CREATE TABLE books (id INTEGER PRIMARY KEY, path TEXT)")
+        con.executemany("INSERT INTO books VALUES (?, ?)", [
+            (5, "Jane Doe/New Book (5)"), (4, "Jane Doe/Older (4)"),
+            (9, "Other/Formatted (9)"), (13, "../../outside (13)"),
+        ])
+    nbp = object.__new__(ingest_processor.NewBookProcessor)
+    nbp.library_dir = str(library) + "/"
+    nbp.metadata_db = str(library / "metadata.db")
+    nbp.last_added_book_ids, nbp.last_added_book_id, nbp.format_book_ids = [], None, []
+
+    def calls():
+        return log.read_text().splitlines() if log.exists() else []
+
+    return nbp, os.path.realpath(library), calls
+
+
+def test_chown_touches_only_new_book_and_author_folders(chown_env):
+    nbp, library, calls = chown_env
+    nbp.last_added_book_ids, nbp.last_added_book_id = [5], 5
+    nbp.format_book_ids = [9]
+    nbp.set_library_permissions()
+    assert calls() == [
+        f"-R abc:abc -- {library}/Jane Doe/New Book (5) {library}/Other/Formatted (9)",
+        f"abc:abc -- {library}/Jane Doe {library}/Other",
+    ]
+
+
+def test_chown_skips_when_nothing_was_added_or_path_escapes(chown_env):
+    nbp, _library, calls = chown_env
+    nbp.set_library_permissions()  # failed import: no ids
+    nbp.last_added_book_ids = [13, 404]  # escapes the library / unknown id
+    nbp.set_library_permissions()
+    assert calls() == []
+
+
+def test_chown_skipped_in_network_share_mode(chown_env, monkeypatch):
+    nbp, _library, calls = chown_env
+    monkeypatch.setenv("NETWORK_SHARE_MODE", "true")
+    nbp.last_added_book_ids = [5]
+    nbp.set_library_permissions()
+    assert calls() == []

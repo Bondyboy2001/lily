@@ -543,6 +543,8 @@ class NewBookProcessor:
         self.last_added_book_ids: list[int] = []
         # Set when calibredb gave up because metadata.db was locked (retryable, not a bad file)
         self.db_locked = False
+        # Books that received a new format this run (their folders get their ownership fixed)
+        self.format_book_ids: list[int] = []
         self._title_sort_regex = self._get_title_sort_regex()
 
     @staticmethod
@@ -964,6 +966,7 @@ class NewBookProcessor:
                 "calibredb", "add_format", str(book_id), str(staged_path), f"--library-path={self.library_dir}"
             ], env=self.calibre_env, check=True, capture_output=True, text=True)
             added = True
+            self.format_book_ids.append(int(book_id))
             print(f"[ingest-processor] Added new format for book id {book_id}: {os.path.basename(str(staged_path))}", flush=True)
             mark_ingest_batch_dirty()
             if self.cwa_settings['auto_backup_imports']:
@@ -1024,15 +1027,57 @@ class NewBookProcessor:
             print(f"[ingest-processor] Error fetching metadata: {e}", flush=True)
 
 
-    def set_library_permissions(self):
+    def _changed_book_ids(self) -> list[int]:
+        """Books this run added, merged into or attached a format to."""
+        ids = list(getattr(self, "last_added_book_ids", None) or [])
+        last = getattr(self, "last_added_book_id", None)
+        if last is not None:
+            ids.append(last)
+        ids += list(getattr(self, "format_book_ids", None) or [])
+        return sorted(set(int(i) for i in ids))
+
+    def _book_dirs_for_ids(self, book_ids: list[int]) -> list[str]:
+        """On-disk folders of the given books, as recorded in metadata.db; anything that
+        would resolve outside the library (or to the library root itself) is dropped."""
+        if not book_ids:
+            return []
         try:
-            nsm = os.getenv("NETWORK_SHARE_MODE", "false").strip().lower() in ("1", "true", "yes", "on")
-            if not nsm:
-                subprocess.run(["chown", "-R", "abc:abc", self.library_dir], check=True)
-            else:
-                print(f"[ingest-processor] NETWORK_SHARE_MODE=true detected; skipping chown of {self.library_dir}", flush=True)
-        except subprocess.CalledProcessError as e:
-            print(f"[ingest-processor] An error occurred while attempting to recursively set ownership of {self.library_dir} to abc:abc. See the following error:\n{e}", flush=True)
+            with sqlite3.connect(self.metadata_db, timeout=30) as con:
+                placeholders = ",".join("?" * len(book_ids))
+                rows = con.execute(f"SELECT path FROM books WHERE id IN ({placeholders})", book_ids).fetchall()
+        except Exception as e:
+            print(f"[ingest-processor] WARN: Could not look up folders of book(s) {book_ids}: {e}", flush=True)
+            return []
+        library = os.path.realpath(self.library_dir)
+        dirs = []
+        for (rel_path,) in rows:
+            if not rel_path:
+                continue
+            full = os.path.realpath(os.path.join(library, rel_path))
+            if full.startswith(library + os.sep) and os.path.isdir(full):
+                dirs.append(full)
+        return dirs
+
+    def set_library_permissions(self):
+        """Hands the folders this run created or changed to abc:abc: each new/changed book's
+        folder (recursively) and its author folder (just the folder itself). The rest of the
+        library is never walked; with ~10k author folders a recursive chown of the whole
+        library per ingested file took minutes."""
+        nsm = os.getenv("NETWORK_SHARE_MODE", "false").strip().lower() in ("1", "true", "yes", "on")
+        if nsm:
+            print("[ingest-processor] NETWORK_SHARE_MODE=true detected; skipping chown of new book folders", flush=True)
+            return
+        book_dirs = self._book_dirs_for_ids(self._changed_book_ids())
+        if not book_dirs:
+            return
+        library = os.path.realpath(self.library_dir)
+        author_dirs = sorted({os.path.dirname(d) for d in book_dirs} - {library})
+        try:
+            subprocess.run(["chown", "-R", "abc:abc", "--", *book_dirs], check=True)
+            if author_dirs:
+                subprocess.run(["chown", "abc:abc", "--", *author_dirs], check=True)
+        except (subprocess.CalledProcessError, OSError) as e:
+            print(f"[ingest-processor] An error occurred while setting ownership of {book_dirs} to abc:abc. See the following error:\n{e}", flush=True)
 
 
 def main(filepath=None):
