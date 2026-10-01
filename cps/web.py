@@ -32,6 +32,7 @@ from .pagination import Pagination
 from .usermanagement import login_required_if_no_ano
 from .render_template import render_title_template
 from . import list_filters
+from . import series_nav
 from .setup_checklist import setup_checklist
 from .helper import change_archived_books
 from .services.worker import WorkerThread
@@ -1077,9 +1078,18 @@ def read_book(book_id, book_format):
 
     if book_format.lower() in ("epub", "kepub"):
         log.debug("Start epub reader for %d (%s)", book_id, book_format.lower())
+        try:
+            next_book = series_nav.next_in_series(calibre_db, book)
+        except Exception as ex:  # the end-of-book card is optional; never block the reader
+            log.debug("No next-in-series for %d: %s", book_id, ex)
+            next_book = None
+        # Changes whenever the file is rewritten, so cached reading locations are dropped.
+        file_size = next((d.uncompressed_size for d in book.data if d.format == book_format.upper()), 0)
+        book_stamp = "{}-{}".format(int(book.last_modified.timestamp()) if book.last_modified else 0, file_size)
         return render_title_template('read.html', bookid=book_id, title=book.title,
                                      bookmark=bookmark,
-                                     book_format=book_format.lower())
+                                     book_format=book_format.lower(),
+                                     next_book=next_book, book_stamp=book_stamp)
     elif book_format.lower() == "pdf":
         log.debug("Start pdf reader for %d", book_id)
         return render_title_template('readpdf.html', pdffile=book_id, title=book.title)
