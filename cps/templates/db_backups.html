@@ -22,6 +22,18 @@
     {% call f.row(_('Last successful mirror'), help=(None if mirror_dir else _('No mirror folder set.'))) %}
       <span class="lp-value" id="last-mirror">{{ last_mirror or _('None yet') }}</span>
     {% endcall %}
+    {% call f.row(_('Run now'), help=_('Both also run nightly in the maintenance window.')) %}
+      <form method="POST" action="{{ url_for('admin.backup_databases_now') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-default">{{ _('Back up databases') }}</button>
+      </form>
+      {% if mirror_dir %}
+      <form method="POST" action="{{ url_for('admin.mirror_library_now') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-default">{{ _('Mirror library files') }}</button>
+      </form>
+      {% endif %}
+    {% endcall %}
   {% endcall %}
 
   <form method="POST" action="{{ url_for('admin.db_backups_settings') }}">
@@ -62,12 +74,6 @@
     </div>
   </form>
 
-  {% if mirror_dir %}
-  <form method="POST" action="{{ url_for('admin.mirror_library_now') }}" class="lp-actions">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit" class="btn btn-default">{{ _('Mirror library files now') }}</button>
-  </form>
-  {% endif %}
 
   {% call f.group(_('Snapshots'), help=(_('No snapshots yet. The first one is taken at the next maintenance window.') if not snapshots else None)) %}
     {% for snap in snapshots %}

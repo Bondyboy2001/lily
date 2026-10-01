@@ -238,6 +238,21 @@ def db_backups_settings():
     return redirect(url_for("admin.db_backups"))
 
 
+@admi.route("/admin/db_backups/backup", methods=["POST"])
+@user_login_required
+@admin_required
+def backup_databases_now():
+    """Queues a database snapshot immediately (e.g. before an upgrade)."""
+    from .tasks.db_backup import TaskBackupDatabases
+    if WorkerThread.get_instance().has_active_task_of_type("TaskBackupDatabases"):
+        flash(_("A database backup is already queued or running."), category="error")
+    else:
+        WorkerThread.add(current_user.name, TaskBackupDatabases())
+        flash(Markup(_("Database backup started. Follow its progress on the %(link)s page.",
+                       link=_tasks_page_link())), category="success")
+    return redirect(url_for("admin.db_backups"))
+
+
 @admi.route("/admin/db_backups/mirror", methods=["POST"])
 @user_login_required
 @admin_required

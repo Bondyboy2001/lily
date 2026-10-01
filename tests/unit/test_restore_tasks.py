@@ -357,6 +357,19 @@ def test_retention_settings_saved_and_validated(admin_client):
 
 
 @pytest.mark.unit
+def test_back_up_now_queues_one_backup(admin_client, monkeypatch):
+    from cps.services.worker import WorkerThread
+    c, queued = admin_client
+    monkeypatch.setattr(WorkerThread, "has_active_task_of_type", lambda self, name, extra_check=None: False)
+    c.post("/admin/db_backups/backup")
+    assert isinstance(queued[-1], task_mod.TaskBackupDatabases)
+    monkeypatch.setattr(WorkerThread, "has_active_task_of_type",
+                        lambda self, name, extra_check=None: name == "TaskBackupDatabases")
+    html = c.post("/admin/db_backups/backup", follow_redirects=True).get_data(as_text=True)
+    assert "already queued or running" in html and len(queued) == 1
+
+
+@pytest.mark.unit
 def test_suspicious_snapshot_can_be_accepted(admin_client, tmp_path):
     import db_backup
     c, _ = admin_client
