@@ -162,14 +162,16 @@ same port Calibre-Web used.
 ## Development
 
 ```bash
-$EDITOR build.sh && ./build.sh            # build a local image
-$EDITOR docker-compose.yml.dev            # set image tag + bind paths
-docker compose -f docker-compose.yml.dev up -d
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt -r requirements-dev.txt -c requirements.lock
+.venv/bin/python -m pytest tests/unit -q          # unit tests (see pytest.ini for markers)
+.venv/bin/python -m ruff check cps scripts tests
+.venv/bin/python -m mypy
+docker compose up -d --build                      # build and run an image from this checkout
 ```
 
-`docker-compose.yml.dev` documents live-edit mounts for auto-reload on code changes.
-See [pytest.ini](pytest.ini) and [`run_tests.sh`](run_tests.sh) for the test suite, and
-[docs/architecture.md](docs/architecture.md) for how the code is laid out.
+[docs/architecture.md](docs/architecture.md) explains how the code is laid out, and
+[docs/deployment.md](docs/deployment.md) how releases are published and deployed.
 
 ## Affiliated projects
 
