@@ -59,6 +59,8 @@ def migrate_thumbnail_structure():
 
         if not migration_needed:
             log.info("Thumbnail migration: No old subdirectories found, skipping migration")
+            # nothing to migrate is also done: don't list the thumbnail directory on every start
+            set_migration_completed()
             return
 
         log.info(f"Thumbnail migration: Found {len(subdirs_found)} old subdirectories with legacy thumbnails")
