@@ -237,7 +237,8 @@
     font-size: 11px;
 }
 
-.lily-book .cover .lily-cover-count { left: auto; right: 6px; }
+.lily-book .cover .lily-cover-count,
+.container-fluid .lily-book .cover .lily-cover-count { left: auto; right: 6px; }
 
 .container-fluid .lily-book .meta,
 .lily-book .meta {
@@ -1580,3 +1581,12 @@ body.book_table .pagination {
 }
 
 .lily-list > .row.lily-list-row[hidden] { display: none; }
+
+/* A card whose shelf menu is open sits above the next row of covers, and keeps its actions
+   showing while the pointer is in the menu. */
+.lily-book:has(.lily-shelf-menu.open) {
+    position: relative;
+    z-index: 5;
+}
+
+.lily-cover-actions:has(.lily-shelf-menu.open) { opacity: 1; }
