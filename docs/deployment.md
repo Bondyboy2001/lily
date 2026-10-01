@@ -77,23 +77,87 @@ chain depth is wrong — adjust this variable to match.
 | `NETWORK_SHARE_MODE` | `false` | See [Network shares](#network-shares-nfssmb) above. |
 | `CWA_WATCH_MODE` | `auto` | Force `poll` to override watcher auto-detection. |
 | `CWA_PORT_OVERRIDE` | `8083` | Change the web server port. |
+| `DB_BACKUP_DIR` | `/config/backup/db` | Where database snapshots go when the backups page leaves the folder empty. |
+| `LILY_TASK_TIMEOUT_HOURS` | `6` | A background task running longer than this is marked failed and the queue moves on (see [Background jobs](#background-jobs)). `0` turns the watchdog off. |
 
 ---
 
 ## Database backups and restore
 
 Lily snapshots `app.db`, `cwa.db` and your library's `metadata.db` nightly at the start
-of the maintenance window, into `/config/backup/db/<timestamp>/`, keeping the last 7 by
-default (configurable in Lily Settings).
+of the maintenance window, into `/config/backup/db/<timestamp>/` unless you choose another
+folder. Everything below is set under Settings → Database Backups (`/admin/db_backups`),
+which also has a **Back up databases** button for a snapshot right now (before an upgrade,
+say).
 
-Snapshots on the same volume as `/config` will not survive losing that volume. To keep
-them elsewhere, mount a separate folder (e.g. at `/backups`, see `docker-compose.yml`) and
-either set `DB_BACKUP_DIR=/backups` or enter the folder under Settings → Database Backups
-(`/admin/db_backups`; the setting wins over the env var). Rotation counts each database
-separately, so if one database's backups keep failing its last good snapshots are kept.
+### Where to keep them
+
+The default `/config/backup/db` is usually on the same disk as `/config` and often the
+library too, so a failed disk takes the books, the databases and their backups at once.
+Mount a folder on a **different disk** (e.g. at `/backups`, see `docker-compose.yml`) and
+either set `DB_BACKUP_DIR=/backups` or enter the folder on the backups page (the setting
+wins over the env var). The page warns when the backup folder is on the same device as
+the library.
+
+Database snapshots do not contain book files. For those, set a **library mirror folder**
+on a separate disk (e.g. `/backups/library` on the volume mounted at `/backups` in
+`docker-compose.yml`). Each night, 45 minutes into the
+maintenance window, new and changed book files and covers are copied there:
+
+- Nothing is deleted from the mirror, so a book removed by mistake is still there.
+- When a file changes, the previous mirror copy is moved to
+  `<mirror>/.versions/<YYYY-MM-DD>/<path in the library>` first. Version folders older
+  than 30 days (configurable, 0 = keep forever) are removed.
+- A replacement that looks like damage is **not** copied and the task fails with
+  "suspicious file(s) not replaced": an epub, kepub or cbz that fails zip validation, or
+  any file that lost more than half its size. The good copy stays. If the change was
+  intended, move the mirror copy away and run the mirror again.
+
+Until a mirror folder is set the backups page shows a warning that book files are not
+backed up.
+
+### Retention
+
+Snapshots are kept grandfather-father-son style, counted per database:
+
+| Tier | Default | Keeps |
+|---|---|---|
+| Daily | 7 | The newest 7 snapshots |
+| Weekly | 4 | The newest snapshot of each of the last 4 weeks |
+| Monthly | 6 | The newest snapshot of each of the last 6 months |
+
+The tiers overlap (this week's newest snapshot is also a daily one); set weekly or monthly
+to 0 to turn that tier off. On top of that:
+
+- Every new snapshot is restored into a scratch folder to prove it works and gets a
+  `.verified` marker. The newest verified snapshot is never deleted.
+- If verification fails, nothing is pruned that night.
+- If the new `metadata.db` has fewer than 90% of the books in the previous good snapshot,
+  the snapshot is marked **suspicious** (`.suspicious` marker, shown on the backups page),
+  the task fails with a warning and nothing is pruned. This repeats every night until the
+  books come back or you press **Accept** on the snapshot to confirm the deletion was
+  intended; pruning then resumes from the next backup.
+- Counting per database means that if one database's backups keep failing, its last good
+  snapshots are kept.
 
 The same page sets how long copies in `/config/processed_books/imported` and `failed`
 are kept (default 30 days, 0 = forever); older files are removed nightly.
+
+### Background jobs
+
+The backup, the mirror, the processed-books cleanup, library-wide thumbnail generation
+and duplicate scans record their last start, success and failure in `cwa.db`
+(`job_status`). Admins see a banner at the top of every page when an enabled job's last
+run failed, or when the backup, mirror or cleanup hasn't succeeded for 36 hours. The
+backups page shows the last successful backup and mirror. `/health` includes the same
+information under `checks` (per-job state, `backup_age_hours`); it never changes the HTTP
+status, so the Docker healthcheck only reacts to the library being unreadable.
+
+Tasks run one at a time. Conversions are killed after 10 minutes plus 1 minute per MB of
+input (at most 4 hours). Any task that runs longer than `LILY_TASK_TIMEOUT_HOURS`
+(default 6; the mirror is allowed 24) is marked failed and the queue moves on to the next
+task. Python can't kill the stuck thread, so it is left running in the background; restart
+Lily if the log shows a task watchdog message and something stays locked.
 
 ### Restoring a snapshot from the web UI
 
@@ -143,7 +207,7 @@ First deploy:
    `Starting Calibre Web...`.
 
 ### Upgrading
-1. Take a snapshot: Settings → Database Backups → Back up now.
+1. Take a snapshot: Settings → Database Backups → Back up databases.
 2. Bump the tag in the compose file to the new exact version.
 3. Pull and recreate: `docker compose pull && docker compose up -d`, or on the NAS without
    a shell, edit the project's compose in the Docker app and redeploy it (it pulls the new
@@ -157,13 +221,17 @@ columns they don't know, but a restore is the safe path.
 
 ### Verifying that backups restore
 The nightly backup task restores every new snapshot into a scratch directory and fails loudly if it
-does not open or has no tables. To check by hand, from the source tree:
+does not open or has no tables. To check by hand, from the source tree (use your backup folder if
+you changed it):
 
 ```
-python scripts/db_backup.py /config/backups            # newest snapshot
-python scripts/db_backup.py /config/backups 20260930_020000
+python scripts/db_backup.py /config/backup/db            # newest snapshot
+python scripts/db_backup.py /config/backup/db 20260930_020000
 ```
 
 ### Failure modes worth knowing
 - Startup now aborts if Flask-WTF (CSRF) or Flask-Limiter is not installed, instead of running unprotected.
-- Backup failures and verification failures appear as a failed "Backup Databases" task in the task list.
+- Backup failures, verification failures and suspicious (shrunken) backups appear as a failed
+  "Backup Databases" task in the task list and in the admin banner.
+- A mirror that refused a damaged-looking file fails with "suspicious file(s) not replaced";
+  the log names each file.

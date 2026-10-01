@@ -5,8 +5,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""The background task queue: CalibreTask base class and the WorkerThread that runs tasks."""
+"""The background task queue: CalibreTask base class and the WorkerThread that runs tasks.
 
+Tasks run one at a time. Python can't kill a thread, so a task that hangs (a stuck
+subprocess, a dead network mount) used to block every later task forever. A watchdog
+thread now checks the running task every minute: once it has run longer than its limit
+(LILY_TASK_TIMEOUT_HOURS, default 6; a task class may set max_runtime_hours; 0 turns the
+watchdog off) the task is marked failed in the task list and in job_status, logged, and a
+fresh worker loop takes over the queue. The stuck thread is left behind: if it ever
+returns it can no longer change the task's status, and it exits instead of taking more
+work. While it lives it may still hold files or locks, so the log says which task it was.
+"""
+
+import os
 import threading
 import abc
 import uuid
@@ -34,7 +45,23 @@ STAT_CANCELLED = 5
 # Only retain this many tasks in dequeued list
 TASK_CLEANUP_TRIGGER = 20
 
+TASK_TIMEOUT_ENV = "LILY_TASK_TIMEOUT_HOURS"
+DEFAULT_TASK_TIMEOUT_HOURS = 6.0
+WATCHDOG_INTERVAL_SECONDS = 60
+
 QueuedTask = namedtuple('QueuedTask', 'num, user, added, task, hidden')
+
+
+def task_timeout_hours():
+    """The watchdog's default limit from LILY_TASK_TIMEOUT_HOURS (0 or less = off)."""
+    raw = os.environ.get(TASK_TIMEOUT_ENV, "").strip()
+    if not raw:
+        return DEFAULT_TASK_TIMEOUT_HOURS
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        log.warning("Ignoring invalid %s=%r", TASK_TIMEOUT_ENV, raw)
+        return DEFAULT_TASK_TIMEOUT_HOURS
 
 
 def _get_main_thread():
@@ -64,7 +91,7 @@ class WorkerThread(threading.Thread):
             cls._instance = WorkerThread()
         return cls._instance
 
-    def __init__(self):
+    def __init__(self, watchdog_interval=WATCHDOG_INTERVAL_SECONDS):
         threading.Thread.__init__(self)
 
         self.dequeued = list()
@@ -72,7 +99,13 @@ class WorkerThread(threading.Thread):
         self.doLock = threading.Lock()
         self.queue = ImprovedQueue()
         self.num = 0
+        # Each queue loop runs while its generation is current; the watchdog bumps it to
+        # retire a loop stuck in a task and starts a new one
+        self._generation = 0
+        self._current = None  # (generation, QueuedTask, time.monotonic() at start)
+        self.watchdog_interval = watchdog_interval
         self.start()
+        threading.Thread(target=self._watchdog_loop, name="lily-task-watchdog", daemon=True).start()
 
     @classmethod
     def add(cls, user, task, hidden=False):
@@ -113,8 +146,11 @@ class WorkerThread(threading.Thread):
 
     # Main thread loop starting the different tasks
     def run(self):
+        self._process_queue(0)
+
+    def _process_queue(self, generation):
         main_thread = _get_main_thread()
-        while main_thread.is_alive():
+        while main_thread.is_alive() and self._generation == generation:
             try:
                 # this blocks until something is available. This can cause issues when the main thread dies - this
                 # thread will remain alive. We implement a timeout to unblock every second which allows us to check if
@@ -129,6 +165,7 @@ class WorkerThread(threading.Thread):
             with self.doLock:
                 # add to list so that in-progress tasks show up
                 self.dequeued.append(item)
+                self._current = (generation, item, time.monotonic())
 
             # once we hit our trigger, start cleaning up dead tasks
             if len(self.dequeued) > TASK_CLEANUP_TRIGGER:
@@ -139,11 +176,59 @@ class WorkerThread(threading.Thread):
                 # CalibreTask.start() should wrap all exceptions in its own error handling
                 item.task.start(self)
 
+            with self.doLock:
+                if self._current is not None and self._current[0] == generation:
+                    self._current = None
+
             # remove self_cleanup tasks and hidden "System Tasks" from list
             if item.task.self_cleanup or item.hidden:
-                self.dequeued.remove(item)
+                try:
+                    self.dequeued.remove(item)
+                except ValueError:
+                    pass  # already cleaned up after the watchdog failed it
 
             self.queue.task_done()
+        # A loop retired by the watchdog ends here once its stuck task finally returns
+
+    def _watchdog_loop(self):
+        main_thread = _get_main_thread()
+        while main_thread.is_alive():
+            time.sleep(self.watchdog_interval)
+            try:
+                self.check_watchdog()
+            except Exception as e:
+                log.error("Task watchdog check failed: %s", e)
+
+    def check_watchdog(self, now=None):
+        """Fails the running task if it exceeded its time limit, and hands the queue to a new
+        loop thread. Returns the abandoned QueuedTask, or None."""
+        default_hours = task_timeout_hours()
+        if default_hours <= 0:
+            return None
+        now = time.monotonic() if now is None else now
+        with self.doLock:
+            if self._current is None:
+                return None
+            generation, item, started = self._current
+            limit_hours = getattr(item.task, "max_runtime_hours", None) or default_hours
+            if now - started < limit_hours * 3600:
+                return None
+            self._current = None
+            self._generation = generation + 1
+            new_generation = self._generation
+        message = ("Stopped waiting after %g hours: the task did not finish and was marked as failed. "
+                   "Its thread could not be killed; restart Lily if it holds files or locks." % limit_hours)
+        log.error("Task watchdog: %s (%s, queued by %s) has run for more than %g hours. Marking it failed "
+                  "and moving on to the next task; the stuck thread is left behind.",
+                  item.task.name, item.task.id, item.user, limit_hours)
+        item.task.abandon(message)
+        threading.Thread(target=self._process_queue, args=(new_generation,),
+                         name="lily-worker-%d" % new_generation).start()
+        return item
+
+    def stop(self):
+        """Ends every queue loop after its current task (tests)."""
+        self._generation = -1
 
     def end_task(self, task_id):
         ins = self.get_instance()
@@ -221,10 +306,25 @@ class WorkerThread(threading.Thread):
         return False
 
 
+def _record_job(job, event, error=None):
+    try:
+        from cps.services.job_status import record_job_event
+        record_job_event(job, event, error)
+    except Exception as e:
+        log.warning("Job status for %s not recorded: %s", job, e)
+
+
 class CalibreTask:
     __metaclass__ = abc.ABCMeta
 
+    # Recurring jobs set this to have their runs recorded in cwa.db (cps/services/job_status.py)
+    # for the admin banner and /health. A task may clear it in run() when it had nothing to do.
+    job_name = None
+    # Watchdog limit for this task class; None uses LILY_TASK_TIMEOUT_HOURS (see module docstring)
+    max_runtime_hours = None
+
     def __init__(self, message):
+        self._abandoned = False
         self._progress = 0
         self.stat = STAT_WAITING
         self.error = None
@@ -254,6 +354,8 @@ class CalibreTask:
     def start(self, *args):
         self.start_time = datetime.now()
         self.stat = STAT_STARTED
+        if self.job_name:
+            _record_job(self.job_name, "start")
 
         # catch any unhandled exceptions in a task and automatically fail it
         try:
@@ -262,7 +364,29 @@ class CalibreTask:
             self._handleError(str(ex))
             log.error_or_exception(ex)
 
+        if self._abandoned:
+            # The watchdog already failed and recorded this run
+            log.warning("Task %s returned after the watchdog had given up on it", self.name)
+            return
         self.end_time = datetime.now()
+        # Cancelled/ended runs are neither a success nor a failure
+        if self.job_name and self.stat == STAT_FINISH_SUCCESS:
+            _record_job(self.job_name, "success")
+        elif self.job_name and self.stat == STAT_FAIL:
+            _record_job(self.job_name, "error", self.error)
+
+    def abandon(self, message):
+        """Marks a hung task failed for good (called by the worker watchdog). The thread
+        still running it can no longer change its status, progress or error."""
+        self._handleError(message)
+        self.end_time = datetime.now()
+        self._abandoned = True
+        if self.job_name:
+            _record_job(self.job_name, "error", message)
+
+    @property
+    def abandoned(self):
+        return getattr(self, "_abandoned", False)
 
     @property
     def stat(self):
@@ -270,7 +394,8 @@ class CalibreTask:
 
     @stat.setter
     def stat(self, x):
-        self._stat = x
+        if not self.abandoned:
+            self._stat = x
 
     @property
     def progress(self):
@@ -280,7 +405,8 @@ class CalibreTask:
     def progress(self, x):
         if not 0 <= x <= 1:
             raise ValueError("Task progress should within [0, 1] range")
-        self._progress = x
+        if not self.abandoned:
+            self._progress = x
 
     @property
     def error(self):
@@ -288,7 +414,8 @@ class CalibreTask:
 
     @error.setter
     def error(self, x):
-        self._error = x
+        if not self.abandoned:
+            self._error = x
 
     @property
     def runtime(self):

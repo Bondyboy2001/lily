@@ -110,6 +110,8 @@ def get_retention_days() -> int:
 class TaskCleanProcessedBooks(CalibreTask):
     """Nightly retention cleanup of /config/processed_books/{imported,failed}."""
 
+    job_name = "processed_cleanup"
+
     def __init__(self, task_message=N_('Cleaning up processed book backups'), root=PROCESSED_BOOKS_ROOT):
         super(TaskCleanProcessedBooks, self).__init__(task_message)
         self.log = logger.create()

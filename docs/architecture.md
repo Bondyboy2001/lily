@@ -60,14 +60,18 @@ package (Lily settings, stats, logs, ingest endpoints).
 ### Background tasks
 
 `services/worker.py` runs `CalibreTask` subclasses from `tasks/` (backups, restore, library
-mirror, thumbnails, duplicate scan, Hardcover and metadata suggestions, ...).
-`schedule.py` registers the recurring ones.
+mirror, thumbnails, duplicate scan, Hardcover and metadata suggestions, ...), one at a time,
+with a watchdog that fails a task stuck past `LILY_TASK_TIMEOUT_HOURS` and moves the queue on.
+`schedule.py` registers the recurring ones. Tasks that set `job_name` have their runs recorded
+in the cwa.db `job_status` table (`services/job_status.py`), which drives the admin banner in
+`layout.html` and the `checks` in `/health`.
 
 ### Pure modules
 
 Logic that needs no Flask or database lives in Flask-free modules so it can be tested
 alone: `cps/totp.py`, `scripts/db_backup.py`, `scripts/library_mirror.py`,
-`scripts/ingest_failures.py`, `scripts/metadata_suggestions.py`, `cps/duplicate_rules.py`.
+`scripts/job_status.py`, `scripts/ingest_failures.py`, `scripts/metadata_suggestions.py`,
+`cps/duplicate_rules.py`.
 The ones under `scripts/` are importable from both the web app and the ingest process;
 the type-checked set is listed in `pyproject.toml` (`[tool.mypy]`).
 

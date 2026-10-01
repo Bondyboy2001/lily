@@ -305,14 +305,25 @@ def _schedule_db_backup(scheduler, start_hour, timezone_info):
         pass
 
 
+def queue_scheduled_library_mirror():
+    """Queues a visible mirror run when a mirror folder is set; does nothing otherwise, so
+    an unconfigured mirror doesn't add an empty task to the list every night."""
+    from .tasks.library_mirror import TaskMirrorLibrary, get_mirror_dir
+    if not get_mirror_dir():
+        return False
+    task = TaskMirrorLibrary()
+    task.scheduled = True
+    WorkerThread.add('System', task, hidden=False)
+    return True
+
+
 def _schedule_library_mirror(scheduler, start_hour, timezone_info):
     """Nightly copy of new/changed book files to cwa_settings.library_mirror_dir. Always
-    scheduled (hidden); the task does nothing while no mirror folder is set."""
+    scheduled; the folder setting is checked when the job fires."""
     try:
-        from .tasks.library_mirror import TaskMirrorLibrary
-        scheduler.schedule_task(lambda: TaskMirrorLibrary(), user='System',
-                                trigger=CronTrigger(hour=start_hour, minute=45, timezone=timezone_info),
-                                name='mirror library files', hidden=True)
+        scheduler.schedule(func=queue_scheduled_library_mirror,
+                           trigger=CronTrigger(hour=start_hour, minute=45, timezone=timezone_info),
+                           name='mirror library files')
     except Exception:
         # Scheduling is best-effort; never block startup
         pass

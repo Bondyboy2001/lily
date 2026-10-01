@@ -65,6 +65,8 @@ class TaskGenerateCoverThumbnails(CalibreTask):
     def __init__(self, book_id=-1, task_message='', book_path=None, last_modified=None):
         super(TaskGenerateCoverThumbnails, self).__init__(task_message)
         self.log = logger.create()
+        # Only library-wide runs are tracked in job_status, not the per-book ones after an edit
+        self.job_name = "thumbnails" if book_id == -1 else None
         self.book_id = book_id
         self.book_path = book_path
         self.last_modified = last_modified

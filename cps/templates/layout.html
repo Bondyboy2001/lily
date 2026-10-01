@@ -145,6 +145,28 @@
     {# One live region for every notice: layout-rendered ones and those lily.js adds later.
        Errors also carry role=alert so they interrupt. #}
     <div id="messageContainer" class="lily-flashes" role="status" aria-live="polite">
+    {# Admins only: background jobs (backups, mirror, ...) that failed or stopped succeeding #}
+    {% if job_problems %}
+      <div class="row-fluid">
+        <div id="job_status_warning" class="alert alert-warning lily-job-warning" role="alert">
+          <button type="button" class="close" data-dismiss="alert" aria-label="{{_('Close')}}"><span aria-hidden="true">&times;</span></button>
+          <strong>{{ _('A background job needs attention.') }}</strong>
+          {% for p in job_problems %}
+          <div>
+            {%- if p.state == 'failed' -%}
+              {{ _('%(job)s failed at %(time)s', job=_(p.label), time=p.last_error_at.astimezone().strftime('%Y-%m-%d %H:%M')) }}{% if p.last_error %}: {{ p.last_error|truncate(200) }}{% endif %}
+            {%- elif p.last_success -%}
+              {{ _('%(job)s has not succeeded since %(time)s', job=_(p.label), time=p.last_success.astimezone().strftime('%Y-%m-%d %H:%M')) }}
+            {%- else -%}
+              {{ _('%(job)s has never succeeded', job=_(p.label)) }}
+            {%- endif -%}
+          </div>
+          {% endfor %}
+          <a href="{{ url_for('admin.db_backups') }}">{{ _('Database Backups') }}</a> ·
+          <a href="{{ url_for('tasks.get_tasks_status') }}">{{ _('Tasks') }}</a>
+        </div>
+      </div>
+    {% endif %}
     {% for category, text in get_flashed_messages(with_categories=True) %}
       {% if category == "error" %}
       <div class="row-fluid">

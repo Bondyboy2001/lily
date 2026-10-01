@@ -9,14 +9,41 @@
   <p class="lp-notice">{{ _('A restore is running. Follow it on the') }} <a href="{{ url_for('tasks.get_tasks_status') }}">{{ _('Tasks') }}</a> {{ _('page.') }}</p>
   {% endif %}
 
+  {% if storage_warnings %}
+  <div class="lp-notice" id="backup-storage-warnings" role="alert">
+    {% for warning in storage_warnings %}<p>{{ warning }}</p>{% endfor %}
+  </div>
+  {% endif %}
+
+  {% call f.group(_('Status')) %}
+    {% call f.row(_('Last successful backup'), help=_('Databases snapshotted and verified by a test restore.')) %}
+      <span class="lp-value" id="last-backup">{{ last_backup or _('None yet') }}</span>
+    {% endcall %}
+    {% call f.row(_('Last successful mirror'), help=(None if mirror_dir else _('No mirror folder set.'))) %}
+      <span class="lp-value" id="last-mirror">{{ last_mirror or _('None yet') }}</span>
+    {% endcall %}
+    {% call f.row(_('Run now'), help=_('Both also run nightly in the maintenance window.')) %}
+      <form method="POST" action="{{ url_for('admin.backup_databases_now') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-default">{{ _('Back up databases') }}</button>
+      </form>
+      {% if mirror_dir %}
+      <form method="POST" action="{{ url_for('admin.mirror_library_now') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-default">{{ _('Mirror library files') }}</button>
+      </form>
+      {% endif %}
+    {% endcall %}
+  {% endcall %}
+
   <form method="POST" action="{{ url_for('admin.db_backups_settings') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% call f.group(_('Storage')) %}
       {{ f.input('db_backup_dir', _('Backup folder'), backup_dir_setting,
-         help=_('Leave empty for the default. Put this on a different volume from /config: if /config is lost, backups stored inside it are lost with it.'),
+         help=_('Leave empty for the default. Put this on a different disk from the library and /config: if that disk is lost, backups stored on it are lost with it.'),
          placeholder=(backup_dir_env or '/config/backup/db'), wide=True) }}
       {{ f.input('library_mirror_dir', _('Library mirror folder'), mirror_dir,
-         help=_('Optional. Each night new and changed book files and covers are copied here (nothing is ever deleted from the mirror). Mount a separate volume at this path in Docker, and leave empty to turn it off.'),
+         help=_('Each night new and changed book files and covers are copied here; nothing is deleted from the mirror. Mount a separate disk at this path in Docker, and leave empty to turn it off.'),
          placeholder='/mirror', wide=True) }}
       {% call f.row(_('Current folder')) %}<span class="lp-mono">{{ backup_root }}</span>{% endcall %}
       {% call f.row(_('Keep processed books for'), for_id='processed_books_retention_days',
@@ -25,23 +52,44 @@
         <span class="lp-unit">{{ _('days') }}</span>
       {% endcall %}
     {% endcall %}
+
+    {% call f.group(_('Retention'), help=_('Snapshots are kept grandfather-father-son style: the newest daily ones, plus the newest snapshot of each recent week and month. The newest verified snapshot is never deleted, and nothing is deleted after a backup in which the library lost more than a tenth of its books.')) %}
+      {% call f.row(_('Daily snapshots'), for_id='db_backup_keep_count', help=_('The most recent snapshots to keep. Default 7.')) %}
+        <input type="number" class="form-control" name="db_backup_keep_count" id="db_backup_keep_count" value="{{ retention.daily }}" min="1" max="365" step="1">
+      {% endcall %}
+      {% call f.row(_('Weekly snapshots'), for_id='db_backup_keep_weekly', help=_('One per week, for this many weeks. Default 4; 0 turns it off.')) %}
+        <input type="number" class="form-control" name="db_backup_keep_weekly" id="db_backup_keep_weekly" value="{{ retention.weekly }}" min="0" max="1000" step="1">
+      {% endcall %}
+      {% call f.row(_('Monthly snapshots'), for_id='db_backup_keep_monthly', help=_('One per month, for this many months. Default 6; 0 turns it off.')) %}
+        <input type="number" class="form-control" name="db_backup_keep_monthly" id="db_backup_keep_monthly" value="{{ retention.monthly }}" min="0" max="1000" step="1">
+      {% endcall %}
+      {% call f.row(_('Keep replaced mirror copies for'), for_id='library_mirror_version_days',
+         help=_('When a book file changes, the previous mirror copy moves to .versions/YYYY-MM-DD/ in the mirror folder. A new file that looks damaged (a broken epub, kepub or cbz, or one that lost more than half its size) is not copied at all. 0 keeps old copies forever.')) %}
+        <input type="number" class="form-control" name="library_mirror_version_days" id="library_mirror_version_days" value="{{ version_days }}" min="0" max="3650" step="1">
+        <span class="lp-unit">{{ _('days') }}</span>
+      {% endcall %}
+    {% endcall %}
     <div class="lp-actions">
       <button type="submit" class="btn btn-default">{{ _('Save') }}</button>
     </div>
   </form>
 
-  {% if mirror_dir %}
-  <form method="POST" action="{{ url_for('admin.mirror_library_now') }}" class="lp-actions">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button type="submit" class="btn btn-default">{{ _('Mirror library files now') }}</button>
-  </form>
-  {% endif %}
 
   {% call f.group(_('Snapshots'), help=(_('No snapshots yet. The first one is taken at the next maintenance window.') if not snapshots else None)) %}
     {% for snap in snapshots %}
     {% set sid = 'snap-' ~ loop.index %}
     {% call f.row((snap.timestamp.strftime('%Y-%m-%d %H:%M') if snap.timestamp else snap.name),
-       help=snap.db_text ~ ' · ' ~ snap.size_text, wide=True) %}
+       help=snap.db_text ~ ' · ' ~ snap.size_text ~ ((' · ' ~ _('Verified')) if snap.verified else '')
+            ~ ((' · ' ~ _('Suspicious:') ~ ' ' ~ snap.suspicious) if snap.suspicious else ''), wide=True) %}
+      {% if snap.suspicious %}
+      <form method="POST" action="{{ url_for('admin.accept_db_snapshot') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="snapshot" value="{{ snap.name }}">
+        <button type="submit" class="btn btn-default"
+                data-confirm="{{ _('Accept this snapshot as correct? Use this only if the books were removed on purpose: older snapshots will be pruned again from the next backup.') }}"
+                onclick="return confirm(this.dataset.confirm);">{{ _('Accept') }}</button>
+      </form>
+      {% endif %}
       <form method="POST" action="{{ url_for('admin.restore_db_snapshot') }}" class="lp-checks">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="snapshot" value="{{ snap.name }}">

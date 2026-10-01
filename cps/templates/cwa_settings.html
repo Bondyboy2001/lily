@@ -299,9 +299,8 @@
          help=_('Keeps a copy of every import in /config/processed_books/imported.'), attrs='value="True"') }}
       {{ f.toggle('auto_zip_backups', _('Zip backups nightly'), cwa_settings['auto_zip_backups'],
          help=_("Archives each day's imported and failed files to save space."), attrs='value="True"') }}
-      {% call f.row(_('Database snapshots to keep'), for_id='db_backup_keep_count', help=_('app.db, cwa.db and metadata.db are saved nightly to /config/backup/db/. Default 7.')) %}
-        <input type="number" class="form-control" name="db_backup_keep_count" id="db_backup_keep_count" value="{{ cwa_settings.get('db_backup_keep_count', 7) }}" min="1" step="1">
-      {% endcall %}
+      {{ f.link(url_for('admin.db_backups'), _('Database snapshots and library mirror'),
+         help=_('Where backups go and how many daily, weekly and monthly snapshots are kept.')) }}
     {% endcall %}
 
     {% call f.group(_('Archived Book Cleanup')) %}

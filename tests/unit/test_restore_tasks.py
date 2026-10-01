@@ -287,3 +287,98 @@ def test_mirror_settings_validated_and_run_now_queues_task(admin_client, tmp_pat
 
     c.post("/admin/db_backups/mirror")
     assert any(isinstance(t, mirror_task.TaskMirrorLibrary) for t in queued)
+
+
+@pytest.mark.unit
+def test_backups_page_warns_about_unset_mirror_and_same_disk(admin_client, monkeypatch):
+    import library_mirror
+    from cps.services import job_status as svc
+    c, _ = admin_client
+    svc.invalidate_cache()
+    html = c.get("/admin/db_backups").get_data(as_text=True)
+    # tmp_path holds both the library and the backups: one disk
+    assert "No library mirror folder is set" in html
+    assert "is on the same disk as the library. If that disk fails, the backups" in html
+    assert 'id="last-backup">None yet' in html
+
+    c.post("/admin/db_backups/settings", data={"library_mirror_dir": "/mnt/mirror",
+                                               "processed_books_retention_days": "14"})
+    html = c.get("/admin/db_backups").get_data(as_text=True)
+    assert "No library mirror folder is set" not in html
+
+    monkeypatch.setattr(library_mirror, "same_device", lambda a, b: False)
+    assert 'id="backup-storage-warnings"' not in c.get("/admin/db_backups").get_data(as_text=True)
+    monkeypatch.setattr(library_mirror, "same_device", lambda a, b: True)
+    assert "the mirror is lost with it" in c.get("/admin/db_backups").get_data(as_text=True)
+
+
+@pytest.mark.unit
+def test_backups_page_shows_last_successful_runs(admin_client):
+    from datetime import datetime, timezone
+    from cwa_db import CWA_DB
+    import job_status
+    from cps.services import job_status as svc
+    c, _ = admin_client
+    with CWA_DB() as db:
+        job_status.record_success(db.con, "db_backup", datetime(2026, 9, 30, 1, 0, tzinfo=timezone.utc))
+        job_status.record_success(db.con, "library_mirror", datetime(2026, 9, 30, 1, 45, tzinfo=timezone.utc))
+    svc.invalidate_cache()
+    html = c.get("/admin/db_backups").get_data(as_text=True)
+    local = datetime(2026, 9, 30, 1, 0, tzinfo=timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M")
+    assert f'id="last-backup">{local}' in html
+    assert 'id="last-mirror">None yet' not in html
+
+
+@pytest.mark.unit
+def test_retention_settings_saved_and_validated(admin_client):
+    from cwa_db import CWA_DB
+    c, _ = admin_client
+    base = {"processed_books_retention_days": "14"}
+    c.post("/admin/db_backups/settings", data={**base, "db_backup_keep_count": "10", "db_backup_keep_weekly": "0",
+                                               "db_backup_keep_monthly": "12", "library_mirror_version_days": "60"})
+    with CWA_DB() as db:
+        s = db.cwa_settings
+        assert (s["db_backup_keep_count"], s["db_backup_keep_weekly"], s["db_backup_keep_monthly"],
+                s["library_mirror_version_days"]) == (10, "0", "12", "60")
+    assert task_mod.get_retention() == task_mod.Retention(10, 0, 12)
+    html = c.get("/admin/db_backups").get_data(as_text=True)
+    assert 'id="db_backup_keep_monthly" value="12"' in html and 'id="library_mirror_version_days" value="60"' in html
+
+    for field, bad in (("db_backup_keep_count", "0"), ("db_backup_keep_weekly", "-1"),
+                       ("db_backup_keep_monthly", "lots"), ("library_mirror_version_days", "99999")):
+        html = c.post("/admin/db_backups/settings", data={**base, field: bad},
+                      follow_redirects=True).get_data(as_text=True)
+        assert "must be a whole number" in html
+    with CWA_DB() as db:
+        assert db.cwa_settings["db_backup_keep_count"] == 10
+    # Fields left out of the form keep their values
+    c.post("/admin/db_backups/settings", data=base)
+    assert task_mod.get_retention() == task_mod.Retention(10, 0, 12)
+
+
+@pytest.mark.unit
+def test_back_up_now_queues_one_backup(admin_client, monkeypatch):
+    from cps.services.worker import WorkerThread
+    c, queued = admin_client
+    monkeypatch.setattr(WorkerThread, "has_active_task_of_type", lambda self, name, extra_check=None: False)
+    c.post("/admin/db_backups/backup")
+    assert isinstance(queued[-1], task_mod.TaskBackupDatabases)
+    monkeypatch.setattr(WorkerThread, "has_active_task_of_type",
+                        lambda self, name, extra_check=None: name == "TaskBackupDatabases")
+    html = c.post("/admin/db_backups/backup", follow_redirects=True).get_data(as_text=True)
+    assert "already queued or running" in html and len(queued) == 1
+
+
+@pytest.mark.unit
+def test_suspicious_snapshot_can_be_accepted(admin_client, tmp_path):
+    import db_backup
+    c, _ = admin_client
+    snap = tmp_path / "backups" / "20260101_030000"
+    db_backup.mark_verified(str(snap), {"cwa.db": 1})
+    db_backup.mark_suspicious(str(snap), "metadata.db has 5 books, down from 100")
+    html = c.get("/admin/db_backups").get_data(as_text=True)
+    assert "Suspicious" in html and "down from 100" in html and "Verified" in html
+    resp = c.post("/admin/db_backups/accept", data={"snapshot": "20260101_030000"}, follow_redirects=True)
+    assert "accepted" in resp.get_data(as_text=True)
+    assert db_backup.suspicious_reason(str(snap)) is None
+    assert c.post("/admin/db_backups/accept", data={"snapshot": "../etc"}).status_code == 404

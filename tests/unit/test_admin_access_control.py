@@ -11,7 +11,8 @@ ADMIN_GETS = ["/admin/ingest_failures", "/admin/db_backups", "/admin/db_backups/
 ADMIN_POSTS = ["/admin/ingest_failures/delete", "/admin/ingest_failures/retry", "/admin/db_backups/restore",
                "/admin/db_backups/settings", "/account/security/unlock/1",
                "/admin/metadata/suggestions/run", "/admin/metadata/suggestions/bulk/accept_high",
-               "/admin/metadata/suggestions/1/accept", "/admin/db_backups/mirror"]
+               "/admin/metadata/suggestions/1/accept", "/admin/db_backups/mirror",
+               "/admin/db_backups/backup", "/admin/db_backups/accept"]
 
 
 @pytest.fixture
