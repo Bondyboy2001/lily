@@ -223,3 +223,6 @@ pr-analysis-*
 # Personal local deploy config
 docker-compose.local.yml
 .commandcode/
+
+tests/e2e/node_modules/
+tests/e2e/package-lock.json
