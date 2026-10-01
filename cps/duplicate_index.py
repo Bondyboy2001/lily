@@ -22,7 +22,7 @@ from .duplicate_rules import (
     generate_group_hash,
     normalize_title_for_duplicates,
 )
-from .duplicates import filter_dismissed_groups, get_common_filters
+from .duplicate_detection import filter_dismissed_groups, get_common_filters
 
 sys.path.insert(1, "/app/calibre-web-automated/scripts/")
 from cwa_db import CWA_DB
