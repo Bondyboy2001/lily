@@ -17,6 +17,7 @@ run_fallback() {
         s6-setuidgid abc python3 /app/calibre-web-automated/scripts/watch_fallback.py \
                 --path "$WATCH_FOLDER" \
                 --interval 5 \
+                --stabilize 1.5 \
                 --exts "json,log" |
         while read -r events filepath; do
                 filename=$(basename -- "$filepath")

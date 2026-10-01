@@ -20,7 +20,8 @@ Usage (mirrors inotifywait pipeline usage):
 Notes:
   - Uses mtime and size to detect new or finished files. To avoid firing on partially
     written files, it requires the size AND mtime to be unchanged across several
-    consecutive scans. File age (mtime) is deliberately NOT used as a shortcut:
+    consecutive scans and for at least --stabilize seconds (default 30, or the
+    CWA_POLL_STABLE_SECONDS environment variable). File age (mtime) is deliberately NOT used as a shortcut:
     mtime-preserving copies (Finder/SMB, cp -p, rsync -t) give a still-growing file an
     old mtime.
   - Once a file has fired it will not fire again until its size/mtime actually change,
@@ -37,6 +38,20 @@ import sys
 import time
 from dataclasses import dataclass
 from typing import Dict, Iterable, Optional, Set, Tuple
+
+# A copy over SMB/NFS can pause for many seconds mid-file; 2 scans 5 s apart was not enough
+DEFAULT_STABLE_SECONDS = 30.0
+STABLE_SECONDS_ENV = "CWA_POLL_STABLE_SECONDS"
+
+
+def default_stable_seconds() -> float:
+    """Seconds a file must stay unchanged before it fires: CWA_POLL_STABLE_SECONDS, else 30."""
+    raw = os.environ.get(STABLE_SECONDS_ENV, "").strip()
+    try:
+        value = float(raw) if raw else DEFAULT_STABLE_SECONDS
+    except ValueError:
+        return DEFAULT_STABLE_SECONDS
+    return value if value >= 0 else DEFAULT_STABLE_SECONDS
 
 
 @dataclass(frozen=True)
@@ -102,7 +117,7 @@ class PollScanner:
     """
 
     def __init__(self, root: str, recursive: bool = True, extensions: Optional[Set[str]] = None,
-                 stable_scans: int = 2, stabilize: float = 1.5):
+                 stable_scans: int = 2, stabilize: float = DEFAULT_STABLE_SECONDS):
         self.root = root
         self.recursive = recursive
         self.extensions = extensions
@@ -154,7 +169,7 @@ class PollScanner:
         return ready
 
 
-def main(argv: Optional[Iterable[str]] = None) -> int:
+def parse_args(argv: Optional[Iterable[str]] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Polling watcher fallback emitting inotify-like events")
     p.add_argument("--path", required=True, help="Directory to watch")
     p.add_argument("--interval", type=float, default=5.0, help="Polling interval in seconds (default: 5)")
@@ -162,10 +177,14 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     p.add_argument("--no-recursive", dest="recursive", action="store_false", help="Disable recursion")
     p.set_defaults(recursive=True)
     p.add_argument("--exts", default="", help="Comma-separated list of file extensions to include (no dots)")
-    p.add_argument("--stabilize", type=float, default=1.5, help="Minimum seconds a file must be observed unchanged to fire (default: 1.5)")
+    p.add_argument("--stabilize", type=float, default=default_stable_seconds(),
+                   help=f"Minimum seconds a file must be observed unchanged to fire (default: ${STABLE_SECONDS_ENV} or {DEFAULT_STABLE_SECONDS:g})")
     p.add_argument("--stable-scans", type=int, default=2, help="Consecutive scans with identical size+mtime required to fire (default: 2)")
+    return p.parse_args(list(argv) if argv is not None else None)
 
-    args = p.parse_args(list(argv) if argv is not None else None)
+
+def main(argv: Optional[Iterable[str]] = None) -> int:
+    args = parse_args(argv)
 
     root = os.path.abspath(args.path)
     if not os.path.isdir(root):
