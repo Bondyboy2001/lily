@@ -53,7 +53,7 @@ $(function() {
             taskPollInFlight = true;
             $.ajax({
                 method: "get",
-                url: getPath() + "/ajax/emailstat",
+                url: getPath() + "/ajax/taskstatus",
                 async: true,
                 timeout: 5000,
                 success: function (data) {

@@ -162,7 +162,7 @@ class TestForcedPasswordChangeFlow:
         admin = forced.admin()
         assert admin.force_password_change is False
         assert check_password_hash(admin.password, "N3w-passw0rd!")
-        assert client.get("/ajax/emailstat").status_code == 200
+        assert client.get("/ajax/taskstatus").status_code == 200
 
 
 @pytest.mark.unit

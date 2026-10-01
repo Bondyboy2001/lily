@@ -34,8 +34,6 @@ from .render_template import render_title_template
 from . import list_filters
 from .setup_checklist import setup_checklist
 from .helper import change_archived_books
-from .services.worker import WorkerThread
-from .tasks_status import render_task_status
 from .usermanagement import user_login_required
 
 # CWA Imports
@@ -122,13 +120,6 @@ def viewer_required(f):
 
 
 # ################################### data provider functions #########################################################
-
-
-@web.route("/ajax/emailstat")
-@user_login_required
-def get_email_status_json():
-    tasks = WorkerThread.get_instance().tasks
-    return jsonify(render_task_status(tasks))
 
 
 @web.route("/ajax/bookmark/<int:book_id>/<book_format>", methods=['POST'])
