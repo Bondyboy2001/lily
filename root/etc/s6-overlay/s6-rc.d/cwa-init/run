@@ -55,12 +55,19 @@ fi
 # Pre-stage some files & directories for permissions purposes
 mkdir -p /app/calibre-web-automated/cps/cache
 
+# Give everything under the given paths to abc:abc, changing only what isn't already.
+# A recursive chown rewrote the owner (and ctime) of every file in the library, thumbnails and
+# backups on every boot; this only reads the tree, and a steady-state boot writes nothing.
+chown_abc() {
+  find "$@" \( ! -user abc -o ! -group abc \) -exec chown -h abc:abc {} +
+}
+
 # permissions (skip chown on network shares for bind mounts, but still fix /app)
 if [ "${NETWORK_SHARE_MODE,,}" = "true" ] || [ "${NETWORK_SHARE_MODE}" = "1" ] || [ "${NETWORK_SHARE_MODE,,}" = "yes" ] || [ "${NETWORK_SHARE_MODE,,}" = "on" ]; then
   echo "[cwa-init] NETWORK_SHARE_MODE=true detected; skipping initial chown of /config"
-  chown -R abc:abc /app/calibre-web-automated/cps/cache
+  chown_abc /app/calibre-web-automated/cps/cache
 else
-  chown -R abc:abc \
+  chown_abc \
     /config \
     /app/calibre-web-automated/cps/cache
 fi
@@ -111,10 +118,10 @@ if [ -n "$INGEST_DIR" ]; then
     if [ "$INGEST_DIR" = "/cwa-book-ingest" ]; then
       echo "[cwa-init] NETWORK_SHARE_MODE=true detected; skipping chown of $INGEST_DIR"
     else
-      chown -R abc:abc "$INGEST_DIR" 2>/dev/null || true
+      chown_abc "$INGEST_DIR" 2>/dev/null || true
     fi
   else
-    chown -R abc:abc "$INGEST_DIR" 2>/dev/null || true
+    chown_abc "$INGEST_DIR" 2>/dev/null || true
   fi
 fi
 
@@ -264,7 +271,7 @@ for d in "${requiredDirs[@]}"; do
         ;;
     esac
   fi
-  chown -R abc:abc "$d"
+  chown_abc "$d"
   if [[ $? == 0 ]]; then
     echo "[cwa-init] Successfully set permissions for '$d'!"
   elif [[ $? > 0 ]]; then
