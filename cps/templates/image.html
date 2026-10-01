@@ -199,58 +199,6 @@
     </div>
 {%- endmacro %}
 
-{# Filter chips for book grids (web.py → list_filters.filter_context()). Read status and format are
-   toggles; tag and language are dropdowns. Every option is a link, so filters survive pagination
-   and sort, and work without JavaScript. #}
-{% macro filter_chips(lf) -%}
-  {%- if lf -%}
-    {%- set a = lf.active -%}
-    <div class="lily-filter-chips" role="group" aria-label="{{ _('Filter') }}">
-      {% if lf.show_status %}
-        {% for key in ['unread', 'reading', 'read'] %}
-        {% set on = a.get('status') == key %}
-        <a class="btn lily-chip{% if on %} active{% endif %}" href="{{ lf.url(status=(None if on else key)) }}"
-{% if on %} aria-current="true" title="{{ _('Remove filter') }}"{% endif %}>{{ lf.status_labels[key] }}</a>
-        {% endfor %}
-        {% if lf.formats %}<span class="lily-chips-gap" aria-hidden="true"></span>{% endif %}
-      {% endif %}
-      {% for fmt in lf.formats[:5] %}
-        {% set on = a.get('format') == fmt %}
-        <a class="btn lily-chip{% if on %} active{% endif %}" href="{{ lf.url(format=(None if on else fmt)) }}"
-{% if on %} aria-current="true" title="{{ _('Remove filter') }}"{% endif %}>{{ fmt }}</a>
-      {% endfor %}
-      {% if lf.formats|length > 5 %}
-        {% call list_dropdown('lily-filter-format', 'glyphicon-file', _('Format'),
-                              a.get('format') if a.get('format') and a.get('format') not in lf.formats[:5] else _('More')) %}
-          {% for fmt in lf.formats[5:] %}
-          {{ sort_item(fmt, lf.url(format=fmt), a.get('format') == fmt) }}
-          {% endfor %}
-        {% endcall %}
-      {% endif %}
-      {% if lf.languages|length > 1 or a.get('lang') %}
-        {% call list_dropdown('lily-filter-lang', 'glyphicon-font', _('Language'), lf.lang_name or _('Any')) %}
-          {{ sort_item(_('Any'), lf.url(lang=None), not a.get('lang')) }}
-          {% for code, name in lf.languages %}
-          {{ sort_item(name, lf.url(lang=code), a.get('lang') == code) }}
-          {% endfor %}
-        {% endcall %}
-      {% endif %}
-      {% if lf.tags %}
-        {% call list_dropdown('lily-filter-tag', 'glyphicon-tag', _('Tag'), lf.tag_name or _('Any'), 'lily-filter-menu') %}
-          {{ sort_item(_('Any'), lf.url(tag=None), not a.get('tag')) }}
-          {% for tag_id, name in lf.tags %}
-          {{ sort_item(name, lf.url(tag=tag_id), a.get('tag') == tag_id) }}
-          {% endfor %}
-        {% endcall %}
-      {% endif %}
-      {% if a %}
-        <a class="btn lily-chip lily-filter-clear" href="{{ lf.url(format=None, lang=None, status=None, tag=None) }}">
-          <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>{{ _('Clear filters') }}</a>
-      {% endif %}
-    </div>
-  {%- endif -%}
-{%- endmacro %}
-
 {# An empty list: what is missing, and the next step. `actions` is [(label, href, primary)]. #}
 {% macro empty_state(icon, heading, text=None, actions=[]) -%}
   <div class="library-empty-state">

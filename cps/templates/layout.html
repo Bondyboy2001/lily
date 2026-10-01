@@ -107,11 +107,10 @@
             {% if current_user.role_admin() %}
             <a id="refresh-library" class="icon-btn" href="#" role="button" title="{{_('Refresh Library')}}" aria-label="{{_('Refresh Library')}}" onclick="refreshLibrary(); return false;"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></a>
             {% endif %}
-            {# Light / Dark / System: lily.js cycles it; lily_theme_head.html applies it before first paint #}
+            {# Light / Dark: lily.js flips it; lily_theme_head.html applies it before first paint #}
             <button type="button" id="lily-theme-toggle" class="icon-btn lily-theme-toggle"
-                    data-label-system="{{_('Theme: System')}}" data-label-light="{{_('Theme: Light')}}" data-label-dark="{{_('Theme: Dark')}}"
-                    title="{{_('Theme: System')}}" aria-label="{{_('Theme: System')}}">
-              <span class="glyphicon glyphicon-theme-system" aria-hidden="true"></span>
+                    data-label-light="{{_('Theme: Light')}}" data-label-dark="{{_('Theme: Dark')}}"
+                    title="{{_('Theme: Light')}}" aria-label="{{_('Theme: Light')}}">
               <span class="glyphicon glyphicon-theme-light" aria-hidden="true"></span>
               <span class="glyphicon glyphicon-theme-dark" aria-hidden="true"></span>
             </button>

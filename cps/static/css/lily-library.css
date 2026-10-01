@@ -366,7 +366,6 @@ body[data-book-view="list"] .lily-book {
     column-gap: 14px;
     align-items: center;
     padding: 10px 0;
-    border-bottom: 1px solid var(--line-soft);
 }
 
 body[data-book-view="list"] .lily-book .cover {
@@ -573,21 +572,6 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
 .lily-setup-item > a:hover .lily-setup-label { color: var(--accent); text-decoration: underline; }
 .lily-setup-item.is-done .lily-setup-label { color: var(--muted); }
 .lily-setup-hint { color: var(--muted); font-size: 13px; }
-
-/* ------------------------------------------------------------------ */
-/* Filter chips on book grids (image.filter_chips)                      */
-/* ------------------------------------------------------------------ */
-/* Wraps instead of scrolling: the tag and language menus must not be clipped by a scroller. */
-.lily-filter-chips {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-}
-
-.lily-filter-chips > .btn.lily-chip { margin: 0; }
-.lily-filter-chips .dropdown-menu.lily-filter-menu { max-height: 320px; overflow-y: auto; }
-.lily-filter-clear .glyphicon { top: 1px; margin-right: 4px; font-size: 12px; }
 
 /* ------------------------------------------------------------------ */
 /* Category / series / publisher lists (list.html)                     */

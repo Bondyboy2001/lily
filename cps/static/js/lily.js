@@ -426,24 +426,21 @@ window.lilyPickOption = function (item) {
 })(window.jQuery);
 
 /*
- * Colour theme button (layout.html #lily-theme-toggle): System → Light → Dark → System.
+ * Colour theme button (layout.html #lily-theme-toggle): Light ↔ Dark.
  * lily_theme_head.html applies the stored choice before first paint; this keeps it in step.
  */
 (function () {
   "use strict";
 
-  var ORDER = ["system", "light", "dark"];
   var COLOURS = { light: "#FDFCFA", dark: "#1B1719" };
 
   function apply(pref) {
     var root = document.documentElement;
     root.setAttribute("data-theme-pref", pref);
-    if (pref === "system") { root.removeAttribute("data-theme"); } else { root.setAttribute("data-theme", pref); }
+    root.setAttribute("data-theme", pref);
     var metas = document.querySelectorAll('meta[name="theme-color"]');
     for (var i = 0; i < metas.length; i++) {
-      var media = metas[i].getAttribute("media") || "";
-      var scheme = pref !== "system" ? pref : (media.indexOf("dark") !== -1 ? "dark" : "light");
-      metas[i].setAttribute("content", COLOURS[scheme]);
+      metas[i].setAttribute("content", COLOURS[pref]);
     }
   }
 
@@ -456,10 +453,10 @@ window.lilyPickOption = function (item) {
   document.addEventListener("DOMContentLoaded", function () {
     var btn = document.getElementById("lily-theme-toggle");
     if (!btn) { return; }
-    var current = document.documentElement.getAttribute("data-theme-pref") || "system";
+    var current = document.documentElement.getAttribute("data-theme-pref") || "light";
     label(btn, current);
     btn.addEventListener("click", function () {
-      current = ORDER[(ORDER.indexOf(current) + 1) % ORDER.length];
+      current = current === "dark" ? "light" : "dark";
       try { localStorage.setItem("lily-theme", current); } catch (e) {}
       apply(current);
       label(btn, current);

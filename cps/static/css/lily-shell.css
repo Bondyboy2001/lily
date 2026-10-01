@@ -369,7 +369,6 @@ label.lily-upload-btn { margin-bottom: 0; cursor: pointer; }
 
 /* ---- Theme button: shows the icon of the current preference ---- */
 .lily-theme-toggle .glyphicon { display: none; }
-:root:not([data-theme-pref="light"]):not([data-theme-pref="dark"]) .lily-theme-toggle .glyphicon-theme-system,
 :root[data-theme-pref="light"] .lily-theme-toggle .glyphicon-theme-light,
 :root[data-theme-pref="dark"] .lily-theme-toggle .glyphicon-theme-dark { display: inline-block; }
 
