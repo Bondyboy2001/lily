@@ -1,0 +1,42 @@
+{% extends "settings_layout.html" %}
+{% import "lily_form.html" as f with context %}
+{% block heading %}{{ _('Metadata Suggestions') }}{% endblock %}
+{% block pane_class %} is-wide{% endblock %}
+{% block settings %}
+<div class="lp lily-settings">
+  <p class="lp-intro">{{ _('Books with no description are looked up on the enabled metadata providers (Hardcover has its own page). Each suggestion only fills gaps: existing descriptions and identifiers are never replaced.') }}</p>
+
+  <form method="POST" action="{{ url_for('suggestions.run_suggestions') }}" class="lp-actions">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-default">{{ _('Look up the next 25 books') }}</button>
+    <span class="lp-footnote">{{ _('%(n)d book(s) looked up so far, %(m)d without a usable match.', n=looked_up, m=no_match) }}</span>
+  </form>
+
+  {% call f.group(_('To review'), help=(_('Nothing to review. Run a lookup to find suggestions.') if not items else None)) %}
+    {% for item in items %}
+    {% set row = item.row %}
+    {% call f.row(row.book_title, help=(row.book_authors ~ ' · ' ~ row.provider ~ ' · ' ~ item.percent ~ '%'), wide=True) %}
+      <div class="lp-suggestion">
+        <div>{{ _('Matched to') }} {% if row.record_url %}<a href="{{ row.record_url }}" target="_blank" rel="noopener noreferrer">{{ row.record_title }}</a>{% else %}{{ row.record_title }}{% endif %}{% if row.record_authors %} — {{ row.record_authors }}{% endif %}</div>
+        {% if item.description %}<div class="lp-footnote"><strong>{{ _('Description') }}:</strong> {{ item.description[:300] }}{% if item.description|length > 300 %}…{% endif %}</div>{% endif %}
+        {% if item.identifiers %}<div class="lp-footnote"><strong>{{ _('Identifiers') }}:</strong> {% for k, v in item.identifiers.items() %}<span class="lp-mono">{{ k }}:{{ v }}</span> {% endfor %}</div>{% endif %}
+        <form method="POST" class="lp-checks">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-default" formaction="{{ url_for('suggestions.suggestion_action', suggestion_id=row.id, action='accept') }}">{{ _('Accept') }}</button>
+          <button type="submit" class="btn btn-danger" formaction="{{ url_for('suggestions.suggestion_action', suggestion_id=row.id, action='reject') }}">{{ _('Reject') }}</button>
+        </form>
+      </div>
+    {% endcall %}
+    {% endfor %}
+  {% endcall %}
+
+  {% if items %}
+  <form method="POST" class="lp-actions">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if high_count %}<button type="submit" class="btn btn-default" formaction="{{ url_for('suggestions.suggestion_bulk', action='accept_high') }}">{{ _('Accept all %(n)d at %(p)d%% or more', n=high_count, p=high_percent) }}</button>{% endif %}
+    <button type="submit" class="btn btn-danger" formaction="{{ url_for('suggestions.suggestion_bulk', action='reject_all') }}"
+            data-confirm="{{ _('Reject every pending suggestion?') }}" onclick="return confirm(this.dataset.confirm);">{{ _('Reject all') }}</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

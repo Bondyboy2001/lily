@@ -135,7 +135,8 @@ def _build_app():
     from cps.admin import admi
     from cps.account_security import account_security
     from cps.reading_stats import reading
-    for bp in (admi, jinjia, web, opds, shelf, search, account_security, reading):
+    from cps.metadata_queue import suggestions
+    for bp in (admi, jinjia, web, opds, shelf, search, account_security, reading, suggestions):
         app.register_blueprint(bp)
 
     @app.teardown_appcontext

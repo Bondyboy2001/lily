@@ -7,9 +7,11 @@ from tests.unit.lily_env import lily_env, ADMIN_PASSWORD
 pytestmark = pytest.mark.unit
 
 ADMIN_GETS = ["/admin/ingest_failures", "/admin/db_backups", "/admin/db_backups/download/20260101_030000",
-              "/admin/view", "/admin/user/new"]
+              "/admin/view", "/admin/user/new", "/admin/metadata/suggestions"]
 ADMIN_POSTS = ["/admin/ingest_failures/delete", "/admin/ingest_failures/retry", "/admin/db_backups/restore",
-               "/admin/db_backups/settings", "/account/security/unlock/1"]
+               "/admin/db_backups/settings", "/account/security/unlock/1",
+               "/admin/metadata/suggestions/run", "/admin/metadata/suggestions/bulk/accept_high",
+               "/admin/metadata/suggestions/1/accept", "/admin/db_backups/mirror"]
 
 
 @pytest.fixture

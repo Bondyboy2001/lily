@@ -13,7 +13,7 @@ const user = process.env.LILY_USER || 'harry';
 const password = process.env.LILY_PASSWORD || 'harry10';
 const newPassword = process.env.NEW_PASSWORD || 'Sm0ke-test-pw-91!';
 
-const PAGES = ['/', '/admin/view', '/admin/ingest_failures', '/admin/db_backups', '/account/security',
+const PAGES = ['/', '/admin/view', '/admin/ingest_failures', '/admin/metadata/suggestions', '/admin/db_backups', '/account/security',
   '/reading', '/cwa-stats-show', '/duplicates', '/me', '/admin/config', '/tasks', '/shelf/create',
   '/advsearch', '/author', '/series', '/category'];
 

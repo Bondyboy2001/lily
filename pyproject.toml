@@ -138,4 +138,4 @@ select = ["E9", "F63", "F7", "F82", "F401", "F811", "F601", "F523", "F841", "B02
 python_version = "3.12"
 ignore_missing_imports = true
 follow_imports = "silent"
-files = ["scripts/db_backup.py", "scripts/ingest_failures.py", "scripts/library_mirror.py"]
+files = ["scripts/db_backup.py", "scripts/ingest_failures.py", "scripts/library_mirror.py", "scripts/metadata_suggestions.py"]

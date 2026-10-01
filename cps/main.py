@@ -34,6 +34,7 @@ def main():
     from .duplicates import duplicates
     from .account_security import account_security
     from .reading_stats import reading
+    from .metadata_queue import suggestions
 
     from . import web_server
     init_errorhandler()
@@ -62,5 +63,6 @@ def main():
     app.register_blueprint(duplicates)
     app.register_blueprint(account_security)
     app.register_blueprint(reading)
+    app.register_blueprint(suggestions)
     success = web_server.start()
     sys.exit(0 if success else 1)

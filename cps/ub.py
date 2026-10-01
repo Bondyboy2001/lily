@@ -503,6 +503,28 @@ class HardcoverMatchQueue(Base):
         return f'<HardcoverMatchQueue book_id={self.book_id} title="{self.book_title}" reviewed={bool(self.reviewed)}>'
 
 
+class MetadataSuggestion(Base):
+    """A provider record that would fill gaps (description, identifiers) in one book,
+    waiting for an admin to accept or reject it. See scripts/metadata_suggestions.py."""
+    __tablename__ = 'metadata_suggestion'
+    __table_args__ = (Index('ix_metadata_suggestion_status_book', 'status', 'book_id'),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    book_id = Column(Integer, nullable=False)
+    book_title = Column(String, nullable=False)
+    book_authors = Column(String, nullable=False)
+    provider = Column(String, nullable=False)          # provider id, e.g. 'openlibrary'
+    record_title = Column(String, nullable=False)
+    record_authors = Column(String, nullable=False)
+    record_url = Column(String, default="")
+    score = Column(Float, nullable=False)
+    fill = Column(String, nullable=False)              # JSON: {'description': str, 'identifiers': {type: value}}
+    status = Column(String, default='pending', nullable=False)  # pending / accepted / rejected
+    created_at = Column(String, nullable=False)
+    reviewed_at = Column(String, default=None)
+    reviewed_by = Column(String, default=None)
+
+
 @event.listens_for(Session, 'before_flush')
 def receive_before_flush(session, flush_context, instances):
     # Maintain the last_modified_bit for the Shelf table.
@@ -587,6 +609,8 @@ def add_missing_tables(engine, _session):
         OpdsShelfExposure.__table__.create(bind=engine, checkfirst=True)
     if not engine.dialect.has_table(engine.connect(), "web_reader_progress"):
         WebReaderProgress.__table__.create(bind=engine, checkfirst=True)
+    if not engine.dialect.has_table(engine.connect(), "metadata_suggestion"):
+        MetadataSuggestion.__table__.create(bind=engine, checkfirst=True)
 
 
 def migrate_user_session_table(engine, _session):

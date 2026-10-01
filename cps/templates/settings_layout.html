@@ -34,6 +34,7 @@
         {{ rail_item(_('Duplicate Books'), url_for('duplicates.show_duplicates'), ep == 'duplicates.show_duplicates') }}
         {% if current_user.role_admin() %}
         {{ rail_item(_('Hardcover Matches'), url_for('admin.hardcover_review_matches'), ep == 'admin.hardcover_review_matches') }}
+        {{ rail_item(_('Metadata Suggestions'), url_for('suggestions.review_suggestions'), ep == 'suggestions.review_suggestions') }}
         {{ rail_item(_('Failed Imports'), url_for('admin.ingest_failures'), ep == 'admin.ingest_failures') }}
         {% endif %}
       {% endif %}
