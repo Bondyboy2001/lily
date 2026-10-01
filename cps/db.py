@@ -793,6 +793,22 @@ class CalibreDB:
     def update_config(cls, config):
         cls.config = config
 
+    # Indexes Lily adds to metadata.db for its own sort orders ("newest", "published").
+    # Calibre ignores indexes it doesn't know; the lily_ prefix marks them as ours.
+    LILY_INDEXES = (
+        ("lily_books_timestamp_idx", "books (timestamp)"),
+        ("lily_books_pubdate_idx", "books (pubdate)"),
+    )
+
+    @classmethod
+    def _ensure_lily_indexes(cls):
+        for name, target in cls.LILY_INDEXES:
+            try:
+                with cls.engine.begin() as connection:
+                    connection.execute(text("CREATE INDEX IF NOT EXISTS calibre.{} ON {}".format(name, target)))
+            except Exception as e:
+                log.warning("Could not create index %s on metadata.db: %s", name, e)
+
     @classmethod
     def setup_db(cls, config_calibre_dir, app_db_path):
         # Wrap entire method in lock to ensure atomic setup operation
@@ -838,6 +854,9 @@ class CalibreDB:
                             log.warning("WAL mode disabled for calibre/app_settings (%s)", reason)
                     except Exception as e:
                         log.warning("Could not configure WAL mode for app_settings: %s", e)
+
+                if db_writable:
+                    cls._ensure_lily_indexes()
 
                 conn = cls.engine.connect()
                 # conn.text_factory = lambda b: b.decode(errors = 'ignore') possible fix for #1302
