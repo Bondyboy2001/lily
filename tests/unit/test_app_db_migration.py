@@ -46,7 +46,7 @@ def migrated(tmp_path, monkeypatch):
 def test_template_is_an_old_schema(migrated):
     _env, _app_db, old_user_columns, old_tables = migrated
     # If these ever exist in the template, the test below no longer exercises the migration
-    assert "totp_secret" not in old_user_columns
+    assert "force_password_change" not in old_user_columns
     assert "metadata_suggestion" not in old_tables
 
 
@@ -69,12 +69,11 @@ def test_new_user_columns_tables_and_indexes(migrated):
     _env, app_db, old_user_columns, old_tables = migrated
     with sqlite3.connect(app_db) as con:
         user_columns = _columns(con, "user")
-        for column in ("hardcover_token", "opds_only_shelves_sync", "theme", "force_password_change",
-                       "totp_secret", "totp_enabled", "totp_last_step", "api_token_hash"):
+        for column in ("hardcover_token", "opds_only_shelves_sync", "theme", "force_password_change"):
             assert column in user_columns, column
         assert {"random", "expiry"} <= _columns(con, "user_session")
         for table in ("archived_book", "thumbnail", "opds_shelf_exposure", "web_reader_progress",
-                      "metadata_suggestion"):
+                      "reader_position", "metadata_suggestion"):
             assert table in _tables(con), table
         indexes = {row[0] for row in con.execute("SELECT name FROM sqlite_master WHERE type='index'")}
         assert {"ix_book_read_link_user_book", "ix_user_session_random_session_key"} <= indexes

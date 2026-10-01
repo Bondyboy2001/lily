@@ -275,6 +275,11 @@ def test_delete_moves_book_to_trash_and_restore_brings_it_back(env):
     admin.post("/shelf/add_selected_to_shelf", json={"shelf_id": shelf_id, "book_ids": [book_id]})
     ub.session.add(ub.ReadBook(user_id=me.id, book_id=book_id, read_status=ub.ReadBook.STATUS_FINISHED))
     ub.session.add(ub.WebReaderProgress(user_id=me.id, book_id=book_id, cfi="epubcfi(/6/4)", percent=0.42))
+    con = sqlite3.connect(env.library_dir / "metadata.db")
+    library_uuid = con.execute("SELECT uuid FROM library_id").fetchone()[0]
+    con.close()
+    ub.session.add(ub.ReaderPosition(user_id=me.id, library_uuid=library_uuid, book_id=book_id, format="epub",
+                                     cfi="epubcfi(/6/8)", percent=0.55))
     ub.session.commit()
 
     resp = admin.post(f"/ajax/delete/{book_id}")
@@ -284,6 +289,7 @@ def test_delete_moves_book_to_trash_and_restore_brings_it_back(env):
     ub.session.expire_all()
     assert ub.session.query(ub.BookShelf).filter(ub.BookShelf.book_id == book_id).count() == 0
     assert ub.session.query(ub.WebReaderProgress).filter(ub.WebReaderProgress.book_id == book_id).count() == 0
+    assert ub.session.query(ub.ReaderPosition).filter(ub.ReaderPosition.book_id == book_id).count() == 0
 
     [entry] = _entries(env)
     assert entry["kind"] == "book" and entry["book_id"] == book_id and entry["title"] == "Dune"
@@ -302,6 +308,8 @@ def test_delete_moves_book_to_trash_and_restore_brings_it_back(env):
     assert link.shelf == shelf_id
     assert ub.session.query(ub.ReadBook).filter(ub.ReadBook.book_id == book_id).one().read_status == 1
     assert ub.session.query(ub.WebReaderProgress).filter(ub.WebReaderProgress.book_id == book_id).one().percent == 0.42
+    position = ub.session.query(ub.ReaderPosition).filter(ub.ReaderPosition.book_id == book_id).one()
+    assert (position.library_uuid, position.format, position.percent) == (library_uuid, "epub", 0.55)
     con = sqlite3.connect(env.library_dir / "metadata.db")
     try:
         assert con.execute("SELECT val FROM identifiers WHERE book=?", (book_id,)).fetchone()[0] == "9780441013593"
@@ -314,7 +322,11 @@ def test_bulk_delete_moves_every_selected_book_to_trash(env):
     admin = _admin(env)
     ids = [env.add_library_book(t, author="Bulk Author") for t in ("One", "Two", "Three")]
     resp = admin.post("/ajax/deleteselectedbooks", json={"selections": ids[:2]})
-    assert json.loads(resp.data) == {"success": True}
+    body = json.loads(resp.data)
+    assert body["success"] is True
+    assert body["summary"] == {"succeeded": 2, "failed": 0, "skipped": 0}
+    assert sorted(r["book_id"] for r in body["results"]) == sorted(ids[:2])
+    assert all(r["status"] == "succeeded" and r["recovery_id"] for r in body["results"])
     assert [_book_exists(env, i) for i in ids] == [False, False, True]
     entries = _entries(env)
     assert sorted(e["book_id"] for e in entries) == sorted(ids[:2])
@@ -327,7 +339,10 @@ def test_merge_moves_the_merged_book_to_trash(env):
     target = env.add_library_book("Persuasion", author="Jane Austen")
     other = env.add_library_book("Persuasion Copy", author="Jane Austen", files=("metamorphosis.txt",))
     resp = admin.post("/ajax/mergebooks", json={"Merge_books": [target, other]})
-    assert json.loads(resp.data) == {"success": True}
+    body = json.loads(resp.data)
+    assert body["success"] is True
+    assert body["summary"] == {"succeeded": 1, "failed": 0, "skipped": 0}
+    assert [(r["book_id"], r["status"]) for r in body["results"]] == [(other, "succeeded")]
     assert not _book_exists(env, other)
     [entry] = _entries(env)
     assert entry["book_id"] == other and entry["reason"] == "merged into %d" % target

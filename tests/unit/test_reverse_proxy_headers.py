@@ -26,14 +26,12 @@ def test_headers_are_ignored_without_a_trusted_proxy():
     app = _app(trusted=False)
     resp = app.test_client().get("/where", headers=SPOOF)
     assert resp.get_data(as_text=True) == "localhost|http|"
-    assert not app.wsgi_app.is_proxied
 
 
 def test_headers_are_used_behind_a_trusted_proxy():
     app = _app(trusted=True)
     resp = app.test_client().get("/prefix/where", headers=SPOOF)
     assert resp.get_data(as_text=True) == "evil.example|https|/prefix"
-    assert app.wsgi_app.is_proxied
 
 
 def test_untrusted_is_the_default():

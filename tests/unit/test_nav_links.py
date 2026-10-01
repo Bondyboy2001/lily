@@ -29,7 +29,7 @@ def _login(env, name, password):
 class TestSettingsRail:
     def test_admin_rail_lists_only_remaining_sections(self, env):
         html = _login(env, env.admin().name, ADMIN_PASSWORD).get("/me").get_data(as_text=True)
-        assert _rail_ids(html) == ["profile", "import", "users", "duplicates", "logs"]
+        assert _rail_ids(html) == ["profile", "import", "users", "duplicates", "trash", "logs"]
         for gone in ("security", "configuration", "library", "backups", "recovery", "statistics"):
             assert f'data-section="{gone}"' not in html, gone
         assert "id='logout'" in html
@@ -39,7 +39,7 @@ class TestSettingsRail:
         html = _login(env, "reader", "pw").get("/me").get_data(as_text=True)
         assert _rail_ids(html) == ["profile"]
         assert "id='logout'" in html
-        for gone in ("security", "import", "users", "duplicates", "logs",
+        for gone in ("security", "import", "users", "duplicates", "trash", "logs",
                      "configuration", "library", "backups", "recovery", "statistics"):
             assert f'data-section="{gone}"' not in html, gone
 
@@ -130,17 +130,17 @@ class TestGridQuickActions:
     def test_readable_book_gets_reader_url(self, env):
         book_id = env.add_book("Readable", fmt="EPUB")
         html = self._home(env)
-        assert f'data-reader-url="/read/{book_id}/epub"' in html
+        assert f'class="icon-btn lily-read-now" href="/read/{book_id}/epub"' in html
 
     def test_unsupported_format_offers_download_not_reader(self, env):
         book_id = env.add_book("Text Only", fmt="TXT")
         html = self._home(env)
-        assert "data-reader-url" not in html
+        assert "lily-read-now" not in html
         assert f'href="/download/{book_id}/txt' in html
 
     def test_kepub_and_audio_are_readable(self, env):
         kepub_id = env.add_book("Kepub Book", fmt="KEPUB")
         audio_id = env.add_book("Audio Book", fmt="M4B")
         html = self._home(env)
-        assert f'data-reader-url="/read/{kepub_id}/kepub"' in html
-        assert f'data-reader-url="/read/{audio_id}/m4b"' in html
+        assert f'lily-read-now" href="/read/{kepub_id}/kepub"' in html
+        assert f'lily-read-now" href="/read/{audio_id}/m4b"' in html

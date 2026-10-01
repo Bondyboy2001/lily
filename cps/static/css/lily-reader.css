@@ -673,8 +673,8 @@ body.lily-reader {
     text-align: center;
 }
 
-/* Two-column spread and sidebar reflow mean nothing on a narrow screen (one column there). */
-@media (max-width: 799px) {
+/* A two-column spread means nothing on a phone (one column there). */
+@media (max-width: 767px) {
     .lily-reader .md-content > .reader-wide-only { display: none; }
 }
 

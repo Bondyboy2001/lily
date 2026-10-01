@@ -1,10 +1,8 @@
-"""Changing a password needs the current one and signs out every other session;
-turning on 2FA does the same."""
+"""Changing a password needs the current one and signs out every other session."""
 
 import pytest
 from werkzeug.security import check_password_hash
 
-from cps import totp
 from tests.unit.lily_env import lily_env
 
 pytestmark = pytest.mark.unit
@@ -81,17 +79,5 @@ def test_change_password_page_signs_out_other_sessions(env):
     resp = here.post("/change-password", data={"current_password": "old-pw-1", "new_password": "New-pw-12345",
                                                "confirm_password": "New-pw-12345"})
     assert resp.status_code == 302
-    assert _signed_in(here)
-    assert not _signed_in(elsewhere)
-
-
-def test_enabling_2fa_signs_out_other_sessions(env):
-    _reader(env)
-    here = _client(env, "reader", "old-pw-1")
-    elsewhere = _client(env, "reader", "old-pw-1")
-    here.post("/account/security/2fa/start")
-    html = here.get("/account/security").get_data(as_text=True)
-    secret = html.split('id="totp-secret">')[1].split("<")[0]
-    here.post("/account/security/2fa/enable", data={"code": totp.current_code(secret)})
     assert _signed_in(here)
     assert not _signed_in(elsewhere)

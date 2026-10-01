@@ -164,10 +164,17 @@ def _load_editbooks_module(delete_key_calls):
 
     cps = _install_stub("cps")
     logger = _install_stub("cps.logger", {"create": lambda: _Logger()})
-    helper = _install_stub("cps.helper", {"delete_book": lambda *args, **kwargs: (True, None),
+    calls = []
+
+    def _delete_book(book, calibrepath, book_format="", reason="delete"):
+        # The Trash move of the folder (whole book) or one format's file
+        calls.append(("trash-format", book_format) if book_format else ("whole", book.id))
+        return True, None
+
+    helper = _install_stub("cps.helper", {"delete_book": _delete_book,
+                                          "clear_cover_thumbnail_cache": lambda book_id: None,
                                           "change_archived_books": lambda *args, **kwargs: None})
     config = _install_stub("cps.config", {"get_book_path": lambda: "/library"})
-    calls = []
     calibre_db = _install_stub(
         "cps.calibre_db",
         {"get_book": lambda book_id: SimpleNamespace(id=book_id),
@@ -237,15 +244,12 @@ def _load_editbooks_module(delete_key_calls):
         "_ensure_ingest_dir_writable", "_get_ingest_path", "_save_to_ingest_atomic_rename",
         "_validate_uploaded_file")})
     _install_stub("cps.editbooks_bulk")
-    def _delete_captured(book, book_format="", recovery_id=None):
-        calls.append("format-delete" if book_format else ("whole", book.id))
-        calls.append("commit")
-        return "recovery-id"
-
+    import contextlib
     _install_stub("cps.book_recovery", {"capture_book": lambda *args, **kwargs: "recovery-id",
+                                       "verify_capture": lambda *args, **kwargs: None,
+                                       "paused_services": contextlib.nullcontext,
                                        "RecoveryError": Exception,
-                                       "RECOVERY_LOCK": __import__("threading").RLock(),
-                                       "delete_captured_book": _delete_captured})
+                                       "RECOVERY_LOCK": __import__("threading").RLock()})
     cps.book_recovery = sys.modules["cps.book_recovery"]
 
     editbooks_path = pathlib.Path(__file__).resolve().parents[2] / "cps" / "editbooks.py"
@@ -255,6 +259,8 @@ def _load_editbooks_module(delete_key_calls):
     sys.modules["cps.editbooks"] = module
     spec.loader.exec_module(module)
     module.render_delete_book_result = lambda *args, **kwargs: "deleted"
+    # The row delete itself (calibre and app.db rows) is covered by the app-level Trash tests
+    module.delete_whole_book = lambda book_id, book: calls.append(("rows", book_id))
     return module, calls
 
 
@@ -292,7 +298,7 @@ def _load_duplicates_module(delete_key_calls):
     _install_stub("cps.ub", {"init_db_thread": lambda: calls.append("init-db-thread")})
     _install_stub("cps.csrf", {"exempt": _decorator})
     _install_stub("cps.admin", {"admin_required": _decorator})
-    _install_stub("cps.usermanagement", {"login_required_if_no_ano": _decorator, "refuse_token_auth": lambda: False})
+    _install_stub("cps.usermanagement", {"login_required_if_no_ano": _decorator})
     _install_stub("cps.internal_api", {"internal_only": _decorator})
     _install_stub("cps.render_template", {"render_title_template": lambda *args, **kwargs: ""})
     _install_stub("cps.cw_login", {"current_user": current_user})
@@ -307,7 +313,8 @@ def _load_duplicates_module(delete_key_calls):
         },
     )
     _install_stub("cps.services")
-    _install_stub("cps.editbooks", {"delete_book_automatic": lambda book, recovery_id=None: calls.append(("whole", book.id))})
+    _install_stub("cps.editbooks", {"delete_book_automatic":
+                                    lambda book, recovery_id=None, **kwargs: calls.append(("whole", book.id))})
     _install_stub(
         "cps.duplicate_index",
         {
@@ -350,8 +357,7 @@ def test_delete_book_from_table_whole_book_drops_it_from_the_duplicate_index():
     result = module.delete_book_from_table(12, "", True)
 
     assert result == "deleted"
-    assert ("whole", 12) in calls
-    assert "commit" in calls
+    assert calls.index(("whole", 12)) < calls.index(("rows", 12)) < calls.index("commit")
     # Removed from the cached groups in place, without a full rebuild or an invalidation
     assert delete_key_calls == [[12]]
     assert all(not db.invalidated for db in _CwaDB.instances)
@@ -365,8 +371,7 @@ def test_delete_book_from_table_format_only_keeps_duplicate_keys_and_invalidates
     result = module.delete_book_from_table(12, "EPUB", True)
 
     assert result == "deleted"
-    assert "format-delete" in calls
-    assert "commit" in calls
+    assert calls.index(("trash-format", "EPUB")) < calls.index("format-delete") < calls.index("commit")
     assert delete_key_calls == []
     assert _CwaDB.instances[-1].invalidated is True
 

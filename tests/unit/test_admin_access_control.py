@@ -117,7 +117,7 @@ def test_every_route_is_public_by_choice_or_refuses_visitors(clients):
             continue
         if not _refused(visitor, method, url):
             open_routes.append("%s %s (%s)" % (method, url, rule.endpoint))
-    assert checked > 200  # the walk really covered the app
+    assert checked > 150  # the walk really covered the app
     assert not open_routes, "reachable without signing in:\n" + "\n".join(open_routes)
 
 

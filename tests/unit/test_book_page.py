@@ -4,7 +4,7 @@
 # See CONTRIBUTORS for full list of authors.
 
 """The book page and home page reading paths: which format Read opens, Continue · n%, next in
-series, Convert to EPUB, one-tap shelves and the Up next row."""
+series, one-tap shelves and the Up next row."""
 
 import re
 import sqlite3
@@ -99,40 +99,24 @@ def test_continue_shows_the_saved_percentage(env):
     assert "Continue · 42%" in html
 
 
-def test_unreadable_book_offers_convert_to_epub_to_editors_only(env):
-    book = env.add_book("Kindle Only", fmt="MOBI")
-    admin = _login(env)
-    html = _page(admin, f"/book/{book}")
-    assert 'id="readbtn"' not in html and "No readable format" in html
-    assert 'id="convert-epub-btn"' in html and f'action="/book/{book}/convert-epub"' in html
-
-    from cps import constants
-    env.add_user("reader", password="pw", role=constants.ROLE_VIEWER)
-    html = _page(_login(env, "reader", "pw"), f"/book/{book}")
-    assert "No readable format" in html and "convert-epub-btn" not in html
-    assert _login(env, "reader", "pw").post(f"/book/{book}/convert-epub").status_code == 403
-
-
-def test_convert_is_offered_beside_read_for_a_mobi_without_epub(env):
-    book = env.add_book("Pdf And Mobi", fmt="PDF")
-    _add_format(env, book, "MOBI")
+def test_continue_prefers_the_library_scoped_reader_position(env, monkeypatch):
+    from cps import web
+    book = env.add_book("Scoped Read")
+    ub = env.ub
+    ub.session.add(ub.WebReaderProgress(user_id=env.admin().id, book_id=book, cfi="epubcfi(/6/2)", percent=0.10))
+    ub.session.add(ub.ReaderPosition(user_id=env.admin().id, library_uuid="lib-1", book_id=book,
+                                     format="epub", cfi="epubcfi(/6/4)", percent=0.67))
+    ub.session.commit()
+    monkeypatch.setattr(web, "_library_uuid", lambda: "lib-1")
     html = _page(_login(env), f"/book/{book}")
-    assert f'href="/read/{book}/pdf"' in html and 'id="convert-epub-btn"' in html
-    epub_book = env.add_book("Has Epub", fmt="EPUB")
-    _add_format(env, epub_book, "MOBI")
-    assert "convert-epub-btn" not in _page(_login(env), f"/book/{epub_book}")
+    assert "Continue · 67%" in html
 
 
-def test_convert_queues_the_existing_conversion_from_the_best_source(env, monkeypatch):
-    book = env.add_book("To Convert", fmt="FB2")
-    _add_format(env, book, "AZW3")
-    calls = []
-    from cps import helper
-    monkeypatch.setattr(helper, "convert_book_format", lambda *args, **kw: calls.append(args) or None)
-    resp = _login(env).post(f"/book/{book}/convert-epub", follow_redirects=True)
-    assert resp.status_code == 200
-    assert calls and calls[0][0] == book and calls[0][2:4] == ("AZW3", "EPUB")
-    assert "Tasks page" in resp.get_data(as_text=True)
+def test_unreadable_book_says_no_readable_format(env):
+    book = env.add_book("Kindle Only", fmt="MOBI")
+    html = _page(_login(env), f"/book/{book}")
+    assert 'id="readbtn"' not in html and "No readable format" in html
+    assert "convert-epub" not in html and "Convert to EPUB" not in html
 
 
 def test_next_in_series_links_the_next_higher_index(env):

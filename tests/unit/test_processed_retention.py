@@ -59,7 +59,8 @@ def test_failed_import_gets_a_fresh_mtime(tmp_path, monkeypatch):
 
     assert nbp.move_to_failed()
 
-    (moved,) = failed_dir.iterdir()
+    # The book plus its hidden .failure.json sidecar (ingest_failures.write_failure)
+    (moved,) = [p for p in failed_dir.iterdir() if not p.name.endswith(".failure.json")]
     assert abs(moved.stat().st_mtime - time.time()) < 60
 
 
@@ -75,4 +76,3 @@ def test_auto_zip_leaves_failed_dir_alone(monkeypatch):
     zipper = auto_zip.AutoZipper()
     assert zipper.archive_dirs == [zipper.imported_dir]
     assert not any("failed" in d for d in zipper.archive_dirs)
-

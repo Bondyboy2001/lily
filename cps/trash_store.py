@@ -52,7 +52,11 @@ STANDARD_LINKS = {
 SKIP_BOOK_TABLES = frozenset({"metadata_dirtied", "annotations_dirtied"})
 # app.db tables that reference a book by `book_id`
 APP_TABLES = ("book_shelf_link", "book_read_link", "bookmark", "web_reader_progress",
-              "archived_book", "downloads")
+              "reader_position", "archived_book", "downloads")
+# Tables with a unique key over their book rows: re-inserting with OR IGNORE never duplicates,
+# so they are restored even when other rows for the book remain (reader_position keeps the
+# rows of other libraries, which a delete leaves alone).
+UNIQUE_KEYED_APP_TABLES = ("reader_position",)
 
 
 class TrashError(Exception):
@@ -240,7 +244,7 @@ def restore_app_rows(ex: Executor, captured: dict, book_id: int, schema: str = "
     for table, items in captured.items():
         if table not in APP_TABLES or table not in tables:
             continue
-        if only_empty_tables and ex.fetch("SELECT 1 FROM %s.%s WHERE book_id = :id LIMIT 1"
+        if only_empty_tables and table not in UNIQUE_KEYED_APP_TABLES and ex.fetch("SELECT 1 FROM %s.%s WHERE book_id = :id LIMIT 1"
                                           % (_q(schema), _q(table)), {"id": book_id}):
             continue
         for item in items:

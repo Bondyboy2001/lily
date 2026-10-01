@@ -3,15 +3,15 @@
 	color: #000;
 }
 
-/* Abyss, the app's dark palette: --paper and --ink, links in --accent. */
+/* The app's dark palette (lily.css): --paper and --ink, links in --accent. */
 .darkTheme {
-	background: #1A1B26;
-	color: #C8D1F5;
+	background: #1A1517;
+	color: #F0E8EC;
 }
 
 .darkTheme a:link,
 .darkTheme a:visited {
-	color: #7AA2F7;
+	color: #D49BC2;
 }
 
 .sepiaTheme {

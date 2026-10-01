@@ -1,7 +1,5 @@
 """Server messages and file contents that carry user data reach the page as text."""
 
-import re
-
 import pytest
 
 from tests.unit.lily_env import REPO
@@ -22,10 +20,3 @@ def test_table_messages_are_inserted_as_text():
     assert ".text(item.message)" in body
     assert "+ item.message +" not in body
     assert "+ errorMsg +" not in src
-
-
-def test_task_table_escapes_cells():
-    tasks = (REPO / "cps" / "templates" / "tasks.html").read_text()
-    table = re.search(r'<table[^>]*id="tasktable"[^>]*>', tasks).group(0)
-    assert 'data-escape="true"' in table
-

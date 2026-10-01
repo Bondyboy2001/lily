@@ -1141,8 +1141,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 }
 
 .book-action-bar > .btn,
-.book-action-bar > .dropdown > .btn,
-.book-action-bar > .book-detail-convert > .btn {
+.book-action-bar > .dropdown > .btn {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -1167,9 +1166,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     padding: 0;
 }
 
-/* Convert to EPUB sits beside Read as a Quiet button; "No readable format" takes Read's
-   place as plain muted text when nothing opens in a reader. */
-.book-detail-convert { display: flex; margin: 0; }
+/* "No readable format" takes Read's place as plain muted text when nothing opens in a reader. */
 
 .book-detail-unreadable {
     color: var(--muted);

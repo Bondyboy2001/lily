@@ -100,8 +100,9 @@ def recovery_root():
 def _check_root(root):
     abs_root = os.path.abspath(root)
     real_root = os.path.realpath(abs_root)
-    library = config.config_calibre_dir
-    if library:
+    for library in {config.config_calibre_dir, config.get_book_path()}:
+        if not library:
+            continue
         real_lib = os.path.realpath(library)
         if real_root == real_lib or real_root.startswith(real_lib + os.sep):
             raise RecoveryError("book_recovery root must not be inside the library")
@@ -151,7 +152,9 @@ def _safe_join(base, rel):
 
 
 def _book_dir(book):
-    library = os.path.abspath(config.config_calibre_dir)
+    # Book folders live under get_book_path(), which differs from config_calibre_dir
+    # (where metadata.db is) in a split library.
+    library = os.path.abspath(config.get_book_path())
     path = os.path.normpath(os.path.join(library, book.path))
     real_path = os.path.realpath(path)
     real_lib = os.path.realpath(library)
@@ -595,26 +598,6 @@ def _insert(con, table, row, drop_pk="id", schema=""):
     return cur.lastrowid
 
 
-def _drop_orphaned_refs(con, metadata):
-    """Delete the authors, tags, series and custom values only the removed book used.
-    Restore recreates them from the archive by natural key."""
-    pairs = [(link_table, ref_table, ref_col, metadata["links"].get(link_table) or [])
-             for link_table, (ref_table, ref_col, _nk) in LINK_TABLES.items()]
-    for link_table, rows in metadata["custom_columns"]["links"].items():
-        value_table = link_table.replace("books_custom_column", "custom_column")[:-5]
-        pairs.append((link_table, value_table, "value", rows))
-    live_tables = _tables(con)
-    for link_table, ref_table, ref_col, rows in pairs:
-        if link_table not in live_tables or ref_table not in live_tables:
-            continue
-        ref_ids = {_decode(row[ref_col]) for row in rows if row.get(ref_col) is not None}
-        for ref_id in sorted(ref_ids):
-            con.execute(
-                "DELETE FROM %s WHERE id=? AND NOT EXISTS (SELECT 1 FROM %s WHERE %s=?)"
-                % (_ident(ref_table), _ident(link_table), _ident(ref_col)),
-                (ref_id, ref_id))
-
-
 def _ref_id(con, table, natural_keys, row):
     cols = _table_columns(con, table)
     extra = set(row) - cols
@@ -724,7 +707,8 @@ def _restore_book(recovery_id):
         if not isinstance(orig_id, int) or isinstance(orig_id, bool) or orig_id <= 0:
             raise RecoveryError("manifest book id is malformed")
 
-        library_root = os.path.realpath(config.config_calibre_dir)
+        books_root = config.get_book_path()
+        library_root = os.path.realpath(books_root)
         if fmt:
             live = meta_con.execute("SELECT id, uuid, path FROM books WHERE id=?",
                                     (orig_id,)).fetchone()
@@ -736,7 +720,7 @@ def _restore_book(recovery_id):
                 "SELECT 1 FROM data WHERE book=? AND format=?", (orig_id, fmt)).fetchone()
             if existing:
                 raise RecoveryError("book %s already has format %s" % (orig_id, fmt))
-            dest_dir = os.path.normpath(os.path.join(config.config_calibre_dir, live[2]))
+            dest_dir = os.path.normpath(os.path.join(books_root, live[2]))
         else:
             for sql, param, what in (
                 ("SELECT 1 FROM books WHERE id=?", orig_id, "id"),
@@ -745,12 +729,11 @@ def _restore_book(recovery_id):
             ):
                 if param and meta_con.execute(sql, (param,)).fetchone():
                     raise RecoveryError("a book already occupies the archived %s" % what)
-            dest_dir = os.path.normpath(os.path.join(config.config_calibre_dir,
-                                                     manifest["book_path"]))
+            dest_dir = os.path.normpath(os.path.join(books_root, manifest["book_path"]))
         real_dest = os.path.realpath(dest_dir)
         if not real_dest.startswith(library_root + os.sep):
             raise RecoveryError("archived book path escapes the library")
-        if _path_has_symlink(dest_dir, os.path.abspath(config.config_calibre_dir)):
+        if _path_has_symlink(dest_dir, os.path.abspath(books_root)):
             raise RecoveryError("destination book path contains a symlink")
         if not fmt:
             if os.path.lexists(dest_dir) and (os.path.islink(dest_dir) or os.listdir(dest_dir)):
@@ -760,8 +743,7 @@ def _restore_book(recovery_id):
                 if os.path.lexists(os.path.join(dest_dir, info["rel"])):
                     raise RecoveryError("destination file already exists: %s" % info["rel"])
 
-        stage_dir = tempfile.mkdtemp(prefix=".lily_restore_",
-                                     dir=os.path.abspath(config.config_calibre_dir))
+        stage_dir = tempfile.mkdtemp(prefix=".lily_restore_", dir=os.path.abspath(books_root))
         for info in manifest["files"]:
             src = _safe_join(os.path.join(entry_dir, "files"), info["rel"])
             stage_path = _safe_join(stage_dir, info["rel"])
@@ -967,177 +949,51 @@ def _restore_book(recovery_id):
     return orig_id, skipped_refs
 
 
-def delete_captured_book(book, book_format="", recovery_id=None):
-    """Delete an already-captured book (or one format) atomically.
-
-    Runs inside RECOVERY_LOCK: confirms the live row still matches the capture,
-    quarantines the files into a temp dir inside the library, deletes the
-    metadata rows (and app-association rows for whole-book deletes) in a single
-    attached SQLite transaction, then commits once. On failure the transaction
-    is rolled back and quarantined files are moved back without overwriting
-    anything that appeared meanwhile."""
-    with RECOVERY_LOCK, paused_services():
-        if recovery_id is None:
-            recovery_id = capture_book(book, book_format, reason='delete')
-        entry_dir = os.path.join(recovery_root(), recovery_id)
-        manifest = _load_manifest(entry_dir)
-        if manifest is None:
-            raise RecoveryError("recovery archive %s is incomplete" % recovery_id)
-        _verify_files(entry_dir, manifest)
-
-        library = os.path.abspath(config.config_calibre_dir)
-        book_dir = _book_dir(book)
-        fmt = (book_format or "").upper()
-        quar_dir = tempfile.mkdtemp(prefix=".lily_delete_", dir=library)
-        moved = []
-        meta_db = os.path.join(library, "metadata.db")
-        app_db = os.path.abspath(ub.app_DB_path)
-        con = None
-        committed = False
-        try:
-            try:
-                from . import calibre_db as _calibre_db
-                _calibre_db.session.rollback()
-                ub.session.rollback()
-            except Exception:
-                pass
-            con = _connect_meta(meta_db)
-            con.execute("ATTACH DATABASE ? AS app_settings", (app_db,))
-            con.execute("BEGIN IMMEDIATE")
-            live = con.execute("SELECT id, uuid, path FROM books WHERE id=?",
-                               (book.id,)).fetchone()
-            if not live:
-                raise RecoveryError("book %s no longer exists" % book.id)
-            live_lib = con.execute("SELECT uuid FROM library_id").fetchone()
-            live_uuid = live_lib[0] if live_lib else ""
-            if manifest.get("library_uuid") and manifest["library_uuid"] != live_uuid:
-                raise RecoveryError("recovery archive belongs to another library")
-            if manifest.get("book_id") is not None and manifest["book_id"] != book.id:
-                raise RecoveryError("recovery archive is for a different book")
-            if manifest.get("book_uuid") and live[1] != manifest["book_uuid"]:
-                raise RecoveryError("book %s changed since capture" % book.id)
-            if manifest.get("book_path") and live[2] != manifest["book_path"]:
-                raise RecoveryError("book %s path changed since capture" % book.id)
-            if fmt and (manifest.get("format") or "").upper() != fmt:
-                raise RecoveryError(
-                    "recovery archive %s does not cover a format-only delete of %s"
-                    % (recovery_id, fmt))
-            if not fmt and manifest.get("format"):
-                raise RecoveryError(
-                    "format-only archive %s cannot cover a whole-book delete"
-                    % recovery_id)
-
-            for info in manifest["files"]:
-                src = _safe_join(book_dir, info["rel"])
-                if not os.path.isfile(src) or os.path.islink(src):
-                    raise RecoveryError("expected file missing: %s" % info["rel"])
-                if os.path.getsize(src) != info["size"] \
-                        or _sha256(src) != info["sha256"]:
-                    raise RecoveryError("file changed since capture: %s" % info["rel"])
-
-            if fmt:
-                for info in manifest["files"]:
-                    src = _safe_join(book_dir, info["rel"])
-                    dst = _safe_join(quar_dir, info["rel"])
-                    os.makedirs(os.path.dirname(dst), exist_ok=True)
-                    os.rename(src, dst)
-                    moved.append((dst, src))
-            else:
-                if not os.path.isdir(book_dir):
-                    raise RecoveryError("book folder missing: %s" % book.path)
-                captured = {i["rel"] for i in manifest["files"]}
-                live_files = set()
-                for base, _dirs, names in os.walk(book_dir):
-                    for name in names:
-                        live_files.add(os.path.relpath(os.path.join(base, name),
-                                                       book_dir))
-                extra_files = live_files - captured
-                if extra_files:
-                    raise RecoveryError(
-                        "book folder has files not in the recovery archive: %s"
-                        % sorted(extra_files))
-                dst = os.path.join(quar_dir, "book")
-                os.rename(book_dir, dst)
-                moved.append((dst, book_dir))
-
-            if fmt:
-                con.execute("DELETE FROM data WHERE book=? AND format=?",
-                            (book.id, fmt))
-            else:
-                for table in sorted(_tables(con)):
-                    tcols = _table_columns(con, table)
-                    if "book" in tcols:
-                        con.execute("DELETE FROM %s WHERE book=?" % _ident(table),
-                                    (book.id,))
-                con.execute("DELETE FROM books WHERE id=?", (book.id,))
-                _drop_orphaned_refs(con, manifest["metadata"])
-                app_tables = _tables(con, "app_settings.")
-                for table, spec in APP_TABLES.items():
-                    if table in app_tables and spec["book"] in _table_columns(
-                            con, table, "app_settings."):
-                        if table == "reader_position" and "library_uuid" in _table_columns(
-                                con, table, "app_settings."):
-                            con.execute(
-                                "DELETE FROM app_settings.reader_position "
-                                "WHERE book_id=? AND library_uuid=?",
-                                (book.id, live_uuid))
-                            continue
-                        con.execute(
-                            "DELETE FROM app_settings.%s WHERE %s=?"
-                            % (_ident(table), _ident(spec["book"])),
-                            (book.id,))
-            con.execute("COMMIT")
-            committed = True
-        except Exception as e:
-            if con is not None:
-                try:
-                    con.execute("ROLLBACK")
-                except Exception:
-                    pass
-            conflicts = []
-            for quar_path, orig in reversed(moved):
-                try:
-                    if os.path.lexists(orig):
-                        conflicts.append(orig)
-                        continue
-                    os.makedirs(os.path.dirname(orig), exist_ok=True)
-                    os.rename(quar_path, orig)
-                    moved.remove((quar_path, orig))
-                except OSError as e:
-                    conflicts.append("%s (%s)" % (orig, e))
-            if conflicts:
-                raise RecoveryError(
-                    "deletion failed and files could not all be moved back: %s; "
-                    "the recovery archive %s still holds full copies"
-                    % (", ".join(conflicts), recovery_id))
-            raise RecoveryError("book deletion failed: %s" % e)
-        finally:
-            if con is not None:
-                con.close()
-            if committed:
-                try:
-                    shutil.rmtree(quar_dir)
-                except OSError as e:
-                    log.warning("could not remove delete quarantine %s: %s", quar_dir, e)
-                try:
-                    if not fmt and os.path.isdir(os.path.dirname(book_dir)):
-                        os.rmdir(os.path.dirname(book_dir))
-                except OSError:
-                    pass
-                if not fmt:
-                    try:
-                        from . import helper
-                        helper.clear_cover_thumbnail_cache(book.id)
-                    except Exception as e:
-                        log.warning("could not clear cover thumbnails for book %s: %s",
-                                    book.id, e)
-            else:
-                try:
-                    if os.path.isdir(quar_dir) and not os.listdir(quar_dir):
-                        os.rmdir(quar_dir)
-                except OSError:
-                    pass
-        return recovery_id
+def verify_capture(book, book_format, recovery_id):
+    """Refuse (RecoveryError) when an archive captured earlier no longer matches the live book:
+    another library or book, a changed uuid or path, the wrong scope (format vs whole book),
+    or files that changed, went missing or appeared since the capture. Call it under
+    RECOVERY_LOCK before removing anything the archive is meant to cover."""
+    entry_dir = os.path.join(recovery_root(), recovery_id)
+    manifest = _load_manifest(entry_dir)
+    if manifest is None:
+        raise RecoveryError("recovery archive %s is incomplete" % recovery_id)
+    _verify_files(entry_dir, manifest)
+    fmt = (book_format or "").upper()
+    con = _connect_meta(os.path.join(os.path.abspath(config.config_calibre_dir), "metadata.db"))
+    try:
+        live = con.execute("SELECT id, uuid, path FROM books WHERE id=?", (book.id,)).fetchone()
+        live_uuid = _library_uuid(con)
+    finally:
+        con.close()
+    if not live:
+        raise RecoveryError("book %s no longer exists" % book.id)
+    if manifest.get("library_uuid") and manifest["library_uuid"] != live_uuid:
+        raise RecoveryError("recovery archive belongs to another library")
+    if manifest.get("book_id") is not None and manifest["book_id"] != book.id:
+        raise RecoveryError("recovery archive is for a different book")
+    if manifest.get("book_uuid") and live[1] != manifest["book_uuid"]:
+        raise RecoveryError("book %s changed since capture" % book.id)
+    if manifest.get("book_path") and live[2] != manifest["book_path"]:
+        raise RecoveryError("book %s path changed since capture" % book.id)
+    if fmt and (manifest.get("format") or "").upper() != fmt:
+        raise RecoveryError("recovery archive %s does not cover a format-only delete of %s"
+                            % (recovery_id, fmt))
+    if not fmt and manifest.get("format"):
+        raise RecoveryError("format-only archive %s cannot cover a whole-book delete" % recovery_id)
+    book_dir = _book_dir(book)
+    for info in manifest["files"]:
+        src = _safe_join(book_dir, info["rel"])
+        if not os.path.isfile(src) or os.path.islink(src):
+            raise RecoveryError("expected file missing: %s" % info["rel"])
+        if os.path.getsize(src) != info["size"] or _sha256(src) != info["sha256"]:
+            raise RecoveryError("file changed since capture: %s" % info["rel"])
+    if not fmt:
+        captured = {i["rel"] for i in manifest["files"]}
+        extra = {os.path.relpath(os.path.join(base, name), book_dir)
+                 for base, _dirs, names in os.walk(book_dir) for name in names} - captured
+        if extra:
+            raise RecoveryError("book folder has files not in the recovery archive: %s" % sorted(extra))
 
 
 def get_recovery_retention_days():

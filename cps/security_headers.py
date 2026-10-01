@@ -33,10 +33,7 @@ def build_csp(endpoint):
     csp += "; font-src 'self' data:"
     if endpoint == "web.read_book":
         csp += " blob: "
-    csp += "; img-src 'self'"
-    if endpoint == "admin.hardcover_review_matches":
-        csp += " https:"
-    csp += " data:"
+    csp += "; img-src 'self' data:"
     if endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
         csp += " *"
     if endpoint == "web.read_book":

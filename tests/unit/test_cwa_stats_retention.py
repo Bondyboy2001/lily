@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""cwa.db statistics: retention pruning, the search-success index, and history views that
-read only the rows they show."""
+"""cwa.db activity logs: retention pruning, and history views that read only the rows they
+show."""
 
 import pytest
 
@@ -47,13 +47,6 @@ def test_retention_comes_from_the_environment_and_zero_keeps_everything(temp_cwa
     assert _counts(temp_cwa_db) == {t: 0 for t in cwa_db_module.STATS_RETENTION_TABLES}
     monkeypatch.setenv("LILY_STATS_RETENTION_DAYS", "junk")
     assert cwa_db_module.stats_retention_days() == cwa_db_module.STATS_RETENTION_DAYS
-
-
-def test_search_success_query_uses_the_composite_index(temp_cwa_db):
-    plan = " ".join(str(row) for row in temp_cwa_db.cur.execute(
-        "EXPLAIN QUERY PLAN SELECT 1 FROM cwa_user_activity a WHERE a.user_id = 1 "
-        "AND a.event_type IN ('DOWNLOAD', 'READ') AND a.timestamp BETWEEN '2026-01-01' AND '2026-01-02'"))
-    assert "idx_activity_user_event_time" in plan
 
 
 def test_history_views_return_the_newest_ten_oldest_first(temp_cwa_db):

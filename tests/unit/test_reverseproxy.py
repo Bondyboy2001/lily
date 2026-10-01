@@ -12,9 +12,9 @@ class _StubApp:
         return iter([b"ok"])
 
 
-def _run(environ):
+def _run(environ, trusted=True):
     app = _StubApp()
-    proxied = ReverseProxied(app)
+    proxied = ReverseProxied(app, trusted=trusted)
     result = b"".join(proxied(dict(environ), lambda *a, **k: None))
     assert result == b"ok"
     return app.seen
@@ -56,3 +56,10 @@ class TestReverseProxied:
         assert seen["HTTP_HOST"] == "internal:8083"
         assert seen["wsgi.url_scheme"] == "http"
         assert "SCRIPT_NAME" not in seen
+
+    def test_untrusted_proxy_headers_are_ignored(self):
+        seen = _run({"HTTP_X_SCRIPT_NAME": "/books", "PATH_INFO": "/books/admin/view",
+                     "HTTP_X_FORWARDED_HOST": "evil.example", "HTTP_X_SCHEME": "https",
+                     "HTTP_HOST": "internal:8083", "wsgi.url_scheme": "http"}, trusted=False)
+        assert seen["PATH_INFO"] == "/books/admin/view" and "SCRIPT_NAME" not in seen
+        assert seen["HTTP_HOST"] == "internal:8083" and seen["wsgi.url_scheme"] == "http"

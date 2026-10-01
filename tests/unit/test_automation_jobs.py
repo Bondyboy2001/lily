@@ -88,7 +88,7 @@ class TestFailureSidecars:
         legacy = [i for i in ingest_failures.list_failed(str(failed))
                   if i["name"] == "old.epub"][0]
         assert legacy["reason"] == "No failure details recorded"
-        new_path = ingest_failures.retry_failed(str(failed), str(ingest), "bad.epub")
+        (new_path,) = ingest_failures.retry_failed(str(failed), str(ingest), "bad.epub")
         assert os.path.exists(new_path)
         assert not os.path.exists(failed / ".bad.epub.failure.json")
         (failed / ".stray.failure.json").write_text("{}")

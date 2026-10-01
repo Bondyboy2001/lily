@@ -112,7 +112,7 @@
             <div class="reader-setting fontSizeWrapper" role="group" aria-labelledby="fontSizeLabel">
                 <span class="reader-setting-label" id="fontSizeLabel">{{ _('Text size') }}</span>
                 <button type="button" id="fontSmaller" class="reader-size-btn" aria-label="{{_('Smaller text')}}">A−</button>
-                <output id="fontSizeValue" class="reader-size-value" aria-live="polite">100%</output>
+                <output id="fontSizeValue" class="reader-size-value" aria-live="polite">150%</output>
                 <button type="button" id="fontLarger" class="reader-size-btn reader-size-larger" aria-label="{{_('Larger text')}}">A+</button>
             </div>
             <div class="reader-setting font" id="font">
@@ -141,7 +141,7 @@
                   <option value="4">{{_('Large')}}</option>
                 </select>
             </div>
-            {# Wide screens only (hidden below 800px in lily-reader.css, where pages are always one column).
+            {# Wide screens only (hidden at phone widths in lily-reader.css, where pages are always one column).
                No reflow option: the contents panel always slides over the page. #}
             <div class="reader-setting reader-wide-only" id="layout">
                 <span class="reader-setting-label">{{ _('Pages') }}</span>
@@ -176,7 +176,7 @@
 
         // Page themes. css_path styles the book (epub_themes.css); bgColor and title-color paint
         // the reader around it; "dark" themes also switch the chrome (sidebar, settings) to dark.
-        // darkTheme is the app's Abyss palette (paper / ink).
+        // darkTheme is the app's dark palette (lily.css --paper / --ink).
         window.themes = {
             "lightTheme": {
                 "bgColor": "#FFFFFF",
@@ -184,9 +184,9 @@
                 "title-color": "#4F4F4F"
             },
             "darkTheme": {
-                "bgColor": "#1A1B26",
+                "bgColor": "#1A1517",
                 "css_path": "{{ url_for('static', filename='css/epub_themes.css') }}",
-                "title-color": "#C8D1F5",
+                "title-color": "#F0E8EC",
                 "dark": true
             },
             "sepiaTheme": {

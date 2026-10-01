@@ -101,8 +101,14 @@ def test_epub_reader_phone_controls():
     assert 'class="reader-setting reader-wide-only" id="layout"' in html
     assert "sidebarReflow" not in html
     css = strip_comments(read(CSS / "lily-reader.css"))
-    assert re.search(r"@media \(max-width: 799px\) \{\s*\.lily-reader \.md-content > \.reader-wide-only "
+    assert re.search(r"@media \(max-width: 767px\) \{\s*\.lily-reader \.md-content > \.reader-wide-only "
                      r"\{ display: none; \}", css)
+    settings = read(JS / "reading/epub-settings.js")
+    assert 'matchMedia("(max-width: 767px)")' in settings
+    assert "sidebarReflow" not in settings and "reflow" not in settings.lower()
+    # 150% until the reader picks a size, and the sheet says so before the script runs.
+    assert "DEFAULT_FONT_SIZE = 150" in settings
+    assert 'id="fontSizeValue" class="reader-size-value" aria-live="polite">150%<' in html
     # CSP: no inline handlers; the settings script binds the buttons.
     assert not re.search(r"\son[a-z]+=", html)
     assert "js/reading/epub-settings.js" in html
@@ -116,16 +122,16 @@ def test_epub_reader_follows_app_theme():
     settings = read(JS / "reading/epub-settings.js")
     assert 'getAttribute("data-theme") === "dark" ? "darkTheme" : "lightTheme"' in settings
     assert 'localStorage.getItem("calibre.reader.theme") ?? "lightTheme"' not in read(JS / "reading/epub.js")
-    # Dark is Abyss (paper / ink), in the page, its frame and the theme button.
+    # Dark is the app's dark palette (paper / ink), in the page, its frame and the theme button.
     html = read(TEMPLATES / "read.html")
     dark = html[html.index('"darkTheme": {'):]
     dark = dark[:dark.index('"dark": true')]
-    assert '"#1A1B26"' in dark and '"#C8D1F5"' in dark
+    assert '"#1A1517"' in dark and '"#F0E8EC"' in dark
     assert "#202124" not in html + read(CSS / "epub_themes.css") + read(CSS / "main.css")
     themes_css = read(CSS / "epub_themes.css")
-    assert re.search(r"\.darkTheme \{\s*background: #1A1B26;\s*color: #C8D1F5;", themes_css)
-    # Status bar colours: dark matches Abyss --paper everywhere.
-    assert 'dark: "#1A1B26"' in read(JS / "lily.js") and "#1B1719" not in read(JS / "lily.js")
+    assert re.search(r"\.darkTheme \{\s*background: #1A1517;\s*color: #F0E8EC;", themes_css)
+    # Status bar colours: dark matches the dark --paper everywhere.
+    assert 'dark: "#1A1517"' in read(JS / "lily.js") and "#1B1719" not in read(JS / "lily.js")
     manifest = read(REPO_ROOT / "cps/static/manifest.json")
     assert "#1f1f1f" not in manifest.lower()
 
@@ -136,13 +142,16 @@ def test_epub_viewer_fills_phone_screen():
     assert "device-width" not in css
     assert not re.search(r"#viewer(\s+iframe)?\s*\{[^}]*width:\s*\d+px", css)
     phone = css[css.index("@media only screen and (max-width: 550px)"):]
-    assert "100dvh" in phone and "safe-area-inset" in phone
+    assert "safe-area-inset" in phone
+    # The page is pinned to the visible screen (fixed, inset 0), so no 100vh under phone toolbars.
+    reader_css = strip_comments(read(CSS / "lily-reader.css"))
+    main_rule = re.search(r"\.lily-reader\.lily-epub #main,[^{]*\{([^}]*)\}", reader_css).group(1)
+    assert "position: fixed" in main_rule and "inset: 0" in main_rule
     # The page slides exactly as far as the sidebar is wide.
     assert "translate(var(--reader-sidebar), 0)" in css
     assert re.search(r"#sidebar \{[^}]*width: var\(--reader-sidebar\)", css)
     assert "260px, 0" not in css and "min-width: 300px" not in css
     # Tap zones stay, wider, over the page edges.
-    reader_css = strip_comments(read(CSS / "lily-reader.css"))
     assert re.search(r"\.lily-reader\.lily-epub #next \{[^}]*width: 22%", reader_css)
     # Progress label at full contrast.
     progress = re.search(r"\.lily-reader #progress:not\(\[role\]\) \{([^}]*)\}", reader_css).group(1)
@@ -340,16 +349,17 @@ def test_rating_clear_buttons_are_trash_icons():
 
 
 @pytest.mark.unit
-def test_authors_page_has_no_letter_filter(client):
+def test_authors_page_pages_by_letter(client):
     env, c, _ = client
-    # The letter menu used to appear once a list had more than nine initials.
+    # The author list is cut by first letter on the server (a big library has thousands of names).
     for letter in "ABCDEFGHIJK":
         env.add_book(f"{letter} Book", author=f"{letter} Author")
     resp = c.get("/author")
     assert resp.status_code == 200, resp.data[:300]
     html = resp.get_data(as_text=True)
     assert "lily-field-toggle" in html and "lily-order-toggle" in html
-    assert "lily-filter-toggle" not in html and "lily-letter-menu" not in html
+    assert "lily-filter-toggle" in html and "lily-letter-menu" in html
+    assert 'data-server-list="1"' in html
 
 
 @pytest.mark.unit

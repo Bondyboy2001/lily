@@ -191,8 +191,7 @@ class TestDeleteRecovery:
 
     def test_delete_commit_failure_restores_files_and_rows(self, env, monkeypatch):
         from cps import calibre_db, ub
-        import cps.book_recovery as br
-        from cps.book_recovery import RecoveryError, list_recovery
+        from cps.book_recovery import list_recovery
         from cps.editbooks import delete_book_automatic
 
         admin = env.admin()
@@ -207,23 +206,16 @@ class TestDeleteRecovery:
         ub.session.add(ub.ReadBook(book_id=bid, user_id=admin.id, read_status=1))
         ub.session_commit()
 
-        real_connect = br._connect_meta
+        import cps.editbooks as editbooks
+        real_delete_rows = editbooks.delete_whole_book
 
-        class _FailCommit:
-            def __init__(self, real):
-                self._real = real
+        def _rows_fail(book_id, book):
+            real_delete_rows(book_id, book)   # app.db rows go (committed), metadata.db pending
+            raise sqlite3.OperationalError("forced commit failure")
 
-            def execute(self, sql, *args):
-                if str(sql).strip().upper() == "COMMIT":
-                    raise sqlite3.OperationalError("forced commit failure")
-                return self._real.execute(sql, *args)
-
-            def __getattr__(self, name):
-                return getattr(self._real, name)
-
-        monkeypatch.setattr(br, "_connect_meta",
-                            lambda path: _FailCommit(real_connect(path)))
-        with pytest.raises(RecoveryError):
+        # The Trash move succeeds, then the row delete fails: the move is undone
+        monkeypatch.setattr(editbooks, "delete_whole_book", _rows_fail)
+        with pytest.raises(sqlite3.OperationalError):
             delete_book_automatic(calibre_db.get_book(bid))
 
         folder = _book_dir(env, bid)
@@ -237,47 +229,6 @@ class TestDeleteRecovery:
         assert ub.session.query(ub.ReadBook).filter_by(book_id=bid).count() == 1
         assert ub.session.query(ub.BookShelf).filter_by(book_id=bid).count() == 1
         assert len(list_recovery()) == 1
-        assert not [p for p in env.library_dir.iterdir()
-                    if p.name.startswith(".lily_delete_")]
-
-    def test_format_delete_commit_failure_restores_file(self, env, monkeypatch):
-        from cps import calibre_db
-        import cps.book_recovery as br
-        from cps.book_recovery import RecoveryError, capture_book, restore_book
-
-        bid = env.add_book("Fmt Keep", author="Author One", fmt="EPUB")
-        _write_files(env, bid, {"Fmt Keep.epub": b"epub-bytes", "cover.jpg": b"c"})
-        rid = capture_book(calibre_db.get_book(bid), "EPUB")
-
-        real_connect = br._connect_meta
-
-        class _FailCommit:
-            def __init__(self, real):
-                self._real = real
-
-            def execute(self, sql, *args):
-                if str(sql).strip().upper() == "COMMIT":
-                    raise sqlite3.OperationalError("forced commit failure")
-                return self._real.execute(sql, *args)
-
-            def __getattr__(self, name):
-                return getattr(self._real, name)
-
-        monkeypatch.setattr(br, "_connect_meta",
-                            lambda path: _FailCommit(real_connect(path)))
-        with pytest.raises(RecoveryError):
-            br.delete_captured_book(calibre_db.get_book(bid), "epub",
-                                    recovery_id=rid)
-
-        folder = _book_dir(env, bid)
-        assert (folder / "Fmt Keep.epub").read_bytes() == b"epub-bytes"
-        assert (folder / "cover.jpg").read_bytes() == b"c"
-        con = _meta(env)
-        assert con.execute(
-            "SELECT 1 FROM data WHERE book=? AND format='EPUB'", (bid,)).fetchone()
-        con.close()
-        with pytest.raises(RecoveryError):
-            restore_book(rid)
 
     def test_format_delete_restore_keeps_new_metadata(self, env):
         from cps import calibre_db
@@ -938,38 +889,41 @@ class TestRecoveryRefusals:
 class TestDeleteRevalidationAndScope:
     def test_delete_refuses_when_file_changed_after_capture(self, env):
         from cps import calibre_db
-        from cps.book_recovery import RecoveryError, delete_captured_book, capture_book
+        from cps.book_recovery import RecoveryError, capture_book
+        from cps.editbooks import delete_book_automatic
 
         bid = env.add_book("Mutated", author="Auth", fmt="EPUB")
         _write_files(env, bid, {"Mutated.epub": b"v1", "cover.jpg": b"c"})
         rid = capture_book(calibre_db.get_book(bid))
         (_book_dir(env, bid) / "Mutated.epub").write_bytes(b"v2-newer")
         with pytest.raises(RecoveryError, match="changed since capture"):
-            delete_captured_book(calibre_db.get_book(bid), recovery_id=rid)
+            delete_book_automatic(calibre_db.get_book(bid), recovery_id=rid)
         assert (_book_dir(env, bid) / "Mutated.epub").read_bytes() == b"v2-newer"
         assert _meta(env).execute("SELECT 1 FROM books WHERE id=?", (bid,)).fetchone()
 
     def test_delete_refuses_missing_captured_file(self, env):
         from cps import calibre_db
-        from cps.book_recovery import RecoveryError, delete_captured_book, capture_book
+        from cps.book_recovery import RecoveryError, capture_book
+        from cps.editbooks import delete_book_automatic
 
         bid = env.add_book("Lost File", author="Auth", fmt="EPUB")
         _write_files(env, bid, {"Lost File.epub": b"e", "cover.jpg": b"c"})
         rid = capture_book(calibre_db.get_book(bid))
         os.remove(_book_dir(env, bid) / "cover.jpg")
         with pytest.raises(RecoveryError, match="expected file missing"):
-            delete_captured_book(calibre_db.get_book(bid), recovery_id=rid)
+            delete_book_automatic(calibre_db.get_book(bid), recovery_id=rid)
         assert _meta(env).execute("SELECT 1 FROM books WHERE id=?", (bid,)).fetchone()
 
     def test_format_archive_cannot_cover_whole_book_delete(self, env):
         from cps import calibre_db
-        from cps.book_recovery import RecoveryError, delete_captured_book, capture_book
+        from cps.book_recovery import RecoveryError, capture_book
+        from cps.editbooks import delete_book_automatic
 
         bid = env.add_book("Fmt Only", author="Auth", fmt="EPUB")
         _write_files(env, bid, {"Fmt Only.epub": b"e", "cover.jpg": b"c"})
         rid = capture_book(calibre_db.get_book(bid), "EPUB")
         with pytest.raises(RecoveryError, match="whole-book"):
-            delete_captured_book(calibre_db.get_book(bid), "", recovery_id=rid)
+            delete_book_automatic(calibre_db.get_book(bid), recovery_id=rid)
         assert (_book_dir(env, bid) / "Fmt Only.epub").exists()
 
     def test_reader_positions_scoped_to_current_library(self, env):
@@ -1085,7 +1039,7 @@ def test_capture_requires_library_identity(env):
 
 def test_thumbnail_cache_cleared_only_on_successful_delete(env, monkeypatch):
     from cps import calibre_db, helper
-    import cps.book_recovery as br
+    import cps.editbooks as editbooks
     from cps.editbooks import delete_book_automatic
 
     cleared = []
@@ -1096,24 +1050,12 @@ def test_thumbnail_cache_cleared_only_on_successful_delete(env, monkeypatch):
     delete_book_automatic(calibre_db.get_book(bid))
     assert cleared == [bid]
 
-    real_connect = br._connect_meta
-
-    class _FailCommit:
-        def __init__(self, real):
-            self._real = real
-
-        def execute(self, sql, *args):
-            if str(sql).strip().upper() == "COMMIT":
-                raise sqlite3.OperationalError("forced commit failure")
-            return self._real.execute(sql, *args)
-
-        def __getattr__(self, name):
-            return getattr(self._real, name)
-
     bid2 = env.add_book("Thumb Fail", author="Auth", fmt="EPUB")
     _write_files(env, bid2, {"Thumb Fail.epub": b"e"})
-    monkeypatch.setattr(br, "_connect_meta",
-                        lambda path: _FailCommit(real_connect(path)))
-    with pytest.raises(Exception):
+    def _rows_fail(book_id, book):
+        raise sqlite3.OperationalError("forced commit failure")
+
+    monkeypatch.setattr(editbooks, "delete_whole_book", _rows_fail)
+    with pytest.raises(sqlite3.OperationalError):
         delete_book_automatic(calibre_db.get_book(bid2))
     assert cleared == [bid]

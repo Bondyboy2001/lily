@@ -102,7 +102,7 @@ def test_search_box_finds_names_across_letters(authors):
     client = _login(authors)
     html = _get(client, "/author?q=ar&letter=D")
     assert _rows(html) == ["Margaret Atwood", "Charles Dickens"]
-    assert "No names match" in _get(client, "/author?q=zzz")
+    assert "No Names Match" in _get(client, "/author?q=zzz")
     assert _rows(_get(client, "/author?q=100%25")) == []  # LIKE wildcards are literal
 
 

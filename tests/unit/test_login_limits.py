@@ -1,10 +1,8 @@
-"""Password login rate limit, the wrong-code lockout that survives restarts, and the
-login page not echoing a password back."""
+"""Password login rate limit and the login page not echoing a password back."""
 
 import pytest
 
 import cps
-from cps import totp
 from tests.unit.lily_env import lily_env, ADMIN_PASSWORD
 
 pytestmark = pytest.mark.unit
@@ -68,40 +66,3 @@ def test_failed_login_does_not_echo_the_password(env):
     html = resp.get_data(as_text=True)
     assert "Wrong Username or Password" in html
     assert "s3cret-guess-123" not in html
-
-
-# ---------------------------------------------------------------- 2FA lockout
-
-def test_lockouts_escalate():
-    t = totp.FailureTracker(max_failures=2, lockout=60, max_lockout=200)
-    t.failure(1, now=0)
-    t.failure(1, now=0)
-    assert t.locked(1, now=59) and not t.locked(1, now=60)
-    t.failure(1, now=100)
-    t.failure(1, now=100)
-    assert t.locked(1, now=219) and not t.locked(1, now=220)      # doubled to 120 s
-    t.failure(1, now=300)
-    t.failure(1, now=300)
-    assert t.locked(1, now=499) and not t.locked(1, now=500)      # capped at 200 s
-    t.success(1)
-    t.failure(1, now=600)
-    t.failure(1, now=600)
-    assert not t.locked(1, now=660)                               # back to the base lockout
-
-
-def test_lockout_survives_a_restart(env):
-    from cps import web_auth
-    user = env.add_user("locked", password="pw")
-    first = totp.FailureTracker(max_failures=2, lockout=600, store=web_auth._UserLockoutStore())
-    first.failure(user.id)
-    first.failure(user.id)
-    assert first.locked(user.id)
-
-    env.ub.session.expire_all()
-    after_restart = totp.FailureTracker(max_failures=2, lockout=600, store=web_auth._UserLockoutStore())
-    assert after_restart.locked(user.id)
-    assert after_restart.locked_keys() == [user.id]
-    assert 0 < after_restart.seconds_left(user.id) <= 600
-
-    after_restart.success(user.id)   # what the admin's "unlock" does
-    assert not after_restart.locked(user.id) and after_restart.locked_keys() == []

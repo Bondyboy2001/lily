@@ -55,7 +55,7 @@ def test_new_book_upload_lands_in_ingest_folder(upload_env):
     resp = client.post("/upload", data={"btn-upload": _file()}, content_type="multipart/form-data")
 
     assert resp.status_code == 200
-    assert json.loads(resp.data)["location"].endswith("/tasks")
+    assert json.loads(resp.data)["location"] == "/"  # back to the library; the book appears once ingested
     files = _ingest_files(ingest)
     assert len(files) == 1
     name = files[0]

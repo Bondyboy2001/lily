@@ -178,19 +178,24 @@ def test_merge_strategy_merges_formats_and_trashes_the_other_copy(env):
 
 
 def test_split_library_backs_up_and_deletes_from_the_book_folder(env, tmp_path):
+    """metadata.db stays in config_calibre_dir; the book folders live in the split folder."""
+    import shutil
     from cps import config
     a, b = _pair(env, "Rob Roy")
-    elsewhere = tmp_path / "metadata-only"
-    elsewhere.mkdir()
+    books_dir = tmp_path / "split-books"
+    books_dir.mkdir()
+    for entry in env.library_dir.iterdir():
+        if entry.is_dir() and not entry.name.startswith("."):
+            shutil.move(str(entry), books_dir / entry.name)
     config.config_calibre_split = True
-    config.config_calibre_split_dir = str(env.library_dir)
-    config.config_calibre_dir = str(elsewhere)
+    config.config_calibre_split_dir = str(books_dir)
     with env.app.app_context():
         result = _resolve(_groups((a, b)))
     assert result["deleted_count"] == 1, result
     [backup] = os.listdir(tmp_path / "dup-backups")
     assert os.listdir(tmp_path / "dup-backups" / backup) == ["book_%d" % a]
-    assert _trashed_ids(env) == [a]
+    assert sorted(e["book_id"] for e in store.list_entries(str(books_dir / store.TRASH_DIRNAME))) == [a]
+    assert not _exists(env, a) and _exists(env, b)
 
 
 def test_missing_book_folder_is_not_deleted(env):
@@ -203,29 +208,12 @@ def test_missing_book_folder_is_not_deleted(env):
     assert _exists(env, a)
 
 
-def test_settings_refuse_enabling_auto_resolve_without_title_or_preview(env):
+def test_preview_records_the_run_and_deletes_nothing(env):
     c = env.app.test_client()
     c.post("/login", data={"username": env.admin().name, "password": ADMIN_PASSWORD})
     _settings(duplicate_auto_resolve_previewed_at="")
-    c.post("/cwa-settings", data={"duplicate_detection_title": "1", "duplicate_auto_resolve_enabled": "1"})
-    assert not _settings()["duplicate_auto_resolve_enabled"]
-
     a, b = _pair(env, "Rebecca")
     resp = c.post("/duplicates/preview-resolution", json={"strategy": "newest"})
     assert resp.status_code == 200 and resp.get_json()["success"]
     assert _settings()["duplicate_auto_resolve_previewed_at"]
-    assert _exists(env, a) and _exists(env, b)  # a preview deletes nothing
-
-    c.post("/cwa-settings", data={"duplicate_auto_resolve_enabled": "1"})  # Title unchecked
-    assert not _settings()["duplicate_auto_resolve_enabled"]
-    c.post("/cwa-settings", data={"duplicate_detection_title": "1", "duplicate_auto_resolve_enabled": "1"})
-    assert _settings()["duplicate_auto_resolve_enabled"]
-
-
-def test_settings_page_shows_the_guardrails(env):
-    c = env.app.test_client()
-    c.post("/login", data={"username": env.admin().name, "password": ADMIN_PASSWORD})
-    _settings(duplicate_auto_resolve_previewed_at="", duplicate_auto_resolve_last_abort="2026-01-01 03:00 Stopped")
-    html = c.get("/cwa-settings").get_data(as_text=True)
-    assert 'data-needs-title="1" disabled' in html and "(or 1% of the library)" in html
-    assert "Preview first" in html and "2026-01-01 03:00 Stopped" in html
+    assert _exists(env, a) and _exists(env, b)

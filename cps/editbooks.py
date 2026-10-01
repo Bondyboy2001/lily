@@ -944,6 +944,9 @@ def _perform_book_deletion(book, book_format="", recovery_id=None, reason="delet
     with book_recovery.RECOVERY_LOCK, book_recovery.paused_services():
         if recovery_id is None:
             recovery_id = book_recovery.capture_book(book, book_format, reason=reason)
+        else:
+            # Captured earlier (a merge): refuse if the book changed since
+            book_recovery.verify_capture(book, book_format, recovery_id)
         result, warning = helper.delete_book(book, config.get_book_path(),
                                              book_format=book_format.upper(), reason=reason)
         if not result:
@@ -966,6 +969,8 @@ def _perform_book_deletion(book, book_format="", recovery_id=None, reason="delet
                 except Exception as undo_ex:
                     log.error("Could not undo the Trash move of book %s: %s", book_id, undo_ex)
             raise
+    if not book_format:
+        helper.clear_cover_thumbnail_cache(book_id)
 
     refreshed_duplicate_cache = False
     if not book_format:

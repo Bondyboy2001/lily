@@ -601,7 +601,7 @@ def delete_book(book, calibrepath, book_format, reason="delete"):
         return delete_book_gdrive(book, book_format)
     result = delete_book_file(book, calibrepath, book_format, reason=reason)
     if result[0] and not book_format:
-        clear_cover_thumbnail_cache(book.id)
+        # editbooks._perform_book_deletion clears the cover thumbnails once the rows are gone
         calibre_db.delete_dirty_metadata(book.id)
     return result
 

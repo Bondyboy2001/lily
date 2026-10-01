@@ -1,7 +1,6 @@
 """Book descriptions are HTML from Calibre, uploads and metadata providers: they are cleaned
 when shown and when stored."""
 
-import json
 import sqlite3
 from types import SimpleNamespace
 
@@ -71,23 +70,6 @@ def test_detail_page_shows_a_cleaned_description(env, monkeypatch):
     section = html[html.index("book-detail-description"):]
     section = section[:section.index("</section>")]
     _assert_clean(section)
-
-
-def test_accepted_suggestion_stores_a_cleaned_description(env):
-    from cps import metadata_queue
-    book = env.add_book("Suggested")
-    ub = env.ub
-    row = ub.MetadataSuggestion(book_id=book, book_title="Suggested", book_authors="A", provider="openlibrary",
-                                record_title="Suggested", record_authors="A", score=0.9,
-                                fill=json.dumps({"description": EVIL}), created_at="2026-10-01T00:00:00")
-    ub.session.add(row)
-    ub.session.commit()
-    with env.app.app_context():
-        metadata_queue.apply_suggestion(row)
-    con = sqlite3.connect(env.library_dir / "metadata.db")
-    stored = con.execute("SELECT text FROM comments WHERE book=?", (book,)).fetchone()[0]
-    con.close()
-    _assert_clean(stored)
 
 
 def test_auto_fetched_description_is_stored_cleaned(monkeypatch):
