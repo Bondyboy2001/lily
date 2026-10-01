@@ -50,12 +50,12 @@ class TestFilterChips:
         env.add_book("Pdf German", fmt="PDF", tags=("History",), lang="deu")
         env.add_book("Epub German", fmt="EPUB", tags=("History",), lang="deu")
 
-    def test_no_filter_shows_everything_and_offers_chips(self, env):
+    def test_no_filter_shows_everything_without_a_chip_bar(self, env):
         self._library(env)
         html = _get(_login(env), "/")
         assert _titles(html) == ["Epub English", "Epub German", "Pdf German"]
-        assert 'class="lily-filter-chips"' in html
-        assert ">EPUB</a>" in html and ">PDF</a>" in html
+        assert 'class="lily-filter-chips"' not in html
+        assert "Discover (Random Books)" not in html
 
     def test_format_language_and_tag_filters_combine(self, env):
         self._library(env)

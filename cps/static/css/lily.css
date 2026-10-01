@@ -57,61 +57,61 @@
     --font-mono: "SF Mono", ui-monospace, Menlo, monospace;
 }
 
-/* Dark theme: the same tokens, redefined. Every text token keeps ≥4.5:1 on paper, surface and sunk;
+/* Dark theme: DESIGN.md "Abyss", same tokens redefined. Every text token keeps ≥4.5:1 on paper, surface and sunk;
    --line-strong keeps ≥3:1. "System" follows prefers-color-scheme unless the reader chose Light. */
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
         color-scheme: dark;
-        --paper: #1B1719;
-        --surface: #241F21;
-        --sunk: #141112;
-        --ink: #EDE6E3;
-        --ink-soft: #D9CFCB;
-        --muted: #B5AAA8;
-        --faint: #A69A99;
-        --line: #4D4346;
-        --line-soft: #3B3336;
-        --line-strong: #83767A;
-        --accent: #E88AAA;
-        --heading: #E88AAA;
-        --success: #9CC491;
-        --warning: #EFA474;
-        --danger: #F2948B;
-        --on-accent: #1B1719;
-        --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%231B1719' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-        --series-1: #E88AAA;
-        --series-2: #72A9E6;
-        --series-3: #D8A94A;
-        --series-4: #5DC39F;
-        --series-5: #AD91E3;
+        --paper: #1A1B26;
+        --surface: #1F2335;
+        --sunk: #16161E;
+        --ink: #C8D1F5;
+        --ink-soft: #A9B1D6;
+        --muted: #9098C2;
+        --faint: #8A92BC;
+        --line: #2F3549;
+        --line-soft: #24283B;
+        --line-strong: #66729F;
+        --accent: #7AA2F7;
+        --heading: #7AA2F7;
+        --success: #9ECE6A;
+        --warning: #FF9E64;
+        --danger: #F7768E;
+        --on-accent: #1A1B26;
+        --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%231A1B26' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        --series-1: #7AA2F7;
+        --series-2: #E88AAA;
+        --series-3: #E0AF68;
+        --series-4: #73DACA;
+        --series-5: #BB9AF7;
         --menu-shadow: 0 1px 2px color-mix(in srgb, #000 30%, transparent), 0 8px 24px color-mix(in srgb, #000 45%, transparent);
     }
 }
 
 :root[data-theme="dark"] {
     color-scheme: dark;
-    --paper: #1B1719;
-    --surface: #241F21;
-    --sunk: #141112;
-    --ink: #EDE6E3;
-    --ink-soft: #D9CFCB;
-    --muted: #B5AAA8;
-    --faint: #A69A99;
-    --line: #4D4346;
-    --line-soft: #3B3336;
-    --line-strong: #83767A;
-    --accent: #E88AAA;
-    --heading: #E88AAA;
-    --success: #9CC491;
-    --warning: #EFA474;
-    --danger: #F2948B;
-    --on-accent: #1B1719;
-    --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%231B1719' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    --series-1: #E88AAA;
-    --series-2: #72A9E6;
-    --series-3: #D8A94A;
-    --series-4: #5DC39F;
-    --series-5: #AD91E3;
+    --paper: #1A1B26;
+    --surface: #1F2335;
+    --sunk: #16161E;
+    --ink: #C8D1F5;
+    --ink-soft: #A9B1D6;
+    --muted: #9098C2;
+    --faint: #8A92BC;
+    --line: #2F3549;
+    --line-soft: #24283B;
+    --line-strong: #66729F;
+    --accent: #7AA2F7;
+    --heading: #7AA2F7;
+    --success: #9ECE6A;
+    --warning: #FF9E64;
+    --danger: #F7768E;
+    --on-accent: #1A1B26;
+    --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%231A1B26' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --series-1: #7AA2F7;
+    --series-2: #E88AAA;
+    --series-3: #E0AF68;
+    --series-4: #73DACA;
+    --series-5: #BB9AF7;
     --menu-shadow: 0 1px 2px color-mix(in srgb, #000 30%, transparent), 0 8px 24px color-mix(in srgb, #000 45%, transparent);
 }
 

@@ -937,7 +937,7 @@
     line-height: 1.4;
     letter-spacing: .04em;
     text-transform: uppercase;
-    color: var(--muted);
+    color: var(--heading);
 }
 
 .lp-group-head .btn { flex: none; }
@@ -1222,7 +1222,7 @@ input[type="checkbox"].lp-switch:focus-visible {
 .lp-footnote .lp-mono { font-size: 12px; }
 
 /* Legacy wrappers still inside a settings pane. */
-.lily-admin .lp-label { margin: 0; font-family: var(--font-ui); font-size: 11px; color: var(--muted); }
+.lily-admin .lp-label { margin: 0; font-family: var(--font-ui); font-size: 11px; color: var(--heading); }
 .lp-pane > .lily-admin { max-width: none; }
 
 /* ---- Narrow: the rail becomes a strip of chips over the page ---- */

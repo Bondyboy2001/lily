@@ -4,7 +4,7 @@
     theme button (lily.js) changes it. -#}
     <meta name="color-scheme" content="light dark">
     <meta name="theme-color" content="#FDFCFA" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#1B1719" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#1A1B26" media="(prefers-color-scheme: dark)">
     <script>
       (function () {
         var pref = "system";
@@ -16,7 +16,7 @@
         root.setAttribute("data-theme", pref);
         var metas = document.querySelectorAll('meta[name="theme-color"]');
         for (var i = 0; i < metas.length; i++) {
-          metas[i].setAttribute("content", pref === "dark" ? "#1B1719" : "#FDFCFA");
+          metas[i].setAttribute("content", pref === "dark" ? "#1A1B26" : "#FDFCFA");
         }
       })();
     </script>

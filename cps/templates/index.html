@@ -63,20 +63,7 @@
   </div>
 </section>
 {% endif %}
-{% if current_user.show_detail_random() and page != "discover" and not (list_filters and list_filters.active) and random is iterable and random|list|length %}
-<div class="discover random-books">
-  <h2 class="random-books">{{_('Discover (Random Books)')}}</h2>
-  <div class="row display-flex lily-grid">
-   {% for entry in random %}
-    {{ image.book_card(entry.Books, current_user, entry[2] == True, g.config_authors_max, extra_class='books_rand') }}
-   {% endfor %}
-  </div>
-</div>
-{% endif %}
 <div class="discover load-more">
-  {% if page == 'discover' and list_filters %}
-  <div class="lily-list-toolbar">{{ image.filter_chips(list_filters) }}</div>
-  {% endif %}
   {% if page != 'discover' %}
   <div class="lily-list-toolbar">
     {# Grid/List icons, pinned to the toolbar's top right #}
@@ -85,7 +72,6 @@
     {% elif page == 'series' %}{% set sort_fields = ['added', 'title', 'author', 'published', 'series'] %}
     {% else %}{% set sort_fields = ['added', 'title', 'author', 'published'] %}{% endif %}
     {{ image.sort_menu(order, url_for('web.books_list', data=page, book_id=id, sort_param='SORT_PARAM', **(list_filters.args if list_filters else {})), sort_fields) }}
-    {{ image.filter_chips(list_filters) }}
   </div>
   {% endif %}
 
