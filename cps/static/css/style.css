@@ -297,7 +297,10 @@ input.pill:not(:checked) + label .glyphicon {
    and only the results scroll. */
 #metaModal .modal-dialog { margin-top: 24px; margin-bottom: 24px; }
 
+/* min-width: 0 so the clamped description (a -webkit-box, whose min-content is its
+   whole unwrapped line) can't widen the dialog past the window */
 #metaModal .modal-content {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   max-height: calc(100vh - 48px);
@@ -333,7 +336,7 @@ input.pill:not(:checked) + label .glyphicon {
 
 /* Results found by the book's ISBN/DOI/arXiv id */
 #meta-info #book-list .media.meta-exact {
-  border: 2px solid var(--success);
+  background-color: color-mix(in srgb, var(--success) 10%, var(--surface));
 }
 
 #meta-info #book-list .media .media-image {
@@ -396,9 +399,10 @@ input.pill:not(:checked) + label .glyphicon {
 
 #meta-info #book-list .media .media-body {
   flex: 1;
+  min-width: 0;
   padding: 20px;
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;
   align-content: start;
 }
@@ -428,15 +432,8 @@ input.pill:not(:checked) + label .glyphicon {
   overflow-wrap: anywhere;
 }
 
-/* Fields the form already has are dimmed; changed ones show the form's value below */
+/* Fields the form already has are dimmed */
 #meta-info #book-list .media .media-body dd.meta-same { color: var(--muted); }
-
-#meta-info #book-list .media .media-body .meta-note {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-#meta-info #book-list .media .media-body div.meta-note { margin-top: 2px; }
 
 #meta-info #book-list .media .media-body .meta-toggle-row {
   grid-column: 1 / -1;

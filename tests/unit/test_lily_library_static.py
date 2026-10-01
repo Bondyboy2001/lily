@@ -100,6 +100,12 @@ def test_continue_reading_progress_sits_on_the_cover():
     assert "continue-reading-progress" in cover and "progress" not in meta
 
 
+def test_continue_reading_opens_the_reader_in_a_new_tab():
+    html = read(TEMPLATES / "index.html")
+    cover = re.search(r'<div class="cover">(.*?)\n      </div>', html, flags=re.S).group(1)
+    assert '{% if resume_format %}target="_blank" rel="noopener"{% endif %}' in cover
+
+
 def test_detail_toolbar_buttons_are_labelled():
     css = read(CSS / "lily-library.css")
     parts = _rules_by_selector(css, ".book-action-bar")
@@ -232,9 +238,15 @@ def test_site_has_no_horizontal_separator_borders():
     names = ["style.css", "lily.css", "lily-shell.css", "lily-library.css",
              "lily-admin.css", "lily-stats.css", "lily-reader.css",
              "duplicates-notifications.css", "login.css"]
+    rule = r"border-(?:top|bottom):\s*1px solid var\(--line(?:-soft)?\)"
     for name in names:
         css = re.sub(r"/\*.*?\*/", "", read(CSS / name), flags=re.S)
-        assert not re.search(r"border-(?:top|bottom):\s*1px solid var\(--line(?:-soft)?\)", css), name
+        if name == "lily-shell.css":
+            # The one exception: the sticky top bar's bottom rule.
+            topbar = re.search(r"\.navbar\.lily-topbar \{[^}]*\}", css).group(0)
+            assert "border-bottom: 1px solid var(--line-soft)" in topbar
+            css = css.replace(topbar, "")
+        assert not re.search(rule, css), name
     rules = dict(css_rules(read(CSS / "lily.css")))
     assert "display: none" in rules["hr"]
     assert "display: none" in rules[".dropdown-menu .divider"]

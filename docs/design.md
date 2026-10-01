@@ -21,7 +21,8 @@ The single source of truth for how Lily looks and behaves. It replaces the share
    no decorative shadows. Colour is spent on attention, not decoration.
 2. **Space separates, lines don't.** No horizontal divider lines (`hr` is
    hidden). Separate content with spacing and surface panels. Control
-   outlines and focus rings stay.
+   outlines and focus rings stay. The one exception is the top bar's 1px
+   `--line-soft` bottom rule, which marks off the sticky bar from the page.
 3. **Controls read by fill, not outline.** No button wears a border. A control
    is recognised by its place, its faint fill and its hover.
 4. **One primary per view.** Exactly one solid accent button moves the screen
@@ -76,6 +77,8 @@ format: one token per row, the light value, then the dark value.
 | `--warning` | `#A13F0E` | `#FF9E64` | Needs attention |
 | `--danger` | `#B3261E` | `#F7768E` | Failed (status text and tints) |
 | `--on-accent` | `#FFFFFF` | `#1A1517` | Text and marks drawn on an accent fill |
+| `--cover-ink-dark` | `#2B2127` | `#2B2127` | Icons on a pale sampled cover colour (same in both themes) |
+| `--cover-ink-light` | `#F8F6F3` | `#F8F6F3` | Icons on a dark sampled cover colour (same in both themes) |
 
 Also defined per theme: `--check-mark` (an SVG tick in `--on-accent`) and
 `--menu-shadow` (§4.4).
@@ -98,7 +101,7 @@ Same formula in both themes, defined once on `:root`:
 | --- | --- | --- |
 | `--hover` | accent 10% | List/table row, menu item under the pointer |
 | `--selected` | accent 17% | Picked row, chosen chip on hover, checked option |
-| `--accent-soft` | accent 12% | Chosen chip, toggle-on button, shelf chips |
+| `--accent-soft` | accent 12% | Chosen chip, toggle-on button |
 | `--control-tint` | ink 6% | Quiet button and chip fill, icon-button hover |
 | `--control-tint-strong` | ink 10% | Quiet button hover, pressed icon button, switch off |
 | `--row-hover` | ink 5% | Navigation row hover |
@@ -441,14 +444,17 @@ content (grid, panel, rows)
 
 - **Grid** (`.lily-grid`): `repeat(auto-fill, minmax(190px, 1fr))`, gap 26;
   phones 2-up, gap 22×14. Card: cover (§5.15), then title 15/500 clamped to
-  two lines, then meta 14px `--muted`. Quick actions are a frosted box across the
-  cover's foot (`--surface` 90%, blur 8, no radius of its own) whose icon
-  buttons split it evenly; it slides up on hover/focus and stays visible on
-  touch. Read state tints the eye's slot green.
+  two lines, then meta 14px `--muted`. Quick actions are a box across the cover's foot
+  filled with the cover's own colour (lily.js takes the dominant colour of the strip it covers into
+  `--cover-tint`, falling back to `--surface`; `data-tone` picks
+  `--cover-ink-dark` or `--cover-ink-light`). The cover's hairline stays drawn
+  over it, and its icon buttons split it evenly with a hairline between them
+  (ink 22%); it slides up on hover/focus and stays visible on touch. Read state tints the eye's slot green.
 - **List view ("ledger"):** one shared `--ledger-cols` track list for header and
   rows; rows radius 6, alternate ink 3%, hover `--hover`; read state is a dot.
 - **Toolbar** (`.lily-list-toolbar`): chips and sort on the left, view switch
-  (large icon buttons) top-right, margin-bottom 22.
+  (large icon buttons) top-right, margin-bottom 22. Toolbar chips are 38 tall
+  so they sit level with the view switch.
 
 ### 6.4 Book page ("Shelf" layout)
 
@@ -460,8 +466,13 @@ content (grid, panel, rows)
   description and facts go full-width, facts last. Reset row sizing here. The
   primary action takes a full line; the rest share the next.
 - Description: `--font-body` 18px, line-height 1.68, max 78ch, `--ink-soft`.
-- Shelves are accent chips. Tags are a plain row in the facts panel: names as
-  comma-separated `--accent` links, no chip or icon.
+- Every fact is one line; a long value ends in an ellipsis, never wraps.
+- Shelves and tags are plain rows in the facts panel: names as comma-separated
+  `--accent` links, no chip or icon.
+- Papers: an arXiv row shows the id itself, linked to the abstract page; its
+  DOI isn't shown. Other identifiers (a non-arXiv paper's DOI included) stay as
+  named links in one Identifiers row. A Citations row fills in after load from OpenAlex
+  and stays hidden when the paper isn't found.
 
 ### 6.5 Settings (`settings_layout.html`, `lily_form.html`)
 
@@ -493,10 +504,15 @@ use `.lily-standalone` with max-width 560.
 ### 6.7 Reader
 
 `lily-reader.css` styles the reader **chrome** (title bar, sidebar, settings
-sheet, audio player) with tokens; the page zoom is reset to 1. The book
-*page* themes (Light, Sepia, Dark, Black in `main.css`) are content and keep
-their own hex values. The PDF reader (pdf.js `viewer.css`) is outside the
-system.
+sheet, audio player) with tokens. The page zoom is reset to 1, and the chrome
+alone takes the site's wide-screen zoom through `--reader-zoom` (same
+breakpoints as §3), so controls match the rest of the site. The epub `#viewer`
+stays unzoomed because epub.js sizes its iframe from it; its insets are
+multiplied by `--reader-zoom` by hand. The book *page* themes (Light, Sepia,
+Dark, Black in `main.css`) are content and keep their own hex values. The PDF
+reader (pdf.js `viewer.css`) is outside the system; `lily-pdf.css` only zooms
+its toolbars (1.25× base, times the site zoom, from 1100px) to the site's
+control size and keeps the pages unzoomed.
 
 ---
 
@@ -574,6 +590,7 @@ transitions are turned off in `lily.js`.
 | `lily-admin.css` | Settings frame (`.lp-*`), admin pages, logs, error page |
 | `lily-stats.css` | Duplicates page (the name predates the stats removal; rename to `lily-duplicates.css`) |
 | `lily-reader.css` | Reader chrome (loaded only by reader templates) |
+| `lily-pdf.css` | pdf.js toolbar sizing (loaded only by `readpdf.html`) |
 | `lily-icons.css` | Generated icons |
 | `login.css` | Login and change-password |
 | `style.css`, `upload.css`, `lily-fixes.css` | Legacy. Don't add to them; move rules out when you touch them |
@@ -596,7 +613,7 @@ sheets → icons. Page sheets scope by wrapper class and consume tokens only.
 
 - Hex/rgb/hsl outside the palette blocks · a hard-coded `font-family`
 - Gradients, blur, `backdrop-filter`, shadows on non-floating layers
-- Borders on buttons · horizontal divider lines · uppercase text
+- Borders on buttons · horizontal divider lines (except the top bar's rule) · uppercase text
 - A third heading size · a heading not in `--heading`
 - Inline `style=""` for appearance · `!important` in new rules
 - A new breakpoint outside §4.5 · editing `lily-icons.css` by hand

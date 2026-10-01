@@ -41,6 +41,29 @@ def test_every_reader_loads_the_lily_reader_css():
         assert "url_for('web.show_book'" in html, name
 
 
+def test_reader_chrome_follows_the_site_zoom():
+    # The readers reset the page zoom, so the chrome takes the site's wide-screen zoom
+    # itself; the epub page stays unzoomed and clears the chrome by hand.
+    css = strip_comments(read(CSS / "lily-reader.css"))
+    for width, zoom in (("1400px", "1.1"), ("1700px", "1.2")):
+        assert re.search(r"@media \(min-width: %s\) \{ html\.lily-reader-page \{ --reader-zoom: %s; \} \}"
+                         % (width, re.escape(zoom)), css), width
+    assert re.search(r"#titlebar[^{]*\{\s*zoom: var\(--reader-zoom\)", css)
+    viewer = re.search(r"\.lily-reader\.lily-epub #viewer \{(.*?)\}", css, flags=re.S).group(1)
+    assert "zoom:" not in viewer
+    assert "top: calc(64px * var(--reader-zoom))" in viewer
+
+
+def test_pdf_reader_zooms_its_toolbars_not_its_pages():
+    html = read(TEMPLATES / "readpdf.html")
+    assert html.index("css/libs/viewer.css") < html.index("css/lily-pdf.css")
+    css = strip_comments(read(CSS / "lily-pdf.css"))
+    zoomed = re.search(r"([^{}]*)\{\s*zoom: var\(--pdf-chrome-zoom\);", css).group(1)
+    assert ".toolbar" in zoomed and ".secondaryToolbar" in zoomed and ".findbar" in zoomed
+    assert "#viewerContainer" not in zoomed
+    assert re.search(r"#viewerContainer[^{]*\{\s*inset-block-start: calc\(32px \* var\(--pdf-chrome-zoom\)\)", css)
+
+
 def test_readers_toolbar_controls_are_labelled_buttons():
     html = read(TEMPLATES / "read.html")
     for control in ["slider", "bookmark", "setting", "fullscreen"]:

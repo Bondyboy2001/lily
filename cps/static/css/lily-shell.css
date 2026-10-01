@@ -170,7 +170,8 @@ body { margin: 0; }
     margin: 0;
     padding: 0 24px;
     border: 0;
-    border-bottom: 0;
+    /* The one horizontal rule (design.md §1.2): it marks off the sticky bar from the page. */
+    border-bottom: 1px solid var(--line-soft);
     border-radius: 0;
     background: var(--paper);
 }

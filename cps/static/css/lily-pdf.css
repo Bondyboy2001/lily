@@ -1,0 +1,28 @@
+/*
+ * Lily sizing for the pdf.js viewer (readpdf.html), loaded after viewer.css.
+ *
+ * pdf.js draws its chrome small: a 32px bar, 16px icons and the 13px system font.
+ * Zoom the chrome so it matches the site's control sizes and its wide-screen zoom
+ * (lily.css: 1.1 from 1400px, 1.2 from 1700px). The pages in #viewerContainer stay
+ * unzoomed; pdf.js measures them for its text and annotation layers. Narrower
+ * windows keep pdf.js' own size: its toolbar breakpoints assume an unzoomed bar.
+ */
+:root { --pdf-chrome-zoom: 1; }
+@media (min-width: 1100px) { :root { --pdf-chrome-zoom: 1.25; } }
+@media (min-width: 1400px) { :root { --pdf-chrome-zoom: 1.375; } }
+@media (min-width: 1700px) { :root { --pdf-chrome-zoom: 1.5; } }
+
+/* The doorhangers sit at top: 32px, which the same zoom scales to the bar's height. */
+.toolbar,
+#toolbarSidebar,
+.findbar,
+.secondaryToolbar,
+.editorParamsToolbar {
+    zoom: var(--pdf-chrome-zoom);
+}
+
+#viewerContainer,
+#sidebarContainer,
+#sidebarContent {
+    inset-block-start: calc(32px * var(--pdf-chrome-zoom));
+}

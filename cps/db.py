@@ -120,6 +120,8 @@ class Identifiers(Base):
             return "ISBN"
         elif format_type == "doi":
             return "DOI"
+        elif format_type == "arxiv":
+            return "arXiv"
         elif format_type == "douban":
             return "Douban"
         elif format_type == "goodreads":
@@ -162,7 +164,9 @@ class Identifiers(Base):
         elif format_type == "isbn":
             return "https://www.worldcat.org/isbn/{0}".format(self.val)
         elif format_type == "doi":
-            return "https://dx.doi.org/{0}".format(self.val)
+            return "https://doi.org/{0}".format(self.val)
+        elif format_type == "arxiv":
+            return "https://arxiv.org/abs/{0}".format(self.val)
         elif format_type == "goodreads":
             return "https://www.goodreads.com/book/show/{0}".format(self.val)
         elif format_type == "babelio":

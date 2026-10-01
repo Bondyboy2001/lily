@@ -9,9 +9,18 @@
  */
 
 /* The readers size everything in % of the window; lily.css' wide-screen zoom would
-   push them past the edges. */
+   push them past the edges. The chrome still follows that zoom through --reader-zoom
+   (same breakpoints) so it matches the site; the epub page itself stays unzoomed. */
 html.lily-reader-page,
 html.lily-reader-page body { zoom: 1; --page-zoom: 1; }
+
+html.lily-reader-page { --reader-zoom: 1; }
+@media (min-width: 1400px) { html.lily-reader-page { --reader-zoom: 1.1; } }
+@media (min-width: 1700px) { html.lily-reader-page { --reader-zoom: 1.2; } }
+
+.lily-reader :is(#titlebar, .arrow, #progress, .lily-progress-status, #sidebar, .md-content, .lily-reader-bar, .lily-audio-page) {
+    zoom: var(--reader-zoom);
+}
 
 body.lily-reader {
     margin: 0;
@@ -231,12 +240,13 @@ body.lily-reader {
 
 .lily-reader.lily-epub #viewer {
     position: absolute;
-    top: 64px;
-    right: 88px;
-    bottom: 44px;
-    left: 88px;
+    /* Unzoomed (epub.js sizes its iframe from it), so it clears the zoomed chrome by hand. */
+    top: calc(64px * var(--reader-zoom));
+    right: calc(88px * var(--reader-zoom));
+    bottom: calc(44px * var(--reader-zoom));
+    left: calc(88px * var(--reader-zoom));
     width: auto;
-    max-width: 1180px;
+    max-width: calc(1180px * var(--reader-zoom));
     height: auto;
     margin: 0 auto;
 }
@@ -664,8 +674,8 @@ body.lily-reader {
 /* DjVu reader                                                          */
 /* ------------------------------------------------------------------ */
 .lily-reader.lily-djvu #djvuContainer {
-    top: 52px;
-    height: calc(100% - 52px);
+    top: calc(52px * var(--reader-zoom));
+    height: calc(100% - 52px * var(--reader-zoom));
 }
 
 /* ------------------------------------------------------------------ */

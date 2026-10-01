@@ -641,3 +641,50 @@ window.lilyToggleSortDir = function (btn) {
     for (var i = 0; i < cards.length; i++) { cards[i].style.setProperty("--i", i); }
   });
 })();
+
+/* Quick-action bar colour: take the dominant colour of the strip of cover the bar sits on (as
+   cropped by object-fit: cover), so the bar reads as part of the cover. Sets --cover-tint on the
+   bar and data-tone so lily-library.css picks a legible ink. */
+(function () {
+  "use strict";
+  var W = 32, H = 8, canvas, ctx;
+
+  function tint(img) {
+    var card = img.closest(".lily-book"), bar = card && card.querySelector(".lily-cover-actions");
+    var box = img.closest(".cover");
+    if (!bar || !box || !img.naturalWidth) { return; }
+    if (!ctx) {
+      canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = H;
+      ctx = canvas.getContext("2d", { willReadFrequently: true });
+    }
+    try {
+      var nw = img.naturalWidth, nh = img.naturalHeight;
+      var bw = box.clientWidth || nw, bh = box.clientHeight || nh;
+      var scale = Math.max(bw / nw, bh / nh);
+      var visW = bw / scale, visH = bh / scale;
+      var sx = (nw - visW) / 2, bottom = (nh - visH) / 2 + visH;
+      var sh = Math.max(1, (bar.offsetHeight || 38) / scale);
+      ctx.drawImage(img, sx, bottom - sh, visW, sh, 0, 0, W, H);
+      var d = ctx.getImageData(0, 0, W, H).data, buckets = {}, best = null;
+      for (var i = 0; i < d.length; i += 4) {
+        var key = (d[i] >> 4) + "," + (d[i + 1] >> 4) + "," + (d[i + 2] >> 4);
+        var b = buckets[key] || (buckets[key] = { n: 0, r: 0, g: 0, b: 0 });
+        b.n++; b.r += d[i]; b.g += d[i + 1]; b.b += d[i + 2];
+        if (!best || b.n > best.n) { best = b; }
+      }
+      var r = Math.round(best.r / best.n), g = Math.round(best.g / best.n), bl = Math.round(best.b / best.n);
+      bar.style.setProperty("--cover-tint", "rgb(" + r + "," + g + "," + bl + ")");
+      bar.setAttribute("data-tone", (0.2126 * r + 0.7152 * g + 0.0722 * bl) > 150 ? "light" : "dark");
+    } catch (err) { /* tainted or undecodable image: keep the surface fallback */ }
+  }
+
+  document.addEventListener("load", function (e) {
+    if (e.target.tagName === "IMG" && e.target.closest(".lily-book .cover")) { tint(e.target); }
+  }, true);
+  document.addEventListener("DOMContentLoaded", function () {
+    var imgs = document.querySelectorAll(".lily-book .cover img");
+    for (var i = 0; i < imgs.length; i++) { if (imgs[i].complete) { tint(imgs[i]); } }
+  });
+})();

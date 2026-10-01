@@ -333,11 +333,6 @@
           <% if (f.editions) { %>
             <a href="#" class="meta-editions" data-hardcover-id="<%- f.editions %>"><span class="glyphicon glyphicon-search" aria-hidden="true"></span> {{_("Editions")}}</a>
           <% } %>
-          <% if (f.same) { %>
-            <span class="meta-note">{{_("same as now")}}</span>
-          <% } else if (f.current) { %>
-            <div class="meta-note">{{_("Now")}}: <%- f.current %></div>
-          <% } %>
         </dd>
       <% }); %>
     </dl>

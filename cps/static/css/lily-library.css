@@ -215,6 +215,7 @@
     position: absolute;
     inset: 0;
     border-radius: 8px;
+    z-index: 3;
     outline: 1px solid var(--line-soft);
     outline-offset: -1px;
     pointer-events: none;
@@ -255,15 +256,6 @@
 
 /* Grid covers show read state on the action chip; the corner tick is list-view only. */
 body:not([data-book-view="list"]) .lily-book .cover .badge.read { display: none; }
-
-.lily-cover-formats {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    z-index: 1;
-    display: flex;
-    gap: 4px;
-}
 
 /* Coloured file-type marks (Material Icon Theme), so they keep their colours in both themes. */
 .lily-format {
@@ -358,16 +350,19 @@ body:not([data-book-view="list"]) .lily-book .cover .badge.read { display: none;
     outline-offset: -3px;
 }
 
-/* Quick actions: a frosted box across the cover's foot, shown on hover or keyboard focus. The
-   buttons split it evenly and are skinned through the --btn-* variables, which list view overrides. */
+/* Quick actions: a box across the cover's foot in the cover's own colour (lily.js samples it into
+   --cover-tint and sets data-tone), shown on hover or keyboard focus. The cover's hairline stays
+   drawn over it. The buttons split it evenly with a hairline between them, and are skinned through
+   the --btn-* variables, which list view overrides. */
 .lily-cover-actions {
     --btn-size: 38px;
     --btn-bg: transparent;
-    --btn-hover-bg: var(--hover);
+    --btn-hover-bg: color-mix(in srgb, var(--btn-ink) 10%, transparent);
     --btn-border: transparent;
+    --btn-divider: color-mix(in srgb, var(--btn-ink) 22%, transparent);
     --btn-radius: 0;
     --btn-ink: var(--ink-soft);
-    --btn-hover-ink: var(--accent);
+    --btn-hover-ink: var(--btn-ink);
     position: absolute;
     left: 0;
     right: 0;
@@ -375,11 +370,13 @@ body:not([data-book-view="list"]) .lily-book .cover .badge.read { display: none;
     z-index: 2;
     display: flex;
     padding: 0;
-    background: color-mix(in srgb, var(--surface) 90%, transparent);
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
-    box-shadow: 0 -4px 14px color-mix(in srgb, var(--ink) 8%, transparent);
+    background: var(--cover-tint, var(--surface));
 }
+
+.lily-cover-actions[data-tone="light"] { --btn-ink: var(--cover-ink-dark); }
+.lily-cover-actions[data-tone="dark"] { --btn-ink: var(--cover-ink-light); }
+
+.lily-cover-actions .icon-btn + .icon-btn { border-left-color: var(--btn-divider); }
 
 .lily-cover-actions .icon-btn {
     flex: 1 1 0;
@@ -553,7 +550,6 @@ body[data-book-view="list"] .lily-grid > .lily-book .cover .img {
 
 /* The title's dot carries the read state, so the thumbnail keeps no badge. */
 body[data-book-view="list"] .lily-grid > .lily-book .cover .badge.read,
-body[data-book-view="list"] .lily-cover-formats { display: none; }
 
 body[data-book-view="list"] .lily-grid > .lily-book .meta > * {
     grid-row: 1 / span 2;
@@ -651,12 +647,9 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
     padding: 0;
     gap: 2px;
     background: none;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    box-shadow: none;
 }
 
-body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .icon-btn { flex: none; }
+body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .icon-btn { flex: none; border-left-color: var(--btn-border); }
 
 /* The read eye keeps its green disc even in list rows, where the other
    quick actions go square and flat. */
@@ -1074,52 +1067,6 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 
 .book-detail-file .lily-format { flex: none; width: 22px; height: 22px; }
 
-/* Shelves and tags close the right-hand column in one row. Each kind has one fixed look so
-   it reads at a glance: shelves are filled accent chips with the sidebar's shelf glyph, tags
-   are outlined pills with a tag glyph. */
-.book-detail-taxonomy {
-    /* Many tags wrap here instead of widening the middle column. */
-    max-width: 720px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-}
-
-.book-detail-taxonomy .btn.lily-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0;
-    max-width: 100%;
-    border: 1px solid transparent;
-}
-
-.book-detail-taxonomy .btn.lily-chip .glyphicon {
-    top: 0;
-    flex: none;
-    font-size: .8em;
-    opacity: .75;
-}
-
-.book-detail-taxonomy .chip-label {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.book-detail-taxonomy .btn.lily-chip.is-shelf {
-    border-radius: var(--control-radius);
-    background: var(--accent-soft);
-    color: var(--accent);
-}
-
-.book-detail-taxonomy .btn.lily-chip.is-shelf:hover,
-.book-detail-taxonomy .btn.lily-chip.is-shelf:focus {
-    background: var(--selected);
-    color: var(--accent);
-}
-
 .book-detail-meta {
     display: flex;
     flex-direction: column;
@@ -1256,6 +1203,8 @@ dl.book-metadata:not(:has(> div)) { display: none; }
     min-width: 0;
 }
 
+.book-metadata > div[hidden] { display: none; }
+
 .book-metadata dt {
     flex: none;
     color: var(--muted);
@@ -1271,12 +1220,15 @@ dl.book-metadata:not(:has(> div)) { display: none; }
     font-variant-numeric: tabular-nums;
     min-width: 0;
     text-align: right;
-    overflow-wrap: anywhere;
+    /* One line per fact; a long value ends in an ellipsis */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Files lead the panel as tiles; the tiles say what they are, so the label is sr-only. */
 .book-metadata > .formats { display: block; grid-column: 1 / -1; margin-bottom: 6px; }
-.book-metadata > .formats > dd { text-align: left; }
+.book-metadata > .formats > dd { text-align: left; white-space: normal; overflow: visible; }
 
 .book-detail-description { align-self: stretch; }
 
@@ -1834,6 +1786,12 @@ body.book_table .pagination {
     flex-wrap: wrap;
     gap: 8px;
     align-self: flex-start;
+}
+
+/* Toolbar chips share the row with the 38px Grid/List icons, so they take the same height. */
+.lily-list-toolbar .btn.lily-chip {
+    height: 38px;
+    line-height: 38px;
 }
 
 .lily-sort > .btn.lily-chip {

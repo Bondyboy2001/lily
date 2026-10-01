@@ -271,8 +271,8 @@ var reader;
         const theme = localStorage.getItem("calibre.reader.theme") ?? "lightTheme";
         if (typeof selectTheme === 'function') selectTheme(theme);
 
-        // Font size
-        let savedFontSize = localStorage.getItem("calibre.reader.fontSize");
+        // Font size (150% until the reader picks one)
+        let savedFontSize = localStorage.getItem("calibre.reader.fontSize") || "150";
         let fontSizeFader = document.getElementById('fontSizeFader');
         if (savedFontSize && fontSizeFader && reader && reader.rendition && reader.rendition.themes) {
             fontSizeFader.value = savedFontSize;

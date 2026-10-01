@@ -61,6 +61,9 @@
     --danger: #B3261E;
     /* Text and marks drawn on an accent fill (primary buttons, checked boxes). */
     --on-accent: #FFFFFF;
+    /* Ink over a sampled cover colour (the grid's quick-action bar); fixed in both themes. */
+    --cover-ink-dark: #2B2127;
+    --cover-ink-light: #F8F6F3;
     --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 
     --hover: color-mix(in srgb, var(--accent) 10%, transparent);
@@ -103,6 +106,8 @@
     --warning: #FF9E64;
     --danger: #F7768E;
     --on-accent: #1A1517;
+    --cover-ink-dark: #2B2127;
+    --cover-ink-light: #F8F6F3;
     --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%231A1517' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     --menu-shadow: 0 1px 2px color-mix(in srgb, #000 30%, transparent), 0 8px 24px color-mix(in srgb, #000 45%, transparent);
 }

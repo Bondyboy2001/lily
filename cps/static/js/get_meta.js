@@ -124,11 +124,6 @@ $(function () {
     return String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
   }
 
-  function shorten(text) {
-    text = String(text || "");
-    return text.length > 160 ? text.slice(0, 160) + "…" : text;
-  }
-
   // The form's values, read once per render rather than once per card
   function readForm() {
     return {
@@ -139,7 +134,7 @@ $(function () {
     };
   }
 
-  // The rows a result card shows: what the provider has, and what the form has now
+  // The rows a result card shows: what the provider has, dimmed where the form already has it
   function buildFields(result) {
     var book = result.book;
     var fields = [];
@@ -147,7 +142,6 @@ $(function () {
       if (text === undefined || text === null || text === "") return;
       fields.push($.extend({
         key: key, label: label, text: String(text),
-        current: current ? shorten(current) : "",
         same: same(text, current),
       }, extra || {}));
     }

@@ -93,7 +93,7 @@
             </div>
             <div class="reader-setting fontSizeWrapper">
                 <label class="reader-setting-label" for="fontSizeFader">{{ _('Text size') }}</label>
-                <input type="range" min="75" max="200" value="100" id="fontSizeFader" step="25">
+                <input type="range" min="75" max="200" value="150" id="fontSizeFader" step="5">
             </div>
             <div class="reader-setting font" id="font">
                 <span class="reader-setting-label">{{_('Font')}}</span>
@@ -123,8 +123,8 @@
             </div>
             <div class="reader-setting" id="layout">
                 <span class="reader-setting-label">{{ _('Pages') }}</span>
-                <button type="button" id="spread" onclick="spread(this.id)"><span>✓</span>{{_('Side by side')}}</button>
-                <button type="button" id="nonespread" onclick="spread(this.id)"><span></span>{{_('One at a time')}}</button>
+                <button type="button" id="nonespread" onclick="spread(this.id)"><span></span>{{_('Single page')}}</button>
+                <button type="button" id="spread" onclick="spread(this.id)"><span>✓</span>{{_('Two pages')}}</button>
             </div>
             <button type="button" class="closer icon-cancel-circled" aria-label="{{_('Close')}}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></button>
         </div>
@@ -256,7 +256,7 @@
             if (savedFontSize) {
               fontSizeFader.value = savedFontSize;
             }
-            fontSizeFader.addEventListener("change", function () {
+            fontSizeFader.addEventListener("input", function () {
               reader.rendition.themes.fontSize(`${this.value}%`);
               localStorage.setItem("calibre.reader.fontSize", this.value);
             });
