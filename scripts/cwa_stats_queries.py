@@ -7,7 +7,7 @@
 """Read-only statistics queries over cwa.db, used by the stats pages.
 
 Mixed into CWA_DB (scripts/cwa_db.py), which provides the cursor (self.cur)
-and the user-filter helpers (self._build_user_filter, self._has_user_filter).
+and the user-filter helper (self._build_user_filter).
 
 Dates, day counts and limits are always passed as bound parameters
 (:start_date, :end_date, :prev_start, :prev_end, :days, :days2, :limit), never
@@ -47,19 +47,6 @@ def _bind(scope):
 
 
 class CWAStatsQueries:
-    def get_active_users(self):
-        """Returns list of distinct users who have activity logged."""
-        try:
-            self.cur.execute("""
-                SELECT DISTINCT user_id, COALESCE(user_name, 'Unknown User') as user_name
-                FROM cwa_user_activity
-                WHERE user_id IS NOT NULL
-                ORDER BY user_name ASC
-            """, _bind(locals()))
-            return self.cur.fetchall()
-        except Exception as e:
-            print(f"[cwa-db] Error fetching active users: {e}")
-            return []
     def get_discovery_sources(self, days=None, start_date=None, end_date=None, user_id=None):
         """Returns count of book discoveries grouped by source.
 
@@ -642,7 +629,7 @@ class CWAStatsQueries:
             return []
 
     def get_api_usage_breakdown(self, days=None, start_date=None, end_date=None, user_id=None):
-        """Returns API usage breakdown by category (Web, Kobo, OPDS, Email).
+        """Returns API usage breakdown by category (Web UI, OPDS).
 
         Args:
             days: Number of days back (optional)
@@ -667,9 +654,7 @@ class CWAStatsQueries:
             self.cur.execute(f"""
                 SELECT
                     CASE
-                        WHEN event_type = 'KOBO_SYNC' THEN 'Kobo Sync'
                         WHEN event_type = 'OPDS_ACCESS' THEN 'OPDS Feed'
-                        WHEN event_type = 'EMAIL' THEN 'Email Delivery'
                         WHEN event_type IN ('DOWNLOAD', 'READ', 'SEARCH', 'LOGIN') THEN 'Web UI'
                         ELSE 'Other'
                     END as category,
@@ -730,9 +715,7 @@ class CWAStatsQueries:
                         ELSE event_type
                     END as endpoint,
                     CASE
-                        WHEN event_type = 'KOBO_SYNC' THEN 'Kobo'
                         WHEN event_type = 'OPDS_ACCESS' THEN 'OPDS'
-                        WHEN event_type = 'EMAIL' THEN 'Email'
                         WHEN event_type = 'DOWNLOAD' THEN 'Downloads'
                         WHEN event_type = 'READ' THEN 'Reading'
                         WHEN event_type = 'SEARCH' THEN 'Search'
@@ -791,7 +774,7 @@ class CWAStatsQueries:
                     CAST(strftime('%H', timestamp) AS INTEGER) as hour,
                     COUNT(*) as api_count
                 FROM cwa_user_activity
-                WHERE event_type IN ('KOBO_SYNC', 'OPDS_ACCESS', 'EMAIL', 'DOWNLOAD')
+                WHERE event_type IN ('OPDS_ACCESS', 'DOWNLOAD')
                     AND {combined_filter}
                 GROUP BY day_of_week, hour
                 ORDER BY day_of_week, hour
@@ -1125,36 +1108,23 @@ class CWAStatsQueries:
             """, _bind(locals()))
             timeline_data = self.cur.fetchall()
 
-            # 2. Top active users or most active days (depending on user filter)
-            if self._has_user_filter(user_id):
-                # Show most active days for specific user
-                self.cur.execute(f"""
-                    SELECT date(timestamp) as day, COUNT(*) as activity_count
-                    FROM cwa_user_activity
-                    WHERE {combined_filter}
-                    GROUP BY day
-                    ORDER BY activity_count DESC
-                    LIMIT 10
-                """, _bind(locals()))
-                top_users = self.cur.fetchall()
-            else:
-                # Show top active users across all users
-                self.cur.execute(f"""
-                    SELECT user_id, COALESCE(user_name, 'Unknown User') as user_name, COUNT(*) as activity_count
-                    FROM cwa_user_activity
-                    WHERE {combined_filter}
-                    GROUP BY user_id, user_name
-                    ORDER BY activity_count DESC
-                    LIMIT 10
-                """, _bind(locals()))
-                top_users = self.cur.fetchall()
+            # 2. Most active days
+            self.cur.execute(f"""
+                SELECT date(timestamp) as day, COUNT(*) as activity_count
+                FROM cwa_user_activity
+                WHERE {combined_filter}
+                GROUP BY day
+                ORDER BY activity_count DESC
+                LIMIT 10
+            """, _bind(locals()))
+            most_active_days = self.cur.fetchall()
 
-            # 3. Most popular books (reads + downloads + emails combined)
+            # 3. Most popular books (reads + downloads combined)
             self.cur.execute(f"""
                 SELECT item_title, item_id, COUNT(*) as hits
                 FROM cwa_user_activity
                 WHERE item_id IS NOT NULL
-                  AND event_type IN ('DOWNLOAD', 'READ', 'EMAIL')
+                  AND event_type IN ('DOWNLOAD', 'READ')
                   AND {combined_filter}
                 GROUP BY item_id, item_title
                 ORDER BY hits DESC
@@ -1186,7 +1156,7 @@ class CWAStatsQueries:
                     )) as format,
                     COUNT(*) as count
                 FROM cwa_user_activity
-                WHERE event_type IN ('DOWNLOAD', 'EMAIL')
+                WHERE event_type = 'DOWNLOAD'
                   AND extra_data IS NOT NULL
                   AND {combined_filter}
                 GROUP BY format
@@ -1194,7 +1164,7 @@ class CWAStatsQueries:
             """, _bind(locals()))
             format_distribution = self.cur.fetchall()
 
-            # 6. Event type breakdown (LOGIN, DOWNLOAD, READ, SEARCH, EMAIL)
+            # 6. Event type breakdown (LOGIN, DOWNLOAD, READ, SEARCH, ...)
             self.cur.execute(f"""
                 SELECT event_type, COUNT(*) as count
                 FROM cwa_user_activity
@@ -1205,41 +1175,23 @@ class CWAStatsQueries:
             event_breakdown = self.cur.fetchall()
 
             # 7. Total activity metrics
-            if self._has_user_filter(user_id):
-                # For single user, show total logins instead of active users
-                self.cur.execute(f"""
-                    SELECT
-                        COUNT(*) as total_events,
-                        COUNT(CASE WHEN event_type = 'LOGIN' THEN 1 END) as total_logins,
-                        COUNT(DISTINCT CASE WHEN event_type IN ('DOWNLOAD', 'EMAIL') THEN item_id END) as unique_downloads,
-                        COUNT(DISTINCT CASE WHEN event_type = 'READ' THEN item_id END) as unique_reads,
-                        0 as active_users,
-                        COUNT(CASE WHEN event_type IN ('DOWNLOAD', 'EMAIL') THEN 1 END) as total_downloads,
-                        COUNT(CASE WHEN event_type = 'READ' THEN 1 END) as total_reads,
-                        COUNT(CASE WHEN event_type = 'SEARCH' THEN 1 END) as total_searches
-                    FROM cwa_user_activity
-                    WHERE {combined_filter}
-                """, _bind(locals()))
-            else:
-                # For all users, show active user count
-                self.cur.execute(f"""
-                    SELECT
-                        COUNT(*) as total_events,
-                        COUNT(CASE WHEN event_type = 'LOGIN' THEN 1 END) as total_logins,
-                        COUNT(DISTINCT CASE WHEN event_type IN ('DOWNLOAD', 'EMAIL') THEN item_id END) as unique_downloads,
-                        COUNT(DISTINCT CASE WHEN event_type = 'READ' THEN item_id END) as unique_reads,
-                        COUNT(DISTINCT user_id) as active_users,
-                        COUNT(CASE WHEN event_type IN ('DOWNLOAD', 'EMAIL') THEN 1 END) as total_downloads,
-                        COUNT(CASE WHEN event_type = 'READ' THEN 1 END) as total_reads,
-                        COUNT(CASE WHEN event_type = 'SEARCH' THEN 1 END) as total_searches
-                    FROM cwa_user_activity
-                    WHERE {combined_filter}
-                """, _bind(locals()))
+            self.cur.execute(f"""
+                SELECT
+                    COUNT(*) as total_events,
+                    COUNT(CASE WHEN event_type = 'LOGIN' THEN 1 END) as total_logins,
+                    COUNT(DISTINCT CASE WHEN event_type = 'DOWNLOAD' THEN item_id END) as unique_downloads,
+                    COUNT(DISTINCT CASE WHEN event_type = 'READ' THEN item_id END) as unique_reads,
+                    COUNT(CASE WHEN event_type = 'DOWNLOAD' THEN 1 END) as total_downloads,
+                    COUNT(CASE WHEN event_type = 'READ' THEN 1 END) as total_reads,
+                    COUNT(CASE WHEN event_type = 'SEARCH' THEN 1 END) as total_searches
+                FROM cwa_user_activity
+                WHERE {combined_filter}
+            """, _bind(locals()))
             totals = self.cur.fetchone()
 
             return {
                 "timeline": timeline_data or [],
-                "top_users": top_users or [],
+                "most_active_days": most_active_days or [],
                 "top_books": top_books or [],
                 "recent_searches": recent_searches or [],
                 "format_distribution": format_distribution or [],
@@ -1249,10 +1201,9 @@ class CWAStatsQueries:
                     "total_logins": totals[1] if totals else 0,
                     "unique_downloads": totals[2] if totals else 0,
                     "unique_reads": totals[3] if totals else 0,
-                    "active_users": totals[4] if totals else 0,
-                    "total_downloads": totals[5] if totals else 0,
-                    "total_reads": totals[6] if totals else 0,
-                    "total_searches": totals[7] if totals else 0,
+                    "total_downloads": totals[4] if totals else 0,
+                    "total_reads": totals[5] if totals else 0,
+                    "total_searches": totals[6] if totals else 0,
                 }
             }
         except Exception as e:
@@ -1261,14 +1212,13 @@ class CWAStatsQueries:
             traceback.print_exc()
             return {
                 "timeline": [],
-                "top_users": [],
+                "most_active_days": [],
                 "top_books": [],
                 "recent_searches": [],
                 "format_distribution": [],
                 "event_breakdown": [],
                 "totals": {
                     "total_events": 0,
-                    "active_users": 0,
                     "unique_downloads": 0,
                     "unique_reads": 0,
                     "total_logins": 0,

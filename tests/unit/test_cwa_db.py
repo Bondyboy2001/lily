@@ -211,8 +211,8 @@ class TestCWADBUserFilters:
 
         assert stats["totals"]["total_events"] == 2
         assert stats["totals"]["total_logins"] == 2
-        # List-based filter should use single-user mode (active_users = 0)
-        assert stats["totals"]["active_users"] == 0
+        assert [count for _day, count in stats["most_active_days"]] == [2]
+        assert "active_users" not in stats["totals"]
 
 
 @pytest.mark.unit

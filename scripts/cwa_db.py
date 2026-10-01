@@ -281,11 +281,6 @@ class CWA_DB(CWAStatsQueries):
             return []
 
 
-    def _has_user_filter(self, user_id) -> bool:
-        """Return True when a valid user filter is provided."""
-        return len(self._normalize_user_ids(user_id)) > 0
-
-
     def _build_user_filter(self, user_id) -> str:
         """Builds SQL filter for a single user ID or list of user IDs."""
         user_ids = self._normalize_user_ids(user_id)

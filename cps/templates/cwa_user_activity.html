@@ -3,15 +3,6 @@
 <!-- Filters and actions -->
 <div class="stats-toolbar">
     <div class="stats-field">
-        <label for="user-filter">{{ _('User') }}</label>
-        <select id="user-filter" class="form-control" onchange="handleUserChange()">
-            <option value="" {{ 'selected' if not selected_user_id else '' }}>{{ _('All users') }}</option>
-            {% for user_id, user_name in active_users %}
-            <option value="{{ user_id }}" {{ 'selected' if selected_user_id == user_id else '' }}>{{ user_name }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="stats-field">
         <label for="date-preset">{{ _('Period') }}</label>
         <select id="date-preset" class="form-control" onchange="handlePresetChange()">
             <option value="7" {{ 'selected' if days == 7 else '' }}>{{ _('Last 7 days') }}</option>
@@ -30,8 +21,6 @@
         </div>
     </div>
     <div class="stats-actions">
-        <span class="label label-warning" id="demo-badge" hidden>{{ _('Demo data') }}</span>
-        <button type="button" class="btn btn-default" onclick="toggleDemoMode()" id="demo-button" aria-pressed="false">{{ _('Show demo data') }}</button>
         <button type="button" class="btn btn-default" onclick="resetDateRange()" id="reset-button">{{ _('Reset') }}</button>
         <button type="button" class="btn btn-default" onclick="exportActivityCSV()">{{ _('Export CSV') }}</button>
     </div>
@@ -41,13 +30,8 @@
 <!-- Top metrics -->
 <div class="stats-tiles" id="metrics-row">
     <div class="stats-tile">
-        {% if selected_user_id %}
         <div class="stats-tile-label">{{ _('Logins') }}</div>
-        <div class="stats-tile-value" id="metric-users">{{ dashboard_stats.totals.total_logins }}</div>
-        {% else %}
-        <div class="stats-tile-label">{{ _('Active users') }}</div>
-        <div class="stats-tile-value" id="metric-users">{{ dashboard_stats.totals.active_users }}</div>
-        {% endif %}
+        <div class="stats-tile-value" id="metric-logins">{{ dashboard_stats.totals.total_logins }}</div>
         <div class="stats-tile-note date-range-label">{{ date_range_label }}</div>
     </div>
     <div class="stats-tile">
@@ -72,7 +56,6 @@
     <span class="stats-empty-glyph glyphicon glyphicon-stats" aria-hidden="true"></span>
     <h3 class="stats-empty-title">{{ _('No activity yet') }}</h3>
     <p>{{ _('Downloads, reading sessions and searches show up here as people use the library.') }}</p>
-    <button type="button" class="btn btn-default" onclick="toggleDemoMode()">{{ _('Preview with demo data') }}</button>
 </div>
 
 <div class="stats-panel">
@@ -117,13 +100,8 @@
 
 <div class="stats-grid stats-grid-3">
     <div class="stats-panel">
-        {% if selected_user_id %}
         <h3 class="stats-panel-title">{{ _('Most Active Days') }}</h3>
         <div id="most-active-days-list"></div>
-        {% else %}
-        <h3 class="stats-panel-title">{{ _('Top Users') }}</h3>
-        <div id="top-users-list"></div>
-        {% endif %}
     </div>
     <div class="stats-panel">
         <h3 class="stats-panel-title">{{ _('Popular Books') }}</h3>
@@ -171,9 +149,9 @@
 
 <script>
 // Data from backend
-const realData = {
+const currentData = {
     timeline: {{ dashboard_stats.timeline | tojson }},
-    topUsers: {{ dashboard_stats.top_users | tojson }},
+    mostActiveDays: {{ dashboard_stats.most_active_days | tojson }},
     topBooks: {{ dashboard_stats.top_books | tojson }},
     recentSearches: {{ dashboard_stats.recent_searches | tojson }},
     formatDistribution: {{ dashboard_stats.format_distribution | tojson }},
@@ -190,251 +168,7 @@ const realData = {
     shelfActivity: {{ shelf_activity | tojson }}
 };
 
-const isAdmin = {{ 'true' if is_admin else 'false' }};
-
-// Check if we have real data
-const hasRealData = realData.totals.total_events > 0;
-
-// Demo data generator
-function generateDemoData() {
-    // Get date range from URL parameters or use 30 days default
-    const urlParams = new URLSearchParams(window.location.search);
-    const days = parseInt(urlParams.get('days')) || 30;
-    const startDate = urlParams.get('start_date');
-    const endDate = urlParams.get('end_date');
-    
-    let numDays = days;
-    let endDateObj = new Date();
-    
-    if (startDate && endDate) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        numDays = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
-        endDateObj = end;
-    }
-    
-    const dates = [];
-    for (let i = numDays - 1; i >= 0; i--) {
-        const d = new Date(endDateObj);
-        d.setDate(d.getDate() - i);
-        dates.push(d.toISOString().split('T')[0]);
-    }
-    
-    // Scale demo data based on range
-    const scaleFactor = Math.min(1, 30 / numDays);
-    
-    // Check if we're in single user mode
-    const selectedUserId = urlParams.get('user_id');
-    
-    // Generate appropriate topUsers data based on mode
-    let topUsersData;
-    if (selectedUserId) {
-        // Generate Most Active Days data (date, count pairs)
-        // Sample some random days from the range with varying activity counts
-        const sampleSize = Math.min(8, numDays);
-        const sampledDates = [];
-        for (let i = 0; i < sampleSize; i++) {
-            const randomIdx = Math.floor(Math.random() * dates.length);
-            sampledDates.push(dates[randomIdx]);
-        }
-        
-        topUsersData = [...new Set(sampledDates)].slice(0, 8).map(date => [
-            date,
-            Math.floor(Math.random() * 40 + 10) // Random activity count 10-50
-        ]).sort((a, b) => b[1] - a[1]); // Sort by count descending
-    } else {
-        // Generate normal Top Users data (user_id, name, count)
-        topUsersData = [
-            [1, 'BookLover42', 156],
-            [2, 'ReadingFanatic', 134],
-            [3, 'LibraryMaster', 98],
-            [4, 'PageTurner', 87],
-            [5, 'BookwormPro', 76],
-            [6, 'NightReader', 65],
-            [7, 'StorySeeker', 54],
-            [8, 'NovelAddict', 43]
-        ];
-    }
-    
-    return {
-        timeline: [
-            ...dates.map(d => [d, 'DOWNLOAD', Math.floor((Math.random() * 25 + 5) * scaleFactor)]),
-            ...dates.map(d => [d, 'EMAIL', Math.floor((Math.random() * 30 + 10) * scaleFactor)]),
-            ...dates.map(d => [d, 'READ', Math.floor((Math.random() * 20 + 3) * scaleFactor)]),
-            ...dates.map(d => [d, 'SEARCH', Math.floor((Math.random() * 15 + 2) * scaleFactor)]),
-            ...dates.map(d => [d, 'LOGIN', Math.floor((Math.random() * 10 + 1) * scaleFactor)])
-        ],
-        topUsers: topUsersData,
-        topBooks: [
-            ['The Midnight Library', 1234, 45],
-            ['Project Hail Mary', 1235, 38],
-            ['Dune', 1236, 32],
-            ['1984', 1237, 28],
-            ['The Hobbit', 1238, 24],
-            ['Neuromancer', 1239, 21],
-            ['Foundation', 1240, 18],
-            ['Snow Crash', 1241, 15]
-        ],
-        recentSearches: [
-            ['science fiction', '2025-12-29T10:23:45', 'BookLover42'],
-            ['dystopian novels', '2025-12-29T09:15:22', 'ReadingFanatic'],
-            ['classic literature', '2025-12-28T18:45:10', 'LibraryMaster'],
-            ['fantasy series', '2025-12-28T16:30:55', 'PageTurner'],
-            ['mystery thriller', '2025-12-28T14:20:33', 'BookwormPro'],
-            ['historical fiction', '2025-12-27T22:10:18', 'NightReader'],
-            ['biography', '2025-12-27T19:05:42', 'StorySeeker'],
-            ['graphic novels', '2025-12-27T15:50:27', 'NovelAddict']
-        ],
-        formatDistribution: [
-            ['EPUB', 245],
-            ['PDF', 132],
-            ['MOBI', 89],
-            ['AZW3', 67],
-            ['CBZ', 34]
-        ],
-        eventBreakdown: [
-            ['EMAIL', 789],
-            ['DOWNLOAD', 567],
-            ['READ', 432],
-            ['SEARCH', 234],
-            ['LOGIN', 156]
-        ],
-        totals: selectedUserId ? {
-            // Single user mode: show total_logins instead of active_users
-            active_users: 0,
-            total_logins: 47,
-            total_downloads: 1356,
-            total_reads: 432,
-            total_searches: 234,
-            total_events: 2178
-        } : {
-            // All users mode: show active_users
-            active_users: 24,
-            total_downloads: 1356,
-            total_reads: 432,
-            total_searches: 234,
-            total_events: 2178
-        },
-        // Generate heatmap data (day of week, hour, count)
-        heatmap: (() => {
-            const heatmapData = [];
-            for (let day = 0; day < 7; day++) {
-                for (let hour = 0; hour < 24; hour++) {
-                    // Peak hours: 6-9am, 12-2pm, 6-11pm with variation by day
-                    let baseCount = 5;
-                    if ((hour >= 6 && hour <= 9) || (hour >= 12 && hour <= 14) || (hour >= 18 && hour <= 23)) {
-                        baseCount = 15 + Math.floor(Math.random() * 20);
-                    } else if (hour >= 1 && hour <= 5) {
-                        baseCount = Math.floor(Math.random() * 3);
-                    } else {
-                        baseCount = 5 + Math.floor(Math.random() * 10);
-                    }
-                    // Weekend boost
-                    if (day === 0 || day === 6) {
-                        baseCount = Math.floor(baseCount * 1.3);
-                    }
-                    heatmapData.push([day, hour, baseCount]);
-                }
-            }
-            return heatmapData;
-        })(),
-        // Generate velocity data (week start date, books read)
-        velocity: (() => {
-            const velocityData = [];
-            const weeksBack = Math.ceil(numDays / 7);
-            for (let i = weeksBack - 1; i >= 0; i--) {
-                const weekDate = new Date(endDateObj);
-                weekDate.setDate(weekDate.getDate() - (i * 7));
-                const weekStr = weekDate.toISOString().split('T')[0];
-                const booksRead = 3 + Math.floor(Math.random() * 12); // 3-15 books per week
-                velocityData.push([weekStr, booksRead]);
-            }
-            return velocityData;
-        })(),
-        // Generate format preferences (user, format, count)
-        formatPreferences: selectedUserId ? [] : (() => {
-            const users = ['BookLover42', 'ReadingFanatic', 'LibraryMaster', 'PageTurner', 'BookwormPro', 'NightReader', 'StorySeeker', 'NovelAddict'];
-            const formats = ['EPUB', 'PDF', 'MOBI', 'AZW3', 'KEPUB'];
-            const prefs = [];
-            users.slice(0, 8).forEach(user => {
-                // Each user has preference distribution
-                const userTotal = 50 + Math.floor(Math.random() * 100);
-                let remaining = userTotal;
-                formats.forEach((format, idx) => {
-                    if (idx === formats.length - 1) {
-                        if (remaining > 0) prefs.push([user, format, remaining]);
-                    } else {
-                        const count = Math.floor(Math.random() * (remaining * 0.5));
-                        if (count > 0) prefs.push([user, format, count]);
-                        remaining -= count;
-                    }
-                });
-            });
-            return prefs;
-        })(),
-        // Generate discovery sources (source, count)
-        discoverySources: [
-            ['search', 234 + Math.floor(Math.random() * 50)],
-            ['book_detail', 189 + Math.floor(Math.random() * 40)],
-            ['series', 156 + Math.floor(Math.random() * 30)],
-            ['author', 98 + Math.floor(Math.random() * 25)],
-            ['browse', 67 + Math.floor(Math.random() * 20)],
-            ['shelf', 45 + Math.floor(Math.random() * 15)],
-            ['direct', 23 + Math.floor(Math.random() * 10)]
-        ],
-        // Generate device breakdown (device_type, count)
-        deviceBreakdown: [
-            ['desktop', 456 + Math.floor(Math.random() * 100)],
-            ['mobile', 289 + Math.floor(Math.random() * 80)],
-            ['tablet', 134 + Math.floor(Math.random() * 40)]
-        ],
-        // Generate failed logins (ip, username, timestamp, count)
-        failedLogins: Math.random() > 0.7 ? [
-            ['192.168.1.123', 'admin', new Date().toISOString(), Math.floor(Math.random() * 5) + 1],
-            ['10.0.0.45', 'testuser', new Date().toISOString(), Math.floor(Math.random() * 3) + 1]
-        ] : [],
-        // Generate session duration stats
-        sessionDuration: {
-            average_minutes: 15 + Math.floor(Math.random() * 30), // 15-45 minutes
-            distribution: (() => {
-                const dist = [];
-                for (let i = 0; i < 60; i += 5) {
-                    const count = Math.max(0, Math.floor(Math.random() * 20) - (i / 10));
-                    if (count > 0) dist.push([i, count]);
-                }
-                return dist;
-            })()
-        },
-        // Generate search success rate
-        searchSuccess: {
-            total_searches: 150 + Math.floor(Math.random() * 100),
-            successful_searches: 100 + Math.floor(Math.random() * 80),
-            success_rate: 55 + Math.floor(Math.random() * 30), // 55-85%
-            trend: Math.floor(Math.random() * 20) - 5 // -5 to +15
-        },
-        // Generate shelf activity (shelf_name, add_count, remove_count, net_change)
-        shelfActivity: [
-            ['To Read', 45, 12, 33],
-            ['Currently Reading', 28, 15, 13],
-            ['Favorites', 23, 3, 20],
-            ['Completed', 67, 5, 62],
-            ['Science Fiction', 19, 8, 11],
-            ['Fantasy', 15, 6, 9],
-            ['Non-Fiction', 12, 4, 8],
-            ['Mystery', 9, 2, 7],
-            ['Romance', 8, 3, 5],
-            ['Wishlist', 6, 1, 5]
-        ].map(([name, add, remove, net]) => [
-            name,
-            add + Math.floor(Math.random() * 10),
-            remove + Math.floor(Math.random() * 5),
-            net + Math.floor(Math.random() * 8)
-        ])
-    };
-}
-
-let demoMode = false;
-let currentData = realData;  // Always start with real data, even if empty
+const hasData = currentData.totals.total_events > 0;
 
 // Charts: every colour comes from the Lily tokens through LilyCharts (static/js/lily-charts.js).
 let timelineChart, eventsChart, formatsChart, heatmapChart, velocityChart, formatPreferencesChart, discoveryChart, deviceChart, sessionDurationChart;
@@ -455,7 +189,7 @@ function noneHtml(text) {
 }
 
 // Colour follows the entity, never its rank: each known event type and format keeps its slot.
-const EVENT_ORDER = ['DOWNLOAD', 'READ', 'EMAIL', 'SEARCH', 'LOGIN'];
+const EVENT_ORDER = ['DOWNLOAD', 'READ', 'SEARCH', 'LOGIN'];
 const FORMAT_ORDER = ['EPUB', 'PDF', 'KEPUB', 'MOBI', 'AZW3'];
 function slotColour(order, key) {
     // A failed login is a status, not a series: it wears the danger tone.
@@ -524,14 +258,11 @@ function updateAllVisualizations() {
     updateSessionDuration();
     updateSearchSuccess();
     updateShelfActivity();
-    document.getElementById('empty-state').hidden = demoMode || hasRealData;
+    document.getElementById('empty-state').hidden = hasData;
 }
 
 function updateMetrics() {
-    const selectedUserId = new URLSearchParams(window.location.search).get('user_id');
-    document.getElementById('metric-users').textContent = selectedUserId
-        ? (currentData.totals.total_logins || 0)
-        : (currentData.totals.active_users || 0);
+    document.getElementById('metric-logins').textContent = currentData.totals.total_logins || 0;
     document.getElementById('metric-downloads').textContent = currentData.totals.total_downloads;
     document.getElementById('metric-reads').textContent = currentData.totals.total_reads;
     document.getElementById('metric-searches').textContent = currentData.totals.total_searches;
@@ -771,39 +502,20 @@ function rowsHtml(items) {
 }
 
 function updateTopLists() {
-    const selectedUserId = new URLSearchParams(window.location.search).get('user_id');
-
-    if (selectedUserId) {
-        const el = document.getElementById('most-active-days-list');
-        el.innerHTML = currentData.topUsers.length > 0
-            ? rowsHtml(currentData.topUsers.map(([date, count], i) => {
-                const formattedDate = new Date(date + 'T00:00:00').toLocaleDateString(undefined, {
-                    month: 'short', day: 'numeric', year: 'numeric'
-                });
-                return `
-                    <li class="stats-row">
-                        <span class="stats-rank">${i + 1}</span>
-                        <span class="stats-row-main"><span class="stats-row-title">${escapeHtml(formattedDate)}</span></span>
-                        <span class="stats-row-value">${count}</span>
-                    </li>`;
-            }))
-            : noneHtml({{ _('No activity in this period')|tojson }});
-    } else {
-        const el = document.getElementById('top-users-list');
-        el.innerHTML = currentData.topUsers.length > 0
-            ? rowsHtml(currentData.topUsers.map(([userId, name, count], i) => {
-                const nameDisplay = isAdmin
-                    ? `<a class="stats-row-title" href="/admin/user/${encodeURIComponent(userId)}">${escapeHtml(name)}</a>`
-                    : `<span class="stats-row-title">${escapeHtml(name)}</span>`;
-                return `
-                    <li class="stats-row">
-                        <span class="stats-rank">${i + 1}</span>
-                        <span class="stats-row-main">${nameDisplay}</span>
-                        <span class="stats-row-value">${count}</span>
-                    </li>`;
-            }))
-            : noneHtml({{ _('No user activity yet')|tojson }});
-    }
+    const days = currentData.mostActiveDays || [];
+    document.getElementById('most-active-days-list').innerHTML = days.length > 0
+        ? rowsHtml(days.map(([date, count], i) => {
+            const formattedDate = new Date(date + 'T00:00:00').toLocaleDateString(undefined, {
+                month: 'short', day: 'numeric', year: 'numeric'
+            });
+            return `
+                <li class="stats-row">
+                    <span class="stats-rank">${i + 1}</span>
+                    <span class="stats-row-main"><span class="stats-row-title">${escapeHtml(formattedDate)}</span></span>
+                    <span class="stats-row-value">${count}</span>
+                </li>`;
+        }))
+        : noneHtml({{ _('No activity in this period')|tojson }});
 
     document.getElementById('top-books-list').innerHTML = currentData.topBooks.length > 0
         ? rowsHtml(currentData.topBooks.map(([title, id, count], i) => `
@@ -889,39 +601,9 @@ function updateShelfActivity() {
     }));
 }
 
-function toggleDemoMode() {
-    demoMode = !demoMode;
-    const button = document.getElementById('demo-button');
-    const badge = document.getElementById('demo-badge');
-
-    if (demoMode) {
-        currentData = generateDemoData();
-        button.textContent = 'Show real data';
-    } else {
-        currentData = realData;
-        button.textContent = 'Show demo data';
-    }
-    button.setAttribute('aria-pressed', demoMode ? 'true' : 'false');
-    badge.hidden = !demoMode;
-
-    updateAllVisualizations();
-}
-
 // CSV Export function
 function exportActivityCSV() {
     window.location.href = '/cwa-stats-export-csv/activity' + window.location.search;
-}
-
-// User filter handling
-function handleUserChange() {
-    const userId = document.getElementById('user-filter').value;
-    const url = new URL(window.location);
-    if (userId) {
-        url.searchParams.set('user_id', userId);
-    } else {
-        url.searchParams.delete('user_id');
-    }
-    window.location.href = url.toString();
 }
 
 // Date range handling functions
@@ -960,12 +642,11 @@ function handleCustomDateChange() {
 }
 
 function resetDateRange() {
-    // Reset to default 30 days and remove all date and user filter parameters
+    // Reset to the default 30 days
     const url = new URL(window.location);
     url.searchParams.delete('days');
     url.searchParams.delete('start_date');
     url.searchParams.delete('end_date');
-    url.searchParams.delete('user_id');
     window.location.href = url.toString();
 }
 

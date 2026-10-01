@@ -204,9 +204,6 @@ def _stats_queries(tmp_path):
         def _build_user_filter(self, user_id):
             return f" AND user_id = {int(user_id)}" if user_id is not None else ""
 
-        def _has_user_filter(self, user_id):
-            return user_id is not None
-
     con = sqlite3.connect(tmp_path / "cwa.db")
     con.execute("CREATE TABLE cwa_user_activity (id INTEGER PRIMARY KEY, user_id INTEGER, user_name TEXT, "
                 "event_type TEXT, item_id INTEGER, item_title TEXT, extra_data TEXT, timestamp DATETIME)")
