@@ -7,8 +7,6 @@
 """Backend hardening: forced default-password change, content restrictions on reading /
 sending, stats SQL parameter binding, missing User-Agent headers and web reader progress."""
 
-import ast
-import json
 import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
