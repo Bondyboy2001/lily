@@ -161,3 +161,10 @@ def test_search_suggestions_open_the_picked_book_or_author():
     assert 'name: "authors"' in block and "window.location.href = item.url" in block
     assert "minLength: MIN_LENGTH" in block and "MIN_LENGTH = 2" in block
     assert "data-label-authors" in read(TEMPLATES / "layout.html")
+
+
+def test_series_grid_is_a_css_grid_without_isotope():
+    assert "isotope" not in read(JS / "filter_grid.js")
+    css = read(CSS / "lily-library.css")
+    assert re.search(r"\n\.lily-series-grid\s*\{[^}]*display:\s*grid", css)
+    assert "float: left" not in css[css.index("Series grid (grid.html)"):css.index("Continue reading row")]

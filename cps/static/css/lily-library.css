@@ -409,31 +409,30 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
     margin: 0;
 }
 
-/* Series grid (grid.html): Isotope lays the items out, so they need a fixed width. */
-.row.lily-series-grid { margin: 0; }
+/* Series grid (grid.html): a CSS grid of one letter's series. */
+.lily-series-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 22px;
+    margin: 0;
+}
 
 .lily-series-grid > .book,
 .container-fluid .lily-series-grid > .book {
-    width: 160px;
+    width: auto;
     max-width: none;
-    margin: 0 22px 22px 0;
+    min-width: 0;
+    margin: 0;
     padding: 0;
-    float: left;
+    float: none;
 }
 
 @media (max-width: 767px) {
-    .row.lily-grid {
+    .row.lily-grid,
+    .lily-series-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 22px 14px;
     }
-
-    .lily-series-grid > .book,
-    .container-fluid .lily-series-grid > .book {
-        width: calc(50% - 7px);
-        margin-right: 14px;
-    }
-
-    .lily-series-grid > .book:nth-child(2n) { margin-right: 0; }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1567,3 +1566,17 @@ body.book_table .pagination {
     color: var(--muted);
     text-align: center;
 }
+
+/* Long name lists (authors, series): the filter box under the toolbar (list.html). */
+.lily-list-search {
+    max-width: 480px;
+    margin: 0 0 16px;
+}
+
+.lily-list-search-hint {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.lily-list > .row.lily-list-row[hidden] { display: none; }

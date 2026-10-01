@@ -78,8 +78,11 @@
 {# The same Sort / direction pair as sort_menu, for name lists (categories, authors, series…).
    filter_list.js / filter_grid.js sort and filter the rows in place, so the options are buttons
    keyed by id, not links. `chars` is the list of initials: the letter filter only appears when a
-   list is long enough to need it. #}
-{% macro list_menu(order, data, chars) -%}
+   list is long enough to need it. With `list_url` (authors, series) the server cuts the list by
+   letter instead: the letters are links to ?letter=X, `letter` is the current one, and "All" is
+   only offered when `show_all`; the direction buttons then reload the page. #}
+{% macro list_menu(order, data, chars, letter=None, list_url=None, show_all=True) -%}
+    {% if list_url %}{{ server_list_menu(order, data, chars, letter, list_url, show_all) }}{% else %}
     <div class="lily-sort-group filterheader" role="group" aria-label="{{ _('Sort and filter') }}">
       {% call list_dropdown('lily-field-toggle', 'glyphicon-sort', _('Sort'), _('Name')) %}
         <li class="active"><a role="button" aria-current="true">{{ _('Name') }}</a></li>
@@ -93,6 +96,30 @@
         <li class="active lily-letter-all"><a href="#" role="button" id="all">{{ _('All') }}</a></li>
         {% for char in chars %}
         <li><a href="#" role="button" class="char">{{ char }}</a></li>
+        {% endfor %}
+      {% endcall %}
+      {% endif %}
+    </div>
+    {% endif %}
+{%- endmacro %}
+
+{% macro server_list_menu(order, data, chars, letter, list_url, show_all) -%}
+    <div class="lily-sort-group filterheader" role="group" aria-label="{{ _('Sort and filter') }}" data-server-list="1">
+      {% call list_dropdown('lily-field-toggle', 'glyphicon-sort', _('Sort'), _('Name')) %}
+        <li class="active"><a role="button" aria-current="true">{{ _('Name') }}</a></li>
+      {% endcall %}
+      {% call list_dropdown('lily-order-toggle', 'glyphicon-sort-by-attributes' ~ ('-alt' if order == 0 else ''), None, _('Descending') if order == 0 else _('Ascending')) %}
+        <li{% if order != 0 %} class="active"{% endif %}><a href="#" role="button" id="asc" data-order="{{ order }}" data-id="{{ data }}" data-icon="glyphicon-sort-by-attributes">{{ _('Ascending') }}</a></li>
+        <li{% if order == 0 %} class="active"{% endif %}><a href="#" role="button" id="desc" data-id="{{ data }}" data-icon="glyphicon-sort-by-attributes-alt">{{ _('Descending') }}</a></li>
+      {% endcall %}
+      {% if chars|length > 1 %}
+      {% set letter_label = _('All') if letter == 'all' else (letter or _('Search')) %}
+      {% call list_dropdown('lily-filter-toggle', 'glyphicon-filter', _('Letter'), letter_label, 'lily-letter-menu') %}
+        {% if show_all %}
+        <li class="lily-letter-all{% if letter == 'all' %} active{% endif %}"><a href="{{ list_url }}?letter=all"{% if letter == 'all' %} aria-current="true"{% endif %}>{{ _('All') }}</a></li>
+        {% endif %}
+        {% for char in chars %}
+        <li{% if char == letter %} class="active"{% endif %}><a href="{{ list_url }}?letter={{ char|urlencode }}"{% if char == letter %} aria-current="true"{% endif %}>{{ char }}</a></li>
         {% endfor %}
       {% endcall %}
       {% endif %}
