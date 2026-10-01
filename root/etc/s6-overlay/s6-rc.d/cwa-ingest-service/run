@@ -685,6 +685,21 @@ handle_event() {
         echo "idle" > "$STATUS_FILE"
 }
 
+# inotify only reports files written after the watch is set up, so books dropped while
+# the container was down (or while the service restarted) would sit in the folder for
+# good. Hand those to the processor once at startup. Runs as the first consumer of the
+# watcher's pipe, so events that arrive meanwhile queue up in the pipe and are not lost.
+initial_scan() {
+        [ -d "$WATCH_FOLDER" ] || return 0
+        local candidate count=0
+        while IFS= read -r -d '' candidate <&3; do
+                is_supported_ingest_file "$candidate" || continue
+                count=$((count + 1))
+                handle_event "$candidate"
+        done 3< <(find "$WATCH_FOLDER" -type f -print0 2>/dev/null | sort -z)
+        echo "[cwa-ingest-service] Startup scan: $count file(s) already in $WATCH_FOLDER handed to the processor"
+}
+
 if [ "${CWA_INGEST_SERVICE_TEST_MODE:-0}" = "1" ]; then
         return 0 2>/dev/null || exit 0
 fi
@@ -724,5 +739,5 @@ if [ -n "$(get_stale_temp_interval_from_db)" ]; then
 fi
 
 ( set -o pipefail
-        inotifywait -m -r --format="%e %w%f" -e close_write -e moved_to "$WATCH_FOLDER" | event_loop
+        inotifywait -m -r --format="%e %w%f" -e close_write -e moved_to "$WATCH_FOLDER" | { initial_scan; event_loop; }
 ) || run_fallback

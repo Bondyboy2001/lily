@@ -252,3 +252,22 @@ def test_not_ready_then_vanished_is_not_queued(svc):
     assert "vanished before it could be imported" in res.stdout
     assert "Successfully processed" not in res.stdout
     assert svc["queue"].read_text() == ""
+
+
+# ── Startup scan (inotify mode) ─────────────────────────────────────────────
+
+
+def test_initial_scan_processes_files_already_in_the_folder(svc):
+    watch = svc["watch"]
+    (watch / "nested").mkdir()
+    for name in ("b.pdf", "a.epub", "nested/c.mobi", "skip.part", "notes.xyz", "a.epub.cwa.json"):
+        (watch / name).write_text(name)
+    res = svc["run"]("initial_scan")
+    assert res.returncode == 0, res.stderr
+    assert svc["invocations"]() == [str(watch / n) for n in ("a.epub", "b.pdf", "nested/c.mobi")]
+    assert "Startup scan: 3 file(s)" in res.stdout
+
+
+def test_initial_scan_runs_before_the_inotify_event_loop():
+    script = RUN_SCRIPT.read_text()
+    assert '"$WATCH_FOLDER" | { initial_scan; event_loop; }' in script
