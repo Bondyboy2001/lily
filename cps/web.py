@@ -988,7 +988,7 @@ def render_read_books(page, are_read, as_xml=False, order=None):
                                                             True, config.config_read_column,
                                                             db.books_series_link,
                                                             db.Books.id == db.books_series_link.c.book,
-                                                            db.Series)
+                                                            db.Series, cards_only=not as_xml)
 
     if as_xml:
         return entries, pagination
@@ -1011,7 +1011,7 @@ def render_reading_books(page, order):
                                                     order[0], True, config.config_read_column,
                                                     db.books_series_link,
                                                     db.Books.id == db.books_series_link.c.book,
-                                                    db.Series)
+                                                    db.Series, cards_only=True)
     name = _('Reading') + ' (' + str(pagination.total_count) + ')'
     return render_title_template('index.html', entries=entries, pagination=pagination,
                                  title=name, page="inprogress", order=order[1])
@@ -1032,7 +1032,8 @@ def render_archived_books(page, sort_param):
                                                                                 archived_filter,
                                                                                 order,
                                                                                 True,
-                                                                                True, config.config_read_column)
+                                                                                True, config.config_read_column,
+                                                                                cards_only=True)
 
     name = _('Archived Books') + ' (' + str(len(archived_book_ids)) + ')'
     page_name = "archived"

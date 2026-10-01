@@ -537,7 +537,7 @@ def _card_relationships():
     return (Books.authors, Books.data, Books.series, Books.ratings)
 
 
-def _card_load_options(skip_others):
+def card_load_options(skip_others):
     """Loader options for a page of book cards.
 
     selectinload (not joinedload) so the paginated query isn't wrapped in a subquery and
@@ -1081,7 +1081,7 @@ class CalibreDB:
         # their model-level selectin loading: one IN query each, never per book.
         # Callers that only render book cards pass cards_only=True to skip them.
         if database == Books:
-            query = query.options(*_card_load_options(skip_others=bool(kwargs.get('cards_only'))))
+            query = query.options(*card_load_options(skip_others=bool(kwargs.get('cards_only'))))
 
         off = int(int(pagesize) * (page - 1))
 
@@ -1210,8 +1210,9 @@ class CalibreDB:
                     getattr(Books,
                             'custom_column_' + str(c.id)).any(
                         func.lower(cc_classes[c.id].value).ilike("%" + term + "%")))
-        # Eagerly load the data relationship to prevent session errors
-        query = query.options(joinedload(Books.data))
+        # Eagerly load the data relationship to prevent session errors. selectinload, so a
+        # paginated search isn't wrapped in a subquery (which breaks text ORDER BY clauses)
+        query = query.options(selectinload(Books.data))
         return query.filter(self.common_filters(True)).filter(or_(*filter_expression))
 
     def get_cc_columns(self, config, filter_config_custom_read=False):
@@ -1232,22 +1233,30 @@ class CalibreDB:
         return cc
 
     # read search results from calibre-database and return it (function is used for feed and simple search
-    def get_search_results(self, term, config, offset=None, order=None, limit=None, *join):
+    def get_search_results(self, term, config, offset=None, order=None, limit=None, *join, cards_only=False):
         self.ensure_session()
         order = order[0] if order else [Books.sort]
         pagination = None
-        result = self.search_query(term, config, *join).order_by(*order).all()
-        result_count = len(result)
+        query = self.search_query(term, config, *join).order_by(*order)
         if offset is not None and limit is not None:
-            offset = int(offset)
-            limit_all = offset + int(limit)
-            pagination = Pagination((offset / (int(limit)) + 1), limit, result_count)
+            # Match on ids only, then load the visible page, instead of loading every match
+            # with all its relationships. One id scan rather than a count plus a paged query,
+            # which runs the (slow) search filter twice.
+            offset, limit = int(offset), int(limit)
+            ids = list(dict.fromkeys(book_id for book_id, in query.with_entities(Books.id)))
+            result_count = len(ids)
+            pagination = Pagination((offset / limit + 1), limit, result_count)
+            page_ids = ids[offset:offset + limit]
+            if cards_only:
+                query = query.options(*card_load_options(skip_others=True))
+            rows = query.filter(Books.id.in_(page_ids)).all() if page_ids else []
+            position = {book_id: index for index, book_id in enumerate(page_ids)}
+            result = sorted(rows, key=lambda row: position[row[0].id])
         else:
-            offset = 0
-            limit_all = result_count
+            result = query.all()
+            result_count = len(result)
 
-        ub.store_combo_ids(result)
-        entries = self.order_authors(result[offset:limit_all], list_return=True, combined=True)
+        entries = self.order_authors(result, list_return=True, combined=True)
 
         return entries, result_count, pagination
 

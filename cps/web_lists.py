@@ -193,6 +193,7 @@ def series_list():
             entries = (calibre_db.session.query(db.Books, func.count('books_series_link').label('count'),
                                                 func.max(db.Books.series_index), db.Books.id)
                        .join(db.books_series_link).join(db.Series).filter(calibre_db.common_filters())
+                       .options(*db.card_load_options(skip_others=True))
                        .group_by(text('books_series_link.series'))
                        .having(or_(func.max(db.Books.series_index), db.Books.series_index==""))
                        .order_by(order)
