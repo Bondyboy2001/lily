@@ -16,10 +16,11 @@ from cwa_db import CWA_DB
 class AutoZipper:
     def __init__(self):
         self.archive_dirs_stem = "/config/processed_books/"
-        self.failed_dir = self.archive_dirs_stem + "failed/"
         self.imported_dir = self.archive_dirs_stem + "imported/"
 
-        self.archive_dirs = [self.failed_dir, self.imported_dir]
+        # failed/ is deliberately not zipped: the Failed Imports page (ingest_failures.py)
+        # lists, retries and deletes the individual files there.
+        self.archive_dirs = [self.imported_dir]
 
         self.current_date = datetime.today().strftime('%Y-%m-%d')
 

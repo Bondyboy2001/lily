@@ -676,7 +676,6 @@ class NewBookProcessor:
             destination = unique_failed_path(failed_dir, self.filename)
             shutil.move(self.filepath, destination)
             print(f"[ingest-processor] Moved {self.filename} to failed backups: {destination}", flush=True)
-            return True
         except Exception as e:
             print(
                 f"[ingest-processor] ERROR: Could not move {self.filepath} to {failed_dir} ({e}). "
@@ -684,6 +683,13 @@ class NewBookProcessor:
                 flush=True,
             )
             return False
+        try:
+            # shutil.move keeps the source's mtime (often years old after a cp -p/Finder copy);
+            # stamp it now so retention counts from when it failed, not from when it was written
+            os.utime(destination, None)
+        except OSError as e:
+            print(f"[ingest-processor] WARN: Could not update the time of {destination}: {e}", flush=True)
+        return True
 
 
     def delete_current_file(self) -> None:

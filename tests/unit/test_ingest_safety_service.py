@@ -93,6 +93,16 @@ def test_safety_timeout_moves_file_to_failed_without_overwriting(svc):
     assert all("_safety_timeout_book" in p.name for p in failed)
 
 
+def test_moved_to_failed_gets_fresh_mtime(svc):
+    import time
+    book = svc["watch"] / "old.epub"
+    book.write_text("copied with cp -p")
+    os.utime(book, (1_000_000_000, 1_000_000_000))
+    svc["run"](f'handle_event "{book}"', PROCESSOR_EXIT_CODE="124")
+    (moved,) = svc["failed"].iterdir()
+    assert abs(moved.stat().st_mtime - time.time()) < 60
+
+
 def test_safety_timeout_leaves_file_when_failed_dir_unusable(svc):
     blocker = svc["tmp"] / "blocker"
     blocker.write_text("x")

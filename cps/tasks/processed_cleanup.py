@@ -16,6 +16,7 @@ books deleted by duplicate resolution.
 """
 
 import os
+import re
 import sys
 import time
 
@@ -40,12 +41,33 @@ def normalize_retention_days(value, default: int = DEFAULT_RETENTION_DAYS) -> in
     return days if days >= 0 else default
 
 
+_FAILED_PREFIX = re.compile(r"^(\d{8}_\d{6})_")
+
+
+def file_age_reference(name: str, mtime: float) -> float:
+    """When a processed file should be considered to date from.
+
+    Files moved into failed/ are named '<YYYYmmdd_HHMMSS>_<name>' at the moment they
+    failed, while a moved file can keep an mtime from years earlier (cp -p, Finder,
+    SMB copies). The later of the prefix time and the mtime is used, so neither an
+    old mtime nor an odd name can get a file deleted early."""
+    match = _FAILED_PREFIX.match(name)
+    if match:
+        try:
+            stamped = time.mktime(time.strptime(match.group(1), "%Y%m%d_%H%M%S"))
+        except (ValueError, OverflowError):
+            return mtime
+        return max(stamped, mtime)
+    return mtime
+
+
 def prune_processed_books(root: str, days: int, now: float | None = None,
                           subdirs=PRUNED_SUBDIRS) -> list[str]:
-    """Deletes regular files under root/<subdir> last modified more than `days` ago,
-    then removes directories left empty below each subdir (the subdirs themselves
-    stay). days <= 0 keeps everything. Symlinks are never followed or deleted.
-    Returns the removed file paths."""
+    """Deletes regular files under root/<subdir> older than `days` (by their
+    timestamp-prefixed name when they have one, else their mtime; see
+    file_age_reference), then removes directories left empty below each subdir (the
+    subdirs themselves stay). days <= 0 keeps everything. Symlinks are never followed
+    or deleted. Returns the removed file paths."""
     if days <= 0:
         return []
     cutoff = (now if now is not None else time.time()) - days * 86400
@@ -61,7 +83,7 @@ def prune_processed_books(root: str, days: int, now: float | None = None,
                     st = os.lstat(path)
                     if os.path.islink(path) or not os.path.isfile(path):
                         continue
-                    if st.st_mtime < cutoff:
+                    if file_age_reference(name, st.st_mtime) < cutoff:
                         os.remove(path)
                         removed.append(path)
                 except OSError:

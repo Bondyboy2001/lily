@@ -135,6 +135,8 @@ move_to_failed() {
         done
         # mv only removes the source after a successful copy (also across filesystems)
         if mv -n -- "$filepath" "$dest" 2>/dev/null && [ ! -e "$filepath" ] && [ -e "$dest" ]; then
+                # mv keeps the old mtime; retention must count from now, not from when it was written
+                touch -c -- "$dest" 2>/dev/null || true
                 echo "[cwa-ingest-service] Moved $filepath to failed backup as $(basename "$dest")"
                 return 0
         fi
