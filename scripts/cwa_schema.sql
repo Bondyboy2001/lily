@@ -85,7 +85,14 @@ CREATE TABLE IF NOT EXISTS cwa_settings(
     duplicate_scan_cron TEXT DEFAULT '' NOT NULL,
     duplicate_scan_hour INTEGER DEFAULT 3 NOT NULL,
     duplicate_scan_chunk_size INTEGER DEFAULT 5000 NOT NULL,
-    duplicate_scan_debounce_seconds INTEGER DEFAULT 60 NOT NULL
+    duplicate_scan_debounce_seconds INTEGER DEFAULT 60 NOT NULL,
+    -- Grandfather-father-son retention on top of db_backup_keep_count (the daily tier):
+    -- the newest snapshot of each of the last N weeks / months. '0' turns a tier off.
+    -- TEXT so the generic settings form doesn't treat them as checkboxes.
+    db_backup_keep_weekly TEXT DEFAULT '4' NOT NULL,
+    db_backup_keep_monthly TEXT DEFAULT '6' NOT NULL,
+    -- Days to keep replaced mirror copies in <mirror>/.versions/. '0' = keep forever.
+    library_mirror_version_days TEXT DEFAULT '30' NOT NULL
 );
 
 -- Persisted scheduled jobs (initial focus: auto-send). Rows remain until dispatched or manually cleared.
