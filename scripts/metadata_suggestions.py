@@ -26,6 +26,8 @@ def _tokens(text: str) -> set[str]:
 def _surname(author: str) -> str:
     """'Le Guin, Ursula K.' / 'Ursula K. Le Guin' -> 'guin' (last word of the family name)."""
     author = (author or "").strip()
+    if author.casefold() == "unknown":
+        return ""  # Calibre's placeholder: no author at all
     if "," in author:
         author = author.split(",", 1)[0]
     words = _WORD.findall(author.casefold())

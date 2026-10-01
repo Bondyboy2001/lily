@@ -7,9 +7,10 @@
 
 # custom jinja filters
 
-from markupsafe import escape
+from markupsafe import Markup, escape
 import datetime
 import mimetypes
+import re
 
 from flask import Blueprint, request, url_for, g
 from flask_babel import format_date
@@ -50,6 +51,18 @@ def shortentitle_filter(s, nchar=20):
             res += line + ' '
             suml += len(line) + 1
     return res.strip()
+
+
+_EMPTY_PARAGRAPH = re.compile(r'<p(?:\s[^>]*)?>(?:\s|&nbsp;|<br\s*/?>)*</p\s*>', re.IGNORECASE)
+_LINE_BREAK = re.compile(r'<br\s*/?>|</p\s*>\s*<p(?:\s[^>]*)?>', re.IGNORECASE)
+
+
+# flatten a stored description (already sanitised HTML) into one continuous paragraph
+@jinjia.app_template_filter('flatten_breaks')
+def flatten_breaks_filter(html):
+    text = _EMPTY_PARAGRAPH.sub('', html or '')
+    text = _LINE_BREAK.sub(' ', text)
+    return Markup(re.sub(r'\s*\n\s*', ' ', text).strip())
 
 
 @jinjia.app_template_filter('mimetype')

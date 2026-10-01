@@ -11,7 +11,7 @@ import os
 # Add the parent directory to the path so we can import cps modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from cps.jinjia import formatfloat
+from cps.jinjia import flatten_breaks_filter as flatten_breaks, formatfloat
 
 
 class TestFormatFloatFilter:
@@ -83,3 +83,23 @@ class TestFormatFloatFilter:
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
+
+
+class TestFlattenBreaksFilter:
+    """Tests for the flatten_breaks Jinja2 filter used on book descriptions"""
+
+    def test_br_becomes_space(self):
+        assert flatten_breaks('<p>one<br>two<br/>three<br />four</p>') == '<p>one two three four</p>'
+
+    def test_paragraphs_are_joined(self):
+        assert flatten_breaks('<p>one</p>\n<p class="x">two</p>') == '<p>one two</p>'
+
+    def test_empty_paragraphs_are_dropped(self):
+        assert flatten_breaks('<p>one</p><p>&nbsp;</p><p><br></p><p>two</p>') == '<p>one two</p>'
+
+    def test_newlines_collapse_and_inline_markup_survives(self):
+        assert flatten_breaks('a\n\n  <b>b</b>\nc') == 'a <b>b</b> c'
+
+    def test_none_and_empty(self):
+        assert flatten_breaks(None) == ''
+        assert flatten_breaks('') == ''
