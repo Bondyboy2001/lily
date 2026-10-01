@@ -432,7 +432,7 @@ window.lilyPickOption = function (item) {
 (function () {
   "use strict";
 
-  var COLOURS = { light: "#FDFCFA", dark: "#1B1719" };
+  var COLOURS = { light: "#FDFCFA", dark: "#1A1B26" };
 
   function apply(pref) {
     var root = document.documentElement;
