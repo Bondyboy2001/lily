@@ -280,7 +280,7 @@ def _load_duplicates_module(delete_key_calls):
     _install_stub("cps.ub", {"init_db_thread": lambda: calls.append("init-db-thread")})
     _install_stub("cps.csrf", {"exempt": _decorator})
     _install_stub("cps.admin", {"admin_required": _decorator})
-    _install_stub("cps.usermanagement", {"login_required_if_no_ano": _decorator})
+    _install_stub("cps.usermanagement", {"login_required_if_no_ano": _decorator, "refuse_token_auth": lambda: False})
     _install_stub("cps.internal_api", {"internal_only": _decorator})
     _install_stub("cps.render_template", {"render_title_template": lambda *args, **kwargs: ""})
     _install_stub("cps.cw_login", {"current_user": current_user})

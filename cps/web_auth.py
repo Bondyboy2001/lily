@@ -300,8 +300,8 @@ def logout():
 
 # ################################### Forced password change ########################################################
 # Accounts still on the shipped default password (ub.User.force_password_change) are sent to
-# /change-password on every web request. Device and machine endpoints keep working so e-readers
-# and internal services are not locked out while the admin picks a new password.
+# /change-password on every web request. Device and machine endpoints are not redirected (internal
+# services keep working); OPDS still refuses the default password itself (usermanagement).
 _FORCE_PW_EXEMPT_BLUEPRINTS = {"opds", "cwa_internal"}
 _FORCE_PW_EXEMPT_ENDPOINTS = {"static", "web.login", "web.login_post", "web.login_2fa", "web.logout",
                               "web.change_password", "web.health_check",
