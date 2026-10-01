@@ -94,7 +94,7 @@ def delete_selected_books():
     vals = request.get_json().get('selections')
     if vals:
         for book_id in vals:
-            delete_book_from_table(book_id, "", True)
+            delete_book_from_table(book_id, "", True, reason="bulk delete")
         _queue_duplicate_scan_after_change(vals)
         return json.dumps({'success': True})
     return ""
@@ -158,7 +158,7 @@ def merge_list_book():
                                                         element.uncompressed_size,
                                                         to_name))
                             to_file.append(element.format)
-                    delete_book_from_table(from_book.id, "", True)
+                    delete_book_from_table(from_book.id, "", True, reason="merged into %d" % to_book.id)
             calibre_db.session.commit()
             _queue_duplicate_scan_after_change([to_book.id] + vals)
             return json.dumps({'success': True})

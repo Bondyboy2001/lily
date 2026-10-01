@@ -33,7 +33,6 @@ from cps.helper import (
     valid_password,
     uniq,
     delete_book_file,
-    _directory_contains_only_nfs_placeholders,
 )
 
 
@@ -170,39 +169,23 @@ class TestGetValidFilename:
 
 
 class TestDeleteBookFile:
-    """Test file deletion edge cases."""
+    """delete_book_file moves to the Trash (cps/trash.py); NFS handling is in test_trash.py."""
 
-    def test_directory_contains_only_nfs_placeholders(self, tmp_path):
-        book_dir = tmp_path / "book"
-        book_dir.mkdir()
-        (book_dir / ".nfs.123").write_text("placeholder")
-        (book_dir / ".nfs.456").write_text("placeholder")
-
-        assert _directory_contains_only_nfs_placeholders(str(book_dir)) is True
-
-    def test_directory_contains_only_nfs_placeholders_rejects_regular_files(self, tmp_path):
-        book_dir = tmp_path / "book"
-        book_dir.mkdir()
-        (book_dir / ".nfs.123").write_text("placeholder")
-        (book_dir / "cover.jpg").write_text("cover")
-
-        assert _directory_contains_only_nfs_placeholders(str(book_dir)) is False
-
-    def test_delete_book_file_tolerates_nfs_placeholders_after_unlink(self, tmp_path, monkeypatch):
+    def test_failed_trash_move_reports_failure_and_keeps_the_folder(self, tmp_path, monkeypatch):
+        from cps import trash
         calibre_dir = tmp_path / "library"
         book_dir = calibre_dir / "Author" / "Book (1)"
         book_dir.mkdir(parents=True)
-        (book_dir / ".nfs.123").write_text("placeholder")
+        (book_dir / "book.epub").write_text("x")
         book = SimpleNamespace(id=1, path="Author/Book (1)")
 
-        monkeypatch.setattr("cps.helper.os.walk", lambda path: [(path, [], [])])
+        def _refuse(*args, **kwargs):
+            raise OSError(13, "Permission denied")
 
-        def _raise_directory_not_empty(path):
-            raise OSError(39, "Directory not empty", path)
-
-        monkeypatch.setattr("cps.helper.shutil.rmtree", _raise_directory_not_empty)
-
-        assert delete_book_file(book, str(calibre_dir)) == (True, None)
+        monkeypatch.setattr(trash, "trash_book", _refuse)
+        ok, error = delete_book_file(book, str(calibre_dir))
+        assert ok is False and "Permission denied" in str(error)
+        assert (book_dir / "book.epub").exists()
 
 
 # ============================================================================

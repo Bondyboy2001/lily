@@ -201,6 +201,13 @@ class TaskRestoreDatabaseSnapshot(RestoreTask):
         self._reload(restored)
         self.log.info("Restored %s from snapshot %s (safety copy: %s)", ", ".join(restored), snapshot_dir, safety_dir)
         self.message = N_('Restored %(dbs)s from snapshot %(name)s', dbs=", ".join(restored), name=self.snapshot_name)
+        # Book rows/folders out of step with the restored databases (see tasks/restore.py)
+        from cps.tasks.restore import reconcile_after_restore
+        note = reconcile_after_restore(restored, live.get("app.db", ""), live.get("metadata.db", ""),
+                                       None, get_config_dir(), "snapshot " + self.snapshot_name)
+        if note:
+            self.message = N_('Restored %(dbs)s from snapshot %(name)s. %(note)s',
+                              dbs=", ".join(restored), name=self.snapshot_name, note=note)
         self._handleSuccess()
 
     def _reload(self, restored):

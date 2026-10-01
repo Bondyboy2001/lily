@@ -346,7 +346,14 @@ def set_cwa_settings():
                     cron_invalid = True
                     flash(_("Invalid cron expression for duplicate scans. Changes were not saved."), category="error")
 
-            # DEBUGGING
+            # Automatic duplicate resolution deletes books: refuse to turn it on without Title
+            # among the match criteria, or before a preview was run (see duplicate_rules.py)
+            if result.get('duplicate_auto_resolve_enabled'):
+                from ..duplicate_rules import auto_resolve_block_reason
+                refusal = auto_resolve_block_reason({**cwa_settings, **result})
+                if refusal:
+                    result['duplicate_auto_resolve_enabled'] = 0
+                    flash(refusal + " " + _("Automatic resolution was left off."), category="error")
 
             duplicate_criteria_changed = False
             try:

@@ -23,6 +23,7 @@ from flask import Flask
 
 REPO = Path(__file__).resolve().parents[2]
 EMPTY_LIBRARY_DB = REPO / "empty_library" / "metadata.db"
+SAMPLE_BOOKS = REPO / "tests" / "fixtures" / "sample_books"
 
 ADMIN_PASSWORD = "admin-test-pw"
 
@@ -105,6 +106,46 @@ class LilyEnv:
             con.close()
         return book_id
 
+    def add_library_book(self, title, *, author="Test Author", files=("test_minimal_valid.epub",),
+                         tags=(), series=None, publisher=None, identifiers=None, comment=None, timestamp=None):
+        """A book with a real Calibre folder ('Author/Title (id)') holding copies of small
+        files from tests/fixtures/sample_books, a cover and a metadata.opf, plus the
+        matching data rows. Returns the book id."""
+        book_id = self.add_book(title, author=author, fmt=None, tags=tags, timestamp=timestamp)
+        rel = f"{author}/{title} ({book_id})"
+        folder = self.library_dir / author / f"{title} ({book_id})"
+        folder.mkdir(parents=True)
+        con = sqlite3.connect(self.library_dir / "metadata.db")
+        con.create_function("title_sort", 1, lambda t: t)
+        con.create_function("uuid4", 0, lambda: str(uuid.uuid4()))
+        try:
+            cur = con.cursor()
+            cur.execute("UPDATE books SET path=?, has_cover=1 WHERE id=?", (rel, book_id))
+            for name in files:
+                src = SAMPLE_BOOKS / name
+                ext = src.suffix.lstrip(".")
+                shutil.copy(src, folder / f"{title} - {author}.{ext}")
+                cur.execute("INSERT INTO data (book, format, uncompressed_size, name) VALUES (?,?,?,?)",
+                            (book_id, ext.upper(), src.stat().st_size, f"{title} - {author}"))
+            (folder / "cover.jpg").write_bytes(b"\xff\xd8\xff\xe0 cover")
+            (folder / "metadata.opf").write_text("<package/>")
+            if series:
+                cur.execute("INSERT OR IGNORE INTO series (name, sort) VALUES (?, ?)", (series, series))
+                sid = cur.execute("SELECT id FROM series WHERE name=?", (series,)).fetchone()[0]
+                cur.execute("INSERT INTO books_series_link (book, series) VALUES (?, ?)", (book_id, sid))
+            if publisher:
+                cur.execute("INSERT OR IGNORE INTO publishers (name, sort) VALUES (?, ?)", (publisher, publisher))
+                pid = cur.execute("SELECT id FROM publishers WHERE name=?", (publisher,)).fetchone()[0]
+                cur.execute("INSERT INTO books_publishers_link (book, publisher) VALUES (?, ?)", (book_id, pid))
+            for kind, val in (identifiers or {}).items():
+                cur.execute("INSERT INTO identifiers (book, type, val) VALUES (?, ?, ?)", (book_id, kind, val))
+            if comment:
+                cur.execute("INSERT INTO comments (book, text) VALUES (?, ?)", (book_id, comment))
+            con.commit()
+        finally:
+            con.close()
+        return book_id
+
 
 def _build_app():
     import cps
@@ -137,7 +178,8 @@ def _build_app():
     from cps.reading_stats import reading
     from cps.metadata_queue import suggestions
     from cps.tasks_status import tasks
-    for bp in (admi, jinjia, web, opds, shelf, search, account_security, reading, suggestions, tasks):
+    from cps.trash import trash
+    for bp in (admi, jinjia, web, opds, shelf, search, account_security, reading, suggestions, tasks, trash):
         app.register_blueprint(bp)
 
     @app.teardown_appcontext

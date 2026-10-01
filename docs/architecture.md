@@ -48,7 +48,7 @@ it is defined. Keep it that way.
 
 Other blueprints: `opds`, `shelf`, `search`, `metadata` (provider search), `tasks`,
 `duplicates`, `gdrive`, `about`, `account_security` (2FA, API token), `reading`
-(My Reading), `suggestions` (metadata suggestion review), and the `cwa_functions/`
+(My Reading), `suggestions` (metadata suggestion review), `trash` (Trash page), and the `cwa_functions/`
 package (Lily settings, stats, logs, ingest endpoints).
 
 ### Duplicates
@@ -56,6 +56,16 @@ package (Lily settings, stats, logs, ingest endpoints).
 `duplicate_rules.py` (pure rules: hashing, which book to keep) → `duplicate_detection.py`
 (SQL and Python scans, dismissed groups) → `duplicate_index.py` (the key index) →
 `duplicates.py` (routes and auto-resolution). `tasks/duplicate_scan.py` runs scans.
+
+### Trash
+
+Deleting a book (single, bulk, merge, duplicate resolution) goes through
+`helper.delete_book_file` → `trash.py`, which renames the book folder to
+`<library>/.lily-trash/<stamp>_<id>/` and writes `<stamp>_<id>.json` beside it with the
+book's metadata.db and app.db rows (`trash_store.py`). The admin Trash page restores or
+deletes entries; `tasks/trash_purge.py` deletes old ones nightly. After a snapshot restore,
+`library_orphans.py` lists book folders the restored metadata.db doesn't know, for re-import
+from the Trash page.
 
 ### Background tasks
 
@@ -71,7 +81,7 @@ in the cwa.db `job_status` table (`services/job_status.py`), which drives the ad
 Logic that needs no Flask or database lives in Flask-free modules so it can be tested
 alone: `cps/totp.py`, `scripts/db_backup.py`, `scripts/library_mirror.py`,
 `scripts/job_status.py`, `scripts/ingest_failures.py`, `scripts/metadata_suggestions.py`,
-`cps/duplicate_rules.py`.
+`cps/duplicate_rules.py`, `cps/trash_store.py`, `cps/library_orphans.py`.
 The ones under `scripts/` are importable from both the web app and the ingest process;
 the type-checked set is listed in `pyproject.toml` (`[tool.mypy]`).
 

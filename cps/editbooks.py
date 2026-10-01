@@ -818,10 +818,13 @@ def prepare_authors(authr, calibre_path, gdrive=False):
 
 
 def delete_whole_book(book_id, book):
-    # delete book from shelves, Downloads, Read list
+    # delete book from shelves, Downloads, Read list, bookmarks and reader progress
+    # (helper.delete_book saved them in the Trash entry first)
     ub.session.query(ub.BookShelf).filter(ub.BookShelf.book_id == book_id).delete()
     ub.session.query(ub.ReadBook).filter(ub.ReadBook.book_id == book_id).delete()
     ub.session.query(ub.ArchivedBook).filter(ub.ArchivedBook.book_id == book_id).delete()
+    ub.session.query(ub.Bookmark).filter(ub.Bookmark.book_id == book_id).delete()
+    ub.session.query(ub.WebReaderProgress).filter(ub.WebReaderProgress.book_id == book_id).delete()
     ub.delete_download(book_id)
     ub.session_commit()
 
@@ -870,28 +873,31 @@ def render_delete_book_result(book_format, json_response, warning, book_id, loca
             return json.dumps([warning, {"location": url_for("edit-book.show_edit_book", book_id=book_id),
                                          "type": "success",
                                          "format": book_format,
-                                         "message": _('Book Format Successfully Deleted')}])
+                                         "message": _('Format moved to the Trash')}])
         else:
-            flash(_('Book Format Successfully Deleted'), category="success")
+            flash(_('Format moved to the Trash'), category="success")
             return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
     else:
         if json_response:
             return json.dumps([warning, {"location": get_redirect_location(location, "web.index"),
                                          "type": "success",
                                          "format": book_format,
-                                         "message": _('Book Successfully Deleted')}])
+                                         "message": _('Book moved to the Trash')}])
         else:
-            flash(_('Book Successfully Deleted'), category="success")
+            flash(_('Book moved to the Trash'), category="success")
             return redirect(get_redirect_location(location, "web.index"))
 
 
-def delete_book_from_table(book_id, book_format, json_response, location=""):
+def delete_book_from_table(book_id, book_format, json_response, location="", reason="delete"):
     warning = {}
     if current_user.role_delete_books():
         book = calibre_db.get_book(book_id)
         if book:
+            files_moved = False
             try:
-                result, error = helper.delete_book(book, config.get_book_path(), book_format=book_format.upper())
+                result, error = helper.delete_book(book, config.get_book_path(), book_format=book_format.upper(),
+                                                   reason=reason)
+                files_moved = bool(result) and not book_format
                 if not result:
                     if json_response:
                         return json.dumps([{"location": url_for("edit-book.show_edit_book", book_id=book_id),
@@ -948,11 +954,18 @@ def delete_book_from_table(book_id, book_format, json_response, location=""):
             except Exception as ex:
                 log.error_or_exception(ex)
                 calibre_db.session.rollback()
+                if files_moved and calibre_db.get_book(book_id):
+                    # The rows are still there: put the folder back so the book isn't left without files.
+                    try:
+                        from . import trash
+                        trash.undo_trash_book(config.get_book_path(), book_id)
+                    except Exception as undo_ex:
+                        log.error("Could not undo the Trash move of book %s: %s", book_id, undo_ex)
                 if json_response:
                     return json.dumps([{"location": url_for("edit-book.show_edit_book", book_id=book_id),
                                         "type": "danger",
                                         "format": "",
-                                        "message": ex}])
+                                        "message": str(ex)}])
                 else:
                     flash(str(ex), category="error")
                     return redirect(url_for('edit-book.show_edit_book', book_id=book_id))

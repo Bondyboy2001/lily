@@ -195,6 +195,23 @@
     });
 
     /* ------------------------------------------------------------------ */
+    /* Automatic duplicate resolution needs Title among the criteria       */
+    /* ------------------------------------------------------------------ */
+    // The server refuses it too (duplicate_rules.auto_resolve_block_reason); this
+    // just keeps the switch from looking on when it can't be.
+    var autoResolve = document.querySelector("input[data-needs-title]");
+    var titleCriterion = document.getElementById("duplicate_detection_title");
+    if (autoResolve && titleCriterion) {
+      var lockedUntilPreview = autoResolve.disabled;
+      var syncAutoResolve = function () {
+        if (!titleCriterion.checked) { autoResolve.checked = false; }
+        autoResolve.disabled = lockedUntilPreview || !titleCriterion.checked;
+      };
+      titleCriterion.addEventListener("change", syncAutoResolve);
+      syncAutoResolve();
+    }
+
+    /* ------------------------------------------------------------------ */
     /* Metadata provider hierarchy + global enable toggles                 */
     /* ------------------------------------------------------------------ */
     var providerList = document.getElementById("metadata_provider_list");

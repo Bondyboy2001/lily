@@ -66,13 +66,6 @@ from .embed_helper import do_calibre_export
 log = logger.create()
 
 
-def _directory_contains_only_nfs_placeholders(path):
-    try:
-        entries = os.listdir(path)
-    except OSError:
-        return False
-    return bool(entries) and all(entry.startswith(".nfs") for entry in entries)
-
 try:
     from wand.image import Image
     from wand.exceptions import MissingDelegateError, BlobError
@@ -296,46 +289,35 @@ def edit_book_read_status(book_id, read_status=None):
     return ""
 
 
-# Deletes a book from the local filestorage, returns True if deleting is successful, otherwise false
-def delete_book_file(book, calibrepath, book_format=None):
-    # check that path is 2 elements deep, check that target path has no sub folders
-    if book.path.count('/') == 1:
-        path = os.path.join(calibrepath, book.path)
-        if book_format:
-            for file in os.listdir(path):
-                if file.upper().endswith("."+book_format):
-                    os.remove(os.path.join(path, file))
-            return True, None
-        else:
-            if os.path.isdir(path):
-                try:
-                    for root, folders, files in os.walk(path):
-                        for f in files:
-                            os.unlink(os.path.join(root, f))
-                        if len(folders):
-                            log.warning("Deleting book {} failed, path {} has subfolders: {}".format(book.id,
-                                        book.path, folders))
-                            return True, _("Deleting bookfolder for book %(id)s failed, path has subfolders: %(path)s",
-                                           id=book.id,
-                                           path=book.path)
-                    shutil.rmtree(path)
-                except (IOError, OSError) as ex:
-                    if _directory_contains_only_nfs_placeholders(path):
-                        log.warning(
-                            "Deleting book %s left NFS placeholder files in %s; continuing database cleanup",
-                            book.id, path,
-                        )
-                        return True, None
-                    log.error("Deleting book %s failed: %s", book.id, ex)
-                    return False, _("Deleting book %(id)s failed: %(message)s", id=book.id, message=ex)
-                authorpath = os.path.join(calibrepath, os.path.split(book.path)[0])
-                if not os.listdir(authorpath):
-                    try:
-                        shutil.rmtree(authorpath)
-                    except (IOError, OSError) as ex:
-                        log.error("Deleting authorpath for book %s failed: %s", book.id, ex)
-                return True, None
+def delete_book_file(book, calibrepath, book_format=None, reason="delete"):
+    """Moves a book's folder (or one format's file) into <library>/.lily-trash together
+    with its database rows, so it can be restored from the Trash page (cps/trash.py).
 
+    The move is a rename on the same filesystem, so open files and NFS '.nfsXXXX'
+    placeholders move with the folder; across filesystems (mergerfs/unionfs branches)
+    it copies, then deletes and tolerates leftover placeholders. When the move fails
+    nothing is deleted and (False, error) is returned. Returns (True, None) on success,
+    or (True, warning) when the book had no usable folder (its rows are still saved).
+    """
+    from . import trash
+    if book_format:
+        if book.path.count('/') != 1:
+            return True, None
+        try:
+            trash.trash_format(book, calibrepath, book_format, reason=reason)
+        except (OSError, trash.store.TrashError) as ex:
+            log.error("Moving %s of book %s to the Trash failed: %s", book_format, book.id, ex)
+            return False, _("Deleting book %(id)s failed: %(message)s", id=book.id, message=ex)
+        return True, None
+    path_valid = book.path.count('/') == 1
+    folder_exists = path_valid and os.path.isdir(os.path.join(calibrepath, book.path))
+    try:
+        trash.trash_book(book, calibrepath, reason=reason)
+    except Exception as ex:
+        log.error("Moving book %s to the Trash failed: %s", book.id, ex)
+        return False, _("Deleting book %(id)s failed: %(message)s", id=book.id, message=ex)
+    if folder_exists:
+        return True, None
     log.error("Deleting book %s from database only, book path in database not valid: %s",
               book.id, book.path)
     return True, _("Deleting book %(id)s from database only, book path in database not valid: %(path)s",
@@ -649,14 +631,19 @@ def update_dir_structure(book_id,
                                          db_filename)
 
 
-def delete_book(book, calibrepath, book_format):
-    if not book_format:
-        clear_cover_thumbnail_cache(book.id)  # here it breaks
-        calibre_db.delete_dirty_metadata(book.id)
+def delete_book(book, calibrepath, book_format, reason="delete"):
+    """Local libraries: moves the book (or format) to the Trash. Google Drive: moves the
+    file to the Drive trash, as before (no Lily Trash entry)."""
     if config.config_use_google_drive:
+        if not book_format:
+            clear_cover_thumbnail_cache(book.id)
+            calibre_db.delete_dirty_metadata(book.id)
         return delete_book_gdrive(book, book_format)
-    else:
-        return delete_book_file(book, calibrepath, book_format)
+    result = delete_book_file(book, calibrepath, book_format, reason=reason)
+    if result[0] and not book_format:
+        clear_cover_thumbnail_cache(book.id)
+        calibre_db.delete_dirty_metadata(book.id)
+    return result
 
 
 def get_cover_on_failure():

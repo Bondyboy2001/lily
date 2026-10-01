@@ -85,8 +85,8 @@
   <form method="POST" action="{{ url_for('admin.restore_calibre_db') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% call f.group(_('Last Resort')) %}
-      {% call f.row(_('Restore Calibre Database (experimental)'), help=_('Rebuilds metadata.db from the OPF files in your library. Erases per-book data such as reading progress and shelf links; accounts and settings stay. Both databases are backed up to /config/backup first.')) %}
-        <button type="submit" class="btn btn-danger" data-confirm="{{ _('Are you sure? This cannot be undone.') }}" onclick="return confirm(this.dataset.confirm);">{{ _('Restore') }}</button>
+      {% call f.row(_('Restore Calibre Database (experimental)'), help=_('Rebuilds metadata.db from the OPF files in your library. Book ids are kept, so shelves and reading progress stay; only books without a metadata.opf are lost, along with their shelf links and progress. Both databases are backed up to /config/backup first.')) %}
+        <button type="submit" class="btn btn-danger" data-confirm="{{ _('Rebuild metadata.db from the OPF files? Changes not yet written to the OPF files, and books without one, will be missing afterwards. Both databases are backed up first.') }}" onclick="return confirm(this.dataset.confirm);">{{ _('Restore') }}</button>
       {% endcall %}
     {% endcall %}
   </form>

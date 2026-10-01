@@ -90,7 +90,15 @@ CREATE TABLE IF NOT EXISTS cwa_settings(
     db_backup_keep_weekly TEXT DEFAULT '4' NOT NULL,
     db_backup_keep_monthly TEXT DEFAULT '6' NOT NULL,
     -- Days to keep replaced mirror copies in <mirror>/.versions/. '0' = keep forever.
-    library_mirror_version_days TEXT DEFAULT '30' NOT NULL
+    library_mirror_version_days TEXT DEFAULT '30' NOT NULL,
+    -- Days a deleted book stays in <library>/.lily-trash before the nightly purge. '0' = keep until emptied.
+    -- TEXT so the generic settings form does not treat it as a checkbox.
+    trash_retention_days TEXT DEFAULT '30' NOT NULL,
+    -- When the duplicate auto-resolution preview last ran (ISO time). Auto-resolve cannot be enabled before one.
+    -- TEXT with an empty default so the generic settings form leaves it alone.
+    duplicate_auto_resolve_previewed_at TEXT DEFAULT '' NOT NULL,
+    -- Why auto-resolution last refused to run, shown on the Duplicates settings tab. Empty = no problem.
+    duplicate_auto_resolve_last_abort TEXT DEFAULT '' NOT NULL
 );
 
 -- Persisted scheduled jobs (initial focus: auto-send). Rows remain until dispatched or manually cleared.
