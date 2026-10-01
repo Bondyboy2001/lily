@@ -176,7 +176,7 @@ def test_wipe_book_linked_tables_skips_missing(tmp_path):
 @pytest.mark.unit
 def test_restore_routes_do_not_block_on_subprocess():
     """The request handlers only queue tasks; no subprocess call runs in the request."""
-    tree = ast.parse((REPO / "cps" / "admin.py").read_text())
+    tree = ast.parse((REPO / "cps" / "admin_backups.py").read_text())
     for fn in (n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
                and n.name in ("restore_calibre_db", "restore_db_snapshot", "db_backups")):
         for node in ast.walk(fn):

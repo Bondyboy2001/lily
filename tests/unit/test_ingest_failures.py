@@ -71,7 +71,7 @@ def admin_client(dirs, monkeypatch, tmp_path):
     from .test_lily_reader_static import _register_remaining_blueprints
     failed, ingest = dirs
     monkeypatch.setattr(mod, "FAILED_DIR", str(failed))
-    monkeypatch.setattr("cps.admin._ingest_failure_dirs", lambda: (str(failed), str(ingest)))
+    monkeypatch.setattr("cps.admin_backups._ingest_failure_dirs", lambda: (str(failed), str(ingest)))
     with lily_env(tmp_path) as env:
         env.app.jinja_env.globals.setdefault("csrf_token", lambda: "test-token")
         _register_remaining_blueprints(env.app)
