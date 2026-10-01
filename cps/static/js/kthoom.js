@@ -69,7 +69,8 @@ var settings = {
     vflip: false,
     rotateTimes: 0,
     fitMode: kthoom.Key.B,
-    theme: "light",
+    // Until one is chosen, follow the app's light/dark theme (lily_theme_head.html).
+    theme: document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light",
     direction: 0, // 0 = Left to Right, 1 = Right to Left
     nextPage: 0, // 0 = Reset to Top, 1 = Remember Position
 	scrollbar: 1, // 0 = Hide Scrollbar, 1 = Show Scrollbar	
@@ -83,6 +84,7 @@ kthoom.saveSettings = function() {
 kthoom.loadSettings = function() {
     try {
         if (!localStorage.kthoomSettings) {
+            kthoom.setSettings();
             return;
         }
 
@@ -735,8 +737,10 @@ function init(filename) {
         updatePage();
     });
 
-    // Fullscreen mode
-    if (typeof screenfull !== "undefined") {
+    // Fullscreen mode (iOS Safari has no Fullscreen API for pages: hide the button there)
+    if (typeof screenfull === "undefined" || !screenfull.isEnabled) {
+        $("#fullscreen").remove();
+    } else {
         $("#fullscreen").click(function () {
             screenfull.toggle($("#container")[0]);
             // Focus on main container so you can use up/down keys immediately after fullscreen
