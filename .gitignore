@@ -23,6 +23,7 @@ replit.nix
 cwa-wiki/
 docs/*
 !docs/deployment.md
+!docs/architecture.md
 .venv-activate.sh
 test_venv
 cwa.code-workspace
