@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Calibre-Web Automated\n"
 "Report-Msgid-Bugs-To: https://github.com/Bondyboy2001/lily/issues\n"
-"POT-Creation-Date: 2026-10-01 15:20+0100\n"
+"POT-Creation-Date: 2026-10-01 15:39+0100\n"
 "PO-Revision-Date: 2025-11-24 17:12+0100\n"
 "Last-Translator: Massimo Pissarello <mapi68@gmail.com>\n"
 "Language-Team: Italian\n"
@@ -16,9 +16,9 @@ msgstr ""
 "X-Loco-Parser: loco_parse_po\n"
 "X-Generator: Poedit 3.8\n"
 
-#: cps/account_security.py:51 cps/templates/account_security.html:3
-#: cps/templates/config_edit.html:30 cps/templates/cwa_user_activity.html:92
-#: cps/templates/settings_layout.html:24
+#: cps/account_security.py:51 cps/templates/config_edit.html:29
+#: cps/templates/cwa_user_activity.html:92
+#: cps/templates/settings_layout.html:29 cps/templates/settings_layout.html:30
 #, fuzzy
 msgid "Security"
 msgstr "Impostazioni di sicurezza"
@@ -54,227 +54,227 @@ msgstr ""
 msgid "Account unlocked."
 msgstr ""
 
-#: cps/admin.py:105
+#: cps/admin.py:98
 msgid "Calibre database unavailable. Please reconfigure the library path."
 msgstr ""
 
-#: cps/admin.py:135
+#: cps/admin.py:128
 msgid "Server restarted, please reload page."
 msgstr "Server riavviato, ricarica la pagina."
 
-#: cps/admin.py:137
+#: cps/admin.py:130
 msgid "Performing Server shutdown, please close window."
 msgstr "Esecuzione dell'arresto del server, chiudi la finestra."
 
-#: cps/admin.py:145
+#: cps/admin.py:138
 msgid "Success! Database Reconnected"
 msgstr "Tutto OK! Database riconnesso"
 
-#: cps/admin.py:148
+#: cps/admin.py:141
 msgid "Unknown command"
 msgstr "Comando sconosciuto"
 
-#: cps/admin.py:159
+#: cps/admin.py:152
 msgid ""
 "Success! Books queued for Metadata Backup, please check Tasks for result"
 msgstr ""
 "Tutto OK! Libri in coda per il backup dei metadati, controlla le attività "
 "per il risultato"
 
-#: cps/admin.py:179
+#: cps/admin.py:172
 msgid ""
 "Error: No Hardcover token available. Set HARDCOVER_TOKEN environment "
 "variable or configure in Basic Configuration."
 msgstr ""
 
-#: cps/admin.py:207
+#: cps/admin.py:200
 msgid ""
 "Success! Hardcover auto-fetch task started. Check Tasks panel for progress."
 msgstr ""
 
-#: cps/admin.py:212
+#: cps/admin.py:205
 #, python-format
 msgid "Error starting Hardcover auto-fetch task: %(error)s"
 msgstr ""
 
-#: cps/admin.py:251
+#: cps/admin.py:244
 msgid "Review Hardcover Matches"
 msgstr ""
 
-#: cps/admin.py:258
+#: cps/admin.py:251
 #, python-format
 msgid "Error loading review queue: %(error)s"
 msgstr ""
 
-#: cps/admin.py:339
+#: cps/admin.py:332
 #, fuzzy
 msgid "Hardcover ID applied successfully"
 msgstr "{} utenti eliminati correttamente"
 
-#: cps/admin.py:356
+#: cps/admin.py:349
 #, python-format
 msgid "Match %(action)s"
 msgstr ""
 
-#: cps/admin.py:394
+#: cps/admin.py:387
 msgid "No pending matches to reject"
 msgstr ""
 
-#: cps/admin.py:400
+#: cps/admin.py:393
 #, python-format
 msgid "Rejected %(count)s match(es)"
 msgstr ""
 
-#: cps/admin.py:436
+#: cps/admin.py:429
 #, python-brace-format
 msgid ""
 "Thumbnail cache refresh started for {} book(s). This may take a few minutes."
 msgstr ""
 
-#: cps/admin.py:438
+#: cps/admin.py:431
 msgid "No books with covers found to process."
 msgstr ""
 
-#: cps/admin.py:450
+#: cps/admin.py:443
 #, python-brace-format
 msgid "Failed to start thumbnail refresh: {}"
 msgstr ""
 
-#: cps/admin.py:492
+#: cps/admin.py:479
 msgid "Admin page"
 msgstr "Pagina di amministrazione"
 
-#: cps/admin.py:512
+#: cps/admin.py:499
 msgid "Basic Configuration"
 msgstr "Configurazione di base"
 
-#: cps/admin.py:550
+#: cps/admin.py:537
 msgid "UI Configuration"
 msgstr "Configurazione dell'interfaccia utente"
 
-#: cps/admin.py:574 cps/admin.py:1159 cps/db.py:1029 cps/search.py:155
-#: cps/web.py:777
+#: cps/admin.py:561 cps/admin.py:1143 cps/db.py:1029 cps/search.py:155
+#: cps/web.py:758
 #, python-format
 msgid "Custom Column No.%(column)d does not exist in calibre database"
 msgstr ""
 "La colonna personalizzata no.%(column)d non esiste nel database di Calibre"
 
-#: cps/admin.py:590 cps/templates/admin.html:7
+#: cps/admin.py:577
 msgid "Edit Users"
 msgstr "Modifica utenti"
 
-#: cps/admin.py:635 cps/opds.py:730 cps/templates/image.html:110
+#: cps/admin.py:622 cps/opds.py:730 cps/templates/image.html:110
 #: cps/templates/image.html:111 cps/templates/image.html:131
 #: cps/templates/image.html:134
 msgid "All"
 msgstr "Tutti"
 
-#: cps/admin.py:662 cps/admin.py:1459
+#: cps/admin.py:649 cps/admin.py:1443
 msgid "User not found"
 msgstr "Utente non trovato"
 
-#: cps/admin.py:676
+#: cps/admin.py:663
 #, python-brace-format
 msgid "{} users deleted successfully"
 msgstr "{} utenti eliminati correttamente"
 
-#: cps/admin.py:699 cps/templates/config_view_edit.html:51
+#: cps/admin.py:686 cps/templates/config_view_edit.html:49
 #: cps/templates/user_edit.html:39 cps/templates/user_table.html:81
 msgid "Show All"
 msgstr "Mostra tutto"
 
-#: cps/admin.py:720 cps/admin.py:726
+#: cps/admin.py:707 cps/admin.py:713
 msgid "Malformed request"
 msgstr "Richiesta non valida"
 
-#: cps/admin.py:738 cps/admin.py:1868
+#: cps/admin.py:725 cps/admin.py:1835
 msgid "Guest Name can't be changed"
 msgstr "Il nome dell'utente Guest (ospite) non può essere modificato"
 
-#: cps/admin.py:744
+#: cps/admin.py:731
 msgid "Guest can't have this role"
 msgstr "L'utente Guest (ospite) non può avere questo ruolo"
 
-#: cps/admin.py:756 cps/admin.py:1798
+#: cps/admin.py:743 cps/admin.py:1770
 msgid "No admin user remaining, can't remove admin role"
 msgstr ""
 "Non rimarrebbe nessun utente amministratore, non è possibile rimuovere il "
 "ruolo di amministratore"
 
-#: cps/admin.py:760 cps/admin.py:774
+#: cps/admin.py:747 cps/admin.py:761
 msgid "Value has to be true or false"
 msgstr "Il valore deve essere vero o falso"
 
-#: cps/admin.py:762
+#: cps/admin.py:749
 msgid "Invalid role"
 msgstr "Ruolo non valido"
 
-#: cps/admin.py:766
+#: cps/admin.py:753
 msgid "Guest can't have this view"
 msgstr "L'utente Guest (ospite) non può visualizzare questa schermata"
 
-#: cps/admin.py:776
+#: cps/admin.py:763
 msgid "Invalid view"
 msgstr "Visualizzazione non valida"
 
-#: cps/admin.py:779
+#: cps/admin.py:766
 msgid "Guest's Locale is determined automatically and can't be set"
 msgstr ""
 "Le impostazioni locali dell'utente Guest (ospite) sono determinate "
 "automaticamente e non possono essere configurate"
 
-#: cps/admin.py:783
+#: cps/admin.py:770
 msgid "No Valid Locale Given"
 msgstr "Nessuna lingua valida specificata"
 
-#: cps/admin.py:794
+#: cps/admin.py:781
 msgid "No Valid Book Language Given"
 msgstr "Nessun libro valido per la lingua specificata"
 
-#: cps/admin.py:796 cps/editbooks.py:378
+#: cps/admin.py:783 cps/editbooks.py:378
 msgid "Parameter not found"
 msgstr "Parametro non trovato"
 
-#: cps/admin.py:833
+#: cps/admin.py:820
 msgid "Invalid Read Column"
 msgstr "Colonna di lettura non valida"
 
-#: cps/admin.py:839
+#: cps/admin.py:826
 msgid "Invalid Restricted Column"
 msgstr "Colonna con restrizioni non valida"
 
-#: cps/admin.py:858 cps/admin.py:1679
+#: cps/admin.py:842 cps/admin.py:1653
 msgid "Lily configuration updated"
 msgstr "La configurazione di Calibre-Web è stata aggiornata"
 
-#: cps/admin.py:870
+#: cps/admin.py:854
 msgid "Do you really want to delete this user?"
 msgstr "Vuoi veramente eliminare questo utente?"
 
-#: cps/admin.py:872
+#: cps/admin.py:856
 msgid "Are you sure you want to delete this shelf?"
 msgstr "Sei sicuro di voler eliminare questo scaffale?"
 
-#: cps/admin.py:874
+#: cps/admin.py:858
 msgid "Are you sure you want to change locales of selected user(s)?"
 msgstr ""
 "Sei sicuro di voler cambiare le impostazioni internazionali degli utenti "
 "selezionati?"
 
-#: cps/admin.py:876
+#: cps/admin.py:860
 msgid ""
 "Are you sure you want to change visible book languages for selected user(s)?"
 msgstr ""
 "Sei sicuro di voler cambiare le lingue visibili del libro per gli utenti "
 "selezionati?"
 
-#: cps/admin.py:878
+#: cps/admin.py:862
 msgid ""
 "Are you sure you want to change the selected role for the selected user(s)?"
 msgstr ""
 "Sei sicuro di voler cambiare il ruolo selezionato per gli utenti selezionati?"
 
-#: cps/admin.py:880
+#: cps/admin.py:864
 msgid ""
 "Are you sure you want to change the selected restrictions for the selected "
 "user(s)?"
@@ -282,7 +282,7 @@ msgstr ""
 "Sei sicuro di voler cambiare le restrizioni selezionate per gli utenti "
 "selezionati?"
 
-#: cps/admin.py:882
+#: cps/admin.py:866
 msgid ""
 "Are you sure you want to change the selected visibility restrictions for the "
 "selected user(s)?"
@@ -290,11 +290,11 @@ msgstr ""
 "Sei sicuro di voler cambiare le restrizioni di visibilità selezionate per "
 "gli utenti selezionati?"
 
-#: cps/admin.py:885
+#: cps/admin.py:869
 msgid "Are you sure you want to change Calibre library location?"
 msgstr "Sei sicuro di voler cambiare la posizione della biblioteca di Calibre?"
 
-#: cps/admin.py:887
+#: cps/admin.py:871
 msgid ""
 "Lily will search for updated Covers and update Cover Thumbnails, this may "
 "take a while?"
@@ -302,162 +302,162 @@ msgstr ""
 "Calibre-Web cercherà le copertine aggiornate e aggiornerà le miniature delle "
 "copertine, ma ci vorrà un po' di tempo."
 
-#: cps/admin.py:1068 cps/admin.py:1074 cps/admin.py:1084 cps/admin.py:1094
+#: cps/admin.py:1052 cps/admin.py:1058 cps/admin.py:1068 cps/admin.py:1078
 #: cps/templates/modal_dialogs.html:29 cps/templates/user_table.html:41
 #: cps/templates/user_table.html:58
 msgid "Deny"
 msgstr "Nega"
 
-#: cps/admin.py:1070 cps/admin.py:1076 cps/admin.py:1086 cps/admin.py:1096
+#: cps/admin.py:1054 cps/admin.py:1060 cps/admin.py:1070 cps/admin.py:1080
 #: cps/templates/modal_dialogs.html:28 cps/templates/user_table.html:44
 #: cps/templates/user_table.html:61
 msgid "Allow"
 msgstr "Consenti"
 
-#: cps/admin.py:1150
+#: cps/admin.py:1134
 msgid "Tag not found"
 msgstr "Etichetta non trovata"
 
-#: cps/admin.py:1168
+#: cps/admin.py:1152
 msgid "Invalid Action"
 msgstr "Azione non valida"
 
-#: cps/admin.py:1295
+#: cps/admin.py:1279
 msgid "client_secrets.json Is Not Configured For Web Application"
 msgstr "client_secrets.json non è configurato per Web Application"
 
-#: cps/admin.py:1318
+#: cps/admin.py:1302
 msgid "Logfile Location is not Valid, Please Enter Correct Path"
 msgstr ""
 "La posizione del file di log non è valida, per favore indica il percorso "
 "corretto"
 
-#: cps/admin.py:1324
+#: cps/admin.py:1308
 msgid "Access Logfile Location is not Valid, Please Enter Correct Path"
 msgstr ""
 "La posizione del file del log di accesso non è valida, indica il percorso "
 "corretto"
 
-#: cps/admin.py:1357 cps/templates/admin.html:8
-#: cps/templates/user_table.html:127
+#: cps/admin.py:1341 cps/templates/user_table.html:126
 msgid "Add New User"
 msgstr "Aggiungi nuovo utente"
 
-#: cps/admin.py:1381
+#: cps/admin.py:1365
 msgid "Edit Scheduled Tasks Settings"
 msgstr "Modifica le impostazioni delle attività pianificate"
 
-#: cps/admin.py:1393
+#: cps/admin.py:1377
 msgid "Invalid start time for task specified"
 msgstr "Ora di inizio non valida per l'attività specificata"
 
-#: cps/admin.py:1398
+#: cps/admin.py:1382
 msgid "Invalid duration for task specified"
 msgstr "Durata non valida per l'attività specificata"
 
-#: cps/admin.py:1408
+#: cps/admin.py:1392
 msgid "Scheduled tasks settings updated"
 msgstr "Impostazioni delle attività pianificate aggiornate"
 
-#: cps/admin.py:1418 cps/admin.py:1896
+#: cps/admin.py:1402 cps/admin.py:1863
 msgid "Oops! An unknown error occurred. Please try again later."
 msgstr "Si è verificato un errore sconosciuto. Per favore riprova più tardi."
 
-#: cps/admin.py:1422
+#: cps/admin.py:1406
 msgid "Settings DB is not Writeable"
 msgstr "Il DB delle impostazioni non è scrivibile"
 
-#: cps/admin.py:1441 cps/opds.py:194 cps/web_auth.py:440 cps/web_auth.py:503
+#: cps/admin.py:1425 cps/opds.py:194 cps/web_auth.py:440 cps/web_auth.py:501
 #, fuzzy
 msgid "title"
 msgstr "Titolo"
 
-#: cps/admin.py:1479 cps/admin.py:1884
+#: cps/admin.py:1463 cps/admin.py:1851
 #, python-format
 msgid "Edit User %(nick)s"
 msgstr "Modifica utente %(nick)s"
 
-#: cps/admin.py:1538 cps/admin.py:1663 cps/admin.py:1760 cps/admin.py:1900
+#: cps/admin.py:1522 cps/admin.py:1637 cps/admin.py:1732 cps/admin.py:1867
 #: cps/editbooks.py:504 cps/editbooks.py:718 cps/editbooks.py:1296
 #: cps/shelf.py:55 cps/shelf.py:86 cps/shelf.py:152 cps/shelf.py:267
-#: cps/tasks/convert.py:142 cps/web_auth.py:484
+#: cps/tasks/convert.py:140 cps/web_auth.py:482
 #, python-format
 msgid "Oops! Database Error: %(error)s."
 msgstr "Errore nel database: %(error)s."
 
-#: cps/admin.py:1550
+#: cps/admin.py:1534
 msgid "Books path not valid"
 msgstr "Percorso dei libri non valido"
 
-#: cps/admin.py:1557
+#: cps/admin.py:1541
 msgid "DB Location is not Valid, Please Enter Correct Path"
 msgstr ""
 "La posizione del DB non è valida, per favore indica il percorso corretto"
 
-#: cps/admin.py:1582
+#: cps/admin.py:1566
 msgid "DB is not Writeable"
 msgstr "Il DB non è scrivibile"
 
-#: cps/admin.py:1595
+#: cps/admin.py:1579
 msgid "Keyfile Location is not Valid, Please Enter Correct Path"
 msgstr "La posizione del Keyfile non è valida. Inserisci il percorso corretto"
 
-#: cps/admin.py:1599
+#: cps/admin.py:1583
 msgid "Certfile Location is not Valid, Please Enter Correct Path"
 msgstr "La posizione del Certfile non è valida, indica il percorso corretto"
 
-#: cps/admin.py:1646
+#: cps/admin.py:1629
 msgid "Password length has to be between 1 and 40"
 msgstr "La lunghezza della password deve essere compresa tra 1 e 40"
 
-#: cps/admin.py:1706
+#: cps/admin.py:1680
 msgid "Database Settings updated"
 msgstr "Impostazioni del database aggiornate"
 
-#: cps/admin.py:1714
+#: cps/admin.py:1688
 msgid "Database Configuration"
 msgstr "Configurazione del database"
 
-#: cps/admin.py:1729
+#: cps/admin.py:1701
 msgid "Oops! Please complete all fields."
 msgstr "Per favore completa tutti i campi."
 
-#: cps/admin.py:1739
+#: cps/admin.py:1711
 msgid "Add new user"
 msgstr "Aggiungi nuovo utente"
 
-#: cps/admin.py:1750
+#: cps/admin.py:1722
 #, python-format
 msgid "User '%(user)s' created"
 msgstr "L'utente '%(user)s' è stato creato"
 
-#: cps/admin.py:1756 cps/helper.py:596
+#: cps/admin.py:1728 cps/helper.py:594
 msgid "This username is already taken"
 msgstr "Questo nome utente è già utilizzato"
 
-#: cps/admin.py:1780
+#: cps/admin.py:1752
 #, python-format
 msgid "User '%(nick)s' deleted"
 msgstr "L'utente '%(nick)s' è stato eliminato"
 
-#: cps/admin.py:1782
+#: cps/admin.py:1754
 msgid "Can't delete Guest User"
 msgstr "Impossibile eliminare l'utente Guest (ospite)"
 
-#: cps/admin.py:1784
+#: cps/admin.py:1756
 msgid "No admin user remaining, can't delete user"
 msgstr ""
 "Non rimarrebbe nessun utente amministratore, non è possibile eliminare "
 "l'utente"
 
-#: cps/admin.py:1892
+#: cps/admin.py:1859
 #, python-format
 msgid "User '%(nick)s' updated"
 msgstr "L'utente '%(nick)s' è stato aggiornato"
 
-#: cps/admin.py:1905 cps/tasks_status.py:39 cps/templates/db_backups.html:9
-#: cps/templates/layout.html:166 cps/templates/schedule_edit.html:16
-#: cps/templates/settings_layout.html:26 cps/templates/tasks.html:5
+#: cps/admin.py:1872 cps/tasks_status.py:39 cps/templates/db_backups.html:8
+#: cps/templates/layout.html:166 cps/templates/schedule_edit.html:15
+#: cps/templates/settings_layout.html:31 cps/templates/settings_layout.html:32
+#: cps/templates/settings_layout.html:62
 msgid "Tasks"
 msgstr "Attività"
 
@@ -482,8 +482,7 @@ msgid ""
 "databases are backed up to /config/backup first."
 msgstr ""
 
-#: cps/admin_backups.py:85 cps/templates/ingest_failures.html:3
-#: cps/templates/settings_layout.html:38
+#: cps/admin_backups.py:85
 #, fuzzy
 msgid "Failed Imports"
 msgstr "Non riuscito"
@@ -529,8 +528,7 @@ msgid ""
 "fails, the mirror is lost with it."
 msgstr ""
 
-#: cps/admin_backups.py:165 cps/templates/db_backups.html:3
-#: cps/templates/layout.html:165 cps/templates/settings_layout.html:50
+#: cps/admin_backups.py:165 cps/templates/layout.html:165
 msgid "Database Backups"
 msgstr ""
 
@@ -620,15 +618,15 @@ msgstr "non installato"
 msgid "Execution permissions missing"
 msgstr "Mancano i permessi di esecuzione"
 
-#: cps/db.py:1323 cps/editbooks.py:777 cps/editbooks.py:1339 cps/uploader.py:95
-#: cps/uploader.py:104 cps/web.py:587 cps/web.py:622 cps/web.py:669
-#: cps/web.py:709 cps/web.py:738 cps/web_lists.py:162 cps/web_lists.py:223
+#: cps/db.py:1321 cps/editbooks.py:777 cps/editbooks.py:1338 cps/uploader.py:80
+#: cps/uploader.py:89 cps/web.py:568 cps/web.py:603 cps/web.py:650
+#: cps/web.py:690 cps/web.py:719 cps/web_lists.py:162 cps/web_lists.py:223
 #: cps/web_lists.py:259 cps/web_lists.py:291 cps/web_lists.py:330
 msgid "Unknown"
 msgstr "Sconosciuto"
 
-#: cps/duplicates.py:179 cps/duplicates.py:190 cps/templates/admin.html:25
-#: cps/templates/cwa_settings.html:269 cps/templates/settings_layout.html:34
+#: cps/duplicates.py:179 cps/duplicates.py:190
+#: cps/templates/cwa_settings.html:263
 msgid "Duplicate Books"
 msgstr "Libro duplicato"
 
@@ -673,15 +671,15 @@ msgid ""
 "Import is in progress. Execute duplicate resolution after ingest finishes."
 msgstr ""
 
-#: cps/editbooks.py:520 cps/editbooks.py:984 cps/web.py:561 cps/web.py:1010
-#: cps/web.py:1100 cps/web.py:1169
+#: cps/editbooks.py:520 cps/editbooks.py:984 cps/web.py:542 cps/web.py:991
+#: cps/web.py:1067 cps/web.py:1136
 msgid ""
 "Oops! Selected book is unavailable. File does not exist or is not accessible"
 msgstr ""
 "Il libro selezionato non è disponibile. Il file non esiste o non è "
 "accessibile"
 
-#: cps/editbooks.py:560 cps/editbooks.py:1321
+#: cps/editbooks.py:560 cps/editbooks.py:1320
 msgid "User has no rights to upload cover"
 msgstr "L'utente non ha i permessi per caricare le copertine"
 
@@ -718,7 +716,7 @@ msgid "You are missing permissions to delete books"
 msgstr "Ti mancano le autorizzazioni per eliminare i libri"
 
 #: cps/editbooks.py:1000 cps/templates/book_table.html:274
-#: cps/templates/detail.html:151 cps/templates/image.html:211
+#: cps/templates/detail.html:151 cps/templates/image.html:212
 msgid "Edit Metadata"
 msgstr "Modifica i metadati"
 
@@ -799,42 +797,42 @@ msgstr ""
 "Il dominio di callback non è stato verificato, segui i passaggi per "
 "verificare il dominio nella console per sviluppatori di Google"
 
-#: cps/helper.py:84
+#: cps/helper.py:82
 #, python-format
 msgid "%(format)s format not found for book id: %(book)d"
 msgstr "Formato %(format)s non trovato per l'ID libro: %(book)d"
 
-#: cps/helper.py:90 cps/tasks/convert.py:93
+#: cps/helper.py:88 cps/tasks/convert.py:91
 #, python-format
 msgid "%(format)s not found on Google Drive: %(fn)s"
 msgstr "%(format)s non trovato su Google Drive: %(fn)s"
 
-#: cps/helper.py:95
+#: cps/helper.py:93
 #, python-format
 msgid "%(format)s not found: %(fn)s"
 msgstr "%(format)s non trovato: %(fn)s"
 
-#: cps/helper.py:112
+#: cps/helper.py:110
 #, fuzzy, python-format
 msgid "Conversion timed out for book id: %(book)d"
 msgstr "Formato %(format)s non trovato per l'ID libro: %(book)d"
 
-#: cps/helper.py:114
+#: cps/helper.py:112
 #, fuzzy, python-format
 msgid "Conversion failed for book id: %(book)d"
 msgstr "Formato %(format)s non trovato per l'ID libro: %(book)d"
 
-#: cps/helper.py:291
+#: cps/helper.py:289
 #, python-brace-format
 msgid "Read status could not set: {}"
 msgstr "Impossibile impostare lo stato di lettura: {}"
 
-#: cps/helper.py:313 cps/helper.py:321
+#: cps/helper.py:311 cps/helper.py:319
 #, python-format
 msgid "Deleting book %(id)s failed: %(message)s"
 msgstr "Eliminazione del libro %(id)s non riuscita: %(message)s"
 
-#: cps/helper.py:326
+#: cps/helper.py:324
 #, python-format
 msgid ""
 "Deleting book %(id)s from database only, book path in database not valid: "
@@ -843,7 +841,7 @@ msgstr ""
 "Eliminazione del libro %(id)s solo dal database, percorso del libro nel "
 "database non valido: %(path)s"
 
-#: cps/helper.py:415
+#: cps/helper.py:413
 #, python-format
 msgid ""
 "Rename author from: '%(src)s' to '%(dest)s' failed with error: %(error)s"
@@ -851,48 +849,48 @@ msgstr ""
 "La modifica dell'autore da '%(src)s' a '%(dest)s' è terminata con l'errore: "
 "%(error)s"
 
-#: cps/helper.py:472 cps/helper.py:481
+#: cps/helper.py:470 cps/helper.py:479
 #, python-format
 msgid "File %(file)s not found on Google Drive"
 msgstr "Il file %(file)s non è stato trovato su Google Drive"
 
-#: cps/helper.py:559
+#: cps/helper.py:557
 #, python-format
 msgid "Rename title from: '%(src)s' to '%(dest)s' failed with error: %(error)s"
 msgstr ""
 "La modifica del titolo da '%(src)s' a '%(dest)s' è terminata con l'errore: "
 "%(error)s"
 
-#: cps/helper.py:578
+#: cps/helper.py:576
 #, python-format
 msgid "Book path %(path)s not found on Google Drive"
 msgstr "Il percorso del libro %(path)s non è stato trovato su Google Drive"
 
-#: cps/helper.py:617
+#: cps/helper.py:615
 msgid "Password doesn't comply with password validation rules"
 msgstr "La password non è conforme alle regole di convalida della password"
 
-#: cps/helper.py:859
+#: cps/helper.py:857
 msgid ""
 "Python module 'advocate' is not installed but is needed for cover uploads"
 msgstr ""
 "Il modulo Python \"advocate\" non è installato ma è necessario per il "
 "caricamento delle copertine"
 
-#: cps/helper.py:870 cps/helper.py:894
+#: cps/helper.py:868 cps/helper.py:892
 msgid "Error Downloading Cover"
 msgstr "Errore nello scaricare la copertina"
 
-#: cps/helper.py:875 cps/helper.py:883
+#: cps/helper.py:873 cps/helper.py:881
 #, python-format
 msgid "Cover image exceeds maximum size of %(size)s MB"
 msgstr ""
 
-#: cps/helper.py:897
+#: cps/helper.py:895
 msgid "Cover Format Error"
 msgstr "Errore nel formato della copertina"
 
-#: cps/helper.py:900
+#: cps/helper.py:898
 msgid ""
 "You are not allowed to access localhost or the local network for cover "
 "uploads"
@@ -900,80 +898,71 @@ msgstr ""
 "Non ti è consentito accedere all'host locale o alla rete locale per caricare "
 "le copertine"
 
-#: cps/helper.py:916
+#: cps/helper.py:914
 msgid "Failed to create path for cover"
 msgstr "Impossibile creare il percorso per la copertina"
 
-#: cps/helper.py:932
+#: cps/helper.py:930
 msgid "Cover-file is not a valid image file, or could not be stored"
 msgstr ""
 "Il file della copertina non è in un formato di immagine valido o non può "
 "essere salvato"
 
-#: cps/helper.py:949
+#: cps/helper.py:947
 msgid "Only jpg/jpeg/png/webp/bmp files are supported as coverfile"
 msgstr ""
 "Solo i file jpg/jpeg/png/webp/bmp sono supportati come file di copertina"
 
-#: cps/helper.py:963
+#: cps/helper.py:961
 msgid "Invalid cover file content"
 msgstr "Contenuto del file di copertina non valido"
 
-#: cps/helper.py:967
+#: cps/helper.py:965
 msgid "Only jpg/jpeg files are supported as coverfile"
 msgstr "Solo i file jpg/jpeg sono supportati come file di copertina"
 
-#: cps/helper.py:1077 cps/helper.py:1287
-msgid "Cover"
-msgstr "Copertina"
-
-#: cps/helper.py:1094
-msgid "UnRar binary file not found"
-msgstr "File binario UnRar non trovato"
-
-#: cps/helper.py:1105
-msgid "Error executing UnRar"
-msgstr "Errore nell'eseguire UnRar"
-
-#: cps/helper.py:1111
+#: cps/helper.py:1053
 #, python-format
 msgid ""
 "Unsupported architecture detected: %(arch)s. Lily is optimized for x86_64 "
 "and aarch64."
 msgstr ""
 
-#: cps/helper.py:1120
+#: cps/helper.py:1062
 msgid "Could not find the specified directory"
 msgstr "Impossibile trovare la cartella specificata"
 
-#: cps/helper.py:1123
+#: cps/helper.py:1065
 msgid "Please specify a directory, not a file"
 msgstr "Specifica una cartella, non un file"
 
-#: cps/helper.py:1137
+#: cps/helper.py:1079
 msgid "Calibre binaries not viable"
 msgstr "Eseguibili di Calibre non validi"
 
-#: cps/helper.py:1146
+#: cps/helper.py:1088
 #, python-format
 msgid "Missing calibre binaries: %(missing)s"
 msgstr "File eseguibili di Calibre mancanti: %(missing)s"
 
-#: cps/helper.py:1148
+#: cps/helper.py:1090
 #, python-format
 msgid "Missing executable permissions: %(missing)s"
 msgstr "Permessi di esecuzione mancanti: %(missing)s"
 
-#: cps/helper.py:1153
+#: cps/helper.py:1095
 msgid "Error executing Calibre"
 msgstr "Errore durante l'esecuzione di Calibre"
 
-#: cps/helper.py:1289
+#: cps/helper.py:1219
+msgid "Cover"
+msgstr "Copertina"
+
+#: cps/helper.py:1221
 msgid "Queue all books for metadata backup"
 msgstr "Metti in coda tutti i libri per il backup dei metadati"
 
-#: cps/metadata_queue.py:108 cps/templates/metadata_suggestions.html:3
-#: cps/templates/settings_layout.html:37
+#: cps/metadata_queue.py:108
 msgid "Metadata Suggestions"
 msgstr ""
 
@@ -1022,7 +1011,7 @@ msgid "{} Stars"
 msgstr "{} stelle"
 
 #: cps/reading_stats.py:82 cps/reading_stats.py:90 cps/templates/layout.html:72
-#: cps/templates/reading_stats.html:3 cps/templates/settings_layout.html:23
+#: cps/templates/settings_layout.html:27 cps/templates/settings_layout.html:28
 msgid "My Reading"
 msgstr ""
 
@@ -1053,19 +1042,19 @@ msgid "Downloaded Books"
 msgstr "Libri scaricati"
 
 #: cps/render_template.py:116 cps/render_template.py:121
-#: cps/templates/user_table.html:164
+#: cps/templates/user_table.html:161
 msgid "Show Downloaded Books"
 msgstr "Mostra Libri scaricati"
 
-#: cps/render_template.py:124 cps/web.py:450
+#: cps/render_template.py:124 cps/web.py:448
 msgid "Top Rated Books"
 msgstr "Libri più votati"
 
-#: cps/render_template.py:126 cps/templates/user_table.html:158
+#: cps/render_template.py:126 cps/templates/user_table.html:156
 msgid "Show Top Rated Books"
 msgstr "Mostra Libri più votati"
 
-#: cps/render_template.py:127 cps/web.py:796
+#: cps/render_template.py:127 cps/web.py:777
 msgid "Read Books"
 msgstr "Libri letti"
 
@@ -1073,7 +1062,7 @@ msgstr "Libri letti"
 msgid "Show Read and Unread"
 msgstr "Mostra Libri letti e Libri da leggere"
 
-#: cps/render_template.py:131 cps/web.py:799
+#: cps/render_template.py:131 cps/web.py:780
 msgid "Unread Books"
 msgstr "Libri da leggere"
 
@@ -1081,108 +1070,98 @@ msgstr "Libri da leggere"
 msgid "Show unread"
 msgstr "Mostra da leggere"
 
-#: cps/render_template.py:134
-msgid "Discover"
-msgstr "Libri casuali"
-
-#: cps/render_template.py:136 cps/templates/user_table.html:156
-#: cps/templates/user_table.html:159
-msgid "Show Random Books"
-msgstr "Mostra Libri casuali"
-
-#: cps/render_template.py:137 cps/templates/book_table.html:98
+#: cps/render_template.py:134 cps/templates/book_table.html:98
 #: cps/web_lists.py:334
 msgid "Categories"
 msgstr "Categorie"
 
-#: cps/render_template.py:139 cps/templates/user_table.html:155
+#: cps/render_template.py:136 cps/templates/user_table.html:153
 msgid "Show Category Section"
 msgstr "Mostra sezione Categorie"
 
-#: cps/render_template.py:140 cps/templates/book_edit.html:76
-#: cps/templates/book_table.html:99 cps/templates/cwa_settings.html:100
-#: cps/templates/cwa_settings.html:233
-#: cps/templates/hardcover_review_matches.html:60
+#: cps/render_template.py:137 cps/templates/book_edit.html:76
+#: cps/templates/book_edit.html:356 cps/templates/book_table.html:99
+#: cps/templates/cwa_settings.html:94 cps/templates/cwa_settings.html:227
+#: cps/templates/hardcover_review_matches.html:59
 #: cps/templates/search_form.html:68 cps/web_lists.py:225 cps/web_lists.py:228
 msgid "Series"
 msgstr "Serie"
 
-#: cps/render_template.py:142 cps/templates/user_table.html:154
+#: cps/render_template.py:139 cps/templates/user_table.html:152
 msgid "Show Series Section"
 msgstr "Mostra sezione Serie"
 
-#: cps/render_template.py:143 cps/templates/book_edit.html:66
-#: cps/templates/book_table.html:97 cps/templates/cwa_settings.html:96
-#: cps/templates/hardcover_review_matches.html:58 cps/templates/layout.html:102
-#: cps/templates/reading_stats.html:29 cps/web_lists.py:111
+#: cps/render_template.py:140 cps/templates/book_edit.html:66
+#: cps/templates/book_table.html:97 cps/templates/cwa_settings.html:90
+#: cps/templates/hardcover_review_matches.html:57 cps/templates/layout.html:102
+#: cps/templates/reading_stats.html:28 cps/web_lists.py:111
 msgid "Authors"
 msgstr "Autori"
 
-#: cps/render_template.py:145 cps/templates/user_table.html:157
+#: cps/render_template.py:142 cps/templates/user_table.html:155
 msgid "Show Author Section"
 msgstr "Mostra sezione Autori"
 
-#: cps/render_template.py:147 cps/templates/book_table.html:103
+#: cps/render_template.py:144 cps/templates/book_table.html:103
 #: cps/web_lists.py:173
 msgid "Publishers"
 msgstr "Editori"
 
-#: cps/render_template.py:149 cps/templates/user_table.html:160
+#: cps/render_template.py:146 cps/templates/user_table.html:157
 msgid "Show Publisher Section"
 msgstr "Mostra sezione Editori"
 
-#: cps/render_template.py:150 cps/templates/book_table.html:101
-#: cps/templates/detail.html:181 cps/templates/search_form.html:71
-#: cps/web_lists.py:306
+#: cps/render_template.py:147 cps/templates/book_edit.html:360
+#: cps/templates/book_table.html:101 cps/templates/detail.html:181
+#: cps/templates/search_form.html:71 cps/web_lists.py:306
 msgid "Languages"
 msgstr "Lingue"
 
-#: cps/render_template.py:153 cps/templates/user_table.html:152
+#: cps/render_template.py:150 cps/templates/user_table.html:150
 msgid "Show Language Section"
 msgstr "Mostra sezione Lingue"
 
-#: cps/render_template.py:154 cps/web_lists.py:266
+#: cps/render_template.py:151 cps/web_lists.py:266
 msgid "Ratings"
 msgstr "Valutazioni"
 
-#: cps/render_template.py:156 cps/templates/user_table.html:161
+#: cps/render_template.py:153 cps/templates/user_table.html:158
 msgid "Show Ratings Section"
 msgstr "Mostra sezione Valutazioni"
 
-#: cps/render_template.py:157
+#: cps/render_template.py:154
 msgid "File formats"
 msgstr "Formati di file"
 
-#: cps/render_template.py:159 cps/templates/user_table.html:162
+#: cps/render_template.py:156 cps/templates/user_table.html:159
 msgid "Show File Formats Section"
 msgstr "Mostra sezione Formati di file"
 
-#: cps/render_template.py:161 cps/web.py:822
+#: cps/render_template.py:158 cps/web.py:803
 msgid "Archived Books"
 msgstr "Libri archiviati"
 
-#: cps/render_template.py:163 cps/templates/user_table.html:163
+#: cps/render_template.py:160 cps/templates/user_table.html:160
 msgid "Show Archived Books"
 msgstr "Mostra Libri archiviati"
 
-#: cps/render_template.py:166 cps/web.py:892
+#: cps/render_template.py:163 cps/web.py:873
 msgid "Books List"
 msgstr "Elenco libri"
 
-#: cps/render_template.py:168 cps/templates/user_table.html:165
+#: cps/render_template.py:165 cps/templates/user_table.html:162
 msgid "Show Books List"
 msgstr "Mostra Elenco libri"
 
-#: cps/render_template.py:171 cps/templates/duplicates.html:3
-#: cps/templates/settings_layout.html:56
+#: cps/render_template.py:168 cps/templates/settings_layout.html:46
 msgid "Duplicates"
 msgstr "Duplicati"
 
-#: cps/render_template.py:173
+#: cps/render_template.py:170
 msgid "Show Duplicate Books"
 msgstr "Mostra Libri duplicati"
 
-#: cps/render_template.py:232
+#: cps/render_template.py:229
 #, python-format
 msgid ""
 "Lily update available: %(current)s → %(newest)s. Rebuild or re-pull the "
@@ -1362,7 +1341,7 @@ msgstr "Non riuscito"
 msgid "Started"
 msgstr "Avviato"
 
-#: cps/tasks_status.py:62 cps/templates/reading_stats.html:15
+#: cps/tasks_status.py:62 cps/templates/reading_stats.html:14
 msgid "Finished"
 msgstr "Finito"
 
@@ -1421,8 +1400,8 @@ msgstr ""
 msgid "Folder not found: %(path)s"
 msgstr "%(format)s non trovato: %(fn)s"
 
-#: cps/templates/settings_layout.html:39 cps/templates/trash.html:3
-#: cps/trash.py:348
+#: cps/templates/settings_layout.html:49 cps/templates/settings_layout.html:50
+#: cps/templates/trash.html:3 cps/trash.py:348
 msgid "Trash"
 msgstr ""
 
@@ -1473,64 +1452,60 @@ msgid ""
 "folders are in the Trash."
 msgstr ""
 
-#: cps/web.py:357 cps/web.py:359
+#: cps/web.py:355 cps/web.py:357
 #, python-format
 msgid "Books (%(count)s)"
 msgstr ""
 
-#: cps/web.py:464
-msgid "Discover (Random Books)"
-msgstr "Libri casuali"
-
-#: cps/web.py:510
+#: cps/web.py:492
 msgid "Hot Books (Most Downloaded)"
 msgstr "Libri hot (i più scaricati)"
 
-#: cps/web.py:543
+#: cps/web.py:524
 #, python-format
 msgid "Downloaded books by %(user)s"
 msgstr "Libri scaricati da %(user)s"
 
-#: cps/web.py:570
+#: cps/web.py:551
 #, python-format
 msgid "Author: %(name)s"
 msgstr "Autore: %(name)s"
 
-#: cps/web.py:606
+#: cps/web.py:587
 #, python-format
 msgid "Publisher: %(name)s"
 msgstr "Editore: %(name)s"
 
-#: cps/web.py:636
+#: cps/web.py:617
 #, python-format
 msgid "Series: %(serie)s"
 msgstr "Serie: %(serie)s"
 
-#: cps/web.py:651
+#: cps/web.py:632
 msgid "Rating: None"
 msgstr "Valutazione: nessuna"
 
-#: cps/web.py:660
+#: cps/web.py:641
 #, python-format
 msgid "Rating: %(rating)s stars"
 msgstr "Valutazione: %(rating)s stelle"
 
-#: cps/web.py:691
+#: cps/web.py:672
 #, python-format
 msgid "File format: %(format)s"
 msgstr "Formato file: %(format)s"
 
-#: cps/web.py:728
+#: cps/web.py:709
 #, python-format
 msgid "Category: %(name)s"
 msgstr "Categoria: %(name)s"
 
-#: cps/web.py:757
+#: cps/web.py:738
 #, python-format
 msgid "Language: %(name)s"
 msgstr "Lingua: %(name)s"
 
-#: cps/web.py:1113
+#: cps/web.py:1080
 msgid "Invalid book ID."
 msgstr "Book ID non valido."
 
@@ -1592,20 +1567,20 @@ msgid "Password changed"
 msgstr "Password"
 
 #: cps/templates/change_password.html:16 cps/templates/change_password.html:41
-#: cps/templates/user_table.html:144 cps/web_auth.py:363
+#: cps/templates/user_table.html:143 cps/web_auth.py:363
 msgid "Change Password"
 msgstr "Cambia password"
 
-#: cps/web_auth.py:455 cps/web_auth.py:518
+#: cps/web_auth.py:455 cps/web_auth.py:516
 #, python-format
 msgid "%(name)s's Profile"
 msgstr "Profilo di %(name)s"
 
-#: cps/web_auth.py:474
+#: cps/web_auth.py:472
 msgid "Success! Profile Updated"
 msgstr "Tutto OK! Profilo aggiornato"
 
-#: cps/web_auth.py:479
+#: cps/web_auth.py:477
 msgid "Oops! An account already exists for this Email."
 msgstr "Esiste già un account per questa e-mail."
 
@@ -1673,25 +1648,25 @@ msgstr ""
 msgid "An Error has occurred"
 msgstr "Si è verificato un errore"
 
-#: cps/cwa_functions/settings.py:347
+#: cps/cwa_functions/settings.py:340
 msgid "Invalid cron expression for duplicate scans. Changes were not saved."
 msgstr ""
 
-#: cps/cwa_functions/settings.py:356
+#: cps/cwa_functions/settings.py:349
 msgid "Automatic resolution was left off."
 msgstr ""
 
-#: cps/cwa_functions/settings.py:380
+#: cps/cwa_functions/settings.py:373
 #, fuzzy
 msgid "Settings saved"
 msgstr "Impostazioni"
 
-#: cps/cwa_functions/settings.py:400
+#: cps/cwa_functions/settings.py:393
 #, fuzzy
 msgid "Default settings restored"
 msgstr "Impostazioni predefinite per i nuovi utenti"
 
-#: cps/cwa_functions/settings.py:422
+#: cps/cwa_functions/settings.py:415
 msgid "Lily User Settings"
 msgstr "Impostazioni utente Lily"
 
@@ -1754,46 +1729,36 @@ msgstr ""
 msgid "Delete temp folder contents"
 msgstr "Elimina contenuto della cartella temporanea"
 
-#: cps/tasks/convert.py:52
+#: cps/tasks/convert.py:50
 #, python-format
 msgid "Conversion took longer than %(minutes)d minutes and was stopped"
 msgstr ""
 
-#: cps/tasks/convert.py:159
+#: cps/tasks/convert.py:152
 #, python-format
 msgid "Calibre ebook-convert %(tool)s not found"
 msgstr "Calibre ebook-convert %(tool)s non trovato"
 
-#: cps/tasks/convert.py:189
+#: cps/tasks/convert.py:182
 #, python-format
 msgid "%(format)s format not found on disk"
 msgstr "Formato %(format)s non trovato sul disco"
 
-#: cps/tasks/convert.py:193
+#: cps/tasks/convert.py:186
 msgid "Ebook converter failed with unknown error"
 msgstr "La conversione del libro è terminata con un errore sconosciuto"
 
-#: cps/tasks/convert.py:212
-#, python-format
-msgid "Kepubify-converter failed: %(error)s"
-msgstr "Errore con il convertitore Kepubify: %(error)s"
-
-#: cps/tasks/convert.py:243
-#, python-format
-msgid "Converted file not found or more than one file in folder %(folder)s"
-msgstr "File convertito non trovato o più di un file nella cartella %(folder)s"
-
-#: cps/tasks/convert.py:292 cps/tasks/convert.py:349
+#: cps/tasks/convert.py:231 cps/tasks/convert.py:288
 #, python-format
 msgid "Calibre failed with error: %(error)s"
 msgstr "Si è verificato un errore con Calibre: %(error)s"
 
-#: cps/tasks/convert.py:320
+#: cps/tasks/convert.py:259
 #, python-format
 msgid "Ebook-converter failed: %(error)s"
 msgstr "Errore nel convertitore: %(error)s"
 
-#: cps/tasks/convert.py:354
+#: cps/tasks/convert.py:293
 msgid "Convert"
 msgstr "Converti"
 
@@ -1826,7 +1791,7 @@ msgid "Restored %(dbs)s from snapshot %(name)s. %(note)s"
 msgstr ""
 
 #: cps/tasks/duplicate_scan.py:40 cps/tasks/duplicate_scan.py:56
-#: cps/templates/duplicates.html:10
+#: cps/templates/duplicates.html:9
 #, fuzzy
 msgid "Duplicate scan"
 msgstr "Duplicati"
@@ -1962,97 +1927,97 @@ msgstr "Cancellazione della cache delle miniature delle copertine"
 msgid "Emptying old items from the Trash"
 msgstr ""
 
-#: cps/tasks/upload.py:28 cps/templates/user_table.html:145
+#: cps/tasks/upload.py:28 cps/templates/user_table.html:144
 msgid "Upload"
 msgstr "Caricamento"
 
-#: cps/templates/account_security.html:7
+#: cps/templates/account_security.html:6
 #, fuzzy
 msgid "Two-factor authentication"
 msgstr "Autenticazione LDAP"
 
-#: cps/templates/account_security.html:7
+#: cps/templates/account_security.html:6
 msgid ""
 "Ask for a 6-digit code from an authenticator app (Aegis, Google "
 "Authenticator, 1Password, ...) after the password at sign-in."
 msgstr ""
 
-#: cps/templates/account_security.html:9 cps/templates/account_security.html:41
-#: cps/templates/db_backups.html:18 cps/templates/tasks.html:17
+#: cps/templates/account_security.html:8 cps/templates/account_security.html:40
+#: cps/templates/db_backups.html:17 cps/templates/tasks.html:16
 msgid "Status"
 msgstr "Stato"
 
-#: cps/templates/account_security.html:9
+#: cps/templates/account_security.html:8
 msgid "On"
 msgstr ""
 
-#: cps/templates/account_security.html:12
-#: cps/templates/account_security.html:44 cps/templates/login.html:43
+#: cps/templates/account_security.html:11
+#: cps/templates/account_security.html:43 cps/templates/login.html:43
 #: cps/templates/user_edit.html:16
 msgid "Password"
 msgstr "Password"
 
-#: cps/templates/account_security.html:13
+#: cps/templates/account_security.html:12
 #, fuzzy
 msgid "Current code"
 msgstr "Versione attuale"
 
-#: cps/templates/account_security.html:14
+#: cps/templates/account_security.html:13
 msgid "Turn off"
 msgstr ""
 
-#: cps/templates/account_security.html:17
+#: cps/templates/account_security.html:16
 msgid "Secret key"
 msgstr ""
 
-#: cps/templates/account_security.html:17
+#: cps/templates/account_security.html:16
 msgid ""
 "Add this key to your authenticator app (choose \"enter a setup key\", time-"
 "based). Or open the link below on the device that has the app."
 msgstr ""
 
-#: cps/templates/account_security.html:20
+#: cps/templates/account_security.html:19
 msgid "Setup link"
 msgstr ""
 
-#: cps/templates/account_security.html:23
+#: cps/templates/account_security.html:22
 msgid "Code from the app"
 msgstr ""
 
-#: cps/templates/account_security.html:23
+#: cps/templates/account_security.html:22
 msgid "Enter the current code to confirm it works."
 msgstr ""
 
-#: cps/templates/account_security.html:25
+#: cps/templates/account_security.html:24
 msgid "Turn on"
 msgstr ""
 
-#: cps/templates/account_security.html:26 cps/templates/admin.html:73
-#: cps/templates/admin.html:87 cps/templates/book_edit.html:248
+#: cps/templates/account_security.html:25 cps/templates/admin.html:53
+#: cps/templates/admin.html:67 cps/templates/book_edit.html:248
 #: cps/templates/book_table.html:164 cps/templates/book_table.html:183
 #: cps/templates/book_table.html:203 cps/templates/book_table.html:223
 #: cps/templates/book_table.html:243 cps/templates/book_table.html:263
 #: cps/templates/book_table.html:321 cps/templates/book_table.html:357
-#: cps/templates/change_password.html:51 cps/templates/config_db.html:59
-#: cps/templates/config_edit.html:37 cps/templates/config_view_edit.html:81
-#: cps/templates/cwa_settings.html:410 cps/templates/duplicates.html:194
-#: cps/templates/duplicates.html:214 cps/templates/duplicates.html:236
+#: cps/templates/change_password.html:51 cps/templates/config_db.html:58
+#: cps/templates/config_edit.html:36 cps/templates/config_view_edit.html:81
+#: cps/templates/cwa_settings.html:404 cps/templates/duplicates.html:193
+#: cps/templates/duplicates.html:213 cps/templates/duplicates.html:235
 #: cps/templates/modal_dialogs.html:57 cps/templates/modal_dialogs.html:92
 #: cps/templates/modal_dialogs.html:110 cps/templates/modal_dialogs.html:128
-#: cps/templates/schedule_edit.html:23 cps/templates/shelf_edit.html:20
-#: cps/templates/tasks.html:47 cps/templates/user_edit.html:102
+#: cps/templates/schedule_edit.html:22 cps/templates/shelf_edit.html:20
+#: cps/templates/tasks.html:46 cps/templates/user_edit.html:101
 msgid "Cancel"
 msgstr "Annulla"
 
-#: cps/templates/account_security.html:32
+#: cps/templates/account_security.html:31
 msgid "Set up"
 msgstr ""
 
-#: cps/templates/account_security.html:37
+#: cps/templates/account_security.html:36
 msgid "API token"
 msgstr ""
 
-#: cps/templates/account_security.html:37
+#: cps/templates/account_security.html:36
 msgid ""
 "A personal token for OPDS apps and scripts. Use it as the password in an "
 "OPDS app, or send it in an \"Authorization: Bearer\" header to the OPDS feed "
@@ -2060,232 +2025,200 @@ msgid ""
 "with two-factor authentication on, so keep it private."
 msgstr ""
 
-#: cps/templates/account_security.html:39
+#: cps/templates/account_security.html:38
 msgid "Your new token"
 msgstr ""
 
-#: cps/templates/account_security.html:39
+#: cps/templates/account_security.html:38
 msgid "Copy it now. It is not shown again."
 msgstr ""
 
-#: cps/templates/account_security.html:41
+#: cps/templates/account_security.html:40
 #, fuzzy
 msgid "Active"
 msgstr "Originale"
 
-#: cps/templates/account_security.html:41
-#: cps/templates/config_view_edit.html:25
-#: cps/templates/config_view_edit.html:33
+#: cps/templates/account_security.html:40
+#: cps/templates/config_view_edit.html:23
+#: cps/templates/config_view_edit.html:31
 msgid "None"
 msgstr "Nessuna"
 
-#: cps/templates/account_security.html:44
+#: cps/templates/account_security.html:43
 msgid ""
 "Confirm your password to create a token. A new token replaces the old one."
 msgstr ""
 
-#: cps/templates/account_security.html:46
+#: cps/templates/account_security.html:45
 msgid "Regenerate token"
 msgstr ""
 
-#: cps/templates/account_security.html:46
+#: cps/templates/account_security.html:45
 #, fuzzy
 msgid "Create token"
 msgstr "Segnala problema"
 
-#: cps/templates/account_security.html:47 cps/templates/config_db.html:44
+#: cps/templates/account_security.html:46 cps/templates/config_db.html:43
 msgid "Revoke"
 msgstr "Revoca"
 
-#: cps/templates/account_security.html:53
+#: cps/templates/account_security.html:52
 msgid "Locked accounts"
 msgstr ""
 
-#: cps/templates/account_security.html:53
+#: cps/templates/account_security.html:52
 msgid ""
 "Too many wrong two-factor codes. Accounts unlock by themselves after 15 "
 "minutes."
 msgstr ""
 
-#: cps/templates/account_security.html:58
+#: cps/templates/account_security.html:57
 msgid "Unlock"
 msgstr ""
 
-#: cps/templates/admin.html:3 cps/templates/settings_layout.html:44
+#: cps/templates/admin.html:5 cps/templates/cwa_stats_tabs.html:17
+#: cps/templates/settings_layout.html:34 cps/templates/settings_layout.html:66
 #, fuzzy
-msgid "Overview"
-msgstr "Precedente"
+msgid "Library"
+msgstr "Nella biblioteca"
 
-#: cps/templates/admin.html:10 cps/templates/settings_layout.html:45
-#: cps/templates/user_table.html:119 cps/templates/user_table.html:125
-msgid "Users"
-msgstr "Utenti"
-
-#: cps/templates/admin.html:13 cps/templates/user_table.html:143
-msgid "Admin"
-msgstr "Amministratore"
-
-#: cps/templates/admin.html:13
-msgid "Guest"
-msgstr ""
-
-#: cps/templates/admin.html:18
-msgid "All users"
-msgstr ""
-
-#: cps/templates/admin.html:22 cps/templates/settings_layout.html:30
-msgid "Tools"
-msgstr ""
-
-#: cps/templates/admin.html:23
-#, fuzzy
-msgid "Lily Stats"
-msgstr "Visualizza le statistiche Lily"
-
-#: cps/templates/admin.html:24
-#, fuzzy
-msgid "Service Status"
-msgstr "Servizio e-mail"
-
-#: cps/templates/admin.html:24
-msgid "Check that ingest and the other Lily services are running"
-msgstr ""
-
-#: cps/templates/admin.html:26 cps/templates/hardcover_review_matches.html:2
-#: cps/templates/settings_layout.html:36
-#, fuzzy
-msgid "Hardcover Matches"
-msgstr "Hardcover API token"
-
-#: cps/templates/admin.html:26
-msgid "Review matches that need a decision"
-msgstr ""
-
-#: cps/templates/admin.html:29 cps/templates/settings_layout.html:57
-msgid "Maintenance"
-msgstr ""
-
-#: cps/templates/admin.html:30 cps/templates/cwa_settings.html:140
+#: cps/templates/admin.html:6 cps/templates/cwa_settings.html:134
 #: cps/templates/cwa_stats_system.html:47
 #, fuzzy
 msgid "Hardcover Auto-Fetch"
 msgstr "Hardcover API token"
 
-#: cps/templates/admin.html:30
+#: cps/templates/admin.html:6
 msgid "Look up Hardcover IDs for books that have none"
 msgstr ""
 
-#: cps/templates/admin.html:31
+#: cps/templates/admin.html:7
 #, fuzzy
 msgid "Run"
 msgstr "Russo"
 
-#: cps/templates/admin.html:34
+#: cps/templates/admin.html:10
 #, fuzzy
 msgid "Thumbnail Cache"
 msgstr "Aggiorna la cache delle miniature"
 
-#: cps/templates/admin.html:34
+#: cps/templates/admin.html:10
 #, fuzzy
 msgid "Rebuild every cover thumbnail"
 msgstr "Genera miniature delle copertine delle serie"
 
-#: cps/templates/admin.html:35
+#: cps/templates/admin.html:11
 msgid "Refresh Thumbnail Cache"
 msgstr "Aggiorna la cache delle miniature"
 
-#: cps/templates/admin.html:38
+#: cps/templates/admin.html:14
 #, fuzzy
 msgid "Reconnect Library"
 msgstr "Aggiorna la libreria"
 
-#: cps/templates/admin.html:38
+#: cps/templates/admin.html:14
 msgid "Reload the Calibre database after changing it outside Lily"
 msgstr ""
 
-#: cps/templates/admin.html:39
+#: cps/templates/admin.html:15
 msgid "Reconnect"
 msgstr ""
 
-#: cps/templates/admin.html:42
+#: cps/templates/admin.html:18
 #, fuzzy
 msgid "Metadata Backup"
 msgstr "Genera file di backup dei metadati"
 
-#: cps/templates/admin.html:42
+#: cps/templates/admin.html:18
 msgid "Write metadata.opf next to every book"
 msgstr ""
 
-#: cps/templates/admin.html:43
+#: cps/templates/admin.html:19
 #, fuzzy
 msgid "Queue All Books"
 msgstr "Libri da leggere"
 
-#: cps/templates/admin.html:46
-#, fuzzy
-msgid "Debug Package"
-msgstr "Scarica il pacchetto di debug"
-
-#: cps/templates/admin.html:46
-msgid "Logs and settings for a bug report"
-msgstr ""
-
-#: cps/templates/admin.html:47 cps/templates/db_backups.html:96
-#: cps/templates/detail.html:106 cps/templates/detail.html:116
-#: cps/templates/user_table.html:146
-msgid "Download"
-msgstr "Download"
-
-#: cps/templates/admin.html:49 cps/templates/settings_layout.html:43
+#: cps/templates/admin.html:24 cps/templates/settings_layout.html:66
 #, fuzzy
 msgid "Server"
 msgstr "Servizio e-mail"
 
-#: cps/templates/admin.html:50 cps/templates/admin.html:65
-#: cps/templates/admin.html:74
+#: cps/templates/admin.html:25
+#, fuzzy
+msgid "Service Status"
+msgstr "Servizio e-mail"
+
+#: cps/templates/admin.html:25
+msgid "Check that ingest and the other Lily services are running"
+msgstr ""
+
+#: cps/templates/admin.html:26
+#, fuzzy
+msgid "Debug Package"
+msgstr "Scarica il pacchetto di debug"
+
+#: cps/templates/admin.html:26
+msgid "Logs and settings for a bug report"
+msgstr ""
+
+#: cps/templates/admin.html:27 cps/templates/db_backups.html:95
+#: cps/templates/detail.html:106 cps/templates/detail.html:116
+#: cps/templates/user_table.html:145
+msgid "Download"
+msgstr "Download"
+
+#: cps/templates/admin.html:29
+msgid "Restart or shut down"
+msgstr ""
+
+#: cps/templates/admin.html:29
+msgid "Restart applies changes that need a fresh start"
+msgstr ""
+
+#: cps/templates/admin.html:30 cps/templates/admin.html:45
+#: cps/templates/admin.html:54
 msgid "Restart"
 msgstr "Riavvia Calibre-Web"
 
-#: cps/templates/admin.html:51 cps/templates/admin.html:82
-#: cps/templates/admin.html:88
+#: cps/templates/admin.html:31 cps/templates/admin.html:62
+#: cps/templates/admin.html:68
 msgid "Shutdown"
 msgstr "Arresta Calibre-Web"
 
-#: cps/templates/admin.html:67
+#: cps/templates/admin.html:47
 msgid "Are you sure you want to restart?"
 msgstr "Sei sicuro di voler riavviare Calibre-Web?"
 
-#: cps/templates/admin.html:84
+#: cps/templates/admin.html:64
 msgid "Are you sure you want to shutdown?"
 msgstr "Sei sicuro di voler fermare Calibre-Web?"
 
-#: cps/templates/admin.html:97
+#: cps/templates/admin.html:77
 msgid "Updating, please do not reload this page"
 msgstr "Aggiornamento in corso, non ricaricare la pagina"
 
-#: cps/templates/admin.html:106 cps/templates/book_edit.html:292
-#: cps/templates/book_table.html:334 cps/templates/config_db.html:115
-#: cps/templates/duplicates.html:249 cps/templates/duplicates.html:255
-#: cps/templates/duplicates.html:272 cps/templates/duplicates.html:289
+#: cps/templates/admin.html:86 cps/templates/book_edit.html:292
+#: cps/templates/book_table.html:334 cps/templates/config_db.html:114
+#: cps/templates/duplicates.html:248 cps/templates/duplicates.html:254
+#: cps/templates/duplicates.html:271 cps/templates/duplicates.html:288
 #: cps/templates/layout.html:108 cps/templates/layout.html:140
 #: cps/templates/layout.html:152 cps/templates/layout.html:183
 #: cps/templates/layout.html:194 cps/templates/layout.html:203
 #: cps/templates/layout.html:212 cps/templates/layout.html:284
 #: cps/templates/layout.html:314 cps/templates/modal_dialogs.html:34
 #: cps/templates/read.html:77 cps/templates/read.html:148
-#: cps/templates/readcbr.html:188
 msgid "Close"
 msgstr "Chiudi"
 
-#: cps/templates/author.html:19 cps/templates/index.html:111
+#: cps/templates/author.html:19 cps/templates/index.html:109
 msgid "No books match these filters"
 msgstr ""
 
-#: cps/templates/author.html:20 cps/templates/index.html:112
+#: cps/templates/author.html:20 cps/templates/index.html:110
 msgid "Try removing a filter, or clear them all."
 msgstr ""
 
-#: cps/templates/author.html:21 cps/templates/index.html:113
+#: cps/templates/author.html:21 cps/templates/index.html:111
 #: cps/templates/search.html:11
 #, fuzzy
 msgid "Clear filters"
@@ -2306,9 +2239,9 @@ msgstr "Elimina libro"
 
 #: cps/templates/book_edit.html:33 cps/templates/book_table.html:55
 #: cps/templates/book_table.html:133 cps/templates/book_table.html:182
-#: cps/templates/duplicates.html:215 cps/templates/ingest_failures.html:17
+#: cps/templates/duplicates.html:214 cps/templates/ingest_failures.html:16
 #: cps/templates/modal_dialogs.html:58 cps/templates/modal_dialogs.html:111
-#: cps/templates/user_table.html:149
+#: cps/templates/user_table.html:148
 msgid "Delete"
 msgstr "Elimina"
 
@@ -2331,17 +2264,16 @@ msgid "or paste an image URL"
 msgstr ""
 
 #: cps/templates/book_edit.html:58 cps/templates/listenmp3.html:25
-#: cps/templates/read.html:54 cps/templates/readcbr.html:45
-#: cps/templates/readdjvu.html:25 cps/templates/readtxt.html:33
+#: cps/templates/read.html:54 cps/templates/readdjvu.html:25
 #: cps/templates/search_form.html:33 cps/templates/trash.html:43
 #, fuzzy
 msgid "Book"
 msgstr "Libri"
 
-#: cps/templates/book_edit.html:60 cps/templates/book_table.html:94
-#: cps/templates/config_view_edit.html:14 cps/templates/cwa_settings.html:95
-#: cps/templates/cwa_settings.html:230 cps/templates/image.html:52
-#: cps/templates/shelf_edit.html:7
+#: cps/templates/book_edit.html:60 cps/templates/book_edit.html:354
+#: cps/templates/book_table.html:94 cps/templates/config_view_edit.html:13
+#: cps/templates/cwa_settings.html:89 cps/templates/cwa_settings.html:224
+#: cps/templates/image.html:52 cps/templates/shelf_edit.html:7
 msgid "Title"
 msgstr "Titolo"
 
@@ -2368,9 +2300,9 @@ msgstr ""
 msgid "Details"
 msgstr "Dettagli"
 
-#: cps/templates/book_edit.html:90 cps/templates/book_edit.html:375
-#: cps/templates/cwa_settings.html:98 cps/templates/cwa_settings.html:234
-#: cps/templates/detail.html:169 cps/templates/hardcover_review_matches.html:63
+#: cps/templates/book_edit.html:90 cps/templates/book_edit.html:352
+#: cps/templates/cwa_settings.html:92 cps/templates/cwa_settings.html:228
+#: cps/templates/detail.html:169 cps/templates/hardcover_review_matches.html:62
 #: cps/templates/search_form.html:40
 msgid "Publisher"
 msgstr "Editore"
@@ -2385,13 +2317,13 @@ msgstr "Data di pubblicazione"
 msgid "Clear date"
 msgstr "Cancella tutto"
 
-#: cps/templates/book_edit.html:106 cps/templates/cwa_settings.html:232
+#: cps/templates/book_edit.html:106 cps/templates/cwa_settings.html:226
 #: cps/templates/user_edit.html:27
 msgid "Language"
 msgstr "Lingua"
 
-#: cps/templates/book_edit.html:110 cps/templates/cwa_settings.html:101
-#: cps/templates/detail.html:92
+#: cps/templates/book_edit.html:110 cps/templates/book_edit.html:358
+#: cps/templates/cwa_settings.html:95 cps/templates/detail.html:92
 msgid "Rating"
 msgstr "Valutazione"
 
@@ -2400,9 +2332,10 @@ msgstr "Valutazione"
 msgid "Tags & Shelves"
 msgstr "Scaffali"
 
-#: cps/templates/book_edit.html:122 cps/templates/config_view_edit.html:69
-#: cps/templates/detail.html:81 cps/templates/reading_stats.html:30
-#: cps/templates/search_form.html:67 cps/templates/user_edit.html:53
+#: cps/templates/book_edit.html:122 cps/templates/book_edit.html:359
+#: cps/templates/config_view_edit.html:70 cps/templates/detail.html:81
+#: cps/templates/reading_stats.html:29 cps/templates/search_form.html:67
+#: cps/templates/user_edit.html:53
 msgid "Tags"
 msgstr "Etichette"
 
@@ -2420,15 +2353,16 @@ msgstr "Rimuovi"
 msgid "Add tag"
 msgstr ""
 
-#: cps/templates/book_edit.html:135
+#: cps/templates/book_edit.html:135 cps/templates/book_edit.html:364
 msgid "Identifier Type"
 msgstr "Tipo di identificatore"
 
-#: cps/templates/book_edit.html:136
+#: cps/templates/book_edit.html:136 cps/templates/book_edit.html:365
 msgid "Identifier Value"
 msgstr "Valore dell'identificatore"
 
-#: cps/templates/book_edit.html:137 cps/templates/user_table.html:24
+#: cps/templates/book_edit.html:137 cps/templates/book_edit.html:366
+#: cps/templates/user_table.html:24
 msgid "Remove"
 msgstr "Rimuovi"
 
@@ -2460,9 +2394,9 @@ msgstr "Aggiungi allo scaffale"
 msgid "No shelves yet. Use Create Shelf in the sidebar to make one."
 msgstr ""
 
-#: cps/templates/book_edit.html:162 cps/templates/book_edit.html:376
-#: cps/templates/cwa_settings.html:97 cps/templates/detail.html:285
-#: cps/templates/metadata_suggestions.html:21 cps/templates/search_form.html:43
+#: cps/templates/book_edit.html:162 cps/templates/book_edit.html:353
+#: cps/templates/cwa_settings.html:91 cps/templates/detail.html:285
+#: cps/templates/metadata_suggestions.html:20 cps/templates/search_form.html:43
 msgid "Description"
 msgstr "Descrizione"
 
@@ -2486,11 +2420,12 @@ msgstr "No"
 msgid "Save changes"
 msgstr "Impostazioni"
 
-#: cps/templates/book_edit.html:247 cps/templates/config_db.html:60
-#: cps/templates/config_edit.html:38 cps/templates/config_view_edit.html:82
-#: cps/templates/db_backups.html:73 cps/templates/schedule_edit.html:24
-#: cps/templates/shelf_edit.html:22 cps/templates/shelf_order.html:42
-#: cps/templates/trash.html:18 cps/templates/user_edit.html:104
+#: cps/templates/book_edit.html:247 cps/templates/book_edit.html:293
+#: cps/templates/config_db.html:59 cps/templates/config_edit.html:37
+#: cps/templates/config_view_edit.html:82 cps/templates/db_backups.html:72
+#: cps/templates/schedule_edit.html:23 cps/templates/shelf_edit.html:22
+#: cps/templates/shelf_order.html:42 cps/templates/trash.html:18
+#: cps/templates/user_edit.html:103
 msgid "Save"
 msgstr "Salva"
 
@@ -2503,43 +2438,111 @@ msgid "Keyword"
 msgstr "Parola chiave"
 
 #: cps/templates/book_edit.html:273
-msgid "Search keyword"
-msgstr "Cerca parola chiave"
-
-#: cps/templates/book_edit.html:282
-msgid "Selected metadata fields were applied to the edit form."
+msgid "Title and author, ISBN, DOI or arXiv id"
 msgstr ""
 
-#: cps/templates/book_edit.html:288 cps/templates/book_edit.html:371
+#: cps/templates/book_edit.html:282
+msgid "The ticked fields were filled into the edit form. Save to keep them."
+msgstr ""
+
+#: cps/templates/book_edit.html:288 cps/templates/book_edit.html:348
 #: cps/templates/config_db.html:5 cps/templates/config_edit.html:5
-#: cps/templates/read.html:74 cps/templates/readcbr.html:60
+#: cps/templates/read.html:74
 msgid "Loading..."
 msgstr "Caricamento in corso..."
 
-#: cps/templates/book_edit.html:312
+#: cps/templates/book_edit.html:311
+#, fuzzy
+msgid "Use this cover"
+msgstr "Libri casuali"
+
+#: cps/templates/book_edit.html:313
+msgid "Fill the form with the ticked fields and save"
+msgstr ""
+
+#: cps/templates/book_edit.html:313
 msgid "Apply"
 msgstr ""
 
-#: cps/templates/book_edit.html:315
+#: cps/templates/book_edit.html:314
+msgid ""
+"Fill the form with the ticked fields without saving, to combine several "
+"results"
+msgstr ""
+
+#: cps/templates/book_edit.html:314
+#, fuzzy
+msgid "Fill form"
+msgstr "Formati di file"
+
+#: cps/templates/book_edit.html:317
 msgid "Exact match"
 msgstr ""
 
-#: cps/templates/book_edit.html:372
+#: cps/templates/book_edit.html:319
+msgid "Match"
+msgstr ""
+
+#: cps/templates/book_edit.html:322 cps/templates/cwa_settings.html:229
+#: cps/templates/trash.html:43
+#, fuzzy
+msgid "Format"
+msgstr "Formato Finale"
+
+#: cps/templates/book_edit.html:327
+msgid "Tick all / none"
+msgstr ""
+
+#: cps/templates/book_edit.html:334
+#, fuzzy
+msgid "Editions"
+msgstr "Azioni"
+
+#: cps/templates/book_edit.html:337
+msgid "same as now"
+msgstr ""
+
+#: cps/templates/book_edit.html:339
+#, fuzzy
+msgid "Now"
+msgstr "No"
+
+#: cps/templates/book_edit.html:349
 msgid "Search error!"
 msgstr "Errore nella ricerca!"
 
-#: cps/templates/book_edit.html:373
-msgid "No Result(s) found! Please try another keyword."
-msgstr "Nessun risultato trovato! Prova con un'altra parola chiave."
+#: cps/templates/book_edit.html:350
+msgid "No results. Try another title, or an ISBN, DOI or arXiv id."
+msgstr ""
 
-#: cps/templates/book_edit.html:374 cps/templates/cwa_settings.html:231
+#: cps/templates/book_edit.html:351 cps/templates/cwa_settings.html:225
 #: cps/templates/image.html:53 cps/templates/search_form.html:37
 msgid "Author"
 msgstr "Autore"
 
-#: cps/templates/book_edit.html:377
-msgid "Source"
-msgstr "Origine"
+#: cps/templates/book_edit.html:355 cps/templates/detail.html:175
+#: cps/templates/image.html:54 cps/templates/search_form.html:46
+msgid "Published"
+msgstr "Pubblicato"
+
+#: cps/templates/book_edit.html:357
+#, fuzzy
+msgid "Series index"
+msgstr "Indice serie"
+
+#: cps/templates/book_edit.html:361
+#, fuzzy
+msgid "searching"
+msgstr "Cerca"
+
+#: cps/templates/book_edit.html:362
+#, fuzzy
+msgid "failed"
+msgstr "Non riuscito"
+
+#: cps/templates/book_edit.html:363
+msgid "timed out"
+msgstr ""
 
 #: cps/templates/book_table.html:12 cps/templates/book_table.html:100
 #: cps/templates/user_table.html:14 cps/templates/user_table.html:77
@@ -2548,12 +2551,12 @@ msgid "This Field is Required"
 msgstr "Questo campo è obbligatorio"
 
 #: cps/templates/book_table.html:37 cps/templates/book_table.html:163
-#: cps/templates/duplicates.html:237
+#: cps/templates/duplicates.html:236
 msgid "Merge"
 msgstr "Unisci"
 
 #: cps/templates/book_table.html:40 cps/templates/book_table.html:320
-#: cps/templates/user_table.html:133 cps/templates/user_table.html:148
+#: cps/templates/user_table.html:132 cps/templates/user_table.html:147
 msgid "Edit"
 msgstr "Modifica"
 
@@ -2672,8 +2675,8 @@ msgstr "Inserisci "
 #: cps/templates/book_table.html:150 cps/templates/book_table.html:174
 #: cps/templates/book_table.html:194 cps/templates/book_table.html:214
 #: cps/templates/book_table.html:234 cps/templates/book_table.html:254
-#: cps/templates/duplicates.html:206 cps/templates/modal_dialogs.html:46
-#: cps/templates/tasks.html:41
+#: cps/templates/duplicates.html:205 cps/templates/modal_dialogs.html:46
+#: cps/templates/tasks.html:40
 msgid "Are you really sure?"
 msgstr "Sei veramente sicuro?"
 
@@ -2685,7 +2688,7 @@ msgstr "I libri con titolo verranno uniti da:"
 msgid "Into Book with Title:"
 msgstr "Nel libro con il titolo:"
 
-#: cps/templates/book_table.html:178 cps/templates/duplicates.html:209
+#: cps/templates/book_table.html:178 cps/templates/duplicates.html:208
 #, fuzzy
 msgid "The following books will be moved to the Trash:"
 msgstr "I libri seguenti verranno segnati come letti:"
@@ -2753,88 +2756,83 @@ msgstr "Password SMTP"
 msgid "Confirm New Password"
 msgstr "Cambia password"
 
-#: cps/templates/change_password.html:48 cps/templates/settings_layout.html:64
+#: cps/templates/change_password.html:48 cps/templates/settings_layout.html:97
 msgid "Logout"
 msgstr "Disconnetti"
 
-#: cps/templates/config_db.html:8 cps/templates/settings_layout.html:48
-#, fuzzy
-msgid "Calibre Database"
-msgstr "Cartella del database di Calibre"
-
-#: cps/templates/config_db.html:13
+#: cps/templates/config_db.html:12
 #, fuzzy
 msgid "Calibre Library"
 msgstr "Cerca nella biblioteca"
 
-#: cps/templates/config_db.html:14
+#: cps/templates/config_db.html:13
 #, fuzzy
 msgid "Database Location"
 msgstr "Configurazione del database"
 
-#: cps/templates/config_db.html:14
+#: cps/templates/config_db.html:13
 msgid ""
 "Found automatically inside /calibre-library on start-up. Change the host "
 "side of the volume in docker-compose, never the /calibre-library side."
 msgstr ""
 
-#: cps/templates/config_db.html:16 cps/templates/config_db.html:22
+#: cps/templates/config_db.html:15 cps/templates/config_db.html:21
 #: cps/templates/lily_form.html:43
 #, fuzzy
 msgid "Choose a path"
 msgstr "Scegli un nome utente"
 
-#: cps/templates/config_db.html:18
+#: cps/templates/config_db.html:17
 msgid "Separate Book Files from Library"
 msgstr "Separa i file dei libri dalla biblioteca"
 
-#: cps/templates/config_db.html:18
+#: cps/templates/config_db.html:17
 msgid ""
 "Keep metadata.db in /calibre-library and the book files in another folder, "
 "such as /books."
 msgstr ""
 
-#: cps/templates/config_db.html:20
+#: cps/templates/config_db.html:19
 #, fuzzy
 msgid "Book Files Location"
 msgstr "Scegli la posizione del file"
 
-#: cps/templates/config_db.html:26 cps/templates/config_db.html:29
+#: cps/templates/config_db.html:25 cps/templates/config_db.html:28
 #, fuzzy
 msgid "Google Drive"
 msgstr "Utilizzare Google Drive?"
 
-#: cps/templates/config_db.html:30
+#: cps/templates/config_db.html:29
 msgid "Authenticate Google Drive"
 msgstr "Autentica Google Drive"
 
-#: cps/templates/config_db.html:34
+#: cps/templates/config_db.html:33
 msgid "Google Drive Calibre folder"
 msgstr "Cartella Calibre di Google Drive"
 
-#: cps/templates/config_db.html:42
+#: cps/templates/config_db.html:41
 msgid "Metadata Watch Channel ID"
 msgstr "ID del canale di visualizzazione dei metadati"
 
-#: cps/templates/config_db.html:47
+#: cps/templates/config_db.html:46
 #, fuzzy
 msgid "Metadata Watch"
 msgstr "ID del canale di visualizzazione dei metadati"
 
-#: cps/templates/config_db.html:73
+#: cps/templates/config_db.html:72
 msgid "Troubleshooting"
 msgstr ""
 
-#: cps/templates/config_db.html:96
+#: cps/templates/config_db.html:95
 msgid "Last Resort"
 msgstr ""
 
-#: cps/templates/config_db.html:97
+#: cps/templates/config_db.html:96
 #, fuzzy
 msgid "Restore Calibre Database (experimental)"
 msgstr "Riconnetti il database di Calibre"
 
-#: cps/templates/config_db.html:97
+#: cps/templates/config_db.html:96
 msgid ""
 "Rebuilds metadata.db from the OPF files in your library. Book ids are kept, "
 "so shelves and reading progress stay; only books without a metadata.opf are "
@@ -2842,246 +2840,235 @@ msgid ""
 "up to /config/backup first."
 msgstr ""
 
-#: cps/templates/config_db.html:98
+#: cps/templates/config_db.html:97
 msgid ""
 "Rebuild metadata.db from the OPF files? Changes not yet written to the OPF "
 "files, and books without one, will be missing afterwards. Both databases are "
 "backed up first."
 msgstr ""
 
-#: cps/templates/config_db.html:98 cps/templates/db_backups.html:103
+#: cps/templates/config_db.html:97 cps/templates/db_backups.html:102
 #: cps/templates/trash.html:51
 #, fuzzy
 msgid "Restore"
 msgstr "Riavvia Calibre-Web"
 
-#: cps/templates/config_db.html:110
+#: cps/templates/config_db.html:109
 #, fuzzy
 msgid "Location of Calibre Database (metadata.db File)"
 msgstr "Posizione del database di Calibre (metadata.db file)"
 
-#: cps/templates/config_db.html:112
+#: cps/templates/config_db.html:111
 msgid "New db location is invalid, please enter valid path"
 msgstr ""
 "La nuova posizione del database non è valida, inserisci un percorso valido"
 
-#: cps/templates/config_edit.html:9 cps/templates/settings_layout.html:46
-#, fuzzy
-msgid "General"
-msgstr "Errore generale"
-
-#: cps/templates/config_edit.html:15
+#: cps/templates/config_edit.html:14
 msgid "Features"
 msgstr ""
 
-#: cps/templates/config_edit.html:16
+#: cps/templates/config_edit.html:15
 msgid "Uploads"
 msgstr "Caricamenti"
 
-#: cps/templates/config_edit.html:16
+#: cps/templates/config_edit.html:15
 #, fuzzy
 msgid "Users also need upload permission"
 msgstr ""
 "(assicurati che gli utenti dispongano anche delle autorizzazioni di "
 "caricamento)"
 
-#: cps/templates/config_edit.html:18
+#: cps/templates/config_edit.html:17
 #, fuzzy
 msgid "Allowed upload formats"
 msgstr "Formati di file autorizzati ad essere caricati"
 
-#: cps/templates/config_edit.html:20
+#: cps/templates/config_edit.html:19
 msgid "Embed metadata in downloads"
 msgstr ""
 
-#: cps/templates/config_edit.html:20
+#: cps/templates/config_edit.html:19
 #, fuzzy
 msgid "On download and conversion. Needs the Calibre or Kepubify binaries"
 msgstr ""
 "Incorpora metadati nel file del libro al momento del download e della "
 "conversione per e-mail (sono necessari gli eseguibili Calibre/Kepubify)"
 
-#: cps/templates/config_edit.html:21
+#: cps/templates/config_edit.html:20
 msgid "Transliterate file names"
 msgstr ""
 
-#: cps/templates/config_edit.html:21
+#: cps/templates/config_edit.html:20
 msgid "Convert non-English characters in title and author while saving to disk"
 msgstr ""
 "Converti caratteri non inglesi nel titolo e nell'autore durante il "
 "salvataggio su disco"
 
-#: cps/templates/config_edit.html:22
+#: cps/templates/config_edit.html:21
 #, fuzzy
 msgid "Anonymous browsing"
 msgstr "Navigazione anonima"
 
-#: cps/templates/config_edit.html:25
+#: cps/templates/config_edit.html:24
 #, fuzzy
 msgid "Metadata API Keys"
 msgstr "Chiave API Goodreads"
 
-#: cps/templates/config_edit.html:26 cps/templates/user_edit.html:49
+#: cps/templates/config_edit.html:25 cps/templates/user_edit.html:49
 #, fuzzy
 msgid "Hardcover API key"
 msgstr "Hardcover API Key"
 
-#: cps/templates/config_edit.html:26
+#: cps/templates/config_edit.html:25
 msgid ""
 "For Fetch Metadata. Find it at hardcover.app under Settings → Hardcover API."
 msgstr ""
 
-#: cps/templates/config_edit.html:27
+#: cps/templates/config_edit.html:26
 #, fuzzy
 msgid "Google Books API key"
 msgstr "Chiave API Goodreads"
 
-#: cps/templates/config_edit.html:27
+#: cps/templates/config_edit.html:26
 msgid ""
 "Optional. Without one, Google soon stops answering Fetch Metadata. Create it "
 "free in Google Cloud Console with the Books API enabled."
 msgstr ""
 
-#: cps/templates/config_edit.html:31
+#: cps/templates/config_edit.html:30
 msgid "Limit failed login attempts"
 msgstr "Limita tentativi di accesso non riusciti"
 
-#: cps/templates/config_edit.html:32
+#: cps/templates/config_edit.html:31
 #, fuzzy
 msgid "Check uploads match their extension"
 msgstr "Il file da caricare deve avere un'estensione"
 
-#: cps/templates/config_view_edit.html:7 cps/templates/config_view_edit.html:13
-#: cps/templates/settings_layout.html:47
+#: cps/templates/config_view_edit.html:12
 #, fuzzy
-msgid "Library View"
-msgstr "Nella biblioteca"
+msgid "Browsing"
+msgstr "Naviga"
 
-#: cps/templates/config_view_edit.html:14
+#: cps/templates/config_view_edit.html:13
 msgid "Shown in the browser tab and the sidebar."
 msgstr ""
 
-#: cps/templates/config_view_edit.html:15
+#: cps/templates/config_view_edit.html:14
 msgid "Books per Page"
 msgstr "Libri per pagina"
 
-#: cps/templates/config_view_edit.html:16
-#, fuzzy
-msgid "Random Books on Home"
-msgstr "Libri casuali"
-
-#: cps/templates/config_view_edit.html:17
+#: cps/templates/config_view_edit.html:15
 msgid "Authors Shown Before Hiding"
 msgstr ""
 
-#: cps/templates/config_view_edit.html:17
+#: cps/templates/config_view_edit.html:15
 msgid "0 shows them all."
 msgstr ""
 
-#: cps/templates/config_view_edit.html:18
+#: cps/templates/config_view_edit.html:16
 #, fuzzy
 msgid "Title Sorting Pattern"
 msgstr "Ordina per titolo"
 
-#: cps/templates/config_view_edit.html:18
+#: cps/templates/config_view_edit.html:16
 msgid "Regex for leading words to ignore when sorting, like \"The\"."
 msgstr ""
 
-#: cps/templates/config_view_edit.html:21
+#: cps/templates/config_view_edit.html:19
 #, fuzzy
 msgid "Calibre Columns"
 msgstr "Colonna di lettura non valida"
 
-#: cps/templates/config_view_edit.html:22
+#: cps/templates/config_view_edit.html:20
 msgid "Hide Columns Matching"
 msgstr ""
 
-#: cps/templates/config_view_edit.html:22
+#: cps/templates/config_view_edit.html:20
 msgid "Regex of custom columns to leave out of the UI."
 msgstr ""
 
-#: cps/templates/config_view_edit.html:23
+#: cps/templates/config_view_edit.html:21
 #, fuzzy
 msgid "Read Status Column"
 msgstr "Stato di lettura"
 
-#: cps/templates/config_view_edit.html:23
+#: cps/templates/config_view_edit.html:21
 #, fuzzy
 msgid "Sync read/unread with a Calibre yes/no column."
 msgstr "Collega lo stato letto/da leggere nella colonna di Calibre"
 
-#: cps/templates/config_view_edit.html:31
+#: cps/templates/config_view_edit.html:29
 #, fuzzy
 msgid "Restriction Column"
 msgstr "Colonna con restrizioni non valida"
 
-#: cps/templates/config_view_edit.html:31
+#: cps/templates/config_view_edit.html:29
 msgid "Limit which books users see by a Calibre text column."
 msgstr ""
 
-#: cps/templates/config_view_edit.html:41
+#: cps/templates/config_view_edit.html:39
 #, fuzzy
-msgid "New Users"
+msgid "New Users: Defaults"
 msgstr "Aggiungi nuovo utente"
 
-#: cps/templates/config_view_edit.html:41
+#: cps/templates/config_view_edit.html:39
 msgid "Applied to accounts created from now on."
 msgstr ""
 
-#: cps/templates/config_view_edit.html:42 cps/templates/user_edit.html:29
+#: cps/templates/config_view_edit.html:40 cps/templates/user_edit.html:29
 #, fuzzy
 msgid "Interface Language"
 msgstr "Inserisci lingue"
 
-#: cps/templates/config_view_edit.html:49 cps/templates/user_edit.html:37
+#: cps/templates/config_view_edit.html:47 cps/templates/user_edit.html:37
 msgid "Language of Books"
 msgstr "Lingua dei libri"
 
-#: cps/templates/config_view_edit.html:58 cps/templates/user_edit.html:66
+#: cps/templates/config_view_edit.html:57
+#, fuzzy
+msgid "New Users: Permissions"
+msgstr "Versione"
+
+#: cps/templates/config_view_edit.html:59 cps/templates/user_edit.html:65
 msgid "Admin User"
 msgstr "Utente amministratore"
 
-#: cps/templates/config_view_edit.html:59 cps/templates/user_edit.html:67
+#: cps/templates/config_view_edit.html:60 cps/templates/user_edit.html:66
 msgid "Allow Downloads"
 msgstr "Consenti download"
 
-#: cps/templates/config_view_edit.html:60 cps/templates/user_edit.html:68
+#: cps/templates/config_view_edit.html:61 cps/templates/user_edit.html:67
 msgid "Allow eBook Viewer"
 msgstr "Consenti visualizzatore eBook"
 
-#: cps/templates/config_view_edit.html:61 cps/templates/user_edit.html:69
+#: cps/templates/config_view_edit.html:62 cps/templates/user_edit.html:68
 msgid "Allow Uploads"
 msgstr "Consenti caricamenti"
 
-#: cps/templates/config_view_edit.html:62 cps/templates/user_edit.html:70
+#: cps/templates/config_view_edit.html:63 cps/templates/user_edit.html:69
 msgid "Allow Edit"
 msgstr "Consenti modifiche"
 
-#: cps/templates/config_view_edit.html:63 cps/templates/user_edit.html:71
+#: cps/templates/config_view_edit.html:64 cps/templates/user_edit.html:70
 msgid "Allow Delete Books"
 msgstr "Consenti eliminazione libri"
 
-#: cps/templates/config_view_edit.html:64 cps/templates/user_edit.html:73
+#: cps/templates/config_view_edit.html:65 cps/templates/user_edit.html:72
 msgid "Allow Changing Password"
 msgstr "Consenti modifica password"
 
-#: cps/templates/config_view_edit.html:65 cps/templates/user_edit.html:74
+#: cps/templates/config_view_edit.html:66 cps/templates/user_edit.html:73
 msgid "Allow Editing Public Shelves"
 msgstr "Consenti modifica scaffali pubblici"
 
-#: cps/templates/config_view_edit.html:69 cps/templates/user_edit.html:53
+#: cps/templates/config_view_edit.html:70 cps/templates/user_edit.html:53
 #, fuzzy
 msgid "Column Values"
 msgstr "Valori per le colonne non consentite"
 
-#: cps/templates/config_view_edit.html:70
+#: cps/templates/config_view_edit.html:71
 msgid "New Users: Sidebar"
 msgstr ""
-
-#: cps/templates/config_view_edit.html:75 cps/templates/user_edit.html:59
-#: cps/templates/user_table.html:151
-msgid "Show Random Books in Detail View"
-msgstr "Mostra Libri casuali nella visualizzazione dettagliata"
 
 #: cps/templates/cwa_api_stats.html:5
 msgid "Time period"
@@ -3218,459 +3205,453 @@ msgstr "Mostra sezione Valutazioni"
 msgid "No enforcements recorded"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:13 cps/templates/cwa_settings.html:32
-#: cps/templates/settings_layout.html:52
-#, fuzzy
-msgid "Services"
-msgstr "Servizio e-mail"
-
-#: cps/templates/cwa_settings.html:20
+#: cps/templates/cwa_settings.html:19
 msgid "Priority"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:21
+#: cps/templates/cwa_settings.html:20
 msgid "No format data available. Please save settings to initialize."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:22
+#: cps/templates/cwa_settings.html:21
 #, fuzzy
 msgid "Error loading format priority:"
 msgstr "Errore nell'invio dell'email"
 
-#: cps/templates/cwa_settings.html:23
+#: cps/templates/cwa_settings.html:22
 msgid "You have unsaved changes"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:33
-msgid "Write edits into book files"
-msgstr ""
-
-#: cps/templates/cwa_settings.html:34
-msgid ""
-"Metadata and cover edits are applied to the EPUB or AZW3 file, not just the "
-"library."
-msgstr ""
-
-#: cps/templates/cwa_settings.html:42
+#: cps/templates/cwa_settings.html:31
 #, fuzzy
 msgid "Processing"
 msgstr "Caricamento in corso..."
 
-#: cps/templates/cwa_settings.html:43
+#: cps/templates/cwa_settings.html:32
 #, fuzzy
 msgid "Timeout"
 msgstr "Timestamp"
 
-#: cps/templates/cwa_settings.html:43
+#: cps/templates/cwa_settings.html:32
 msgid ""
 "Books that take longer are moved to the failed folder. 5–120, default 15."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:45 cps/templates/cwa_settings.html:59
-#: cps/templates/cwa_settings.html:290
+#: cps/templates/cwa_settings.html:34 cps/templates/cwa_settings.html:48
+#: cps/templates/cwa_settings.html:284
 #, fuzzy
 msgid "min"
 msgstr "Amministratore"
 
-#: cps/templates/cwa_settings.html:47
+#: cps/templates/cwa_settings.html:36
 #, fuzzy
 msgid "Duplicates on import"
 msgstr "Libro duplicato"
 
-#: cps/templates/cwa_settings.html:47
+#: cps/templates/cwa_settings.html:36
 msgid ""
 "ignore keeps the library copy, overwrite replaces it, new_record keeps both "
 "(default)."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:56
+#: cps/templates/cwa_settings.html:45
 #, fuzzy
 msgid "Stale Temp Files"
 msgstr "Timeout (minuti):"
 
-#: cps/templates/cwa_settings.html:56
+#: cps/templates/cwa_settings.html:45
 msgid ""
 "Leftover partial uploads (.part, .uploading) are deleted after this age. 0 "
 "turns cleanup off."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:57
+#: cps/templates/cwa_settings.html:46
 #, fuzzy
 msgid "Delete after"
 msgstr "Elimina utente"
 
-#: cps/templates/cwa_settings.html:57
+#: cps/templates/cwa_settings.html:46
 #, fuzzy
 msgid "0–10080, default 120."
 msgstr "Intervallo: 5-120 minuti (impostazione predefinita: 15)"
 
-#: cps/templates/cwa_settings.html:61
+#: cps/templates/cwa_settings.html:50
 msgid "Check every"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:61
+#: cps/templates/cwa_settings.html:50
 #, fuzzy
 msgid "0–86400, default 600."
 msgstr "Intervallo: 5-120 minuti (impostazione predefinita: 15)"
 
-#: cps/templates/cwa_settings.html:63 cps/templates/cwa_settings.html:204
-#: cps/templates/cwa_settings.html:250
+#: cps/templates/cwa_settings.html:52 cps/templates/cwa_settings.html:198
+#: cps/templates/cwa_settings.html:244
 msgid "sec"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:67
+#: cps/templates/cwa_settings.html:56
 #, fuzzy
 msgid "Ignored Formats"
 msgstr "Formato Finale"
 
-#: cps/templates/cwa_settings.html:67
+#: cps/templates/cwa_settings.html:56
 msgid "Files in these formats are left out of the library."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:82
+#: cps/templates/cwa_settings.html:71
+#, fuzzy
+msgid "Editing"
+msgstr "Modifica"
+
+#: cps/templates/cwa_settings.html:72
+msgid "Write edits into book files"
+msgstr ""
+
+#: cps/templates/cwa_settings.html:73
+msgid ""
+"Metadata and cover edits are applied to the EPUB or AZW3 file, not just the "
+"library."
+msgstr ""
+
+#: cps/templates/cwa_settings.html:76
 #, fuzzy
 msgid "Automatic Fetching"
 msgstr "Abilita servizio CWA Automatic Cover & Metadata Enforcement"
 
-#: cps/templates/cwa_settings.html:83
+#: cps/templates/cwa_settings.html:77
 #, fuzzy
 msgid "Fetch metadata for new books"
 msgstr "Recupera i metadati"
 
-#: cps/templates/cwa_settings.html:84
+#: cps/templates/cwa_settings.html:78
 msgid ""
 "Looks up title, authors, description and cover using the providers below."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:85
+#: cps/templates/cwa_settings.html:79
 msgid "Only replace with better data"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:86
+#: cps/templates/cwa_settings.html:80
 msgid ""
 "Keeps existing data unless the fetched version looks better, such as a "
 "longer description or a larger cover."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:87
+#: cps/templates/cwa_settings.html:81
 msgid "Largest cover download"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:87
+#: cps/templates/cwa_settings.html:81
 #, fuzzy
 msgid "1–200, default 15."
 msgstr "Intervallo: 5-120 minuti (impostazione predefinita: 15)"
 
-#: cps/templates/cwa_settings.html:93
+#: cps/templates/cwa_settings.html:87
 #, fuzzy
 msgid "Fields to Update"
 msgstr "Metadati aggiornati correttamente"
 
-#: cps/templates/cwa_settings.html:93
+#: cps/templates/cwa_settings.html:87
 msgid "Unchecked fields are never changed by automatic fetching."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:99
+#: cps/templates/cwa_settings.html:93
 msgid "Tags/Genres"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:102
+#: cps/templates/cwa_settings.html:96
 #, fuzzy
 msgid "Publication Date"
 msgstr "Data di pubblicazione"
 
-#: cps/templates/cwa_settings.html:103
+#: cps/templates/cwa_settings.html:97
 #, fuzzy
 msgid "Identifiers (ISBN, etc.)"
 msgstr "Identificatori"
 
-#: cps/templates/cwa_settings.html:104
+#: cps/templates/cwa_settings.html:98
 #, fuzzy
 msgid "Cover Image"
 msgstr "Copertina"
 
-#: cps/templates/cwa_settings.html:108
+#: cps/templates/cwa_settings.html:102
 #, fuzzy
 msgid "Provider Order"
 msgstr "Indice serie"
 
-#: cps/templates/cwa_settings.html:108
+#: cps/templates/cwa_settings.html:102
 msgid "Providers are tried from top to bottom. Drag to reorder."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:119
+#: cps/templates/cwa_settings.html:113
 #, fuzzy
 msgid "Enabled Providers"
 msgstr "Abilita il caricamento"
 
-#: cps/templates/cwa_settings.html:119
+#: cps/templates/cwa_settings.html:113
 msgid "Unchecked providers are never used."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:135
+#: cps/templates/cwa_settings.html:129
 #, fuzzy
 msgid "Hardcover Token Required"
 msgstr "Hardcover API token"
 
-#: cps/templates/cwa_settings.html:136
+#: cps/templates/cwa_settings.html:130
 msgid ""
 "Set HARDCOVER_TOKEN in the container environment or a global token in Basic "
 "Configuration to use auto-fetch."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:140
+#: cps/templates/cwa_settings.html:134
 msgid ""
 "Finds Hardcover IDs for books without one, so Fetch Metadata can match them "
 "directly. You can also run it from the Overview page."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:141
+#: cps/templates/cwa_settings.html:135
 msgid "Auto-fetch Hardcover IDs"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:142
+#: cps/templates/cwa_settings.html:136
 msgid "Confident matches are applied; the rest wait for review."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:143 cps/templates/cwa_settings.html:253
-#: cps/templates/cwa_settings.html:321 cps/templates/schedule_edit.html:12
+#: cps/templates/cwa_settings.html:137 cps/templates/cwa_settings.html:247
+#: cps/templates/cwa_settings.html:315 cps/templates/schedule_edit.html:11
 msgid "Schedule"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:152 cps/templates/cwa_settings.html:329
+#: cps/templates/cwa_settings.html:146 cps/templates/cwa_settings.html:323
 msgid "Frequent Intervals"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:153 cps/templates/cwa_settings.html:330
+#: cps/templates/cwa_settings.html:147 cps/templates/cwa_settings.html:324
 msgid "Every 15 Minutes"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:154 cps/templates/cwa_settings.html:331
+#: cps/templates/cwa_settings.html:148 cps/templates/cwa_settings.html:325
 msgid "Every 30 Minutes"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:155 cps/templates/cwa_settings.html:332
+#: cps/templates/cwa_settings.html:149 cps/templates/cwa_settings.html:326
 msgid "Every Hour"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:156 cps/templates/cwa_settings.html:333
+#: cps/templates/cwa_settings.html:150 cps/templates/cwa_settings.html:327
 msgid "Every 2 Hours"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:157 cps/templates/cwa_settings.html:334
+#: cps/templates/cwa_settings.html:151 cps/templates/cwa_settings.html:328
 msgid "Every 4 Hours"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:158 cps/templates/cwa_settings.html:335
+#: cps/templates/cwa_settings.html:152 cps/templates/cwa_settings.html:329
 msgid "Every 6 Hours"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:159 cps/templates/cwa_settings.html:336
+#: cps/templates/cwa_settings.html:153 cps/templates/cwa_settings.html:330
 msgid "Every 12 Hours"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:161 cps/templates/cwa_settings.html:338
+#: cps/templates/cwa_settings.html:155 cps/templates/cwa_settings.html:332
 msgid "Daily/Weekly/Monthly"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:162 cps/templates/cwa_settings.html:339
+#: cps/templates/cwa_settings.html:156 cps/templates/cwa_settings.html:333
 msgid "Daily at Specific Time"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:163 cps/templates/cwa_settings.html:340
+#: cps/templates/cwa_settings.html:157 cps/templates/cwa_settings.html:334
 msgid "Weekly on Specific Day"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:164 cps/templates/cwa_settings.html:341
+#: cps/templates/cwa_settings.html:158 cps/templates/cwa_settings.html:335
 msgid "Monthly on Specific Day"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:169 cps/templates/cwa_settings.html:346
+#: cps/templates/cwa_settings.html:163 cps/templates/cwa_settings.html:340
 msgid "Day of week"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:171 cps/templates/cwa_settings.html:348
+#: cps/templates/cwa_settings.html:165 cps/templates/cwa_settings.html:342
 msgid "Monday"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:172 cps/templates/cwa_settings.html:349
+#: cps/templates/cwa_settings.html:166 cps/templates/cwa_settings.html:343
 msgid "Tuesday"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:173 cps/templates/cwa_settings.html:350
+#: cps/templates/cwa_settings.html:167 cps/templates/cwa_settings.html:344
 msgid "Wednesday"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:174 cps/templates/cwa_settings.html:351
+#: cps/templates/cwa_settings.html:168 cps/templates/cwa_settings.html:345
 msgid "Thursday"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:175 cps/templates/cwa_settings.html:352
+#: cps/templates/cwa_settings.html:169 cps/templates/cwa_settings.html:346
 msgid "Friday"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:176 cps/templates/cwa_settings.html:353
+#: cps/templates/cwa_settings.html:170 cps/templates/cwa_settings.html:347
 msgid "Saturday"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:177 cps/templates/cwa_settings.html:354
+#: cps/templates/cwa_settings.html:171 cps/templates/cwa_settings.html:348
 msgid "Sunday"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:180 cps/templates/cwa_settings.html:357
+#: cps/templates/cwa_settings.html:174 cps/templates/cwa_settings.html:351
 msgid "Day of month"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:180 cps/templates/cwa_settings.html:357
+#: cps/templates/cwa_settings.html:174 cps/templates/cwa_settings.html:351
 msgid "1–28."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:188 cps/templates/cwa_settings.html:364
+#: cps/templates/cwa_settings.html:182 cps/templates/cwa_settings.html:358
 msgid "Time of day"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:188 cps/templates/cwa_settings.html:364
+#: cps/templates/cwa_settings.html:182 cps/templates/cwa_settings.html:358
 #, python-format
 msgid "Server time (%(tz)s)."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:196
+#: cps/templates/cwa_settings.html:190
 msgid "Minimum confidence"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:196
+#: cps/templates/cwa_settings.html:190
 msgid "Matches above this are applied without review. 0.50–1.00, default 0.85."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:199
+#: cps/templates/cwa_settings.html:193
 #, fuzzy
 msgid "Books per run"
 msgstr "Libri per pagina"
 
-#: cps/templates/cwa_settings.html:199
+#: cps/templates/cwa_settings.html:193
 msgid "10–200, default 50."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:202
+#: cps/templates/cwa_settings.html:196
 msgid "Delay between requests"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:202
+#: cps/templates/cwa_settings.html:196
 msgid "Avoids Hardcover rate limits. 0–60, default 5."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:214
+#: cps/templates/cwa_settings.html:208
 #, fuzzy
 msgid "Detection"
 msgstr "Orientamento"
 
-#: cps/templates/cwa_settings.html:215
+#: cps/templates/cwa_settings.html:209
 #, fuzzy
 msgid "Detect duplicates"
 msgstr "Seleziona i duplicati"
 
-#: cps/templates/cwa_settings.html:216
+#: cps/templates/cwa_settings.html:210
 msgid "When off, no scans run and no notifications are shown."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:217
+#: cps/templates/cwa_settings.html:211
 msgid "Method"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:217
+#: cps/templates/cwa_settings.html:211
 msgid "Hybrid narrows candidates with SQL, then checks them in Python."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:219
+#: cps/templates/cwa_settings.html:213
 msgid "Hybrid (recommended)"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:220
+#: cps/templates/cwa_settings.html:214
 msgid "Python only (slowest)"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:221
+#: cps/templates/cwa_settings.html:215
 msgid "SQL only (experimental)"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:228
+#: cps/templates/cwa_settings.html:222
 msgid "Match On"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:228
+#: cps/templates/cwa_settings.html:222
 msgid ""
 "Books must match every checked field. Title and Author are recommended; "
 "choose at least one. Automatic resolution needs Title."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:235 cps/templates/trash.html:43
-#, fuzzy
-msgid "Format"
-msgstr "Formato Finale"
-
-#: cps/templates/cwa_settings.html:239
+#: cps/templates/cwa_settings.html:233
 msgid "Scanning"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:240
+#: cps/templates/cwa_settings.html:234
 #, fuzzy
 msgid "Scan automatically"
 msgstr "Aggiorna automaticamente l'ordinamento per autore"
 
-#: cps/templates/cwa_settings.html:241
+#: cps/templates/cwa_settings.html:235
 msgid "Scans run in the background."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:242
+#: cps/templates/cwa_settings.html:236
 msgid "After imports"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:244
+#: cps/templates/cwa_settings.html:238
 msgid "Run after each import (debounced)"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:245
+#: cps/templates/cwa_settings.html:239
 #, fuzzy
 msgid "Manual only"
 msgstr "Manuale?"
 
-#: cps/templates/cwa_settings.html:248
+#: cps/templates/cwa_settings.html:242
 msgid "Wait after last import"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:248
+#: cps/templates/cwa_settings.html:242
 msgid "5–600."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:252
+#: cps/templates/cwa_settings.html:246
 msgid "Cron expression, e.g. 0 3 * * *. Blank turns scheduled scans off."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:252
+#: cps/templates/cwa_settings.html:246
 #, fuzzy
 msgid "Next scan:"
 msgstr "Pagina successiva"
 
-#: cps/templates/cwa_settings.html:258
+#: cps/templates/cwa_settings.html:252
 msgid "Resolution"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:259
+#: cps/templates/cwa_settings.html:253
 #, fuzzy
 msgid "Notify about duplicates"
 msgstr "Mostra Libri duplicati"
 
-#: cps/templates/cwa_settings.html:260
+#: cps/templates/cwa_settings.html:254
 msgid ""
 "Admins and editors see a badge and a popup when unresolved duplicates exist."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:264
+#: cps/templates/cwa_settings.html:258
 #, fuzzy
 msgid "Resolve automatically"
 msgstr "Aggiorna automaticamente l'ordinamento per titolo"
 
-#: cps/templates/cwa_settings.html:265
+#: cps/templates/cwa_settings.html:259
 #, python-format
 msgid ""
 "Moves copies to the Trash using the strategy below, keeping any copy someone "
@@ -3680,154 +3661,154 @@ msgid ""
 "Dismissed groups are skipped."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:268
+#: cps/templates/cwa_settings.html:262
 #, fuzzy
 msgid "Preview first"
 msgstr "Precedente"
 
-#: cps/templates/cwa_settings.html:268
+#: cps/templates/cwa_settings.html:262
 msgid ""
 "Run Preview on the Duplicate Books page to see what would be removed; then "
 "this can be turned on."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:273
+#: cps/templates/cwa_settings.html:267
 msgid "Last automatic run refused"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:276
+#: cps/templates/cwa_settings.html:270
 msgid "Keep"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:278
+#: cps/templates/cwa_settings.html:272
 msgid "Keep Newest"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:279
+#: cps/templates/cwa_settings.html:273
 msgid "Keep Oldest"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:280
+#: cps/templates/cwa_settings.html:274
 #, fuzzy
 msgid "Merge Formats"
 msgstr "Formato Originale"
 
-#: cps/templates/cwa_settings.html:281
+#: cps/templates/cwa_settings.html:275
 msgid "Keep Highest Quality Format"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:282
+#: cps/templates/cwa_settings.html:276
 #, fuzzy
 msgid "Keep Most Metadata"
 msgstr "Metadati di prova"
 
-#: cps/templates/cwa_settings.html:283
+#: cps/templates/cwa_settings.html:277
 msgid "Keep Largest File Size"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:286
+#: cps/templates/cwa_settings.html:280
 msgid "Cooldown"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:286
+#: cps/templates/cwa_settings.html:280
 msgid "Minimum time between automatic resolutions. 0 turns it off."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:295
+#: cps/templates/cwa_settings.html:289
 #, fuzzy
 msgid "Format Priority"
 msgstr "Errore nel formato della copertina"
 
-#: cps/templates/cwa_settings.html:295
+#: cps/templates/cwa_settings.html:289
 msgid ""
 "Used by \"Keep Highest Quality Format\": higher formats are kept. Drag to "
 "reorder."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:309
+#: cps/templates/cwa_settings.html:303 cps/templates/settings_layout.html:58
 #, fuzzy
 msgid "Backups"
 msgstr "Indietro"
 
-#: cps/templates/cwa_settings.html:310
+#: cps/templates/cwa_settings.html:304
 msgid "Back up imported files"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:311
+#: cps/templates/cwa_settings.html:305
 #, fuzzy
 msgid "Keeps a copy of every import in /config/processed_books/imported."
 msgstr ""
 "Se attivo, una copia di tutti i file importati verrà salvata in <i>/config/"
 "processed_books/imported</i>"
 
-#: cps/templates/cwa_settings.html:312
+#: cps/templates/cwa_settings.html:306
 msgid "Zip backups nightly"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:313
+#: cps/templates/cwa_settings.html:307
 msgid "Archives each day's imported and failed files to save space."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:314
+#: cps/templates/cwa_settings.html:308
 msgid "Database snapshots and library mirror"
 msgstr ""
 
-#: cps/templates/cwa_settings.html:315
+#: cps/templates/cwa_settings.html:309
 msgid ""
 "Where backups go and how many daily, weekly and monthly snapshots are kept."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:318
+#: cps/templates/cwa_settings.html:312
 #, fuzzy
 msgid "Archived Book Cleanup"
 msgstr "Libri archiviati"
 
-#: cps/templates/cwa_settings.html:319
+#: cps/templates/cwa_settings.html:313
 #, fuzzy
 msgid "Clean up archived books"
 msgstr "Libri archiviati"
 
-#: cps/templates/cwa_settings.html:320
+#: cps/templates/cwa_settings.html:314
 msgid "Removes archive entries for books no longer in the library."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:321
+#: cps/templates/cwa_settings.html:315
 msgid "Default: daily at 03:00."
 msgstr ""
 
-#: cps/templates/cwa_settings.html:379 cps/templates/settings_layout.html:58
+#: cps/templates/cwa_settings.html:373 cps/templates/settings_layout.html:37
 #, fuzzy
 msgid "Interface"
 msgstr "Inserisci lingue"
 
-#: cps/templates/cwa_settings.html:380
+#: cps/templates/cwa_settings.html:374
 #, fuzzy
 msgid "Update notifications"
 msgstr "Abilita le notifiche di aggiornamento di Lily"
 
-#: cps/templates/cwa_settings.html:381
+#: cps/templates/cwa_settings.html:375
 #, fuzzy
 msgid "Shows a notice when a new version of Lily is released."
 msgstr ""
 "Se attivo, riceverai una notifica nell'Interfaccia Utente Web quando viene "
 "rilasciata una nuova versione di Lily"
 
-#: cps/templates/cwa_settings.html:388 cps/templates/cwa_settings.html:392
+#: cps/templates/cwa_settings.html:382 cps/templates/cwa_settings.html:386
 #, fuzzy
 msgid "Save settings"
 msgstr "Impostazioni"
 
-#: cps/templates/cwa_settings.html:389 cps/templates/cwa_settings.html:411
+#: cps/templates/cwa_settings.html:383 cps/templates/cwa_settings.html:405
 #, fuzzy
 msgid "Reset to defaults"
 msgstr "Reimposta in alto"
 
-#: cps/templates/cwa_settings.html:404
+#: cps/templates/cwa_settings.html:398
 #, fuzzy
 msgid "Reset all Lily settings?"
 msgstr "Impostazioni Lily"
 
-#: cps/templates/cwa_settings.html:407
+#: cps/templates/cwa_settings.html:401
 msgid ""
 "Every setting on every tab will be restored to its default value. Unsaved "
 "changes will be lost. This cannot be undone."
@@ -3901,36 +3882,26 @@ msgstr "Obbliga numero"
 msgid "Enforcement with paths"
 msgstr ""
 
-#: cps/templates/cwa_stats_tabs.html:2 cps/templates/settings_layout.html:32
-#, fuzzy
-msgid "Stats"
-msgstr "Stato"
-
-#: cps/templates/cwa_stats_tabs.html:15
+#: cps/templates/cwa_stats_tabs.html:14
 msgid ""
 "How the library is used, how it has grown, and what the automations have "
 "done."
 msgstr ""
 
-#: cps/templates/cwa_stats_tabs.html:17
+#: cps/templates/cwa_stats_tabs.html:16
 #, fuzzy
 msgid "Stats sections"
 msgstr "Rimuovi le selezioni"
 
-#: cps/templates/cwa_stats_tabs.html:18
+#: cps/templates/cwa_stats_tabs.html:17
 msgid "Activity"
 msgstr ""
 
-#: cps/templates/cwa_stats_tabs.html:18
-#, fuzzy
-msgid "Library"
-msgstr "Nella biblioteca"
-
-#: cps/templates/cwa_stats_tabs.html:18
+#: cps/templates/cwa_stats_tabs.html:17
 msgid "API usage"
 msgstr ""
 
-#: cps/templates/cwa_stats_tabs.html:18
+#: cps/templates/cwa_stats_tabs.html:17
 msgid "System"
 msgstr ""
 
@@ -4101,7 +4072,7 @@ msgstr "Protezione della sessione"
 msgid "No shelf activity yet"
 msgstr ""
 
-#: cps/templates/db_backups.html:6
+#: cps/templates/db_backups.html:5
 msgid ""
 "app.db, cwa.db and metadata.db are snapshotted nightly at the start of the "
 "maintenance window. Restoring runs in the background: every file is "
@@ -4109,104 +4080,104 @@ msgid ""
 "snapshot, and only then swapped in."
 msgstr ""
 
-#: cps/templates/db_backups.html:9
+#: cps/templates/db_backups.html:8
 msgid "A restore is running. Follow it on the"
 msgstr ""
 
-#: cps/templates/db_backups.html:9
+#: cps/templates/db_backups.html:8
 msgid "page."
 msgstr ""
 
-#: cps/templates/db_backups.html:19
+#: cps/templates/db_backups.html:18
 #, fuzzy
 msgid "Last successful backup"
 msgstr "Metadati aggiornati correttamente"
 
-#: cps/templates/db_backups.html:19
+#: cps/templates/db_backups.html:18
 msgid "Databases snapshotted and verified by a test restore."
 msgstr ""
 
-#: cps/templates/db_backups.html:20 cps/templates/db_backups.html:23
+#: cps/templates/db_backups.html:19 cps/templates/db_backups.html:22
 #, fuzzy
 msgid "None yet"
 msgstr "Nessuna"
 
-#: cps/templates/db_backups.html:22
+#: cps/templates/db_backups.html:21
 msgid "Last successful mirror"
 msgstr ""
 
-#: cps/templates/db_backups.html:22
+#: cps/templates/db_backups.html:21
 msgid "No mirror folder set."
 msgstr ""
 
-#: cps/templates/db_backups.html:25
+#: cps/templates/db_backups.html:24
 msgid "Run now"
 msgstr ""
 
-#: cps/templates/db_backups.html:25
+#: cps/templates/db_backups.html:24
 msgid "Both also run nightly in the maintenance window."
 msgstr ""
 
-#: cps/templates/db_backups.html:28
+#: cps/templates/db_backups.html:27
 #, fuzzy
 msgid "Back up databases"
 msgstr "Backup dei metadati"
 
-#: cps/templates/db_backups.html:33
+#: cps/templates/db_backups.html:32
 msgid "Mirror library files"
 msgstr ""
 
-#: cps/templates/db_backups.html:41
+#: cps/templates/db_backups.html:40
 msgid "Storage"
 msgstr ""
 
-#: cps/templates/db_backups.html:42
+#: cps/templates/db_backups.html:41
 msgid "Backup folder"
 msgstr ""
 
-#: cps/templates/db_backups.html:43
+#: cps/templates/db_backups.html:42
 msgid ""
 "Leave empty for the default. Put this on a different disk from the library "
 "and /config: if that disk is lost, backups stored on it are lost with it."
 msgstr ""
 
-#: cps/templates/db_backups.html:45
+#: cps/templates/db_backups.html:44
 msgid "Library mirror folder"
 msgstr ""
 
-#: cps/templates/db_backups.html:46
+#: cps/templates/db_backups.html:45
 msgid ""
 "Each night new and changed book files and covers are copied here; nothing is "
 "deleted from the mirror. Mount a separate disk at this path in Docker, and "
 "leave empty to turn it off."
 msgstr ""
 
-#: cps/templates/db_backups.html:48
+#: cps/templates/db_backups.html:47
 #, fuzzy
 msgid "Current folder"
 msgstr "Versione attuale"
 
-#: cps/templates/db_backups.html:49
+#: cps/templates/db_backups.html:48
 msgid "Keep processed books for"
 msgstr ""
 
-#: cps/templates/db_backups.html:50
+#: cps/templates/db_backups.html:49
 msgid ""
 "Copies of imported and failed books in /config/processed_books are deleted "
 "nightly after this many days. 0 keeps them forever."
 msgstr ""
 
-#: cps/templates/db_backups.html:52 cps/templates/db_backups.html:69
+#: cps/templates/db_backups.html:51 cps/templates/db_backups.html:68
 #: cps/templates/trash.html:14
 msgid "days"
 msgstr ""
 
-#: cps/templates/db_backups.html:56
+#: cps/templates/db_backups.html:55 cps/templates/settings_layout.html:59
 #, fuzzy
 msgid "Retention"
 msgstr "Orientamento"
 
-#: cps/templates/db_backups.html:56
+#: cps/templates/db_backups.html:55
 msgid ""
 "Snapshots are kept grandfather-father-son style: the newest daily ones, plus "
 "the newest snapshot of each recent week and month. The newest verified "
@@ -4214,35 +4185,35 @@ msgid ""
 "the library lost more than a tenth of its books."
 msgstr ""
 
-#: cps/templates/db_backups.html:57
+#: cps/templates/db_backups.html:56
 msgid "Daily snapshots"
 msgstr ""
 
-#: cps/templates/db_backups.html:57
+#: cps/templates/db_backups.html:56
 msgid "The most recent snapshots to keep. Default 7."
 msgstr ""
 
-#: cps/templates/db_backups.html:60
+#: cps/templates/db_backups.html:59
 msgid "Weekly snapshots"
 msgstr ""
 
-#: cps/templates/db_backups.html:60
+#: cps/templates/db_backups.html:59
 msgid "One per week, for this many weeks. Default 4; 0 turns it off."
 msgstr ""
 
-#: cps/templates/db_backups.html:63
+#: cps/templates/db_backups.html:62
 msgid "Monthly snapshots"
 msgstr ""
 
-#: cps/templates/db_backups.html:63
+#: cps/templates/db_backups.html:62
 msgid "One per month, for this many months. Default 6; 0 turns it off."
 msgstr ""
 
-#: cps/templates/db_backups.html:66
+#: cps/templates/db_backups.html:65
 msgid "Keep replaced mirror copies for"
 msgstr ""
 
-#: cps/templates/db_backups.html:67
+#: cps/templates/db_backups.html:66
 msgid ""
 "When a book file changes, the previous mirror copy moves to .versions/YYYY-"
 "MM-DD/ in the mirror folder. A new file that looks damaged (a broken epub, "
@@ -4250,39 +4221,39 @@ msgid ""
 "all. 0 keeps old copies forever."
 msgstr ""
 
-#: cps/templates/db_backups.html:78
+#: cps/templates/db_backups.html:77
 msgid "Snapshots"
 msgstr ""
 
-#: cps/templates/db_backups.html:78
+#: cps/templates/db_backups.html:77
 msgid ""
 "No snapshots yet. The first one is taken at the next maintenance window."
 msgstr ""
 
-#: cps/templates/db_backups.html:82
+#: cps/templates/db_backups.html:81
 #, fuzzy
 msgid "Verified"
 msgstr "Serie"
 
-#: cps/templates/db_backups.html:83
+#: cps/templates/db_backups.html:82
 msgid "Suspicious:"
 msgstr ""
 
-#: cps/templates/db_backups.html:89
+#: cps/templates/db_backups.html:88
 msgid ""
 "Accept this snapshot as correct? Use this only if the books were removed on "
 "purpose: older snapshots will be pruned again from the next backup."
 msgstr ""
 
-#: cps/templates/db_backups.html:90 cps/templates/metadata_suggestions.html:25
+#: cps/templates/db_backups.html:89 cps/templates/metadata_suggestions.html:24
 msgid "Accept"
 msgstr ""
 
-#: cps/templates/db_backups.html:97
+#: cps/templates/db_backups.html:96
 msgid "Before restore"
 msgstr ""
 
-#: cps/templates/db_backups.html:102
+#: cps/templates/db_backups.html:101
 msgid ""
 "Replace the selected live databases with this snapshot? A safety copy of the "
 "current ones is taken first. Books added or changed after this snapshot will "
@@ -4291,7 +4262,7 @@ msgid ""
 "are dropped."
 msgstr ""
 
-#: cps/templates/db_backups.html:108
+#: cps/templates/db_backups.html:107
 msgid "After restoring app.db, restart Lily so every setting is reloaded."
 msgstr ""
 
@@ -4305,11 +4276,11 @@ msgstr "Libro %(index)s di %(range)s"
 msgid "Continue"
 msgstr "Commenti"
 
-#: cps/templates/detail.html:32 cps/templates/image.html:224
+#: cps/templates/detail.html:32 cps/templates/image.html:226
 msgid "Read"
 msgstr "Letto"
 
-#: cps/templates/detail.html:36 cps/templates/image.html:200
+#: cps/templates/detail.html:36 cps/templates/image.html:201
 msgid "Read in Browser"
 msgstr "Leggi nel browser"
 
@@ -4343,12 +4314,12 @@ msgid "Book actions"
 msgstr "Dettagli del libro"
 
 #: cps/templates/detail.html:130 cps/templates/detail.html:266
-#: cps/templates/image.html:206 cps/templates/image.html:208
+#: cps/templates/image.html:207 cps/templates/image.html:209
 msgid "Mark As Unread"
 msgstr "Contrassegna come da leggere"
 
 #: cps/templates/detail.html:130 cps/templates/detail.html:267
-#: cps/templates/image.html:206 cps/templates/image.html:208
+#: cps/templates/image.html:207 cps/templates/image.html:209
 msgid "Mark As Read"
 msgstr "Contrassegna come letto"
 
@@ -4379,17 +4350,12 @@ msgstr "Archiviato"
 msgid "Restored from archive"
 msgstr "Ripristina dall'archivio"
 
-#: cps/templates/detail.html:175 cps/templates/image.html:54
-#: cps/templates/search_form.html:46
-msgid "Published"
-msgstr "Pubblicato"
-
 #: cps/templates/detail.html:187
 #, fuzzy
 msgid "File sizes"
 msgstr "Dimensioni caratteri"
 
-#: cps/templates/detail.html:199 cps/templates/metadata_suggestions.html:22
+#: cps/templates/detail.html:199 cps/templates/metadata_suggestions.html:21
 msgid "Identifiers"
 msgstr "Identificatori"
 
@@ -4401,7 +4367,7 @@ msgstr ""
 msgid "Last modified"
 msgstr ""
 
-#: cps/templates/detail.html:246 cps/templates/duplicates.html:143
+#: cps/templates/detail.html:246 cps/templates/duplicates.html:142
 msgid "ID"
 msgstr ""
 
@@ -4417,11 +4383,11 @@ msgstr ""
 msgid "Copy UUID"
 msgstr ""
 
-#: cps/templates/duplicates.html:9
+#: cps/templates/duplicates.html:8
 msgid "Scan"
 msgstr ""
 
-#: cps/templates/duplicates.html:9
+#: cps/templates/duplicates.html:8
 #, fuzzy
 msgid ""
 "Books with matching titles, authors, and languages. Books in different "
@@ -4430,280 +4396,280 @@ msgstr ""
 "Libri con titolo e autore corrispondenti. Si raccomanda l'ispezione visiva "
 "per individuare gli effettivi duplicati."
 
-#: cps/templates/duplicates.html:10
+#: cps/templates/duplicates.html:9
 #, fuzzy
 msgid "Full duplicate scan"
 msgstr "Duplicati"
 
-#: cps/templates/duplicates.html:11
+#: cps/templates/duplicates.html:10
 msgid "Next scheduled scan:"
 msgstr ""
 
-#: cps/templates/duplicates.html:11
+#: cps/templates/duplicates.html:10
 msgid "Check the library for books that appear more than once"
 msgstr ""
 
-#: cps/templates/duplicates.html:13
+#: cps/templates/duplicates.html:12
 #, fuzzy
 msgid "Run Full Duplicate Scan"
 msgstr "Duplicati"
 
-#: cps/templates/duplicates.html:13
+#: cps/templates/duplicates.html:12
 #, fuzzy
 msgid "Scan for duplicates"
 msgstr "Mostra Libri duplicati"
 
-#: cps/templates/duplicates.html:17
+#: cps/templates/duplicates.html:16
 msgid "Scan schedule"
 msgstr ""
 
-#: cps/templates/duplicates.html:17
+#: cps/templates/duplicates.html:16
 msgid "How often scans run and which formats win"
 msgstr ""
 
-#: cps/templates/duplicates.html:18
+#: cps/templates/duplicates.html:17
 #, fuzzy
 msgid "Duplicate settings"
 msgstr "Duplicati"
 
-#: cps/templates/duplicates.html:27
+#: cps/templates/duplicates.html:26
 msgid "Duplicate scanning needs a one-time full scan."
 msgstr ""
 
-#: cps/templates/duplicates.html:28
+#: cps/templates/duplicates.html:27
 msgid ""
 "Lily now uses a duplicate index to keep duplicate checks fast during imports "
 "and metadata changes. Before incremental scans can run, the index needs an "
 "initial baseline."
 msgstr ""
 
-#: cps/templates/duplicates.html:29
+#: cps/templates/duplicates.html:28
 msgid ""
 "Click \"Run Full Duplicate Scan\" to build it. This may take several minutes "
 "on large libraries, and you can keep using Lily while it runs."
 msgstr ""
 
-#: cps/templates/duplicates.html:37
+#: cps/templates/duplicates.html:36
 #, fuzzy
 msgid "Duplicate scan is running."
 msgstr "Duplicati"
 
-#: cps/templates/duplicates.html:38
+#: cps/templates/duplicates.html:37
 msgid "You can keep using Lily while it runs."
 msgstr ""
 
-#: cps/templates/duplicates.html:41 cps/templates/tasks.html:18
+#: cps/templates/duplicates.html:40 cps/templates/tasks.html:17
 msgid "Progress"
 msgstr "Avanzamento"
 
-#: cps/templates/duplicates.html:50
+#: cps/templates/duplicates.html:49
 msgid "View Background Tasks"
 msgstr ""
 
-#: cps/templates/duplicates.html:58
+#: cps/templates/duplicates.html:57
 #, fuzzy
 msgid "Auto-resolve duplicates"
 msgstr "Seleziona i duplicati"
 
-#: cps/templates/duplicates.html:59
+#: cps/templates/duplicates.html:58
 msgid ""
 "Automatically resolve all duplicate groups by keeping one book and deleting "
 "others based on a strategy."
 msgstr ""
 
-#: cps/templates/duplicates.html:63
+#: cps/templates/duplicates.html:62
 #, fuzzy
 msgid "Strategy"
 msgstr "Seleziona formato:"
 
-#: cps/templates/duplicates.html:65
+#: cps/templates/duplicates.html:64
 msgid "Keep Newest - Delete older copies, keep the most recently added"
 msgstr ""
 
-#: cps/templates/duplicates.html:66
+#: cps/templates/duplicates.html:65
 msgid "Keep Oldest - Delete newer copies, keep the earliest added"
 msgstr ""
 
-#: cps/templates/duplicates.html:67
+#: cps/templates/duplicates.html:66
 msgid "Merge Formats - Merge formats into the newest book, delete the rest"
 msgstr ""
 
-#: cps/templates/duplicates.html:68
+#: cps/templates/duplicates.html:67
 msgid ""
 "Keep Highest Quality Format - Prefer formats based on your Duplicate Format "
 "Priority Ranking"
 msgstr ""
 
-#: cps/templates/duplicates.html:69
+#: cps/templates/duplicates.html:68
 msgid "Keep Most Metadata - Keep book with most complete information"
 msgstr ""
 
-#: cps/templates/duplicates.html:70
+#: cps/templates/duplicates.html:69
 msgid "Keep Largest File Size - Keep book with largest total file size"
 msgstr ""
 
-#: cps/templates/duplicates.html:75
+#: cps/templates/duplicates.html:74
 #, fuzzy
 msgid "Preview"
 msgstr "Precedente"
 
-#: cps/templates/duplicates.html:78 cps/templates/duplicates.html:195
+#: cps/templates/duplicates.html:77 cps/templates/duplicates.html:194
 msgid "Apply resolution"
 msgstr ""
 
-#: cps/templates/duplicates.html:86
+#: cps/templates/duplicates.html:85
 msgid "Warning:"
 msgstr ""
 
-#: cps/templates/duplicates.html:87
+#: cps/templates/duplicates.html:86
 msgid ""
 "Removed copies are moved to the Trash, where an admin can restore them. A "
 "second copy is kept in"
 msgstr ""
 
-#: cps/templates/duplicates.html:94
+#: cps/templates/duplicates.html:93
 #, fuzzy
 msgid "Select duplicates"
 msgstr "Seleziona i duplicati"
 
-#: cps/templates/duplicates.html:95
+#: cps/templates/duplicates.html:94
 #, fuzzy
 msgid "Select none"
 msgstr "Non selezionare nulla"
 
-#: cps/templates/duplicates.html:96
+#: cps/templates/duplicates.html:95
 #, fuzzy
 msgid "Delete selected"
 msgstr "Elimina selezionati"
 
-#: cps/templates/duplicates.html:108
+#: cps/templates/duplicates.html:107
 msgid "copies"
 msgstr ""
 
-#: cps/templates/duplicates.html:108
+#: cps/templates/duplicates.html:107
 msgid "copy"
 msgstr ""
 
-#: cps/templates/duplicates.html:113
+#: cps/templates/duplicates.html:112
 #, fuzzy
 msgid "Merge selected"
 msgstr "Unisci i libri selezionati"
 
-#: cps/templates/duplicates.html:118
+#: cps/templates/duplicates.html:117
 msgid "Dismiss this duplicate group"
 msgstr ""
 
-#: cps/templates/duplicates.html:119 cps/templates/index.html:13
+#: cps/templates/duplicates.html:118 cps/templates/index.html:13
 msgid "Dismiss"
 msgstr ""
 
-#: cps/templates/duplicates.html:128 cps/templates/modal_dialogs.html:93
+#: cps/templates/duplicates.html:127 cps/templates/modal_dialogs.html:93
 #: cps/templates/trash.html:29
 msgid "Select"
 msgstr "Seleziona"
 
-#: cps/templates/duplicates.html:131
+#: cps/templates/duplicates.html:130
 #, fuzzy
 msgid "View book details"
 msgstr "Dettagli del libro"
 
-#: cps/templates/duplicates.html:132
+#: cps/templates/duplicates.html:131
 #, fuzzy
 msgid "Cover for"
 msgstr "Copertina"
 
-#: cps/templates/duplicates.html:142
+#: cps/templates/duplicates.html:141
 msgid "Added"
 msgstr ""
 
-#: cps/templates/duplicates.html:154
+#: cps/templates/duplicates.html:153
 #, fuzzy
 msgid "Edit book metadata"
 msgstr "modifica i metadati"
 
-#: cps/templates/duplicates.html:157
+#: cps/templates/duplicates.html:156
 msgid "Open book to archive or delete"
 msgstr ""
 
-#: cps/templates/duplicates.html:170
+#: cps/templates/duplicates.html:169
 #, fuzzy
 msgid "Results"
 msgstr "Risultati per:"
 
-#: cps/templates/duplicates.html:173
+#: cps/templates/duplicates.html:172
 #, fuzzy
 msgid "No duplicate books"
 msgstr "Mostra Libri duplicati"
 
-#: cps/templates/duplicates.html:174
+#: cps/templates/duplicates.html:173
 msgid "No two books share the same title, author, and language."
 msgstr ""
 
-#: cps/templates/duplicates.html:186
+#: cps/templates/duplicates.html:185
 msgid "Execute Auto-Resolution"
 msgstr ""
 
-#: cps/templates/duplicates.html:189
+#: cps/templates/duplicates.html:188
 msgid ""
 "Lily will resolve duplicate groups using the selected strategy and move the "
 "other copies to the Trash. Copies someone is reading, has shelved or marked "
 "read are kept in preference to the others."
 msgstr ""
 
-#: cps/templates/duplicates.html:190
+#: cps/templates/duplicates.html:189
 #, fuzzy
 msgid "Selected strategy:"
 msgstr "Seleziona formato:"
 
-#: cps/templates/duplicates.html:191 cps/templates/duplicates.html:211
+#: cps/templates/duplicates.html:190 cps/templates/duplicates.html:210
 msgid "Restore mistakes from Settings, Trash."
 msgstr ""
 
-#: cps/templates/duplicates.html:226
+#: cps/templates/duplicates.html:225
 #, fuzzy
 msgid "Merge Books"
 msgstr "Libri da leggere"
 
-#: cps/templates/duplicates.html:229
+#: cps/templates/duplicates.html:228
 #, fuzzy
 msgid "The following book will be kept:"
 msgstr "I libri seguenti verranno eliminati:"
 
-#: cps/templates/duplicates.html:231
+#: cps/templates/duplicates.html:230
 #, fuzzy
 msgid "The following books will be merged into it (and then deleted):"
 msgstr "I libri seguenti verranno eliminati in modo permanente:"
 
-#: cps/templates/duplicates.html:233
+#: cps/templates/duplicates.html:232
 msgid "Note: File formats from source books will be added to the target book."
 msgstr ""
 
-#: cps/templates/duplicates.html:248
+#: cps/templates/duplicates.html:247
 msgid "Resolution Preview"
 msgstr ""
 
-#: cps/templates/duplicates.html:266
+#: cps/templates/duplicates.html:265
 msgid "Success"
 msgstr "Fatto"
 
-#: cps/templates/duplicates.html:269
+#: cps/templates/duplicates.html:268
 msgid "Selected duplicate books have been deleted successfully!"
 msgstr "I libri duplicati selezionati sono stati eliminati!"
 
-#: cps/templates/duplicates.html:283
-#: cps/templates/hardcover_review_matches.html:118
-#: cps/templates/hardcover_review_matches.html:127
-#: cps/templates/hardcover_review_matches.html:162
-#: cps/templates/hardcover_review_matches.html:171
-#: cps/templates/hardcover_review_matches.html:199
-#: cps/templates/hardcover_review_matches.html:208
-#: cps/templates/hardcover_review_matches.html:239
-#: cps/templates/hardcover_review_matches.html:248
+#: cps/templates/duplicates.html:282
+#: cps/templates/hardcover_review_matches.html:117
+#: cps/templates/hardcover_review_matches.html:126
+#: cps/templates/hardcover_review_matches.html:161
+#: cps/templates/hardcover_review_matches.html:170
+#: cps/templates/hardcover_review_matches.html:198
+#: cps/templates/hardcover_review_matches.html:207
+#: cps/templates/hardcover_review_matches.html:238
+#: cps/templates/hardcover_review_matches.html:247
 #: cps/templates/layout.html:108
 msgid "Error"
 msgstr "Errore"
 
-#: cps/templates/duplicates.html:286
+#: cps/templates/duplicates.html:285
 msgid "An error occurred while processing your request."
 msgstr "Si è verificato un errore."
 
@@ -4716,106 +4682,106 @@ msgstr "Mostra sezione Serie"
 msgid "Series appear here once a book in your library has one."
 msgstr ""
 
-#: cps/templates/grid.html:38 cps/templates/index.html:129
+#: cps/templates/grid.html:38 cps/templates/index.html:127
 #: cps/templates/list.html:70
 #, fuzzy
 msgid "Browse all books"
 msgstr "Libri hot"
 
-#: cps/templates/hardcover_review_matches.html:13
+#: cps/templates/hardcover_review_matches.html:12
 msgid "All caught up"
 msgstr ""
 
-#: cps/templates/hardcover_review_matches.html:14
+#: cps/templates/hardcover_review_matches.html:13
 msgid ""
 "There are no pending Hardcover matches requiring review. New matches will "
 "appear here when the auto-fetch task runs."
 msgstr ""
 
-#: cps/templates/hardcover_review_matches.html:21
+#: cps/templates/hardcover_review_matches.html:20
 msgid "Review Required"
 msgstr ""
 
-#: cps/templates/hardcover_review_matches.html:22
+#: cps/templates/hardcover_review_matches.html:21
 #, python-format
 msgid ""
 "%(count)s book(s) have ambiguous Hardcover matches. Please review each match "
 "and select the correct result, or skip/reject if no good match exists."
 msgstr ""
 
-#: cps/templates/hardcover_review_matches.html:26
+#: cps/templates/hardcover_review_matches.html:25
 msgid ""
 "Review and approve ambiguous Hardcover ID matches for your books. High-"
 "confidence matches are applied automatically; these require manual "
 "verification."
 msgstr ""
 
-#: cps/templates/hardcover_review_matches.html:27
-#: cps/templates/hardcover_review_matches.html:200
-#: cps/templates/hardcover_review_matches.html:209
+#: cps/templates/hardcover_review_matches.html:26
+#: cps/templates/hardcover_review_matches.html:199
+#: cps/templates/hardcover_review_matches.html:208
 #, fuzzy
 msgid "Reject All Pending"
 msgstr "Seleziona tutto"
 
-#: cps/templates/hardcover_review_matches.html:35
+#: cps/templates/hardcover_review_matches.html:34
 #, fuzzy
 msgid "Search Query"
 msgstr "Termine di ricerca:"
 
-#: cps/templates/hardcover_review_matches.html:38
+#: cps/templates/hardcover_review_matches.html:37
 msgid "Candidate Matches"
 msgstr ""
 
-#: cps/templates/hardcover_review_matches.html:38
+#: cps/templates/hardcover_review_matches.html:37
 #, python-format
 msgid "Top %(count)s"
 msgstr ""
 
-#: cps/templates/hardcover_review_matches.html:44
+#: cps/templates/hardcover_review_matches.html:43
 msgid "Confidence"
 msgstr ""
 
-#: cps/templates/hardcover_review_matches.html:65
+#: cps/templates/hardcover_review_matches.html:64
 msgid "Match Reason"
 msgstr ""
 
-#: cps/templates/hardcover_review_matches.html:68
+#: cps/templates/hardcover_review_matches.html:67
 #, fuzzy
 msgid "View on Hardcover"
 msgstr "Visualizza il libro dopo averlo salvato"
 
-#: cps/templates/hardcover_review_matches.html:72
-#: cps/templates/hardcover_review_matches.html:119
-#: cps/templates/hardcover_review_matches.html:128
+#: cps/templates/hardcover_review_matches.html:71
+#: cps/templates/hardcover_review_matches.html:118
+#: cps/templates/hardcover_review_matches.html:127
 msgid "Select This Match"
 msgstr ""
 
-#: cps/templates/hardcover_review_matches.html:78
-#: cps/templates/hardcover_review_matches.html:240
-#: cps/templates/hardcover_review_matches.html:249
+#: cps/templates/hardcover_review_matches.html:77
+#: cps/templates/hardcover_review_matches.html:239
+#: cps/templates/hardcover_review_matches.html:248
 msgid "Skip for Now"
 msgstr ""
 
-#: cps/templates/hardcover_review_matches.html:79
-#: cps/templates/hardcover_review_matches.html:163
-#: cps/templates/hardcover_review_matches.html:172
+#: cps/templates/hardcover_review_matches.html:78
+#: cps/templates/hardcover_review_matches.html:162
+#: cps/templates/hardcover_review_matches.html:171
 #, fuzzy
 msgid "Reject All"
 msgstr "Seleziona tutto"
 
-#: cps/templates/hardcover_review_matches.html:97
-#: cps/templates/hardcover_review_matches.html:142
-#: cps/templates/hardcover_review_matches.html:185
-#: cps/templates/hardcover_review_matches.html:219
+#: cps/templates/hardcover_review_matches.html:96
+#: cps/templates/hardcover_review_matches.html:141
+#: cps/templates/hardcover_review_matches.html:184
+#: cps/templates/hardcover_review_matches.html:218
 #, fuzzy
 msgid "Processing..."
 msgstr "Caricamento in corso..."
 
-#: cps/templates/hardcover_review_matches.html:123
+#: cps/templates/hardcover_review_matches.html:122
 msgid "Failed to apply match"
 msgstr ""
 
-#: cps/templates/hardcover_review_matches.html:138
+#: cps/templates/hardcover_review_matches.html:137
 #, fuzzy
 msgid ""
 "Are you sure you want to reject all matches for this book? This cannot be "
@@ -4823,24 +4789,24 @@ msgid ""
 msgstr ""
 "Sei sicuro di voler cambiare il ruolo selezionato per gli utenti selezionati?"
 
-#: cps/templates/hardcover_review_matches.html:167
+#: cps/templates/hardcover_review_matches.html:166
 #, fuzzy
 msgid "Failed to reject match"
 msgstr "Impossibile creare il percorso per la copertina"
 
-#: cps/templates/hardcover_review_matches.html:181
+#: cps/templates/hardcover_review_matches.html:180
 #, fuzzy
 msgid ""
 "Are you sure you want to reject all pending matches? This cannot be undone."
 msgstr ""
 "Sei sicuro di voler cambiare il ruolo selezionato per gli utenti selezionati?"
 
-#: cps/templates/hardcover_review_matches.html:204
+#: cps/templates/hardcover_review_matches.html:203
 #, fuzzy
 msgid "Failed to reject all pending matches"
 msgstr "Impossibile creare il percorso per la copertina"
 
-#: cps/templates/hardcover_review_matches.html:244
+#: cps/templates/hardcover_review_matches.html:243
 msgid "Failed to skip match"
 msgstr ""
 
@@ -4925,7 +4891,7 @@ msgstr ""
 msgid "Letter"
 msgstr ""
 
-#: cps/templates/image.html:166 cps/templates/user_table.html:147
+#: cps/templates/image.html:166 cps/templates/user_table.html:146
 msgid "View"
 msgstr "Visualizza"
 
@@ -4956,7 +4922,7 @@ msgstr "Aggiungi allo scaffale"
 msgid "Removed from %(shelf)s"
 msgstr "Ripristina dall'archivio"
 
-#: cps/templates/image.html:238
+#: cps/templates/image.html:245
 msgid "reduce"
 msgstr "riduci"
 
@@ -4992,31 +4958,31 @@ msgstr "Avanzamento"
 msgid "Up next"
 msgstr ""
 
-#: cps/templates/index.html:117
+#: cps/templates/index.html:115
 msgid "Your library is empty"
 msgstr ""
 
-#: cps/templates/index.html:118
+#: cps/templates/index.html:116
 #, python-format
 msgid ""
 "Add books by dropping files into the ingest folder (%(folder)s in Docker). "
 "Lily imports them automatically."
 msgstr ""
 
-#: cps/templates/index.html:121 cps/templates/layout.html:110
+#: cps/templates/index.html:119 cps/templates/layout.html:110
 #, fuzzy
 msgid "Upload books"
 msgstr "Caricamenti"
 
-#: cps/templates/index.html:123
+#: cps/templates/index.html:121
 msgid "Turn on uploads"
 msgstr ""
 
-#: cps/templates/index.html:127
+#: cps/templates/index.html:125
 msgid "No books here yet"
 msgstr ""
 
-#: cps/templates/index.html:128
+#: cps/templates/index.html:126
 msgid "Books appear here once they match this list."
 msgstr ""
 
@@ -5024,31 +4990,31 @@ msgstr ""
 msgid "Start"
 msgstr "Avvio"
 
-#: cps/templates/ingest_failures.html:6
+#: cps/templates/ingest_failures.html:5
 #, python-format
 msgid ""
 "Books the ingest process could not import are kept in %(dir)s. Retry moves a "
 "file back into the ingest folder; Delete removes it for good."
 msgstr ""
 
-#: cps/templates/ingest_failures.html:8
+#: cps/templates/ingest_failures.html:7
 #, fuzzy
 msgid "Rejected files"
 msgstr "Seleziona tutto"
 
-#: cps/templates/ingest_failures.html:8
+#: cps/templates/ingest_failures.html:7
 msgid "Nothing has failed. Rejected files will show up here."
 msgstr ""
 
-#: cps/templates/ingest_failures.html:14
+#: cps/templates/ingest_failures.html:13
 msgid "Retry"
 msgstr ""
 
-#: cps/templates/ingest_failures.html:16
+#: cps/templates/ingest_failures.html:15
 msgid "Permanently delete this file?"
 msgstr ""
 
-#: cps/templates/ingest_failures.html:26
+#: cps/templates/ingest_failures.html:25
 #, fuzzy
 msgid "Retry all"
 msgstr "Cancella tutto"
@@ -5096,8 +5062,8 @@ msgid "Theme: Dark"
 msgstr "Tema"
 
 #: cps/templates/layout.html:129 cps/templates/read.html:95
-#: cps/templates/readcbr.html:78 cps/templates/readcbr.html:104
-#: cps/templates/settings_layout.html:9 cps/templates/trash.html:10
+#: cps/templates/settings_layout.html:12 cps/templates/settings_layout.html:39
+#: cps/templates/settings_layout.html:48 cps/templates/trash.html:10
 msgid "Settings"
 msgstr "Impostazioni"
 
@@ -5277,8 +5243,7 @@ msgid ""
 msgstr ""
 
 #: cps/templates/listenmp3.html:25 cps/templates/read.html:54
-#: cps/templates/readcbr.html:45 cps/templates/readdjvu.html:25
-#: cps/templates/readtxt.html:33
+#: cps/templates/readdjvu.html:25
 msgid "Back to book"
 msgstr ""
 
@@ -5335,7 +5300,7 @@ msgid "Enter the 6-digit code from your authenticator app."
 msgstr ""
 
 #: cps/templates/login.html:38 cps/templates/user_edit.html:13
-#: cps/templates/user_table.html:136
+#: cps/templates/user_table.html:135
 msgid "Username"
 msgstr "Nome utente"
 
@@ -5353,50 +5318,50 @@ msgstr "Ricordami"
 msgid "Verify"
 msgstr "Serie"
 
-#: cps/templates/metadata_suggestions.html:7
+#: cps/templates/metadata_suggestions.html:6
 msgid ""
 "Books with no description are looked up on the enabled metadata providers "
 "(Hardcover has its own page). Each suggestion only fills gaps: existing "
 "descriptions and identifiers are never replaced."
 msgstr ""
 
-#: cps/templates/metadata_suggestions.html:11
+#: cps/templates/metadata_suggestions.html:10
 msgid "Look up the next 25 books"
 msgstr ""
 
-#: cps/templates/metadata_suggestions.html:12
+#: cps/templates/metadata_suggestions.html:11
 #, python-format
 msgid "%(n)d book(s) looked up so far, %(m)d without a usable match."
 msgstr ""
 
-#: cps/templates/metadata_suggestions.html:15
+#: cps/templates/metadata_suggestions.html:14
 #, fuzzy
 msgid "To review"
 msgstr "Precedente"
 
-#: cps/templates/metadata_suggestions.html:15
+#: cps/templates/metadata_suggestions.html:14
 msgid "Nothing to review. Run a lookup to find suggestions."
 msgstr ""
 
-#: cps/templates/metadata_suggestions.html:20
+#: cps/templates/metadata_suggestions.html:19
 msgid "Matched to"
 msgstr ""
 
-#: cps/templates/metadata_suggestions.html:26
+#: cps/templates/metadata_suggestions.html:25
 #, fuzzy
 msgid "Reject"
 msgstr "Seleziona tutto"
 
-#: cps/templates/metadata_suggestions.html:36
+#: cps/templates/metadata_suggestions.html:35
 #, python-format
 msgid "Accept all %(n)d at %(p)d%% or more"
 msgstr ""
 
-#: cps/templates/metadata_suggestions.html:38
+#: cps/templates/metadata_suggestions.html:37
 msgid "Reject every pending suggestion?"
 msgstr ""
 
-#: cps/templates/metadata_suggestions.html:38
+#: cps/templates/metadata_suggestions.html:37
 #, fuzzy
 msgid "Reject all"
 msgstr "Seleziona tutto"
@@ -5516,23 +5481,20 @@ msgstr ""
 msgid "Bookmark this page"
 msgstr "Libri per pagina"
 
-#: cps/templates/read.html:64 cps/templates/readcbr.html:54
+#: cps/templates/read.html:64
 #, fuzzy
 msgid "Reader settings"
 msgstr "Impostazioni"
 
-#: cps/templates/read.html:65 cps/templates/readcbr.html:55
+#: cps/templates/read.html:65
 msgid "Fullscreen"
 msgstr ""
 
-#: cps/templates/read.html:70 cps/templates/readcbr.html:72
-#: cps/templates/readcbr.html:86 cps/templates/readtxt.html:38
+#: cps/templates/read.html:70
 msgid "Previous Page"
 msgstr "Pagina precedente"
 
-#: cps/templates/read.html:72 cps/templates/readcbr.html:73
-#: cps/templates/readcbr.html:87 cps/templates/readcbr.html:167
-#: cps/templates/readtxt.html:40
+#: cps/templates/read.html:72
 msgid "Next Page"
 msgstr "Pagina successiva"
 
@@ -5551,15 +5513,15 @@ msgstr "Leggi nel browser"
 msgid "Back to library"
 msgstr "Cerca nella biblioteca"
 
-#: cps/templates/read.html:97 cps/templates/readcbr.html:109
+#: cps/templates/read.html:97
 msgid "Theme"
 msgstr "Tema"
 
-#: cps/templates/read.html:100 cps/templates/readcbr.html:112
+#: cps/templates/read.html:100
 msgid "Light"
 msgstr "Chiaro"
 
-#: cps/templates/read.html:102 cps/templates/readcbr.html:113
+#: cps/templates/read.html:102
 msgid "Dark"
 msgstr "Scuro"
 
@@ -5643,179 +5605,51 @@ msgstr ""
 msgid "Narrow the page beside the contents panel instead of covering it"
 msgstr ""
 
-#: cps/templates/readcbr.html:9
-msgid "Comic Reader"
-msgstr "Lettore di fumetti"
-
-#: cps/templates/readcbr.html:46
-msgid "Pages"
-msgstr ""
-
-#: cps/templates/readcbr.html:83
-msgid "Keyboard Shortcuts"
-msgstr "Scorciatoie della tastiera"
-
-#: cps/templates/readcbr.html:88
-msgid "Single Page Display"
-msgstr "Visualizzazione a pagina singola"
-
-#: cps/templates/readcbr.html:89
-msgid "Long Strip Display"
-msgstr "Visualizzazione a striscia lunga"
-
-#: cps/templates/readcbr.html:90
-msgid "Scale to Best"
-msgstr "Adatta al meglio"
-
-#: cps/templates/readcbr.html:91
-msgid "Scale to Width"
-msgstr "Adatta alla larghezza"
-
-#: cps/templates/readcbr.html:92
-msgid "Scale to Height"
-msgstr "Adatta all'altezza"
-
-#: cps/templates/readcbr.html:93
-msgid "Scale to Native"
-msgstr "Adatta all'originale"
-
-#: cps/templates/readcbr.html:94
-msgid "Rotate Right"
-msgstr "Ruota a destra"
-
-#: cps/templates/readcbr.html:95
-msgid "Rotate Left"
-msgstr "Ruota a sinistra"
-
-#: cps/templates/readcbr.html:96
-msgid "Flip Image"
-msgstr "Capovolgi immagine"
-
-#: cps/templates/readcbr.html:118
-msgid "Display"
-msgstr "Visualizzazione"
-
-#: cps/templates/readcbr.html:121
-msgid "Single Page"
-msgstr "Pagina singola"
-
-#: cps/templates/readcbr.html:122
-msgid "Long Strip"
-msgstr "Striscia lunga"
-
-#: cps/templates/readcbr.html:127
-msgid "Scale"
-msgstr "Scala"
-
-#: cps/templates/readcbr.html:130
-msgid "Best"
-msgstr "Migliore"
-
-#: cps/templates/readcbr.html:131
-msgid "Width"
-msgstr "Larghezza"
-
-#: cps/templates/readcbr.html:132
-msgid "Height"
-msgstr "Altezza"
-
-#: cps/templates/readcbr.html:133
-msgid "Native"
-msgstr "Originale"
-
-#: cps/templates/readcbr.html:138
-msgid "Rotate"
-msgstr "Ruota"
-
-#: cps/templates/readcbr.html:149
-msgid "Flip"
-msgstr "Capovolgi"
-
-#: cps/templates/readcbr.html:152
-msgid "Horizontal"
-msgstr "Orizzontale"
-
-#: cps/templates/readcbr.html:153
-msgid "Vertical"
-msgstr "Verticale"
-
-#: cps/templates/readcbr.html:158
-msgid "Direction"
-msgstr "Orientamento"
-
-#: cps/templates/readcbr.html:161
-msgid "Left to Right"
-msgstr "Da sinistra a destra"
-
-#: cps/templates/readcbr.html:162
-msgid "Right to Left"
-msgstr "Da destra a sinistra"
-
-#: cps/templates/readcbr.html:170
-msgid "Reset to Top"
-msgstr "Reimposta in alto"
-
-#: cps/templates/readcbr.html:171
-msgid "Remember Position"
-msgstr "Ricorda la posizione"
-
-#: cps/templates/readcbr.html:176
-msgid "Scrollbar"
-msgstr "Barra di scorrimento"
-
-#: cps/templates/readcbr.html:179
-msgid "Show"
-msgstr "Mostra"
-
-#: cps/templates/readcbr.html:180
-msgid "Hide"
-msgstr "Nascondi"
-
 #: cps/templates/readdjvu.html:6
 msgid "DJVU Reader"
 msgstr "Lettore DJVU"
 
-#: cps/templates/reading_stats.html:7
+#: cps/templates/reading_stats.html:6
 msgid "Reading history is kept per account. Sign in to see yours."
 msgstr ""
 
-#: cps/templates/reading_stats.html:9
+#: cps/templates/reading_stats.html:8
 msgid "Year"
 msgstr ""
 
-#: cps/templates/reading_stats.html:13
+#: cps/templates/reading_stats.html:12
 #, python-format
 msgid "%(year)s in books"
 msgstr ""
 
-#: cps/templates/reading_stats.html:13
+#: cps/templates/reading_stats.html:12
 #, python-format
 msgid "Nothing marked as read in %(year)s yet."
 msgstr ""
 
-#: cps/templates/reading_stats.html:16
+#: cps/templates/reading_stats.html:15
 msgid "Busiest month"
 msgstr ""
 
-#: cps/templates/reading_stats.html:17
+#: cps/templates/reading_stats.html:16
 msgid "By month"
 msgstr ""
 
-#: cps/templates/reading_stats.html:18
+#: cps/templates/reading_stats.html:17
 msgid "Books finished per month"
 msgstr ""
 
-#: cps/templates/reading_stats.html:28
+#: cps/templates/reading_stats.html:27
 #, fuzzy
 msgid "Most read"
 msgstr "Libri per pagina"
 
-#: cps/templates/reading_stats.html:31
+#: cps/templates/reading_stats.html:30
 #, fuzzy
 msgid "Latest finished"
 msgstr "Finito"
 
-#: cps/templates/reading_stats.html:34
+#: cps/templates/reading_stats.html:33
 msgid ""
 "A book counts when it is marked as read; the date it was marked is the "
 "finish date."
@@ -5825,36 +5659,27 @@ msgstr ""
 msgid "PDF Reader"
 msgstr "Lettore PDF"
 
-#: cps/templates/readtxt.html:7
-msgid "txt Reader"
-msgstr "Lettore txt"
-
-#: cps/templates/schedule_edit.html:7 cps/templates/settings_layout.html:49
-#, fuzzy
-msgid "Scheduled Tasks"
-msgstr "Modifica le impostazioni delle attività pianificate"
-
-#: cps/templates/schedule_edit.html:13 cps/templates/tasks.html:20
+#: cps/templates/schedule_edit.html:12 cps/templates/tasks.html:19
 msgid "Start Time"
 msgstr "Ora di inizio"
 
-#: cps/templates/schedule_edit.html:14
+#: cps/templates/schedule_edit.html:13
 msgid "Maximum Duration"
 msgstr "Durata massima"
 
-#: cps/templates/schedule_edit.html:17
+#: cps/templates/schedule_edit.html:16
 msgid "Scheduled Thumbnail Refresh"
 msgstr ""
 
-#: cps/templates/schedule_edit.html:17
+#: cps/templates/schedule_edit.html:16
 msgid "Thumbnails are still made on demand when this is off."
 msgstr ""
 
-#: cps/templates/schedule_edit.html:18
+#: cps/templates/schedule_edit.html:17
 msgid "Reconnect Calibre Database"
 msgstr "Riconnetti il database di Calibre"
 
-#: cps/templates/schedule_edit.html:19
+#: cps/templates/schedule_edit.html:18
 msgid "Generate Metadata Backup Files"
 msgstr "Genera file di backup dei metadati"
 
@@ -5967,43 +5792,110 @@ msgstr "Da:"
 msgid "To:"
 msgstr "A:"
 
-#: cps/templates/settings_layout.html:15
-#, fuzzy
-msgid "Settings sections"
-msgstr "Mostra sezione Valutazioni"
-
-#: cps/templates/settings_layout.html:17
-#, fuzzy
-msgid "Search settings"
-msgstr "Impostazioni"
-
-#: cps/templates/settings_layout.html:18
-#, fuzzy
-msgid "No settings found"
-msgstr "Nessun risultato trovato"
-
-#: cps/templates/settings_layout.html:22 cps/templates/user_edit.html:3
-#: cps/templates/user_edit.html:11
-msgid "Account"
-msgstr "Account"
-
-#: cps/templates/settings_layout.html:51
-msgid "Lily"
+#: cps/templates/settings_layout.html:25 cps/templates/settings_layout.html:26
+#: cps/templates/user_edit.html:3
+msgid "Profile"
 msgstr ""
 
-#: cps/templates/settings_layout.html:53
-msgid "Ingest"
-msgstr ""
+#: cps/templates/settings_layout.html:35
+#, fuzzy
+msgid "Database"
+msgstr "Cartella del database di Calibre"
 
-#: cps/templates/settings_layout.html:54
+#: cps/templates/settings_layout.html:36
+msgid "Display"
+msgstr "Visualizzazione"
+
+#: cps/templates/settings_layout.html:38
+#, fuzzy
+msgid "Import"
+msgstr "Non riuscito"
+
+#: cps/templates/settings_layout.html:40
+#, fuzzy
+msgid "Failed imports"
+msgstr "Non riuscito"
+
+#: cps/templates/settings_layout.html:41
 #, fuzzy
 msgid "Metadata"
 msgstr "Modifica i metadati"
 
-#: cps/templates/settings_layout.html:55 cps/templates/user_edit.html:48
+#: cps/templates/settings_layout.html:42
+#, fuzzy
+msgid "Providers"
+msgstr "Indice serie"
+
+#: cps/templates/settings_layout.html:43 cps/templates/user_edit.html:48
 #, fuzzy
 msgid "Hardcover"
 msgstr "Hardcover API Key"
+
+#: cps/templates/settings_layout.html:44
+#, fuzzy
+msgid "Matches"
+msgstr "Cerca"
+
+#: cps/templates/settings_layout.html:45
+msgid "Suggestions"
+msgstr ""
+
+#: cps/templates/settings_layout.html:47
+#, fuzzy
+msgid "Review"
+msgstr "Precedente"
+
+#: cps/templates/settings_layout.html:52 cps/templates/settings_layout.html:53
+#: cps/templates/user_table.html:124
+msgid "Users"
+msgstr "Utenti"
+
+#: cps/templates/settings_layout.html:54 cps/templates/settings_layout.html:55
+#, fuzzy
+msgid "General"
+msgstr "Errore generale"
+
+#: cps/templates/settings_layout.html:56
+#, fuzzy
+msgid "Schedules & Backups"
+msgstr "Modifica le impostazioni delle attività pianificate"
+
+#: cps/templates/settings_layout.html:57
+#, fuzzy
+msgid "Schedules"
+msgstr "Modifica le impostazioni delle attività pianificate"
+
+#: cps/templates/settings_layout.html:60
+msgid "Maintenance"
+msgstr ""
+
+#: cps/templates/settings_layout.html:61
+msgid "Tools"
+msgstr ""
+
+#: cps/templates/settings_layout.html:63 cps/templates/settings_layout.html:64
+#, fuzzy
+msgid "Stats"
+msgstr "Stato"
+
+#: cps/templates/settings_layout.html:66 cps/templates/user_edit.html:11
+msgid "Account"
+msgstr "Account"
+
+#: cps/templates/settings_layout.html:76
+#, fuzzy
+msgid "Settings sections"
+msgstr "Mostra sezione Valutazioni"
+
+#: cps/templates/settings_layout.html:78
+#, fuzzy
+msgid "Search settings"
+msgstr "Impostazioni"
+
+#: cps/templates/settings_layout.html:79
+#, fuzzy
+msgid "No settings found"
+msgstr "Nessun risultato trovato"
 
 #: cps/templates/shelf.html:15
 #, fuzzy
@@ -6046,34 +5938,34 @@ msgstr "Trascina per riordinare"
 msgid "Hidden Book"
 msgstr "Libro nascosto"
 
-#: cps/templates/tasks.html:14
+#: cps/templates/tasks.html:13
 msgid "User"
 msgstr "Utente"
 
-#: cps/templates/tasks.html:16
+#: cps/templates/tasks.html:15
 msgid "Task"
 msgstr "Attività"
 
-#: cps/templates/tasks.html:19
+#: cps/templates/tasks.html:18
 msgid "Run Time"
 msgstr "Tempo d'esecuzione"
 
-#: cps/templates/tasks.html:21
+#: cps/templates/tasks.html:20
 msgid "Message"
 msgstr "Messaggio"
 
-#: cps/templates/tasks.html:23
+#: cps/templates/tasks.html:22
 msgid "Actions"
 msgstr "Azioni"
 
-#: cps/templates/tasks.html:44
+#: cps/templates/tasks.html:43
 msgid ""
 "This task will be cancelled. Any progress made by this task will be saved."
 msgstr ""
 "Questa attività verrà annullata. Tutti i progressi compiuti da questa "
 "attività verranno salvati."
 
-#: cps/templates/tasks.html:44
+#: cps/templates/tasks.html:43
 msgid ""
 "If this is a scheduled task, it will be re-ran during the next scheduled "
 "time."
@@ -6081,7 +5973,7 @@ msgstr ""
 "Se si tratta di un'attività pianificata, verrà eseguita nuovamente "
 "all'orario pianificato successivo."
 
-#: cps/templates/tasks.html:48
+#: cps/templates/tasks.html:47
 #, fuzzy
 msgid "Cancel task"
 msgstr "Annulla"
@@ -6196,26 +6088,26 @@ msgstr ""
 msgid "Sidebar"
 msgstr ""
 
-#: cps/templates/user_edit.html:64
+#: cps/templates/user_edit.html:63
 #, fuzzy
 msgid "Permissions"
 msgstr "Versione"
 
-#: cps/templates/user_edit.html:83
+#: cps/templates/user_edit.html:82
 msgid "OPDS Catalog Order"
 msgstr ""
 
-#: cps/templates/user_edit.html:85
+#: cps/templates/user_edit.html:84
 msgid ""
 "Drag to reorder OPDS root entries. Missing entries are appended "
 "automatically."
 msgstr ""
 
-#: cps/templates/user_edit.html:98 cps/templates/user_table.html:166
+#: cps/templates/user_edit.html:97 cps/templates/user_table.html:163
 msgid "Delete User"
 msgstr "Elimina utente"
 
-#: cps/templates/user_edit.html:158
+#: cps/templates/user_edit.html:157
 msgid "Visible"
 msgstr ""
 
@@ -6223,62 +6115,71 @@ msgstr ""
 msgid "Select..."
 msgstr "Seleziona..."
 
-#: cps/templates/user_table.html:126
+#: cps/templates/user_table.html:125
 msgid "Remove Selections"
 msgstr "Rimuovi le selezioni"
 
-#: cps/templates/user_table.html:133
+#: cps/templates/user_table.html:132
 msgid "Edit User"
 msgstr "Modifica utente"
 
-#: cps/templates/user_table.html:136
+#: cps/templates/user_table.html:135
 msgid "Enter Username"
 msgstr "Inserisci nome utente"
 
-#: cps/templates/user_table.html:137
+#: cps/templates/user_table.html:136
 msgid "Locale"
 msgstr "Locale"
 
-#: cps/templates/user_table.html:138
+#: cps/templates/user_table.html:137
 msgid "Visible Book Languages"
 msgstr "Lingue dei libri visibili"
 
-#: cps/templates/user_table.html:139
+#: cps/templates/user_table.html:138
 msgid "Edit Allowed Tags"
 msgstr "Modifica le etichette consentite"
 
-#: cps/templates/user_table.html:139
+#: cps/templates/user_table.html:138
 msgid "Allowed Tags"
 msgstr "Etichette consentite"
 
-#: cps/templates/user_table.html:140
+#: cps/templates/user_table.html:139
 msgid "Edit Denied Tags"
 msgstr "Modifica le etichette non consentite"
 
-#: cps/templates/user_table.html:140
+#: cps/templates/user_table.html:139
 msgid "Denied Tags"
 msgstr "Etichette non consentite"
 
-#: cps/templates/user_table.html:141
+#: cps/templates/user_table.html:140
 msgid "Edit Allowed Column Values"
 msgstr "Modifica i valori delle colonne consentite"
 
-#: cps/templates/user_table.html:141
+#: cps/templates/user_table.html:140
 msgid "Allowed Column Values"
 msgstr "Valori delle colonne consentiti"
 
-#: cps/templates/user_table.html:142
+#: cps/templates/user_table.html:141
 msgid "Edit Denied Column Values"
 msgstr "Modifica i valori per le colonne non consentite"
 
-#: cps/templates/user_table.html:142
+#: cps/templates/user_table.html:141
 msgid "Denied Column Values"
 msgstr "Valori per le colonne non consentite"
 
-#: cps/templates/user_table.html:150
+#: cps/templates/user_table.html:142
+msgid "Admin"
+msgstr "Amministratore"
+
+#: cps/templates/user_table.html:149
 msgid "Edit Public Shelves"
 msgstr "Modifica gli scaffali pubblici"
 
-#: cps/templates/user_table.html:153
+#: cps/templates/user_table.html:151
 msgid "Show Read/Unread Section"
 msgstr "Mostra sezione Libri letti e Libri da leggere"
+
+#: cps/templates/user_table.html:154
+#, fuzzy
+msgid "Show Random Books (OPDS)"
+msgstr "Mostra Libri casuali"
