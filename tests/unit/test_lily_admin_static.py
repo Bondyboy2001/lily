@@ -101,9 +101,13 @@ def test_settings_rail_signout_is_a_quiet_button():
     assert block, "signed_in block missing"
     frag = block.group(1)
     assert 'class="lp-rail-signout-row"' in frag
+    # Sign out is a POST (with the CSRF token), so another site can't sign the user out with a link
+    assert re.search(r'<form method="post" action="{{ url_for\(\'web\.logout\'\) }}" class="lp-rail-form">', frag)
+    assert 'name="csrf_token" value="{{ csrf_token() }}"' in frag
     assert re.search(
-        r'<a href="{{ url_for\(\'web\.logout\'\) }}" class="btn btn-default lp-rail-signout" id=\'logout\'>{{ _\(\'Sign out\'\) }}</a>',
+        r'<button type="submit" class="btn btn-default lp-rail-signout" id=\'logout\'>{{ _\(\'Sign out\'\) }}</button>',
         frag)
+    assert "<a href=\"{{ url_for('web.logout') }}\"" not in html
 
 
 def test_signout_row_styles_desktop_and_mobile():
@@ -121,7 +125,7 @@ def test_signout_row_styles_desktop_and_mobile():
 def test_settings_rail_lists_only_the_essential_pages():
     html = read(TEMPLATES / "settings_layout.html")
     ids = re.findall(r"\{'id': '(\w+)', 'group'", html)
-    assert ids == ["profile", "import", "users", "duplicates", "logs"]
+    assert ids == ["profile", "import", "users", "duplicates", "trash", "logs"]
     assert "maintenance" not in html and "admin.admin" not in html
 
 

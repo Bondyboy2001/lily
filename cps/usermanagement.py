@@ -7,6 +7,10 @@
 
 """Authentication helpers: Basic auth for OPDS and the login-required decorators."""
 
+import hashlib
+import hmac
+import os
+import time
 from functools import wraps
 
 from sqlalchemy.sql.expression import func
@@ -23,6 +27,34 @@ from . import lm, ub, config, logger, limiter
 log = logger.create()
 auth = HTTPBasicAuth()
 
+# OPDS clients send Basic auth on every request (each cover too), and the password hash
+# (scrypt) costs ~70 ms of CPU on the hub per check. Successful checks are remembered for
+# a while, keyed by user id and an HMAC of the password under a per-process random key,
+# and tied to the stored hash, so a password change invalidates them at once.
+_PASSWORD_CHECK_TTL = 600
+_PASSWORD_CHECK_MAX_ENTRIES = 256
+_password_check_key = os.urandom(32)
+_password_checks = {}
+
+
+def _check_password_cached(user, password):
+    stored_hash = str(user.password)
+    key = (user.id, hmac.new(_password_check_key, password.encode('utf-8'), hashlib.sha256).digest())
+    now = time.monotonic()
+    cached = _password_checks.get(key)
+    if cached and cached[0] == stored_hash and cached[1] > now:
+        return True
+    if not check_password_hash(stored_hash, password):
+        _password_checks.pop(key, None)
+        return False
+    if len(_password_checks) >= _PASSWORD_CHECK_MAX_ENTRIES:
+        for stale in [k for k, (_h, expires) in _password_checks.items() if expires <= now]:
+            del _password_checks[stale]
+        if len(_password_checks) >= _PASSWORD_CHECK_MAX_ENTRIES:
+            _password_checks.clear()
+    _password_checks[key] = (stored_hash, now + _PASSWORD_CHECK_TTL)
+    return True
+
 
 @auth.verify_password
 def verify_password(username, password):
@@ -35,7 +67,7 @@ def verify_password(username, password):
             pass
         else:
             limiter.check()
-            if check_password_hash(str(user.password), password):
+            if _check_password_cached(user, password):
                 [limiter.limiter.storage.clear(k.key) for k in limiter.current_limits]
                 return user
 
@@ -91,19 +123,20 @@ def load_user(user_id, random, session_key):
         # Handle potential invalid user_id
         if not user_id:
             return None
+        # Every login stores a User_Sessions row keyed by a random value; a session or remember
+        # cookie without one (or whose row was deleted at logout or password change) is refused.
+        if not random:
+            return None
         user = ub.session.query(ub.User).filter(ub.User.id == int(user_id)).first()
         if not user:
             return None
 
+        query = ub.session.query(ub.User_Sessions).filter(ub.User_Sessions.random == random,
+                                                          ub.User_Sessions.user_id == user.id)
         if session_key:
-            entry = ub.session.query(ub.User_Sessions).filter(ub.User_Sessions.random == random,
-                                                              ub.User_Sessions.session_key == session_key).first()
-            if not entry or entry.user_id != user.id:
-                return None
-        elif random:
-            entry = ub.session.query(ub.User_Sessions).filter(ub.User_Sessions.random == random).first()
-            if not entry or entry.user_id != user.id:
-                return None
+            query = query.filter(ub.User_Sessions.session_key == session_key)
+        if query.first() is None:
+            return None
         return user
     except (ValueError, TypeError) as e:
         log.error("Invalid user_id in load_user: %s", e)

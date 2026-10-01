@@ -165,7 +165,7 @@ class TestForcedPasswordChangeFlow:
         admin = forced.admin()
         assert admin.force_password_change is False
         assert check_password_hash(admin.password, "N3w-passw0rd!")
-        assert client.get("/ajax/emailstat").status_code == 200
+        assert client.get("/ajax/taskstatus").status_code == 200
         anon = forced.app.test_client()
         old_creds = base64.b64encode(f"{admin.name}:{ADMIN_PASSWORD}".encode()).decode()
         assert anon.get("/opds", headers={"Authorization": f"Basic {old_creds}"}).status_code == 401
@@ -214,9 +214,6 @@ def _stats_queries(tmp_path):
     class Queries(CWAStatsQueries):
         def _build_user_filter(self, user_id):
             return f" AND user_id = {int(user_id)}" if user_id is not None else ""
-
-        def _has_user_filter(self, user_id):
-            return user_id is not None
 
     con = sqlite3.connect(tmp_path / "cwa.db")
     con.execute("CREATE TABLE cwa_user_activity (id INTEGER PRIMARY KEY, user_id INTEGER, user_name TEXT, "

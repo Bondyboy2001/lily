@@ -8,6 +8,7 @@
 import json
 
 from cps import logger, db
+from cps.clean_html import clean_string
 from cps.search_metadata import cl as metadata_providers
 import sys
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
@@ -163,19 +164,21 @@ def _apply_metadata_to_book(book, metadata, calibre_db_instance) -> bool:
         if (cwa_settings.get('auto_metadata_update_description', True) and
             metadata.description and metadata.description.strip()):
             current_description = book.comments[0].text if book.comments else ""
+            # Provider descriptions are untrusted HTML; store them cleaned like the edit form does
+            description = clean_string(metadata.description.strip(), book.id)
             if use_smart_application:
-                if len(metadata.description.strip()) > len(current_description):
+                if len(description) > len(current_description):
                     if book.comments:
-                        book.comments[0].text = metadata.description.strip()
+                        book.comments[0].text = description
                     else:
-                        comment = db.Comments(metadata.description.strip(), book.id)
+                        comment = db.Comments(description, book.id)
                         calibre_db_instance.session.add(comment)
                     updated = True
             else:
                 if book.comments:
-                    book.comments[0].text = metadata.description.strip()
+                    book.comments[0].text = description
                 else:
-                    comment = db.Comments(metadata.description.strip(), book.id)
+                    comment = db.Comments(description, book.id)
                     calibre_db_instance.session.add(comment)
                 updated = True
 

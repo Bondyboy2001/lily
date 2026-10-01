@@ -15,63 +15,28 @@
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-let selectedLayoutMode;
+/*
+ * Series grid (grid.html). The server sorts the cards and cuts them by letter (the letters
+ * are plain links), and a CSS grid lays them out, so all that is left here is the direction:
+ * the button (image.sort_dir_button) flips it (lilyToggleSortDir in lily.js relabels it), the
+ * choice is saved and the page reloads in the new order.
+ */
+(function ($) {
+    "use strict";
 
-if ($("body").hasClass("blur")) {
-    selectedLayoutMode = "fitRowsCentered";
-} else {
-    selectedLayoutMode = "fitRows";
-}
-
-var $list = $("#list").isotope({
-    itemSelector: ".book",
-    layoutMode: selectedLayoutMode,
-    getSortData: {
-        title: ".title"
-    },
-});
-
-
-// The direction button (image.list_menu) flips between ascending and descending; lilyToggleSortDir
-// (lily.js) relabels it and returns the new direction. The other options live in dropdowns, where
-// lilyPickOption (lily.js) ticks the picked one and returns false when it was already picked.
-$("#lily-order-toggle").click(function(e) {
-    e.preventDefault();
-    var dir = lilyToggleSortDir(this);
-
-    var page = $(this).data("id");
-    $.ajax({
-        method:"post",
-        contentType: "application/json; charset=utf-8",
-        dataType: "json",
-        url: getPath() + "/ajax/view",
-        data: JSON.stringify({[page]: {dir: dir}}),
-    });
-    // invert sorting order to make already inverted start order working
-    if ($list.data('isotope')) {  // no grid when the library has no series
-        $list.isotope({
-            sortBy: "name",
-            sortAscending: !$list.data('isotope').options.sortAscending
+    $(document).on("click", "#lily-order-toggle", function (e) {
+        e.preventDefault();
+        var dir = lilyToggleSortDir(this);
+        var view = {};
+        view[$(this).data("id")] = { dir: dir };
+        $.ajax({
+            method: "post",
+            contentType: "application/json; charset=utf-8",
+            dataType: "json",
+            url: getPath() + "/ajax/view",
+            data: JSON.stringify(view)
+        }).always(function () {
+            window.location.reload();
         });
-    }
-});
-
-$("#all").click(function(e) {
-    e.preventDefault();
-    lilyPickOption(this);
-    // go through all elements and make them visible
-    $list.isotope({ filter: function() {
-        return true;
-    }
     });
-});
-
-$(".char").click(function(e) {
-    e.preventDefault();
-    lilyPickOption(this);
-    var character = this.innerText;
-    $list.isotope({ filter: function() {
-        return this.attributes["data-id"].value.charAt(0).toUpperCase() === character;
-    }
-    });
-});
+})(window.jQuery);

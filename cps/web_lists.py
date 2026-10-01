@@ -9,14 +9,15 @@
 Routes are attached to the web blueprint; web.py imports this module at its end."""
 
 import importlib
+from types import SimpleNamespace
 
-from flask import request, abort
+from flask import request, abort, url_for
 from flask_babel import gettext as _
 from .cw_login import current_user
-from sqlalchemy.sql.expression import text, func, or_
+from sqlalchemy.sql.expression import func, or_
 
 from . import constants
-from . import db, ub, config, app
+from . import db, ub
 from . import calibre_db
 from .usermanagement import login_required_if_no_ano
 from .render_template import render_title_template
@@ -39,60 +40,77 @@ sqlalchemy_version2 = ([int(x) for x in sql_version.split('.')] >= [2, 0, 0])
 
 _start_time = time.time()
 
-# Pages whose scripts build functions from strings (underscore templates in the metadata
-# search, the in-browser readers). Everything else runs without 'unsafe-eval'.
-_EVAL_ENDPOINTS = frozenset({"web.read_book", "edit-book.show_edit_book"})
-
-
-@app.after_request
-def add_security_headers(resp):
-    default_src = ([host.strip() for host in config.config_trustedhosts.split(',') if host] +
-                   ["'self'", "'unsafe-inline'"])
-    if request.endpoint in _EVAL_ENDPOINTS:
-        default_src.append("'unsafe-eval'")
-    csp = "default-src " + ' '.join(default_src)
-    if request.endpoint == "web.read_book" and config.config_use_google_drive:
-        csp +=" blob: "
-    csp += "; font-src 'self' data:"
-    if request.endpoint == "web.read_book":
-        csp += " blob: "
-    csp += "; img-src 'self'"
-    csp += " data:"
-    if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
-        csp += " *"
-    if request.endpoint == "web.read_book":
-        csp += " blob: ; style-src-elem 'self' blob: 'unsafe-inline'"
-    csp += "; object-src 'none';"
-    resp.headers['Content-Security-Policy'] = csp
-    resp.headers['X-Content-Type-Options'] = 'nosniff'
-    resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    resp.headers['Referrer-Policy'] = 'same-origin'
-    resp.headers['Strict-Transport-Security'] = 'max-age=31536000'
-    return resp
-
-
 from .web import web, generate_char_list, query_char_list
+
+
+# Long name lists (11k authors, 4k series) are cut by initial on the server: a page shows one
+# letter, picked with ?letter=A. "All" is offered only while the whole list stays this short.
+LETTER_ALL_MAX = 600
+LIST_SEARCH_LIMIT = 200
+
+
+def _like(query):
+    return "%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+
+
+def _initial(column):
+    return func.upper(func.substr(column, 1, 1))
+
+
+def letter_choice(sort_column, link_table, total):
+    """(initials, letter, show_all) for a list cut by the first letter of `sort_column`.
+
+    `letter` is the requested ?letter= when it is one of the initials; otherwise 'all' for a
+    short list and the first initial (A-Z before digits and marks) for a long one."""
+    chars = sorted({row[0] for row in query_char_list(sort_column, link_table) if row[0]},
+                   key=lambda c: (not c.isalpha(), c))
+    show_all = total <= LETTER_ALL_MAX
+    wanted = (request.args.get('letter') or '').upper()
+    if wanted in chars or (wanted == 'ALL' and show_all):
+        letter = wanted.lower() if wanted == 'ALL' else wanted
+    else:
+        letter = 'all' if show_all or not chars else chars[0]
+    return chars, letter, show_all
+
+
+def _sort_order(view, column):
+    """(order_by clause, order_no) from the user's saved direction; NOCASE like Calibre."""
+    column = column.collate('NOCASE')
+    if current_user.get_view_property(view, 'dir') == 'desc':
+        return column.desc(), 0
+    return column.asc(), 1
 
 
 @web.route("/author")
 @login_required_if_no_ano
 def author_list():
-    if current_user.check_visibility(constants.SIDEBAR_AUTHOR):
-        # By first name, as displayed ("Jane Austen"), not Calibre's "Austen, Jane" sort key
-        if current_user.get_view_property('author', 'dir') == 'desc':
-            order = func.lower(db.Authors.name).desc()
-            order_no = 0
-        else:
-            order = func.lower(db.Authors.name).asc()
-            order_no = 1
-        entries = calibre_db.session.query(db.Authors, func.count('books_authors_link.book').label('count')) \
-            .join(db.books_authors_link).join(db.Books).filter(calibre_db.common_filters()) \
-            .group_by(text('books_authors_link.author')).order_by(order).all()
-        # No initials filter on the authors page: the list is sorted, so the letter menu only adds noise
-        return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=[],
-                                     title="Authors", page="authorlist", data='author', order=order_no)
-    else:
+    if not current_user.check_visibility(constants.SIDEBAR_AUTHOR):
         abort(404)
+    # Sorted and cut by surname (Calibre's "Austen, Jane" sort key); shown as named ("Jane Austen").
+    order, order_no = _sort_order('author', db.Authors.sort)
+    query = (calibre_db.session.query(db.Authors, func.count(db.books_authors_link.c.book).label('count'))
+             .join(db.books_authors_link).join(db.Books).filter(calibre_db.common_filters())
+             .group_by(db.Authors.id))
+    total = (calibre_db.session.query(func.count(func.distinct(db.books_authors_link.c.author)))
+             .join(db.Books, db.Books.id == db.books_authors_link.c.book)
+             .filter(calibre_db.common_filters()).scalar() or 0)
+    chars, letter, show_all = letter_choice(db.Authors.sort, db.books_authors_link, total)
+    search = (request.args.get('q') or '').strip()
+    if search:
+        # Typed into the filter box and submitted: every author, not just this letter.
+        pattern = _like(search)
+        entries = (query.filter(or_(db.Authors.name.ilike(pattern, escape='\\'),
+                                    db.Authors.sort.ilike(pattern, escape='\\')))
+                   .order_by(order).limit(LIST_SEARCH_LIMIT).all())
+        letter = None
+    elif letter == 'all':
+        entries = query.order_by(order).all()
+    else:
+        entries = query.filter(_initial(db.Authors.sort) == letter).order_by(order).all()
+    return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=chars,
+                                 title=_("Authors"), page="authorlist", data='author', order=order_no,
+                                 letter=letter, show_all=show_all, search=search, total=total,
+                                 list_url=url_for('web.author_list'))
 
 
 @web.route("/downloadlist")
@@ -157,50 +175,58 @@ def publisher_list():
         abort(404)
 
 
+def series_grid_entries(order, letter=None):
+    """One card per series for grid.html: id, name, sort, book count and the cover of its first
+    book (lowest series_index). Plain columns, so no book relationships are loaded; SQLite takes
+    the bare book columns from the row that holds min(series_index)."""
+    rows = (calibre_db.session.query(db.Series.id, db.Series.name, db.Series.sort,
+                                     func.count(db.Books.id).label('count'),
+                                     func.min(db.Books.series_index),
+                                     db.Books.id.label('book_id'), db.Books.last_modified)
+            .select_from(db.Series)
+            .join(db.books_series_link, db.books_series_link.c.series == db.Series.id)
+            .join(db.Books, db.books_series_link.c.book == db.Books.id)
+            .filter(calibre_db.common_filters()))
+    if letter and letter != 'all':
+        rows = rows.filter(_initial(db.Series.sort) == letter)
+    rows = rows.group_by(db.Series.id).order_by(order).all()
+    return [SimpleNamespace(id=row.id, name=row.name, sort=row.sort, count=row.count,
+                            cover=SimpleNamespace(id=row.book_id, title=row.name, last_modified=row.last_modified))
+            for row in rows]
+
+
 @web.route("/series")
 @login_required_if_no_ano
 def series_list():
-    if current_user.check_visibility(constants.SIDEBAR_SERIES):
-        if current_user.get_view_property('series', 'dir') == 'desc':
-            order = db.Series.sort.desc()
-            order_no = 0
-        else:
-            order = db.Series.sort.asc()
-            order_no = 1
-        char_list = query_char_list(db.Series.sort, db.books_series_link)
-        if current_user.get_view_property('series', 'series_view') == 'list':
-            entries = calibre_db.session.query(db.Series, func.count('books_series_link.book').label('count')) \
-                .join(db.books_series_link).join(db.Books).filter(calibre_db.common_filters()) \
-                .group_by(text('books_series_link.series')).order_by(order).all()
+    if not current_user.check_visibility(constants.SIDEBAR_SERIES):
+        abort(404)
+    order, order_no = _sort_order('series', db.Series.sort)
+    total = (calibre_db.session.query(func.count(func.distinct(db.books_series_link.c.series)))
+             .join(db.Books, db.Books.id == db.books_series_link.c.book)
+             .filter(calibre_db.common_filters()).scalar() or 0)
+    chars, letter, show_all = letter_choice(db.Series.sort, db.books_series_link, total)
+    letter_args = dict(letter=letter, show_all=show_all, total=total, list_url=url_for('web.series_list'))
+    if current_user.get_view_property('series', 'series_view') == 'list':
+        query = (calibre_db.session.query(db.Series, func.count(db.books_series_link.c.book).label('count'))
+                 .join(db.books_series_link).join(db.Books).filter(calibre_db.common_filters())
+                 .group_by(db.Series.id))
+        if letter != 'all':
+            query = query.filter(_initial(db.Series.sort) == letter)
+        entries = query.order_by(order).all()
+        if letter == 'all':
             no_series_count = (calibre_db.session.query(db.Books)
-                            .outerjoin(db.books_series_link).outerjoin(db.Series)
-                            .filter(db.Series.name == None)
-                            .filter(calibre_db.common_filters())
-                            .count())
+                               .outerjoin(db.books_series_link).outerjoin(db.Series)
+                               .filter(db.Series.name == None)
+                               .filter(calibre_db.common_filters())
+                               .count())
             if no_series_count:
                 entries.append([db.Category(_("Unknown"), "-1"), no_series_count])
-            entries = sorted(entries, key=lambda x: x[0].name.lower(), reverse=not order_no)
-            return render_title_template('list.html',
-                                         entries=entries,
-                                         folder='web.books_list',
-                                         charlist=char_list,
-                                         title=_("Series"),
-                                         page="serieslist",
-                                         data="series", order=order_no)
-        else:
-            entries = (calibre_db.session.query(db.Books, func.count('books_series_link').label('count'),
-                                                func.max(db.Books.series_index), db.Books.id)
-                       .join(db.books_series_link).join(db.Series).filter(calibre_db.common_filters())
-                       .options(*db.card_load_options(skip_others=True))
-                       .group_by(text('books_series_link.series'))
-                       .having(or_(func.max(db.Books.series_index), db.Books.series_index==""))
-                       .order_by(order)
-                       .all())
-            return render_title_template('grid.html', entries=entries, folder='web.books_list', charlist=char_list,
-                                         title=_("Series"), page="serieslist", data="series", bodyClass="grid-view",
-                                         order=order_no)
-    else:
-        abort(404)
+        return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=chars,
+                                     title=_("Series"), page="serieslist", data="series", order=order_no,
+                                     **letter_args)
+    return render_title_template('grid.html', entries=series_grid_entries(order, letter), folder='web.books_list',
+                                 charlist=chars, title=_("Series"), page="serieslist", data="series",
+                                 bodyClass="grid-view", order=order_no, **letter_args)
 
 
 @web.route("/ratings")

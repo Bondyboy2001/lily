@@ -39,26 +39,46 @@ jobs:
         run: pipx run vulture==2.16
 
       # Newer, self-contained modules are type-checked (file list in pyproject.toml [tool.mypy]).
-      # cps/ modules run separately because mypy maps cps/ and scripts/ to clashing module names.
+      # Same version as the dev venv, so a mypy release can't turn CI red on its own.
       - name: Run mypy
-        run: |
-          pipx run mypy
+        run: pipx run mypy==2.3.1
 
   # ============================================================================
   # Dependency audit: known-vulnerable pins in requirements.lock.
-  # Informational (continue-on-error) because Google Drive's old caps may
-  # hold a few packages back; read the output rather than gating merges on it.
+  # Gating: any new advisory fails the run. The ignore list below holds only the
+  # advisories accepted on purpose; each one says why. Drop an entry as soon as the
+  # cap behind it is lifted (test_requirements_sync keeps the lock in range).
   # ============================================================================
   dependency-audit:
     name: Dependency Audit (pip-audit)
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
 
       - name: Run pip-audit
-        run: pipx run pip-audit -r requirements.lock --no-deps --disable-pip
+        run: |
+          ignores=(
+            # cryptography 43.0.3: PyDrive2 (Google Drive) pins cryptography<44 and stays.
+            # Lily uses it only through Google Drive's TLS/OAuth stack, never for X.509
+            # path validation or with user-supplied keys.
+            PYSEC-2026-1284      # bundled OpenSSL (CVE-2024-12797, RPK auth; not used)
+            GHSA-537c-gmf6-5ccf  # bundled OpenSSL in the wheel
+            PYSEC-2026-2141      # public_key_from_numbers curve check
+            PYSEC-2026-35        # X.509 DNS name constraints
+            PYSEC-2026-3553      # X.509 path building with duplicate intermediates
+            PYSEC-2026-3554      # X.509 wildcard names vs permittedSubtrees
+            # pyOpenSSL 24.2.1: PyDrive2 caps it at <=24.2.1. Both issues need a
+            # user-provided TLS server callback, which nothing here registers.
+            PYSEC-2026-2268      # set_tlsext_servername_callback
+            PYSEC-2026-2269      # set_cookie_generate_callback
+            # httplib2 0.22.0: capped <0.23 for oauth2client/PyDrive2. Unbounded
+            # decompression of responses; it only talks to Google's API endpoints.
+            PYSEC-2026-3444
+          )
+          args=()
+          for id in "${ignores[@]}"; do args+=(--ignore-vuln "$id"); done
+          pipx run pip-audit==2.10.1 -r requirements.lock --no-deps --disable-pip "${args[@]}"
 
   # ============================================================================
   # JOB 1: Fast Tests (Smoke + Unit)
@@ -319,12 +339,14 @@ jobs:
       - name: Check test results
         run: |
           echo "Lint: ${{ needs.lint.result }}"
+          echo "Dependency Audit: ${{ needs.dependency-audit.result }}"
           echo "Fast Tests: ${{ needs.fast-tests.result }}"
           echo "Docker Build: ${{ needs.docker-build.result }}"
           echo "Integration Tests: ${{ needs.integration-tests.result }}"
 
           failed=0
-          for job in "lint=${{ needs.lint.result }}" "fast-tests=${{ needs.fast-tests.result }}" \
+          for job in "lint=${{ needs.lint.result }}" "dependency-audit=${{ needs.dependency-audit.result }}" \
+                     "fast-tests=${{ needs.fast-tests.result }}" \
                      "docker-build=${{ needs.docker-build.result }}" \
                      "integration-tests=${{ needs.integration-tests.result }}"; do
             # "skipped" is fine: docker-build only runs on PRs, integration only on main/dev or when requested

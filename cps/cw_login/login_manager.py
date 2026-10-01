@@ -416,10 +416,12 @@ class LoginManager:
         except Exception:
             return None
 
-        if remember_dict['user'] is not None:
+        if not isinstance(remember_dict, dict) or not remember_dict.get('random'):
+            return None
+        if remember_dict.get('user') is not None:
             session["_user_id"] = remember_dict['user']
-            if "_random" not in session:
-                session["_random"] = remember_dict['random']
+            # The cookie's own random value is what its User_Sessions row was stored under
+            session["_random"] = remember_dict['random']
             session["_fresh"] = False
             user = None
             if self._user_callback:

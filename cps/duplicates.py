@@ -12,17 +12,19 @@ from datetime import datetime
 from functools import wraps
 import os
 
-from . import calibre_db, logger, ub, csrf, config
+from . import db, calibre_db, logger, ub, csrf, config
 from .services.worker import WorkerThread, STAT_FINISH_SUCCESS, STAT_FAIL, STAT_ENDED, STAT_CANCELLED
 from .admin import admin_required
 from .usermanagement import login_required_if_no_ano
 from .internal_api import internal_only
 from .render_template import render_title_template
 from .cw_login import current_user
-from .duplicate_detection import (
-    filter_dismissed_groups, find_duplicate_books, get_unresolved_duplicate_count)
+from .duplicate_detection import (  # noqa: F401  (re-exported: other modules and tests import these from here)
+    filter_dismissed_groups, find_duplicate_books, find_duplicate_books_python, find_duplicate_books_sql,
+    find_duplicate_candidate_ids_sql, get_common_filters, get_unresolved_duplicate_count)
 from .duplicate_rules import (  # noqa: F401  (re-exported: other modules and tests import these from here)
     _AWARE_MAX, _AWARE_MIN, _normalize_timestamp, _timestamp_or_default,
+    auto_resolve_block_reason, auto_resolve_delete_cap, planned_deletions,
     generate_group_hash, normalize_title_for_duplicates, select_book_to_keep, validate_resolution_strategy)
 
 import sys
@@ -31,6 +33,59 @@ from cwa_db import CWA_DB
 
 duplicates = Blueprint('duplicates', __name__)
 log = logger.create()
+
+# Extra copy of every book deleted by duplicate resolution (besides the Trash entry)
+DUPLICATE_BACKUP_ROOT = "/config/processed_books/duplicate_resolutions"
+AUTOMATIC_TRIGGERS = ('automatic', 'scheduled')
+
+
+def _engaged_book_ids(book_ids):
+    """The ids among book_ids that someone has shelved, marked read or in progress, or
+    has reader progress or bookmarks for."""
+    ids = list({int(i) for i in book_ids})
+    if not ids:
+        return set()
+    try:
+        engaged = set()
+        engaged.update(r[0] for r in ub.session.query(ub.BookShelf.book_id).filter(ub.BookShelf.book_id.in_(ids)))
+        engaged.update(r[0] for r in ub.session.query(ub.ReadBook.book_id).filter(
+            ub.ReadBook.book_id.in_(ids), ub.ReadBook.read_status != ub.ReadBook.STATUS_UNREAD))
+        engaged.update(r[0] for r in ub.session.query(ub.WebReaderProgress.book_id).filter(
+            ub.WebReaderProgress.book_id.in_(ids)))
+        engaged.update(r[0] for r in ub.session.query(ub.Bookmark.book_id).filter(ub.Bookmark.book_id.in_(ids)))
+        return engaged
+    except Exception as ex:
+        log.debug("[cwa-duplicates] Could not read shelves/progress for duplicate resolution: %s", ex)
+        return set()
+
+
+def _library_size():
+    from sqlalchemy import func
+    return calibre_db.session.query(func.count(db.Books.id)).scalar() or 0
+
+
+def _auto_resolve_refusal(settings, duplicate_groups, trigger_type):
+    """Why this (non-preview) resolution run must not delete anything, or None."""
+    automatic = trigger_type in AUTOMATIC_TRIGGERS
+    reason = auto_resolve_block_reason(settings, require_preview=automatic)
+    if reason or not automatic:
+        return reason
+    planned = planned_deletions(duplicate_groups)
+    cap = auto_resolve_delete_cap(_library_size())
+    if planned > cap:
+        return ("Stopped before deleting anything: this run would delete %d books and the limit is %d "
+                "(20 or 1%% of the library). Check the match criteria and resolve these by hand." % (planned, cap))
+    return None
+
+
+def _record_auto_resolve_abort(cwa_db, message):
+    """Keeps the last refusal for the Duplicates settings tab ('' clears it). No commas:
+    get_cwa_settings() would split the value into a list."""
+    value = ("%s %s" % (datetime.now().strftime('%Y-%m-%d %H:%M'), message)).replace(",", ";") if message else ""
+    try:
+        cwa_db.update_cwa_settings({'duplicate_auto_resolve_last_abort': value})
+    except Exception as ex:
+        log.warning("[cwa-duplicates] Could not record the auto-resolution status: %s", ex)
 
 
 def _duplicate_scan_transiently_pending():
@@ -516,11 +571,12 @@ def trigger_scan():
                               flush=True)
 
                         # Pass the pre-scanned duplicate groups to avoid re-scanning
+                        # The auto-resolve setting firing, not an admin choice: automatic guardrails apply
                         result = auto_resolve_duplicates(
                             strategy=auto_resolve_strategy,
                             dry_run=False,
                             user_id=current_user.id if current_user else None,
-                            trigger_type='manual',
+                            trigger_type='automatic',
                             duplicate_groups=duplicate_groups
                         )
 
@@ -598,6 +654,13 @@ def preview_resolution():
         )
         if 'preview' not in result:
             result['preview'] = []
+        if result.get('success'):
+            # Automatic resolution can only be turned on once a preview has been seen
+            try:
+                CWA_DB().update_cwa_settings(
+                    {'duplicate_auto_resolve_previewed_at': datetime.now().isoformat(timespec='seconds')})
+            except Exception as ex:
+                log.warning("[cwa-duplicates] Could not record the preview: %s", ex)
 
         print(f"[cwa-duplicates] Preview result: {result.get('success', False)}, resolved_count={result.get('resolved_count', 0)}", flush=True)
         return jsonify(result)
@@ -785,6 +848,26 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
                 'message': 'No unresolved duplicates found'
             }
 
+        cwa_db = CWA_DB()
+        if not dry_run:
+            refusal = _auto_resolve_refusal(cwa_db.cwa_settings, duplicate_groups, trigger_type)
+            if refusal:
+                log.warning("[cwa-duplicates] Auto-resolution refused (trigger=%s): %s", trigger_type, refusal)
+                print(f"[cwa-duplicates] Auto-resolution refused: {refusal}", flush=True)
+                if trigger_type in AUTOMATIC_TRIGGERS:
+                    _record_auto_resolve_abort(cwa_db, refusal)
+                return {
+                    'success': False,
+                    'aborted': True,
+                    'message': refusal,
+                    'resolved_count': 0,
+                    'deleted_count': 0,
+                    'kept_count': 0,
+                    'errors': [refusal],
+                }
+            if trigger_type in AUTOMATIC_TRIGGERS and cwa_db.cwa_settings.get('duplicate_auto_resolve_last_abort'):
+                _record_auto_resolve_abort(cwa_db, "")
+
         result = {
             'success': True,
             'resolved_count': 0,
@@ -794,12 +877,13 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
             'preview': [] if dry_run else None
         }
 
-        cwa_db = CWA_DB()
+        # Keep the copy someone is reading, has shelved or marked read, whatever the strategy
+        engaged_ids = _engaged_book_ids(b.id for group in duplicate_groups for b in group['books'])
 
         for group in duplicate_groups:
             try:
                 # Select book to keep
-                book_to_keep = select_book_to_keep(group['books'], strategy)
+                book_to_keep = select_book_to_keep(group['books'], strategy, preferred_ids=engaged_ids)
 
                 if not book_to_keep:
                     result['errors'].append(f"Could not select book to keep for group: {group['title']}")
@@ -859,7 +943,8 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
                 book_to_keep = book_to_keep_ref
 
                 deleted_ids = []
-                backup_dir = f"/config/processed_books/duplicate_resolutions/{datetime.now().strftime('%Y%m%d_%H%M%S')}_group_{group['group_hash'][:8]}"
+                backup_dir = os.path.join(DUPLICATE_BACKUP_ROOT,
+                                          f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_group_{group['group_hash'][:8]}")
                 os.makedirs(backup_dir, exist_ok=True)
 
                 if strategy == 'merge':
@@ -875,19 +960,24 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
                     try:
                         print(f"[cwa-duplicates-auto] Starting deletion of book {book.id}...", flush=True)
 
-                        # Backup book files
-                        book_path = os.path.join(config.config_calibre_dir, book.path)
-                        if os.path.exists(book_path):
-                            backup_path = os.path.join(backup_dir, f"book_{book.id}")
-                            print(f"[cwa-duplicates-auto] Backing up book {book.id} to {backup_path}...", flush=True)
-                            shutil.copytree(book_path, backup_path)
-                            log.info("[cwa-duplicates] Backed up book %s to %s", book.id, backup_path)
+                        # Back up the book files from the folder the delete below acts on
+                        # (get_book_path(), which differs from config_calibre_dir in a split library)
+                        library_path = config.get_book_path()
+                        book_path = os.path.join(library_path, book.path)
+                        if not os.path.isdir(book_path):
+                            raise Exception(f"book folder {book_path} is missing; not deleting it")
+                        backup_path = os.path.join(backup_dir, f"book_{book.id}")
+                        print(f"[cwa-duplicates-auto] Backing up book {book.id} to {backup_path}...", flush=True)
+                        shutil.copytree(book_path, backup_path)
+                        log.info("[cwa-duplicates] Backed up book %s to %s", book.id, backup_path)
 
-                        print(f"[cwa-duplicates-auto] Deleting book {book.id} from library...", flush=True)
-                        # Delete from Calibre library (bypass user permission check for automatic resolution)
+                        print(f"[cwa-duplicates-auto] Moving book {book.id} to the Trash...", flush=True)
+                        # Delete from Calibre library (bypass user permission check for automatic resolution);
+                        # the folder and its rows go to the Trash (cps/trash.py). The recovery archive
+                        # was captured at merge time for the merge strategy, otherwise it is captured now.
                         from cps.editbooks import delete_book_automatic
-                        # Clean up database references; recovery archive was captured at merge time
-                        delete_book_automatic(book, recovery_id=merge_recovery_ids.get(book.id))
+                        delete_book_automatic(book, recovery_id=merge_recovery_ids.get(book.id),
+                                              reason="duplicate of %d (%s)" % (book_to_keep.id, strategy))
 
                         deleted_ids.append(book.id)
                         log.info("[cwa-duplicates] Deleted duplicate book %s: %s", book.id, book.title)

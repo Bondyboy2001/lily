@@ -552,7 +552,7 @@ $(document).ready(function() {
             return;
         }
         duplicateScanPollInFlight = true;
-        $.getJSON(duplicateScanEndpoint('/ajax/emailstat'), function(tasks) {
+        $.getJSON(duplicateScanEndpoint('/ajax/taskstatus'), function(tasks) {
             var runningTask = null;
             $.each(tasks || [], function(index, task) {
                 if (isRunningDuplicateScanTask(task)) {

@@ -17,9 +17,9 @@ from cps.services.worker import CalibreTask
 
 if '/app/calibre-web-automated/scripts/' not in sys.path:
     sys.path.insert(1, '/app/calibre-web-automated/scripts/')
-from db_backup import (backup_databases, normalize_keep_count, DEFAULT_KEEP_COUNT, BACKUP_SUBDIR,
-                       check_integrity, create_pre_restore_snapshot, resolve_snapshot, restore_sqlite_db,
-                       verify_snapshot)
+from db_backup import (normalize_keep_count, normalize_tier_count, run_backup, Retention, DEFAULT_KEEP_COUNT,
+                       DEFAULT_KEEP_WEEKLY, DEFAULT_KEEP_MONTHLY, BACKUP_SUBDIR, check_integrity,
+                       create_pre_restore_snapshot, resolve_snapshot, restore_sqlite_db)
 
 from cps.tasks.restore import RestoreTask
 
@@ -65,17 +65,30 @@ def get_backup_sources() -> dict:
     return sources
 
 
-def get_keep_count() -> int:
+def retention_from_settings(settings: dict) -> Retention:
+    """The daily/weekly/monthly snapshot counts from cwa_settings."""
+    return Retention(
+        daily=normalize_keep_count(settings.get("db_backup_keep_count", DEFAULT_KEEP_COUNT)),
+        weekly=normalize_tier_count(settings.get("db_backup_keep_weekly"), DEFAULT_KEEP_WEEKLY),
+        monthly=normalize_tier_count(settings.get("db_backup_keep_monthly"), DEFAULT_KEEP_MONTHLY))
+
+
+def get_retention() -> Retention:
     try:
         from cwa_db import CWA_DB
         with CWA_DB() as cwa_db:
-            return normalize_keep_count(cwa_db.cwa_settings.get("db_backup_keep_count", DEFAULT_KEEP_COUNT))
+            return retention_from_settings(cwa_db.cwa_settings)
     except Exception:
-        return DEFAULT_KEEP_COUNT
+        return Retention()
 
 
 class TaskBackupDatabases(CalibreTask):
-    """Nightly consistent snapshots of app.db, cwa.db and metadata.db into <backup root>/<timestamp>/."""
+    """Nightly consistent snapshots of app.db, cwa.db and metadata.db into <backup root>/<timestamp>/.
+
+    Each snapshot is verified by restoring it to scratch, checked for a shrunken
+    library, and only then are old snapshots pruned (see db_backup.run_backup)."""
+
+    job_name = "db_backup"
 
     def __init__(self, task_message=N_('Backing up databases')):
         super(TaskBackupDatabases, self).__init__(task_message)
@@ -83,22 +96,31 @@ class TaskBackupDatabases(CalibreTask):
 
     def run(self, worker_thread):
         backup_root = get_backup_root()
-        keep = get_keep_count()
-        snapshot_dir, done, errors = backup_databases(get_backup_sources(), backup_root, keep)
+        retention = get_retention()
+        result = run_backup(get_backup_sources(), backup_root, retention)
+        errors = result.errors
         for name, err in errors.items():
-            self.log.error("Database backup of %s failed: %s", name, err)
-        if done:
-            self.log.info("Backed up %s to %s (keeping last %d)", ", ".join(sorted(done)), snapshot_dir, keep)
-        if done:
-            # A backup that can't be restored is worse than none: prove it by restoring to scratch.
-            try:
-                verify_snapshot(snapshot_dir)
-            except Exception as e:
-                self.log.error("Backup verification failed for %s: %s", snapshot_dir, e)
-                errors["verify"] = str(e)
+            if name == "verify":
+                self.log.error("Backup verification failed for %s: %s", result.snapshot_dir, err)
+            else:
+                self.log.error("Database backup of %s failed: %s", name, err)
+        if result.done:
+            self.log.info("Backed up %s to %s (keeping %d daily, %d weekly, %d monthly; pruned %d path(s))",
+                          ", ".join(sorted(result.done)), result.snapshot_dir, retention.daily,
+                          retention.weekly, retention.monthly, len(result.removed))
+        if result.suspicious:
+            # Not pruned: the older snapshots may be the only copies of the missing books
+            self.log.warning("Suspicious backup %s: %s. Old snapshots were not pruned; accept the snapshot "
+                             "on the Database Backups page if this was intended.", result.snapshot_dir,
+                             result.suspicious)
+        problems = []
         if errors:
-            self._handleError("Database backup failed for: " + ", ".join(
+            problems.append("Database backup failed for: " + ", ".join(
                 "{} ({})".format(name, err) for name, err in sorted(errors.items())))
+        if result.suspicious:
+            problems.append("Suspicious backup, old snapshots kept: " + result.suspicious)
+        if problems:
+            self._handleError("; ".join(problems))
         else:
             self._handleSuccess()
 
@@ -179,6 +201,13 @@ class TaskRestoreDatabaseSnapshot(RestoreTask):
         self._reload(restored)
         self.log.info("Restored %s from snapshot %s (safety copy: %s)", ", ".join(restored), snapshot_dir, safety_dir)
         self.message = N_('Restored %(dbs)s from snapshot %(name)s', dbs=", ".join(restored), name=self.snapshot_name)
+        # Book rows/folders out of step with the restored databases (see tasks/restore.py)
+        from cps.tasks.restore import reconcile_after_restore
+        note = reconcile_after_restore(restored, live.get("app.db", ""), live.get("metadata.db", ""),
+                                       None, get_config_dir(), "snapshot " + self.snapshot_name)
+        if note:
+            self.message = N_('Restored %(dbs)s from snapshot %(name)s. %(note)s',
+                              dbs=", ".join(restored), name=self.snapshot_name, note=note)
         self._handleSuccess()
 
     def _reload(self, restored):

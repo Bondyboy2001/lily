@@ -1,4 +1,5 @@
 {% extends is_xhr|yesno("fragment.html", "layout.html") %}
+{% import 'image.html' as image %}
 {% block header %}
     <meta property="og:type" content="book" />
     <meta property="og:title" content="{{ entry.title|truncate(35) }}" />
@@ -34,21 +35,50 @@
                 <span class="sr-only">{{ _('Rating') }}: {{ current_rating }} / 5</span>
             </div>
             {% endif %}
+            {% if next_in_series %}
+                <p class="book-detail-next" id="next-in-series">
+                    <a href="{{ url_for('web.show_book', book_id=next_in_series.id) }}">{{ _('Next') }}: {{ next_in_series.title }} (#{{ next_in_series.series_index|formatfloat(2) }})</a>
+                </p>
+            {% endif %}
         </div>
 
         <div class="book-detail-actions">
-            {# Read is the one Primary and Download keeps its label. Everything else (read state,
-               edit, archive, copy UUID, delete) is a square icon button named by its title. #}
+            {# Read (or Continue, with the saved position) is the one Primary and Download keeps its
+               label. Everything else (shelves, read state, edit, archive, copy UUID, delete) is a
+               square icon button named by its title. #}
             <div class="book-action-bar" role="toolbar" aria-label="{{ _('Book actions') }}">
                 {% set can_read = entry.reader_list and current_user.role_viewer() %}
                 {% set can_download = current_user.role_download() and entry.data|length %}
                 {% set can_archive = not current_user.is_anonymous and current_user.check_visibility(32768) %}
                 {% set can_delete = current_user.role_edit() and current_user.role_delete_books() %}
                 {% if can_read %}
-                    <a target="_blank" id="readbtn" class="btn btn-primary"
-                       href="{{ url_for('web.read_book', book_id=entry.id, book_format=entry.reader_list[0]) }}">
-                        <span class="glyphicon glyphicon-book" aria-hidden="true"></span>{{ _('Read') }}
+                    {% if read_progress is not none %}
+                        {% set read_label = _('Continue') ~ (' · ' ~ read_progress ~ '%' if read_progress else '') %}
+                    {% else %}
+                        {% set read_label = _('Read') %}
+                    {% endif %}
+                    <a id="readbtn" class="btn btn-primary"
+                       href="{{ url_for('web.read_book', book_id=entry.id, book_format=entry.reader_list[0]) }}"
+                       title="{{ _('Read in Browser') }} ({{ entry.reader_list[0]|upper }})">
+                        <span class="glyphicon glyphicon-book" aria-hidden="true"></span>{{ read_label }}
                     </a>
+                {% elif entry.data|length and current_user.role_viewer() %}
+                    <span class="book-detail-unreadable" id="no-readable-format">{{ _('No readable format') }}</span>
+                {% endif %}
+                {% if convert_from %}
+                    {% if convert_queued %}
+                        <button type="button" class="btn" disabled>
+                            <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span>{{ _('Converting to EPUB…') }}
+                        </button>
+                    {% else %}
+                        <form class="book-detail-convert" action="{{ url_for('web.convert_to_epub', book_id=entry.id) }}" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn" id="convert-epub-btn"
+                                    title="{{ _('Convert %(format)s to EPUB', format=convert_from|upper) }}">
+                                <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span>{{ _('Convert to EPUB') }}
+                            </button>
+                        </form>
+                    {% endif %}
                 {% endif %}
                 {% if can_download %}
                     {% if entry.data|length < 2 %}
@@ -73,6 +103,9 @@
                             </ul>
                         </span>
                     {% endif %}
+                {% endif %}
+                {% if not current_user.is_anonymous %}
+                    {{ image.shelf_menu(entry.id, 'shelfMenu', 'btn is-icon') }}
                 {% endif %}
                 {% if not current_user.is_anonymous %}
                     {# An eye while unread, a green tick once read; the hidden label is the button's name. #}
@@ -153,7 +186,7 @@
                     <dd>{% for tag in entry.tags|sort(attribute='name') %}<a href="{{ url_for('web.books_list', data='category', sort_param='stored', book_id=tag.id) }}">{{ tag.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</dd>
                 </div>
             {% endif %}
-            {# Read-only here; shelves are changed on the edit page. Same look as tags. #}
+            {# Read-only here; the shelf button in the action bar adds and removes. Same look as tags. #}
             {% set shelves = (g.shelves_access|selectattr('id', 'in', books_shelfs)|list) if (current_user.is_authenticated and books_shelfs) else [] %}
             {% if shelves %}
                 <div class="shelves">
@@ -205,7 +238,7 @@
                                     {% elif c.datatype == 'datetime' %}
                                         {{ column.value|formatdate }}
                                     {% elif c.datatype == 'comments' %}
-                                        {{ column.value|safe }}
+                                        {{ column.value|sanitize_html }}
                                     {% elif c.datatype == 'series' %}
                                         {{ '%s [%s]' % (column.value, column.extra|formatfloat(2)) }}
                                     {% elif c.datatype == 'text' %}

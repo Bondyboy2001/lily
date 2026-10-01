@@ -50,7 +50,7 @@ dependencies = [
     "urllib3>=2.5.0,<3.0",
     "Flask-Limiter>=2.3.0,<3.13.0",
     "regex>=2024.11.6",
-    "bleach>=6.0.0,<6.3.0",
+    "bleach>=6.0.0,<6.5.0",
     "python-magic>=0.4.27,<0.5.0",
     "python-magic-bin>=0.4.0,<0.5.0;sys_platform=='win32'",
     "flask-httpAuth>=4.4.0,<5.0.0",
@@ -88,15 +88,7 @@ gdrive = [
     "PyYAML>=3.12,<6.1",
     "rsa>=3.4.2,<4.10.0",
 ]
-similarity = [
-    "python-Levenshtein>=0.12.0,<0.28.0",
-]
 metadata = [
-    "markdown2>=2.0.0,<2.6.0",
-    "html2text>=2020.1.16,<2025.2.26",
-    "python-dateutil>=2.1,<2.10.0",
-    "beautifulsoup4>=4.0.1,<4.14.0",
-    "faust-cchardet>=2.1.18,<2.1.20",
     "mutagen>=1.40.0,<1.50.0",
 ]
 sorting = [
@@ -155,4 +147,12 @@ select = ["E9", "F63", "F7", "F82", "F401", "F811", "F601", "F523", "F841", "B02
 python_version = "3.12"
 ignore_missing_imports = true
 follow_imports = "silent"
-files = ["scripts/db_backup.py", "scripts/ingest_failures.py", "scripts/library_mirror.py", "scripts/metadata_suggestions.py"]
+files = ["scripts/book_integrity.py", "scripts/db_backup.py", "scripts/ingest_failures.py", "scripts/job_status.py", "scripts/library_mirror.py", "scripts/metadata_suggestions.py",
+         "cps/totp.py", "cps/duplicate_rules.py"]
+
+# cps/ modules reach scripts/cwa_db.py as top-level `cwa_db`, and cwa_db imports its sibling both
+# as `cwa_stats_queries` and `scripts.cwa_stats_queries`; following it makes mypy see one file under
+# two module names. It is untyped legacy code anyway, so don't follow it.
+[[tool.mypy.overrides]]
+module = ["cwa_db"]
+follow_imports = "skip"

@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Formats background task status for the /ajax/emailstat endpoint (web.py)."""
+"""Formats background task status for the /ajax/taskstatus endpoint (web.py)."""
 
 from markupsafe import escape
 

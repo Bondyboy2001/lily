@@ -20,7 +20,7 @@ from flask_babel import gettext as _
 from flask_babel import get_locale
 from .cw_login import current_user
 from sqlalchemy.exc import IntegrityError, InvalidRequestError, OperationalError
-from sqlalchemy.sql.expression import text, func, and_
+from sqlalchemy.sql.expression import func, and_
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.sql.functions import coalesce
 
@@ -33,12 +33,15 @@ from .pagination import Pagination
 from .usermanagement import login_required_if_no_ano
 from .render_template import render_title_template
 from . import list_filters
+from . import series_nav
 from .setup_checklist import setup_checklist
 from .helper import change_archived_books
 from .services.worker import WorkerThread
 from .services.citations import citation_count, paper_ids
 from .tasks_status import render_task_status
+from .shelf import up_next_row
 from .usermanagement import user_login_required
+from .security_headers import add_security_headers
 
 # CWA Imports
 import sqlite3
@@ -61,36 +64,7 @@ sqlalchemy_version2 = ([int(x) for x in sql_version.split('.')] >= [2, 0, 0])
 
 _start_time = time.time()
 
-# Pages whose scripts build functions from strings (underscore templates in the metadata
-# search, the in-browser readers). Everything else runs without 'unsafe-eval'.
-_EVAL_ENDPOINTS = frozenset({"web.read_book", "edit-book.show_edit_book"})
-
-
-@app.after_request
-def add_security_headers(resp):
-    default_src = ([host.strip() for host in config.config_trustedhosts.split(',') if host] +
-                   ["'self'", "'unsafe-inline'"])
-    if request.endpoint in _EVAL_ENDPOINTS:
-        default_src.append("'unsafe-eval'")
-    csp = "default-src " + ' '.join(default_src)
-    if request.endpoint == "web.read_book" and config.config_use_google_drive:
-        csp +=" blob: "
-    csp += "; font-src 'self' data:"
-    if request.endpoint == "web.read_book":
-        csp += " blob: "
-    csp += "; img-src 'self'"
-    csp += " data:"
-    if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
-        csp += " *"
-    if request.endpoint == "web.read_book":
-        csp += " blob: ; style-src-elem 'self' blob: 'unsafe-inline'"
-    csp += "; object-src 'none';"
-    resp.headers['Content-Security-Policy'] = csp
-    resp.headers['X-Content-Type-Options'] = 'nosniff'
-    resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    resp.headers['Referrer-Policy'] = 'same-origin'
-    resp.headers['Strict-Transport-Security'] = 'max-age=31536000'
-    return resp
+app.after_request(add_security_headers)
 
 
 web = Blueprint('web', __name__)
@@ -124,9 +98,9 @@ def viewer_required(f):
 # ################################### data provider functions #########################################################
 
 
-@web.route("/ajax/emailstat")
+@web.route("/ajax/taskstatus")
 @user_login_required
-def get_email_status_json():
+def get_task_status_json():
     tasks = WorkerThread.get_instance().tasks
     return jsonify(render_task_status(tasks))
 
@@ -551,12 +525,14 @@ def render_books_list(data, sort_param, book_id, page):
             title = _('Books (%(count)s)', count=cwa_get_num_books_in_library())
 
         continue_reading = []
+        up_next = None
         if website == "newest" and page == 1 and not list_filters.active_filters():
             continue_reading = get_continue_reading_entries()
+            up_next = up_next_row()
 
         return render_title_template('index.html', entries=entries, pagination=pagination,
                                      title=title, page=website, order=order[1],
-                                     continue_reading=continue_reading,
+                                     continue_reading=continue_reading, up_next=up_next,
                                      list_filters=list_filters.filter_context(),
                                      setup_checklist=(setup_checklist() if website == "newest" and page == 1
                                                       else None))
@@ -742,10 +718,12 @@ def render_downloaded_books(page, order, user_id):
                                                             db.Books.id == db.books_series_link.c.book,
                                                             db.Series,
                                                             ub.Downloads, db.Books.id == ub.Downloads.book_id, cards_only=True)
-        for book in entries:
-            if not (calibre_db.session.query(db.Books).filter(calibre_db.common_filters())
-                    .filter(db.Books.id == book.Books.id).first()):
-                ub.delete_download(book.Books.id)
+        page_ids = [book.Books.id for book in entries]
+        visible_ids = {row[0] for row in calibre_db.session.query(db.Books.id)
+                       .filter(calibre_db.common_filters()).filter(db.Books.id.in_(page_ids))} if page_ids else set()
+        for book_id in page_ids:
+            if book_id not in visible_ids:
+                ub.delete_download(book_id)
         return render_title_template('index.html',
                                      entries=entries,
                                      pagination=pagination,
@@ -1069,10 +1047,20 @@ def health_check():
     except Exception:
         db_up = False
 
+    # Background jobs (backups, mirror, ...): informational only. A stale backup must not
+    # change the status code, or Docker's healthcheck would restart a working server.
+    try:
+        from .services.job_status import health_checks
+        checks = health_checks()
+    except Exception as e:
+        log.debug("Job health check failed: %s", e)
+        checks = {"ok": None, "backup_age_hours": None, "jobs": {}}
+
     return jsonify({
         "status": "ok" if db_up else "degraded",
         "uptime": uptime,
         "version": f"Lily/{constants.INSTALLED_VERSION}",
+        "checks": checks,
     }), 200 if db_up else 503
 
 # ################################### View Books list ##################################################################
@@ -1116,8 +1104,12 @@ def list_books():
     search_param = request.args.get("search")
     sort_param = request.args.get("sort", "id")
     order = request.args.get("order", "").lower()
+    if order not in ("asc", "desc"):
+        order = ""
     state = None
     join = tuple()
+    plain_columns = {"sort": db.Books.sort, "title": db.Books.title,
+                     "authors_sort": db.Books.author_sort, "series_index": db.Books.series_index}
 
     if sort_param == "state":
         state = json.loads(request.args.get("state", "[]"))
@@ -1140,8 +1132,9 @@ def list_books():
     elif sort_param == "languages":
         order = [db.Languages.lang_code.asc()] if order == "asc" else [db.Languages.lang_code.desc()]
         join = db.books_languages_link, db.Books.id == db.books_languages_link.c.book, db.Languages
-    elif order and sort_param in ["sort", "title", "authors_sort", "series_index"]:
-        order = [text(sort_param + " " + order)]
+    elif order and sort_param in plain_columns:
+        column = plain_columns[sort_param]
+        order = [column.asc() if order == "asc" else column.desc()]
     elif not state:
         order = [db.Books.timestamp.desc()]
 
@@ -1279,9 +1272,18 @@ def read_book(book_id, book_format):
 
     if book_format.lower() in ("epub", "kepub"):
         log.debug("Start epub reader for %d (%s)", book_id, book_format.lower())
+        try:
+            next_book = series_nav.next_in_series(calibre_db, book)
+        except Exception as ex:  # the end-of-book card is optional; never block the reader
+            log.debug("No next-in-series for %d: %s", book_id, ex)
+            next_book = None
+        # Changes whenever the file is rewritten, so cached reading locations are dropped.
+        file_size = next((d.uncompressed_size for d in book.data if d.format == book_format.upper()), 0)
+        book_stamp = "{}-{}".format(int(book.last_modified.timestamp()) if book.last_modified else 0, file_size)
         return render_title_template('read.html', bookid=book_id, title=book.title,
                                      bookmark=bookmark,
                                      book_format=book_format.lower(),
+                                     next_book=next_book, book_stamp=book_stamp,
                                      **progress_args)
     elif book_format.lower() == "pdf":
         log.debug("Start pdf reader for %d", book_id)
@@ -1365,7 +1367,8 @@ def show_book(book_id):
                                      title=entry.title,
                                      books_shelfs=book_in_shelves,
                                      cwa_settings=cwa_settings,
-                                     page="book")
+                                     page="book",
+                                     **web_book.book_page_context(entry))
     else:
         log.debug("Selected book is unavailable. File does not exist or is not accessible")
         flash(_("Oops! Selected book is unavailable. File does not exist or is not accessible"),
@@ -1379,3 +1382,5 @@ from . import web_lists  # noqa: E402,F401  (attaches its routes to this bluepri
 from . import web_files  # noqa: E402,F401  (attaches its routes to this blueprint)
 
 from . import web_typeahead  # noqa: E402,F401  (attaches its routes to this blueprint)
+
+from . import web_book  # noqa: E402  (attaches its routes to this blueprint)

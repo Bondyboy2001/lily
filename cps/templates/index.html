@@ -32,16 +32,16 @@
   <div class="continue-reading-row" role="list">
     {% for item in continue_reading %}
     {% set book = item.entry.Books %}
-    {% set resume_format = item.format|lower if item.format and item.format|upper in book.data|map(attribute='format')|map('upper')|list else none %}
+    {# Straight back into the reader, this tab: the format last read when it is still there,
+       else the best readable one; the book page if none opens. #}
+    {% set formats = book|reader_formats %}
+    {% set resume_format = item.format|lower if item.format and item.format|lower in formats else (formats[0] if formats else none) %}
+    {% set resume_url = url_for('web.read_book', book_id=book.id, book_format=resume_format) if resume_format and current_user.role_viewer() else url_for('web.show_book', book_id=book.id) %}
     <div class="book lily-book continue-reading-item" role="listitem">
       <div class="cover">
-        <a href="{% if resume_format %}{{ url_for('web.read_book', book_id=book.id, book_format=resume_format) }}{% else %}{{ url_for('web.show_book', book_id=book.id) }}{% endif %}"
-           data-book-id="{{ book.id }}"
-           data-book-formats="{% for format in book.data %}{{ format.format.lower() }}{% if not loop.last %},{% endif %}{% endfor %}"
-           {% if resume_format %}target="_blank" rel="noopener"{% endif %}
-           class="book-cover-link">
+        <a href="{{ resume_url }}" data-book-id="{{ book.id }}" class="book-cover-link">
           <span class="img" title="{{ book.title }}">
-            {{ image.book_cover(book) }}
+            {{ image.book_cover(book, sizes=image.CONTINUE_COVER_SIZES) }}
           </span>
         </a>
         {% if item.progress is not none %}
@@ -50,6 +50,33 @@
           <div class="progress-bar" style="width: {{ item.progress|round(1) }}%;"></div>
         </div>
         {% endif %}
+      </div>
+      <div class="meta">
+        <a href="{{ resume_url }}">
+          <p title="{{ book.title }}" class="title">{{ book.title }}</p>
+        </a>
+        {% if book.authors %}
+        <p class="author">{{ book.authors[0].name.replace('|',',')|shortentitle(30) }}</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% if up_next and up_next.books %}
+{# The "Want to read" shelf (shelf.up_next_row), books not yet started, in shelf order. #}
+<section class="continue-reading up-next" aria-labelledby="up-next-heading">
+  <h2 id="up-next-heading"><a href="{{ url_for('shelf.show_shelf', shelf_id=up_next.shelf_id) }}">{{_('Up next')}}</a></h2>
+  <div class="continue-reading-row" role="list">
+    {% for book in up_next.books %}
+    <div class="book continue-reading-item" role="listitem">
+      <div class="cover">
+        <a href="{{ url_for('web.show_book', book_id=book.id) }}" data-book-id="{{ book.id }}" class="book-cover-link">
+          <span class="img" title="{{ book.title }}">
+            {{ image.book_cover(book) }}
+          </span>
+        </a>
       </div>
       <div class="meta">
         <a href="{{ url_for('web.show_book', book_id=book.id) }}">

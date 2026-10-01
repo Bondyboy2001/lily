@@ -47,10 +47,10 @@ The main file imports its siblings **at the bottom**, after everything they impo
 it is defined. Keep it that way.
 
 Other blueprints: `opds`, `shelf`, `search`, `metadata` (provider search), `duplicates`,
-`logs`, `gdrive`, and the `cwa_functions/` package (Import & Metadata settings, service
-status, ingest endpoints). There are no settings pages for the library location, backups,
-book recovery, failed imports, statistics or tasks: the library is found at
-`/calibre-library`, and backups, delete recovery and failed-import handling run on their
+`logs`, `gdrive`, `trash` (Trash page), and the `cwa_functions/` package (Import & Metadata
+settings, service status, ingest endpoints). There are no settings pages for the library
+location, backups, book recovery, failed imports, statistics or tasks: the library is found
+at `/calibre-library`, and backups, delete recovery and failed-import handling run on their
 defaults without a UI.
 
 ### Duplicates
@@ -59,26 +59,47 @@ defaults without a UI.
 (SQL and Python scans, dismissed groups) → `duplicate_index.py` (the key index) →
 `duplicates.py` (routes and auto-resolution). `tasks/duplicate_scan.py` runs scans.
 
+### Trash
+
+Deleting a book (single, bulk, merge, duplicate resolution) goes through
+`helper.delete_book_file` → `trash.py`, which renames the book folder to
+`<library>/.lily-trash/<stamp>_<id>/` and writes `<stamp>_<id>.json` beside it with the
+book's metadata.db and app.db rows (`trash_store.py`). The admin Trash page restores or
+deletes entries; `tasks/trash_purge.py` deletes old ones nightly. After a snapshot restore,
+`library_orphans.py` lists book folders the restored metadata.db doesn't know, for re-import
+from the Trash page.
+
 ### Background tasks
 
 `services/worker.py` runs `CalibreTask` subclasses from `tasks/` (backups, restore, library
-mirror, thumbnails, duplicate scan, Hardcover, ...).
-`schedule.py` registers the recurring ones.
+mirror, thumbnails, duplicate scan, Hardcover, ...), one at a time, with a watchdog that
+fails a task stuck past `LILY_TASK_TIMEOUT_HOURS` and moves the queue on.
+`schedule.py` registers the recurring ones. Tasks that set `job_name` have their runs recorded
+in the cwa.db `job_status` table (`services/job_status.py`), which drives the admin banner in
+`layout.html` and the `checks` in `/health`.
 
 ### Pure modules
 
 Logic that needs no Flask or database lives in Flask-free modules so it can be tested
-alone: `scripts/db_backup.py`, `scripts/library_mirror.py`,
-`scripts/ingest_failures.py`, `scripts/metadata_suggestions.py`, `cps/duplicate_rules.py`.
+alone: `scripts/db_backup.py`, `scripts/library_mirror.py`, `scripts/job_status.py`,
+`scripts/ingest_failures.py`, `scripts/metadata_suggestions.py`, `cps/duplicate_rules.py`,
+`cps/trash_store.py`, `cps/library_orphans.py`.
 The ones under `scripts/` are importable from both the web app and the ingest process;
 the type-checked set is listed in `pyproject.toml` (`[tool.mypy]`).
 
 ## Security model
 
 - Sessions: HttpOnly cookies, `SameSite` set, `Secure` when `SESSION_COOKIE_SECURE=true`.
-- CSP: `'unsafe-eval'` only on the book edit page and the readers (`web.py`,
-  `_EVAL_ENDPOINTS`).
-- Admin routes use `@admin_required`; `tests/unit/test_admin_access_control.py` checks them.
+- Every session and remember cookie must match a `User_Sessions` row; logout (POST) and
+  password changes delete rows. Failed password logins are rate-limited per address and per
+  username.
+- CSP and the other headers come from `security_headers.py`: `'unsafe-eval'` only on the
+  book edit page and the readers (`_EVAL_ENDPOINTS`). Inline scripts still need
+  `'unsafe-inline'`.
+- Admin routes use `@admin_required`; `tests/unit/test_admin_access_control.py` walks every
+  route (public allowlist, visitors, regular users).
+- In the image the app and s6 scripts are root-owned; abc writes only the dirs listed in
+  `scripts/setup-cwa.sh`.
 
 ## Tests
 

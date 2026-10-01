@@ -10,7 +10,6 @@ Tests cover pure Python utility functions that don't require Docker:
 - Filename sanitization (get_valid_filename)
 - Author name parsing (split_authors, get_sorted_author)
 - Password generation and validation
-- Email validation
 - Username validation
 
 Note: Functions involving database queries, file I/O, or external services
@@ -18,7 +17,7 @@ are tested in integration tests instead.
 """
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from types import SimpleNamespace
 
 # Import config for accessing in tests
@@ -29,14 +28,11 @@ from cps.helper import (
     get_valid_filename,
     split_authors,
     get_sorted_author,
-    check_email,
     check_username,
     check_read_formats,
-    valid_email,
     valid_password,
     uniq,
     delete_book_file,
-    _directory_contains_only_nfs_placeholders,
 )
 
 
@@ -173,39 +169,23 @@ class TestGetValidFilename:
 
 
 class TestDeleteBookFile:
-    """Test file deletion edge cases."""
+    """delete_book_file moves to the Trash (cps/trash.py); NFS handling is in test_trash.py."""
 
-    def test_directory_contains_only_nfs_placeholders(self, tmp_path):
-        book_dir = tmp_path / "book"
-        book_dir.mkdir()
-        (book_dir / ".nfs.123").write_text("placeholder")
-        (book_dir / ".nfs.456").write_text("placeholder")
-
-        assert _directory_contains_only_nfs_placeholders(str(book_dir)) is True
-
-    def test_directory_contains_only_nfs_placeholders_rejects_regular_files(self, tmp_path):
-        book_dir = tmp_path / "book"
-        book_dir.mkdir()
-        (book_dir / ".nfs.123").write_text("placeholder")
-        (book_dir / "cover.jpg").write_text("cover")
-
-        assert _directory_contains_only_nfs_placeholders(str(book_dir)) is False
-
-    def test_delete_book_file_tolerates_nfs_placeholders_after_unlink(self, tmp_path, monkeypatch):
+    def test_failed_trash_move_reports_failure_and_keeps_the_folder(self, tmp_path, monkeypatch):
+        from cps import trash
         calibre_dir = tmp_path / "library"
         book_dir = calibre_dir / "Author" / "Book (1)"
         book_dir.mkdir(parents=True)
-        (book_dir / ".nfs.123").write_text("placeholder")
+        (book_dir / "book.epub").write_text("x")
         book = SimpleNamespace(id=1, path="Author/Book (1)")
 
-        monkeypatch.setattr("cps.helper.os.walk", lambda path: [(path, [], [])])
+        def _refuse(*args, **kwargs):
+            raise OSError(13, "Permission denied")
 
-        def _raise_directory_not_empty(path):
-            raise OSError(39, "Directory not empty", path)
-
-        monkeypatch.setattr("cps.helper.shutil.rmtree", _raise_directory_not_empty)
-
-        assert delete_book_file(book, str(calibre_dir)) == (True, None)
+        monkeypatch.setattr(trash, "trash_book", _refuse)
+        ok, error = delete_book_file(book, str(calibre_dir))
+        assert ok is False and "Permission denied" in str(error)
+        assert (book_dir / "book.epub").exists()
 
 
 # ============================================================================
@@ -330,61 +310,6 @@ class TestGetSortedAuthor:
 
 
 # ============================================================================
-# Tests for valid_email()
-# ============================================================================
-
-class TestValidEmail:
-    """Test email validation logic"""
-
-    def test_valid_single_email(self):
-        """Test valid single email passes"""
-        result = valid_email("test@example.com")
-        assert result == "test@example.com"
-
-    def test_valid_multiple_emails(self):
-        """Test multiple comma-separated emails"""
-        result = valid_email("test1@example.com,test2@example.com")
-        assert "test1@example.com" in result
-        assert "test2@example.com" in result
-
-    def test_invalid_email_format_raises(self):
-        """Test invalid email format raises exception"""
-        with pytest.raises(Exception, match="Invalid Email address format"):
-            valid_email("not_an_email")
-
-    def test_whitespace_stripped(self):
-        """Test whitespace is stripped from emails"""
-        result = valid_email("  test@example.com  ")
-        assert result == "test@example.com"
-
-    def test_multiple_with_whitespace(self):
-        """Test multiple emails with whitespace"""
-        result = valid_email(" test1@example.com , test2@example.com ")
-        assert "test1@example.com" in result
-        assert "test2@example.com" in result
-
-    def test_empty_string_returns_empty(self):
-        """Test empty string returns empty string"""
-        result = valid_email("")
-        assert result == ""
-
-    def test_invalid_domain_raises(self):
-        """Test invalid domain raises exception"""
-        with pytest.raises(Exception, match="Invalid Email address format"):
-            valid_email("test@")
-
-    def test_missing_at_symbol_raises(self):
-        """Test missing @ symbol raises exception"""
-        with pytest.raises(Exception, match="Invalid Email address format"):
-            valid_email("testexample.com")
-
-    def test_special_chars_in_local_part(self):
-        """Test special characters allowed in local part"""
-        result = valid_email("test.name+tag@example.com")
-        assert result == "test.name+tag@example.com"
-
-
-# ============================================================================
 # Tests for valid_password()
 # ============================================================================
 
@@ -442,25 +367,11 @@ class TestValidPassword:
 
 
 # ============================================================================
-# Tests for check_email() and check_username()
+# Tests for check_username()
 # ============================================================================
 
-class TestCheckEmailAndUsername:
-    """Test email and username uniqueness checks"""
-
-    @patch('cps.ub.session')
-    def test_check_email_unique_passes(self, mock_session):
-        """Test unique email passes check"""
-        mock_session.query().filter().first.return_value = None
-        result = check_email("new@example.com")
-        assert result == "new@example.com"
-
-    @patch('cps.ub.session')
-    def test_check_email_duplicate_raises(self, mock_session):
-        """Test duplicate email raises exception"""
-        mock_session.query().filter().first.return_value = Mock()
-        with pytest.raises(Exception, match="Found an existing account"):
-            check_email("existing@example.com")
+class TestCheckUsername:
+    """Test username uniqueness checks"""
 
     @patch('cps.ub.session')
     def test_check_username_unique_passes(self, mock_session):

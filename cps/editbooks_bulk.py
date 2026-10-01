@@ -162,7 +162,7 @@ def delete_selected_books():
     ids, error = parse_batch_ids(d.get('selections'))
     if error is not None:
         return error
-    results = [perform_delete(book_id) for book_id in ids]
+    results = [perform_delete(book_id, reason="bulk delete") for book_id in ids]
     _queue_duplicate_scan_after_change(
         [e["book_id"] for e in results if e["status"] == "succeeded"])
     return batch_response(results)

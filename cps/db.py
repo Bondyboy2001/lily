@@ -797,6 +797,22 @@ class CalibreDB:
     def update_config(cls, config):
         cls.config = config
 
+    # Indexes Lily adds to metadata.db for its own sort orders ("newest", "published").
+    # Calibre ignores indexes it doesn't know; the lily_ prefix marks them as ours.
+    LILY_INDEXES = (
+        ("lily_books_timestamp_idx", "books (timestamp)"),
+        ("lily_books_pubdate_idx", "books (pubdate)"),
+    )
+
+    @classmethod
+    def _ensure_lily_indexes(cls):
+        for name, target in cls.LILY_INDEXES:
+            try:
+                with cls.engine.begin() as connection:
+                    connection.execute(text("CREATE INDEX IF NOT EXISTS calibre.{} ON {}".format(name, target)))
+            except Exception as e:
+                log.warning("Could not create index %s on metadata.db: %s", name, e)
+
     @classmethod
     def setup_db(cls, config_calibre_dir, app_db_path):
         # Wrap entire method in lock to ensure atomic setup operation
@@ -842,6 +858,9 @@ class CalibreDB:
                             log.warning("WAL mode disabled for calibre/app_settings (%s)", reason)
                     except Exception as e:
                         log.warning("Could not configure WAL mode for app_settings: %s", e)
+
+                if db_writable:
+                    cls._ensure_lily_indexes()
 
                 conn = cls.engine.connect()
                 # conn.text_factory = lambda b: b.decode(errors = 'ignore') possible fix for #1302
@@ -1184,14 +1203,50 @@ class CalibreDB:
         json_dumps = json.dumps([dict(name=r.name.replace(*replace)) for r in entries])
         return json_dumps
 
-    def search_query(self, term, config, *join):
+    def search_filter(self, term, config):
+        """The simple-search condition: term in the title, or in the name of a tag, series,
+        author, publisher or (text) custom column value.
+
+        Each name match is a ``books.id IN (SELECT book FROM link WHERE x IN (SELECT id FROM
+        dim WHERE lower(name) LIKE ?))``, so the accent-folding ``lower`` (see lcase) runs
+        once per tag/author/... row instead of once per book and linked row as a correlated
+        EXISTS did. The pattern is folded the same way in Python, so matching is unchanged:
+        accent- and case-insensitive on both sides.
+        """
         self.ensure_session()
-        strip_whitespaces(term).lower()
         self.create_functions()
-        q = list()
-        author_terms = re.split("[, ]+", term)
-        for author_term in author_terms:
-            q.append(Books.authors.any(func.lower(Authors.name).ilike("%" + author_term + "%")))
+        pattern = "%" + lcase(term) + "%"
+
+        def linked(link_table, link_column, dim_id, match):
+            return Books.id.in_(select(link_table.c.book).where(link_column.in_(select(dim_id).where(match))))
+
+        # every word of the term must match one of the book's authors (not necessarily the same one)
+        author_match = and_(*[linked(books_authors_link, books_authors_link.c.author, Authors.id,
+                                     func.lower(Authors.name).like("%" + lcase(author_term) + "%"))
+                              for author_term in re.split("[, ]+", term)])
+        filter_expression = [
+            linked(books_tags_link, books_tags_link.c.tag, Tags.id, func.lower(Tags.name).like(pattern)),
+            linked(books_series_link, books_series_link.c.series, Series.id, func.lower(Series.name).like(pattern)),
+            author_match,
+            linked(books_publishers_link, books_publishers_link.c.publisher, Publishers.id,
+                   func.lower(Publishers.name).like(pattern)),
+            func.lower(Books.title).like(pattern)]
+        for c in self.get_cc_columns(config, filter_config_custom_read=True):
+            if c.datatype in ["datetime", "rating", "bool", "int", "float"]:
+                continue
+            cc_class = cc_classes[c.id]
+            match = func.lower(cc_class.value).like(pattern)
+            link = Base.metadata.tables.get('books_custom_column_{}_link'.format(c.id))
+            if link is not None:
+                filter_expression.append(linked(link, link.c.value, cc_class.id, match))
+            else:
+                filter_expression.append(Books.id.in_(select(cc_class.book).where(match)))
+        return and_(self.common_filters(True), or_(*filter_expression))
+
+    def search_query(self, term, config, *join, search_filter=None):
+        self.ensure_session()
+        if search_filter is None:
+            search_filter = self.search_filter(term, config)
         query = self.generate_linked_query(config.config_read_column, Books)
         if len(join) == 6:
             query = query.outerjoin(join[0], join[1]).outerjoin(join[2]).outerjoin(join[3], join[4]).outerjoin(join[5])
@@ -1201,23 +1256,9 @@ class CalibreDB:
             query = query.outerjoin(join[0], join[1])
         elif len(join) == 1:
             query = query.outerjoin(join[0])
-
-        cc = self.get_cc_columns(config, filter_config_custom_read=True)
-        filter_expression = [Books.tags.any(func.lower(Tags.name).ilike("%" + term + "%")),
-                             Books.series.any(func.lower(Series.name).ilike("%" + term + "%")),
-                             Books.authors.any(and_(*q)),
-                             Books.publishers.any(func.lower(Publishers.name).ilike("%" + term + "%")),
-                             func.lower(Books.title).ilike("%" + term + "%")]
-        for c in cc:
-            if c.datatype not in ["datetime", "rating", "bool", "int", "float"]:
-                filter_expression.append(
-                    getattr(Books,
-                            'custom_column_' + str(c.id)).any(
-                        func.lower(cc_classes[c.id].value).ilike("%" + term + "%")))
-        # Eagerly load the data relationship to prevent session errors. selectinload, so a
-        # paginated search isn't wrapped in a subquery (which breaks text ORDER BY clauses)
+        # Eagerly load the data relationship to prevent session errors
         query = query.options(selectinload(Books.data))
-        return query.filter(self.common_filters(True)).filter(or_(*filter_expression))
+        return query.filter(search_filter)
 
     def get_cc_columns(self, config, filter_config_custom_read=False):
         self.ensure_session()
@@ -1238,30 +1279,25 @@ class CalibreDB:
 
     # read search results from calibre-database and return it (function is used for feed and simple search
     def get_search_results(self, term, config, offset=None, order=None, limit=None, *join, cards_only=False):
+        """One page of simple-search results: counted and paged in SQL, never all matches.
+
+        Without offset/limit every match is returned (the books table's checkbox sort).
+        cards_only skips the relationships a book card never renders.
+        """
         self.ensure_session()
         order = order[0] if order else [Books.sort]
         pagination = None
-        query = self.search_query(term, config, *join).order_by(*order)
+        search_filter = self.search_filter(term, config)
+        query = self.search_query(term, config, *join, search_filter=search_filter)
+        query = query.options(*card_load_options(skip_others=cards_only))
+        result_count = self.session.query(Books.id).filter(search_filter).count()
         if offset is not None and limit is not None:
-            # Match on ids only, then load the visible page, instead of loading every match
-            # with all its relationships. One id scan rather than a count plus a paged query,
-            # which runs the (slow) search filter twice.
-            offset, limit = int(offset), int(limit)
-            ids = list(dict.fromkeys(book_id for book_id, in query.with_entities(Books.id)))
-            result_count = len(ids)
-            pagination = Pagination((offset / limit + 1), limit, result_count)
-            page_ids = ids[offset:offset + limit]
-            if cards_only:
-                query = query.options(*card_load_options(skip_others=True))
-            rows = query.filter(Books.id.in_(page_ids)).all() if page_ids else []
-            position = {book_id: index for index, book_id in enumerate(page_ids)}
-            result = sorted(rows, key=lambda row: position[row[0].id])
+            offset = int(offset)
+            pagination = Pagination((offset / (int(limit)) + 1), limit, result_count)
+            query = query.order_by(*order).offset(offset).limit(int(limit))
         else:
-            result = query.all()
-            result_count = len(result)
-
-        entries = self.order_authors(result, list_return=True, combined=True)
-
+            query = query.order_by(*order)
+        entries = self.order_authors(query.all(), list_return=True, combined=True)
         return entries, result_count, pagination
 
     # Creates for all stored languages a translated speaking name in the array for the UI

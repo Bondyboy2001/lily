@@ -39,13 +39,14 @@ def test_library_templates_have_no_inline_style_blocks():
 def test_detail_page_has_no_inline_styles_and_one_primary():
     html = read(TEMPLATES / "detail.html")
     assert 'style="' not in html
-    # Actions are labelled buttons; Read is the one Primary.
-    m = re.search(r"<a target=\"_blank\" id=\"readbtn\"[^>]*>.*?</a>", html, flags=re.S)
+    # Actions are labelled buttons; Read ("Read" or "Continue · 42%") is the one Primary and
+    # opens the reader in this tab.
+    m = re.search(r"<a id=\"readbtn\"[^>]*>.*?</a>", html, flags=re.S)
     assert m, "readbtn anchor missing"
     read_btn = m.group(0)
-    assert 'class="btn btn-primary"' in read_btn
+    assert 'class="btn btn-primary"' in read_btn and 'target="_blank"' not in read_btn
     assert "url_for('web.read_book'" in read_btn
-    assert "{{ _('Read') }}" in read_btn
+    assert "{{ read_label }}" in read_btn and "_('Continue')" in html
     assert html.count("btn-primary") == 1
     assert "btn-danger" not in html
 
@@ -100,10 +101,10 @@ def test_continue_reading_progress_sits_on_the_cover():
     assert "continue-reading-progress" in cover and "progress" not in meta
 
 
-def test_continue_reading_opens_the_reader_in_a_new_tab():
+def test_continue_reading_opens_the_reader_in_this_tab():
     html = read(TEMPLATES / "index.html")
     cover = re.search(r'<div class="cover">(.*?)\n      </div>', html, flags=re.S).group(1)
-    assert '{% if resume_format %}target="_blank" rel="noopener"{% endif %}' in cover
+    assert 'href="{{ resume_url }}"' in cover and 'target="_blank"' not in cover
 
 
 def test_detail_toolbar_buttons_are_labelled():
@@ -187,8 +188,34 @@ def test_quick_actions_are_markup_not_injected():
     image = read(TEMPLATES / "image.html")
     assert "macro cover_actions" in image and "icon-btn" in image
     js = read(JS / "lily.js")
-    for needle in ("lily-toggle-read", "lily-read-now", "/ajax/toggleread/"):
+    for needle in ("lily-toggle-read", "/ajax/toggleread/", "lily-shelf-item", "/shelf/book/"):
         assert needle in js, needle
+
+
+def test_read_quick_action_is_a_same_tab_link_to_a_readable_format():
+    image = read(TEMPLATES / "image.html")
+    actions = image[image.index("macro cover_actions"):image.index("macro book_card")]
+    # The same list as helper.check_read_formats, so MOBI/AZW3/FB2/HTML never get a Read button.
+    assert "book|reader_formats" in actions and "data-book-formats" not in actions
+    read_now = actions[actions.index("lily-read-now") - 40:actions.index("lily-read-now") + 200]
+    assert "<a " in read_now and "web.read_book" in read_now and "_blank" not in read_now
+    js = read(JS / "lily.js")
+    assert "window.open" not in js and "pickFormat" not in js
+    # Only external links (arXiv, identifiers) in the facts panel open a new tab
+    assert 'target="_blank"' not in read(TEMPLATES / "detail.html").split('<dl class="book-metadata">')[0]
+
+
+def test_continue_reading_opens_the_reader():
+    html = read(TEMPLATES / "index.html")
+    row = html[html.index('class="continue-reading"'):html.index('class="continue-reading up-next"')]
+    assert "web.read_book" in row and "book|reader_formats" in row
+    assert "data-book-formats" not in html
+
+
+def test_empty_shelf_text_names_a_control_that_exists():
+    html = read(TEMPLATES / "shelf.html")
+    assert "Add to shelf" not in html and "Shelves button" in html
+    assert 'title="{{ _(\'Shelves\') }}"' in read(TEMPLATES / "image.html")
 
 
 def test_lily_js_keeps_the_caliblur_behaviours_that_are_still_needed():
@@ -295,3 +322,16 @@ def test_shelf_heading_edit_action_preserves_permissions():
         if visible:
             assert html.index("Shelf: Papers") < html.index('id="edit_shelf"')
             assert 'href="/shelf/edit/7"' in html
+def test_search_suggestions_open_the_picked_book_or_author():
+    js = read(JS / "lily.js")
+    block = js[js.index("Top bar search"):js.index("Colour theme button")]
+    assert 'name: "authors"' in block and "window.location.href = item.url" in block
+    assert "minLength: MIN_LENGTH" in block and "MIN_LENGTH = 2" in block
+    assert "data-label-authors" in read(TEMPLATES / "layout.html")
+
+
+def test_series_grid_is_a_css_grid_without_isotope():
+    assert "isotope" not in read(JS / "filter_grid.js")
+    css = read(CSS / "lily-library.css")
+    assert re.search(r"\n\.lily-series-grid\s*\{[^}]*display:\s*grid", css)
+    assert "float: left" not in css[css.index("Series grid (grid.html)"):css.index("Continue reading row")]

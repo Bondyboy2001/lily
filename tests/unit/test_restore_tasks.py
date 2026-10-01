@@ -154,19 +154,97 @@ def test_library_restore_handles_timeout(env, monkeypatch, tmp_path):
 
 
 @pytest.mark.unit
-def test_wipe_book_linked_tables_skips_missing(tmp_path):
+def test_restore_cleanup_removes_only_rows_of_missing_books(tmp_path):
+    """calibredb restore_database keeps book ids, so only rows of books that are gone go."""
+    meta = str(tmp_path / "metadata.db")
+    con = sqlite3.connect(meta)
+    con.execute("CREATE TABLE books (id INTEGER PRIMARY KEY)")
+    con.executemany("INSERT INTO books VALUES (?)", [(1,), (2,)])
+    con.commit()
+    con.close()
     path = str(tmp_path / "app.db")
     con = sqlite3.connect(path)
-    con.execute("CREATE TABLE downloads (id INTEGER)")
+    con.execute("CREATE TABLE downloads (id INTEGER PRIMARY KEY, book_id INTEGER, user_id INTEGER)")
+    con.execute("CREATE TABLE book_shelf_link (id INTEGER PRIMARY KEY, book_id INTEGER, shelf INTEGER)")
+    con.execute("CREATE TABLE web_reader_progress (id INTEGER PRIMARY KEY, user_id INTEGER, book_id INTEGER, percent REAL)")
     con.execute("CREATE TABLE user (id INTEGER)")
-    con.execute("INSERT INTO downloads VALUES (1)")
+    con.executemany("INSERT INTO downloads (book_id, user_id) VALUES (?, 1)", [(1,), (3,)])
+    con.executemany("INSERT INTO book_shelf_link (book_id, shelf) VALUES (?, 1)", [(2,), (9,)])
+    con.executemany("INSERT INTO web_reader_progress (user_id, book_id, percent) VALUES (1, ?, 0.5)", [(1,), (7,)])
     con.execute("INSERT INTO user VALUES (1)")
     con.commit()
     con.close()
-    restore_mod.TaskRestoreCalibreLibrary.wipe_book_linked_tables(path)
+
+    removed = restore_mod.remove_orphan_book_rows(path, meta)
+    assert removed == {"downloads": 1, "book_shelf_link": 1, "web_reader_progress": 1}
     con = sqlite3.connect(path)
     try:
-        assert con.execute("SELECT COUNT(*) FROM downloads").fetchone()[0] == 0
+        assert [r[0] for r in con.execute("SELECT book_id FROM downloads")] == [1]
+        assert [r[0] for r in con.execute("SELECT book_id FROM book_shelf_link")] == [2]
+        assert [r[0] for r in con.execute("SELECT book_id FROM web_reader_progress")] == [1]
         assert con.execute("SELECT COUNT(*) FROM user").fetchone()[0] == 1
     finally:
         con.close()
+
+
+@pytest.mark.unit
+def test_restore_cleanup_leaves_everything_when_the_library_came_back_empty(tmp_path):
+    meta = str(tmp_path / "metadata.db")
+    con = sqlite3.connect(meta)
+    con.execute("CREATE TABLE books (id INTEGER PRIMARY KEY)")
+    con.close()
+    path = str(tmp_path / "app.db")
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE book_read_link (id INTEGER PRIMARY KEY, book_id INTEGER)")
+    con.execute("INSERT INTO book_read_link (book_id) VALUES (5)")
+    con.commit()
+    con.close()
+    assert restore_mod.remove_orphan_book_rows(path, meta) == {}
+    con = sqlite3.connect(path)
+    try:
+        assert con.execute("SELECT COUNT(*) FROM book_read_link").fetchone()[0] == 1
+    finally:
+        con.close()
+
+
+@pytest.mark.unit
+def test_snapshot_restore_lists_book_folders_the_restored_db_does_not_know(tmp_path):
+    from cps import library_orphans
+    lib = tmp_path / "lib"
+    for rel in ("A/Old (1)", "A/New (2)", "B/Empty (3)", ".lily-trash/20260101T000000_4"):
+        (lib / rel).mkdir(parents=True)
+    (lib / "A" / "Old (1)" / "old.epub").write_text("x")
+    (lib / "A" / "New (2)" / "new.epub").write_text("x")
+    (lib / "A" / "New (2)" / "cover.jpg").write_text("x")
+    (lib / ".lily-trash" / "20260101T000000_4" / "t.epub").write_text("x")
+    meta = lib / "metadata.db"
+    con = sqlite3.connect(meta)
+    con.execute("CREATE TABLE books (id INTEGER PRIMARY KEY, path TEXT)")
+    con.execute("INSERT INTO books VALUES (1, 'A/Old (1)')")
+    con.commit()
+    con.close()
+    app_db = tmp_path / "app.db"
+    con = sqlite3.connect(app_db)
+    con.execute("CREATE TABLE book_read_link (id INTEGER PRIMARY KEY, book_id INTEGER)")
+    con.executemany("INSERT INTO book_read_link (book_id) VALUES (?)", [(1,), (2,)])
+    con.commit()
+    con.close()
+    cfg = tmp_path / "cfg"
+    cfg.mkdir()
+
+    note = restore_mod.reconcile_after_restore(["metadata.db"], str(app_db), str(meta), str(lib), str(cfg),
+                                               "snapshot 20260101_030000")
+    assert "1 book folder" in str(note)
+    report = library_orphans.load_report(str(cfg))
+    assert report["folders"] == ["A/New (2)"] and report["source"] == "snapshot 20260101_030000"
+    assert library_orphans.book_files(str(lib / "A" / "New (2)")) == ["new.epub"]
+    con = sqlite3.connect(app_db)
+    try:
+        assert [r[0] for r in con.execute("SELECT book_id FROM book_read_link")] == [1]
+    finally:
+        con.close()
+    # Nothing out of step: no note, and the old report is cleared
+    (lib / "A" / "New (2)" / "new.epub").unlink()
+    (lib / "A" / "New (2)" / "cover.jpg").unlink()
+    assert restore_mod.reconcile_after_restore(["metadata.db"], str(app_db), str(meta), str(lib), str(cfg), "") == ""
+    assert library_orphans.load_report(str(cfg)) == {}

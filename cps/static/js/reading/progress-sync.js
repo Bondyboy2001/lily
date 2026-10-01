@@ -11,6 +11,8 @@
  *   var sync = LilyProgress.create({url: "/ajax/progress/12", storageKey: "12.epub", enabled: true});
  *   sync.load().then(function (pos) { if (pos) { ...jump to pos.cfi / pos.percent... } });
  *   sync.save(cfi, percent);   // queued POST, flushed on pagehide / tab hidden
+ * A POST that fails (offline, server error) keeps its position pending; it is retried with
+ * backoff, when the browser comes back online, or when the page is hidden.
  */
 (function (window) {
     "use strict";

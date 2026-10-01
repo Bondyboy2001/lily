@@ -1,5 +1,7 @@
 """Shelf CRUD/privacy and simple search, through the real Flask routes."""
 
+import sqlite3
+
 import pytest
 
 from tests.unit.lily_env import lily_env, ADMIN_PASSWORD
@@ -136,3 +138,55 @@ def test_simple_search_finds_titles_and_survives_hostile_input(env):
         assert r.status_code == 200
         assert "<script>alert(1)</script>" not in r.get_data(as_text=True)
     assert admin.get("/search").status_code == 200  # empty query renders the search form
+
+
+def _search_html(client, query):
+    return client.get("/search", query_string={"query": query}, follow_redirects=True).get_data(as_text=True)
+
+
+def test_simple_search_folds_accents_and_matches_each_word_against_any_author(env):
+    admin = _client(env, env.admin().name, ADMIN_PASSWORD)
+    env.add_book("Café Society", author="Ann Lee", tags=("Ångström",))
+    env.add_book("Plain Book", author="Bob Stone")
+    for query in ("cafe", "CAFÉ", "angstrom"):
+        html = _search_html(admin, query)
+        assert "Café Society" in html and "Plain Book" not in html, query
+
+    # a second author on the same book: each search word may match a different author
+    con = sqlite3.connect(env.library_dir / "metadata.db")
+    con.execute("INSERT INTO authors (name, sort) VALUES ('Zed Quill', 'Quill, Zed')")
+    con.execute("INSERT INTO books_authors_link (book, author) SELECT b.id, a.id FROM books b, authors a "
+                "WHERE b.title='Plain Book' AND a.name='Zed Quill'")
+    con.commit()
+    con.close()
+    html = _search_html(admin, "stone quill")
+    assert "Plain Book" in html and "Café Society" not in html
+
+
+def test_simple_search_statement_count_does_not_grow_with_matches(env):
+    from sqlalchemy import event
+    from cps import db
+
+    admin = _client(env, env.admin().name, ADMIN_PASSWORD)
+
+    def statements_for(query):
+        seen = []
+
+        def record(conn, cursor, statement, *args):
+            seen.append(statement)
+        event.listen(db.CalibreDB.engine, "before_cursor_execute", record)
+        try:
+            assert admin.get("/search", query_string={"query": query}, follow_redirects=True).status_code == 200
+        finally:
+            event.remove(db.CalibreDB.engine, "before_cursor_execute", record)
+        return seen
+
+    env.add_book("Plain Book", author="Bob Stone")
+    few = statements_for("Plain")
+    for i in range(12):
+        env.add_book(f"Plain Extra {i}", author=f"Writer {i}")
+    many = statements_for("Plain")
+    assert len(many) == len(few), many
+    page_queries = [s for s in many if s.lstrip().startswith("SELECT books.id AS books_id")]
+    assert page_queries and all("LIMIT" in s for s in page_queries), page_queries
+    assert any("count(*)" in s for s in many)

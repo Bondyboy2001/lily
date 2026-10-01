@@ -140,6 +140,19 @@ def _m1_settings_page_defaults(cur):
 MIGRATIONS: list = [(1, "always detect duplicates, no Hardcover auto-fetch", _m1_settings_page_defaults)]
 SCHEMA_MIGRATIONS_TABLE = "cwa_schema_migrations"
 
+# Statistics older than this are pruned (CWA_DB.prune_old_stats, run by the nightly clean-up).
+STATS_RETENTION_DAYS = 365
+STATS_RETENTION_TABLES = ("cwa_user_activity", "cwa_enforcement", "cwa_import")
+STATS_PRUNE_BATCH = 1000  # rows per transaction; keeps each write lock short (~70 ms on a dev machine)
+
+
+def stats_retention_days() -> int:
+    """Retention for statistics, from LILY_STATS_RETENTION_DAYS (0 = keep forever)."""
+    try:
+        return max(0, int(os.environ.get("LILY_STATS_RETENTION_DAYS", STATS_RETENTION_DAYS)))
+    except ValueError:
+        return STATS_RETENTION_DAYS
+
 
 class CWA_DB(CWAStatsQueries):
     def __init__(self, verbose=False):
@@ -286,11 +299,6 @@ class CWA_DB(CWAStatsQueries):
             return [int(user_id)]
         except (TypeError, ValueError):
             return []
-
-
-    def _has_user_filter(self, user_id) -> bool:
-        """Return True when a valid user filter is provided."""
-        return len(self._normalize_user_ids(user_id)) > 0
 
 
     def _build_user_filter(self, user_id) -> str:
@@ -680,7 +688,7 @@ class CWA_DB(CWAStatsQueries):
                 cwa_settings[key] = default_value
 
         # Define which settings should remain as integers (not converted to boolean)
-        integer_settings = ['ingest_timeout_minutes', 'ingest_stale_temp_minutes', 'ingest_stale_temp_interval', 'auto_send_delay_minutes', 'hardcover_auto_fetch_batch_size', 'hardcover_auto_fetch_schedule_hour', 'duplicate_scan_hour', 'duplicate_scan_chunk_size', 'duplicate_scan_debounce_seconds', 'duplicate_auto_resolve_cooldown_minutes', 'archived_cleanup_schedule_hour', 'cover_download_max_mb', 'db_backup_keep_count']
+        integer_settings = ['ingest_timeout_minutes', 'ingest_stale_temp_minutes', 'ingest_stale_temp_interval', 'hardcover_auto_fetch_batch_size', 'hardcover_auto_fetch_schedule_hour', 'duplicate_scan_hour', 'duplicate_scan_chunk_size', 'duplicate_scan_debounce_seconds', 'duplicate_auto_resolve_cooldown_minutes', 'archived_cleanup_schedule_hour', 'cover_download_max_mb', 'db_backup_keep_count']
 
         # Define which settings should remain as floats (not converted to boolean)
         float_settings = ['hardcover_auto_fetch_min_confidence', 'hardcover_auto_fetch_rate_limit']
@@ -743,49 +751,55 @@ class CWA_DB(CWAStatsQueries):
 
 
     def enforce_show(self, paths: bool, verbose: bool, web_ui=False):
-        results_no_path = self.cur.execute("SELECT timestamp, book_id, book_title, author, trigger_type FROM cwa_enforcement ORDER BY timestamp DESC;").fetchall()
-        results_with_path = self.cur.execute("SELECT timestamp, book_id, file_path FROM cwa_enforcement ORDER BY timestamp DESC;").fetchall()
         if paths:
-            results = results_with_path
+            columns = "timestamp, book_id, file_path"
             headers = ["Timestamp", "Book ID", "Book Title", "Book Author", "Trigger Type"]
         else:
-            results = results_no_path
+            columns = "timestamp, book_id, book_title, author, trigger_type"
             headers = ["Timestamp","Book ID", "Filepath"]
-
-        if verbose:
-            results.reverse()
-            if web_ui:
-                return results
-            else:
-                print(f"\n{tabulate(results, headers=headers, tablefmt='rounded_grid')}\n")
-        else:
-            newest_ten = []
-            x = 0
-            for result in results:
-                newest_ten.insert(0, result)
-                x += 1
-                if x == 10:
-                    break
-            if web_ui:
-                return newest_ten
-            else:
-                print(f"\n{tabulate(newest_ten, headers=headers, tablefmt='rounded_grid')}\n")
+        # Oldest first; without verbose only the newest ten rows are read.
+        limit = "" if verbose else " LIMIT 10"
+        results = self.cur.execute(f"SELECT {columns} FROM cwa_enforcement ORDER BY timestamp DESC{limit};").fetchall()
+        results.reverse()
+        if web_ui:
+            return results
+        print(f"\n{tabulate(results, headers=headers, tablefmt='rounded_grid')}\n")
 
 
     def get_import_history(self, verbose: bool):
-        results = self.cur.execute("SELECT timestamp, filename, original_backed_up FROM cwa_import ORDER BY timestamp DESC;").fetchall()
-        if verbose:
-            results.reverse()
-            return results
-        else:
-            newest_ten = []
-            x = 0
-            for result in results:
-                newest_ten.insert(0, result)
-                x += 1
-                if x == 10:
-                    break
-            return newest_ten
+        # Oldest first; without verbose only the newest ten rows are read.
+        limit = "" if verbose else " LIMIT 10"
+        results = self.cur.execute(
+            f"SELECT timestamp, filename, original_backed_up FROM cwa_import ORDER BY timestamp DESC{limit};").fetchall()
+        results.reverse()
+        return results
+
+
+    def prune_old_stats(self, days: int | None = None) -> dict[str, int]:
+        """Deletes statistics rows older than ``days`` (default STATS_RETENTION_DAYS, env
+        LILY_STATS_RETENTION_DAYS; 0 keeps everything) from the activity, enforcement and
+        import logs, then lets SQLite refresh its query-planner statistics."""
+        if days is None:
+            days = stats_retention_days()
+        deleted = {}
+        if days > 0:
+            cutoff = f"-{int(days)} days"
+            for table in STATS_RETENTION_TABLES:
+                deleted[table] = 0
+                # Small transactions: the web app writes activity rows while this runs.
+                while True:
+                    self.cur.execute(
+                        f"DELETE FROM {table} WHERE id IN (SELECT id FROM {table} "
+                        f"WHERE timestamp < datetime('now', ?) LIMIT ?)", (cutoff, STATS_PRUNE_BATCH))
+                    self.con.commit()
+                    deleted[table] += self.cur.rowcount
+                    if self.cur.rowcount < STATS_PRUNE_BATCH:
+                        break
+        try:
+            self.cur.execute("PRAGMA optimize")
+        except sqlError as e:
+            print(f"[cwa-db] PRAGMA optimize failed: {e}", flush=True)
+        return deleted
 
 
     def import_add_entry(self, filename, original_backed_up):

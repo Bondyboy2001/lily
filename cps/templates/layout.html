@@ -88,7 +88,7 @@
           <form class="lily-search" role="search" action="{{url_for('search.simple_search')}}" method="GET">
             <label for="query" class="sr-only">{{_('Search')}}</label>
             <input type="search" class="form-control" id="query" name="query" placeholder="{{_('Search Library')}}" value="{{searchterm}}"
-                   autocomplete="off" data-suggest-url="{{url_for('web.get_book_titles_json')}}">
+                   autocomplete="off" data-suggest-url="{{url_for('web.get_book_titles_json')}}" data-label-authors="{{_('Authors')}}">
             <button type="submit" id="query_submit" class="sr-only">{{_('Search')}}</button>
           </form>
           <a href="{{url_for('search.advanced_search')}}" id="advanced_search" class="icon-btn" title="{{_('Advanced Search')}}" aria-label="{{_('Advanced Search')}}"><span class="glyphicon glyphicon-filter" aria-hidden="true"></span></a>
@@ -136,6 +136,27 @@
     {# One live region for every notice: layout-rendered ones and those lily.js adds later.
        Errors also carry role=alert so they interrupt. #}
     <div id="messageContainer" class="lily-flashes" role="status" aria-live="polite">
+    {# Admins only: background jobs (backups, mirror, ...) that failed or stopped succeeding #}
+    {% if job_problems %}
+      <div class="row-fluid">
+        <div id="job_status_warning" class="alert alert-warning lily-job-warning" role="alert">
+          <button type="button" class="close" data-dismiss="alert" aria-label="{{_('Close')}}"><span aria-hidden="true">&times;</span></button>
+          <strong>{{ _('A background job needs attention.') }}</strong>
+          {% for p in job_problems %}
+          <div>
+            {%- if p.state == 'failed' -%}
+              {{ _('%(job)s failed at %(time)s', job=_(p.label), time=p.last_error_at.astimezone().strftime('%Y-%m-%d %H:%M')) }}{% if p.last_error %}: {{ p.last_error|truncate(200) }}{% endif %}
+            {%- elif p.last_success -%}
+              {{ _('%(job)s has not succeeded since %(time)s', job=_(p.label), time=p.last_success.astimezone().strftime('%Y-%m-%d %H:%M')) }}
+            {%- else -%}
+              {{ _('%(job)s has never succeeded', job=_(p.label)) }}
+            {%- endif -%}
+          </div>
+          {% endfor %}
+          <a href="{{ url_for('logs.show_logs') }}">{{ _('Logs') }}</a>
+        </div>
+      </div>
+    {% endif %}
     {% for category, text in get_flashed_messages(with_categories=True) %}
       {% if category == "error" %}
       <div class="row-fluid">
@@ -280,7 +301,7 @@
     <div id="duplicate-notification-backdrop" class="duplicate-notification-backdrop"></div>
     <div id="duplicate-notification-modal" class="duplicate-notification-modal" tabindex="-1" role="dialog" aria-labelledby="duplicate-notification-title">
       <div class="duplicate-notification-header">
-        <button id="duplicate-notification-close" class="duplicate-notification-close" aria-label="{{_('Close')}}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg></button>
+        <button type="button" id="duplicate-notification-close" class="duplicate-notification-close" aria-label="{{_('Close')}}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg></button>
         <h2 id="duplicate-notification-title">{{_('Duplicate Books Detected')}}</h2>
         <p>{{_('You have unresolved duplicate books in your library')}}</p>
       </div>
@@ -294,8 +315,9 @@
         </ul>
       </div>
       <div class="duplicate-notification-footer">
-        <button id="duplicate-notification-remind" class="duplicate-notification-btn duplicate-notification-btn-secondary">
-          {{_('Remind Me Later')}}
+        <button type="button" id="duplicate-notification-remind" class="duplicate-notification-btn duplicate-notification-btn-secondary"
+                title="{{_('Hide this for 7 days; the sidebar count stays')}}">
+          {{_('Remind me in a week')}}
         </button>
         <a href="{{ url_for('duplicates.show_duplicates') }}" class="duplicate-notification-btn duplicate-notification-btn-primary">
           {{_('View & Resolve Duplicates')}}

@@ -1,6 +1,7 @@
 """Failed-imports page: listing, retry back into ingest, delete, and name safety."""
 
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,45 @@ def test_original_name_strips_timestamp_only():
 
 
 @pytest.mark.unit
+def test_original_name_strips_service_reason_tags():
+    assert mod.original_name("20260101_030000_safety_timeout_Book.epub") == "Book.epub"
+    assert mod.original_name("20260101_030000_busy_retries_exhausted_Book.epub") == "Book.epub"
+    assert mod.original_name("20260101_030000_incomplete_timeout_Book.epub") == "Book.epub"
+    # Only known tags: a title that merely starts with a word and an underscore is kept
+    assert mod.original_name("20260101_030000_my_Book.epub") == "my_Book.epub"
+
+
+@pytest.mark.unit
+def test_retry_of_old_failed_archive_retries_each_book(dirs):
+    failed, ingest = dirs
+    (failed / "20260102_010000_Other.pdf").write_bytes(b"clash")  # a name the archive also holds
+    archive = failed / "2026-01-02-failed.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        # cwa-auto-zipper stored the absolute paths
+        zf.writestr("config/processed_books/failed/20260102_010000_Other.pdf", b"pdf")
+        zf.writestr("config/processed_books/failed/20260102_010001_safety_timeout_Third.epub", b"epub")
+        zf.writestr("config/processed_books/failed/", b"")
+    dests = mod.retry_failed(str(failed), str(ingest), archive.name)
+    assert sorted(Path(d).name for d in dests) == ["Other.pdf", "Third.epub"]
+    assert (ingest / "Other.pdf").read_bytes() == b"pdf"
+    assert (ingest / "Third.epub").read_bytes() == b"epub"
+    assert not archive.exists()
+    # Unrelated failed files are untouched
+    assert (failed / "20260102_010000_Other.pdf").read_bytes() == b"clash"
+    assert (failed / "20260101_030000_Book.epub").exists()
+
+
+@pytest.mark.unit
+def test_unreadable_failed_archive_is_kept(dirs):
+    failed, ingest = dirs
+    archive = failed / "2026-01-02-failed.zip"
+    archive.write_bytes(b"not a zip")
+    with pytest.raises(OSError):
+        mod.retry_failed(str(failed), str(ingest), archive.name)
+    assert archive.exists() and list(ingest.iterdir()) == []
+
+
+@pytest.mark.unit
 def test_list_failed_reports_files_and_tolerates_missing_dir(dirs, tmp_path):
     failed, _ = dirs
     (failed / ".hidden").write_text("x")
@@ -39,7 +79,7 @@ def test_list_failed_reports_files_and_tolerates_missing_dir(dirs, tmp_path):
 def test_retry_moves_back_under_original_name_without_overwriting(dirs):
     failed, ingest = dirs
     (ingest / "Book.epub").write_text("already here")
-    dest = mod.retry_failed(str(failed), str(ingest), "20260101_030000_Book.epub")
+    (dest,) = mod.retry_failed(str(failed), str(ingest), "20260101_030000_Book.epub")
     assert Path(dest).name == "Book_1.epub" and Path(dest).read_bytes() == b"abc"
     assert (ingest / "Book.epub").read_text() == "already here"
     assert not (failed / "20260101_030000_Book.epub").exists()

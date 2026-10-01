@@ -10,6 +10,9 @@
   font-style: normal;
 }
 
+/* The sidebar's width, which is also how far the page slides over when it opens. */
+:root { --reader-sidebar: 320px; }
+
 body {
   background: #4e4e4e;
   overflow: hidden;
@@ -151,8 +154,7 @@ body {
   background: #6b6b6b;
   position: absolute;
   top: 0;
-  min-width: 300px;
-  width: 25%;
+  width: var(--reader-sidebar);
   height: 100%;
   -webkit-transition: -webkit-transform 0.5s;
   -moz-transition: -moz-transform 0.5s;
@@ -161,14 +163,12 @@ body {
 }
 
 #main.closed {
-  /* left: 300px; */
-  -webkit-transform: translate(300px, 0);
-  -moz-transform: translate(300px, 0);
-  -ms-transform: translate(300px, 0);
+  -webkit-transform: translate(var(--reader-sidebar), 0);
+  transform: translate(var(--reader-sidebar), 0);
 }
 
 #main.single {
-  width: 75%;
+  width: calc(100% - var(--reader-sidebar));
 }
 
 #main.single #viewer {
@@ -270,8 +270,7 @@ input:-moz-placeholder { color: #454545; }
 #bookmarksView {
   overflow-x: hidden;
   overflow-y: hidden;
-  min-width: 300px;
-  width: 25%;
+  width: var(--reader-sidebar);
   height: 100%;
   visibility: hidden;
   -webkit-transition: visibility 0s ease 0.5s;
@@ -389,7 +388,7 @@ input:-moz-placeholder { color: #454545; }
 }
 
 .view {
-  width: 300px;
+  width: var(--reader-sidebar);
   height: 100%;
   display: none;
   padding-top: 50px;
@@ -577,8 +576,8 @@ input:-moz-placeholder { color: #454545; }
 }
 
 .md-content .themes button.darkTheme {
-  background-color: #202124;
-  color: white;
+  background-color: #1A1B26;
+  color: #C8D1F5;
 }
 
 .md-content .themes button.whiteTheme {
@@ -634,7 +633,16 @@ input:-moz-placeholder { color: #454545; }
   line-height: inherit;
 }
 
-/* Page geometry (all screen sizes) lives in lily-reader.css. */
+/* Page geometry (all screen sizes) lives in lily-reader.css. Phones keep the sidebar narrower,
+   and the title bar (52px) and progress line (28px) grow by the safe-area insets when the page
+   runs under a notch or home indicator (viewport-fit=cover); lily-reader.css reads these. */
+@media only screen and (max-width: 550px) {
+  :root {
+    --reader-sidebar: min(85vw, 320px);
+    --reader-top: calc(52px + env(safe-area-inset-top, 0px));
+    --reader-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+}
 
 [class^="icon-"]::before,
 [class*=" icon-"]::before {

@@ -71,7 +71,7 @@
           <span class="glyphicon glyphicon-warning-sign dup-notice-icon" aria-hidden="true"></span>
           <div>
             <strong>{{_('Warning:')}}</strong>
-            {{_('This will delete books. Recovery copies are archived for restore, and original files will also be backed up to')}}
+            {{_('Removed copies are moved to the Trash, where an admin can restore them. A second copy is kept in')}}
             <code class="dup-path">/config/processed_books/duplicate_resolutions/</code>
           </div>
         </div>
@@ -173,9 +173,9 @@
         <h4 class="modal-title" id="executeResolutionLabel">{{_('Execute Auto-Resolution')}}</h4>
       </div>
       <div class="modal-body">
-        <p>{{_('Lily will resolve duplicate groups using the selected strategy and delete duplicate books. Recovery copies are archived for restore.')}}</p>
+        <p>{{_('Lily will resolve duplicate groups using the selected strategy and move the other copies to the Trash. Copies someone is reading, has shelved or marked read are kept in preference to the others.')}}</p>
         <p class="strategy-summary">{{_('Selected strategy:')}} <strong id="execute_resolution_strategy_name"></strong></p>
-        <p class="danger-note">{{_('Deleted books leave the library immediately; an administrator can restore them from Book Recovery.')}}</p>
+        <p class="danger-note">{{_('Restore mistakes from Settings, Trash.')}}</p>
       </div>
       <div class="modal-footer">
         <button id="execute_resolution_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
@@ -193,9 +193,9 @@
         <h4 class="modal-title" id="deleteSelectedLabel">{{_('Are You Sure?')}}</h4>
       </div>
       <div class="modal-body">
-        <p>{{_('The following books will be deleted (recovery copies are kept):')}}</p>
+        <p>{{_('The following books will be moved to the Trash:')}}</p>
         <div id="display-delete-selected-books" class="dup-modal-list"></div>
-        <p class="danger-note">{{_('Deleted books leave the library immediately; an administrator can restore them from Book Recovery.')}}</p>
+        <p class="danger-note">{{_('Restore mistakes from Settings, Trash.')}}</p>
       </div>
       <div class="modal-footer">
         <button id="delete_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>

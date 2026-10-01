@@ -136,14 +136,8 @@
       });
     });
 
-    // Quick actions under grid covers (image.html cover_actions).
-    $(document).on("click", ".lily-cover-actions .lily-read-now", function () {
-      var url = this.getAttribute("data-reader-url");
-      if (url) {
-        window.open(url, "_blank", "noopener");
-      }
-    });
-
+    // Quick actions under grid covers (image.html cover_actions). Read (.lily-read-now) is a
+    // plain link to the best readable format, opened in this tab, so it needs no script.
     $(document).on("click", ".lily-cover-actions .lily-toggle-read", function () {
       var $btn = $(this);
       var $book = $btn.closest(".lily-book");
@@ -168,6 +162,71 @@
         flash((xhr.responseJSON && xhr.responseJSON.message) || "Could not change the read status. Try again.", "danger");
       }).always(function () {
         $btn.removeClass("is-busy");
+      });
+    });
+
+    // One-tap shelves (image.html shelf_menu, on covers and the book page). The menu is filled
+    // from /shelf/book/<id> each time it opens; picking a shelf adds the book or takes it off.
+    // "Want to read" has no shelf id until it is first used; the server then creates it.
+    function shelfText($list, key, name) {
+      return String($list.attr("data-" + key) || "").replace("SHELF", name);
+    }
+
+    function fillShelfMenu($list, bookId, shelves) {
+      $list.empty();
+      shelves.forEach(function (shelf) {
+        var $item = $("<a href='#' role='menuitemcheckbox' class='lily-shelf-item'></a>").attr({
+          "aria-checked": shelf.in_shelf ? "true" : "false",
+          "data-shelf-id": shelf.id || "",
+          "data-book-id": bookId
+        });
+        $("<span class='glyphicon glyphicon-ok' aria-hidden='true'></span>").appendTo($item);
+        $("<span class='lily-shelf-name'></span>").text(shelf.name).appendTo($item);
+        $("<li></li>").append($item).appendTo($list);
+      });
+      $("<li class='divider' role='separator'></li>").appendTo($list);
+      $("<li></li>").append(
+        $("<a role='menuitem'></a>").attr("href", $list.attr("data-new-url")).text($list.attr("data-label-new"))
+      ).appendTo($list);
+    }
+
+    function shelfMenuMessage($list, text) {
+      $list.empty().append($("<li class='disabled'></li>").append($("<a role='menuitem' aria-disabled='true'></a>").text(text)));
+    }
+
+    $(document).on("show.bs.dropdown", ".lily-shelf-menu", function () {
+      var $list = $(this).find(".lily-shelf-list");
+      var bookId = $(this).find(".lily-shelf-btn").attr("data-book-id");
+      shelfMenuMessage($list, $list.attr("data-label-loading"));
+      $.ajax({ url: root + "/shelf/book/" + bookId, dataType: "json" }).done(function (data) {
+        fillShelfMenu($list, bookId, (data && data.shelves) || []);
+      }).fail(function () {
+        shelfMenuMessage($list, $list.attr("data-label-error"));
+      });
+    });
+
+    $(document).on("click", ".lily-shelf-item", function (e) {
+      e.preventDefault();
+      var $item = $(this);
+      var $list = $item.closest(".lily-shelf-list");
+      var bookId = $item.attr("data-book-id");
+      var shelfId = $item.attr("data-shelf-id");
+      var adding = $item.attr("aria-checked") !== "true";
+      var name = $item.find(".lily-shelf-name").text();
+      var url = adding
+        ? root + "/shelf/add/" + (shelfId || "want-to-read") + "/" + bookId
+        : root + "/shelf/remove/" + shelfId + "/" + bookId;
+      $.ajax({
+        url: url,
+        type: "POST",
+        dataType: "json",
+        headers: { "X-CSRFToken": csrfToken(), "X-Requested-With": "XMLHttpRequest" }
+      }).done(function (data) {
+        $item.attr("aria-checked", adding ? "true" : "false");
+        if (data && data.shelf_id) { $item.attr("data-shelf-id", data.shelf_id); }
+        flash(shelfText($list, adding ? "label-added" : "label-removed", name), "success");
+      }).fail(function (xhr) {
+        flash((xhr.responseJSON && xhr.responseJSON.message) || $list.attr("data-label-error"), "danger");
       });
     });
   });
@@ -521,30 +580,56 @@ window.lilyToggleSortDir = function (btn) {
 })();
 
 /*
- * Top bar search: suggest matching books while typing. The endpoint applies the same
- * visibility rules as the library lists, so nothing hidden is ever suggested.
+ * Top bar search: suggest matching books, then authors, while typing. The endpoint applies the
+ * same visibility rules as the library lists, so nothing hidden is ever suggested. Picking a
+ * suggestion opens that book or author; Enter on the text still runs a full search.
  * Markup: layout.html (#query + data-suggest-url); menu look: lily-library.css.
  */
 (function ($) {
   "use strict";
-  if (!$ || !$.fn.typeahead || !window.Bloodhound) { return; }
+  if (!$ || !$.fn.typeahead) { return; }
+
+  var MIN_LENGTH = 2;
+  var WAIT_MS = 200;
 
   $(function () {
     var input = document.getElementById("query");
     var suggestUrl = input && input.getAttribute("data-suggest-url");
     if (!suggestUrl) { return; }
 
-    var books = new Bloodhound({
-      datumTokenizer: Bloodhound.tokenizers.obj.whitespace("name"),
-      queryTokenizer: Bloodhound.tokenizers.whitespace,
-      remote: {url: suggestUrl + "?q=%QUERY", wildcard: "%QUERY"}
-    });
+    // One request per query, shared by the two groups, sent once typing pauses.
+    var last = { query: null, promise: null };
+    var timer = null;
+    function suggestions(query) {
+      if (last.query !== query) {
+        var deferred = $.Deferred();
+        last = { query: query, promise: deferred.promise() };
+        clearTimeout(timer);
+        timer = setTimeout(function () {
+          $.getJSON(suggestUrl, { q: query }).done(deferred.resolve).fail(function () { deferred.resolve([]); });
+        }, WAIT_MS);
+      }
+      return last.promise;
+    }
 
-    $(input).typeahead({hint: false, minLength: 2}, {
+    function source(type) {
+      return function (query, sync, async) {
+        suggestions(query).done(function (items) {
+          async((items || []).filter(function (item) { return (item.type || "book") === type; }));
+        });
+      };
+    }
+
+    function header(label) {
+      return function () { return $("<div>").addClass("tt-header").text(label)[0].outerHTML; };
+    }
+
+    $(input).typeahead({hint: false, minLength: MIN_LENGTH}, {
       name: "books",
       display: "name",
       limit: 8,
-      source: books,
+      async: true,
+      source: source("book"),
       templates: {
         // Built as DOM nodes, so titles and authors are escaped rather than injected as HTML.
         suggestion: function (book) {
@@ -560,12 +645,29 @@ window.lilyToggleSortDir = function (btn) {
           return $item;
         }
       }
+    }, {
+      name: "authors",
+      display: "name",
+      limit: 4,
+      async: true,
+      source: source("author"),
+      templates: {
+        header: header(input.getAttribute("data-label-authors") || "Authors"),
+        suggestion: function (author) {
+          var $item = $("<div>").addClass("tt-book tt-author-item");
+          $("<span class='glyphicon glyphicon-user tt-icon' aria-hidden='true'></span>").appendTo($item);
+          $("<span>").addClass("tt-title").text(author.name).appendTo($item);
+          return $item;
+        }
+      }
     });
 
-    // The box is a search form, so picking a suggestion runs that search.
-    $(input).on("typeahead:select", function (event, book) {
-      if (book && book.url) {
-        window.location.assign(book.url);
+    // A suggestion opens its book or author page; without a url (an older server) it searches.
+    $(input).on("typeahead:select", function (e, item) {
+      if (item && item.url) {
+        window.location.href = item.url;
+      } else {
+        $(this).closest("form").trigger("submit");
       }
     });
   });

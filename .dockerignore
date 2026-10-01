@@ -11,7 +11,6 @@ LICENSE
 Dockerfile
 .dockerignore
 .history
-docker-compose.yml.dev
 cwa-wiki
 .devcontainer
 
@@ -28,18 +27,23 @@ venv/
 **/__pycache__/
 **/*.pyc
 .ruff_cache/
-docs/
+.mypy_cache/
 .playwright-mcp/
 .superpowers/
 .claude/
+.commandcode/
+**/.DS_Store
 docker-compose.local.yml
+
+# State a local run leaves in the checkout: encryption key, migration markers
+**/.key
+.cwa_migrations/
+.lily_sidebar_trimmed
 
 # Docs, scratch data and caches never needed at runtime
 docs/
 private/
 *.db
-# Local Fernet key left in the tree by a dev run — never bake it into the image
-.key
-**/__pycache__/
-*.pyc
 messages.pot
+# Compiled translations are rebuilt in the image (scripts/setup-cwa.sh)
+**/messages.mo

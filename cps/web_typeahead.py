@@ -16,7 +16,7 @@ from flask_babel import get_locale
 from sqlalchemy.sql.expression import func, not_, or_
 
 from . import isoLanguages
-from . import db, config, app
+from . import db
 from . import calibre_db
 from .helper import tags_filters
 from .usermanagement import login_required_if_no_ano
@@ -39,38 +39,6 @@ sql_version = importlib.metadata.version("sqlalchemy")
 sqlalchemy_version2 = ([int(x) for x in sql_version.split('.')] >= [2, 0, 0])
 
 _start_time = time.time()
-
-# Pages whose scripts build functions from strings (underscore templates in the metadata
-# search, the in-browser readers). Everything else runs without 'unsafe-eval'.
-_EVAL_ENDPOINTS = frozenset({"web.read_book", "edit-book.show_edit_book"})
-
-
-@app.after_request
-def add_security_headers(resp):
-    default_src = ([host.strip() for host in config.config_trustedhosts.split(',') if host] +
-                   ["'self'", "'unsafe-inline'"])
-    if request.endpoint in _EVAL_ENDPOINTS:
-        default_src.append("'unsafe-eval'")
-    csp = "default-src " + ' '.join(default_src)
-    if request.endpoint == "web.read_book" and config.config_use_google_drive:
-        csp +=" blob: "
-    csp += "; font-src 'self' data:"
-    if request.endpoint == "web.read_book":
-        csp += " blob: "
-    csp += "; img-src 'self'"
-    csp += " data:"
-    if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
-        csp += " *"
-    if request.endpoint == "web.read_book":
-        csp += " blob: ; style-src-elem 'self' blob: 'unsafe-inline'"
-    csp += "; object-src 'none';"
-    resp.headers['Content-Security-Policy'] = csp
-    resp.headers['X-Content-Type-Options'] = 'nosniff'
-    resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    resp.headers['Referrer-Policy'] = 'same-origin'
-    resp.headers['Strict-Transport-Security'] = 'max-age=31536000'
-    return resp
-
 
 from .web import web
 
@@ -116,28 +84,50 @@ def get_languages_json():
     return json_dumps
 
 
+SUGGEST_MIN_LENGTH = 2
+SUGGEST_BOOKS = 8
+SUGGEST_AUTHORS = 4
+
+
+def _like_pattern(query):
+    """%query% for LIKE, with the user's own % and _ matched literally."""
+    return "%" + query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+
+
 @web.route("/get_book_titles_json", methods=['GET'])
 @login_required_if_no_ano
 def get_book_titles_json():
-    # Suggestions for the top bar search box: books whose title or author matches.
-    # common_filters() keeps hidden/archived books out of the suggestions, exactly as the lists do.
+    """Suggestions for the top bar search box: up to 8 books whose title or author matches, then
+    up to 4 authors. Each item has a `type` ("book" or "author") and the `url` picking it opens.
+
+    common_filters() keeps hidden/archived books out, exactly as the lists do, and an author is
+    only offered when one of their books is visible. Both are small LIMITed queries of their own,
+    so typing never runs the full search."""
     query = strip_whitespaces(request.args.get('q') or '')
-    if len(query) < 2:
+    if len(query) < SUGGEST_MIN_LENGTH:
         return json.dumps([])
-    pattern = "%" + query + "%"
+    pattern = _like_pattern(query)
     books = calibre_db.session.query(db.Books) \
         .filter(calibre_db.common_filters()) \
-        .filter(or_(db.Books.title.ilike(pattern),
-                    db.Books.authors.any(db.Authors.name.ilike(pattern)))) \
-        .order_by(func.lower(db.Books.title)).limit(8).all()
-    # Each suggestion carries its small cover thumbnail, cache-busted like the library grid.
-    return json.dumps([dict(name=book.title,
-                            id=book.id,
-                            url=url_for('web.show_book', book_id=book.id),
-                            author=" & ".join(a.name.replace("|", ",") for a in book.authors),
-                            cover=url_for('web.get_cover', book_id=book.id, resolution='sm',
-                                          c=str(int(book.last_modified.timestamp()))))
-                       for book in books])
+        .filter(or_(db.Books.title.ilike(pattern, escape="\\"),
+                    db.Books.authors.any(db.Authors.name.ilike(pattern, escape="\\")))) \
+        .order_by(db.Books.sort.collate('NOCASE')).limit(SUGGEST_BOOKS).all()
+    # Each book carries its small cover thumbnail, cache-busted like the library grid.
+    items = [dict(type="book", id=book.id, name=book.title,
+                  url=url_for('web.show_book', book_id=book.id),
+                  author=" & ".join(a.name.replace("|", ",") for a in book.authors),
+                  cover=url_for('web.get_cover', book_id=book.id, resolution='sm',
+                                c=str(int(book.last_modified.timestamp()))))
+             for book in books]
+    starts = db.Authors.name.ilike(pattern[1:], escape="\\")
+    authors = calibre_db.session.query(db.Authors.id, db.Authors.name) \
+        .filter(or_(db.Authors.name.ilike(pattern, escape="\\"), db.Authors.sort.ilike(pattern, escape="\\"))) \
+        .filter(db.Authors.books.any(calibre_db.common_filters())) \
+        .order_by(starts.desc(), db.Authors.sort.collate('NOCASE')).limit(SUGGEST_AUTHORS).all()
+    items += [dict(type="author", id=author_id, name=name.replace("|", ","),
+                   url=url_for('web.books_list', data='author', sort_param='stored', book_id=author_id))
+              for author_id, name in authors]
+    return json.dumps(items)
 
 
 @web.route("/get_matching_tags", methods=['GET'])

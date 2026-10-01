@@ -7,7 +7,6 @@
 
 """The application database (app.db): users, shelves, read status, sessions, queues, and its schema migrations."""
 
-import atexit
 import os
 import sys
 import sqlite3
@@ -24,7 +23,7 @@ from sqlalchemy import create_engine, exc, exists, event, text
 from sqlalchemy import Column, ForeignKey, Index, UniqueConstraint
 from sqlalchemy import String, Integer, SmallInteger, Boolean, DateTime, Float, JSON
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy.sql.expression import func
+from sqlalchemy.sql.expression import func, or_
 try:
     # Compatibility with sqlalchemy 2.0
     from sqlalchemy.orm import declarative_base
@@ -40,6 +39,10 @@ log = logger.create()
 
 session: Session | None = None
 app_DB_path = None
+# One engine (and connection pool) per app.db, shared by the web session and every
+# background-task session; see init_db() and get_new_session_instance().
+_app_db_engine = None
+_task_session_factory = None
 Base = declarative_base()
 
 logged_in = dict()
@@ -101,11 +104,28 @@ def store_user_session():
         log.error("No user id in session")
 
 
-def delete_user_session(user_id, session_key):
+def delete_user_session(user_id, session_key, random=""):
+    """Forget one login. The random value identifies it exactly (the session key is only a
+    hash of address and browser, and changes when a remember cookie restores the login)."""
     try:
         log.debug("Deleted session_key: " + session_key)
-        session.query(User_Sessions).filter(User_Sessions.user_id == user_id,
-                                            User_Sessions.session_key == session_key).delete()
+        match = User_Sessions.session_key == session_key
+        if random:
+            match = or_(match, User_Sessions.random == random)
+        session.query(User_Sessions).filter(User_Sessions.user_id == user_id, match).delete()
+        session.commit()
+    except (exc.OperationalError, exc.InvalidRequestError) as ex:
+        session.rollback()
+        log.exception(ex)
+
+
+def delete_other_user_sessions(user_id, keep_random=""):
+    """Sign a user out everywhere except the current login (after a password or 2FA change)."""
+    try:
+        query = session.query(User_Sessions).filter(User_Sessions.user_id == user_id)
+        if keep_random:
+            query = query.filter(User_Sessions.random != keep_random)
+        query.delete()
         session.commit()
     except (exc.OperationalError, exc.InvalidRequestError) as ex:
         session.rollback()
@@ -236,7 +256,9 @@ class User(UserBase, Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(64), unique=True)
-    email = Column(String(120), unique=True, default="")
+    # Unused since e-mail was removed; kept so old app.db files still match. No default: new
+    # users store NULL, which UNIQUE allows any number of times ("" would collide).
+    email = Column(String(120), unique=True)
     role = Column(SmallInteger, default=constants.ROLE_USER)
     password = Column(String)
     shelf = relationship('Shelf', backref='user', lazy='dynamic', order_by='Shelf.name')
@@ -877,13 +899,20 @@ def _create_app_db_engine(db_path):
     return engine
 
 
-def init_db_thread():
-    global app_DB_path
-    engine = _create_app_db_engine(app_DB_path)
+def _shared_session_factory():
+    """The sessionmaker bound to the shared app.db engine (created lazily if init_db
+    has not run in this process)."""
+    global _app_db_engine, _task_session_factory
+    if _task_session_factory is None:
+        if _app_db_engine is None:
+            _app_db_engine = _create_app_db_engine(app_DB_path)
+        _task_session_factory = sessionmaker(bind=_app_db_engine)
+    return _task_session_factory
 
-    Session = scoped_session(sessionmaker())
-    Session.configure(bind=engine)
-    return Session()
+
+def init_db_thread():
+    """A plain session on the shared app.db engine, for code running in another thread."""
+    return _shared_session_factory()()
 
 
 def init_db(app_db_path):
@@ -891,8 +920,11 @@ def init_db(app_db_path):
     global session
     global app_DB_path
 
+    global _app_db_engine, _task_session_factory
     app_DB_path = app_db_path
     engine = _create_app_db_engine(app_db_path)
+    _app_db_engine = engine
+    _task_session_factory = sessionmaker(bind=engine)
 
     Session = scoped_session(sessionmaker())
     Session.configure(bind=engine)
@@ -961,21 +993,27 @@ def password_change(user_credentials=None):
 
 
 def get_new_session_instance():
-    new_engine = create_engine('sqlite:///{0}'.format(app_DB_path), echo=False,
-                               connect_args={'timeout': 30})
-    new_session = scoped_session(sessionmaker())
-    new_session.configure(bind=new_engine)
+    """A thread-scoped session registry for a background task.
 
-    atexit.register(lambda: new_session.remove() if new_session else True)
-
-    return new_session
+    Every registry shares the one app.db engine and its connection pool; creating an
+    engine per call leaked one pool (and its open SQLite handles) per task run. Callers
+    end with ``.remove()``, which closes the thread's session and returns its connection.
+    """
+    return scoped_session(_shared_session_factory())
 
 
 def dispose():
-    global session
+    global session, _app_db_engine, _task_session_factory
 
     old_session = session
     session = None
+    _task_session_factory = None
+    if _app_db_engine is not None and (old_session is None or old_session.bind is not _app_db_engine):
+        try:
+            _app_db_engine.dispose()
+        except Exception:
+            pass
+    _app_db_engine = None
     if old_session:
         try:
             old_session.close()

@@ -17,6 +17,7 @@ from flask_babel import format_date
 from .cw_login import current_user
 
 from . import constants, logger
+from .clean_html import clean_string
 
 jinjia = Blueprint('jinjia', __name__)
 log = logger.create()
@@ -57,10 +58,11 @@ _EMPTY_PARAGRAPH = re.compile(r'<p(?:\s[^>]*)?>(?:\s|&nbsp;|<br\s*/?>)*</p\s*>',
 _LINE_BREAK = re.compile(r'<br\s*/?>|</p\s*>\s*<p(?:\s[^>]*)?>', re.IGNORECASE)
 
 
-# flatten a stored description (already sanitised HTML) into one continuous paragraph
+# flatten a stored description into one continuous paragraph; it is sanitised here because
+# descriptions come from Calibre, metadata providers and uploads (see sanitize_html)
 @jinjia.app_template_filter('flatten_breaks')
 def flatten_breaks_filter(html):
-    text = _EMPTY_PARAGRAPH.sub('', html or '')
+    text = _EMPTY_PARAGRAPH.sub('', clean_string(str(html)) if html else '')
     text = _LINE_BREAK.sub(' ', text)
     return Markup(re.sub(r'\s*\n\s*', ' ', text).strip())
 
@@ -130,6 +132,15 @@ def formatfloat(value, decimals=1):
         return ''
 
 
+@jinjia.app_template_filter('sanitize_html')
+def sanitize_html(value):
+    """Book descriptions and comment columns are HTML from Calibre, metadata providers or
+    uploads; keep the formatting, drop scripts, handlers and unknown tags."""
+    if not value:
+        return ""
+    return Markup(clean_string(str(value)))
+
+
 @jinjia.app_template_filter('escapedlink')
 def escapedlink_filter(url, text):
     return "<a href='{}'>{}</a>".format(url, escape(text))
@@ -156,31 +167,37 @@ def book_last_modified(book):
     return str(int(book.last_modified.timestamp()))
 
 
+# Thumbnail resolutions with their URL names and widths. Thumbnails are 255 px tall per
+# resolution step; widths assume a 2:3 cover (170/340/680 px), the narrowest common
+# shape, so the browser never picks one that is too small for the box. With `w`
+# descriptors and the `sizes` of each context (image.html), a phone list row gets the
+# small file instead of always the largest one, as `x` descriptors gave it.
+_COVER_SRCSET_SIZES = (
+    (constants.COVER_THUMBNAIL_SMALL, 'sm'),
+    (constants.COVER_THUMBNAIL_MEDIUM, 'md'),
+    (constants.COVER_THUMBNAIL_LARGE, 'lg'),
+)
+
+
+def _thumbnail_width(resolution):
+    return int(255 * resolution * 2 / 3)
+
+
 @jinjia.app_template_filter('get_cover_srcset')
 def get_cover_srcset(book):
     srcset = list()
-    resolutions = {
-        constants.COVER_THUMBNAIL_SMALL: 'sm',
-        constants.COVER_THUMBNAIL_MEDIUM: 'md',
-        constants.COVER_THUMBNAIL_LARGE: 'lg'
-    }
-    for resolution, shortname in resolutions.items():
+    for resolution, shortname in _COVER_SRCSET_SIZES:
         url = url_for('web.get_cover', book_id=book.id, resolution=shortname, c=book_last_modified(book))
-        srcset.append(f'{url} {resolution}x')
+        srcset.append(f'{url} {_thumbnail_width(resolution)}w')
     return ', '.join(srcset)
 
 
 @jinjia.app_template_filter('get_series_srcset')
 def get_series_srcset(series):
     srcset = list()
-    resolutions = {
-        constants.COVER_THUMBNAIL_SMALL: 'sm',
-        constants.COVER_THUMBNAIL_MEDIUM: 'md',
-        constants.COVER_THUMBNAIL_LARGE: 'lg'
-    }
-    for resolution, shortname in resolutions.items():
+    for resolution, shortname in _COVER_SRCSET_SIZES:
         url = url_for('web.get_series_cover', series_id=series.id, resolution=shortname, c=cache_timestamp())
-        srcset.append(f'{url} {resolution}x')
+        srcset.append(f'{url} {_thumbnail_width(resolution)}w')
     return ', '.join(srcset)
 
 

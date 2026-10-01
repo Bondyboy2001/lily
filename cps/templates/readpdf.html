@@ -49,6 +49,12 @@ See https://github.com/adobe-type-tools/cmap-resources
         PDFViewerApplicationOptions.set('standardFontDataUrl', "{{ url_for('static', filename='standard_fonts/') }}");
         PDFViewerApplicationOptions.set('sidebarViewOnLoad', 0);
         PDFViewerApplicationOptions.set('defaultZoomValue', '150');
+        // Follow the app's Light/Dark choice (lily-theme); without one pdf.js follows the OS.
+        var lilyTheme = null;
+        try { lilyTheme = window.localStorage.getItem("lily-theme"); } catch (e) {}
+        if (lilyTheme === "light" || lilyTheme === "dark") {
+            PDFViewerApplicationOptions.set('viewerCssTheme', lilyTheme === "dark" ? 2 : 1);
+        }
         PDFViewerApplicationOptions.set('workerSrc', "{{ url_for('static', filename='js/libs/pdf.worker.mjs') }}");
         PDFViewerApplicationOptions.set('defaultUrl',"{{ url_for('web.serve_book', book_id=pdffile, book_format='pdf') }}")
     });

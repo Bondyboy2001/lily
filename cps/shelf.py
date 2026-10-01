@@ -280,6 +280,169 @@ def render_show_shelf(shelf_id, page_no, sort_param):
         return redirect(url_for("web.index"))
 
 
+# ---------------------------------------------------------------------------------------
+# One-tap shelves: the shelf menu on the book page and under covers (image.html shelf_menu,
+# lily.js), and the default "Want to read" shelf that feeds the home page's "Up next" row.
+# ---------------------------------------------------------------------------------------
+
+# The default shelf's name. It is an ordinary private shelf, found by name, and created the
+# first time a book is put on it.
+WANT_TO_READ = "Want to read"
+UP_NEXT_LIMIT = 12
+
+
+def want_to_read_shelf(user_id, create=False):
+    """The user's private "Want to read" shelf; with create=True it is made when missing."""
+    found = (ub.session.query(ub.Shelf)
+             .filter(ub.Shelf.name == WANT_TO_READ, ub.Shelf.is_public == 0, ub.Shelf.user_id == user_id)
+             .order_by(ub.Shelf.id.asc()).first())
+    if found or not create:
+        return found
+    found = ub.Shelf(name=WANT_TO_READ, is_public=0, user_id=user_id)
+    ub.session.add(found)
+    ub.session.commit()
+    log.info("Created the default shelf %r for user %s", WANT_TO_READ, user_id)
+    return found
+
+
+def editable_shelves():
+    """Shelves the current user may add books to: their own private ones, and public ones when
+    they may edit public shelves (check_shelf_edit_permissions)."""
+    owned_private = (ub.Shelf.is_public == 0) & (ub.Shelf.user_id == int(current_user.id))
+    condition = (owned_private | (ub.Shelf.is_public == 1)) if current_user.role_edit_shelfs() else owned_private
+    return ub.session.query(ub.Shelf).filter(condition).order_by(ub.Shelf.name).all()
+
+
+def _shelf_json_error(message, status):
+    return jsonify({'status': 'error', 'message': message}), status
+
+
+def _log_shelf_activity(event_type, book, shelf_name):
+    try:
+        import json
+        from scripts.cwa_db import CWA_DB
+        CWA_DB().log_activity(user_id=int(current_user.id), user_name=current_user.name, event_type=event_type,
+                              item_id=book.id, item_title=book.title,
+                              extra_data=json.dumps({'shelf_name': shelf_name}))
+    except Exception as ex:
+        log.debug("Could not log shelf activity: %s", ex)
+
+
+def _add_book_to_shelf(cur_shelf, book_id):
+    if not check_shelf_edit_permissions(cur_shelf):
+        return _shelf_json_error(_("You are not allowed to add books to this shelf"), 403)
+    book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+    if not book:
+        return _shelf_json_error(_("Book not found"), 404)
+    in_shelf = ub.session.query(ub.BookShelf).filter(ub.BookShelf.shelf == cur_shelf.id,
+                                                     ub.BookShelf.book_id == book_id).first()
+    if not in_shelf:
+        max_order = ub.session.query(func.max(ub.BookShelf.order)).filter(ub.BookShelf.shelf == cur_shelf.id).scalar()
+        cur_shelf.books.append(ub.BookShelf(shelf=cur_shelf.id, book_id=book_id, order=(max_order or 0) + 1))
+        cur_shelf.last_modified = datetime.now(timezone.utc)
+        try:
+            ub.session.commit()
+        except (OperationalError, InvalidRequestError) as ex:
+            ub.session.rollback()
+            log.error_or_exception("Settings Database error: {}".format(ex))
+            return _shelf_json_error(_("Could not change the shelf. Try again."), 500)
+        _log_shelf_activity('SHELF_ADD', book, cur_shelf.name)
+    return jsonify({'status': 'success', 'shelf_id': cur_shelf.id, 'shelf': cur_shelf.name, 'in_shelf': True})
+
+
+@shelf.route("/shelf/book/<int:book_id>")
+@user_login_required
+def book_shelves(book_id):
+    """The shelf menu for one book: "Want to read" first, then the user's other editable shelves."""
+    if not calibre_db.get_filtered_book(book_id, allow_show_archived=True):
+        return _shelf_json_error(_("Book not found"), 404)
+    shelves = editable_shelves()
+    holding = {row.shelf for row in ub.session.query(ub.BookShelf.shelf)
+               .filter(ub.BookShelf.book_id == book_id,
+                       ub.BookShelf.shelf.in_([s.id for s in shelves] or [-1]))}
+    default = want_to_read_shelf(int(current_user.id))
+    items = [{'id': default.id if default else None, 'name': WANT_TO_READ, 'default': True,
+              'in_shelf': bool(default and default.id in holding)}]
+    items += [{'id': s.id, 'name': s.name + (' ' + _('(Public)') if s.is_public else ''), 'default': False,
+               'in_shelf': s.id in holding}
+              for s in shelves if not default or s.id != default.id]
+    return jsonify({'book_id': book_id, 'shelves': items})
+
+
+@shelf.route("/shelf/add/<int:shelf_id>/<int:book_id>", methods=["POST"])
+@user_login_required
+def add_to_shelf(shelf_id, book_id):
+    cur_shelf = ub.session.query(ub.Shelf).filter(ub.Shelf.id == shelf_id).first()
+    if cur_shelf is None:
+        return _shelf_json_error(_("Shelf not found"), 404)
+    return _add_book_to_shelf(cur_shelf, book_id)
+
+
+@shelf.route("/shelf/add/want-to-read/<int:book_id>", methods=["POST"])
+@user_login_required
+def add_to_want_to_read(book_id):
+    if not calibre_db.get_filtered_book(book_id, allow_show_archived=True):
+        return _shelf_json_error(_("Book not found"), 404)
+    return _add_book_to_shelf(want_to_read_shelf(int(current_user.id), create=True), book_id)
+
+
+@shelf.route("/shelf/remove/<int:shelf_id>/<int:book_id>", methods=["POST"])
+@user_login_required
+def remove_from_shelf(shelf_id, book_id):
+    cur_shelf = ub.session.query(ub.Shelf).filter(ub.Shelf.id == shelf_id).first()
+    if cur_shelf is None:
+        return _shelf_json_error(_("Shelf not found"), 404)
+    if not check_shelf_edit_permissions(cur_shelf):
+        return _shelf_json_error(_("You are not allowed to remove books from this shelf"), 403)
+    ub.session.query(ub.BookShelf).filter(ub.BookShelf.shelf == shelf_id,
+                                          ub.BookShelf.book_id == book_id).delete()
+    cur_shelf.last_modified = datetime.now(timezone.utc)
+    try:
+        ub.session.commit()
+    except (OperationalError, InvalidRequestError) as ex:
+        ub.session.rollback()
+        log.error_or_exception("Settings Database error: {}".format(ex))
+        return _shelf_json_error(_("Could not change the shelf. Try again."), 500)
+    return jsonify({'status': 'success', 'shelf_id': cur_shelf.id, 'shelf': cur_shelf.name, 'in_shelf': False})
+
+
+def up_next_row(limit=UP_NEXT_LIMIT):
+    """The home page's "Up next" row: {'shelf_id', 'books'} from the user's "Want to read" shelf,
+    in shelf order, leaving out books already started or finished (they show under Continue
+    Reading or are done). None when the shelf does not exist yet."""
+    if current_user.is_anonymous or not current_user.is_authenticated:
+        return None
+    try:
+        default = want_to_read_shelf(int(current_user.id))
+        if not default:
+            return None
+        return {'shelf_id': default.id, 'books': _up_next_books(default.id, limit)}
+    except Exception as ex:
+        log.debug("Could not load the Up next row: %s", ex)
+        return None
+
+
+def _up_next_books(shelf_id, limit):
+    # headroom for books that are started, finished or hidden by the visibility filters
+    ids = [row.book_id for row in ub.session.query(ub.BookShelf.book_id)
+           .filter(ub.BookShelf.shelf == shelf_id)
+           .order_by(ub.BookShelf.order.asc(), ub.BookShelf.id.asc())
+           .limit(limit * 3)]
+    if not ids:
+        return []
+    started = {row.book_id for row in ub.session.query(ub.ReadBook.book_id)
+               .filter(ub.ReadBook.user_id == int(current_user.id), ub.ReadBook.book_id.in_(ids),
+                       ub.ReadBook.read_status.in_([ub.ReadBook.STATUS_IN_PROGRESS,
+                                                    ub.ReadBook.STATUS_FINISHED]))}
+    ids = [book_id for book_id in ids if book_id not in started]
+    if not ids:
+        return []
+    books = (calibre_db.session.query(db.Books).filter(db.Books.id.in_(ids))
+             .filter(calibre_db.common_filters()).all())
+    by_id = {book.id: book for book in books}
+    return [by_id[book_id] for book_id in ids if book_id in by_id][:limit]
+
+
 @shelf.route("/shelf/add_selected_to_shelf", methods=["POST"])
 @user_login_required
 def add_selected_to_shelf():

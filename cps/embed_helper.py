@@ -9,11 +9,31 @@ from uuid import uuid4
 import os
 
 from .file_helper import get_temp_dir
-from .subproc_wrapper import process_open
+from .subproc_wrapper import process_communicate
 from . import logger, config
 from .constants import SUPPORTED_CALIBRE_BINARIES
 
 log = logger.create()
+
+# Formats the metadata enforcer (scripts/cover_enforcer.py) already writes metadata into
+# whenever it changes, so a download can be served as stored.
+ENFORCED_FORMATS = ("epub", "azw3")
+
+
+def download_needs_calibre_export(book_format):
+    """Whether a download in this format needs `calibredb export` to embed current metadata.
+
+    False for EPUB/AZW3 while automatic metadata enforcement is on: the file on disk already
+    carries it, and the export (a separate calibre process, seconds on a NAS) is skipped.
+    """
+    if (book_format or "").lower() not in ENFORCED_FORMATS:
+        return True
+    try:
+        from .render_template import get_request_cwa_db
+        return not get_request_cwa_db().cwa_settings.get("auto_metadata_enforcement", 1)
+    except Exception as ex:
+        log.debug("Could not read the metadata enforcement setting: %s", ex)
+        return True
 
 
 def do_calibre_export(book_id, book_format):
@@ -29,8 +49,8 @@ def do_calibre_export(book_id, book_format):
         opf_command = [calibredb_binarypath, 'export', '--dont-write-opf', '--with-library', library_path,
                        '--to-dir', tmp_dir, '--formats', book_format, "--template", "{}".format(temp_file_name),
                        str(book_id)]
-        p = process_open(opf_command, quotes, my_env)
-        _, err = p.communicate()
+        # off the gevent hub: calibredb takes seconds and would otherwise stall every request
+        _, _, err = process_communicate(opf_command, quotes, my_env)
         if err:
             log.error('Metadata embedder encountered an error: %s', err)
 

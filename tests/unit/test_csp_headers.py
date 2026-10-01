@@ -44,3 +44,19 @@ def test_other_headers_present(client):
     assert h["Referrer-Policy"] == "same-origin"
     assert "X-XSS-Protection" not in h
     assert h["X-Content-Type-Options"] == "nosniff"
+
+
+def test_fixed_directives_on_every_page(client):
+    env, c = client
+    book = env.add_book("Fixed")
+    for path in ("/", "/login", f"/admin/book/{book}", f"/read/{book}/epub"):
+        csp = c.get(path).headers["Content-Security-Policy"]
+        for directive in ("base-uri 'self'", "form-action 'self'", "frame-ancestors 'self'", "object-src 'none'"):
+            assert directive in csp, (path, directive)
+
+
+def test_handler_is_registered_once():
+    import pathlib
+    cps_dir = pathlib.Path(__file__).resolve().parents[2] / "cps"
+    owners = [p.name for p in cps_dir.glob("*.py") if "def add_security_headers" in p.read_text()]
+    assert owners == ["security_headers.py"]

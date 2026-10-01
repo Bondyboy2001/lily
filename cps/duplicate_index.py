@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Iterable
 
 from sqlalchemy import func
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import selectinload
 
 from . import calibre_db, db, logger
 from .duplicate_rules import (
@@ -156,25 +156,56 @@ def _enabled_key_values(parts: BookKeyParts, settings):
     return values
 
 
+# Books per IN (...) query when loading many groups at once.
+GROUP_LOAD_BATCH_SIZE = 500
+# books.title is COLLATE NOCASE in Calibre's schema: ASCII-only case folding.
+_ASCII_LOWER = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
+
+
 def _book_query(book_ids=None):
+    # selectinload: one "WHERE book IN (...)" query per relationship. joinedload joined all
+    # five collections into one row set per book (formats x authors x languages x ...).
     query = (
         calibre_db.session.query(db.Books)
-        .options(joinedload(db.Books.data))
-        .options(joinedload(db.Books.authors))
-        .options(joinedload(db.Books.languages))
-        .options(joinedload(db.Books.series))
-        .options(joinedload(db.Books.publishers))
+        .options(selectinload(db.Books.data))
+        .options(selectinload(db.Books.authors))
+        .options(selectinload(db.Books.languages))
+        .options(selectinload(db.Books.series))
+        .options(selectinload(db.Books.publishers))
     )
     if book_ids is not None:
         query = query.filter(db.Books.id.in_(list(book_ids)))
     return query
 
 
-def _load_books_by_ids(book_ids=None, user_id=None):
+def _load_books_by_ids(book_ids=None, user_id=None, user_filter=None):
     query = _book_query(book_ids)
-    if user_id is not None:
-        query = query.filter(get_common_filters(user_id=user_id))
+    if user_filter is None and user_id is not None:
+        user_filter = get_common_filters(user_id=user_id)
+    if user_filter is not None:
+        query = query.filter(user_filter)
     return query.order_by(db.Books.title, db.Books.timestamp.desc()).all()
+
+
+def _load_books_for_groups(groups_book_ids, user_id=None):
+    """Load the books of many groups with a few batched IN queries (not one query per group).
+
+    Returns one list per group, in the order _load_books_by_ids would give: title, then
+    newest first. The user's visibility filter (two app.db queries) is built once.
+    """
+    all_ids = sorted({book_id for book_ids in groups_book_ids for book_id in book_ids})
+    user_filter = get_common_filters(user_id=user_id) if user_id is not None else None
+    books_by_id = {}
+    for batch_ids in _chunks(all_ids, GROUP_LOAD_BATCH_SIZE):
+        for book in _load_books_by_ids(batch_ids, user_filter=user_filter):
+            books_by_id[int(book.id)] = book
+    result = []
+    for book_ids in groups_book_ids:
+        books = [books_by_id[book_id] for book_id in book_ids if book_id in books_by_id]
+        books.sort(key=lambda book: _timestamp_or_default(book.timestamp, _AWARE_MIN), reverse=True)
+        books.sort(key=lambda book: (book.title or "").translate(_ASCII_LOWER))
+        result.append(books)
+    return result
 
 
 def _current_max_book_id():
@@ -393,10 +424,12 @@ def _group_from_books(books):
 
 
 def get_duplicate_groups_from_index(settings, include_dismissed=False, user_id=None, candidate_book_ids=None):
+    groups_book_ids = [
+        [int(book_id) for book_id in book_ids_str.split(",") if book_id]
+        for _duplicate_key, book_ids_str, _count in _duplicate_key_rows(settings, candidate_book_ids=candidate_book_ids)
+    ]
     duplicate_groups = []
-    for _duplicate_key, book_ids_str, _count in _duplicate_key_rows(settings, candidate_book_ids=candidate_book_ids):
-        book_ids = [int(book_id) for book_id in book_ids_str.split(",") if book_id]
-        books = _load_books_by_ids(book_ids, user_id=user_id)
+    for books in _load_books_for_groups(groups_book_ids, user_id=user_id):
         if len(books) < 2:
             continue
         duplicate_groups.append(_group_from_books(books))
@@ -472,6 +505,42 @@ def merge_affected_groups_into_cache(candidate_book_ids, settings):
     merged_groups.sort(key=lambda group: (group["title"].lower(), group["author"].lower()))
     _write_duplicate_cache_groups(cwa_db, merged_groups, _current_max_book_id())
     return {"updated": True, "pending": False, "merged_count": len(merged_groups)}
+
+
+def drop_books_from_duplicate_index(book_ids):
+    """Remove deleted books from the duplicate index and the cached groups, without a rescan.
+
+    Deletes their key rows, takes them out of every cached group, and drops groups left
+    with fewer than two books. The rest of the cache (scan time, pending flag, last scanned
+    id) is left as it is. Returns the number of cached groups removed.
+    """
+    book_ids = {int(book_id) for book_id in book_ids if book_id is not None}
+    if not book_ids:
+        return 0
+    delete_book_keys(book_ids)
+    cwa_db = CWA_DB()
+    cache_data = cwa_db.get_duplicate_cache()
+    if not cache_data:
+        return 0
+    cached_groups = cache_data.get("duplicate_groups", []) or []
+    kept_groups = []
+    changed = False
+    for group in cached_groups:
+        group = _serialize_group_for_cache(group)
+        remaining = [book_id for book_id in group["book_ids"] if book_id not in book_ids]
+        if len(remaining) != len(group["book_ids"]):
+            changed = True
+            if len(remaining) < 2:
+                continue
+            group.update(book_ids=remaining, count=len(remaining))
+        kept_groups.append(group)
+    if changed:
+        cwa_db.cur.execute(
+            "UPDATE cwa_duplicate_cache SET duplicate_groups_json = ?, total_count = ? WHERE id = 1",
+            (json.dumps(kept_groups), len(kept_groups)),
+        )
+        cwa_db.con.commit()
+    return len(cached_groups) - len(kept_groups)
 
 
 def mark_duplicate_index_pending(reason=None):

@@ -768,6 +768,9 @@
 
 .lp-rail-item:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: -2px; }
 
+/* Sign out posts a form (with the CSRF token); the form adds no spacing of its own */
+.lp-rail-form { margin: 0; }
+
 /* ---- Pane ---- */
 .lp-pane { min-width: 0; }
 .lp-pane.is-wide { grid-column: 2 / -1; }
@@ -1077,6 +1080,8 @@ input[type="checkbox"].lp-switch:focus-visible {
 }
 
 .lp-actions .btn { margin: 0; }
+/* A one-off action under a list (Empty Trash): in the flow, not pinned over the rows above it. */
+.lp-actions.lp-actions-inline { position: static; }
 
 /* A save bar that waits for a change: the shell arms it, and it shows once the form is edited. */
 .lp-actions.is-save.is-armed:not(.is-dirty) { display: none; }

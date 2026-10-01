@@ -13,8 +13,21 @@ See CONTRIBUTORS for full list of authors. -->
   {# Grid/List icons, pinned to the toolbar's top right #}
   {{ self.view_switch() }}
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  {{ image.list_menu(order, data, charlist|map(attribute=0)|list) }}
+  {{ image.list_menu(order, data, charlist|map(attribute=0)|list, letter, list_url, show_all) }}
 </div>
+{% if list_url %}
+{# Long lists (authors, series) show one letter at a time. Typing filters the rows on screen;
+   Enter searches every name (filter_list.js, web_lists.py). #}
+<form class="lily-list-search" role="search" method="GET" action="{{ list_url }}">
+  <label class="sr-only" for="list-search">{{ _('Filter by name') }}</label>
+  <input type="search" class="form-control" id="list-search" name="q" value="{{ search or '' }}" autocomplete="off"
+         placeholder="{{ _('Filter by name') }}" aria-describedby="list-search-hint">
+  <p class="lily-list-search-hint" id="list-search-hint">
+    {% if search %}{{ _('Names matching “%(query)s”.', query=search) }} <a href="{{ list_url }}">{{ _('Clear') }}</a>
+    {% else %}{{ _('Filters this letter as you type; press Enter to search all %(count)s.', count=total) }}{% endif %}
+  </p>
+</form>
+{% endif %}
 <div class="lily-list-columns" id="{{_(title)}}">
   {% if title == "Downloads" %}
   <h2>{{_('Books Downloaded by Users')}}</h2>
@@ -25,7 +38,7 @@ See CONTRIBUTORS for full list of authors. -->
   </div>
   <div id="second" class="lily-list">
     {% endif %}
-    <div class="row lily-list-row" id="{{_(title)}}_row" {% if entry[0].sort %}data-name="{{entry[0].name}}"{% endif %} data-id="{% if page == "authorlist" %}{{entry[0].name}}{% elif entry[0].sort %}{{entry[0].sort}}{% else %}{% if entry[0].format %}{{entry[0].format}}{% else %}{% if entry[0].rating %}{{entry[0].rating}}{% else %}{{entry[0].name}}{% endif %}{% endif %}{% endif %}">
+    <div class="row lily-list-row" id="{{_(title)}}_row" {% if entry[0].sort %}data-name="{{entry[0].name}}"{% endif %} data-id="{% if entry[0].sort %}{{entry[0].sort}}{% else %}{% if entry[0].format %}{{entry[0].format}}{% else %}{% if entry[0].rating %}{{entry[0].rating}}{% else %}{{entry[0].name}}{% endif %}{% endif %}{% endif %}">
       <a id="list_{{loop.index0}}" href="{% if entry.format %}{{url_for('web.books_list', data=data, sort_param='stored', book_id=entry.format )}}{% else %}{{url_for('web.books_list', data=data, sort_param='stored', book_id=entry[0].id )}}{% endif %}">
         {%- if entry.name -%}
         <span class="rating" title="{{ entry.name|int }} / 5">
@@ -45,7 +58,10 @@ See CONTRIBUTORS for full list of authors. -->
   {% endfor %}
   </div>
 </div>
-{% if not entries %}
+{% if not entries and search %}
+  {{ image.empty_state('glyphicon-search', _('No Names Match'), _('Check the spelling, or try part of the name.'),
+                       [(_('Show the whole list'), list_url, True)]) }}
+{% elif not entries %}
   {% set empty_heading = {'author': _('No Authors Yet'), 'series': _('No Series Yet'), 'category': _('No Categories Yet'),
                           'publisher': _('No Publishers Yet'), 'language': _('No Languages Yet'),
                           'formats': _('No File Formats Yet'), 'ratings': _('No Ratings Yet')}.get(data, _('Nothing to List Yet')) %}

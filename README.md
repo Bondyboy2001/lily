@@ -48,19 +48,18 @@ Most of these are toggleable under Settings → Import & Metadata.
 ## Install
 
 Multi-arch images (`linux/amd64`, `linux/arm64`) are published to Docker Hub as
-**[`coldestpillow/lily`](https://hub.docker.com/r/coldestpillow/lily)**.
+**[`coldestpillow/lily`](https://hub.docker.com/r/coldestpillow/lily)** (the same images are
+on GHCR as `ghcr.io/bondyboy2001/lily`). Each release is tagged `X.Y.Z`, `X.Y` and `latest`;
+pin an exact version so an upgrade only happens when you change the tag.
 
 ```bash
-git clone https://github.com/Bondyboy2001/lily.git
-cd lily
-$EDITOR docker-compose.yml    # set your timezone and bind paths
+mkdir lily && cd lily
+$EDITOR docker-compose.yml    # paste the template below; set the version, timezone and paths
 docker compose up -d
 ```
 
-`docker compose up -d` pulls `coldestpillow/lily:latest`. To build from source instead,
-uncomment `build: .` in `docker-compose.yml` and run `docker compose up -d --build`.
-
-Then open <http://localhost:8083>.
+Then open <http://localhost:8083>. To build from source instead, clone the repo, uncomment
+`build: .` in its `docker-compose.yml` and run `docker compose up -d --build`.
 
 <details>
 <summary>Full <code>docker-compose.yml</code> template</summary>
@@ -68,9 +67,8 @@ Then open <http://localhost:8083>.
 ```yaml
 services:
   lily:
-    image: coldestpillow/lily:latest
-    # Uncomment to build from source instead of pulling the published image
-    # build: .
+    # Pin an exact release, e.g. coldestpillow/lily:1.2.3
+    image: coldestpillow/lily:X.Y.Z
     container_name: lily
     environment:
       - PUID=1000
@@ -81,6 +79,9 @@ services:
       - HARDCOVER_TOKEN=your_hardcover_api_key_here
       - NETWORK_SHARE_MODE=false
       - CWA_PORT_OVERRIDE=8083
+      # Optional: your own private session-signing key (e.g. `openssl rand -hex 32`).
+      # Without it Lily generates one and keeps it in app.db.
+      # - SECRET_KEY=change-me-to-a-long-random-string
     volumes:
       # Config, logs, backups. Use an empty folder for a fresh install;
       # point at your existing /config to migrate from Calibre-Web.
@@ -96,6 +97,11 @@ services:
     ports:
       - 8083:8083
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 ```
 
 </details>
@@ -136,6 +142,7 @@ Keep these as separate directories — nesting binds inside each other causes er
 | `CWA_PORT_OVERRIDE` | `8083` | Change the web server port |
 | `TRUSTED_PROXY_COUNT` | `0` | Number of trusted reverse proxies — set to `1` behind nginx/Caddy |
 | `SESSION_COOKIE_SECURE` | `false` | Set `true` when serving over HTTPS |
+| `SECRET_KEY` | generated | Private key that signs session cookies; set your own to keep it out of `app.db` |
 
 Behind a reverse proxy or on a network share? See **[docs/deployment.md](docs/deployment.md)**.
 
@@ -152,13 +159,16 @@ same port Calibre-Web used.
 ## Development
 
 ```bash
-$EDITOR docker-compose.yml.dev            # set image tag + bind paths
-docker compose -f docker-compose.yml.dev up -d
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt -r requirements-dev.txt -c requirements.lock
+.venv/bin/python -m pytest tests/unit -q          # unit tests (see pytest.ini for markers)
+.venv/bin/python -m ruff check cps scripts tests
+.venv/bin/python -m mypy
+docker compose up -d --build                      # build and run an image from this checkout
 ```
 
-`docker-compose.yml.dev` documents live-edit mounts for auto-reload on code changes.
-See [pytest.ini](pytest.ini) and [`run_tests.sh`](run_tests.sh) for the test suite, and
-[docs/architecture.md](docs/architecture.md) for how the code is laid out.
+[docs/architecture.md](docs/architecture.md) explains how the code is laid out, and
+[docs/deployment.md](docs/deployment.md) how releases are published and deployed.
 
 ## Affiliated projects
 

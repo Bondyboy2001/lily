@@ -28,10 +28,10 @@ def _login(env):
     return client
 
 
-def _suggest(client, term):
+def _suggest(client, term, kind="book"):
     resp = client.get("/get_book_titles_json", query_string={"q": term})
     assert resp.status_code == 200, resp.data[:300]
-    return json.loads(resp.get_data(as_text=True))
+    return [item for item in json.loads(resp.get_data(as_text=True)) if item["type"] == kind]
 
 
 @pytest.mark.unit
@@ -87,6 +87,29 @@ class TestBookTitleSuggestions:
         env.add_book("A Book", author="An Author")
         client = _login(env)
         assert _suggest(client, "zzzz") == []
+
+    def test_book_carries_its_id_and_page_url(self, env):
+        book_id = env.add_book("Direct Hit", author="An Author")
+        client = _login(env)
+        [item] = _suggest(client, "Direct")
+        assert item["id"] == book_id and item["url"] == f"/book/{book_id}"
+
+    def test_authors_group_links_to_author_pages(self, env):
+        env.add_book("Paper One", author="Bertrand Gauthier")
+        env.add_book("Paper Two", author="Gaston Gauthier-Villars")
+        env.add_book("Unrelated", author="Nobody")
+        client = _login(env)
+        authors = _suggest(client, "gauth", kind="author")
+        assert [a["name"] for a in authors] == ["Bertrand Gauthier", "Gaston Gauthier-Villars"]
+        # (Flask drops book_id=1 from the URL, as it equals the route default; the page is the same.)
+        assert authors[1]["url"] == f"/author/stored/{authors[1]['id']}"
+        assert all(a["url"].startswith("/author/stored/") for a in authors)
+
+    def test_wildcards_in_the_query_match_literally(self, env):
+        env.add_book("100% Pure", author="An Author")
+        env.add_book("1000 Things", author="Someone")
+        client = _login(env)
+        assert [item["name"] for item in _suggest(client, "0%")] == ["100% Pure"]
 
     def test_requires_login_when_anonymous_browsing_is_off(self, env):
         env.add_book("A Book", author="An Author")

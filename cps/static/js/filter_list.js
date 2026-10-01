@@ -19,12 +19,43 @@ function getListContainer() {
     return $l;
 }
 
+// Long lists (authors, series: image.server_list_menu) are sorted and cut by letter on the
+// server. Their letters are links, a new direction is saved and the page reloads, and the
+// filter box hides the rows on screen that do not match (Enter submits it to search them all).
+var serverList = $(".filterheader[data-server-list]").length > 0;
+
+function saveDirectionAndReload(link, dir) {
+    var view = {};
+    view[$(link).data("id")] = {dir: dir};
+    $.ajax({
+        method: "post",
+        contentType: "application/json; charset=utf-8",
+        dataType: "json",
+        url: getPath() + "/ajax/view",
+        data: JSON.stringify(view)
+    }).always(function() {
+        window.location.reload();
+    });
+}
+
+$(document).on("input", "#list-search", function() {
+    var needle = this.value.trim().toLowerCase();
+    $(".lily-list > .lily-list-row").each(function() {
+        var hay = ((this.getAttribute("data-name") || "") + " " + (this.getAttribute("data-id") || "")).toLowerCase();
+        this.hidden = needle !== "" && hay.indexOf(needle) === -1;
+    });
+});
+
 // Delegate events to handle dynamically rendered elements
 // The direction button (image.list_menu) flips between ascending and descending; lilyToggleSortDir
 // (lily.js) relabels it and returns the new direction. Either way the rows simply reverse.
 $(document).on("click", "#lily-order-toggle", function(e) {
     e.preventDefault();
     var dir = lilyToggleSortDir(this);
+    if (serverList) {
+        saveDirectionAndReload(this, dir);
+        return;
+    }
 
     var page = $(this).data("id");
     $.ajax({

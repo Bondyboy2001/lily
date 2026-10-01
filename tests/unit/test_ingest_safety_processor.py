@@ -37,8 +37,12 @@ def env(ingest_processor, monkeypatch, tmp_path):
     failed_dir.mkdir(parents=True)
     monkeypatch.setattr(ingest_processor, "backup_destinations", {"failed": str(failed_dir)})
     monkeypatch.setattr(ingest_processor, "initialize_runtime", lambda: True)
+    # These tests use tiny stand-in payloads, not real books; the integrity check has its own tests
+    real_incomplete_reason = ingest_processor.book_integrity.incomplete_reason
+    monkeypatch.setattr(ingest_processor.book_integrity, "incomplete_reason", lambda path: None)
 
-    state = {"import_result": True, "import_calls": []}
+    state = {"import_result": True, "import_calls": [], "ready": True, "db_locked": False,
+             "real_incomplete_reason": real_incomplete_reason}
     real_cls = ingest_processor.NewBookProcessor
 
     def fake_nbp(filepath):
@@ -52,12 +56,14 @@ def env(ingest_processor, monkeypatch, tmp_path):
         nbp.input_format = Path(filepath).suffix[1:].lower()
         nbp.tmp_conversion_dir = str(tmp_path / "conversion") + "/"
         nbp.last_added_book_id = None
-        nbp.is_file_in_use = lambda timeout=None: True
+        nbp.is_file_in_use = lambda timeout=None: state["ready"]
+        nbp.db_locked = False
         nbp.set_library_permissions = lambda: None
         nbp.is_supported_audiobook = lambda: False
 
         def fake_add(book_path, text=True, format="text"):
             state["import_calls"].append(book_path)
+            nbp.db_locked = state["db_locked"]
             result = state["import_result"]
             if isinstance(result, Exception):
                 raise result
@@ -160,6 +166,80 @@ def test_ignored_temp_file_is_left_alone(ingest_processor, env):
     assert _failed_files(env) == []
 
 
+def test_locked_database_keeps_source_and_reports_busy(ingest_processor, env):
+    env["import_result"] = False
+    env["db_locked"] = True
+    src = env["ingest_dir"] / "book.epub"
+    src.write_bytes(b"precious")
+
+    assert ingest_processor.main(str(src)) == ingest_processor.EXIT_BUSY == 2
+
+    assert src.read_bytes() == b"precious"
+    assert _failed_files(env) == []
+
+
+def test_not_ready_file_is_kept_with_distinct_exit_code(ingest_processor, env, capsys):
+    env["ready"] = False
+    src = env["ingest_dir"] / "book.epub"
+    src.write_bytes(b"growing")
+
+    assert ingest_processor.main(str(src)) == ingest_processor.EXIT_NOT_READY == 3
+
+    assert src.exists() and env["import_calls"] == []
+    assert _failed_files(env) == []
+    assert "kept for retry" in capsys.readouterr().out
+
+
+def test_truncated_book_is_kept_for_retry_not_imported(ingest_processor, env, monkeypatch, capsys):
+    monkeypatch.setattr(ingest_processor.book_integrity, "incomplete_reason", env["real_incomplete_reason"])
+    import zipfile
+    good = env["ingest_dir"] / "good.epub"
+    with zipfile.ZipFile(good, "w") as zf:
+        zf.writestr("mimetype", "application/epub+zip")
+        zf.writestr("OEBPS/c.xhtml", "x" * 5000)
+    src = env["ingest_dir"] / "cut.epub"
+    src.write_bytes(good.read_bytes()[:200])
+
+    assert ingest_processor.main(str(src)) == ingest_processor.EXIT_NOT_READY
+    assert src.exists() and env["import_calls"] == [] and _failed_files(env) == []
+    assert "not a readable zip yet" in capsys.readouterr().out
+
+    assert ingest_processor.main(str(good)) == 0
+    assert env["import_calls"] == [str(good)]
+
+
+def test_calibredb_database_locked_is_not_a_failed_import(ingest_processor, monkeypatch, tmp_path):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    calibredb = bin_dir / "calibredb"
+    calibredb.write_text("#!/bin/sh\necho 'apsw.BusyError: BusyError: database is locked' >&2\nexit 1\n")
+    calibredb.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
+    failed_dir = tmp_path / "failed"
+    monkeypatch.setattr(ingest_processor, "backup_destinations", {"failed": str(failed_dir)})
+
+    nbp = object.__new__(ingest_processor.NewBookProcessor)
+    nbp.cwa_settings = {"auto_ingest_automerge": "ignore", "auto_backup_imports": False}
+    nbp.staging_dir = str(tmp_path / "staging")
+    os.makedirs(nbp.staging_dir)
+    nbp.library_dir = str(tmp_path / "library")
+    nbp.metadata_db = str(tmp_path / "library" / "metadata.db")
+    nbp.calibre_env = dict(os.environ)
+    nbp.db_locked = False
+    src = tmp_path / "book.epub"
+    src.write_bytes(b"book")
+
+    assert nbp.add_book_to_library(str(src)) is False
+    assert nbp.db_locked is True
+    assert not failed_dir.exists() or list(failed_dir.iterdir()) == []
+
+    nbp.db_locked = False
+    calibredb.write_text("#!/bin/sh\necho 'not an ebook' >&2\nexit 1\n")
+    assert nbp.add_book_to_library(str(src)) is False
+    assert nbp.db_locked is False
+    assert len(list(failed_dir.iterdir())) == 1  # the rejected copy is kept
+
+
 def test_backup_failed_uses_unique_names(ingest_processor, monkeypatch, tmp_path):
     failed_dir = tmp_path / "failed"
     monkeypatch.setattr(ingest_processor, "backup_destinations", {"failed": str(failed_dir)})
@@ -249,8 +329,6 @@ def test_lock_held_by_other_process_blocks_until_it_dies(ingest_processor, tmp_p
         contender.release()
 
 
-
-
 def _patch_jobs(monkeypatch, created=None, finished=None, create_error=None):
     import automation_jobs
     monkeypatch.setattr(automation_jobs, "create_job",
@@ -330,3 +408,66 @@ def test_jobs_db_down_still_imports_safely(ingest_processor, env, monkeypatch):
     assert ingest_processor.main(str(src)) == 0
     assert env["import_calls"] == [str(src)]
     assert not src.exists()
+
+
+# ── Ownership of new book folders ──────────────────────────────────────────
+
+
+@pytest.fixture
+def chown_env(ingest_processor, monkeypatch, tmp_path):
+    import sqlite3
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    log = tmp_path / "chown.log"
+    chown = bin_dir / "chown"
+    chown.write_text(f'#!/bin/sh\necho "$*" >> "{log}"\n')
+    chown.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
+    monkeypatch.delenv("NETWORK_SHARE_MODE", raising=False)
+    library = tmp_path / "library"
+    for rel in ("Jane Doe/New Book (5)", "Jane Doe/Older (4)", "Other/Formatted (9)"):
+        (library / rel).mkdir(parents=True)
+    con = sqlite3.connect(library / "metadata.db")
+    with con:
+        con.execute("CREATE TABLE books (id INTEGER PRIMARY KEY, path TEXT)")
+        con.executemany("INSERT INTO books VALUES (?, ?)", [
+            (5, "Jane Doe/New Book (5)"), (4, "Jane Doe/Older (4)"),
+            (9, "Other/Formatted (9)"), (13, "../../outside (13)"),
+        ])
+    con.close()
+    nbp = object.__new__(ingest_processor.NewBookProcessor)
+    nbp.library_dir = str(library) + "/"
+    nbp.metadata_db = str(library / "metadata.db")
+    nbp.last_added_book_ids, nbp.last_added_book_id, nbp.format_book_ids = [], None, []
+
+    def calls():
+        return log.read_text().splitlines() if log.exists() else []
+
+    return nbp, os.path.realpath(library), calls
+
+
+def test_chown_touches_only_new_book_and_author_folders(chown_env):
+    nbp, library, calls = chown_env
+    nbp.last_added_book_ids, nbp.last_added_book_id = [5], 5
+    nbp.format_book_ids = [9]
+    nbp.set_library_permissions()
+    assert calls() == [
+        f"-R abc:abc -- {library}/Jane Doe/New Book (5) {library}/Other/Formatted (9)",
+        f"abc:abc -- {library}/Jane Doe {library}/Other",
+    ]
+
+
+def test_chown_skips_when_nothing_was_added_or_path_escapes(chown_env):
+    nbp, _library, calls = chown_env
+    nbp.set_library_permissions()  # failed import: no ids
+    nbp.last_added_book_ids = [13, 404]  # escapes the library / unknown id
+    nbp.set_library_permissions()
+    assert calls() == []
+
+
+def test_chown_skipped_in_network_share_mode(chown_env, monkeypatch):
+    nbp, _library, calls = chown_env
+    monkeypatch.setenv("NETWORK_SHARE_MODE", "true")
+    nbp.last_added_book_ids = [5]
+    nbp.set_library_permissions()
+    assert calls() == []

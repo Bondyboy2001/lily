@@ -53,7 +53,7 @@ $(function() {
             taskPollInFlight = true;
             $.ajax({
                 method: "get",
-                url: getPath() + "/ajax/emailstat",
+                url: getPath() + "/ajax/taskstatus",
                 async: true,
                 timeout: 5000,
                 success: function (data) {
@@ -1261,10 +1261,11 @@ function handleListServerResponse (data) {
     $("#flash_success").remove();
     $("#flash_danger").remove();
     if (!jQuery.isEmptyObject(data)) {
+        // Messages carry book titles, shelf and user names: insert them as text, never as HTML
         data.forEach(function(item) {
-            $(".navbar").after('<div class="row-fluid text-center">' +
-                '<div id="flash_' + item.type + '" class="alert alert-' + item.type + '">' + item.message + '</div>' +
-                '</div>');
+            var type = String(item.type).replace(/[^a-z]/gi, "");
+            var alert = $("<div>").attr("id", "flash_" + type).addClass("alert alert-" + type).text(item.message);
+            $(".navbar").after($('<div class="row-fluid text-center">').append(alert));
         });
     }
     $("#user-table").bootstrapTable("refresh");
@@ -1439,7 +1440,7 @@ function shorten_html(value, response) {
                 if (xhr.responseJSON && xhr.responseJSON.message) {
                     errorMsg = xhr.responseJSON.message;
                 } else if (xhr.responseJSON && xhr.responseJSON.errors && xhr.responseJSON.errors.length > 0) {
-                    errorMsg = xhr.responseJSON.errors.join("<br>");
+                    errorMsg = xhr.responseJSON.errors.join("; ");
                 } else if (xhr.responseText) {
                     try {
                         var errResponse = JSON.parse(xhr.responseText);
@@ -1449,7 +1450,8 @@ function shorten_html(value, response) {
                         errorMsg = xhr.responseText.substring(0,200); // Show a snippet
                     }
                 }
-                $('#shelf_selection_dropdown').after('<div class="alert alert-danger" style="margin-top:10px;">' + errorMsg + '</div>');
+                $('#shelf_selection_dropdown').after(
+                    $('<div class="alert alert-danger" style="margin-top:10px;">').text(errorMsg));
             }
         });
     });

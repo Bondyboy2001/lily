@@ -33,6 +33,7 @@ def main():
     from .error_handler import init_errorhandler
     from .duplicates import duplicates
     from .logs import logs
+    from .trash import trash
 
     from . import web_server
     init_errorhandler()
@@ -57,5 +58,6 @@ def main():
     app.register_blueprint(editbook)
     app.register_blueprint(duplicates)
     app.register_blueprint(logs)
+    app.register_blueprint(trash)
     success = web_server.start()
     sys.exit(0 if success else 1)

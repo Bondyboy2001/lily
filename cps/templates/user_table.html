@@ -4,7 +4,7 @@
 <div class="lp">
   {% call f.group(None, id='users') %}
     {% for user in users %}
-      {{ f.link(url_for('admin.edit_user', user_id=user.id), user.name, help=user.email,
+      {{ f.link(url_for('admin.edit_user', user_id=user.id), user.name,
                 value=(_('Admin') if user.role_admin() else (_('Guest') if user.role_anonymous() else None))) }}
     {% endfor %}
   {% endcall %}
