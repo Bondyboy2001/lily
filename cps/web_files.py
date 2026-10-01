@@ -24,7 +24,7 @@ from . import constants
 from . import config
 from . import calibre_db
 from .gdriveutils import getFileFromEbooksFolder, do_gdrive_download
-from .helper import get_book_cover, get_series_cover_thumbnail, get_download_link
+from .helper import get_book_cover, get_series_cover_thumbnail, get_download_link, EXTENSIONS_READER
 from .usermanagement import login_required_if_no_ano
 
 # CWA Imports
@@ -156,12 +156,27 @@ def _repair_epub_container_if_needed(book_id, original_path):
         return None
 
 
+def _guard_untrusted_format(response, book_format):
+    """/show/ serves uploaded files from Lily's own origin. Formats no reader or the audio
+    player fetches (html, mobi, docx, ...) are downloaded, never rendered as a page here."""
+    fmt = book_format.lower()
+    if fmt.upper() not in EXTENSIONS_READER and fmt not in constants.EXTENSIONS_AUDIO:
+        response.headers['Content-Security-Policy'] = "sandbox"
+        response.headers['Content-Disposition'] = 'attachment; filename="book.{}"'.format(
+            re.sub(r'[^a-z0-9]', '', fmt) or "bin")
+    return response
+
+
 @web.route("/show/<int:book_id>/<book_format>", defaults={'anyname': 'None'})
 @web.route("/show/<int:book_id>/<book_format>/<anyname>")
 @login_required_if_no_ano
 @viewer_required
 def serve_book(book_id, book_format, anyname):
     book_format = book_format.split(".")[0]
+    return _guard_untrusted_format(make_response(_serve_book_file(book_id, book_format)), book_format)
+
+
+def _serve_book_file(book_id, book_format):
     # Respect the user's tag / language / custom column restrictions
     book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
     if not book:
@@ -176,6 +191,8 @@ def serve_book(book_id, book_format, anyname):
         try:
             headers = Headers()
             headers["Content-Type"] = mimetypes.types_map.get('.' + book_format, "application/octet-stream")
+            if book_format.upper() == 'TXT':
+                headers["Content-Type"] = "text/plain; charset=utf-8"  # re-encoded to UTF-8 while streaming
             if not range_header:
                 log.info('Serving book: %s', data.name)
                 headers['Accept-Ranges'] = 'bytes'
@@ -208,7 +225,9 @@ def serve_book(book_id, book_format, anyname):
                         text_data = rawdata.decode(result['encoding'], 'surrogatepass').encode('utf-8', 'surrogatepass')
                     else:
                         text_data = rawdata.decode(result['encoding'], 'ignore').encode('utf-8', 'ignore')
-                return make_response(text_data)
+                response = make_response(text_data)
+                response.headers['Content-Type'] = 'text/plain; charset=utf-8'
+                return response
             except FileNotFoundError:
                 log.error("File Not Found")
                 return "File Not Found"

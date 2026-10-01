@@ -20,10 +20,12 @@ $(document).ready(function() {
     $("#area").width($("#area").width());
     $("#content").width($("#content").width());
     //bind text
-    $("#content").load($("#readmain").data('load'), function(textStr) {
-        $(this).height($(this).parent().height()*0.95);
-        $(this).text(textStr);
-    });
+    // Fetched as text and set with .text(): .load() would parse the book as HTML first
+    $.get($("#readmain").data('load'), function(textStr) {
+        var content = $("#content");
+        content.height(content.parent().height()*0.95);
+        content.text(textStr);
+    }, "text");
     //keybind
     $(document).keydown(function(event){
         if(event.keyCode == 37){

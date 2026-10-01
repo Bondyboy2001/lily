@@ -138,12 +138,15 @@ def change_archived_books(book_id, state=None, message=None):
 
 # Check if a reader is existing for any of the book formats, if not, return empty list, otherwise return
 # list with supported formats
+# Formats the in-browser readers open (they fetch the file from /show/)
+EXTENSIONS_READER = frozenset({'TXT', 'PDF', 'EPUB', 'KEPUB', 'CBZ', 'CBT', 'CBR', 'DJVU', 'DJV'})
+
+
 def check_read_formats(entry):
-    extensions_reader = {'TXT', 'PDF', 'EPUB', 'KEPUB', 'CBZ', 'CBT', 'CBR', 'DJVU', 'DJV'}
     book_formats = list()
     if len(entry.data):
         for ele in iter(entry.data):
-            if ele.format.upper() in extensions_reader:
+            if ele.format.upper() in EXTENSIONS_READER:
                 book_formats.append(ele.format.lower())
     return book_formats
 
