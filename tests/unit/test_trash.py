@@ -434,3 +434,26 @@ def test_unreferenced_folders_can_be_sent_back_through_ingest(env, tmp_path, mon
     assert os.listdir(ingest_dir) == ["Lost Book - Lost Author.epub"]  # path outside the library refused
     admin.post("/admin/trash/unreferenced", data={"action": "dismiss"})
     assert library_orphans.load_report(str(tmp_path / "cfg")) == {}
+
+
+def test_restore_survives_calibre9_rows_left_behind_by_the_delete(meta_db):
+    # Calibre 9 adds books_pages_link, filled by an insert trigger on books. Its row is only
+    # removed by ON DELETE CASCADE, which needs foreign_keys on, so a delete leaves it behind.
+    meta_db.executescript("""
+        CREATE TABLE books_pages_link (book INTEGER PRIMARY KEY, pages INTEGER DEFAULT 0 NOT NULL,
+            FOREIGN KEY (book) REFERENCES books(id) ON DELETE CASCADE);
+        CREATE TRIGGER books_pages_link_create_trigger AFTER INSERT ON books FOR EACH ROW
+            BEGIN INSERT INTO books_pages_link(book) VALUES(NEW.id); END;
+        INSERT INTO books_pages_link (book, pages) VALUES (1, 412);
+    """)
+    ex = store.SqliteExecutor(meta_db)
+    snapshot = json.loads(json.dumps(store.capture_book_rows(ex, 1)))
+    _delete_book(meta_db, 1)
+    assert meta_db.execute("SELECT COUNT(*) FROM books_pages_link WHERE book=1").fetchone()[0] == 1
+
+    new_id, _path = store.restore_book_rows(ex, snapshot)
+    meta_db.commit()
+    assert new_id == 1
+    assert _summary(meta_db, 1)["tags"] == ["SF"]
+    # The trigger's fresh row (Calibre recounts pages itself)
+    assert meta_db.execute("SELECT COUNT(*) FROM books_pages_link WHERE book=1").fetchone()[0] == 1

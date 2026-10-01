@@ -111,10 +111,10 @@ def _tables(ex: Executor, schema: str) -> dict[str, list[str]]:
 
 
 def insert_row(ex: Executor, schema: str, table: str, row: dict, columns: list[str],
-            or_ignore: bool = False) -> int | None:
+            or_ignore: bool = False, or_replace: bool = False) -> int | None:
     cols = [c for c in row if c in columns]
     sql = "INSERT %sINTO %s.%s (%s) VALUES (%s)" % (
-        "OR IGNORE " if or_ignore else "", _q(schema), _q(table),
+        "OR REPLACE " if or_replace else "OR IGNORE " if or_ignore else "", _q(schema), _q(table),
         ", ".join(_q(c) for c in cols), ", ".join(":p%d" % i for i in range(len(cols))))
     return ex.execute(sql, {"p%d" % i: _decode(row[c]) for i, c in enumerate(cols)})
 
@@ -179,6 +179,13 @@ def restore_book_rows(ex: Executor, snapshot: dict, schema: str = "main") -> tup
     taken = ex.fetch("SELECT id FROM %s.books WHERE id = :id" % _q(schema), {"id": old_id})
     if taken:
         book.pop("id")
+    else:
+        # Rows still pointing at the free id are leftovers of the delete (Calibre 9's
+        # books_pages_link is only cleared by ON DELETE CASCADE, which needs foreign_keys on);
+        # they would collide with the rows the books insert trigger creates.
+        for table, cols in tables.items():
+            if table != "books" and "book" in cols:
+                ex.execute("DELETE FROM %s.%s WHERE book = :id" % (_q(schema), _q(table)), {"id": old_id})
     new_id = insert_row(ex, schema, "books", book, tables["books"])
     new_id = old_id if not taken else int(new_id or 0)
     path = book_path_for_id(book["path"], old_id, new_id)
@@ -203,7 +210,8 @@ def restore_book_rows(ex: Executor, snapshot: dict, schema: str = "main") -> tup
         if table not in tables:
             continue
         for item in items:
-            insert_row(ex, schema, table, dict(item, book=new_id), tables[table], or_ignore=True)
+            # REPLACE: an insert trigger may already have added a default row for the book
+            insert_row(ex, schema, table, dict(item, book=new_id), tables[table], or_replace=True)
     return new_id, path
 
 
