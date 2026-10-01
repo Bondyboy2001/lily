@@ -85,7 +85,15 @@ CREATE TABLE IF NOT EXISTS cwa_settings(
     duplicate_scan_cron TEXT DEFAULT '' NOT NULL,
     duplicate_scan_hour INTEGER DEFAULT 3 NOT NULL,
     duplicate_scan_chunk_size INTEGER DEFAULT 5000 NOT NULL,
-    duplicate_scan_debounce_seconds INTEGER DEFAULT 60 NOT NULL
+    duplicate_scan_debounce_seconds INTEGER DEFAULT 60 NOT NULL,
+    -- Days a deleted book stays in <library>/.lily-trash before the nightly purge. '0' = keep until emptied.
+    -- TEXT so the generic settings form does not treat it as a checkbox.
+    trash_retention_days TEXT DEFAULT '30' NOT NULL,
+    -- When the duplicate auto-resolution preview last ran (ISO time). Auto-resolve cannot be enabled before one.
+    -- TEXT with an empty default so the generic settings form leaves it alone.
+    duplicate_auto_resolve_previewed_at TEXT DEFAULT '' NOT NULL,
+    -- Why auto-resolution last refused to run, shown on the Duplicates settings tab. Empty = no problem.
+    duplicate_auto_resolve_last_abort TEXT DEFAULT '' NOT NULL
 );
 
 -- Persisted scheduled jobs (initial focus: auto-send). Rows remain until dispatched or manually cleared.
