@@ -242,9 +242,6 @@ class ConfigSQL(object):
     def show_element_new_user(self, value):
         return constants.has_flag(self.config_default_show, value)
 
-    def show_detail_random(self):
-        return self.show_element_new_user(constants.DETAIL_RANDOM)
-
     def list_denied_tags(self):
         mct = self.config_denied_tags or ""
         return [strip_whitespaces(t) for t in mct.split(",")]

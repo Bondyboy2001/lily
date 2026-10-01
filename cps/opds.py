@@ -263,7 +263,7 @@ def feed_booksindex():
 def feed_letter_books(book_id):
     off = request.args.get("offset") or 0
     letter = true() if book_id == "00" else func.upper(db.Books.sort).startswith(book_id)
-    entries, __, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
+    entries, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
                                                         db.Books,
                                                         letter,
                                                         [db.Books.sort],
@@ -278,7 +278,7 @@ def feed_new():
     if not auth.current_user().check_visibility(constants.SIDEBAR_RECENT):
         abort(404)
     off = request.args.get("offset") or 0
-    entries, __, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
+    entries, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
                                                         db.Books, True, [db.Books.timestamp.desc()],
                                                         True, config.config_read_column)
     return render_xml_template('feed.xml', entries=entries, pagination=pagination)
@@ -301,7 +301,7 @@ def feed_best_rated():
     if not auth.current_user().check_visibility(constants.SIDEBAR_BEST_RATED):
         abort(404)
     off = request.args.get("offset") or 0
-    entries, __, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
+    entries, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
                                                         db.Books, db.Books.ratings.any(db.Ratings.rating > 9),
                                                         [db.Books.timestamp.desc()],
                                                         True, config.config_read_column)
@@ -450,7 +450,7 @@ def feed_letter_series(book_id):
 @requires_basic_auth_if_no_ano
 def feed_series(book_id):
     off = request.args.get("offset") or 0
-    entries, __, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
+    entries, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
                                                         db.Books,
                                                         db.Books.series.any(db.Series.id == book_id),
                                                         [db.Books.series_index],
@@ -508,7 +508,7 @@ def feed_formatindex():
 @requires_basic_auth_if_no_ano
 def feed_format(book_id):
     off = request.args.get("offset") or 0
-    entries, __, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
+    entries, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
                                                         db.Books,
                                                         db.Books.data.any(db.Data.format == book_id.upper()),
                                                         [db.Books.timestamp.desc()],
@@ -538,7 +538,7 @@ def feed_languagesindex():
 @requires_basic_auth_if_no_ano
 def feed_languages(book_id):
     off = request.args.get("offset") or 0
-    entries, __, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
+    entries, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
                                                         db.Books,
                                                         db.Books.languages.any(db.Languages.id == book_id),
                                                         [db.Books.timestamp.desc()],
@@ -581,7 +581,7 @@ def feed_shelf(book_id):
     pagination = list()
     # user is allowed to access shelf
     if shelf:
-        result, __, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1),
+        result, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1),
                                                            config.config_books_per_page,
                                                            db.Books,
                                                            ub.BookShelf.shelf == shelf.id,
@@ -708,7 +708,7 @@ def render_xml_template(*args, **kwargs):
 
 def render_xml_dataset(data_table, book_id):
     off = request.args.get("offset") or 0
-    entries, __, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
+    entries, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
                                                         db.Books,
                                                         getattr(db.Books, data_table.__tablename__).any(data_table.id == book_id),
                                                         [db.Books.timestamp.desc()],

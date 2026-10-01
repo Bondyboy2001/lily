@@ -1069,8 +1069,6 @@ class CalibreDB:
         self.ensure_session()
         viewing_tag_id = kwargs.get('viewing_tag_id')
         pagesize = pagesize or self.config.config_books_per_page
-        # The Discover row is gone, so no template reads this slot; kept so callers still unpack three values.
-        randm = false()
         if join_archive_read:
             query = self.generate_linked_query(config_read_column, database)
         else:
@@ -1117,7 +1115,7 @@ class CalibreDB:
             log.error_or_exception(ex)
         # display authors in right order
         entries = self.order_authors(entries, True, join_archive_read)
-        return entries, randm, pagination
+        return entries, pagination
 
     # Orders all Authors in the list according to authors sort
     def order_authors(self, entries, list_return=False, combined=False):

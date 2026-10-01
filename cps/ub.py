@@ -196,9 +196,6 @@ class UserBase:
             return True
         return constants.has_flag(self.sidebar_view, value)
 
-    def show_detail_random(self):
-        return self.check_visibility(constants.DETAIL_RANDOM)
-
     def list_denied_tags(self):
         mct = self.denied_tags or ""
         return [strip_whitespaces(t) for t in mct.split(",")]

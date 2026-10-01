@@ -2,8 +2,8 @@
  * Lily design language — tokens and base components.
  *
  * Source of truth: ~/projects/DESIGN.md (palette "Lily", §2; components §5; tokens §7).
- * The light tokens live directly on :root; the dark theme redefines the same tokens below, for
- * "system" (prefers-color-scheme) and for an explicit data-theme="dark" set by the head script in layout.html. Bootstrap 3 classes are restyled here
+ * The light tokens live directly on :root; the dark theme redefines the same tokens below under
+ * data-theme="dark", which the head script in layout.html sets from the saved choice or prefers-color-scheme. Bootstrap 3 classes are restyled here
  * into the guide's components, so existing markup picks them up without template changes:
  *   .btn / .btn-default → Quiet    .btn-primary → Primary    .btn-danger → Danger
  *   .form-control → Field          .dropdown-menu → Menu     .modal → Sheet
@@ -57,37 +57,9 @@
     --font-mono: "SF Mono", ui-monospace, Menlo, monospace;
 }
 
-/* Dark theme: DESIGN.md "Abyss", same tokens redefined. Every text token keeps ≥4.5:1 on paper, surface and sunk;
-   --line-strong keeps ≥3:1. "System" follows prefers-color-scheme unless the reader chose Light. */
-@media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-        color-scheme: dark;
-        --paper: #1A1B26;
-        --surface: #1F2335;
-        --sunk: #16161E;
-        --ink: #C8D1F5;
-        --ink-soft: #A9B1D6;
-        --muted: #9098C2;
-        --faint: #8A92BC;
-        --line: #2F3549;
-        --line-soft: #24283B;
-        --line-strong: #66729F;
-        --accent: #7AA2F7;
-        --heading: #7AA2F7;
-        --success: #9ECE6A;
-        --warning: #FF9E64;
-        --danger: #F7768E;
-        --on-accent: #1A1B26;
-        --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%231A1B26' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-        --series-1: #7AA2F7;
-        --series-2: #E88AAA;
-        --series-3: #E0AF68;
-        --series-4: #73DACA;
-        --series-5: #BB9AF7;
-        --menu-shadow: 0 1px 2px color-mix(in srgb, #000 30%, transparent), 0 8px 24px color-mix(in srgb, #000 45%, transparent);
-    }
-}
-
+/* Dark theme: DESIGN.md "Abyss", the same tokens redefined. lily_theme_head.html resolves "system" to a
+   concrete data-theme before first paint, so this one block is the whole dark theme. Every text token keeps
+   >=4.5:1 on paper, surface and sunk; --line-strong keeps >=3:1. */
 :root[data-theme="dark"] {
     color-scheme: dark;
     --paper: #1A1B26;
@@ -146,6 +118,11 @@ h1, h2, h3,
     text-transform: none;
     letter-spacing: 0;
 }
+
+/* Every kind of title takes the heading colour from this one list. */
+.lp-label,
+.dup-notice-title,
+.dup-card-title { color: var(--heading); }
 
 h1, .h1, h2, .h2 { font-size: 25px; line-height: 1.25; }
 h3, .h3 { font-size: 19px; line-height: 1.3; }

@@ -64,7 +64,6 @@
 </section>
 {% endif %}
 <div class="discover load-more">
-  {% if page != 'discover' %}
   <div class="lily-list-toolbar">
     {# Grid/List icons, pinned to the toolbar's top right #}
     {{ self.view_switch() }}
@@ -73,7 +72,6 @@
     {% else %}{% set sort_fields = ['added', 'title', 'author', 'published'] %}{% endif %}
     {{ image.sort_menu(order, url_for('web.books_list', data=page, book_id=id, sort_param='SORT_PARAM', **(list_filters.args if list_filters else {})), sort_fields) }}
   </div>
-  {% endif %}
 
   <div class="row display-flex lily-grid">
     {% for entry in entries if entry %}
@@ -96,7 +94,7 @@
     <p><a class="btn btn-default" href="{{ url_for('admin.configuration') }}">{{_('Turn on uploads')}}</a></p>
     {% endif %}
   </div>
-  {% elif not entries[0] and page not in ('discover', 'hot') %}
+  {% elif not entries[0] and page != 'hot' %}
   {{ image.empty_state('glyphicon-book', _('No books here yet'),
                        _('Books appear here once they match this list.'),
                        [(_('Browse all books'), url_for('web.index'), True)]) }}

@@ -446,13 +446,14 @@ a.stats-row-title:focus { color: var(--accent); }
 
 .dup-notice > div { flex: 1; min-width: 0; }
 .dup-notice p { margin: 4px 0 0; color: var(--ink-soft); }
-.dup-notice-title { display: block; color: var(--heading); font-family: var(--font-body); font-size: 17px; font-weight: 600; }
+.dup-notice-title { display: block; font-family: var(--font-body); font-size: 17px; font-weight: 600; }
 .dup-notice-icon { top: 2px; flex: none; color: var(--accent); }
 .alert-warning .dup-notice-icon { color: var(--warning); }
 .alert-danger .dup-notice-icon { color: var(--danger); }
 .dup-notice-compact { margin: 14px 0 0; padding: 10px 14px; }
 
 #duplicate_scan_results_status { display: none; }
+#duplicate_scan_results_status.is-active { display: flex; }
 #duplicate_scan_task_notice a { display: inline-block; margin-top: 8px; }
 
 .duplicate-scan-progress-header {
@@ -494,7 +495,6 @@ a.stats-row-title:focus { color: var(--accent); }
 
 .dup-card-title {
     margin: 0 0 4px;
-    color: var(--heading);
     font-size: 18px;
 }
 

@@ -13,7 +13,6 @@
     {% call f.group(_('Library View')) %}
       {{ f.input('config_calibre_web_title', _('Title'), conf.config_calibre_web_title, help=_('Shown in the browser tab and the sidebar.'), attrs='required') }}
       {{ f.input('config_books_per_page', _('Books per Page'), conf.config_books_per_page, type='number', attrs='min="1" max="200"') }}
-      {{ f.input('config_random_books', _('Random Books on Home'), conf.config_random_books, type='number', attrs='min="1" max="30"') }}
       {{ f.input('config_authors_max', _('Authors Shown Before Hiding'), conf.config_authors_max, type='number', help=_('0 shows them all.'), attrs='min="0" max="999"') }}
       {{ f.input('config_title_regex', _('Title Sorting Pattern'), conf.config_title_regex, help=_('Regex for leading words to ignore when sorting, like "The".')) }}
     {% endcall %}
@@ -72,7 +71,6 @@
         {% for element in sidebar %}
           {% if element['config_show'] %}{{ f.check('show_' ~ element['visibility'], element['show_text'], conf.show_element_new_user(element['visibility'])) }}{% endif %}
         {% endfor %}
-        {{ f.check('Show_detail_random', _('Show Random Books in Detail View'), conf.show_detail_random()) }}
       </div>
     {% endcall %}
 

@@ -52,7 +52,6 @@
         {% for element in sidebar %}
           {% if element['config_show'] %}{{ f.check('show_' ~ element['visibility'], element['show_text'], content.check_visibility(element['visibility'])) }}{% endif %}
         {% endfor %}
-        {{ f.check('Show_detail_random', _('Show Random Books in Detail View'), content.show_detail_random()) }}
       </div>
     {% endcall %}
 

@@ -95,7 +95,7 @@ def test_cards_only_page_skips_relationships_cards_do_not_render(tmp_path):
         with env.app.test_request_context("/"):
             login_user(env.admin())
             with _capture_sql() as statements:
-                entries, __, __ = calibre_db.fill_indexpage(1, 0, db.Books, True, [db.Books.timestamp.desc()],
+                entries, __ = calibre_db.fill_indexpage(1, 0, db.Books, True, [db.Books.timestamp.desc()],
                                                             True, 0, cards_only=True)
                 # what image.html's book_card reads must already be loaded
                 for entry in entries:

@@ -840,7 +840,6 @@ def update_view_configuration():
         return view_configuration()
     _config_int(to_save, "config_restricted_column")
 
-    _config_int(to_save, "config_random_books")
     _config_int(to_save, "config_books_per_page")
     _config_int(to_save, "config_authors_max")
     _config_string(to_save, "config_default_language")
@@ -850,8 +849,6 @@ def update_view_configuration():
     config.config_default_role &= ~constants.ROLE_ANONYMOUS
 
     config.config_default_show = sum(int(k[5:]) for k in to_save if k.startswith('show_'))
-    if "Show_detail_random" in to_save:
-        config.config_default_show |= constants.DETAIL_RANDOM
 
     config.save()
     flash(_("Lily configuration updated"), category="success")
@@ -1715,8 +1712,6 @@ def _handle_new_user(to_save, content, languages, translations):
     content.locale = to_save.get("locale", content.locale)
 
     content.sidebar_view = sum(int(key[5:]) for key in to_save if key.startswith('show_'))
-    if "show_detail_random" in to_save:
-        content.sidebar_view |= constants.DETAIL_RANDOM
 
     content.role = constants.selected_roles(to_save)
     try:
@@ -1803,11 +1798,6 @@ def _handle_edit_user(to_save, content, languages, translations):
             content.sidebar_view |= value
         elif value not in val and content.check_visibility(value):
             content.sidebar_view &= ~value
-
-    if to_save.get("Show_detail_random"):
-        content.sidebar_view |= constants.DETAIL_RANDOM
-    else:
-        content.sidebar_view &= ~constants.DETAIL_RANDOM
 
     content.auto_metadata_fetch = to_save.get("auto_metadata_fetch") == "on"
 
