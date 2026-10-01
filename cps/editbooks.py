@@ -925,18 +925,10 @@ def delete_book_from_table(book_id, book_format, json_response, location="", rea
                 refreshed_duplicate_cache = False
                 if not book_format:
                     try:
-                        from cps.duplicate_index import (
-                            _current_max_book_id,
-                            delete_book_keys,
-                            get_duplicate_groups_from_index,
-                        )
-                        sys.path.insert(1, '/app/calibre-web-automated/scripts/')
-                        from cwa_db import CWA_DB
+                        from cps.duplicate_index import drop_books_from_duplicate_index
 
-                        delete_book_keys([book_id])
-                        cwa_db = CWA_DB()
-                        duplicate_groups = get_duplicate_groups_from_index(cwa_db.cwa_settings, include_dismissed=True)
-                        cwa_db.update_duplicate_cache(duplicate_groups, len(duplicate_groups), _current_max_book_id())
+                        # Take the book out of the cached groups; a full rebuild here froze the server
+                        drop_books_from_duplicate_index([book_id])
                         refreshed_duplicate_cache = True
                     except Exception as e:
                         log.warning("Failed to refresh duplicate index/cache after deleting book %s: %s", book_id, str(e))

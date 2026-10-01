@@ -209,6 +209,7 @@ def _load_editbooks_module(delete_key_calls):
             "delete_book_keys": lambda ids: delete_key_calls.append(list(ids)),
             "get_duplicate_groups_from_index": lambda settings, include_dismissed=False: [],
             "_current_max_book_id": lambda: 1,
+            "drop_books_from_duplicate_index": lambda ids: delete_key_calls.append(list(ids)),
         },
     )
     _install_stub("cwa_db", {"CWA_DB": _CwaDB})
@@ -302,6 +303,7 @@ def _load_duplicates_module(delete_key_calls):
             "delete_book_keys": lambda ids: delete_key_calls.append(list(ids)),
             "get_duplicate_groups_from_index": lambda settings, include_dismissed=False: [],
             "_current_max_book_id": lambda: 1,
+            "drop_books_from_duplicate_index": lambda ids: delete_key_calls.append(list(ids)),
         },
     )
     _install_stub("cwa_db", {"CWA_DB": _CwaDB})
@@ -329,7 +331,7 @@ def _load_duplicates_module(delete_key_calls):
     return module, calibre_books, calls
 
 
-def test_delete_book_from_table_whole_book_deletes_duplicate_keys_and_refreshes_cache():
+def test_delete_book_from_table_whole_book_drops_it_from_the_duplicate_index():
     _CwaDB.instances = []
     delete_key_calls = []
     module, calls = _load_editbooks_module(delete_key_calls)
@@ -339,9 +341,9 @@ def test_delete_book_from_table_whole_book_deletes_duplicate_keys_and_refreshes_
     assert result == "deleted"
     assert ("whole", 12) in calls
     assert "commit" in calls
+    # Removed from the cached groups in place, without a full rebuild or an invalidation
     assert delete_key_calls == [[12]]
-    assert _CwaDB.instances[-1].cache_updates == [([], 0, 1)]
-    assert _CwaDB.instances[-1].invalidated is False
+    assert all(not db.invalidated for db in _CwaDB.instances)
 
 
 def test_delete_book_from_table_format_only_keeps_duplicate_keys_and_invalidates_cache():
