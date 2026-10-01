@@ -129,12 +129,36 @@
     </div>
 {%- endmacro %}
 
-{# Quick actions under a grid cover: bare icon buttons, revealed on hover or focus (lily.js wires them). #}
+{# One-tap shelves: an icon button whose menu lists the user's shelves with a tick on the ones
+   holding the book. lily.js fills the menu from /shelf/book/<id> when it opens and toggles a
+   shelf on click; "Want to read" is always offered and created on first use. #}
+{% macro shelf_menu(book_id, menu_id, button_class='icon-btn') -%}
+    <span class="dropdown lily-shelf-menu">
+      <button type="button" id="{{ menu_id }}" class="{{ button_class }} dropdown-toggle lily-shelf-btn" data-toggle="dropdown"
+              data-book-id="{{ book_id }}" aria-haspopup="true" aria-expanded="false"
+              title="{{ _('Shelves') }}" aria-label="{{ _('Shelves') }}"><span class="glyphicon glyphicon-list" aria-hidden="true"></span></button>
+      <ul class="dropdown-menu lily-shelf-list" aria-labelledby="{{ menu_id }}"
+          data-label-loading="{{ _('Loading shelves…') }}" data-label-new="{{ _('New shelf…') }}"
+          data-new-url="{{ url_for('shelf.create_shelf') }}"
+          data-label-added="{{ _('Added to %(shelf)s', shelf='SHELF') }}"
+          data-label-removed="{{ _('Removed from %(shelf)s', shelf='SHELF') }}"
+          data-label-error="{{ _('Could not change the shelf. Try again.') }}">
+        <li class="disabled"><a role="menuitem" aria-disabled="true">{{ _('Loading shelves…') }}</a></li>
+      </ul>
+    </span>
+{%- endmacro %}
+
+{# Quick actions under a grid cover: bare icon buttons, revealed on hover or focus (lily.js wires them).
+   Read opens the best format a built-in reader handles (helper.check_read_formats), in this tab;
+   it is left out when no format opens in a reader. #}
 {% macro cover_actions(book, user, is_read=False) -%}
-    {%- set formats = book.data|map(attribute='format')|map('lower')|list -%}
-    <div class="lily-cover-actions" data-book-id="{{ book.id }}" data-book-formats="{{ formats|join(',') }}">
+    {%- set formats = book|reader_formats -%}
+    <div class="lily-cover-actions" data-book-id="{{ book.id }}">
       {% if formats and user.role_viewer() %}
-      <button type="button" class="icon-btn lily-read-now" title="{{ _('Read in Browser') }}" aria-label="{{ _('Read in Browser') }}"><span class="glyphicon glyphicon-book" aria-hidden="true"></span></button>
+      <a class="icon-btn lily-read-now" href="{{ url_for('web.read_book', book_id=book.id, book_format=formats[0]) }}" title="{{ _('Read in Browser') }}" aria-label="{{ _('Read in Browser') }}"><span class="glyphicon glyphicon-book" aria-hidden="true"></span></a>
+      {% endif %}
+      {% if not user.is_anonymous %}
+      {{ shelf_menu(book.id, 'shelf-menu-' ~ book.id) }}
       {% endif %}
       {% if not user.is_anonymous %}
       {% set read_label = _('Mark As Unread') if is_read else _('Mark As Read') %}
