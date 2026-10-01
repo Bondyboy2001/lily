@@ -4,15 +4,14 @@
 # See CONTRIBUTORS for full list of authors.
 
 """The book page's reading helpers: which format "Read" opens, the saved reading position,
-the next book in the series, and "Convert to EPUB" for books no reader opens.
+the next book in the series (series_nav), and "Convert to EPUB" for books no reader opens.
 
 Routes are attached to the web blueprint; web.py imports this module at its end."""
 
 from flask import abort, flash, redirect, url_for
 from flask_babel import gettext as _
-from sqlalchemy.sql.expression import and_
 
-from . import calibre_db, config, db, helper, logger, ub
+from . import calibre_db, config, helper, logger, series_nav, ub
 from .cw_login import current_user
 from .services.worker import STAT_STARTED, STAT_WAITING, WorkerThread
 from .tasks.convert import TaskConvert
@@ -79,25 +78,6 @@ def reader_progress_percent(user_id, book_id):
         return 0
 
 
-def next_book_in_series(book):
-    """The next visible book of `book`'s first series (the next higher series_index), or None.
-
-    Lily's own helper; the reader may grow a twin in series_nav.py, to be merged later."""
-    if not book.series:
-        return None
-    try:
-        index = float(book.series_index)
-    except (TypeError, ValueError):
-        return None
-    series_id = book.series[0].id
-    return (calibre_db.session.query(db.Books.id, db.Books.title, db.Books.series_index)
-            .join(db.books_series_link, db.books_series_link.c.book == db.Books.id)
-            .filter(and_(db.books_series_link.c.series == series_id, db.Books.series_index > index))
-            .filter(calibre_db.common_filters())
-            .order_by(db.Books.series_index.asc(), db.Books.id.asc())
-            .first())
-
-
 def book_page_context(entry):
     """Extra template values for detail.html."""
     read_progress = None
@@ -106,7 +86,7 @@ def book_page_context(entry):
     convert_from = epub_conversion_source(entry) if can_convert_books(current_user) else None
     return {
         'read_progress': read_progress,
-        'next_in_series': next_book_in_series(entry),
+        'next_in_series': series_nav.next_in_series(calibre_db, entry),
         'convert_from': convert_from,
         'convert_queued': bool(convert_from) and epub_conversion_queued(entry.id),
     }
