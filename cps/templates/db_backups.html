@@ -15,6 +15,9 @@
       {{ f.input('db_backup_dir', _('Backup folder'), backup_dir_setting,
          help=_('Leave empty for the default. Put this on a different volume from /config: if /config is lost, backups stored inside it are lost with it.'),
          placeholder=(backup_dir_env or '/config/backup/db'), wide=True) }}
+      {{ f.input('library_mirror_dir', _('Library mirror folder'), mirror_dir,
+         help=_('Optional. Each night new and changed book files and covers are copied here (nothing is ever deleted from the mirror). Mount a separate volume at this path in Docker, and leave empty to turn it off.'),
+         placeholder='/mirror', wide=True) }}
       {% call f.row(_('Current folder')) %}<span class="lp-mono">{{ backup_root }}</span>{% endcall %}
       {% call f.row(_('Keep processed books for'), for_id='processed_books_retention_days',
          help=_('Copies of imported and failed books in /config/processed_books are deleted nightly after this many days. 0 keeps them forever.')) %}
@@ -26,6 +29,13 @@
       <button type="submit" class="btn btn-default">{{ _('Save') }}</button>
     </div>
   </form>
+
+  {% if mirror_dir %}
+  <form method="POST" action="{{ url_for('admin.mirror_library_now') }}" class="lp-actions">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-default">{{ _('Mirror library files now') }}</button>
+  </form>
+  {% endif %}
 
   {% call f.group(_('Snapshots'), help=(_('No snapshots yet. The first one is taken at the next maintenance window.') if not snapshots else None)) %}
     {% for snap in snapshots %}

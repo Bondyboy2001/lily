@@ -68,6 +68,8 @@ CREATE TABLE IF NOT EXISTS cwa_settings(
     -- Days to keep files in /config/processed_books/{imported,failed}, pruned nightly. '0' = keep forever.
     -- Stored as TEXT so the generic settings form doesn't treat it as a checkbox.
     processed_books_retention_days TEXT DEFAULT '30' NOT NULL,
+    -- Optional second folder that nightly receives a copy of new/changed book files. '' = off.
+    library_mirror_dir TEXT DEFAULT '' NOT NULL,
     -- Duplicate notification and auto-resolution settings
     duplicate_detection_enabled SMALLINT DEFAULT 1 NOT NULL,
     duplicate_notifications_enabled SMALLINT DEFAULT 1 NOT NULL,

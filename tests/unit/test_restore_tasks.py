@@ -262,3 +262,28 @@ def test_backup_settings_saved(admin_client, tmp_path):
     resp = c.post("/admin/db_backups/settings", data={"db_backup_dir": "relative", "processed_books_retention_days": "14"})
     with CWA_DB() as db:
         assert db.cwa_settings["db_backup_dir"] == "/mnt/backups"
+
+
+@pytest.mark.unit
+def test_mirror_settings_validated_and_run_now_queues_task(admin_client, tmp_path, monkeypatch):
+    from cps import config
+    from cps.tasks import library_mirror as mirror_task
+    c, queued = admin_client
+    lib_dir = tmp_path / "lib"
+    lib_dir.mkdir()
+    monkeypatch.setattr(config, "config_calibre_dir", str(lib_dir), raising=False)
+
+    html = c.post("/admin/db_backups/settings", follow_redirects=True,
+                  data={"library_mirror_dir": str(lib_dir / "inside"), "processed_books_retention_days": "14"}).get_data(as_text=True)
+    assert "must not contain or sit inside" in html
+    html = c.post("/admin/db_backups/settings", follow_redirects=True,
+                  data={"library_mirror_dir": "relative", "processed_books_retention_days": "14"}).get_data(as_text=True)
+    assert "absolute path" in html
+
+    assert c.post("/admin/db_backups/settings", follow_redirects=True,
+                  data={"library_mirror_dir": "/mnt/mirror", "processed_books_retention_days": "14"}).status_code == 200
+    assert mirror_task.get_mirror_dir() == "/mnt/mirror"
+    assert 'name="library_mirror_dir"' in c.get("/admin/db_backups").get_data(as_text=True)
+
+    c.post("/admin/db_backups/mirror")
+    assert any(isinstance(t, mirror_task.TaskMirrorLibrary) for t in queued)

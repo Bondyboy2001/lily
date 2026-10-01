@@ -1994,6 +1994,7 @@ def ingest_failure_action(action):
 def db_backups():
     """Lists the nightly database snapshots with a Restore action per snapshot."""
     from .tasks.db_backup import get_backup_root, _configured_backup_dir, RESTORABLE_DBS
+    from .tasks.library_mirror import get_mirror_dir
     from db_backup import describe_snapshots
     from .tasks.processed_cleanup import get_retention_days
     backup_root = get_backup_root()
@@ -2009,6 +2010,7 @@ def db_backups():
                                  snapshots=snapshots, backup_root=backup_root,
                                  backup_dir_setting=_configured_backup_dir(),
                                  backup_dir_env=os.environ.get("DB_BACKUP_DIR", ""),
+                                 mirror_dir=get_mirror_dir(),
                                  retention_days=get_retention_days(),
                                  restorable_dbs=RESTORABLE_DBS,
                                  restore_running=restore_in_progress())
@@ -2025,6 +2027,14 @@ def db_backups_settings():
     if backup_dir and not os.path.isabs(backup_dir):
         flash(_("The backup folder must be an absolute path."), category="error")
         return redirect(url_for("admin.db_backups"))
+    mirror_dir = (request.form.get("library_mirror_dir") or "").strip()
+    if mirror_dir:
+        from library_mirror import validate_destination, MirrorError
+        try:
+            validate_destination(config.config_calibre_dir, mirror_dir)
+        except MirrorError as e:
+            flash(str(e), category="error")
+            return redirect(url_for("admin.db_backups"))
     raw_days = (request.form.get("processed_books_retention_days") or "").strip()
     days = normalize_retention_days(raw_days, default=-1)
     if days < 0 or days > 3650:
@@ -2032,13 +2042,28 @@ def db_backups_settings():
         return redirect(url_for("admin.db_backups"))
     try:
         with CWA_DB() as cwa_db:
-            cwa_db.update_cwa_settings({"db_backup_dir": backup_dir,
+            cwa_db.update_cwa_settings({"db_backup_dir": backup_dir, "library_mirror_dir": mirror_dir,
                                         "processed_books_retention_days": str(days)})
     except Exception as e:
         log.error("Saving backup settings failed: %s", e)
         flash(_("Saving backup settings failed: %(err)s", err=str(e)), category="error")
         return redirect(url_for("admin.db_backups"))
     flash(_("Backup settings saved."), category="success")
+    return redirect(url_for("admin.db_backups"))
+
+
+@admi.route("/admin/db_backups/mirror", methods=["POST"])
+@user_login_required
+@admin_required
+def mirror_library_now():
+    """Queues a library mirror run immediately."""
+    from .tasks.library_mirror import TaskMirrorLibrary, get_mirror_dir
+    if not get_mirror_dir():
+        flash(_("Set a library mirror folder first."), category="error")
+    else:
+        WorkerThread.add(current_user.name, TaskMirrorLibrary())
+        flash(Markup(_("Library mirror started. Follow its progress on the %(link)s page.",
+                       link=_tasks_page_link())), category="success")
     return redirect(url_for("admin.db_backups"))
 
 

@@ -74,6 +74,7 @@ def register_scheduled_tasks(reconnect=True):
         _schedule_archived_book_cleanup(scheduler, timezone_info)
         _schedule_db_backup(scheduler, start, timezone_info)
         _schedule_processed_books_cleanup(scheduler, start, timezone_info)
+        _schedule_library_mirror(scheduler, start, timezone_info)
 
         # Kick-off tasks, if they should currently be running
         if should_task_be_running(start, duration):
@@ -297,6 +298,19 @@ def _schedule_db_backup(scheduler, start_hour, timezone_info):
         scheduler.schedule_task(lambda: TaskBackupDatabases(), user='System',
                                 trigger=CronTrigger(hour=start_hour, minute=0, timezone=timezone_info),
                                 name='backup databases', hidden=False)
+    except Exception:
+        # Scheduling is best-effort; never block startup
+        pass
+
+
+def _schedule_library_mirror(scheduler, start_hour, timezone_info):
+    """Nightly copy of new/changed book files to cwa_settings.library_mirror_dir. Always
+    scheduled (hidden); the task does nothing while no mirror folder is set."""
+    try:
+        from .tasks.library_mirror import TaskMirrorLibrary
+        scheduler.schedule_task(lambda: TaskMirrorLibrary(), user='System',
+                                trigger=CronTrigger(hour=start_hour, minute=45, timezone=timezone_info),
+                                name='mirror library files', hidden=True)
     except Exception:
         # Scheduling is best-effort; never block startup
         pass
