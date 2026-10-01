@@ -158,7 +158,7 @@ def lily_env(tmp_path, **config_overrides):
     shutil.copy(EMPTY_LIBRARY_DB, library_dir / "metadata.db")
     app_db_path = str(Path(tmp_path) / "app.db")
 
-    saved_ub = (ub.session, ub.app_DB_path)
+    saved_ub = (ub.session, ub.app_DB_path, ub._app_db_engine, ub._task_session_factory)
     saved_config = dict(config.__dict__)
     cdb = db.CalibreDB
     saved_cdb = {k: cdb.__dict__[k] for k in ("_init", "engine", "config", "session_factory")}
@@ -204,6 +204,6 @@ def lily_env(tmp_path, **config_overrides):
                 ub.session.bind.dispose()
         except Exception:
             pass
-        ub.session, ub.app_DB_path = saved_ub
+        ub.session, ub.app_DB_path, ub._app_db_engine, ub._task_session_factory = saved_ub
         config.__dict__.clear()
         config.__dict__.update(saved_config)

@@ -7,7 +7,6 @@
 
 """The application database (app.db): users, shelves, read status, sessions, queues, and its schema migrations."""
 
-import atexit
 import os
 import sys
 import sqlite3
@@ -40,6 +39,10 @@ log = logger.create()
 
 session: Session | None = None
 app_DB_path = None
+# One engine (and connection pool) per app.db, shared by the web session and every
+# background-task session; see init_db() and get_new_session_instance().
+_app_db_engine = None
+_task_session_factory = None
 Base = declarative_base()
 searched_ids = {}
 
@@ -876,13 +879,20 @@ def _create_app_db_engine(db_path):
     return engine
 
 
-def init_db_thread():
-    global app_DB_path
-    engine = _create_app_db_engine(app_DB_path)
+def _shared_session_factory():
+    """The sessionmaker bound to the shared app.db engine (created lazily if init_db
+    has not run in this process)."""
+    global _app_db_engine, _task_session_factory
+    if _task_session_factory is None:
+        if _app_db_engine is None:
+            _app_db_engine = _create_app_db_engine(app_DB_path)
+        _task_session_factory = sessionmaker(bind=_app_db_engine)
+    return _task_session_factory
 
-    Session = scoped_session(sessionmaker())
-    Session.configure(bind=engine)
-    return Session()
+
+def init_db_thread():
+    """A plain session on the shared app.db engine, for code running in another thread."""
+    return _shared_session_factory()()
 
 
 def init_db(app_db_path):
@@ -890,8 +900,11 @@ def init_db(app_db_path):
     global session
     global app_DB_path
 
+    global _app_db_engine, _task_session_factory
     app_DB_path = app_db_path
     engine = _create_app_db_engine(app_db_path)
+    _app_db_engine = engine
+    _task_session_factory = sessionmaker(bind=engine)
 
     Session = scoped_session(sessionmaker())
     Session.configure(bind=engine)
@@ -960,21 +973,27 @@ def password_change(user_credentials=None):
 
 
 def get_new_session_instance():
-    new_engine = create_engine('sqlite:///{0}'.format(app_DB_path), echo=False,
-                               connect_args={'timeout': 30})
-    new_session = scoped_session(sessionmaker())
-    new_session.configure(bind=new_engine)
+    """A thread-scoped session registry for a background task.
 
-    atexit.register(lambda: new_session.remove() if new_session else True)
-
-    return new_session
+    Every registry shares the one app.db engine and its connection pool; creating an
+    engine per call leaked one pool (and its open SQLite handles) per task run. Callers
+    end with ``.remove()``, which closes the thread's session and returns its connection.
+    """
+    return scoped_session(_shared_session_factory())
 
 
 def dispose():
-    global session
+    global session, _app_db_engine, _task_session_factory
 
     old_session = session
     session = None
+    _task_session_factory = None
+    if _app_db_engine is not None and (old_session is None or old_session.bind is not _app_db_engine):
+        try:
+            _app_db_engine.dispose()
+        except Exception:
+            pass
+    _app_db_engine = None
     if old_session:
         try:
             old_session.close()

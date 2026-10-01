@@ -40,9 +40,10 @@ class TaskClean(CalibreTask):
             self._handleError('Error deleting expired session keys: ' + str(ex))
             self.app_db_session.rollback()
             return
+        finally:
+            self.app_db_session.remove()
 
         self._handleSuccess()
-        self.app_db_session.remove()
 
     @property
     def name(self):
