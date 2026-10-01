@@ -292,5 +292,5 @@ def test_settings_button_opens_settings_with_tasks_and_logout_in_rail():
     for gone in ("glyphicon-user", "glyphicon-dashboard", "glyphicon-tasks"):
         assert gone not in bar, gone
     rail = read(TEMPLATES / "settings_layout.html")
-    assert "id='top_tasks'" in rail and "id='logout'" in rail
+    assert "'rail_id': 'top_tasks'" in rail and "id='logout'" in rail
     assert 'extends "settings_layout.html"' in read(TEMPLATES / "tasks.html")

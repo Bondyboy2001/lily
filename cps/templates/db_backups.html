@@ -1,6 +1,5 @@
 {% extends "settings_layout.html" %}
 {% import "lily_form.html" as f with context %}
-{% block heading %}{{ _('Database Backups') }}{% endblock %}
 {% block settings %}
 <div class="lp lily-settings">
   <p class="lp-intro">{{ _('app.db, cwa.db and metadata.db are snapshotted nightly at the start of the maintenance window. Restoring runs in the background: every file is integrity-checked, the current databases are copied to a "pre-restore" snapshot, and only then swapped in.') }}</p>

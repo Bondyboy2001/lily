@@ -6,7 +6,6 @@
 </div>
 {% endblock %}
 
-{% block heading %}{{ _('General') }}{% endblock %}
 {% block settings %}
 <div class="lp">
 <form role="form" method="POST" autocomplete="off">
@@ -32,9 +31,9 @@
     {{ f.toggle('config_check_extensions', _('Check uploads match their extension'), config.config_check_extensions) }}
   {% endcall %}
 
-    <div class="lp-actions">
+    <div class="lp-actions is-save">
       <span class="lp-spacer"></span>
-      <a href="{{ url_for('admin.admin') }}" id="config_back" class="btn btn-default">{{_('Cancel')}}</a>
+      <a href="{{ request.path }}" id="config_back" class="btn btn-default">{{_('Cancel')}}</a>
       <button type="button" name="submit" id="config_submit" class="btn btn-primary">{{_('Save')}}</button>
     </div>
   </form>
