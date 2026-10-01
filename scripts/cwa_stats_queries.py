@@ -1164,7 +1164,12 @@ class CWAStatsQueries:
 
             # 4. Recent search terms
             self.cur.execute(f"""
-                SELECT extra_data as search_term, timestamp, user_name
+                SELECT
+                    CASE WHEN json_valid(extra_data) AND json_type(extra_data) = 'object'
+                        THEN COALESCE(json_extract(extra_data, '$.query'), json_extract(extra_data, '$.format'))
+                        ELSE extra_data
+                    END as search_term,
+                    timestamp, user_name
                 FROM cwa_user_activity
                 WHERE event_type = 'SEARCH'
                   AND extra_data IS NOT NULL
