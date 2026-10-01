@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""OPDS catalog feeds for e-reader and reading apps (Basic auth, or a personal API token)."""
+"""OPDS catalog feeds for e-reader and reading apps (Basic auth)."""
 
 import datetime
 import json
@@ -196,32 +196,6 @@ def get_opds_root_entries(user, allow_anonymous):
             'url': url_for(entry_def['endpoint']),
         })
     return entries
-
-
-@opds.before_request
-def track_opds_access():
-    """Track OPDS feed access for analytics"""
-    try:
-        from .render_template import get_request_cwa_db
-        from .cw_login import current_user
-        import json as json_lib
-
-        # Only track if user is authenticated
-        if current_user and hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
-            # Per-request connection (closed at request teardown) instead of an unclosed CWA_DB() per hit.
-            # Cover/thumbnail hits are still logged: the API stats endpoint breakdown counts them.
-            cwa_db = get_request_cwa_db()
-            cwa_db.log_activity(
-                user_id=int(current_user.id),
-                user_name=current_user.name,
-                event_type='OPDS_ACCESS',
-                extra_data=json_lib.dumps({
-                    'endpoint': request.path,
-                    'method': request.method
-                })
-            )
-    except Exception as e:
-        log.debug(f"Failed to log OPDS access: {e}")
 
 
 @opds.route("/opds/")
@@ -608,8 +582,7 @@ def feed_shelf(book_id):
 def opds_download_link(book_id, book_format):
     if not auth.current_user().role_download():
         return abort(401)
-    client = "kobo" if "Kobo" in request.headers.get('User-Agent', '') else ""
-    return get_download_link(book_id, book_format.lower(), client)
+    return get_download_link(book_id, book_format.lower())
 
 
 @opds.route("/ajax/book/<string:uuid>/<library>")

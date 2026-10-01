@@ -1,12 +1,10 @@
 # Calibre-Web Automated – fork of Calibre-Web
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Matching and fill rules for the metadata suggestion queue.
+"""How well a metadata provider record matches a book (title and authors).
 
-A suggestion is a provider record that looks like one of the library's books and
-would add something the book lacks. Suggestions only ever fill gaps: a book's
-existing description and identifiers are never overwritten. Kept free of Flask/cps
-imports so the rules can be tested on their own.
+The metadata search on the book editor uses match_score() to rank results. Kept
+free of Flask/cps imports so the rules can be tested on their own.
 """
 
 import re
@@ -14,8 +12,7 @@ import re
 _STOPWORDS = frozenset({"a", "an", "the", "of", "and", "in", "on", "to", "for", "by", "with"})
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
 
-MIN_SCORE = 0.6          # below this a record is not worth showing
-HIGH_CONFIDENCE = 0.85   # the "accept all high-confidence" bulk action uses this
+HIGH_CONFIDENCE = 0.85   # a score at or above this is treated as the same book
 TITLE_WEIGHT = 0.7
 
 
@@ -64,24 +61,3 @@ def match_score(book_title: str, book_authors: list[str], rec_title: str, rec_au
     if not any(_surname(a) for a in book_authors):
         return min(title, HIGH_CONFIDENCE - 0.01)
     return round(TITLE_WEIGHT * title + (1 - TITLE_WEIGHT) * author_similarity(book_authors, rec_authors), 4)
-
-
-def fill_fields(book: dict, record: dict) -> dict:
-    """What `record` would add to `book`: {'description': str, 'identifiers': {type: value}}.
-
-    book: {'description': str | None, 'identifiers': {type: value}}
-    record: {'description': str | None, 'identifiers': {type: value}}
-    Only gaps are filled; the result is empty when there is nothing to add."""
-    out: dict = {}
-    description = (record.get("description") or "").strip()
-    if description and not (book.get("description") or "").strip():
-        out["description"] = description
-    have = {str(k).lower() for k in (book.get("identifiers") or {})}
-    identifiers = {}
-    for key, value in (record.get("identifiers") or {}).items():
-        key, value = str(key).strip().lower(), str(value).strip()
-        if key and value and key not in have:
-            identifiers[key] = value
-    if identifiers:
-        out["identifiers"] = identifiers
-    return out

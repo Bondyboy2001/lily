@@ -26,7 +26,6 @@ guarded by `cps/internal_api.py` (`@internal_only`, shared secret from
 | `metadata.db` | Calibre | The library: books, authors, tags, comments, identifiers (`cps/db.py`). |
 | `app.db` | Lily | Users, shelves, read status, sessions, queues, server settings (`cps/ub.py`, `cps/config_sql.py`). |
 | `cwa.db` | Lily | Lily settings and statistics (`scripts/cwa_db.py`, schema in `scripts/cwa_schema.sql`). |
-| `gdrive.db` | Lily | Google Drive settings (`cps/gdriveutils.py`). |
 
 New `app.db` columns and tables are added by the migrations in `ub.py`; new `cwa.db`
 settings are columns in `cwa_schema.sql`, which is synced on start.
@@ -47,7 +46,7 @@ The main file imports its siblings **at the bottom**, after everything they impo
 it is defined. Keep it that way.
 
 Other blueprints: `opds`, `shelf`, `search`, `metadata` (provider search), `duplicates`,
-`logs`, `gdrive`, and the `cwa_functions/` package (Import & Metadata settings, service
+`logs`, and the `cwa_functions/` package (Import & Metadata settings, service
 status, ingest endpoints). There are no settings pages for the library location, backups,
 book recovery, failed imports, statistics or tasks: the library is found at
 `/calibre-library`, and backups, delete recovery and failed-import handling run on their
@@ -61,8 +60,8 @@ defaults without a UI.
 
 ### Background tasks
 
-`services/worker.py` runs `CalibreTask` subclasses from `tasks/` (backups, restore, library
-mirror, thumbnails, duplicate scan, Hardcover, ...).
+`services/worker.py` runs `CalibreTask` subclasses from `tasks/` (database backups, library
+mirror, thumbnails, duplicate scan, ...).
 `schedule.py` registers the recurring ones.
 
 ### Pure modules

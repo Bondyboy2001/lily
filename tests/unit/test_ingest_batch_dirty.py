@@ -65,7 +65,6 @@ def test_successful_import_marks_batch_dirty_without_hot_loop_http_calls(monkeyp
     monkeypatch.setattr(ingest_processor, "requests", requests_mock)
 
     with mock.patch.object(ingest_processor.subprocess, "run", return_value=result) as run_mock, \
-        mock.patch.object(ingest_processor, "gdrive_sync_if_enabled"), \
         mock.patch.object(processor, "fetch_metadata_if_enabled"):
         processor.add_book_to_library(str(source))
 
@@ -124,8 +123,7 @@ def test_successful_add_format_marks_batch_dirty(monkeypatch, tmp_path):
     )
 
     with mock.patch.object(processor, "_validate_book_exists", return_value=True), \
-        mock.patch.object(ingest_processor.subprocess, "run", return_value=result) as run_mock, \
-        mock.patch.object(ingest_processor, "gdrive_sync_if_enabled"):
+        mock.patch.object(ingest_processor.subprocess, "run", return_value=result) as run_mock:
         processor.add_format_to_book(7, str(source))
 
     assert run_mock.call_args.args[0][:3] == ["calibredb", "add_format", "7"]

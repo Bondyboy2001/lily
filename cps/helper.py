@@ -20,10 +20,8 @@ from datetime import datetime, timezone
 import requests
 import unidecode
 
-from flask import send_from_directory, make_response, abort, Response
+from flask import send_from_directory, make_response, abort
 from flask_babel import gettext as _
-from flask_babel import lazy_gettext as N_
-from flask_babel import get_locale
 from .cw_login import current_user
 from sqlalchemy.sql.expression import true, false, and_, or_, func
 from sqlalchemy.exc import InvalidRequestError, OperationalError
@@ -42,10 +40,8 @@ except ImportError:
 from . import calibre_db, cli_param
 from .string_helper import strip_whitespaces
 from . import logger, config, db, ub, fs
-from . import gdriveutils as gd
 from .constants import (STATIC_DIR as _STATIC_DIR, CACHE_TYPE_THUMBNAILS, THUMBNAIL_TYPE_COVER, THUMBNAIL_TYPE_SERIES,
-                        SUPPORTED_CALIBRE_BINARIES, EXTENSIONS_AUDIO)
-from .subproc_wrapper import process_wait
+                        EXTENSIONS_AUDIO)
 
 # Track books with pending thumbnail generation to prevent duplicate tasks
 _pending_thumbnail_books = set()
@@ -55,8 +51,6 @@ sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB
 from .services.worker import WorkerThread
 from .tasks.thumbnail import TaskClearCoverThumbnailCache, TaskGenerateCoverThumbnails
-from .tasks.metadata_backup import TaskBackupMetadata
-from .file_helper import get_temp_dir
 from .embed_helper import do_calibre_export
 
 log = logger.create()
@@ -293,93 +287,78 @@ def delete_book_file(book, calibrepath, book_format=None):
                    id=book.id,
                    path=book.path)
 
-def rename_all_files_on_change(one_book, new_path, old_path, all_new_name, gdrive=False):
+def rename_all_files_on_change(one_book, new_path, old_path, all_new_name):
     for file_format in one_book.data:
-        if not gdrive:
-            if not os.path.exists(new_path):
-                os.makedirs(new_path)
+        if not os.path.exists(new_path):
+            os.makedirs(new_path)
 
-            old_file = os.path.join(old_path, file_format.name + '.' + file_format.format.lower())
-            new_file = os.path.join(new_path, all_new_name + '.' + file_format.format.lower())
+        old_file = os.path.join(old_path, file_format.name + '.' + file_format.format.lower())
+        new_file = os.path.join(new_path, all_new_name + '.' + file_format.format.lower())
 
-            # Skip if source and destination are the same
-            if old_file == new_file:
-                log.debug("Skipping file rename - source and destination are identical: %s", old_file)
+        # Skip if source and destination are the same
+        if old_file == new_file:
+            log.debug("Skipping file rename - source and destination are identical: %s", old_file)
+            continue
+
+        # Check if source file exists
+        if not os.path.exists(old_file):
+            log.warning("Source file not found for rename: %s", old_file)
+            # Check if the file already has the new name (perhaps from a previous partial operation)
+            if os.path.exists(new_file):
+                log.info("File already exists at destination: %s", new_file)
+                file_format.name = all_new_name
+                continue
+            else:
+                log.error("Neither old nor new file exists - cannot rename %s to %s", old_file, new_file)
                 continue
 
-            # Check if source file exists
-            if not os.path.exists(old_file):
-                log.warning("Source file not found for rename: %s", old_file)
-                # Check if the file already has the new name (perhaps from a previous partial operation)
-                if os.path.exists(new_file):
-                    log.info("File already exists at destination: %s", new_file)
-                    file_format.name = all_new_name
-                    continue
-                else:
-                    log.error("Neither old nor new file exists - cannot rename %s to %s", old_file, new_file)
-                    continue
-
-            # Check if destination already exists
-            if os.path.exists(new_file) and old_file != new_file:
-                log.warning("Destination file already exists, will overwrite: %s", new_file)
-                try:
-                    os.remove(new_file)
-                except OSError as ex:
-                    log.error("Could not remove existing destination file %s: %s", new_file, ex)
-
-            # Attempt to rename the file
+        # Check if destination already exists
+        if os.path.exists(new_file) and old_file != new_file:
+            log.warning("Destination file already exists, will overwrite: %s", new_file)
             try:
-                shutil.move(old_file, new_file)
-                log.debug("Successfully renamed %s to %s", old_file, new_file)
+                os.remove(new_file)
             except OSError as ex:
-                log.error("Failed to rename file from %s to %s: %s", old_file, new_file, ex)
-                # Try copy+delete as fallback for permission issues (e.g., network shares)
-                try:
-                    log.info("Attempting copy+delete fallback for %s", old_file)
-                    shutil.copy2(old_file, new_file)
-                    os.remove(old_file)
-                    log.info("Successfully copied and removed old file: %s", old_file)
-                except (OSError, IOError) as fallback_ex:
-                    log.error("Copy+delete fallback also failed for %s: %s", old_file, fallback_ex)
-                    # Don't update the database name if we failed to rename the file
-                    continue
-        else:
-            g_file = gd.getFileFromEbooksFolder(old_path,
-                                                file_format.name + '.' + file_format.format.lower())
-            if g_file:
-                gd.moveGdriveFileRemote(g_file, all_new_name + '.' + file_format.format.lower())
-                gd.updateDatabaseOnEdit(g_file['id'], all_new_name + '.' + file_format.format.lower())
-            else:
-                log.error("File {} not found on gdrive"
-                          .format(file_format.name + '.' + file_format.format.lower()))
+                log.error("Could not remove existing destination file %s: %s", new_file, ex)
+
+        # Attempt to rename the file
+        try:
+            shutil.move(old_file, new_file)
+            log.debug("Successfully renamed %s to %s", old_file, new_file)
+        except OSError as ex:
+            log.error("Failed to rename file from %s to %s: %s", old_file, new_file, ex)
+            # Try copy+delete as fallback for permission issues (e.g., network shares)
+            try:
+                log.info("Attempting copy+delete fallback for %s", old_file)
+                shutil.copy2(old_file, new_file)
+                os.remove(old_file)
+                log.info("Successfully copied and removed old file: %s", old_file)
+            except (OSError, IOError) as fallback_ex:
+                log.error("Copy+delete fallback also failed for %s: %s", old_file, fallback_ex)
+                # Don't update the database name if we failed to rename the file
+                continue
 
         # change name in Database
         file_format.name = all_new_name
 
 
-def rename_author_path(first_author, old_author_dir, renamed_author, calibre_path="", gdrive=False):
+def rename_author_path(first_author, old_author_dir, renamed_author, calibre_path=""):
     # Create new_author_dir from parameter or from database
     # Create new title_dir from database and add id
     new_authordir = get_valid_filename(first_author, chars=96)
     new_author_rename_dir = get_valid_filename(renamed_author, chars=96)
-    if gdrive:
-        g_file = gd.getFileFromEbooksFolder(None, old_author_dir)
-        if g_file:
-            gd.moveGdriveFolderRemote(g_file, new_author_rename_dir)
-    else:
-        if os.path.isdir(os.path.join(calibre_path, old_author_dir)):
-            old_author_path = os.path.join(calibre_path, old_author_dir)
-            new_author_path = os.path.join(calibre_path, new_author_rename_dir)
+    if os.path.isdir(os.path.join(calibre_path, old_author_dir)):
+        old_author_path = os.path.join(calibre_path, old_author_dir)
+        new_author_path = os.path.join(calibre_path, new_author_rename_dir)
+        try:
+            os.rename(old_author_path, new_author_path)
+        except OSError:
             try:
-                os.rename(old_author_path, new_author_path)
-            except OSError:
-                try:
-                    shutil.move(old_author_path, new_author_path)
-                except OSError as ex:
-                    log.error("Rename author from: %s to %s: %s", old_author_path, new_author_path, ex)
-                    log.error_or_exception(ex)
-                    raise Exception(_("Rename author from: '%(src)s' to '%(dest)s' failed with error: %(error)s",
-                             src=old_author_path, dest=new_author_path, error=str(ex)))
+                shutil.move(old_author_path, new_author_path)
+            except OSError as ex:
+                log.error("Rename author from: %s to %s: %s", old_author_path, new_author_path, ex)
+                log.error_or_exception(ex)
+                raise Exception(_("Rename author from: '%(src)s' to '%(dest)s' failed with error: %(error)s",
+                         src=old_author_path, dest=new_author_path, error=str(ex)))
     return new_authordir
 
 # Moves files in file storage during author/title rename, or from temp dir to file storage
@@ -417,38 +396,6 @@ def update_dir_structure_file(book_id, calibre_path, original_filepath, new_auth
 
         if error:
             return error
-    return False
-
-
-def update_dir_structure_gdrive(book_id, first_author):
-    book = calibre_db.get_book(book_id)
-
-    authordir = book.path.split('/')[0]
-    titledir = book.path.split('/')[1]
-    new_authordir = get_valid_filename(first_author, chars=96)
-    new_titledir = get_valid_filename(book.title, chars=96) + " (" + str(book_id) + ")"
-
-    if titledir != new_titledir:
-        g_file = gd.getFileFromEbooksFolder(authordir, titledir)
-        if g_file:
-            gd.moveGdriveFileRemote(g_file, new_titledir)
-            book.path = book.path.split('/')[0] + '/' + new_titledir
-            gd.updateDatabaseOnEdit(g_file['id'], book.path)     # only child folder affected
-        else:
-            return _('File %(file)s not found on Google Drive', file=book.path)  # file not found
-
-    if authordir != new_authordir:
-        g_file = gd.getFileFromEbooksFolder(authordir, new_titledir)
-        if g_file:
-            gd.moveGdriveFolderRemote(g_file, new_authordir, single_book=True)
-            book.path = new_authordir + '/' + book.path.split('/')[1]
-            gd.updateDatabaseOnEdit(g_file['id'], book.path)
-        else:
-            return _('File %(file)s not found on Google Drive', file=authordir)  # file not found'''
-    if titledir != new_titledir or authordir != new_authordir :
-        all_new_name = get_valid_filename(book.title, chars=42) + ' - ' \
-                       + get_valid_filename(new_authordir, chars=42)
-        rename_all_files_on_change(book, book.path, book.path, all_new_name, gdrive=True)  # todo: Move filenames on gdrive
     return False
 
 
@@ -527,25 +474,6 @@ def move_files_on_change(calibre_path, new_author_dir, new_titledir, localbook, 
     return False
 
 
-def delete_book_gdrive(book, book_format):
-    error = None
-    if book_format:
-        name = ''
-        for entry in book.data:
-            if entry.format.upper() == book_format:
-                name = entry.name + '.' + book_format
-        g_file = gd.getFileFromEbooksFolder(book.path, name, nocase=True)
-    else:
-        g_file = gd.getFileFromEbooksFolder(os.path.dirname(book.path), book.path.split('/')[1])
-    if g_file:
-        gd.deleteDatabaseEntry(g_file['id'])
-        g_file.Trash()
-    else:
-        error = _('Book path %(path)s not found on Google Drive', path=book.path)  # file not found
-
-    return error is None, error
-
-
 def uniq(inpt):
     output = []
     inpt = [" ".join(inp.split()) for inp in inpt]
@@ -613,24 +541,18 @@ def update_dir_structure(book_id,
                          first_author=None,     # change author of book to this author
                          original_filepath=None,
                          db_filename=None):
-    if config.config_use_google_drive:
-        return update_dir_structure_gdrive(book_id, first_author)
-    else:
-        return update_dir_structure_file(book_id,
-                                         calibre_path,
-                                         original_filepath,
-                                         first_author,
-                                         db_filename)
+    return update_dir_structure_file(book_id,
+                                     calibre_path,
+                                     original_filepath,
+                                     first_author,
+                                     db_filename)
 
 
 def delete_book(book, calibrepath, book_format):
     if not book_format:
         clear_cover_thumbnail_cache(book.id)  # here it breaks
         calibre_db.delete_dirty_metadata(book.id)
-    if config.config_use_google_drive:
-        return delete_book_gdrive(book, book_format)
-    else:
-        return delete_book_file(book, calibrepath, book_format)
+    return delete_book_file(book, calibrepath, book_format)
 
 
 def get_cover_on_failure():
@@ -724,30 +646,12 @@ def get_book_cover_internal(book, resolution=None):
         # background; don't pin the full-size fallback in the browser cache for a year then.
         cover_is_final = not (resolution and use_IM)
 
-        # Send the book cover from Google Drive if configured
-        if config.config_use_google_drive:
-            try:
-                if not gd.is_gdrive_ready():
-                    return get_cover_on_failure()
-                cover_file = gd.get_cover_via_gdrive(book.path)
-                if cover_file:
-                    resp = Response(cover_file, mimetype='image/jpeg')
-                    return _apply_cover_cache_headers(resp) if cover_is_final else resp
-                else:
-                    log.error('{}/cover.jpg not found on Google Drive'.format(book.path))
-                    return get_cover_on_failure()
-            except Exception as ex:
-                log.error_or_exception(ex)
-                return get_cover_on_failure()
-
-        # Send the book cover from the Calibre directory
+        cover_file_path = os.path.join(config.get_book_path(), book.path)
+        if os.path.isfile(os.path.join(cover_file_path, "cover.jpg")):
+            resp = send_from_directory(cover_file_path, "cover.jpg")
+            return _apply_cover_cache_headers(resp) if cover_is_final else resp
         else:
-            cover_file_path = os.path.join(config.get_book_path(), book.path)
-            if os.path.isfile(os.path.join(cover_file_path, "cover.jpg")):
-                resp = send_from_directory(cover_file_path, "cover.jpg")
-                return _apply_cover_cache_headers(resp) if cover_is_final else resp
-            else:
-                return get_cover_on_failure()
+            return get_cover_on_failure()
     else:
         return get_cover_on_failure()
 
@@ -916,7 +820,7 @@ def save_cover_from_filestorage(filepath, saved_filename, img):
     return True, None
 
 
-# saves book cover to gdrive or locally
+# saves book cover to the library folder
 def save_cover(img, book_path):
     content_type = img.headers.get('content-type')
 
@@ -949,18 +853,7 @@ def save_cover(img, book_path):
             log.error("Only jpg/jpeg files are supported as coverfile")
             return False, _("Only jpg/jpeg files are supported as coverfile")
 
-    if config.config_use_google_drive:
-        tmp_dir = get_temp_dir()
-        ret, message = save_cover_from_filestorage(tmp_dir, "uploaded_cover.jpg", img)
-        if ret is True:
-            gd.uploadFileToEbooksFolder(os.path.join(book_path, 'cover.jpg').replace("\\", "/"),
-                                        os.path.join(tmp_dir, "uploaded_cover.jpg"))
-            log.info("Cover is saved on Google Drive")
-            return True, None
-        else:
-            return False, message
-    else:
-        return save_cover_from_filestorage(os.path.join(config.get_book_path(), book_path), "cover.jpg", img)
+    return save_cover_from_filestorage(os.path.join(config.get_book_path(), book_path), "cover.jpg", img)
 
 
 def save_cover_with_thumbnail_update(img, book_path, book_id=None):
@@ -975,51 +868,36 @@ def save_cover_with_thumbnail_update(img, book_path, book_id=None):
     return result, message
 
 
-def do_download_file(book, book_format, client, data, headers):
+def do_download_file(book, book_format, data, headers):
     book_name = data.name
     download_name = filename = None
 
-    if config.config_use_google_drive:
-        df = gd.getFileFromEbooksFolder(book.path, data.name + "." + book_format)
-        if df:
-            if config.config_embed_metadata and book_format != "kepub" and config.config_binariesdir:
-                output_path = os.path.join(config.config_calibre_dir, book.path)
-                if not os.path.exists(output_path):
-                    os.makedirs(output_path)
-                output = os.path.join(config.config_calibre_dir, book.path, book_name + "." + book_format)
-                gd.downloadFile(book.path, book_name + "." + book_format, output)
-                filename, download_name = do_calibre_export(book.id, book_format)
-            else:
-                return gd.do_gdrive_download(df, headers)
-        else:
-            abort(404)
+    filename = os.path.join(config.get_book_path(), book.path)
+    if not os.path.isfile(os.path.join(filename, book_name + "." + book_format)):
+        # ToDo: improve error handling
+        log.error('File not found: %s', os.path.join(filename, book_name + "." + book_format))
+
+    if book_format != "kepub" and config.config_binariesdir and config.config_embed_metadata:
+        filename, download_name = do_calibre_export(book.id, book_format)
+
+        # Rename the exported file to match the expected download name (from Content-Disposition)
+        if filename and download_name:
+            uuid_file = os.path.join(filename, download_name + "." + book_format)
+            expected_file = os.path.join(filename, book_name + "." + book_format)
+
+            if os.path.exists(uuid_file) and uuid_file != expected_file:
+                try:
+                    # Remove the target file if it already exists
+                    if os.path.exists(expected_file):
+                        os.remove(expected_file)
+                    # Rename UUID file to expected name
+                    os.rename(uuid_file, expected_file)
+                    download_name = book_name
+                    log.info(f'Renamed exported file to match expected name: {book_name}.{book_format}')
+                except Exception as e:
+                    log.error(f'Failed to rename exported file: {e}')
     else:
-        filename = os.path.join(config.get_book_path(), book.path)
-        if not os.path.isfile(os.path.join(filename, book_name + "." + book_format)):
-            # ToDo: improve error handling
-            log.error('File not found: %s', os.path.join(filename, book_name + "." + book_format))
-
-        if book_format != "kepub" and config.config_binariesdir and config.config_embed_metadata:
-            filename, download_name = do_calibre_export(book.id, book_format)
-
-            # Rename the exported file to match the expected download name (from Content-Disposition)
-            if filename and download_name:
-                uuid_file = os.path.join(filename, download_name + "." + book_format)
-                expected_file = os.path.join(filename, book_name + "." + book_format)
-
-                if os.path.exists(uuid_file) and uuid_file != expected_file:
-                    try:
-                        # Remove the target file if it already exists
-                        if os.path.exists(expected_file):
-                            os.remove(expected_file)
-                        # Rename UUID file to expected name
-                        os.rename(uuid_file, expected_file)
-                        download_name = book_name
-                        log.info(f'Renamed exported file to match expected name: {book_name}.{book_format}')
-                    except Exception as e:
-                        log.error(f'Failed to rename exported file: {e}')
-        else:
-            download_name = book_name
+        download_name = book_name
 
     response = make_response(send_from_directory(filename, download_name + "." + book_format))
     # ToDo Check headers parameter
@@ -1038,47 +916,6 @@ def check_architecture():
     return None
 
 
-def check_calibre(calibre_location):
-    if not calibre_location:
-        return
-
-    if not os.path.exists(calibre_location):
-        return _('Could not find the specified directory')
-
-    if not os.path.isdir(calibre_location):
-        return _('Please specify a directory, not a file')
-
-    try:
-        supported_binary_paths = [os.path.join(calibre_location, binary)
-                                  for binary in SUPPORTED_CALIBRE_BINARIES.values()]
-        binaries_available = [os.path.isfile(binary_path) for binary_path in supported_binary_paths]
-        binaries_executable = [os.access(binary_path, os.X_OK) for binary_path in supported_binary_paths]
-        if all(binaries_available) and all(binaries_executable):
-            values = [process_wait([binary_path, "--version"], pattern=r'\(calibre (.*)\)')
-                      for binary_path in supported_binary_paths]
-            if all(values):
-                version = values[0].group(1)
-                log.debug("calibre version %s", version)
-            else:
-                return _('Calibre binaries not viable')
-        else:
-            ret_val = []
-            missing_binaries = [path for path, available in
-                               zip(SUPPORTED_CALIBRE_BINARIES.values(), binaries_available) if not available]
-
-            missing_perms = [path for path, available in
-                            zip(SUPPORTED_CALIBRE_BINARIES.values(), binaries_executable) if not available]
-            if missing_binaries:
-                ret_val.append(_('Missing calibre binaries: %(missing)s', missing=", ".join(missing_binaries)))
-            if missing_perms:
-                ret_val.append(_('Missing executable permissions: %(missing)s', missing=", ".join(missing_perms)))
-            return ", ".join(ret_val)
-
-    except (OSError, UnicodeDecodeError) as err:
-        log.error_or_exception(err)
-        return _('Error executing Calibre')
-
-
 def tags_filters():
     negtags_list = current_user.list_denied_tags()
     postags_list = current_user.list_allowed_tags()
@@ -1087,7 +924,7 @@ def tags_filters():
     return and_(pos_content_tags_filter, ~neg_content_tags_filter)
 
 
-def get_download_link(book_id, book_format, client):
+def get_download_link(book_id, book_format):
     book_format = book_format.split(".")[0]
     # Try filtered view first to respect user restrictions
     book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
@@ -1109,39 +946,6 @@ def get_download_link(book_id, book_format, client):
     # collect downloaded books only for registered user and not for anonymous user
     if current_user.is_authenticated:
         ub.update_download(book_id, int(current_user.id))
-        # CWA Stats Logging
-        try:
-            import json
-            from flask import request
-
-            # Detect source of download
-            source = request.args.get('from', 'direct')
-            referer = request.headers.get('Referer', '')
-            if not source or source == 'direct':
-                if '/search' in referer:
-                    source = 'search'
-                elif '/series' in referer:
-                    source = 'series'
-                elif '/author' in referer:
-                    source = 'author'
-                elif '/category' in referer:
-                    source = 'category'
-                elif '/book/' in referer:
-                    source = 'book_detail'
-                elif '/shelf' in referer:
-                    source = 'shelf'
-
-            cwa_db = CWA_DB()
-            cwa_db.log_activity(
-                user_id=current_user.id,
-                user_name=current_user.name,
-                event_type="DOWNLOAD",
-                item_id=book_id,
-                item_title=book.title,
-                extra_data=json.dumps({'format': book_format, 'source': source})
-            )
-        except Exception as e:
-            log.error(f"Failed to log download stats: {e}")
 
     file_name = book.title
     if len(book.authors) > 0:
@@ -1151,7 +955,7 @@ def get_download_link(book_id, book_format, client):
     headers["Content-Type"] = mimetypes.types_map.get('.' + book_format, "application/octet-stream")
     headers["Content-Disposition"] = "attachment; filename=%s.%s; filename*=UTF-8''%s.%s" % (
         quote(file_name), book_format, quote(file_name), book_format)
-    return do_download_file(book, book_format, client, data1, headers)
+    return do_download_file(book, book_format, data1, headers)
 
 
 def clear_cover_thumbnail_cache(book_id):
@@ -1186,10 +990,6 @@ def replace_cover_thumbnail_cache(book_id, book_path=None, last_modified=None):
         log.error(f'Failed to queue thumbnail generation for book {book_id}: {e}')
 
 
-def delete_thumbnail_cache():
-    WorkerThread.add(None, TaskClearCoverThumbnailCache(-1))
-
-
 def update_thumbnail_cache():
     # Always allow manual thumbnail cache updates
     task = TaskGenerateCoverThumbnails()
@@ -1197,13 +997,6 @@ def update_thumbnail_cache():
     # Return task ID for tracking
     return task.id
 
-
-def set_all_metadata_dirty():
-    WorkerThread.add(None, TaskBackupMetadata(export_language=get_locale(),
-                                              translated_title=_("Cover"),
-                                              set_dirty=True,
-                                              task_message=N_("Queue all books for metadata backup")),
-                     hidden=False)
 
 def get_internal_api_url(path):
     port = os.getenv('CWA_PORT_OVERRIDE', '8083').strip()

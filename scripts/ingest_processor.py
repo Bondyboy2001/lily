@@ -23,7 +23,7 @@ from pathlib import Path
 import title_card  # stdlib only at import time; Wand loads when a card is drawn
 
 # ── Lazy-initialization sentinels ──────────────────────────────────────────
-# Heavy modules (GDrive sync, auto-send, metadata fetch, audiobook support,
+# Heavy modules (metadata fetch, audiobook support,
 # EPUB fixing) are NOT imported at module level.  All globals below start as
 # None / empty and are populated by initialize_runtime().  This allows main()
 # to fast-exit on missing/stale ingest targets without importing cps.* (which
@@ -35,9 +35,7 @@ import title_card  # stdlib only at import time; Wand loads when a card is drawn
 # it is only called from add_book_to_library(), add_format_to_book(), or
 # another path gated by initialize_runtime().
 # ───────────────────────────────────────────────────────────────────────────
-_GDRIVE_AVAILABLE = False
 _CPS_AVAILABLE = False
-_gdriveutils = None
 _cps_config = None
 fetch_and_apply_metadata = None
 _ub = None
@@ -177,7 +175,7 @@ def get_app_db_path() -> str:
 
 
 def _load_cps_settings_from_app_db() -> None:
-    """Load minimal CPS settings needed for GDrive + internal HTTPS handling."""
+    """Load the minimal CPS settings needed for internal HTTPS handling."""
     if not _cps_config:
         return
     try:
@@ -185,21 +183,18 @@ def _load_cps_settings_from_app_db() -> None:
         with sqlite3.connect(app_db_path, timeout=30) as con:
             cur = con.cursor()
             row = cur.execute(
-                "SELECT config_use_google_drive, config_google_drive_folder, "
-                "config_calibre_dir, config_certfile, config_keyfile "
+                "SELECT config_calibre_dir, config_certfile, config_keyfile "
                 "FROM settings LIMIT 1"
             ).fetchone()
             if not row:
                 return
 
-            _cps_config.config_use_google_drive = bool(row[0]) if row[0] is not None else False
-            _cps_config.config_google_drive_folder = row[1]
+            if row[0]:
+                _cps_config.config_calibre_dir = row[0]
+            if row[1]:
+                _cps_config.config_certfile = row[1]
             if row[2]:
-                _cps_config.config_calibre_dir = row[2]
-            if row[3]:
-                _cps_config.config_certfile = row[3]
-            if row[4]:
-                _cps_config.config_keyfile = row[4]
+                _cps_config.config_keyfile = row[2]
     except Exception as e:
         print(f"[ingest-processor] WARN: Could not read CPS settings from app.db ({app_db_path}): {e}", flush=True)
 
@@ -224,28 +219,22 @@ def _load_runtime_dependencies() -> None:
 
 
 def _load_optional_cps_modules() -> None:
-    global _GDRIVE_AVAILABLE, _CPS_AVAILABLE
-    global _gdriveutils, _cps_config, fetch_and_apply_metadata, _ub
+    global _CPS_AVAILABLE, _cps_config, fetch_and_apply_metadata, _ub
 
-    if _GDRIVE_AVAILABLE and _CPS_AVAILABLE:
+    if _CPS_AVAILABLE:
         return
 
     try:
         _ensure_project_root_on_path()
 
-        # Import GDrive functionality
+        # CPS settings (certificate paths for the internal HTTPS API)
         try:
-            from cps import gdriveutils as loaded_gdriveutils, config as loaded_cps_config
-            _gdriveutils = loaded_gdriveutils
+            from cps import config as loaded_cps_config
             _cps_config = loaded_cps_config
-            _GDRIVE_AVAILABLE = True
-            print("[ingest-processor] GDrive functionality available", flush=True)
             _load_cps_settings_from_app_db()
         except (ImportError, TypeError, AttributeError) as e:
-            print(f"[ingest-processor] GDrive functionality not available: {e}", flush=True)
-            _gdriveutils = None
+            print(f"[ingest-processor] CPS settings not available: {e}", flush=True)
             _cps_config = None
-            _GDRIVE_AVAILABLE = False
 
         # Import metadata functionality
         try:
@@ -265,7 +254,6 @@ def _load_optional_cps_modules() -> None:
 
     except Exception as e:
         print(f"[ingest-processor] WARN: Unexpected error during CPS path setup: {e}", flush=True)
-        _GDRIVE_AVAILABLE = False
         _CPS_AVAILABLE = False
 
 
@@ -337,15 +325,6 @@ def unique_failed_path(failed_dir: str, filename: str) -> str:
 
 def _is_missing_ingest_target(filepath: str) -> bool:
     return not os.path.isfile(filepath) and not os.path.isdir(filepath)
-
-def gdrive_sync_if_enabled():
-    """Sync Calibre library to Google Drive if enabled in app config."""
-    if _GDRIVE_AVAILABLE and getattr(_cps_config, "config_use_google_drive", False):
-        try:
-            _gdriveutils.updateGdriveCalibreFromLocal()
-            print("[ingest-processor] GDrive sync completed.", flush=True)
-        except Exception as e:
-            print(f"[ingest-processor] WARN: GDrive sync failed: {e}", flush=True)
 
 def get_internal_api_url(path):
     """Construct internal API URL, respecting SSL configuration"""
@@ -881,9 +860,6 @@ class NewBookProcessor:
 
             mark_ingest_batch_dirty()
 
-            # Optional post-import GDrive sync
-            gdrive_sync_if_enabled()
-
             # Fetch metadata if enabled, prefer exact book id from calibredb
             if self.last_added_book_id is not None:
                 self.fetch_metadata_if_enabled(book_id=self.last_added_book_id)
@@ -984,8 +960,6 @@ class NewBookProcessor:
             mark_ingest_batch_dirty()
             if self.cwa_settings['auto_backup_imports']:
                 self.backup(str(staged_path), backup_type="imported")
-            # Optional post-add-format GDrive sync
-            gdrive_sync_if_enabled()
         except subprocess.CalledProcessError as e:
             stderr_output = e.stderr if e.stderr else "No error details available"
             print(f"[ingest-processor] Failed to add format for book id {book_id}: {os.path.basename(str(staged_path))}\nCALIBREDB EXIT/ERROR CODE: {e.returncode}\nError details: {stderr_output}", flush=True)

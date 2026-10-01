@@ -38,7 +38,6 @@ else:
 
 
 DEFAULT_SETTINGS_FILE = "app.db"
-DEFAULT_GDRIVE_FILE = "gdrive.db"
 
 ROLE_USER               = 0 << 0
 ROLE_ADMIN              = 1 << 0

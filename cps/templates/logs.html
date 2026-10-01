@@ -1,25 +1,9 @@
 {% extends "settings_layout.html" %}
-{% import "lily_form.html" as f with context %}
 {% block pane_class %} is-wide{% endblock %}
 {% block settings %}
 <div class="lp lily-logs" data-logs-url="{{ url_for('logs.logs_data') }}" data-empty-message="{{ _('No logs captured yet.') }}">
-  {% call f.group(_('Filter'), help=_('A recent view of the app and service logs. Pick a source to read only its lines.'), id='log-filters') %}
-    {{ f.select('log_source', _('Source'), [('all', _('All logs'))], 'all') }}
-    {{ f.input('log_search', _('Search'), None, type='search', placeholder=_('Filter lines')) }}
-    {{ f.toggle('log_errors', _('Errors and warnings only'), False, help=_('Each one keeps a few lines either side.')) }}
-    {{ f.toggle('log_autorefresh', _('Refresh every 5 seconds'), False) }}
-  {% endcall %}
-
-  <section class="lp-group" id="log-lines">
-    <div class="lp-group-head">
-      <h2 class="lp-label" id="log-lines-label">{{ _('Lines') }}</h2>
-      <button type="button" id="log_refresh" class="btn btn-default">
-        <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> {{ _('Refresh') }}
-      </button>
-    </div>
-    <p id="logs_status" class="logs-status" role="status" aria-live="polite"></p>
-    <pre id="log_output" class="logs-output" tabindex="0" aria-labelledby="log-lines-label"></pre>
-  </section>
+  <p id="logs_status" class="logs-status" role="status" aria-live="polite"></p>
+  <pre id="log_output" class="logs-output" tabindex="0" aria-labelledby="lp-heading"></pre>
 </div>
 {% endblock %}
 

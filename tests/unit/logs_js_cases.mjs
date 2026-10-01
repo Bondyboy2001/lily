@@ -7,100 +7,93 @@ const src = readFileSync(new URL("../../cps/static/js/logs.js", import.meta.url)
 function makeEl(id) {
     const el = {
         id,
-        _val: "",
-        checked: false,
-        handlers: {},
-        options: [],
         classes: {},
         scrollTop: 0,
         scrollHeight: 0,
         clientHeight: 100,
         textContent: "",
+        appended: 0,
         _text: "",
         text(v) { if (v === undefined) return el._text; el._text = v; return el; },
-        on(ev, fn) { (el.handlers[ev] = el.handlers[ev] || []).push(fn); return el; },
-        trigger(ev) { (el.handlers[ev] || []).forEach((fn) => fn.call(el)); return el; },
-        val(v) { if (v === undefined) return el._val; el._val = v; return el; },
-        is(sel) { return sel === ":checked" ? el.checked : false; },
-        find(sel) {
-            const eq = sel.match(/option\[value='(.+)'\]/);
-            const neq = sel.match(/option\[value!='(.+)'\]/);
-            if (eq) {
-                const found = el.options.filter((o) => o.value === eq[1]);
-                return { length: found.length };
-            }
-            if (neq) {
-                return { remove() { el.options = el.options.filter((o) => o.value === neq[1]); } };
-            }
-            return { length: 0 };
-        },
-        append(o) { el.options.push(o); return el; },
         attr(n, v) {
             el._attrs = el._attrs || {};
             if (v === undefined) return el._attrs[n];
             el._attrs[n] = v; return el;
         },
-        data(n, v) {
-            el._data = el._data || {};
-            if (v === undefined) return el._data[n];
-            el._data[n] = v; return el;
-        },
         toggleClass(name, on) { el.classes[name] = on; },
-        remove() {},
+        appendChild(node) {
+            el.textContent += node.data;
+            el.appended += 1;
+            el.scrollHeight += 1000;
+            return node;
+        },
     };
-    Object.defineProperty(el, "length", { get() { return el._len === undefined ? 1 : el._len; } });
+    Object.defineProperty(el, "length", { get() { return 1; } });
     return el;
 }
 
 export function loadLogs(fetchImpl, { visibilityState = "visible" } = {}) {
     const els = {
         ".lily-logs": makeEl(".lily-logs"),
-        "#log_source": makeEl("#log_source"),
-        "#log_search": makeEl("#log_search"),
-        "#log_errors": makeEl("#log_errors"),
-        "#log_autorefresh": makeEl("#log_autorefresh"),
-        "#log_refresh": makeEl("#log_refresh"),
         "#logs_status": makeEl("#logs_status"),
     };
     els[".lily-logs"].attr("data-logs-url", "/logs/data");
     els[".lily-logs"].attr("data-empty-message", "No logs captured yet.");
-    els["#log_source"]._val = "all";
     const output = makeEl("log_output");
-    let intervalCb = null;
+    const timers = new Map();
+    let nextTimer = 1;
+    const listeners = {};
+    const document = {
+        ready(fn) { fn(); },
+        getElementById() { return output; },
+        createTextNode(data) { return { data }; },
+        addEventListener(ev, fn) { (listeners[ev] = listeners[ev] || []).push(fn); },
+        visibilityState,
+    };
     const sandbox = {
-        document: {
-            ready(fn) { fn(); },
-            getElementById(id) { return output; },
-            createElement() { return { value: "", textContent: "" }; },
-            visibilityState,
-        },
-        setInterval(cb) { intervalCb = cb; },
+        document,
+        setTimeout(cb, ms) { const id = nextTimer++; timers.set(id, { cb, ms }); return id; },
+        clearTimeout(id) { timers.delete(id); },
         fetch: fetchImpl,
         console,
     };
     const $ = (sel) => {
-        if (sel === sandbox.document) return { ready: (fn) => fn() };
+        if (sel === document) return { ready: (fn) => fn() };
         return els[sel] || makeEl(sel);
     };
-    $.ready = (fn) => fn();
     sandbox.$ = $;
     sandbox.window = sandbox;
     vm.createContext(sandbox);
     vm.runInContext(src, sandbox);
-    return { els, output, tick: () => intervalCb && intervalCb() };
+    return {
+        els,
+        output,
+        timers,
+        // Fire every pending timer, as if its delay had passed.
+        tick() {
+            const due = [...timers.entries()];
+            timers.clear();
+            due.forEach(([, t]) => t.cb());
+        },
+        setVisibility(state) {
+            document.visibilityState = state;
+            (listeners.visibilitychange || []).forEach((fn) => fn());
+        },
+    };
 }
 
-function resolvedFetch(payloads) {
+function respond(payload) {
+    return Promise.resolve({ ok: true, json: () => Promise.resolve(payload) });
+}
+
+function scripted(payloads) {
     const calls = [];
     return {
         calls,
         fetch(url) {
             calls.push(url);
-            const payload = typeof payloads === "function" ? payloads(url, calls.length) : payloads;
-            return Promise.resolve({
-                ok: true,
-                json: () => Promise.resolve(payload),
-            });
+            const payload = payloads[Math.min(calls.length, payloads.length) - 1];
+            return typeof payload === "function" ? payload() : respond(payload);
         },
     };
 }
@@ -116,128 +109,151 @@ function test(name, fn) {
     results.push([name, fn]);
 }
 
-test("errors filter matches lowercase and html stays text", async () => {
-    const padding = Array.from({ length: 10 }, (_, i) => "pad " + i).join("\n");
-    const fx = resolvedFetch({
-        success: true, truncated: false, sources: [],
-        text: "info line\n" + padding + "\nerror lowercase happened\ncontext a\ncontext b\n<img src=x onerror=alert(1)>",
-    });
-    const { els, output } = loadLogs(fx.fetch);
+test("loads on open and html stays text", async () => {
+    const fx = scripted([{ success: true, version: "v1", truncated: false, text: "a\n<img src=x onerror=alert(1)>" }]);
+    const { output } = loadLogs(fx.fetch);
     await flush();
-    els["#log_errors"].checked = true;
-    els["#log_errors"].trigger("change");
-    assert.match(output.textContent, /error lowercase/);
-    assert.match(output.textContent, /<img src=x onerror=alert\(1\)>/);
-    assert.doesNotMatch(output.textContent, /info line/);
-    assert.ok(fx.calls.length === 1);
-});
-
-test("search filter is case-insensitive", async () => {
-    const fx = resolvedFetch({ success: true, truncated: false, sources: [], text: "Alpha\nbeta\nGAMMA" });
-    const { els, output } = loadLogs(fx.fetch);
-    await flush();
-    els["#log_search"].val("gamma");
-    els["#log_search"].trigger("input");
-    assert.equal(output.textContent, "GAMMA");
+    assert.equal(fx.calls.length, 1);
+    assert.equal(fx.calls[0], "/logs/data");
+    assert.equal(output.textContent, "a\n<img src=x onerror=alert(1)>");
 });
 
 test("empty payload shows the empty message", async () => {
-    const fx = resolvedFetch({ success: true, truncated: false, sources: [], text: "" });
+    const fx = scripted([{ success: true, version: "v1", truncated: false, text: "" }]);
     const { output } = loadLogs(fx.fetch);
     await flush();
     assert.equal(output.textContent, "No logs captured yet.");
 });
 
-test("poll skipped while tab hidden", async () => {
-    const fx = resolvedFetch({ success: true, truncated: false, sources: [], text: "x" });
-    const { els, tick } = loadLogs(fx.fetch, { visibilityState: "hidden" });
+test("polls every 2 seconds with the last version", async () => {
+    const fx = scripted([
+        { success: true, version: "v1", truncated: false, text: "one\n" },
+        { success: true, version: "v1", unchanged: true },
+    ]);
+    const { timers, tick } = loadLogs(fx.fetch);
     await flush();
-    els["#log_autorefresh"].checked = true;
+    assert.deepEqual([...timers.values()].map((t) => t.ms), [2000]);
     tick();
     await flush();
-    assert.equal(fx.calls.length, 1);
-});
-
-test("poll runs when visible and enabled", async () => {
-    const fx = resolvedFetch({ success: true, truncated: false, sources: [], text: "x" });
-    const { els, tick } = loadLogs(fx.fetch);
-    await flush();
-    els["#log_autorefresh"].checked = true;
     tick();
     await flush();
-    assert.equal(fx.calls.length, 2);
+    assert.equal(fx.calls.length, 3);
+    assert.equal(fx.calls[1], "/logs/data?since=v1");
 });
 
-test("overlapping refresh coalesces into one pending fetch", async () => {
-    let resolveFirst;
-    const calls = [];
-    const gate = new Promise((r) => { resolveFirst = r; });
-    const fetch = (url) => {
-        calls.push(url);
-        return calls.length === 1
-            ? gate.then(() => ({ ok: true, json: () => Promise.resolve({ success: true, sources: [], text: "one", truncated: false }) }))
-            : Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, sources: [], text: "two", truncated: false }) });
-    };
-    const { els } = loadLogs(fetch);
-    els["#log_refresh"].trigger("click");
-    els["#log_refresh"].trigger("click");
-    assert.equal(calls.length, 1);
-    resolveFirst();
+test("unchanged reply leaves the output alone", async () => {
+    const fx = scripted([
+        { success: true, version: "v1", truncated: false, text: "one\n" },
+        { success: true, version: "v1", unchanged: true },
+    ]);
+    const { output, tick } = loadLogs(fx.fetch);
     await flush();
-    assert.equal(calls.length, 2);
+    output.textContent = "sentinel";
+    tick();
+    await flush();
+    assert.equal(output.textContent, "sentinel");
 });
 
-test("source change during flight ignores stale response and refetches", async () => {
-    let resolveFirst;
-    const calls = [];
-    const gate = new Promise((r) => { resolveFirst = r; });
-    const fetch = (url) => {
-        calls.push(url);
-        return calls.length === 1
-            ? gate.then(() => ({ ok: true, json: () => Promise.resolve({ success: true, sources: [], text: "STALE-ALL", truncated: false }) }))
-            : Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, sources: [], text: "fresh-archive", truncated: false }) });
-    };
-    const { els, output } = loadLogs(fetch);
-    els["#log_source"].val("src-archive");
-    els["#log_source"].trigger("change");
-    resolveFirst();
+test("grown log appends only the new lines and stays pinned to the bottom", async () => {
+    const fx = scripted([
+        { success: true, version: "v1", truncated: false, text: "one\n" },
+        { success: true, version: "v2", truncated: false, text: "one\ntwo\n" },
+    ]);
+    const { output, tick } = loadLogs(fx.fetch);
     await flush();
-    assert.equal(calls.length, 2);
-    assert.match(calls[0], /source=all/);
-    assert.match(calls[1], /source=src-archive/);
-    assert.equal(output.textContent, "fresh-archive");
+    output.scrollHeight = 100;
+    output.scrollTop = 0;
+    tick();
+    await flush();
+    assert.equal(output.textContent, "one\ntwo\n");
+    assert.equal(output.appended, 1);
+    assert.equal(output.scrollTop, 1100);
 });
 
-test("refresh failure keeps output and flags status", async () => {
-    let n = 0;
-    const calls = [];
-    const fetch = (url) => {
-        calls.push(url);
-        n += 1;
-        if (n === 1) {
-            return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true, sources: [], text: "good", truncated: false }) });
-        }
-        return Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) });
-    };
-    const { els, output } = loadLogs(fetch);
+test("rewritten log replaces the output", async () => {
+    const fx = scripted([
+        { success: true, version: "v1", truncated: false, text: "one\n" },
+        { success: true, version: "v2", truncated: true, text: "rotated\n" },
+    ]);
+    const { els, output, tick } = loadLogs(fx.fetch);
     await flush();
-    assert.equal(output.textContent, "good");
-    els["#log_refresh"].trigger("click");
+    tick();
     await flush();
-    assert.equal(output.textContent, "good");
-    assert.equal(els["#logs_status"]._text.startsWith("Refresh failed"), true);
-    assert.equal(els["#logs_status"].classes["is-error"], true);
+    assert.equal(output.textContent, "rotated\n");
+    assert.equal(output.appended, 0);
+    assert.equal(els["#logs_status"]._text, "Showing the most recent entries only.");
 });
 
-test("scrolled-up reader is not dragged to bottom", async () => {
-    const fx = resolvedFetch({ success: true, truncated: false, sources: [], text: "line1\nline2" });
-    const { els, output } = loadLogs(fx.fetch);
+test("scrolled-up reader is not dragged to the bottom", async () => {
+    const fx = scripted([
+        { success: true, version: "v1", truncated: false, text: "one\n" },
+        { success: true, version: "v2", truncated: false, text: "one\ntwo\n" },
+    ]);
+    const { output, tick } = loadLogs(fx.fetch);
     await flush();
     output.scrollHeight = 2000;
     output.scrollTop = 0;
-    els["#log_search"].val("line1");
-    els["#log_search"].trigger("input");
+    tick();
+    await flush();
+    assert.equal(output.textContent, "one\ntwo\n");
     assert.equal(output.scrollTop, 0);
+});
+
+test("no polling while the tab is hidden; resumes when shown", async () => {
+    const fx = scripted([{ success: true, version: "v1", truncated: false, text: "x" }]);
+    const { timers, setVisibility } = loadLogs(fx.fetch);
+    await flush();
+    assert.equal(timers.size, 1);
+    setVisibility("hidden");
+    assert.equal(timers.size, 0);
+    setVisibility("visible");
+    await flush();
+    assert.equal(fx.calls.length, 2);
+    assert.equal(timers.size, 1);
+});
+
+test("hidden on open schedules nothing", async () => {
+    const fx = scripted([{ success: true, version: "v1", truncated: false, text: "x" }]);
+    const { timers } = loadLogs(fx.fetch, { visibilityState: "hidden" });
+    await flush();
+    assert.equal(fx.calls.length, 1);
+    assert.equal(timers.size, 0);
+});
+
+test("no second request while one is in flight", async () => {
+    let release;
+    const gate = new Promise((r) => { release = r; });
+    const fx = scripted([
+        () => gate.then(() => ({ ok: true, json: () => Promise.resolve({ success: true, version: "v1", text: "x" }) })),
+    ]);
+    const { timers, setVisibility } = loadLogs(fx.fetch);
+    assert.equal(timers.size, 0);
+    setVisibility("hidden");
+    setVisibility("visible");
+    assert.equal(fx.calls.length, 1);
+    release();
+    await flush();
+    assert.equal(timers.size, 1);
+});
+
+test("failure keeps the output, flags the status and backs off", async () => {
+    const fx = scripted([
+        { success: true, version: "v1", truncated: false, text: "good" },
+        () => Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve({}) }),
+        { success: true, version: "v1", unchanged: true },
+    ]);
+    const { els, output, timers, tick } = loadLogs(fx.fetch);
+    await flush();
+    tick();
+    await flush();
+    assert.equal(output.textContent, "good");
+    assert.match(els["#logs_status"]._text, /Couldn't load new lines \(HTTP 500\)/);
+    assert.equal(els["#logs_status"].classes["is-error"], true);
+    assert.deepEqual([...timers.values()].map((t) => t.ms), [10000]);
+    tick();
+    await flush();
+    assert.equal(els["#logs_status"]._text, "");
+    assert.equal(els["#logs_status"].classes["is-error"], false);
 });
 
 let failures = 0;

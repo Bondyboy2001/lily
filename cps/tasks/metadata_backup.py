@@ -8,7 +8,7 @@
 import os
 from lxml import etree
 
-from cps import config, db, gdriveutils, logger
+from cps import config, db, logger
 from cps.services.worker import CalibreTask
 from flask_babel import lazy_gettext as N_
 
@@ -79,26 +79,15 @@ class TaskBackupMetadata(CalibreTask):
 
     def open_metadata(self, book, custom_columns):
         package = create_new_metadata_backup(book, custom_columns, self.export_language, self.translated_title)
-        if config.config_use_google_drive:
-            if not gdriveutils.is_gdrive_ready():
-                raise Exception('Google Drive is configured but not ready')
-
-            gdriveutils.uploadFileToEbooksFolder(os.path.join(book.path, 'metadata.opf').replace("\\", "/"),
-                                                 etree.tostring(package,
-                                                                xml_declaration=True,
-                                                                encoding='utf-8',
-                                                                pretty_print=True).decode('utf-8'),
-                                                 True)
-        else:
-            # ToDo: Handle book folder not found or not readable
-            book_metadata_filepath = os.path.join(config.get_book_path(), book.path, 'metadata.opf')
-            # prepare finalize everything and output
-            doc = etree.ElementTree(package)
-            try:
-                with open(book_metadata_filepath, 'wb') as f:
-                    doc.write(f, xml_declaration=True, encoding='utf-8', pretty_print=True)
-            except Exception as ex:
-                raise Exception('Writing Metadata failed with error: {} '.format(ex))
+        # ToDo: Handle book folder not found or not readable
+        book_metadata_filepath = os.path.join(config.get_book_path(), book.path, 'metadata.opf')
+        # prepare finalize everything and output
+        doc = etree.ElementTree(package)
+        try:
+            with open(book_metadata_filepath, 'wb') as f:
+                doc.write(f, xml_declaration=True, encoding='utf-8', pretty_print=True)
+        except Exception as ex:
+            raise Exception('Writing Metadata failed with error: {} '.format(ex))
 
     @property
     def name(self):

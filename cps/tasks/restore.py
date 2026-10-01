@@ -5,61 +5,21 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Database restores as background tasks.
+"""Pausing the background services that write metadata.db / cwa.db.
 
-Restores used to run inside the web request: `calibredb restore_database` can
-take up to 20 minutes, and blocking subprocess calls under gevent (without
-monkey-patching) froze every other request and failed /health. They now run on
-the WorkerThread and the request returns immediately.
+Book deletes and merges (cps/book_recovery.py) take these locks so the ingest
+processor and cover enforcer cannot touch the library while files move.
 """
 
 import fcntl
 import os
-import sqlite3
-import subprocess
-import sys
 import tempfile
-import threading
-from datetime import datetime
-
-from flask_babel import lazy_gettext as N_
-
-from cps import config, logger, ub, calibre_db
-from cps.embed_helper import get_calibre_binarypath
-from cps.services.worker import CalibreTask
-
-# One restore at a time (library or snapshot); checked by the routes before queueing
-# and held by the task while it runs.
-_RESTORE_LOCK = threading.Lock()
-_STATE_LOCK = threading.Lock()
-_restore_pending = threading.Event()
 
 # Background services that write metadata.db / cwa.db. (lock file, existence-style?)
 SERVICE_LOCKS = (
     ("ingest processor", "ingest_processor.lock", False),
     ("cover enforcer", "cover_enforcer.lock", True),
 )
-
-# app.db tables that reference Calibre book ids (wiped after the ids are regenerated)
-BOOK_LINKED_APP_TABLES = (
-    "book_shelf_link", "book_read_link", "bookmark", "archived_book", "kobo_synced_books",
-    "kobo_reading_state", "kobo_bookmark", "kobo_statistics", "kobo_annotation_sync",
-    "hardcover_book_blacklist", "hardcover_match_queue", "downloads",
-)
-
-
-def restore_in_progress() -> bool:
-    """True while a restore is queued or running."""
-    return _restore_pending.is_set() or _RESTORE_LOCK.locked()
-
-
-def mark_restore_queued() -> bool:
-    """Reserves the single restore slot. Returns False if one is already queued/running."""
-    with _STATE_LOCK:
-        if _restore_pending.is_set() or _RESTORE_LOCK.locked():
-            return False
-        _restore_pending.set()
-        return True
 
 
 def _acquire_service_lock(lock_path, existence_lock=False):
@@ -141,146 +101,3 @@ def acquire_service_locks():
             raise RuntimeError("the %s is currently running (%s). Wait for it to finish and try again."
                                % (service_name, e))
     return handles
-
-
-class RestoreTask(CalibreTask):
-    """Holds the restore slot and pauses the background services while running."""
-
-    def __init__(self, task_message):
-        super(RestoreTask, self).__init__(task_message)
-        self.log = logger.create()
-
-    def run(self, worker_thread):
-        if not _RESTORE_LOCK.acquire(blocking=False):
-            self._handleError("Another restore is already running")
-            return
-        _restore_pending.clear()
-        handles = []
-        try:
-            try:
-                handles = acquire_service_locks()
-            except RuntimeError as e:
-                self.log.error("Restore aborted: %s", e)
-                self._handleError("Restore aborted: %s" % e)
-                return
-            self.do_restore()
-        finally:
-            release_service_locks(handles)
-            _RESTORE_LOCK.release()
-
-    def do_restore(self):
-        raise NotImplementedError
-
-    @property
-    def is_cancellable(self):
-        return False
-
-
-class TaskRestoreCalibreLibrary(RestoreTask):
-    """Last-resort rebuild of metadata.db from the library's OPF files via
-    `calibredb restore_database`, then wipes book-linked app.db tables."""
-
-    def __init__(self, task_message=N_('Restoring Calibre library database')):
-        super(TaskRestoreCalibreLibrary, self).__init__(task_message)
-
-    @property
-    def name(self):
-        return "Restore Calibre Library"
-
-    def _run_logged(self, cmd, label, timeout, log_path):
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-        except subprocess.TimeoutExpired as e:
-            with open(log_path, "a", encoding="utf-8") as log_file:
-                log_file.write("\n[%s] timed out after %ss\n" % (label, timeout))
-            raise RuntimeError("%s timed out after %s seconds" % (label, timeout)) from e
-        self.log.info("calibredb %s output: %s\n%s", label, result.stdout, result.stderr)
-        if result.returncode != 0:
-            self.log.warning("calibredb %s returned code %s", label, result.returncode)
-        with open(log_path, "a", encoding="utf-8") as log_file:
-            log_file.write("\n[%s]\n" % label)
-            log_file.write(result.stdout or "")
-            log_file.write(result.stderr or "")
-        return result
-
-    def do_restore(self):
-        library_dir = config.config_calibre_dir
-        if not library_dir:
-            self._handleError("Calibre library path is not configured")
-            return
-        metadata_path = os.path.join(library_dir, "metadata.db")
-        app_db_path = ub.app_DB_path or "/config/app.db"
-        for path in (metadata_path, app_db_path):
-            if not os.path.exists(path):
-                self._handleError("Database not found: %s" % path)
-                return
-
-        # 1. Safety copies (sqlite backup API: consistent even with pending -wal pages)
-        # CWA_DB_PATH only differs from /config in tests (same as scripts/cwa_db.py)
-        backup_dir = os.path.join(os.environ.get("CWA_DB_PATH", "/config"), "backup",
-                                  "restore_%s" % datetime.now().strftime('%Y%m%d_%H%M%S'))
-        os.makedirs(backup_dir, exist_ok=True)
-        if '/app/calibre-web-automated/scripts/' not in sys.path:
-            sys.path.insert(1, '/app/calibre-web-automated/scripts/')
-        from db_backup import sqlite_backup
-        sqlite_backup(metadata_path, os.path.join(backup_dir, "metadata.db.bak"))
-        sqlite_backup(app_db_path, os.path.join(backup_dir, "app.db.bak"))
-        self.progress = 0.1
-
-        log_path = os.path.join(backup_dir, "restore.log")
-        with open(log_path, "a", encoding="utf-8") as log_file:
-            log_file.write("Restore started at %s\n" % datetime.now().isoformat())
-
-        # Close active sessions to reduce lock contention
-        try:
-            calibre_db.dispose()
-        except Exception as e:
-            self.log.warning("Failed to dispose sessions before restore: %s", e)
-
-        calibredb_binary = get_calibre_binarypath("calibredb") or "/app/calibre/calibredb"
-        check_cmd = [calibredb_binary, "check_library", "--with-library", library_dir]
-        restore_cmd = [calibredb_binary, "restore_database", "--with-library", library_dir, "--really-do-it"]
-        try:
-            # 2. check_library (pre), 3. restore_database
-            self._run_logged(check_cmd, "check_library pre", 300, log_path)
-            self.progress = 0.2
-            result = self._run_logged(restore_cmd, "restore_database", 1200, log_path)
-            if result.returncode != 0:
-                self._handleError("Restore failed: %s (backups in %s)" % ((result.stderr or "").strip()[-500:], backup_dir))
-                return
-            self.progress = 0.8
-
-            # 4. Wipe all book-linked tables in app.db (ids were regenerated)
-            try:
-                self.wipe_book_linked_tables(app_db_path)
-            except Exception as e:
-                self.log.error("Failed to wipe book-linked tables: %s", e)
-                self._handleError("Restore completed but app.db cleanup failed: %s (backups in %s)" % (e, backup_dir))
-                return
-
-            # 5. check_library (post)
-            self._run_logged(check_cmd, "check_library post", 300, log_path)
-        finally:
-            # 6. Reconnect CalibreDB to clear stale sessions (also after a failure,
-            # since the sessions were disposed above)
-            try:
-                calibre_db.reconnect_db(config, ub.app_DB_path)
-            except Exception as e:
-                self.log.error("Failed to reconnect CalibreDB after restore: %s", e)
-
-        self.log.info("Library restore complete; backups and restore log in %s", backup_dir)
-        self.message = N_('Restored Calibre library database. Backups and log: %(dir)s', dir=backup_dir)
-        self._handleSuccess()
-
-    @staticmethod
-    def wipe_book_linked_tables(app_db_path):
-        """Deletes all rows of BOOK_LINKED_APP_TABLES in one transaction (missing tables skipped)."""
-        con = sqlite3.connect(app_db_path, timeout=30)
-        try:
-            existing = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            with con:
-                for table in BOOK_LINKED_APP_TABLES:
-                    if table in existing:
-                        con.execute('DELETE FROM "%s"' % table)
-        finally:
-            con.close()

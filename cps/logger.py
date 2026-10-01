@@ -62,35 +62,12 @@ def create():
     return get(parent_module.__name__)
 
 
-def is_debug_enabled():
-    return logging.root.level <= logging.DEBUG
-
-
-def is_valid_logfile(file_path):
-    if file_path == LOG_TO_STDERR or file_path == LOG_TO_STDOUT:
-        return True
-    if not file_path:
-        return True
-    if os.path.isdir(file_path):
-        return False
-    log_dir = os.path.dirname(file_path)
-    return (not log_dir) or os.path.isdir(log_dir)
-
-
 def _absolute_log_file(log_file, default_log_file):
     if log_file:
         if not os.path.dirname(log_file):
             log_file = os.path.join(_CONFIG_DIR, log_file)
         return os.path.abspath(log_file)
     return default_log_file
-
-
-def get_logfile(log_file):
-    return _absolute_log_file(log_file, DEFAULT_LOG_FILE)
-
-
-def get_accesslogfile(log_file):
-    return _absolute_log_file(log_file, DEFAULT_ACCESS_LOG)
 
 
 def setup(log_file, log_level=None):
@@ -166,6 +143,5 @@ def create_access_log(log_file, log_name, formatter):
     return access_log, "" if _absolute_log_file(log_file, DEFAULT_ACCESS_LOG) == DEFAULT_ACCESS_LOG else log_file
 
 
-# Enable logging of smtp lib debug output
-# default configuration, before application settings are applied
+# Default configuration, before application settings are applied
 setup(LOG_TO_STDERR, logging.DEBUG if os.environ.get('FLASK_DEBUG') else DEFAULT_LOG_LEVEL)

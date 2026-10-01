@@ -407,9 +407,10 @@ input[type="checkbox"].lp-switch:disabled { opacity: .4; cursor: not-allowed; }
     .lp-sub > .lp-row { padding-left: 14px; }
 }
 
-/* ---- Logs: the filters are settings rows; the output is a pre under its own heading ---- */
+/* ---- Logs: a live tail in a pre under the pane heading ---- */
 .lily-logs .logs-status { min-height: 18px; margin: 0 4px 8px; font-size: 13px; color: var(--muted); }
 .lily-logs .logs-status.is-error { color: var(--danger); }
+.lily-logs .logs-status:empty { min-height: 0; margin: 0; }
 
 .lily-logs .logs-output {
     margin: 0;

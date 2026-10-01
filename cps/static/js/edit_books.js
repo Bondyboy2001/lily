@@ -29,10 +29,11 @@
             }).join("");
     }
 
-    // Grow the box to its text, no empty lines below
+    // Size the box to its text, no empty lines below. Collapse it before measuring:
+    // at height auto a textarea still reserves its rows.
     function fit() {
         var box = $box[0];
-        box.style.height = "auto";
+        box.style.height = "0";
         box.style.height = (box.scrollHeight + box.offsetHeight - box.clientHeight) + "px";
     }
 

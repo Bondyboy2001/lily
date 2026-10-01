@@ -138,9 +138,8 @@ def _build_app():
     from cps.search_metadata import meta
     from cps.duplicates import duplicates
     from cps.logs import logs
-    from cps.gdrive import gdrive
     for bp in (library_refresh, cwa_settings, cwa_internal,
-               admi, jinjia, web, opds, shelf, search, meta, gdrive, editbook,
+               admi, jinjia, web, opds, shelf, search, meta, editbook,
                duplicates, logs):
         app.register_blueprint(bp)
 

@@ -294,22 +294,6 @@ div.log {
 #detailcover {
   cursor: zoom-in;
 }
-#detailcover:-webkit-full-screen {
-  cursor: zoom-out;
-  border: 0;
-}
-#detailcover:-moz-full-screen {
-  cursor: zoom-out;
-  border: 0;
-}
-#detailcover:-ms-fullscreen {
-  cursor: zoom-out;
-  border: 0;
-}
-#detailcover:fullscreen {
-  cursor: zoom-out;
-  border: 0;
-}
 
 .error-list {
   margin-top: 5px;

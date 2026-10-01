@@ -25,7 +25,6 @@ from .helper import change_archived_books
 from .usermanagement import user_login_required, login_required_if_no_ano
 
 from datetime import datetime, timezone
-from . import gdriveutils
 
 from .editbooks import (editbook, log, _queue_duplicate_scan_after_change, perform_delete,
                         merge_books, edit_required, delete_required,
@@ -295,9 +294,6 @@ def table_xchange_author_title():
                 edited_books_id = book.id
                 modify_date = True
 
-            if config.config_use_google_drive:
-                gdriveutils.updateGdriveCalibreFromLocal()
-
             dir_error = None
             if edited_books_id:
                 # Returns False on success, or an error message when the move failed.
@@ -318,9 +314,6 @@ def table_xchange_author_title():
                                          err=str(e.orig if hasattr(e, "orig") else e)))
                 results.append(entry)
                 continue
-
-            if config.config_use_google_drive:
-                gdriveutils.updateGdriveCalibreFromLocal()
 
             if dir_error:
                 # The metadata edit is saved, but the files were not moved, so the book

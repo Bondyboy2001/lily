@@ -25,7 +25,6 @@ def main():
     from .web import web
     from .opds import opds
     from .admin import admi
-    from .gdrive import gdrive
     from .editbooks import editbook
     from .search import search
     from .search_metadata import meta
@@ -52,7 +51,6 @@ def main():
     app.register_blueprint(shelf)
     app.register_blueprint(admi)
     app.register_blueprint(meta)
-    app.register_blueprint(gdrive)
     app.register_blueprint(editbook)
     app.register_blueprint(duplicates)
     app.register_blueprint(logs)

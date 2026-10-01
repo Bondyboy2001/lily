@@ -138,7 +138,7 @@ def _finish_refresh_job(finish_job, job_id, return_code, app, failed_children=No
     elif return_code == 0 and job_failed_imports == 0:
         outcome_message = _l("Library Refresh 🔄 Library refreshed & ingest process complete! ✅")
     elif return_code == 0 and job_failed_imports > 0:
-        outcome_message = _l("Library Refresh 🔄 %d import(s) failed; open Failed Imports ⛔") % job_failed_imports
+        outcome_message = _l("Library Refresh 🔄 %d import(s) failed, check the logs ⛔") % job_failed_imports
     else:
         outcome_message = _l("Library Refresh 🔄 An unexpected error occurred, check the logs ⛔")
 
@@ -154,7 +154,7 @@ def _finish_refresh_job(finish_job, job_id, return_code, app, failed_children=No
                 finish_job(job_id, "succeeded")
             elif return_code == 0 and job_failed_imports > 0:
                 finish_job(job_id, "failed",
-                           "%d import(s) failed; open Failed Imports" % job_failed_imports)
+                           "%d import(s) failed; check the logs" % job_failed_imports)
             elif return_code == 2:
                 finish_job(job_id, "skipped",
                            "the ingest service is already running")

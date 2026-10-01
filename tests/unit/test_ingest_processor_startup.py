@@ -107,5 +107,4 @@ def test_optional_cps_modules_retry_after_partial_load(monkeypatch, tmp_path):
     ingest_processor = importlib.import_module("ingest_processor")
     source = inspect.getsource(ingest_processor._load_optional_cps_modules)
 
-    assert "if _GDRIVE_AVAILABLE and _CPS_AVAILABLE:" in source
-    assert "if _GDRIVE_AVAILABLE or _CPS_AVAILABLE:" not in source
+    assert "if _CPS_AVAILABLE:" in source

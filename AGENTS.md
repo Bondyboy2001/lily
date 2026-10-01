@@ -9,3 +9,10 @@
 
 - Run shared UI checks with `.venv/bin/python -m pytest tests/unit/test_lily_library_static.py tests/unit/test_lily_design_static.py tests/unit/test_lily_admin_static.py tests/unit/test_lily_stats_static.py tests/unit/test_lily_reader_static.py`.
 - Run `git diff --check` before finishing changes.
+
+# Git and releases
+
+- Work on `main`. Don't start long-lived branches; if a change needs one, merge it back the same day.
+- When a change is finished and its checks pass, commit it and push to `main` straight away. Stage only the files you changed (`git add <paths>`, never `git add -A`), since other sessions may be editing the same tree. Don't leave finished work uncommitted.
+- Every push to `main` runs `.github/workflows/release.yml`: ruff, mypy, unit tests and a container `/health` check, then it publishes `coldestpillow/lily:latest` (and GHCR). A failing check publishes nothing, so keep `main` green.
+- When running several sessions in parallel, give each its own worktree (`claude --worktree`), then merge to `main` and delete the worktree when done.

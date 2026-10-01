@@ -160,9 +160,8 @@ def _register_remaining_blueprints(app):
     from cps.search_metadata import meta
     from cps.duplicates import duplicates
     from cps.logs import logs
-    from cps.gdrive import gdrive
     for bp in (library_refresh, cwa_settings, cwa_internal,
-               editbook, meta, duplicates, logs, gdrive):
+               editbook, meta, duplicates, logs):
         if bp.name not in app.blueprints:
             app.register_blueprint(bp)
 

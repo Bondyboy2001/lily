@@ -39,6 +39,16 @@ _.created
 _.dismissed_at
 _.record_title
 _.record_url
+# Review-queue tables whose pages were removed; the tables stay in existing app.db files
+HardcoverMatchQueue
+_.hardcover_results
+_.confidence_scores
+_.created_at
+_.selected_result_id
+_.review_action
+_.reviewed_at
+_.reviewed_by
+_.fill
 logged_in
 
 # SQLAlchemy event listeners + Flask-Login callbacks (invoked by the framework)
@@ -49,7 +59,6 @@ flush_context
 connection_record
 _.get_id
 load_user
-load_user_from_bearer_token
 _close_cwa_db
 
 # Pagination properties consumed by Jinja templates (layout.html, feed.xml)
@@ -90,16 +99,16 @@ _.disabled
 confidence_score
 match_reason
 
-# Consumed by tests and by SQL bind parameters
-current_code
-prev_start
-prev_end
-
 # Route parameters required by the URL rule signature
 anyname
 
 _.isolation_level
 
-delete_whole_book
 delete_book
 get_continue_reading_progress
+
+# Book page template reads entry.paper_doi (detail.html)
+_.paper_doi
+
+# CalibreTask.run(worker_thread) interface parameter; WorkerThread passes itself
+worker_thread

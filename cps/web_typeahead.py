@@ -9,68 +9,17 @@
 Routes are attached to the web blueprint; web.py imports this module at its end."""
 
 import json
-import importlib
 
 from flask import request, url_for
 from flask_babel import get_locale
 from sqlalchemy.sql.expression import func, not_, or_
 
 from . import isoLanguages
-from . import db, config, app
+from . import db
 from . import calibre_db
 from .helper import tags_filters
 from .usermanagement import login_required_if_no_ano
 from .string_helper import strip_whitespaces
-
-# CWA Imports
-import time
-
-import sys
-sys.path.insert(1, '/app/calibre-web-automated/scripts/')
-
-
-try:
-    from natsort import natsorted as sort
-except ImportError:
-    sort = sorted  # Just use regular sort then, may cause issues with badly named pages in cbz/cbr files
-
-
-sql_version = importlib.metadata.version("sqlalchemy")
-sqlalchemy_version2 = ([int(x) for x in sql_version.split('.')] >= [2, 0, 0])
-
-_start_time = time.time()
-
-# Pages whose scripts build functions from strings (underscore templates in the metadata
-# search, the in-browser readers). Everything else runs without 'unsafe-eval'.
-_EVAL_ENDPOINTS = frozenset({"web.read_book", "edit-book.show_edit_book"})
-
-
-@app.after_request
-def add_security_headers(resp):
-    default_src = ([host.strip() for host in config.config_trustedhosts.split(',') if host] +
-                   ["'self'", "'unsafe-inline'"])
-    if request.endpoint in _EVAL_ENDPOINTS:
-        default_src.append("'unsafe-eval'")
-    csp = "default-src " + ' '.join(default_src)
-    if request.endpoint == "web.read_book" and config.config_use_google_drive:
-        csp +=" blob: "
-    csp += "; font-src 'self' data:"
-    if request.endpoint == "web.read_book":
-        csp += " blob: "
-    csp += "; img-src 'self'"
-    csp += " data:"
-    if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
-        csp += " *"
-    if request.endpoint == "web.read_book":
-        csp += " blob: ; style-src-elem 'self' blob: 'unsafe-inline'"
-    csp += "; object-src 'none';"
-    resp.headers['Content-Security-Policy'] = csp
-    resp.headers['X-Content-Type-Options'] = 'nosniff'
-    resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    resp.headers['Referrer-Policy'] = 'same-origin'
-    resp.headers['Strict-Transport-Security'] = 'max-age=31536000'
-    return resp
-
 
 from .web import web
 

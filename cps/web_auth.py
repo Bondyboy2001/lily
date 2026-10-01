@@ -8,7 +8,6 @@
 
 Routes are attached to the web blueprint; web.py imports this module at its end."""
 
-import importlib
 
 from flask import request, redirect, flash, abort, url_for
 from flask import session as flask_session
@@ -20,7 +19,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from . import constants
-from . import ub, config, app
+from . import ub, config
 from . import calibre_db
 from .helper import check_email, check_username, \
     valid_email, \
@@ -32,56 +31,6 @@ from . import limiter
 from .usermanagement import user_login_required
 from .string_helper import strip_whitespaces
 
-# CWA Imports
-import time
-
-import sys
-sys.path.insert(1, '/app/calibre-web-automated/scripts/')
-
-
-try:
-    from natsort import natsorted as sort
-except ImportError:
-    sort = sorted  # Just use regular sort then, may cause issues with badly named pages in cbz/cbr files
-
-
-sql_version = importlib.metadata.version("sqlalchemy")
-sqlalchemy_version2 = ([int(x) for x in sql_version.split('.')] >= [2, 0, 0])
-
-_start_time = time.time()
-
-# Pages whose scripts build functions from strings (underscore templates in the metadata
-# search, the in-browser readers). Everything else runs without 'unsafe-eval'.
-_EVAL_ENDPOINTS = frozenset({"web.read_book", "edit-book.show_edit_book"})
-
-
-@app.after_request
-def add_security_headers(resp):
-    default_src = ([host.strip() for host in config.config_trustedhosts.split(',') if host] +
-                   ["'self'", "'unsafe-inline'"])
-    if request.endpoint in _EVAL_ENDPOINTS:
-        default_src.append("'unsafe-eval'")
-    csp = "default-src " + ' '.join(default_src)
-    if request.endpoint == "web.read_book" and config.config_use_google_drive:
-        csp +=" blob: "
-    csp += "; font-src 'self' data:"
-    if request.endpoint == "web.read_book":
-        csp += " blob: "
-    csp += "; img-src 'self'"
-    csp += " data:"
-    if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
-        csp += " *"
-    if request.endpoint == "web.read_book":
-        csp += " blob: ; style-src-elem 'self' blob: 'unsafe-inline'"
-    csp += "; object-src 'none';"
-    resp.headers['Content-Security-Policy'] = csp
-    resp.headers['X-Content-Type-Options'] = 'nosniff'
-    resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    resp.headers['Referrer-Policy'] = 'same-origin'
-    resp.headers['Strict-Transport-Security'] = 'max-age=31536000'
-    return resp
-
-
 from .web import web, log
 
 
@@ -89,18 +38,6 @@ from .web import web, log
 
 def handle_login_user(user, remember, message, category, next_url=None):
     login_user(user, remember=remember)
-
-    # Track login activity
-    try:
-        from scripts.cwa_db import CWA_DB
-        cwa_db = CWA_DB()
-        cwa_db.log_activity(
-            user_id=int(user.id),
-            user_name=user.name,
-            event_type='LOGIN'
-        )
-    except Exception as e:
-        log.debug(f"Failed to log login activity: {e}")
 
     flash(message, category=category)
     [limiter.limiter.storage.clear(k.key) for k in limiter.current_limits]
@@ -164,22 +101,6 @@ def login_post():
     else:
         log.warning('Login failed for user "{}" IP-address: {}'.format(username, ip_address))
 
-        # Track failed login attempt
-        try:
-            from scripts.cwa_db import CWA_DB
-            import json
-            cwa_db = CWA_DB()
-            cwa_db.log_activity(
-                user_id=None,
-                user_name='Anonymous',
-                event_type='LOGIN_FAILED',
-                item_id=None,
-                item_title=None,
-                extra_data=json.dumps({'username_attempted': username, 'ip': ip_address, 'method': 'standard'})
-            )
-        except Exception as e:
-            log.debug(f"Failed to log failed login attempt: {e}")
-
         flash(_(u"Wrong Username or Password"), category="error")
     return render_login(username, form.get("password", ""))
 
@@ -211,8 +132,7 @@ def logout():
 # and internal services are not locked out while the admin picks a new password.
 _FORCE_PW_EXEMPT_BLUEPRINTS = {"opds", "cwa_internal"}
 _FORCE_PW_EXEMPT_ENDPOINTS = {"static", "web.login", "web.login_post", "web.logout",
-                              "web.change_password", "web.health_check",
-                              "gdrive.on_received_watch_confirmation"}
+                              "web.change_password", "web.health_check"}
 
 
 def _force_password_change_exempt(endpoint, blueprint):

@@ -10,9 +10,8 @@
 import os
 import sys
 import json
-import hashlib
 
-from sqlalchemy import Column, String, Integer, SmallInteger, Boolean, BLOB, JSON, inspect
+from sqlalchemy import Column, String, Integer, SmallInteger, Boolean, BLOB, JSON
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql.expression import text
 from cryptography.fernet import Fernet
@@ -86,16 +85,10 @@ class _Settings(_Base):
     config_denied_column_value = Column(String, default="")
     config_allowed_column_value = Column(String, default="")
 
-    config_use_google_drive = Column(Boolean, default=False)
-    config_google_drive_folder = Column(String)
-    config_google_drive_watch_changes_response = Column(JSON, default={})
-
     config_hardcover_token = Column(String)
     config_google_books_api_key = Column(String)
 
-    config_converterpath = Column(String, default=None)
     config_binariesdir = Column(String, default=None)
-    config_calibre = Column(String)
     config_upload_formats = Column(String, default=','.join(constants.EXTENSIONS_UPLOAD))
     config_unicode_filename = Column(Boolean, default=False)
     config_embed_metadata = Column(Boolean, default=True)
@@ -159,7 +152,6 @@ class ConfigSQL(object):
         if not self.config_binariesdir:
             change = True
             self.config_binariesdir = autodetect_calibre_binaries()
-            self.config_converterpath = autodetect_converter_binary(self.config_binariesdir)
 
         if change:
             self.save()
@@ -226,40 +218,6 @@ class ConfigSQL(object):
         mct = self.config_allowed_tags or ""
         return [strip_whitespaces(t) for t in mct.split(",")]
 
-    def list_denied_column_values(self):
-        mct = self.config_denied_column_value or ""
-        return [strip_whitespaces(t) for t in mct.split(",")]
-
-    def list_allowed_column_values(self):
-        mct = self.config_allowed_column_value or ""
-        return [strip_whitespaces(t) for t in mct.split(",")]
-
-    def set_from_dictionary(self, dictionary, field, convertor=None, default=None, encode=None):
-        """Possibly updates a field of this object.
-        The new value, if present, is grabbed from the given dictionary, and optionally passed through a convertor.
-
-        :returns: `True` if the field has changed value
-        """
-        new_value = dictionary.get(field, default)
-        if new_value is None:
-            return False
-
-        if field not in self.__dict__:
-            log.warning("_ConfigSQL trying to set unknown field '%s' = %r", field, new_value)
-            return False
-
-        if convertor is not None:
-            if encode:
-                new_value = convertor(new_value.encode(encode))
-            else:
-                new_value = convertor(new_value)
-
-        current_value = self.__dict__.get(field)
-        if current_value == new_value:
-            return False
-
-        setattr(self, field, new_value)
-        return True
 
     def to_dict(self):
         storage = {}
@@ -456,16 +414,6 @@ def autodetect_calibre_binaries():
     return ""
 
 
-def autodetect_converter_binary(calibre_path):
-    if sys.platform == "win32":
-        converter_path = os.path.join(calibre_path, "ebook-convert.exe")
-    else:
-        converter_path = os.path.join(calibre_path, "ebook-convert")
-    if calibre_path and os.path.isfile(converter_path) and os.access(converter_path, os.X_OK):
-        return converter_path
-    return ""
-
-
 def _migrate_database(session, secret_key):
     # make sure the table is created, if it does not exist
     _Base.metadata.create_all(session.bind)
@@ -480,30 +428,11 @@ def load_configuration(session, secret_key):
         session.commit()
 
 
-# SHA-256 of session-signing keys that shipped inside the empty_library/app.db template.
-# Anyone with the repository knows them, so an install that inherited one must not keep it.
-_KNOWN_TEMPLATE_KEY_HASHES = frozenset({
-    "0d5bba2709d1cad87280c370d388459da5ade12a5cb34c5c4fa86b5c89e7caab",
-})
-
-
-def _is_template_key(key):
-    return bool(key) and hashlib.sha256(bytes(key)).hexdigest() in _KNOWN_TEMPLATE_KEY_HASHES
-
-
 def get_flask_session_key(_session):
     flask_settings = _session.query(_Flask_Settings).one_or_none()
     if flask_settings is None:
         flask_settings = _Flask_Settings(os.urandom(32))
         _session.add(flask_settings)
-        _session.commit()
-    elif not flask_settings.flask_session_key or _is_template_key(flask_settings.flask_session_key):
-        log.warning("The stored session-signing key is empty or the publicly known template key; "
-                    "generating a new one. Everyone will need to sign in again.")
-        flask_settings.flask_session_key = os.urandom(32)
-        # Sessions created under the old key may have been forged by anyone who knew it.
-        if inspect(_session.bind).has_table("user_session"):
-            _session.execute(text("DELETE FROM user_session"))
         _session.commit()
     return flask_settings.flask_session_key
 

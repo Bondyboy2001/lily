@@ -133,6 +133,16 @@ def test_utility_pages_share_the_settings_frame(name):
     assert "{% block pane_class %} is-wide{% endblock %}" in html, name
 
 
+def test_logs_page_is_a_live_tail_without_filters():
+    html = read(TEMPLATES / "logs.html")
+    for gone in ("log_source", "log_search", "log_errors", "log_autorefresh", "log_refresh", "f.group"):
+        assert gone not in html, gone
+    assert 'id="log_output"' in html and 'role="status"' in html
+    js = read(REPO_ROOT / "cps/static/js/logs.js")
+    assert "visibilitychange" in js and "since=" in js
+    assert "#log_source" not in js and "setInterval" not in js
+
+
 def test_sidebar_has_no_utility_links():
     layout = read(TEMPLATES / "layout.html")
     assert 'id="nav_duplicates"' not in layout and 'id="nav_logs"' not in layout

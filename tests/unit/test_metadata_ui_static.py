@@ -62,6 +62,16 @@ def test_description_box_fits_its_text_and_cannot_be_dragged():
     rule = rule[:rule.index("}")]
     assert "resize: none;" in rule
     assert "padding: 14px 16px;" in rule and "line-height: 1.68;" in rule
+    assert "min-height" not in rule
+    # At height auto a textarea keeps its rows' height, so fit() collapses it first
+    assert 'box.style.height = "0";' in js
     # Refit after the web font loads and when the box's width changes
     assert "document.fonts.ready.then(fit);" in js
     assert "new ResizeObserver(" in js
+
+
+def test_saving_always_opens_the_book_page():
+    template = (REPO_ROOT / "cps/templates/book_edit.html").read_text(encoding="utf-8")
+
+    assert '<input type="hidden" name="detail_view" value="1">' in template
+    assert 'name="detail_view" type="checkbox"' not in template

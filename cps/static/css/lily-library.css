@@ -1067,6 +1067,47 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     outline-offset: -1px;
 }
 
+.book-detail-cover-art img:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+    outline-offset: 2px;
+}
+
+/* Cover viewer (fullscreen.js): the cover over an ink-35% backdrop. */
+.lily-cover-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: color-mix(in srgb, var(--ink) 35%, transparent);
+    cursor: zoom-out;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 120ms ease-out, visibility 0s linear 120ms;
+}
+
+.lily-cover-viewer.is-open {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 120ms ease-out;
+}
+
+.lily-cover-viewer img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    border-radius: 4px 8px 8px 4px;
+    outline: 1px solid var(--line-soft);
+    outline-offset: -1px;
+}
+
+.lily-cover-viewer:focus {
+    outline: none;
+}
+
 /* Each file on its own line: type mark, format, and its size pushed to the right. */
 .book-metadata dd.book-detail-files {
     display: flex;
@@ -1790,7 +1831,6 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 /* Height follows the text (edit_books.js fit()); no drag handle. Reading text, so
    roomier than a field: the book page's line-height and more padding */
 .editbook-form .lily-description {
-    min-height: 80px;
     padding: 14px 16px;
     line-height: 1.68;
     resize: none;
@@ -1818,24 +1858,6 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 .editbook-section .row { margin-left: -8px; margin-right: -8px; }
 .editbook-section .row > [class*="col-"] { padding-left: 8px; padding-right: 8px; }
 
-/* Edit form checkboxes: the native box (lily.css), label clickable beside it */
-#book_edit_frm .checkbox { margin: 0; }
-#book_edit_frm .checkbox label {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 30px;
-    padding-left: 0;
-    font-size: 15px;
-    color: var(--ink);
-    cursor: pointer;
-}
-#book_edit_frm .checkbox input[type="checkbox"] {
-    position: static;
-    flex: none;
-    margin: 0;
-}
-
 .editbook-actions {
     grid-column: 3;
     grid-row: 1 / span 2;
@@ -1850,8 +1872,6 @@ dl.book-metadata:not(:has(> div)) { display: none; }
     background: var(--surface);
 }
 .editbook-actions .btn { width: 100%; margin: 0; }
-#book_edit_frm .editbook-actions .checkbox { margin: 4px 0 0; }
-#book_edit_frm .editbook-actions .checkbox label { font-size: 14px; }
 
 @media (min-width: 768px) and (max-width: 1099px) {
     #book_edit_frm { grid-template-columns: 220px minmax(0, 720px); }
@@ -1901,7 +1921,6 @@ dl.book-metadata:not(:has(> div)) { display: none; }
         background: var(--paper);
     }
     .editbook-actions .btn { width: auto; }
-    #book_edit_frm .editbook-actions .checkbox { margin: 0 auto 0 0; }
 }
 
 .lily-table-actions { margin-bottom: 14px; }

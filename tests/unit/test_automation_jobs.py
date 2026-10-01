@@ -3,6 +3,7 @@
 
 """Durable cwa_operation_jobs helper, refresh job lifecycle and failure sidecars."""
 
+import json
 import os
 import threading
 
@@ -73,29 +74,15 @@ class TestOperationJobs:
 
 @pytest.mark.unit
 class TestFailureSidecars:
-    def test_write_list_retry_delete(self, tmp_path):
+    def test_write_failure_sidecar(self, tmp_path):
         import ingest_failures
         failed = tmp_path / "failed"
-        ingest = tmp_path / "ingest"
-        failed.mkdir(); ingest.mkdir()
+        failed.mkdir()
         f = failed / "bad.epub"
         f.write_bytes(b"x")
         ingest_failures.write_failure(str(f), "Not a known ebook format", job_id="j9")
-        items = ingest_failures.list_failed(str(failed))
-        assert items[0]["reason"] == "Not a known ebook format"
-        assert items[0]["job_id"] == "j9"
-        (failed / "old.epub").write_bytes(b"y")
-        legacy = [i for i in ingest_failures.list_failed(str(failed))
-                  if i["name"] == "old.epub"][0]
-        assert legacy["reason"] == "No failure details recorded"
-        new_path = ingest_failures.retry_failed(str(failed), str(ingest), "bad.epub")
-        assert os.path.exists(new_path)
-        assert not os.path.exists(failed / ".bad.epub.failure.json")
-        (failed / ".stray.failure.json").write_text("{}")
-        (failed / "gone.epub").write_bytes(b"z")
-        ingest_failures.delete_failed(str(failed), "gone.epub")
-        assert not os.path.exists(failed / "gone.epub")
-        assert os.path.exists(failed / ".stray.failure.json")
+        sidecar = json.loads((failed / ".bad.epub.failure.json").read_text())
+        assert sidecar == {"reason": "Not a known ebook format", "job_id": "j9"}
 
 @pytest.mark.unit
 class TestRefreshRoute:
@@ -293,7 +280,7 @@ class TestRefreshRouteFailures:
             assert resp.status_code == 200
             job = automation_jobs.get_job(resp.get_json()["job_id"])
             assert job["state"] == "failed"
-            assert job["error"] == "2 import(s) failed; open Failed Imports"
+            assert job["error"] == "2 import(s) failed; check the logs"
         finally:
             env.__exit__(None, None, None)
 

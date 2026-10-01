@@ -13,7 +13,7 @@ import socket
 from .constants import CONFIG_DIR as _CONFIG_DIR
 from .constants import STABLE_VERSION as _STABLE_VERSION
 from .constants import NIGHTLY_VERSION as _NIGHTLY_VERSION
-from .constants import DEFAULT_SETTINGS_FILE, DEFAULT_GDRIVE_FILE
+from .constants import DEFAULT_SETTINGS_FILE
 
 
 def version_info():
@@ -33,7 +33,6 @@ class CliParameter(object):
         self.dry_run = None
         self.certfilepath = None
         self.keyfilepath = None
-        self.gd_path = None
         self.settings_path = None
         self.logpath = None
 
@@ -45,7 +44,6 @@ class CliParameter(object):
                                                      'a interface for browsing, reading and downloading eBooks\n',
                                          prog='cps.py')
         parser.add_argument('-p', metavar='path', help='path and name to settings db, e.g. /opt/cw.db')
-        parser.add_argument('-g', metavar='path', help='path and name to gdrive db, e.g. /opt/gd.db')
         parser.add_argument('-c', metavar='path', help='path and name to SSL certfile, '
                                                        'e.g. /opt/test.cert, works only in combination with keyfile')
         parser.add_argument('-k', metavar='path', help='path and name to SSL keyfile, e.g. /opt/test.key, '
@@ -69,13 +67,9 @@ class CliParameter(object):
 
         self.logpath = args.o or ""
         self.settings_path = args.p or os.path.join(_CONFIG_DIR, DEFAULT_SETTINGS_FILE)
-        self.gd_path = args.g or os.path.join(_CONFIG_DIR, DEFAULT_GDRIVE_FILE)
 
         if os.path.isdir(self.settings_path):
             self.settings_path = os.path.join(self.settings_path, DEFAULT_SETTINGS_FILE)
-
-        if os.path.isdir(self.gd_path):
-            self.gd_path = os.path.join(self.gd_path, DEFAULT_GDRIVE_FILE)
 
         # handle and check parameter for ssl encryption
         self.certfilepath = None

@@ -17,7 +17,6 @@ log = logger.create()
 
 try:
     from wand.image import Image, Color
-    from wand import version as ImageVersion
     from wand.exceptions import PolicyError
     use_generic_pdf_cover = False
 except (ImportError, RuntimeError) as e:
@@ -230,14 +229,4 @@ def pdf_preview(tmp_file_path, tmp_dir):
         log.warning('Cannot extract cover image, using default: %s', ex)
         log.warning('On Windows this error could be caused by missing ghostscript')
         return None
-
-
-def get_magick_version():
-    ret = dict()
-    if not use_generic_pdf_cover:
-        ret['Image Magick'] = ImageVersion.MAGICK_VERSION
-    else:
-        ret['Image Magick'] = 'not installed'
-    return ret
-
 

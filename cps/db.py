@@ -754,44 +754,6 @@ class CalibreDB:
 
         return cc_classes
 
-    @classmethod
-    def check_valid_db(cls, config_calibre_dir, app_db_path, config_calibre_uuid):
-        if not config_calibre_dir:
-            return False, False
-        dbpath = os.path.join(config_calibre_dir, "metadata.db")
-        if not os.path.exists(dbpath):
-            return False, False
-        db_writable = os.access(dbpath, os.W_OK)
-        try:
-            check_engine = create_engine('sqlite://',
-                                         echo=False,
-                                         isolation_level="SERIALIZABLE",
-                                         connect_args={'check_same_thread': False, 'timeout': 30},
-                                         poolclass=StaticPool)
-            with check_engine.begin() as connection:
-                connection.execute(text("attach database '{}' as calibre;".format(dbpath)))
-                connection.execute(text("attach database '{}' as app_settings;".format(app_db_path)))
-                # Try enabling WAL to improve concurrency unless running on a network share
-                # Controlled by env var NETWORK_SHARE_MODE (default False)
-                try:
-                    nsm = os.getenv('NETWORK_SHARE_MODE', 'False').lower() in ('1', 'true', 'yes', 'on')
-                    if not nsm and db_writable:
-                        connection.execute(text("PRAGMA calibre.journal_mode=WAL"))
-                        connection.execute(text("PRAGMA app_settings.journal_mode=WAL"))
-                    else:
-                        reason = "NETWORK_SHARE_MODE=true" if nsm else "metadata.db not writable"
-                        log.warning("WAL mode disabled for calibre/app_settings (%s)", reason)
-                except Exception as e:
-                    log.warning("Could not configure WAL mode for app_settings: %s", e)
-                local_session = scoped_session(sessionmaker())
-                local_session.configure(bind=connection)
-                database_uuid = local_session().query(Library_Id).one_or_none()
-
-            check_engine.connect()
-            db_change = config_calibre_uuid != database_uuid.uuid
-        except Exception:
-            return False, False
-        return True, db_change
 
     @classmethod
     def update_config(cls, config):

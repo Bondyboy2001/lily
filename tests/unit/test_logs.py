@@ -45,16 +45,38 @@ class TestAccess:
 
 
 class TestDataEndpoint:
-    def test_all_sources_and_selected(self, clients, tmp_path, monkeypatch):
-        env, _, _, admin = clients
-        source = _fake_source(tmp_path, monkeypatch)
+    def test_returns_all_sources_with_a_version(self, clients, tmp_path, monkeypatch):
+        _, _, _, admin = clients
+        _fake_source(tmp_path, monkeypatch)
         payload = admin.get("/logs/data").get_json()
         assert payload["success"] and "ERROR boom" in payload["text"]
-        assert payload["sources"] == [{"id": "src-test", "label": "fake.log"}]
-        payload = admin.get("/logs/data?source=src-test").get_json()
-        assert "ERROR boom" in payload["text"]
+        assert payload["version"] and "sources" not in payload
 
-    def test_archive_selection_over_http(self, clients, tmp_path, monkeypatch):
+    def test_unchanged_since_skips_the_read(self, clients, tmp_path, monkeypatch):
+        from cps import logs
+        _, _, _, admin = clients
+        source = _fake_source(tmp_path, monkeypatch)
+        version = admin.get("/logs/data").get_json()["version"]
+        real_read = logs._read_sources
+
+        def no_read(*_args, **_kwargs):
+            raise AssertionError("an unchanged poll must not read the logs")
+        monkeypatch.setattr(logs, "_read_sources", no_read)
+        payload = admin.get("/logs/data?since=" + version).get_json()
+        assert payload == {"success": True, "version": version, "unchanged": True}
+        monkeypatch.setattr(logs, "_read_sources", real_read)
+        with open(source["path"], "a", encoding="utf-8") as fh:
+            fh.write("INFO new line\n")
+        payload = admin.get("/logs/data?since=" + version).get_json()
+        assert payload["version"] != version and payload["text"].endswith("INFO new line\n")
+
+    def test_stale_or_bogus_since_returns_text(self, clients, tmp_path, monkeypatch):
+        _, _, _, admin = clients
+        _fake_source(tmp_path, monkeypatch)
+        payload = admin.get("/logs/data?since=../../etc/passwd").get_json()
+        assert "ERROR boom" in payload["text"] and "unchanged" not in payload
+
+    def test_service_dir_reads_oldest_first(self, clients, tmp_path, monkeypatch):
         from cps import logs
         _, _, _, admin = clients
         log_dir = tmp_path / "uncaught"
@@ -62,13 +84,11 @@ class TestDataEndpoint:
         (log_dir / "current").write_text("newest line\n", encoding="utf-8")
         (log_dir / "@4000000068a941db1c4a9e04.s").write_text("old archived line\n", encoding="utf-8")
         monkeypatch.setattr(logs, "S6_UNCAUGHT_LOG_DIR", str(log_dir))
+        monkeypatch.setattr(logs, "RETAINED_LOG_DIR", str(tmp_path / "none"))
         monkeypatch.setattr(logs, "_configured_log_files", lambda: [])
-        payload = admin.get("/logs/data").get_json()
-        assert "newest line" in payload["text"] and "old archived line" in payload["text"]
-        # The menu lists the service once, not each rotated file; picking it reads them all.
-        assert [s["label"] for s in payload["sources"]] == ["Service output"]
-        payload = admin.get("/logs/data?source=" + payload["sources"][0]["id"]).get_json()
-        assert "old archived line" in payload["text"] and "newest line" in payload["text"]
+        text = admin.get("/logs/data").get_json()["text"]
+        assert text.index("old archived line") < text.index("newest line")
+        assert text.rstrip().endswith("newest line")
 
     def test_retained_service_dirs_get_readable_names(self, clients, tmp_path, monkeypatch):
         from cps import logs
@@ -81,18 +101,18 @@ class TestDataEndpoint:
         monkeypatch.setattr(logs, "S6_UNCAUGHT_LOG_DIR", str(tmp_path / "none"))
         monkeypatch.setattr(logs, "RETAINED_LOG_DIR", str(tmp_path / "retained"))
         monkeypatch.setattr(logs, "_configured_log_files", lambda: [])
-        menu = admin.get("/logs/data").get_json()["sources"]
-        assert [s["label"] for s in menu] == ["Auto zipper", "Ingest service", "Lily web app"]
-        text = admin.get("/logs/data?source=" + menu[0]["id"]).get_json()["text"]
-        assert "cwa-auto-zipper now" in text and "cwa-auto-zipper before" in text
-        assert "cwa-ingest-service" not in text
+        text = admin.get("/logs/data").get_json()["text"]
+        for label in ("Auto zipper (current)", "Ingest service (current)", "Lily web app (current)"):
+            assert "===== %s =====" % label in text
+        assert "cwa-auto-zipper" + " (current)" not in text
+        assert text.index("cwa-auto-zipper before") < text.index("cwa-auto-zipper now")
 
-    def test_unknown_source_is_400(self, clients, tmp_path, monkeypatch):
-        _fake_source(tmp_path, monkeypatch)
+    def test_source_param_is_ignored(self, clients, tmp_path, monkeypatch):
         _, _, _, admin = clients
-        assert admin.get("/logs/data?source=nope").status_code == 400
-        assert admin.get("/logs/data?source=../../etc/passwd").status_code == 400
-        assert admin.get("/logs/data?source=/etc/passwd").status_code == 400
+        _fake_source(tmp_path, monkeypatch)
+        for query in ("?source=nope", "?source=../../etc/passwd", "?source=/etc/passwd"):
+            payload = admin.get("/logs/data" + query).get_json()
+            assert payload["success"] and "ERROR boom" in payload["text"]
 
     def test_missing_file_is_skipped(self, clients, tmp_path, monkeypatch):
         from cps import logs
@@ -104,14 +124,14 @@ class TestDataEndpoint:
 
 
 class TestHelpers:
-    def test_s6_dir_lists_current_then_rotations(self, tmp_path):
+    def test_s6_dir_lists_rotations_then_current(self, tmp_path):
         from cps import logs
         for name in ("current", "@4000000068a941db1c4a9e04.s", "@4000000068a9410000000001.u",
                      "lock", "state"):
             (tmp_path / name).write_text("x", encoding="utf-8")
         entries = logs._s6_uncaught_files(str(tmp_path))
         names = [os.path.basename(p) for p, _ in entries]
-        assert names == ["current", "@4000000068a941db1c4a9e04.s", "@4000000068a9410000000001.u"]
+        assert names == ["@4000000068a9410000000001.u", "@4000000068a941db1c4a9e04.s", "current"]
 
     def test_s6_dir_missing(self, tmp_path):
         from cps import logs
@@ -133,10 +153,8 @@ class TestHelpers:
         finally:
             test_logger.removeHandler(handler)
             handler.close()
-        paths = [p for p, _ in entries]
-        assert str(base) in paths
-        assert str(tmp_path / "unit-app.log.1") in paths
-        assert str(tmp_path / "unit-app.log.2") in paths
+        paths = [p for p, _ in entries if p.startswith(str(tmp_path))]
+        assert paths == [str(tmp_path / "unit-app.log.2"), str(tmp_path / "unit-app.log.1"), str(base)]
 
     def test_tail_truncates_and_drops_partial_line(self, tmp_path):
         from cps import logs
@@ -157,11 +175,13 @@ class TestHelpers:
         a = tmp_path / "a.log"
         b = tmp_path / "b.log"
         a.write_text("A" * 20 + "\n", encoding="utf-8")
-        b.write_text("B" * 2000 + "\n", encoding="utf-8")
-        sources = [{"id": "1", "label": "a", "path": str(a)},
-                   {"id": "2", "label": "b", "path": str(b)}]
+        b.write_text(("B" * 20 + "\n") * 100, encoding="utf-8")
+        sources = [{"id": "1", "label": "b", "path": str(b)},
+                   {"id": "2", "label": "a", "path": str(a)}]
         text, truncated = logs._read_sources(sources, max_bytes=100)
         assert "A" * 20 in text and truncated
+        # The newest (last) source fits whole; the older one fills what is left, and comes first.
+        assert text.index("===== b =====") < text.index("===== a =====")
 
     def test_raw_bytes_bound_covers_files_without_newlines(self, tmp_path):
         from cps import logs
@@ -172,8 +192,9 @@ class TestHelpers:
             files.append({"id": str(i), "label": "big%d" % i, "path": str(f)})
         text, truncated = logs._read_sources(files, max_bytes=1024 * 1024)
         assert truncated
-        assert "tail0" in text and "tail1" in text
-        assert "tail2" not in text and "===== big2 =====" not in text
+        # Spent from the newest (last) file backwards: big2 and big1 fit, big0 is dropped.
+        assert "tail2" in text and "tail1" in text
+        assert "tail0" not in text and "===== big0 =====" not in text
 
     def test_symlink_escaping_root_is_rejected(self, tmp_path):
         from cps import logs

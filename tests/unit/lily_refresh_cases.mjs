@@ -154,18 +154,16 @@ const KEY = "lily.refreshJob.u7";
 {
     const storage = { [KEY]: "/status/x" };
     const h = harness({ storage });
-    h.box.dataset.failedImportsUrl = "/admin/ingest_failures";
-    h.box.dataset.failedImportsLabel = "Failed imports";
     h.box.dataset.logsUrl = "/logs";
     h.box.dataset.logsLabel = "Logs";
     await h.tick(1);
-    h.respond(0, h.json({ state: "failed", message: "2 import(s) failed; open Failed Imports" }));
+    h.respond(0, h.json({ state: "failed", message: "2 import(s) failed; see the logs" }));
     await h.flush();
     await h.tick(60000);
     assert.equal(h.box.hidden, false);
     assert.ok(h.box.classes.has("is-error"));
     const hrefs = h.para.children.filter((c) => c.href).map((c) => c.href);
-    assert.deepEqual(hrefs, ["/admin/ingest_failures", "/logs"]);
+    assert.deepEqual(hrefs, ["/logs"]);
     await h.tick(1000);
     assert.equal(h.fetches.length, 1);
 }

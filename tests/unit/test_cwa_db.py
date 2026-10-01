@@ -192,46 +192,6 @@ class TestCWADBImportLogging:
 
 
 @pytest.mark.unit
-class TestCWADBUserFilters:
-    """Test user filter handling in CWA_DB queries."""
-
-    def test_build_user_filter_with_list(self, temp_cwa_db):
-        """Verify list-based user filters are converted to SQL IN clause."""
-        assert temp_cwa_db._build_user_filter(None) == ""
-        assert temp_cwa_db._build_user_filter(42) == " AND user_id = 42"
-        assert temp_cwa_db._build_user_filter([1, 2]) == " AND user_id IN (1,2)"
-
-    def test_dashboard_stats_with_user_list(self, temp_cwa_db):
-        """Verify dashboard stats work with list-based user filtering."""
-        # Insert activity for two users
-        temp_cwa_db.log_activity(100, "User A", "LOGIN")
-        temp_cwa_db.log_activity(101, "User B", "LOGIN")
-
-        stats = temp_cwa_db.get_dashboard_stats(days=1, user_id=[100, 101])
-
-        assert stats["totals"]["total_events"] == 2
-        assert stats["totals"]["total_logins"] == 2
-        # List-based filter should use single-user mode (active_users = 0)
-        assert stats["totals"]["active_users"] == 0
-
-    def test_recent_searches_return_the_term_not_json(self, temp_cwa_db):
-        """Recent searches show the typed term, including legacy rows stored as {"format": term}."""
-        temp_cwa_db.log_activity(1, "harry", "SEARCH", extra_data={"query": "graph"})
-        temp_cwa_db.log_activity(1, "harry", "SEARCH", extra_data={"query": "1984"})
-        temp_cwa_db.cur.execute(
-            "INSERT INTO cwa_user_activity (user_id, user_name, event_type, extra_data) VALUES (?, ?, ?, ?)",
-            (1, "harry", "SEARCH", '{"format": "the", "device_type": "desktop"}'))
-        temp_cwa_db.cur.execute(
-            "INSERT INTO cwa_user_activity (user_id, user_name, event_type, extra_data) VALUES (?, ?, ?, ?)",
-            (1, "harry", "SEARCH", "plain term"))
-        temp_cwa_db.con.commit()
-
-        terms = {row[0] for row in temp_cwa_db.get_dashboard_stats(days=1)["recent_searches"]}
-
-        assert terms == {"graph", "1984", "the", "plain term"}
-
-
-@pytest.mark.unit
 class TestCWADBStatistics:
     """Test statistics aggregation functions."""
 
@@ -252,36 +212,6 @@ class TestCWADBStatistics:
         temp_cwa_db.cur.execute("SELECT COUNT(*) FROM cwa_import")
         final_count = temp_cwa_db.cur.fetchone()[0]
         assert final_count == initial_count + 10
-
-    def test_statistics_reflect_all_operations(self, temp_cwa_db):
-        """Verify statistics aggregate across all operation types."""
-        # Get initial counts
-        totals_initial = temp_cwa_db.get_stat_totals()
-        temp_cwa_db.cur.execute("SELECT COUNT(*) FROM cwa_import")
-        import_initial = temp_cwa_db.cur.fetchone()[0]
-
-        # Mix of operations using actual production methods with correct dict structure
-        temp_cwa_db.import_add_entry(filename="Book1.epub", original_backed_up="true")
-
-        # enforce_add_entry_from_log requires: timestamp, book_id, title, authors, file_path
-        from datetime import datetime
-        log_info = {
-            "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            "book_id": "1",
-            "title": "Test Book",
-            "authors": "Test Author",
-            "file_path": "/path/book1.epub"
-        }
-        temp_cwa_db.enforce_add_entry_from_log(log_info=log_info)
-
-        # Verify counts increased by 1 each
-        totals_final = temp_cwa_db.get_stat_totals()
-        assert totals_final['cwa_enforcement'] == totals_initial['cwa_enforcement'] + 1
-
-        # cwa_import is not in get_stat_totals(), use direct SQL
-        temp_cwa_db.cur.execute("SELECT COUNT(*) FROM cwa_import")
-        import_final = temp_cwa_db.cur.fetchone()[0]
-        assert import_final == import_initial + 1
 
 
 @pytest.mark.unit

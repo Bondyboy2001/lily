@@ -42,11 +42,6 @@ echo "[cwa-init] Setting up ImageMagick policy..."
 rm -rf /etc/ImageMagick-6/policy.xml
 ln -s /defaults/policy.xml /etc/ImageMagick-6/policy.xml
 
-# create Google drive client_secrets.json file
-if [[ ! -f /config/client_secrets.json ]]; then
-    echo "{}" > /config/client_secrets.json
-fi
-
 # Pre-stage some files & directories for permissions purposes
 mkdir -p /app/calibre-web-automated/cps/cache
 
@@ -155,7 +150,7 @@ fi
 echo "[cwa-init] Setting binary paths in '/config/app.db' to the correct ones..."
 
 sqlite3 /config/app.db <<EOS
-    update settings set config_converterpath='/usr/bin/ebook-convert', config_binariesdir='/usr/bin';
+    update settings set config_binariesdir='/usr/bin';
 EOS
 
 if [[ $? == 0 ]]

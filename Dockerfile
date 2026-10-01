@@ -27,6 +27,10 @@ ARG CALIBRE_RELEASE=9.1.0
 ARG CALIBRE_SHA256_X86_64=93a2d3104933366a50b03f8a2ff3889dc16b9c1d739ad22055e95ea35b03c1df
 ARG CALIBRE_SHA256_ARM64=ca1261b71030390d6316fe6e3f722247f05670eec845bcefb62d8c0b1d1478cb
 
+# deadsnakes PPA signing key (Python 3.13). The key is fetched at build time and must match
+# this fingerprint: https://launchpad.net/~deadsnakes/+archive/ubuntu/ppa
+ARG DEADSNAKES_KEY=F23C5A6CF475977595C89F51BA6932366A755776
+
 # lsof release tarball. Bump: GitHub publishes the digest on the release asset:
 # curl -s https://api.github.com/repos/lsof-org/lsof/releases/tags/<ver> | jq -r '.assets[] | select(.name|endswith(".tar.gz")) | .digest'
 ARG LSOF_VERSION=4.99.5
@@ -43,6 +47,8 @@ ARG LSOF_SHA256=4682c2491ec8b3d62f84e135afc1d9ead1bad5f034b50716f0c3826a4ee7d229
 # --------------------------------------------------------------------------
 FROM ${BASE_IMAGE} AS runtime-base
 
+ARG DEADSNAKES_KEY
+
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Keep downloaded .debs so the apt cache mount below is actually reused
@@ -52,9 +58,13 @@ RUN \
   --mount=type=cache,target=/var/cache/apt,sharing=locked \
   --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
   echo "**** add deadsnakes PPA for Python 3.13 ****" && \
-  apt-get update && \
-  apt-get install -y --no-install-recommends software-properties-common && \
-  add-apt-repository -y ppa:deadsnakes/ppa && \
+  # Written directly rather than with add-apt-repository, which would install
+  # software-properties-common (and a second Python) just to add one source
+  curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x${DEADSNAKES_KEY}" -o /tmp/deadsnakes.asc && \
+  gpg --show-keys --with-colons /tmp/deadsnakes.asc | grep -q "^fpr:::::::::${DEADSNAKES_KEY}:" && \
+  gpg --dearmor -o /etc/apt/keyrings/deadsnakes.gpg /tmp/deadsnakes.asc && \
+  echo "deb [signed-by=/etc/apt/keyrings/deadsnakes.gpg] https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu noble main" \
+    > /etc/apt/sources.list.d/deadsnakes.list && \
   apt-get update && \
   echo "**** install runtime packages ****" && \
   apt-get install -y --no-install-recommends \
@@ -88,9 +98,6 @@ RUN \
   curl && \
   # Create python3 symlink to point to python3.13
   ln -sf /usr/bin/python3.13 /usr/bin/python3 && \
-  # The PPA's sources entry and key stay; the tool that added them isn't needed at runtime
-  apt-get -y purge software-properties-common && \
-  apt-get -y autoremove && \
   rm -rf /tmp/* /var/tmp/* /root/.cache
 
 # --------------------------------------------------------------------------
@@ -120,13 +127,15 @@ COPY requirements.txt optional-requirements.txt requirements.lock /tmp/requireme
 # Packages come from linuxserver's Ubuntu wheel index first: precompiled wheels for
 # the popular C/C++ packages on x86_64, armv7l and aarch64 (https://realpython.com/python-wheels/).
 # The cache mount keeps downloaded wheels between builds, so only changed pins are fetched.
+# pip and wheel are only needed here, so they are removed before /lsiopy is copied out.
 RUN \
   --mount=type=cache,target=/root/.cache/pip \
   python3.13 -m venv /lsiopy && \
   /lsiopy/bin/pip install -U pip wheel && \
   /lsiopy/bin/pip install -U --find-links https://wheel-index.linuxserver.io/ubuntu/ \
   -r /tmp/requirements/requirements.txt -r /tmp/requirements/optional-requirements.txt \
-  -c /tmp/requirements/requirements.lock
+  -c /tmp/requirements/requirements.lock && \
+  /lsiopy/bin/python -m pip uninstall -y pip wheel
 
 # --------------------------------------------------------------------------
 # lsof: built from source to fix the hanging issue with 4.95 (issue #654)

@@ -10,8 +10,8 @@ Uses sqlite3.Connection.backup(), which copies a transactionally consistent
 image of a live database including pages still in the -wal file. A plain file
 copy of a WAL-mode database can silently miss committed data or be torn.
 
-Restores go the other way through the same API (restore_sqlite_db), after a
-safety copy of the live database and a PRAGMA integrity_check of the snapshot.
+Snapshots are test-restored through the same API (restore_sqlite_db, after a
+PRAGMA integrity_check) to prove they are usable.
 
 Backups should live on a different volume from /config (set db_backup_dir in
 cwa_settings or the DB_BACKUP_DIR env var): the default /config/backup/db/ is
@@ -31,7 +31,6 @@ DEFAULT_KEEP_COUNT = 7
 BACKUP_SUBDIR = os.path.join("backup", "db")
 # Directory names are timestamps, so lexical order == chronological order
 _SNAPSHOT_DIR_RE = re.compile(r"^\d{8}_\d{6}(_\d+)?$")
-PRE_RESTORE_SUFFIX = "_pre-restore"
 _ANY_SNAPSHOT_DIR_RE = re.compile(r"^\d{8}_\d{6}(_\d+)?(_pre-restore)?$")
 
 
@@ -85,17 +84,16 @@ def normalize_keep_count(value, default: int = DEFAULT_KEEP_COUNT) -> int:
     return keep if keep >= 1 else default
 
 
-def list_snapshots(backup_root: str, include_pre_restore: bool = False) -> list[str]:
+def list_snapshots(backup_root: str) -> list[str]:
     """Returns snapshot directory paths under backup_root, oldest first.
 
-    Safety copies taken before a restore (<stamp>_pre-restore) are only included
-    when include_pre_restore is set; they are never rotated automatically.
+    Safety copies left by older versions' restores (<stamp>_pre-restore) are not
+    listed, so they are never rotated automatically.
     """
     if not os.path.isdir(backup_root):
         return []
-    pattern = _ANY_SNAPSHOT_DIR_RE if include_pre_restore else _SNAPSHOT_DIR_RE
     names = sorted(n for n in os.listdir(backup_root)
-                   if pattern.match(n) and os.path.isdir(os.path.join(backup_root, n)))
+                   if _SNAPSHOT_DIR_RE.match(n) and os.path.isdir(os.path.join(backup_root, n)))
     return [os.path.join(backup_root, n) for n in names]
 
 
@@ -140,37 +138,6 @@ def rotate_snapshots(backup_root: str, keep: int) -> list[str]:
             shutil.rmtree(snap, ignore_errors=True)
             removed.append(snap)
     return removed
-
-
-def snapshot_timestamp(snapshot_dir: str) -> datetime | None:
-    """Parses the YYYYmmdd_HHMMSS prefix of a snapshot directory name."""
-    try:
-        return datetime.strptime(os.path.basename(snapshot_dir)[:15], "%Y%m%d_%H%M%S")
-    except ValueError:
-        return None
-
-
-def describe_snapshots(backup_root: str) -> list[dict]:
-    """Snapshots newest first, as dicts for display:
-    {name, path, timestamp, pre_restore, databases: {file: size_bytes}, size}."""
-    result = []
-    for snap in reversed(list_snapshots(backup_root, include_pre_restore=True)):
-        dbs = {}
-        for name in _snapshot_db_files(snap):
-            try:
-                dbs[name] = os.path.getsize(os.path.join(snap, name))
-            except OSError:
-                continue
-        name = os.path.basename(snap)
-        result.append({
-            "name": name,
-            "path": snap,
-            "timestamp": snapshot_timestamp(snap),
-            "pre_restore": name.endswith(PRE_RESTORE_SUFFIX),
-            "databases": dbs,
-            "size": sum(dbs.values()),
-        })
-    return result
 
 
 def resolve_snapshot(backup_root: str, name: str) -> str:
@@ -250,32 +217,6 @@ def verify_snapshot(snapshot_dir: str) -> dict:
                 raise ValueError(f"Restored {name} contains no tables")
             result[name] = tables
     return result
-
-
-def create_pre_restore_snapshot(sources: dict, backup_root: str, now: datetime | None = None) -> tuple[str, dict]:
-    """Safety copy of the live databases about to be overwritten by a restore.
-
-    Stored as <stamp>_pre-restore under backup_root (listed, never rotated).
-    Raises if any database fails to copy, since restoring without a safety copy
-    is not allowed. Returns (snapshot_dir, {file_name: dest})."""
-    stamp = (now or datetime.now()).strftime("%Y%m%d_%H%M%S")
-    path = os.path.join(backup_root, stamp + PRE_RESTORE_SUFFIX)
-    suffix = 1
-    while os.path.exists(path):
-        path = os.path.join(backup_root, f"{stamp}_{suffix}{PRE_RESTORE_SUFFIX}")
-        suffix += 1
-    os.makedirs(path)
-    done = {}
-    try:
-        for name, src in sources.items():
-            if src and os.path.isfile(src):
-                dest = os.path.join(path, name)
-                sqlite_backup(src, dest)
-                done[name] = dest
-    except Exception:
-        shutil.rmtree(path, ignore_errors=True)
-        raise
-    return path, done
 
 
 def _new_snapshot_dir(backup_root: str, now: datetime | None = None) -> str:

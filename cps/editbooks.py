@@ -27,7 +27,7 @@ from sqlalchemy.exc import OperationalError, IntegrityError, InterfaceError, Inv
 from sqlalchemy.orm.exc import StaleDataError
 from sqlalchemy.sql.expression import func, or_
 
-from . import logger, isoLanguages, gdriveutils, uploader, helper
+from . import logger, isoLanguages, uploader, helper
 from .clean_html import clean_string
 from . import config, ub, db, calibre_db
 from .services.worker import WorkerThread
@@ -732,9 +732,6 @@ def do_edit_book(book_id, upload_formats=None):
         _update_shelves(book.id, to_save)
 
         # Stage 4: Post-commit operations.
-        if config.config_use_google_drive:
-            gdriveutils.updateGdriveCalibreFromLocal()
-
         if not edit_error and not title_author_error and cover_upload_success is not False:
             flash(_("Metadata successfully updated"), category="success")
             if modify_date:
@@ -799,9 +796,7 @@ def identifier_list(to_save, book):
     return result
 
 
-def prepare_authors(authr, calibre_path, gdrive=False):
-    if gdrive:
-        calibre_path = ""
+def prepare_authors(authr, calibre_path):
     # handle authors
     input_authors = authr.split('&')
     input_authors = list(map(lambda it: it.strip().replace(',', '|'), input_authors))
@@ -839,8 +834,9 @@ def prepare_authors(authr, calibre_path, gdrive=False):
                     one_old_authordir = one_book.path.split('/')[0]
                     # rename author path only once per renamed author -> search all books with author name in book.path
                     # Pass the NEW author name as target for the directory rename to avoid path mismatches
-                    # das muss einmal geschehen aber pro Buch geprüft werden ansonsten habe ich das Problem das vlt. 2 gleiche Ordner bis auf Groß/Kleinschreibung vorhanden sind im Umzug
-                    new_author_dir = helper.rename_author_path(in_aut, one_old_authordir, in_aut, calibre_path, gdrive)
+                    # Done once per author but checked per book, so a move can't leave two folders
+                    # that differ only in upper/lower case
+                    new_author_dir = helper.rename_author_path(in_aut, one_old_authordir, in_aut, calibre_path)
                     one_book.path = os.path.join(new_author_dir, one_titledir).replace('\\', '/')
                     # rename all books in book data with the new author name and move corresponding files to new locations
                     new_path = os.path.join(calibre_path, new_author_dir, one_titledir)
@@ -848,7 +844,7 @@ def prepare_authors(authr, calibre_path, gdrive=False):
                     all_new_name = helper.get_valid_filename(one_book.title, chars=42) + ' - ' \
                                    + helper.get_valid_filename(in_aut, chars=42)
                     # change location in database to new author/title path
-                    helper.rename_all_files_on_change(one_book, new_path, new_path, all_new_name, gdrive)
+                    helper.rename_all_files_on_change(one_book, new_path, new_path, all_new_name)
 
     return input_authors
 
@@ -880,10 +876,6 @@ def _perform_book_deletion(book, book_format="", recovery_id=None):
     Returns (warning_message, recovery_id). Raises before anything is removed
     when the capture or the delete itself fails."""
     from . import book_recovery
-    from .book_recovery import RecoveryError
-    if getattr(config, "config_use_google_drive", False):
-        raise RecoveryError(_("Deleting is disabled while Google Drive storage is enabled: "
-                              "recovery archives cannot capture remote files safely."))
     book_id = book.id
     warning = None
     recovery_id = book_recovery.delete_captured_book(book, book_format,
@@ -957,9 +949,6 @@ def merge_books(to_book, from_books, delete_sources=True):
     recovery_ids)."""
     from . import book_recovery
     from .book_recovery import RecoveryError
-    if getattr(config, "config_use_google_drive", False):
-        raise RecoveryError(_("Merging is disabled while Google Drive storage is enabled: "
-                              "recovery archives cannot capture remote files safely."))
     with book_recovery.RECOVERY_LOCK, book_recovery.paused_services():
         calibrepath = config.get_book_path()
         conflicts = book_recovery.merge_preflight(to_book, from_books, calibrepath)
@@ -1457,7 +1446,7 @@ def handle_title_on_edit(book, book_title):
 
 def handle_author_on_edit(book, author_name, update_stored=True):
     change = False
-    input_authors = prepare_authors(author_name, config.get_book_path(), config.config_use_google_drive)
+    input_authors = prepare_authors(author_name, config.get_book_path())
 
     # Search for each author if author is in database, if not, author name and sorted author name is generated new
     # everything then is assembled for sorted author field in database

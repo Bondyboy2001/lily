@@ -247,11 +247,8 @@
   <aside class="editbook-actions" aria-label="{{_('Save changes')}}">
     <button type="submit" id="submit" class="btn btn-primary">{{_('Save')}}</button>
     <a href="{{ url_for('web.show_book', book_id=book.id) }}" id="edit_cancel" class="btn btn-default">{{_('Cancel')}}</a>
-    <div class="checkbox">
-      <label>
-        <input name="detail_view" type="checkbox" checked> {{_('Open the book page after saving')}}
-      </label>
-    </div>
+    {# Saving always returns to the book page #}
+    <input type="hidden" name="detail_view" value="1">
   </aside>
 </form>
 

@@ -253,10 +253,6 @@
     }
     if (state === "error") {
       var links = [];
-      if (box.dataset.failedImportsUrl) {
-        links.push([box.dataset.failedImportsUrl,
-                    box.dataset.failedImportsLabel || "Failed imports"]);
-      }
       if (box.dataset.logsUrl) {
         links.push([box.dataset.logsUrl, box.dataset.logsLabel || "Logs"]);
       }
@@ -668,8 +664,6 @@ window.lilyToggleSortDir = function (btn) {
         swap();
       }
       label(btn, current);
-      // Charts read their colours once when drawn; redraw them in the new scheme.
-      if (document.querySelector("[_echarts_instance_]")) { window.location.reload(); }
     });
   });
 })();

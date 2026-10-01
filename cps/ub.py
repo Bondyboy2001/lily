@@ -197,13 +197,6 @@ class UserBase:
         mct = self.allowed_tags or ""
         return [strip_whitespaces(t) for t in mct.split(",")]
 
-    def list_denied_column_values(self):
-        mct = self.denied_column_value or ""
-        return [strip_whitespaces(t) for t in mct.split(",")]
-
-    def list_allowed_column_values(self):
-        mct = self.allowed_column_value or ""
-        return [strip_whitespaces(t) for t in mct.split(",")]
 
     def get_view_property(self, page, prop):
         if not self.view_settings.get(page):
@@ -490,7 +483,8 @@ class ArchivedBook(Base):
 
 
 class HardcoverMatchQueue(Base):
-    """Queue for ambiguous Hardcover metadata matches requiring manual review."""
+    """Ambiguous Hardcover matches once queued for manual review. Nothing writes or
+    reads it any more; the model keeps the table in existing app.db files mapped."""
     __tablename__ = 'hardcover_match_queue'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -512,8 +506,9 @@ class HardcoverMatchQueue(Base):
 
 
 class MetadataSuggestion(Base):
-    """A provider record that would fill gaps (description, identifiers) in one book,
-    waiting for an admin to accept or reject it. See scripts/metadata_suggestions.py."""
+    """A provider record that would have filled gaps in one book, once queued for an
+    admin to accept or reject. The review page is gone; the model keeps the table in
+    existing app.db files mapped."""
     __tablename__ = 'metadata_suggestion'
     __table_args__ = (Index('ix_metadata_suggestion_status_book', 'status', 'book_id'),)
 

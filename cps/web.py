@@ -73,14 +73,12 @@ def add_security_headers(resp):
     if request.endpoint in _EVAL_ENDPOINTS:
         default_src.append("'unsafe-eval'")
     csp = "default-src " + ' '.join(default_src)
-    if request.endpoint == "web.read_book" and config.config_use_google_drive:
-        csp +=" blob: "
     csp += "; font-src 'self' data:"
     if request.endpoint == "web.read_book":
         csp += " blob: "
     csp += "; img-src 'self'"
     csp += " data:"
-    if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
+    if request.endpoint == "edit-book.show_edit_book":
         csp += " *"
     if request.endpoint == "web.read_book":
         csp += " blob: ; style-src-elem 'self' blob: 'unsafe-inline'"
@@ -1256,39 +1254,6 @@ def read_book(book_id, book_format):
         bookmark = ub.session.query(ub.Bookmark).filter(and_(ub.Bookmark.user_id == int(current_user.id),
                                                              ub.Bookmark.book_id == book_id,
                                                              ub.Bookmark.format == book_format.upper())).first()
-
-    # Track read activity
-    if current_user.is_authenticated:
-        try:
-            from scripts.cwa_db import CWA_DB
-            import json
-
-            # Detect source of book discovery
-            source = request.args.get('from', 'direct')
-            referer = request.headers.get('Referer', '')
-            if not source or source == 'direct':
-                if '/search' in referer:
-                    source = 'search'
-                elif '/series' in referer:
-                    source = 'series'
-                elif '/author' in referer:
-                    source = 'author'
-                elif '/category' in referer:
-                    source = 'category'
-                elif '/shelf' in referer:
-                    source = 'shelf'
-
-            cwa_db = CWA_DB()
-            cwa_db.log_activity(
-                user_id=int(current_user.id),
-                user_name=current_user.name,
-                event_type='READ',
-                item_id=book_id,
-                item_title=book.title,
-                extra_data=json.dumps({'format': book_format.upper(), 'source': source})
-            )
-        except Exception as e:
-            log.debug(f"Failed to log read activity: {e}")
 
     fmt_lower = book_format.lower()
     user_key = str(current_user.id) if current_user.is_authenticated else "anonymous"

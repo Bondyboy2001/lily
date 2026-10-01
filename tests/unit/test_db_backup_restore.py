@@ -18,8 +18,8 @@ import pytest
 scripts_dir = Path(__file__).parent.parent.parent / "scripts"
 sys.path.insert(0, str(scripts_dir))
 
-from db_backup import (backup_databases, check_integrity, create_pre_restore_snapshot, describe_snapshots,
-                       list_snapshots, resolve_snapshot, restore_sqlite_db, rotate_snapshots)
+from db_backup import (backup_databases, check_integrity, list_snapshots, resolve_snapshot, restore_sqlite_db,
+                       rotate_snapshots)
 
 
 def _db(path, value, wal=True):
@@ -78,19 +78,6 @@ def test_rotation_skips_pre_restore_snapshots(tmp_path):
 
 
 @pytest.mark.unit
-def test_describe_snapshots_newest_first(tmp_path):
-    _db(str(tmp_path / "app.db"), "a")
-    root = tmp_path / "b"
-    backup_databases({"app.db": str(tmp_path / "app.db")}, str(root), now=datetime(2026, 1, 1, 3))
-    backup_databases({"app.db": str(tmp_path / "app.db")}, str(root), now=datetime(2026, 1, 2, 3))
-    info = describe_snapshots(str(root))
-    assert [s["name"] for s in info] == ["20260102_030000", "20260101_030000"]
-    assert info[0]["timestamp"] == datetime(2026, 1, 2, 3)
-    assert set(info[0]["databases"]) == {"app.db"} and info[0]["size"] > 0
-    assert info[0]["pre_restore"] is False
-
-
-@pytest.mark.unit
 @pytest.mark.parametrize("name", ["../etc", "20260101_030000/../x", "", "20260101_030000\n", "foo"])
 def test_resolve_snapshot_rejects_bad_names(tmp_path, name):
     (tmp_path / "20260101_030000").mkdir()
@@ -141,19 +128,6 @@ def test_restore_refuses_corrupt_snapshot_and_leaves_live_untouched(tmp_path):
     with pytest.raises(Exception):
         restore_sqlite_db(str(bad), str(live))
     assert _value(str(live)) == "old"
-
-
-@pytest.mark.unit
-def test_pre_restore_snapshot(tmp_path):
-    _db(str(tmp_path / "app.db"), "current")
-    root = tmp_path / "b"
-    root.mkdir()
-    path, done = create_pre_restore_snapshot({"app.db": str(tmp_path / "app.db"), "cwa.db": None}, str(root),
-                                             now=datetime(2026, 1, 1, 3))
-    assert os.path.basename(path) == "20260101_030000_pre-restore"
-    assert _value(done["app.db"]) == "current"
-    assert describe_snapshots(str(root))[0]["pre_restore"] is True
-    assert resolve_snapshot(str(root), "20260101_030000_pre-restore") == path
 
 
 @pytest.mark.unit

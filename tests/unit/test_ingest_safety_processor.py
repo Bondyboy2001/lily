@@ -267,9 +267,9 @@ def _patch_jobs(monkeypatch, created=None, finished=None, create_error=None):
 
 
 def _failure_reason(env):
-    import ingest_failures
-    items = ingest_failures.list_failed(str(env["failed_dir"]))
-    return items[0] if items else None
+    import json
+    sidecars = sorted(env["failed_dir"].glob(".*.failure.json"))
+    return json.loads(sidecars[0].read_text()) if sidecars else None
 
 
 def test_ingest_job_and_sidecar_reason(ingest_processor, env, monkeypatch):

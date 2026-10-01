@@ -15,6 +15,9 @@
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+/* A live tail: poll the data endpoint, append when the log only grew, and stay
+ * pinned to the bottom unless the reader has scrolled up. Polling stops while
+ * the tab is hidden. */
 $(document).ready(function () {
     var $panel = $(".lily-logs");
     if (!$panel.length) {
@@ -22,85 +25,60 @@ $(document).ready(function () {
     }
 
     var dataUrl = $panel.attr("data-logs-url");
-    var $source = $("#log_source");
-    var $search = $("#log_search");
-    var $errors = $("#log_errors");
-    var $autorefresh = $("#log_autorefresh");
-    var $refresh = $("#log_refresh");
+    var emptyMessage = $panel.attr("data-empty-message") || "No logs captured yet.";
     var $status = $("#logs_status");
     var output = document.getElementById("log_output");
 
-    var rawText = "";
-    var generation = 0;
+    var POLL_MS = 2000;
+    var RETRY_MS = 10000;
+    var version = "";
+    var shown = null;
+    var truncated = false;
     var inFlight = false;
-    var refreshPending = false;
-    var CONTEXT_LINES = 6;
-    var POLL_MS = 5000;
-    var ERROR_RE = /\b(WARN|WARNING|ERROR|CRIT|CRITICAL)\b|Traceback|Exception/i;
+    var timer = null;
 
     function setStatus(message, isError) {
         $status.text(message);
         $status.toggleClass("is-error", !!isError);
     }
 
-    function applyFilters() {
-        var query = $search.val().toLowerCase();
-        var lines = rawText ? rawText.split("\n") : [];
-
-        if (query) {
-            lines = lines.filter(function (line) {
-                return line.toLowerCase().indexOf(query) !== -1;
-            });
+    function render(text) {
+        var atBottom = shown === null ||
+            output.scrollHeight - output.scrollTop - output.clientHeight < 20;
+        if (shown && text.length > shown.length && text.indexOf(shown) === 0) {
+            output.appendChild(document.createTextNode(text.slice(shown.length)));
+        } else if (text !== shown) {
+            output.textContent = text || emptyMessage;
         }
-
-        if ($errors.is(":checked")) {
-            var keep = [];
-            lines.forEach(function (line, i) {
-                if (ERROR_RE.test(line)) {
-                    for (var j = Math.max(0, i - CONTEXT_LINES); j <= i + CONTEXT_LINES; j++) {
-                        keep[j] = true;
-                    }
-                }
-            });
-            lines = lines.filter(function (line, i) {
-                return keep[i];
-            });
-        }
-
-        var atBottom = output.scrollHeight - output.scrollTop - output.clientHeight < 20;
-        var filtered = lines.join("\n");
-        output.textContent = filtered ||
-            $panel.attr("data-empty-message") || "No logs captured yet.";
+        shown = text;
         if (atBottom) {
             output.scrollTop = output.scrollHeight;
         }
     }
 
-    function fillSources(sources) {
-        var selected = $source.val() || "all";
-        $source.find("option[value!='all']").remove();
-        sources.forEach(function (s) {
-            var option = document.createElement("option");
-            option.value = s.id;
-            option.textContent = s.label;
-            $source.append(option);
-        });
-        if ($source.find("option[value='" + selected + "']").length) {
-            $source.val(selected);
-        } else {
-            $source.val("all");
+    function stop() {
+        if (timer !== null) {
+            clearTimeout(timer);
+            timer = null;
         }
     }
 
-    function fetchLogs() {
+    function schedule(delay) {
+        stop();
+        if (document.visibilityState !== "hidden") {
+            timer = setTimeout(poll, delay);
+        }
+    }
+
+    function poll() {
+        timer = null;
         if (inFlight) {
-            refreshPending = true;
             return;
         }
         inFlight = true;
-        var wanted = $source.val() || "all";
-        var myGeneration = ++generation;
-        fetch(dataUrl + "?source=" + encodeURIComponent(wanted), {
+        var delay = POLL_MS;
+        var url = version ? dataUrl + "?since=" + encodeURIComponent(version) : dataUrl;
+        fetch(url, {
             headers: { "Accept": "application/json" },
             credentials: "same-origin"
         }).then(function (response) {
@@ -109,42 +87,31 @@ $(document).ready(function () {
             }
             return response.json();
         }).then(function (payload) {
-            if (myGeneration !== generation) {
-                return;
-            }
             if (!payload.success) {
                 throw new Error(payload.error || "failed");
             }
-            fillSources(payload.sources || []);
-            rawText = payload.text || "";
-            applyFilters();
-            setStatus(payload.truncated ? "Showing the most recent entries only." : "", false);
-        }).catch(function (err) {
-            if (myGeneration === generation) {
-                setStatus("Refresh failed: " + err.message, true);
+            version = payload.version || "";
+            if (!payload.unchanged) {
+                truncated = !!payload.truncated;
+                render(payload.text || "");
             }
+            setStatus(truncated ? "Showing the most recent entries only." : "", false);
+        }).catch(function (err) {
+            delay = RETRY_MS;
+            setStatus("Couldn't load new lines (" + err.message + "). Trying again shortly.", true);
         }).finally(function () {
             inFlight = false;
-            if (refreshPending) {
-                refreshPending = false;
-                fetchLogs();
-            }
+            schedule(delay);
         });
     }
 
-    $refresh.on("click", fetchLogs);
-    $source.on("change", function () {
-        generation++;
-        fetchLogs();
-    });
-    $search.on("input", applyFilters);
-    $errors.on("change", applyFilters);
-
-    setInterval(function () {
-        if ($autorefresh.is(":checked") && document.visibilityState === "visible") {
-            fetchLogs();
+    document.addEventListener("visibilitychange", function () {
+        if (document.visibilityState === "hidden") {
+            stop();
+        } else if (timer === null && !inFlight) {
+            poll();
         }
-    }, POLL_MS);
+    });
 
-    fetchLogs();
+    poll();
 });

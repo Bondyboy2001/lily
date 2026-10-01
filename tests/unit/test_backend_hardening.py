@@ -10,7 +10,7 @@ sending, stats SQL parameter binding, missing User-Agent headers and web reader 
 import base64
 import re
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -194,88 +194,6 @@ class TestContentRestrictions:
         client = _restricted_user(env)
         assert client.get(f"/show/{allowed}/epub").status_code == 200
         assert client.get(f"/show/{hidden}/epub").status_code == 404
-
-
-# --------------------------------------------------------------------------- 4. stats SQL
-def _stats_queries(tmp_path):
-    from scripts.cwa_stats_queries import CWAStatsQueries
-
-    class Recorder:
-        def __init__(self, cur):
-            self.cur, self.sql = cur, []
-
-        def execute(self, sql, params=()):
-            self.sql.append(sql)
-            return self.cur.execute(sql, params)
-
-        def __getattr__(self, name):
-            return getattr(self.cur, name)
-
-    class Queries(CWAStatsQueries):
-        def _build_user_filter(self, user_id):
-            return f" AND user_id = {int(user_id)}" if user_id is not None else ""
-
-        def _has_user_filter(self, user_id):
-            return user_id is not None
-
-    con = sqlite3.connect(tmp_path / "cwa.db")
-    con.execute("CREATE TABLE cwa_user_activity (id INTEGER PRIMARY KEY, user_id INTEGER, user_name TEXT, "
-                "event_type TEXT, item_id INTEGER, item_title TEXT, extra_data TEXT, timestamp DATETIME)")
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    old = (datetime.now(timezone.utc) - timedelta(days=90)).strftime("%Y-%m-%d %H:%M:%S")
-    rows = [(1, "a", "READ", 1, "Book", '{"device_type": "desktop"}', now),
-            (1, "a", "DOWNLOAD", 2, "Book 2", '{"device_type": "mobile"}', now),
-            (2, "b", "READ", 3, "Book 3", '{"device_type": "desktop"}', old)]
-    con.executemany("INSERT INTO cwa_user_activity (user_id, user_name, event_type, item_id, item_title, "
-                    "extra_data, timestamp) VALUES (?,?,?,?,?,?,?)", rows)
-    con.commit()
-    q = Queries()
-    q.cur = Recorder(con.cursor())
-    return q
-
-
-@pytest.mark.unit
-class TestStatsQueryBinding:
-    INJECTION = "2020-01-01') OR 1=1 --"
-
-    def test_valid_stats_date(self):
-        from scripts.cwa_stats_queries import valid_stats_date
-        assert valid_stats_date("2026-03-04") == "2026-03-04"
-        for bad in (self.INJECTION, "2026-13-01", "", None, "yesterday"):
-            with pytest.raises(ValueError):
-                valid_stats_date(bad)
-
-    def test_date_range_and_days_filters_are_bound(self, tmp_path):
-        q = _stats_queries(tmp_path)
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        assert dict(q.get_device_breakdown(start_date=today, end_date=today)) == {"desktop": 1, "mobile": 1}
-        assert dict(q.get_device_breakdown(days=365)) == {"desktop": 2, "mobile": 1}
-        assert dict(q.get_device_breakdown(days=30, user_id=2)) == {}
-        assert not any(today in sql for sql in q.cur.sql)
-
-    def test_injected_dates_never_reach_the_sql(self, tmp_path, capsys):
-        q = _stats_queries(tmp_path)
-        assert q.get_device_breakdown(start_date=self.INJECTION, end_date="2030-01-01") == []
-        assert q.get_discovery_sources(start_date="2020-01-01", end_date=self.INJECTION) == []
-        assert q.get_device_breakdown(days="30; DROP TABLE cwa_user_activity") == []
-        assert not any("OR 1=1" in sql or "DROP" in sql for sql in q.cur.sql)
-
-    def test_every_user_activity_query_runs(self, tmp_path, capsys):
-        q = _stats_queries(tmp_path)
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        for name in ("get_discovery_sources", "get_device_breakdown", "get_session_duration_stats",
-                     "get_search_success_rate", "get_shelf_activity_stats", "get_api_usage_breakdown",
-                     "get_endpoint_frequency_grouped", "get_api_timing_heatmap", "get_hourly_activity_heatmap",
-                     "get_reading_velocity", "get_format_preferences", "get_dashboard_stats"):
-            getattr(q, name)(days=30)
-            getattr(q, name)(start_date=today, end_date=today, user_id=1)
-        q.get_failed_logins(days=7)
-        q.get_failed_logins(start_date=today, end_date=today)
-        assert "[cwa-db] Error" not in capsys.readouterr().out
-
-    def test_no_date_values_are_formatted_into_sql(self):
-        src = (REPO / "scripts/cwa_stats_queries.py").read_text()
-        assert not re.search(r"\{(start_date|end_date|prev_start|prev_end|days|limit)\b", src)
 
 
 # --------------------------------------------------------------------------- 7. missing User-Agent

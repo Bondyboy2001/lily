@@ -90,17 +90,10 @@ def test_state_changing_cwa_routes_are_post_only_and_csrf_protected():
     assert "admin_required" in routes["cwa_library_refresh"][0]
 
 
-# Modules whose exempt routes serve callbacks (Google Drive) that authenticate
-# without a browser session.
-DEVICE_PROTOCOL_MODULES = {"cps/gdrive.py"}
-
-
 @pytest.mark.unit
 def test_csrf_exempt_routes_are_internal_or_device_only():
     for path in sorted((REPO / "cps").rglob("*.py")):
         rel = str(path.relative_to(REPO))
-        if rel in DEVICE_PROTOCOL_MODULES:
-            continue
         for name, names, _ in _route_decorators(rel):
             if "exempt" in names:
                 assert "internal_only" in names, f"{rel}:{name} is csrf.exempt without @internal_only"

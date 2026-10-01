@@ -232,7 +232,6 @@ $(function () {
   }
 
   function save() {
-    $('#book_edit_frm input[name="detail_view"]').prop("checked", true);
     $("#metaModal").modal("hide");
     $("#submit").trigger("click");
   }

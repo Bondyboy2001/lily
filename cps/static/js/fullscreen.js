@@ -15,31 +15,54 @@
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-function toggleFullscreen(elem) {
-  if (!document.fullscreenElement && !document.mozFullScreenElement &&
-    !document.webkitFullscreenElement && !document.msFullscreenElement) {
-    if (elem.requestFullscreen) {
-      elem.requestFullscreen();
-    } else if (elem.msRequestFullscreen) {
-      elem.msRequestFullscreen();
-    } else if (elem.mozRequestFullScreen) {
-      elem.mozRequestFullScreen();
-    } else if (elem.webkitRequestFullscreen) {
-      elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-    }
-  } else {
-    if (document.exitFullscreen) {
-      document.exitFullscreen();
-    } else if (document.msExitFullscreen) {
-      document.msExitFullscreen();
-    } else if (document.mozCancelFullScreen) {
-      document.mozCancelFullScreen();
-    } else if (document.webkitExitFullscreen) {
-      document.webkitExitFullscreen();
-    }
-  }
-}
+// Clicking a book cover opens it in a light in-page viewer. The browser
+// Fullscreen API was slow (macOS animates a new Space before showing it).
+(function () {
+  var cover = document.getElementById("detailcover");
+  if (!cover) return;
+  var viewer = null;
 
-$("#detailcover").click(function() {
-  toggleFullscreen(this);
-});
+  function close() {
+    if (!viewer) return;
+    viewer.classList.remove("is-open");
+    document.removeEventListener("keydown", onKey);
+    cover.focus({preventScroll: true});
+  }
+
+  function onKey(event) {
+    if (event.key === "Escape") close();
+  }
+
+  function open() {
+    if (!viewer) {
+      viewer = document.createElement("div");
+      viewer.className = "lily-cover-viewer";
+      viewer.setAttribute("role", "dialog");
+      viewer.setAttribute("aria-modal", "true");
+      viewer.setAttribute("aria-label", cover.alt || cover.title || "Cover");
+      viewer.tabIndex = -1;
+      var img = document.createElement("img");
+      img.alt = "";
+      img.decoding = "async";
+      img.src = cover.currentSrc || cover.src;
+      viewer.appendChild(img);
+      viewer.addEventListener("click", close);
+      document.body.appendChild(viewer);
+      // Let the first frame paint closed so the fade runs.
+      void viewer.offsetWidth;
+    }
+    viewer.classList.add("is-open");
+    viewer.focus({preventScroll: true});
+    document.addEventListener("keydown", onKey);
+  }
+
+  cover.tabIndex = 0;
+  cover.setAttribute("role", "button");
+  cover.addEventListener("click", open);
+  cover.addEventListener("keydown", function (event) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      open();
+    }
+  });
+})();

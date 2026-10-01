@@ -15,11 +15,6 @@ from datetime import datetime
 
 from tabulate import tabulate
 
-try:
-    from cwa_stats_queries import CWAStatsQueries
-except ModuleNotFoundError:  # imported as scripts.cwa_db without scripts/ on sys.path
-    from scripts.cwa_stats_queries import CWAStatsQueries
-
 
 class CWADBConnectionError(sqlError):
     """Raised when cwa.db cannot be opened.
@@ -141,7 +136,7 @@ MIGRATIONS: list = [(1, "always detect duplicates, no Hardcover auto-fetch", _m1
 SCHEMA_MIGRATIONS_TABLE = "cwa_schema_migrations"
 
 
-class CWA_DB(CWAStatsQueries):
+class CWA_DB:
     def __init__(self, verbose=False):
         self.verbose = verbose
 
@@ -274,34 +269,6 @@ class CWA_DB(CWAStatsQueries):
         self.con.commit()
 
         return tables, schema
-
-
-    def _normalize_user_ids(self, user_id) -> list[int]:
-        """Normalize user filters to a list of integer IDs."""
-        if user_id is None:
-            return []
-        if isinstance(user_id, (list, tuple, set)):
-            return [int(uid) for uid in user_id if uid is not None]
-        try:
-            return [int(user_id)]
-        except (TypeError, ValueError):
-            return []
-
-
-    def _has_user_filter(self, user_id) -> bool:
-        """Return True when a valid user filter is provided."""
-        return len(self._normalize_user_ids(user_id)) > 0
-
-
-    def _build_user_filter(self, user_id) -> str:
-        """Builds SQL filter for a single user ID or list of user IDs."""
-        user_ids = self._normalize_user_ids(user_id)
-        if not user_ids:
-            return ""
-        if len(user_ids) == 1:
-            return f" AND user_id = {user_ids[0]}"
-        user_ids_csv = ",".join(str(uid) for uid in user_ids)
-        return f" AND user_id IN ({user_ids_csv})"
 
 
     def get_cwa_default_settings(self):
@@ -772,88 +739,16 @@ class CWA_DB(CWAStatsQueries):
                 print(f"\n{tabulate(newest_ten, headers=headers, tablefmt='rounded_grid')}\n")
 
 
-    def get_import_history(self, verbose: bool):
-        results = self.cur.execute("SELECT timestamp, filename, original_backed_up FROM cwa_import ORDER BY timestamp DESC;").fetchall()
-        if verbose:
-            results.reverse()
-            return results
-        else:
-            newest_ten = []
-            x = 0
-            for result in results:
-                newest_ten.insert(0, result)
-                x += 1
-                if x == 10:
-                    break
-            return newest_ten
-
-
     def import_add_entry(self, filename, original_backed_up):
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         self.cur.execute("INSERT INTO cwa_import(timestamp, filename, original_backed_up) VALUES (?, ?, ?);", (timestamp, filename, original_backed_up))
         self.con.commit()
 
 
-    def get_stat_totals(self) -> dict[str,int]:
-        totals = {"cwa_enforcement":0}
-
-        for table in totals:
-            try:
-                totals[table] = self.cur.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
-            except Exception as e:
-                print(f"[cwa-db] ERROR - The following error occurred when fetching stat totals:\n{e}")
-
-        return totals
-
     # ==============================
     # Scheduled Jobs (Auto-Send)
     # ==============================
 
-    def log_activity(self, user_id, user_name, event_type, item_id=None, item_title=None, extra_data=None):
-        """Logs a user activity event to the database with device detection."""
-        try:
-            import json
-
-            # Parse extra_data if it's a string
-            if isinstance(extra_data, str):
-                try:
-                    extra_data_dict = json.loads(extra_data)
-                except:
-                    # If not JSON, treat as simple string (legacy format compatibility)
-                    extra_data_dict = {'format': extra_data}
-            elif isinstance(extra_data, dict):
-                extra_data_dict = extra_data
-            else:
-                extra_data_dict = {}
-
-            # Add device type detection using User-Agent
-            try:
-                from flask import request
-                user_agent = request.headers.get('User-Agent', '').lower()
-
-                # Simple device type detection
-                if 'mobile' in user_agent or 'android' in user_agent or 'iphone' in user_agent:
-                    device_type = 'mobile'
-                elif 'tablet' in user_agent or 'ipad' in user_agent:
-                    device_type = 'tablet'
-                else:
-                    device_type = 'desktop'
-
-                extra_data_dict['device_type'] = device_type
-            except:
-                # If flask context not available, skip device detection
-                pass
-
-            # Convert back to JSON string
-            extra_data_json = json.dumps(extra_data_dict) if extra_data_dict else None
-
-            self.cur.execute("""
-                INSERT INTO cwa_user_activity (user_id, user_name, event_type, item_id, item_title, extra_data)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (user_id, user_name, event_type, item_id, item_title, extra_data_json))
-            self.con.commit()
-        except Exception as e:
-            print(f"[cwa-db] Error logging activity: {e}")
 
     def invalidate_duplicate_cache(self):
         """Mark duplicate cache as needing refresh"""
