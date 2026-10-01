@@ -59,7 +59,10 @@
       {% endif %}
       {% if not current_user.is_anonymous %}
         <li class="lp-rail-sep" role="separator"></li>
-        {{ rail_item(_('Logout'), url_for('web.logout'), id='logout') }}
+        <li role="presentation"><form method="post" action="{{ url_for('web.logout') }}" class="lp-rail-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="lp-rail-item lp-rail-button" id='logout'>{{ _('Logout') }}</button>
+        </form></li>
       {% endif %}
     </ul>
   </nav>

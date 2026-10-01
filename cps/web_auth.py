@@ -20,13 +20,14 @@ from sqlalchemy.orm.attributes import flag_modified
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from . import constants
-from . import ub, config, app
+from . import ub, config
 from . import calibre_db
 from .helper import check_username, valid_password
 from .redirect import get_redirect_location
 from .cw_babel import get_available_locale
 from .render_template import render_title_template
 from . import limiter, totp
+from limits import parse_many
 from .usermanagement import user_login_required
 from .string_helper import strip_whitespaces
 
@@ -47,40 +48,6 @@ sql_version = importlib.metadata.version("sqlalchemy")
 sqlalchemy_version2 = ([int(x) for x in sql_version.split('.')] >= [2, 0, 0])
 
 _start_time = time.time()
-
-# Pages whose scripts build functions from strings (underscore templates in the metadata
-# search, the djvu and unrar reader engines). Everything else runs without 'unsafe-eval'.
-_EVAL_ENDPOINTS = frozenset({"web.read_book", "edit-book.show_edit_book"})
-
-
-@app.after_request
-def add_security_headers(resp):
-    default_src = ([host.strip() for host in config.config_trustedhosts.split(',') if host] +
-                   ["'self'", "'unsafe-inline'"])
-    if request.endpoint in _EVAL_ENDPOINTS:
-        default_src.append("'unsafe-eval'")
-    csp = "default-src " + ' '.join(default_src)
-    if request.endpoint == "web.read_book" and config.config_use_google_drive:
-        csp +=" blob: "
-    csp += "; font-src 'self' data:"
-    if request.endpoint == "web.read_book":
-        csp += " blob: "
-    csp += "; img-src 'self'"
-    if request.endpoint == "admin.hardcover_review_matches":
-        csp += " https:"
-    csp += " data:"
-    if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
-        csp += " *"
-    if request.endpoint == "web.read_book":
-        csp += " blob: ; style-src-elem 'self' blob: 'unsafe-inline'"
-    csp += "; object-src 'none';"
-    resp.headers['Content-Security-Policy'] = csp
-    resp.headers['X-Content-Type-Options'] = 'nosniff'
-    resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    resp.headers['Referrer-Policy'] = 'same-origin'
-    resp.headers['Strict-Transport-Security'] = 'max-age=31536000'
-    return resp
-
 
 from .web import web, log
 
@@ -113,7 +80,7 @@ def handle_login_user(user, remember, message, category, next_url=None):
     return redirect(get_redirect_location(next_url, "web.index"))
 
 
-def render_login(username="", password="", second_factor=False):
+def render_login(username="", second_factor=False, status=200):
     # Detect authentication redirect loops
     redirect_count = flask_session.get('_login_redirect_count', 0)
     if redirect_count > 3:
@@ -132,9 +99,8 @@ def render_login(username="", password="", second_factor=False):
                                  next_url=next_url,
                                  config=config,
                                  username=username,
-                                 password=password,
                                  second_factor=second_factor,
-                                 page="login")
+                                 page="login"), status
 
 
 @web.route('/login', methods=['GET'])
@@ -144,12 +110,50 @@ def login():
     return render_login()
 
 
+# Failed password logins allowed per client address and per username (only failures count;
+# a successful login clears both). Off when the admin turns off "Limit failed login attempts".
+_LOGIN_LIMITS = parse_many("5/minute;40/day")
+
+
+def _login_limit_keys(username):
+    return ("login-ip", request.remote_addr or "unknown"), ("login-user", username)
+
+
+def _login_limits_active():
+    return limiter.enabled and limiter.initialized
+
+
+def _login_blocked(username):
+    if not _login_limits_active():
+        return False
+    return any(not limiter.limiter.test(item, *key)
+               for key in _login_limit_keys(username) for item in _LOGIN_LIMITS)
+
+
+def _count_login_failure(username):
+    if _login_limits_active():
+        for key in _login_limit_keys(username):
+            for item in _LOGIN_LIMITS:
+                limiter.limiter.hit(item, *key)
+
+
+def _clear_login_failures(username):
+    if _login_limits_active():
+        for key in _login_limit_keys(username):
+            for item in _LOGIN_LIMITS:
+                limiter.limiter.clear(item, *key)
+
+
 @web.route('/login', methods=['POST'])
 def login_post():
     form = request.form.to_dict()
     username = strip_whitespaces(form.get('username', "")).lower().replace("\n","").replace("\r","")
     if current_user is not None and current_user.is_authenticated:
         return redirect(url_for('web.index'))
+    if _login_blocked(username):
+        log.warning('Login rate limit reached for user "%s" IP-address: %s', username, request.remote_addr)
+        flash(_("Too many failed sign-in attempts. Please wait a while and try again."), category="error")
+        return render_login(username, status=429)
     user = ub.session.query(ub.User).filter(func.lower(ub.User.name) == username).first()
     remember_me = bool(form.get('remember_me'))
 
@@ -157,6 +161,7 @@ def login_post():
     ip_address = request.remote_addr
     if user and check_password_hash(str(user.password), form.get('password', '')) and user.name != "Guest":
         config.config_is_initial = False
+        _clear_login_failures(username)
         if user.totp_enabled and user.totp_secret:
             # Password accepted; the account still needs its second factor
             flask_session['_2fa_pending'] = {'uid': user.id, 'remember': remember_me,
@@ -169,6 +174,7 @@ def login_post():
                                  "success")
     else:
         log.warning('Login failed for user "{}" IP-address: {}'.format(username, ip_address))
+        _count_login_failure(username)
 
         # Track failed login attempt
         try:
@@ -187,11 +193,48 @@ def login_post():
             log.debug(f"Failed to log failed login attempt: {e}")
 
         flash(_(u"Wrong Username or Password"), category="error")
-    return render_login(username, form.get("password", ""))
+    # The attempted password is never sent back into the page
+    return render_login(username)
 
 
 _2FA_PENDING_SECONDS = 5 * 60
-_2fa_failures = totp.FailureTracker()
+
+
+class _UserLockoutStore:
+    """totp.FailureTracker state kept in the user table, so restarting Lily doesn't lift
+    a wrong-code lockout."""
+
+    @staticmethod
+    def _user(user_id):
+        return ub.session.query(ub.User).filter(ub.User.id == user_id).first()
+
+    def get(self, user_id, default=None):
+        user = self._user(user_id)
+        if user is None or not (user.totp_failures or user.totp_lockouts or user.totp_locked_until):
+            return default
+        return {"count": user.totp_failures or 0, "until": user.totp_locked_until or 0,
+                "lockouts": user.totp_lockouts or 0}
+
+    def __setitem__(self, user_id, entry):
+        user = self._user(user_id)
+        if user is not None:
+            user.totp_failures = entry.get("count", 0)
+            user.totp_locked_until = entry.get("until", 0)
+            user.totp_lockouts = entry.get("lockouts", 0)
+            ub.session_commit()
+
+    def pop(self, user_id, default=None):
+        entry = self.get(user_id)
+        if entry is not None:
+            self[user_id] = {}
+        return entry if entry is not None else default
+
+    def __iter__(self):
+        rows = ub.session.query(ub.User.id).filter(ub.User.totp_locked_until > 0).all()
+        return iter([row[0] for row in rows])
+
+
+_2fa_failures = totp.FailureTracker(store=_UserLockoutStore())
 
 
 def _pending_2fa_user():
@@ -213,7 +256,8 @@ def login_2fa():
     if _2fa_failures.locked(user.id):
         flask_session.pop('_2fa_pending', None)
         log.warning('2FA locked out for user "%s" IP-address: %s', user.name, request.remote_addr)
-        flash(_("Too many wrong codes. Try again in 15 minutes."), category="error")
+        minutes = max(1, (_2fa_failures.seconds_left(user.id) + 59) // 60)
+        flash(_("Too many wrong codes. Try again in %(minutes)s minutes.", minutes=minutes), category="error")
         return redirect(url_for('web.login'))
     step = totp.verify_code(user.totp_secret, request.form.get('code', ''), user.totp_last_step)
     if step is None:
@@ -230,11 +274,12 @@ def login_2fa():
                              next_url=pending.get('next') or '')
 
 
-@web.route('/logout')
+# POST only (with the CSRF token), so another site can't sign the user out with a link or image
+@web.route('/logout', methods=['POST'])
 @user_login_required
 def logout():
     if current_user is not None and current_user.is_authenticated:
-        ub.delete_user_session(current_user.id, flask_session.get('_id', ""))
+        ub.delete_user_session(current_user.id, flask_session.get('_id', ""), flask_session.get('_random', ""))
         logout_user()
 
     # Clear login redirect count on logout to prevent false positives
@@ -253,8 +298,8 @@ def logout():
 
 # ################################### Forced password change ########################################################
 # Accounts still on the shipped default password (ub.User.force_password_change) are sent to
-# /change-password on every web request. Device and machine endpoints keep working so e-readers
-# and internal services are not locked out while the admin picks a new password.
+# /change-password on every web request. Device and machine endpoints are not redirected (internal
+# services keep working); OPDS still refuses the default password itself (usermanagement).
 _FORCE_PW_EXEMPT_BLUEPRINTS = {"opds", "cwa_internal"}
 _FORCE_PW_EXEMPT_ENDPOINTS = {"static", "web.login", "web.login_post", "web.login_2fa", "web.logout",
                               "web.change_password", "web.health_check",
@@ -306,6 +351,8 @@ def change_password():
                 user.password = generate_password_hash(valid_password(new_pw))
                 user.force_password_change = False
                 ub.session_commit()
+                # Everywhere else that was signed in with the old password is signed out
+                ub.delete_other_user_sessions(user.id, flask_session.get('_random', ''))
                 log.info("User '%s' changed their password", user.name)
                 flash(_("Password changed"), category="success")
                 return redirect(url_for("web.index"))
@@ -321,10 +368,15 @@ def change_password():
 def change_profile(translations, languages):
     to_save = request.form.to_dict()
     current_user.random_books = 0
+    password_changed = False
     try:
         if current_user.role_passwd() or current_user.role_admin():
             if to_save.get("password", "") != "":
+                # A borrowed or stolen session must not be enough to take over the account
+                if not check_password_hash(str(current_user.password), to_save.get("current_password", "")):
+                    raise Exception(_("Current password is incorrect"))
                 current_user.password = generate_password_hash(valid_password(to_save.get("password")))
+                password_changed = True
         if current_user.role_admin():
             if to_save.get("name", current_user.name) != current_user.name:
                 # Query username, if not existing, change
@@ -417,6 +469,8 @@ def change_profile(translations, languages):
 
     try:
         ub.session.commit()
+        if password_changed:
+            ub.delete_other_user_sessions(current_user.id, flask_session.get('_random', ''))
         flash(_("Success! Profile Updated"), category="success")
         log.debug("Profile updated")
         return redirect(url_for('web.profile'))

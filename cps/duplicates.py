@@ -16,7 +16,7 @@ from shutil import copyfile
 from . import db, calibre_db, logger, ub, csrf, config, helper
 from .services.worker import WorkerThread, STAT_FINISH_SUCCESS, STAT_FAIL, STAT_ENDED, STAT_CANCELLED
 from .admin import admin_required
-from .usermanagement import login_required_if_no_ano
+from .usermanagement import login_required_if_no_ano, refuse_token_auth
 from .internal_api import internal_only
 from .render_template import render_title_template
 from .cw_login import current_user
@@ -123,7 +123,7 @@ def admin_or_edit_required(f):
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated:
             abort(401)
-        if not (current_user.role_admin() or current_user.role_edit()):
+        if not (current_user.role_admin() or current_user.role_edit()) or refuse_token_auth():
             abort(403)
         return f(*args, **kwargs)
     return decorated_function

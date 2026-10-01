@@ -16,6 +16,7 @@ from markupsafe import Markup
 
 from . import calibre_db, db, logger, ub
 from .admin import admin_required, _tasks_page_link
+from .clean_html import clean_string
 from .cw_login import current_user
 from .render_template import render_title_template
 from .services.worker import WorkerThread
@@ -53,6 +54,8 @@ def apply_suggestion(row):
     if not to_add:
         return {}
     if "description" in to_add:
+        # Suggested descriptions come from metadata providers; store them cleaned
+        to_add["description"] = clean_string(to_add["description"], book.id)
         existing = calibre_db.session.query(db.Comments).filter(db.Comments.book == book.id).first()
         if existing:
             existing.text = to_add["description"]

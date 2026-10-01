@@ -166,7 +166,7 @@ def create_app():
                  .format(res['name'],
                          res['target'],
                          res['found']))
-    app.wsgi_app = ReverseProxied(app.wsgi_app)
+    app.wsgi_app = ReverseProxied(app.wsgi_app, trusted=num_proxies > 0)
 
     cache_buster.init_cache_busting(app)
     compression.init_compression(app)

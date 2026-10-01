@@ -19,7 +19,7 @@ from flask_babel import gettext as _
 from flask_babel import get_locale
 from .cw_login import current_user
 from sqlalchemy.exc import IntegrityError, InvalidRequestError, OperationalError
-from sqlalchemy.sql.expression import text, func, false, and_
+from sqlalchemy.sql.expression import func, false, and_
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.sql.functions import coalesce
 
@@ -37,6 +37,7 @@ from .setup_checklist import setup_checklist
 from .helper import change_archived_books
 from .shelf import up_next_row
 from .usermanagement import user_login_required
+from .security_headers import add_security_headers
 
 # CWA Imports
 import sqlite3
@@ -59,38 +60,7 @@ sqlalchemy_version2 = ([int(x) for x in sql_version.split('.')] >= [2, 0, 0])
 
 _start_time = time.time()
 
-# Pages whose scripts build functions from strings (underscore templates in the metadata
-# search, the djvu and unrar reader engines). Everything else runs without 'unsafe-eval'.
-_EVAL_ENDPOINTS = frozenset({"web.read_book", "edit-book.show_edit_book"})
-
-
-@app.after_request
-def add_security_headers(resp):
-    default_src = ([host.strip() for host in config.config_trustedhosts.split(',') if host] +
-                   ["'self'", "'unsafe-inline'"])
-    if request.endpoint in _EVAL_ENDPOINTS:
-        default_src.append("'unsafe-eval'")
-    csp = "default-src " + ' '.join(default_src)
-    if request.endpoint == "web.read_book" and config.config_use_google_drive:
-        csp +=" blob: "
-    csp += "; font-src 'self' data:"
-    if request.endpoint == "web.read_book":
-        csp += " blob: "
-    csp += "; img-src 'self'"
-    if request.endpoint == "admin.hardcover_review_matches":
-        csp += " https:"
-    csp += " data:"
-    if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
-        csp += " *"
-    if request.endpoint == "web.read_book":
-        csp += " blob: ; style-src-elem 'self' blob: 'unsafe-inline'"
-    csp += "; object-src 'none';"
-    resp.headers['Content-Security-Policy'] = csp
-    resp.headers['X-Content-Type-Options'] = 'nosniff'
-    resp.headers['X-Frame-Options'] = 'SAMEORIGIN'
-    resp.headers['Referrer-Policy'] = 'same-origin'
-    resp.headers['Strict-Transport-Security'] = 'max-age=31536000'
-    return resp
+app.after_request(add_security_headers)
 
 
 web = Blueprint('web', __name__)
@@ -929,8 +899,12 @@ def list_books():
     search_param = request.args.get("search")
     sort_param = request.args.get("sort", "id")
     order = request.args.get("order", "").lower()
+    if order not in ("asc", "desc"):
+        order = ""
     state = None
     join = tuple()
+    plain_columns = {"sort": db.Books.sort, "title": db.Books.title,
+                     "authors_sort": db.Books.author_sort, "series_index": db.Books.series_index}
 
     if sort_param == "state":
         state = json.loads(request.args.get("state", "[]"))
@@ -953,8 +927,9 @@ def list_books():
     elif sort_param == "languages":
         order = [db.Languages.lang_code.asc()] if order == "asc" else [db.Languages.lang_code.desc()]
         join = db.books_languages_link, db.Books.id == db.books_languages_link.c.book, db.Languages
-    elif order and sort_param in ["sort", "title", "authors_sort", "series_index"]:
-        order = [text(sort_param + " " + order)]
+    elif order and sort_param in plain_columns:
+        column = plain_columns[sort_param]
+        order = [column.asc() if order == "asc" else column.desc()]
     elif not state:
         order = [db.Books.timestamp.desc()]
 

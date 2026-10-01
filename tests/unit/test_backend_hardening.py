@@ -128,11 +128,11 @@ class TestForcedPasswordChangeFlow:
         assert resp.status_code == 200
         assert resp.get_data(as_text=True) == "change_password.html forced=True"
         assert client.get("/health").status_code in (200, 503)
-        # OPDS uses HTTP basic auth and must keep working for e-readers
+        # OPDS is not redirected, but it refuses the publicly known default password
         import base64
         creds = base64.b64encode(f"{forced.admin().name}:{ADMIN_PASSWORD}".encode()).decode()
         resp = forced.app.test_client().get("/opds", headers={"Authorization": f"Basic {creds}"})
-        assert resp.status_code == 200
+        assert resp.status_code == 401
 
     def test_wrong_current_password_keeps_the_flag(self, forced):
         client = _login(forced)

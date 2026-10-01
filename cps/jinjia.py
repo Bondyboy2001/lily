@@ -7,7 +7,7 @@
 
 # custom jinja filters
 
-from markupsafe import escape
+from markupsafe import Markup, escape
 import datetime
 import mimetypes
 
@@ -16,6 +16,7 @@ from flask_babel import format_date
 from .cw_login import current_user
 
 from . import constants, logger
+from .clean_html import clean_string
 
 jinjia = Blueprint('jinjia', __name__)
 log = logger.create()
@@ -115,6 +116,15 @@ def formatfloat(value, decimals=1):
         # If conversion fails, log the error and return empty string for safety
         log.debug(f'formatfloat filter error: Cannot convert value "{value}" to float: {e}')
         return ''
+
+
+@jinjia.app_template_filter('sanitize_html')
+def sanitize_html(value):
+    """Book descriptions and comment columns are HTML from Calibre, metadata providers or
+    uploads; keep the formatting, drop scripts, handlers and unknown tags."""
+    if not value:
+        return ""
+    return Markup(clean_string(str(value)))
 
 
 @jinjia.app_template_filter('escapedlink')

@@ -129,6 +129,9 @@ def change_archived_books(book_id, state=None, message=None):
     return archived_book.is_archived
 
 
+# Formats the in-browser readers open (they fetch the file from /show/); audio opens the player instead
+EXTENSIONS_READER = frozenset({'TXT', 'PDF', 'EPUB', 'KEPUB', 'CBZ', 'CBT', 'CBR', 'DJVU', 'DJV'})
+
 # Formats the built-in readers open, best first: the first one present is what "Read" opens.
 # Audio comes last because it opens the player rather than a reader.
 READER_FORMAT_ORDER = ('epub', 'kepub', 'pdf', 'cbz', 'cbr', 'cbt', 'txt', 'djvu', 'djv',

@@ -238,8 +238,10 @@ COPY --link --from=unrar /usr/bin/unrar-ubuntu /usr/bin/unrar
 # Python 3.13 itself comes from the deadsnakes package in runtime-base; /lsiopy's venv links to it
 COPY --link --from=python-deps /lsiopy /lsiopy
 
-# Application code changes most often, so it goes last
-COPY --chown=abc:abc . /app/calibre-web-automated/
+# Application code changes most often, so it goes last. Owned by root and not writable by
+# abc (the user the services run as), so a compromised web process can't rewrite the code
+# or the s6 scripts that run as root; setup-cwa.sh hands abc only the directories it writes.
+COPY . /app/calibre-web-automated/
 
 WORKDIR /app/calibre-web-automated
 

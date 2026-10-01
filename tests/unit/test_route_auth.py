@@ -38,7 +38,35 @@ class TestInternalToken:
 
     def test_existing_token_is_reused(self, token_file):
         token_file.write_text("abc123\n")
+        token_file.chmod(0o600)
         assert cwa_internal_auth.get_internal_token() == "abc123"
+
+    def test_readable_token_file_is_replaced(self, token_file):
+        token_file.write_text("abc123\n")
+        token_file.chmod(0o644)
+        token = cwa_internal_auth.get_internal_token()
+        assert token != "abc123" and len(token) == 64
+        assert stat.S_IMODE(os.stat(token_file).st_mode) == 0o600
+
+    def test_symlinked_token_file_is_replaced(self, token_file, tmp_path):
+        planted = tmp_path / "planted"
+        planted.write_text("attacker-known")
+        planted.chmod(0o600)
+        token_file.symlink_to(planted)
+        token = cwa_internal_auth.get_internal_token()
+        assert token != "attacker-known" and not token_file.is_symlink()
+        assert planted.read_text() == "attacker-known"
+
+    def test_default_location_is_a_private_directory(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("CWA_INTERNAL_TOKEN_FILE", raising=False)
+        monkeypatch.setattr(cwa_internal_auth.tempfile, "gettempdir", lambda: str(tmp_path))
+        cwa_internal_auth.get_internal_token()
+        private = tmp_path / ("lily-%d" % os.getuid())
+        assert stat.S_IMODE(os.stat(private).st_mode) == 0o700
+        assert (private / "internal_token").exists()
+        private.chmod(0o777)
+        with pytest.raises(PermissionError):
+            cwa_internal_auth.get_internal_token()
 
     def test_validation(self, token_file):
         token = cwa_internal_auth.get_internal_token()

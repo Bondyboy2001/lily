@@ -547,7 +547,7 @@ def _load_duplicates_route_module(
         },
     )
     _install_stub("cps.admin", {"admin_required": lambda fn: fn})
-    _install_stub("cps.usermanagement", {"login_required_if_no_ano": lambda fn: fn})
+    _install_stub("cps.usermanagement", {"login_required_if_no_ano": lambda fn: fn, "refuse_token_auth": lambda: False})
     _install_stub("cps.internal_api", {"internal_only": lambda fn: fn})
     def _render_title_template(*args, **kwargs):
         if render_calls is not None:

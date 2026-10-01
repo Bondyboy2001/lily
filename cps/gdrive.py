@@ -106,7 +106,7 @@ def google_drive_callback():
     return redirect(url_for('admin.db_configuration'))
 
 
-@gdrive.route("/watch/subscribe")
+@gdrive.route("/watch/subscribe", methods=["POST"])
 @user_login_required
 @admin_required
 def watch_gdrive():
@@ -132,7 +132,7 @@ def watch_gdrive():
     return redirect(url_for('admin.db_configuration'))
 
 
-@gdrive.route("/watch/revoke")
+@gdrive.route("/watch/revoke", methods=["POST"])
 @user_login_required
 @admin_required
 def revoke_watch_gdrive():

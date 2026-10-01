@@ -78,6 +78,8 @@ def enable_2fa():
         return _back()
     user.totp_secret, user.totp_enabled, user.totp_last_step = secret, True, step
     ub.session_commit()
+    # Sessions signed in elsewhere never passed the new second factor
+    ub.delete_other_user_sessions(user.id, flask_session.get('_random', ''))
     flask_session.pop(_SETUP_KEY, None)
     log.info("User '%s' enabled two-factor authentication", user.name)
     flash(_("Two-factor authentication is on. OPDS apps now need an API token instead of your password."),

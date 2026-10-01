@@ -7,8 +7,11 @@
 """Shared secret for calls from CWA's own processes to the web app's internal endpoints.
 
 The web process and the s6 scripts (ingest processor etc.) run as the same user in the
-same container, so they share a random token through a 0600 file in the temp dir. Callers
-send it in the INTERNAL_TOKEN_HEADER header; the web app compares it in constant time.
+same container, so they share a random token through a 0600 file in a private 0700
+directory under the temp dir (lily-<uid>). A token file is only reused when it is a regular
+file (not a symlink) owned by this user and readable by nobody else; otherwise it is
+replaced. Callers send it in the INTERNAL_TOKEN_HEADER header; the web app compares it in
+constant time.
 
 Kept dependency-free so scripts can import it without pulling in the Flask app.
 """
@@ -16,40 +19,77 @@ Kept dependency-free so scripts can import it without pulling in the Flask app.
 import hmac
 import os
 import secrets
+import stat
 import tempfile
 
 INTERNAL_TOKEN_HEADER = "X-CWA-Internal-Token"
 _TOKEN_FILE_ENV = "CWA_INTERNAL_TOKEN_FILE"
 
 
+def _private_dir() -> str:
+    """<tmp>/lily-<uid>, created 0700. Refuses a directory someone else owns or can write to."""
+    path = os.path.join(tempfile.gettempdir(), "lily-%d" % os.getuid())
+    try:
+        os.mkdir(path, 0o700)
+    except FileExistsError:
+        pass
+    info = os.lstat(path)
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise PermissionError("unsafe directory for the internal token: %s" % path)
+    return path
+
+
 def _token_path() -> str:
-    return os.environ.get(_TOKEN_FILE_ENV) or os.path.join(tempfile.gettempdir(), "cwa_internal_token")
+    return os.environ.get(_TOKEN_FILE_ENV) or os.path.join(_private_dir(), "internal_token")
+
+
+def _read_trusted(path: str):
+    """The token in path if the file is ours alone; '' if it must be replaced; None if missing."""
+    try:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    except FileNotFoundError:
+        return None
+    except OSError:
+        return ""  # a symlink (O_NOFOLLOW) or unreadable
+    with os.fdopen(fd, "r", encoding="ascii", errors="replace") as f:
+        info = os.fstat(f.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600:
+            return ""
+        return f.read().strip()
 
 
 def get_internal_token() -> str:
     """Return the shared token, creating it atomically on first use."""
     path = _token_path()
-    try:
-        with open(path, "r", encoding="ascii") as f:
-            token = f.read().strip()
-        if token:
-            return token
-    except FileNotFoundError:
-        pass
+    token = _read_trusted(path)
+    if token:
+        return token
+    if token == "":
+        # Wrong owner, permissions or a symlink: never trust it, start over
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
 
     # Write to a private temp file, then link it into place: os.link fails if another
     # process won the race, and readers never see a partially written token.
     token = secrets.token_hex(32)
     tmp_path = f"{path}.{os.getpid()}.new"
-    fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        os.unlink(tmp_path)  # left over from a crashed process with the same pid
+    except FileNotFoundError:
+        pass
+    fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
     try:
         with os.fdopen(fd, "w", encoding="ascii") as f:
             f.write(token)
         try:
             os.link(tmp_path, path)
         except FileExistsError:
-            with open(path, "r", encoding="ascii") as f:
-                token = f.read().strip()
+            # Another process won the race; its file must pass the same checks
+            token = _read_trusted(path) or ""
+            if not token:
+                raise PermissionError("untrusted internal token file: %s" % path)
     finally:
         try:
             os.unlink(tmp_path)

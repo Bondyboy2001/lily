@@ -18,6 +18,7 @@ from datetime import time as datetime_time
 from functools import wraps
 
 from flask import Blueprint, current_app, flash, redirect, url_for, abort, request, make_response, g, Response, jsonify
+from flask import session as flask_session
 from markupsafe import Markup
 from .cw_login import current_user
 from flask_babel import gettext as _
@@ -35,7 +36,7 @@ from .embed_helper import get_calibre_binarypath
 from .gdriveutils import is_gdrive_ready, gdrive_support
 from .render_template import render_title_template, get_sidebar_config
 from .services.worker import WorkerThread
-from .usermanagement import user_login_required
+from .usermanagement import user_login_required, refuse_token_auth
 from .cw_babel import get_available_translations, get_available_locale, get_user_locale_language
 from . import debug_info
 from .string_helper import strip_whitespaces
@@ -64,7 +65,8 @@ def admin_required(f):
 
     @wraps(f)
     def inner(*args, **kwargs):
-        if current_user.role_admin():
+        # An API token never counts as an admin login (see usermanagement.TOKEN_AUTH_ENDPOINTS)
+        if current_user.role_admin() and not refuse_token_auth():
             return f(*args, **kwargs)
         abort(403)
 
@@ -605,9 +607,12 @@ def list_users():
         if sort not in ub.User.__table__.columns.keys():
             sort = "id"
     order = request.args.get("order", "").lower()
+    if order not in ("asc", "desc"):
+        order = ""
 
     if sort != "state" and order:
-        order = text(sort + " " + order)
+        column = ub.User.__table__.columns[sort]
+        order = column.asc() if order == "asc" else column.desc()
     elif not state:
         order = ub.User.id.asc()
 
@@ -1881,6 +1886,10 @@ def _handle_edit_user(to_save, content, languages, translations):
                                      page="edituser")
     try:
         ub.session_commit()
+        if to_save.get("password", "") and not anonymous:
+            # A new password signs the user out everywhere (but not the admin doing this)
+            ub.delete_other_user_sessions(
+                content.id, flask_session.get('_random', '') if content.id == current_user.id else '')
         flash(_("User '%(nick)s' updated", nick=content.name), category="success")
     except IntegrityError as ex:
         ub.session.rollback()

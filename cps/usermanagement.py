@@ -23,6 +23,34 @@ from . import lm, ub, config, logger, limiter, totp
 log = logger.create()
 auth = HTTPBasicAuth()
 
+# Where a personal API token is accepted ('Authorization: Bearer lily_...', or as the OPDS
+# Basic-auth password): the OPDS feed and the read-only stats CSV export. Nowhere else, so a
+# leaked token can't reach settings, user management or anything that changes data.
+TOKEN_AUTH_BLUEPRINTS = frozenset({"opds"})
+TOKEN_AUTH_ENDPOINTS = frozenset({"cwa_stats.export_stats_csv"})
+
+
+def token_auth_allowed():
+    return request.blueprint in TOKEN_AUTH_BLUEPRINTS or request.endpoint in TOKEN_AUTH_ENDPOINTS
+
+
+def token_authenticated():
+    """True when this request's user came from an API token rather than a login session."""
+    return bool(g.get("lily_token_auth"))
+
+
+def refuse_token_auth():
+    """For admin-only decorators: a token may not stand in for an admin's login session
+    (beyond the read-only exports in TOKEN_AUTH_ENDPOINTS)."""
+    return token_authenticated() and request.endpoint not in TOKEN_AUTH_ENDPOINTS
+
+
+def _bearer_token(req):
+    header = req.headers.get("Authorization", "")
+    if header[:7].lower() != "bearer ":
+        return None
+    return header[7:].strip()
+
 
 def user_for_api_token(token):
     """The user owning this personal API token, or None."""
@@ -46,7 +74,12 @@ def verify_password(username, password):
             token_owner = user_for_api_token(password)
             if token_owner is not None and token_owner.id == user.id:
                 [limiter.limiter.storage.clear(k.key) for k in limiter.current_limits]
+                g.lily_token_auth = True
                 return user
+            # An account still on the shipped default password has a publicly known password
+            if user.force_password_change:
+                log.warning('OPDS login refused for user "%s": the password must be changed first', username)
+                return None
             if not user.totp_enabled and check_password_hash(str(user.password), password):
                 [limiter.limiter.storage.clear(k.key) for k in limiter.current_limits]
                 return user
@@ -60,12 +93,18 @@ def verify_password(username, password):
 def requires_basic_auth_if_no_ano(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        authorisation = auth.get_auth()
+        token = _bearer_token(request)
         status = None
-        if config.config_anonbrowse == 1 and not authorisation:
-            authorisation = Authorization(
-                b"Basic", {'username': "Guest", 'password': ""})
-        user = auth.authenticate(authorisation, "")
+        if token is not None:
+            user = user_for_api_token(token)
+            if user is not None:
+                g.lily_token_auth = True
+        else:
+            authorisation = auth.get_auth()
+            if config.config_anonbrowse == 1 and not authorisation:
+                authorisation = Authorization(
+                    b"Basic", {'username': "Guest", 'password': ""})
+            user = auth.authenticate(authorisation, "")
         if user in (False, None):
             status = 401
         if status:
@@ -99,15 +138,18 @@ def user_login_required(func):
 
 @lm.request_loader
 def load_user_from_bearer_token(req):
-    """Lets scripts call the web and stats endpoints with 'Authorization: Bearer lily_...'."""
-    header = req.headers.get("Authorization", "")
-    if header[:7].lower() != "bearer ":
+    """Lets scripts fetch the endpoints in TOKEN_AUTH_ENDPOINTS with 'Authorization: Bearer lily_...'."""
+    token = _bearer_token(req)
+    if token is None or not token_auth_allowed():
         return None
     try:
-        return user_for_api_token(header[7:].strip())
+        user = user_for_api_token(token)
     except Exception as e:
         log.error("API token lookup failed: %s", e)
         return None
+    if user is not None:
+        g.lily_token_auth = True
+    return user
 
 
 @lm.user_loader
@@ -116,19 +158,20 @@ def load_user(user_id, random, session_key):
         # Handle potential invalid user_id
         if not user_id:
             return None
+        # Every login stores a User_Sessions row keyed by a random value; a session or remember
+        # cookie without one (or whose row was deleted at logout or password change) is refused.
+        if not random:
+            return None
         user = ub.session.query(ub.User).filter(ub.User.id == int(user_id)).first()
         if not user:
             return None
 
+        query = ub.session.query(ub.User_Sessions).filter(ub.User_Sessions.random == random,
+                                                          ub.User_Sessions.user_id == user.id)
         if session_key:
-            entry = ub.session.query(ub.User_Sessions).filter(ub.User_Sessions.random == random,
-                                                              ub.User_Sessions.session_key == session_key).first()
-            if not entry or entry.user_id != user.id:
-                return None
-        elif random:
-            entry = ub.session.query(ub.User_Sessions).filter(ub.User_Sessions.random == random).first()
-            if not entry or entry.user_id != user.id:
-                return None
+            query = query.filter(ub.User_Sessions.session_key == session_key)
+        if query.first() is None:
+            return None
         return user
     except (ValueError, TypeError) as e:
         log.error("Invalid user_id in load_user: %s", e)

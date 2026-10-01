@@ -34,7 +34,7 @@
     {% endif %}
   {% endcall %}
 
-  {% call f.group(_('API token'), help=_('A personal token for OPDS apps and scripts. Use it as the password in an OPDS app, or send it in an "Authorization: Bearer" header. It works even with two-factor authentication on, so keep it private.')) %}
+  {% call f.group(_('API token'), help=_('A personal token for OPDS apps and scripts. Use it as the password in an OPDS app, or send it in an "Authorization: Bearer" header to the OPDS feed or the stats CSV export. It does not sign in to the web pages. It works even with two-factor authentication on, so keep it private.')) %}
     {% if new_token %}
       {% call f.row(_('Your new token'), help=_('Copy it now. It is not shown again.'), wide=True) %}<span class="lp-mono" id="new-api-token">{{ new_token }}</span>{% endcall %}
     {% endif %}

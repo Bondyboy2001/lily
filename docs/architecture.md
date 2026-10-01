@@ -88,11 +88,20 @@ the type-checked set is listed in `pyproject.toml` (`[tool.mypy]`).
 ## Security model
 
 - Sessions: HttpOnly cookies, `SameSite` set, `Secure` when `SESSION_COOKIE_SECURE=true`.
+- Every session and remember cookie must match a `User_Sessions` row; logout (POST) and
+  password or 2FA changes delete rows. Failed password logins are rate-limited per address
+  and per username.
 - Optional TOTP second factor (`totp.py`, `web_auth.py`); with it on, OPDS uses a personal
-  API token instead of the password. Wrong-code lockout is in memory, per process.
-- CSP: `'unsafe-eval'` only on the book edit page and the readers (`web.py`,
-  `_EVAL_ENDPOINTS`).
-- Admin routes use `@admin_required`; `tests/unit/test_admin_access_control.py` checks them.
+  API token instead of the password. The wrong-code lockout escalates and is stored in
+  app.db (user columns). API tokens work only for OPDS and the stats CSV export
+  (`usermanagement.TOKEN_AUTH_ENDPOINTS`).
+- CSP and the other headers come from `security_headers.py`: `'unsafe-eval'` only on the
+  book edit page and the readers (`_EVAL_ENDPOINTS`). Inline scripts still need
+  `'unsafe-inline'`.
+- Admin routes use `@admin_required`; `tests/unit/test_admin_access_control.py` walks every
+  route (public allowlist, visitors, regular users, API tokens).
+- In the image the app and s6 scripts are root-owned; abc writes only the dirs listed in
+  `scripts/setup-cwa.sh`.
 
 ## Tests
 
