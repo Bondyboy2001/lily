@@ -89,7 +89,7 @@ def test_setup_then_login_requires_code(env):
     assert _login(c, name, ADMIN_PASSWORD).status_code == 302
     secret = _enable_2fa(env, c)
     assert env.admin().totp_enabled
-    c.get("/logout")
+    c.post("/logout")
 
     c2 = env.app.test_client()
     resp = _login(c2, name, ADMIN_PASSWORD)
@@ -109,7 +109,7 @@ def test_too_many_wrong_codes_lock_the_account(env):
     c = env.app.test_client()
     _login(c, name, ADMIN_PASSWORD)
     secret = _enable_2fa(env, c)
-    c.get("/logout")
+    c.post("/logout")
     c2 = env.app.test_client()
     _login(c2, name, ADMIN_PASSWORD)
     for _ in range(totp.MAX_FAILURES):

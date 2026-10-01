@@ -116,19 +116,20 @@ def load_user(user_id, random, session_key):
         # Handle potential invalid user_id
         if not user_id:
             return None
+        # Every login stores a User_Sessions row keyed by a random value; a session or remember
+        # cookie without one (or whose row was deleted at logout or password change) is refused.
+        if not random:
+            return None
         user = ub.session.query(ub.User).filter(ub.User.id == int(user_id)).first()
         if not user:
             return None
 
+        query = ub.session.query(ub.User_Sessions).filter(ub.User_Sessions.random == random,
+                                                          ub.User_Sessions.user_id == user.id)
         if session_key:
-            entry = ub.session.query(ub.User_Sessions).filter(ub.User_Sessions.random == random,
-                                                              ub.User_Sessions.session_key == session_key).first()
-            if not entry or entry.user_id != user.id:
-                return None
-        elif random:
-            entry = ub.session.query(ub.User_Sessions).filter(ub.User_Sessions.random == random).first()
-            if not entry or entry.user_id != user.id:
-                return None
+            query = query.filter(ub.User_Sessions.session_key == session_key)
+        if query.first() is None:
+            return None
         return user
     except (ValueError, TypeError) as e:
         log.error("Invalid user_id in load_user: %s", e)

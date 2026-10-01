@@ -45,7 +45,10 @@
     {% if not unconfigured %}
       <a class="btn btn-primary" href="{{url_for('web.index')}}">{{_('Return to Home')}}</a>
     {% else %}
-      <a class="btn btn-primary" href="{{url_for('web.logout')}}">{{ _('Logout User') }}</a>
+      <form method="post" action="{{url_for('web.logout')}}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-primary">{{ _('Logout User') }}</button>
+      </form>
     {% endif %}
     {% if issue %}
       <a class="btn btn-default" href="https://github.com/Bondyboy2001/lily/issues/new" target="_blank" rel="noopener">{{_('Create Issue')}}</a>

@@ -24,7 +24,7 @@ from sqlalchemy import create_engine, exc, exists, event, text
 from sqlalchemy import Column, ForeignKey, Index, UniqueConstraint
 from sqlalchemy import String, Integer, SmallInteger, Boolean, DateTime, Float, JSON
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy.sql.expression import func
+from sqlalchemy.sql.expression import func, or_
 try:
     # Compatibility with sqlalchemy 2.0
     from sqlalchemy.orm import declarative_base
@@ -102,11 +102,28 @@ def store_user_session():
         log.error("No user id in session")
 
 
-def delete_user_session(user_id, session_key):
+def delete_user_session(user_id, session_key, random=""):
+    """Forget one login. The random value identifies it exactly (the session key is only a
+    hash of address and browser, and changes when a remember cookie restores the login)."""
     try:
         log.debug("Deleted session_key: " + session_key)
-        session.query(User_Sessions).filter(User_Sessions.user_id == user_id,
-                                            User_Sessions.session_key == session_key).delete()
+        match = User_Sessions.session_key == session_key
+        if random:
+            match = or_(match, User_Sessions.random == random)
+        session.query(User_Sessions).filter(User_Sessions.user_id == user_id, match).delete()
+        session.commit()
+    except (exc.OperationalError, exc.InvalidRequestError) as ex:
+        session.rollback()
+        log.exception(ex)
+
+
+def delete_other_user_sessions(user_id, keep_random=""):
+    """Sign a user out everywhere except the current login (after a password or 2FA change)."""
+    try:
+        query = session.query(User_Sessions).filter(User_Sessions.user_id == user_id)
+        if keep_random:
+            query = query.filter(User_Sessions.random != keep_random)
+        query.delete()
         session.commit()
     except (exc.OperationalError, exc.InvalidRequestError) as ex:
         session.rollback()

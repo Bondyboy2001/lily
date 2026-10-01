@@ -232,11 +232,12 @@ def login_2fa():
                              next_url=pending.get('next') or '')
 
 
-@web.route('/logout')
+# POST only (with the CSRF token), so another site can't sign the user out with a link or image
+@web.route('/logout', methods=['POST'])
 @user_login_required
 def logout():
     if current_user is not None and current_user.is_authenticated:
-        ub.delete_user_session(current_user.id, flask_session.get('_id', ""))
+        ub.delete_user_session(current_user.id, flask_session.get('_id', ""), flask_session.get('_random', ""))
         logout_user()
 
     # Clear login redirect count on logout to prevent false positives
