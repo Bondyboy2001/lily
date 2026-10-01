@@ -13,6 +13,10 @@
         <div class="book-detail-cover cover">
             <img id="detailcover" alt="{{ entry.title }}" title="{{ entry.title }}"
                  src="{{ url_for('web.get_cover', book_id=entry.id, resolution='og', c=entry|last_modified) }}"/>
+            {% set marks = ['epub', 'pdf']|select('in', entry.data|map(attribute='format')|map('lower')|list)|list %}
+            {% if marks %}
+            <span class="lily-cover-formats">{% for f in marks %}<span class="lily-format lily-format-{{ f }}" title="{{ f|upper }}"></span>{% endfor %}</span>
+            {% endif %}
             {# Read-only here; shelves and tags are changed on the edit page. Squares are
                shelves and pills are tags, so the two kinds read apart at a glance. #}
             {% set shelves = (g.shelves_access|selectattr('id', 'in', books_shelfs)|list) if (current_user.is_authenticated and books_shelfs) else [] %}

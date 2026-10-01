@@ -130,7 +130,14 @@ def parse_schema_columns(tables: list[str]) -> dict[str, dict[str, str]]:
 #   def _m2_rename_foo(cur):
 #       cur.execute("ALTER TABLE cwa_import RENAME COLUMN foo TO bar")
 #   MIGRATIONS = [(2, "rename cwa_import.foo to bar", _m2_rename_foo)]
-MIGRATIONS: list = []
+def _m1_settings_page_defaults(cur):
+    # The settings page no longer offers these: duplicate detection is always on and
+    # Hardcover auto-fetch is gone, so pin them for libraries that changed them before.
+    cur.execute("UPDATE cwa_settings SET duplicate_detection_enabled=1, duplicate_scan_enabled=1, "
+                "hardcover_auto_fetch_enabled=0")
+
+
+MIGRATIONS: list = [(1, "always detect duplicates, no Hardcover auto-fetch", _m1_settings_page_defaults)]
 SCHEMA_MIGRATIONS_TABLE = "cwa_schema_migrations"
 
 
@@ -231,7 +238,7 @@ class CWA_DB(CWAStatsQueries):
         return self
 
 
-    def __exit__(self, exc_type, exc, tb):
+    def __exit__(self, _exc_type, exc, tb):
         self.close()
         return False
 
@@ -434,7 +441,7 @@ class CWA_DB(CWAStatsQueries):
             if not row:
                 return
 
-            cron_value, format_priority, ingest_ignored, automerge_value = row
+            cron_value, format_priority, _, _ = row
             fixes_made = []
 
             def _strip_quotes(value: str | None) -> str | None:

@@ -97,7 +97,7 @@ def table_get_custom_enum(c_id):
           .filter(db.CustomColumns.id == c_id)
           .filter(db.CustomColumns.datatype.notin_(db.cc_exceptions)).one_or_none())
     ret.append({'value': "", 'text': ""})
-    for idx, en in enumerate(cc.get_display_dict()['enum_values']):
+    for en in cc.get_display_dict()['enum_values']:
         ret.append({'value': en, 'text': en})
     return json.dumps(ret)
 

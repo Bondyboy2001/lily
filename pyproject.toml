@@ -113,6 +113,21 @@ license-files = ["LICENSE"]
 [tool.setuptools.dynamic]
 version = {attr = "cps.constants.STABLE_VERSION"}
 
+# Dead-code detection (see vulture_whitelist.py for the indirect references).
+# Runs alongside ruff in CI. cps/cw_advocate and cps/cw_login are vendored
+# third-party code; cps/static and cps/translations are generated/vendored.
+[tool.vulture]
+paths = ["cps", "scripts", "vulture_whitelist.py"]
+exclude = ["cps/static", "cps/translations", "cps/cw_advocate", "cps/cw_login",
+           "cps/iso_language_names.py"]
+min_confidence = 60
+ignore_decorators = [
+    "@*.route", "@*.app_template_filter", "@*.errorhandler", "@*.before_request",
+    "@*.after_request", "@*.before_app_request", "@*.url_defaults",
+    "@*.context_processor", "@*.teardown_appcontext", "@*.register_error_handler",
+    "@*.listens_for", "@*.command",
+]
+
 [tool.ruff]
 target-version = "py313"
 extend-exclude = ["cps/static", "cps/translations"]

@@ -7,7 +7,7 @@
    lines; an edited description is saved back as <p> paragraphs, an untouched one keeps
    its original HTML. Fetch Metadata fires "lily:set-html" after setting new HTML. */
 (function () {
-    var $box = $("#comments");
+    var $box = $("textarea#comments");  // not the one-line Description field on Advanced Search
     if (!$box.length) { return; }
     var originalHtml, originalText;
 
@@ -199,7 +199,7 @@ function lilyRowEditor(opts) {
             autocomplete: "off", placeholder: placeholder, "aria-label": placeholder});
         var $remove = $("<button>", {type: "button", "class": "icon-btn lily-edit-remove",
             title: removeLabel, "aria-label": removeLabel})
-            .append($("<span>", {"class": "glyphicon glyphicon-remove", "aria-hidden": "true"}));
+            .append($("<span>", {"class": "glyphicon glyphicon-trash", "aria-hidden": "true"}));
         var $row = $("<li>", {"class": "lily-edit-row"}).append(
             $("<div>", {"class": "lily-edit-field"}).append($input), $remove);
         $input.typeahead(

@@ -2,8 +2,8 @@
     The preference ("light" | "dark") is per browser in localStorage["lily-theme"]. Until the top
     bar's theme button (lily.js) sets one, the browser's prefers-color-scheme picks the starting theme. -#}
     <meta name="color-scheme" content="light dark">
-    <meta name="theme-color" content="#FDFCFA" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#1A1B26" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#F1EEEA" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1A1517" media="(prefers-color-scheme: dark)">
     <script>
       (function () {
         var pref = null;
@@ -16,7 +16,7 @@
         root.setAttribute("data-theme", pref);
         var metas = document.querySelectorAll('meta[name="theme-color"]');
         for (var i = 0; i < metas.length; i++) {
-          metas[i].setAttribute("content", pref === "dark" ? "#1A1B26" : "#FDFCFA");
+          metas[i].setAttribute("content", pref === "dark" ? "#1A1517" : "#F1EEEA");
         }
       })();
     </script>

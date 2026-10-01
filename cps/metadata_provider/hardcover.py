@@ -27,7 +27,7 @@ except ImportError:
     # Fallback for CLI usage
     def normalized_levenshtein_similarity(s1: str, s2: str) -> float:
         return 1.0 if s1.lower() == s2.lower() else 0.5
-    def author_list_similarity(a1: List[str], a2: List[str]) -> tuple[float, bool]:
+    def author_list_similarity(_a1: List[str], _a2: List[str]) -> tuple[float, bool]:
         return (0.5, False)
     def normalize_string(s: str) -> str:
         return s.lower()

@@ -428,7 +428,7 @@ $(function() {
                         pollTaskCompletion(response.task_id);
                     } else {
                         // Re-enable button immediately if no work to do
-                        $("#admin_refresh_cover_cache").prop('disabled', false).text('Refresh Thumbnail Cache');
+                        $("#admin_refresh_cover_cache").prop('disabled', false).text('Rebuild');
                         
                         // Show simple notification for no work case
                         var alertClass = response.book_count > 0 ? 'alert-info' : 'alert-warning';

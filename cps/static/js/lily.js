@@ -167,10 +167,11 @@
         var nowRead = $btn.attr("aria-pressed") !== "true";
         $btn.attr("aria-pressed", nowRead ? "true" : "false");
         setLabel($btn, nowRead ? $btn.data("label-read") : $btn.data("label-unread"));
+        $book.toggleClass("is-read", nowRead);
         var $img = $book.find(".cover .img");
         $img.find(".badge.read").remove();
         if (nowRead) {
-          $("<span class='badge read glyphicon glyphicon-ok'></span>").attr("title", $btn.data("label-read")).appendTo($img);
+          $("<span class='badge read is-new glyphicon glyphicon-ok'></span>").attr("title", $btn.data("label-read")).appendTo($img);
         }
       }).fail(function (xhr) {
         flash((xhr.responseJSON && xhr.responseJSON.message) || "Could not change the read status. Try again.", "danger");
@@ -236,9 +237,6 @@
       icon.className = "glyphicon lily-refresh-toast-icon " +
         (state === "busy" ? "glyphicon-refresh" : state === "error" ? "glyphicon-warning-sign" : "glyphicon-ok");
     }
-    // Sit just under the top bar, whose height grows when the search box wraps on phones.
-    var bar = document.querySelector(".lily-topbar");
-    if (bar) { box.style.top = Math.max(0, bar.getBoundingClientRect().bottom) + 12 + "px"; }
     box.hidden = false;
     cancelHide();
     if (state !== "busy") { scheduleHide(); }
@@ -432,7 +430,7 @@ window.lilyPickOption = function (item) {
 (function () {
   "use strict";
 
-  var COLOURS = { light: "#FDFCFA", dark: "#1B1719" };
+  var COLOURS = { light: "#F1EEEA", dark: "#1A1517" };
 
   function apply(pref) {
     var root = document.documentElement;
@@ -458,7 +456,13 @@ window.lilyPickOption = function (item) {
     btn.addEventListener("click", function () {
       current = current === "dark" ? "light" : "dark";
       try { localStorage.setItem("lily-theme", current); } catch (e) {}
-      apply(current);
+      // A cross-fade of the whole page where the browser supports it, an instant swap elsewhere.
+      var swap = function () { apply(current); };
+      if (document.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        document.startViewTransition(swap);
+      } else {
+        swap();
+      }
       label(btn, current);
       // Charts read their colours once when drawn; redraw them in the new scheme.
       if (document.querySelector("[_echarts_instance_]")) { window.location.reload(); }
@@ -478,5 +482,14 @@ window.lilyPickOption = function (item) {
     card.hidden = true;
     var main = document.getElementById("lily-content");
     if (main) { main.focus(); }
+  });
+})();
+
+/* Stagger index for the cover grid's entrance animation (lily-library.css reads --i). */
+(function () {
+  "use strict";
+  document.addEventListener("DOMContentLoaded", function () {
+    var cards = document.querySelectorAll(".lily-grid > .lily-book");
+    for (var i = 0; i < cards.length; i++) { cards[i].style.setProperty("--i", i); }
   });
 })();

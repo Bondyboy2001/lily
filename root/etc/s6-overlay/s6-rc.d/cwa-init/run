@@ -178,11 +178,6 @@ db_path = "/config/app.db"
 try:
   conn = sqlite3.connect(db_path)
   cur = conn.cursor()
-  # Force global default theme to dark
-  try:
-    cur.execute("UPDATE settings SET config_theme = 1")
-  except Exception:
-    pass
   # Force all users to dark if theme column exists
   try:
     cur.execute("PRAGMA table_info(user)")

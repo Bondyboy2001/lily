@@ -9,13 +9,12 @@ CSS = REPO_ROOT / "cps/static/css"
 TEMPLATES = REPO_ROOT / "cps/templates"
 
 ADMIN_TEMPLATES = [
-    "admin.html", "config_db.html", "config_edit.html", "config_view_edit.html", "cwa_settings.html",
-    "schedule_edit.html", "user_edit.html",
+    "admin.html", "config_db.html", "cwa_settings.html", "db_backups.html", "user_edit.html",
     "user_table.html", "hardcover_review_matches.html",
     "tasks.html", "http_error.html",
     "lily_form.html",
 ]
-ADMIN_STYLESHEETS = ["lily-admin.css", "lily-settings.css"]
+ADMIN_STYLESHEETS = ["lily-admin.css"]
 HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
 
 
@@ -70,24 +69,15 @@ def test_admin_headings_carry_no_emoji():
             assert "emoji_heading(" in line, line
 
 
-def test_settings_save_bar_has_one_primary_and_quiet_reset():
-    html = read(TEMPLATES / "cwa_settings.html")
-    bar = html[html.index('class="lily-savebar"'):html.index("</form>")]
-    assert bar.count("btn-primary") == 1
-    reset = re.search(r'<button[^>]*lily-btn-reset[^>]*>', bar).group(0)
-    assert "btn-default" in reset and "btn-danger" not in reset
-
-
 def test_folder_pickers_are_labelled_icon_buttons():
-    for name in ("config_edit.html", "config_db.html", "lily_form.html"):
+    for name in ("config_db.html", "lily_form.html"):
         html = read(TEMPLATES / name)
         for button in re.findall(r"<button[^>]*>\s*<span class=\"glyphicon glyphicon-folder-open", html):
             assert 'class="icon-btn"' in button, (name, button)
             assert "aria-label=" in button and "title=" in button, (name, button)
 
 
-SETTINGS_FORMS = ["admin.html", "config_edit.html", "config_view_edit.html", "config_db.html",
-                  "schedule_edit.html", "user_edit.html", "cwa_settings.html"]
+SETTINGS_FORMS = ["admin.html", "config_db.html", "user_edit.html", "cwa_settings.html", "db_backups.html"]
 
 
 @pytest.mark.parametrize("name", SETTINGS_FORMS)
@@ -106,23 +96,27 @@ def test_settings_pages_share_the_settings_frame(name):
     assert "{% block settings %}" in html and "{% block body %}" not in html, name
 
 
-def test_settings_frame_has_rail_search_and_lily_tabs():
+def test_settings_frame_is_a_short_rail_without_search_or_tabs():
     html = read(TEMPLATES / "settings_layout.html")
-    assert 'id="lp-search"' in html and "lily-settings-shell.js" in html
-    # Every pane of the Lily settings page is reachable from a tab; "services" was folded into metadata.
-    for pane in ("ingest", "metadata", "hardcover", "duplicates", "maintenance", "interface"):
-        assert f"'#{pane}'" in html and f"'pane': '{pane}'" in html, pane
-        assert f'data-lily-pane="{pane}"' in read(TEMPLATES / "cwa_settings.html"), pane
-    assert 'data-lily-pane="services"' not in read(TEMPLATES / "cwa_settings.html")
-    # The Lily settings page no longer draws its own chip row; the frame's strips drive its panes.
-    assert "lily-settings-tabs" not in read(TEMPLATES / "cwa_settings.html")
+    assert "lily-settings-shell.js" in html
+    for gone in ('id="lp-search"', "lp-tabs", "'pane'"):
+        assert gone not in html, gone
 
 
-def test_settings_rail_is_one_item_per_section():
+def test_settings_rail_lists_only_the_essential_pages():
     html = read(TEMPLATES / "settings_layout.html")
     ids = re.findall(r"\{'id': '(\w+)', 'group'", html)
-    assert ids == ["profile", "reading", "security", "tasks", "library", "import", "metadata", "duplicates",
-                   "users", "general", "schedules", "maintenance", "stats"]
+    assert ids == ["profile", "import", "users", "maintenance"]
+
+
+def test_removed_settings_pages_are_gone():
+    for name in ("config_edit.html", "config_view_edit.html", "schedule_edit.html"):
+        assert not (TEMPLATES / name).exists(), name
+
+
+def test_library_page_keeps_google_drive():
+    html = read(TEMPLATES / "config_db.html")
+    assert "config_use_google_drive" in html and "gdrive.authenticate_google_drive" in html
 
 
 @pytest.mark.parametrize("name", [n for n in SETTINGS_FORMS if n != "admin.html"])

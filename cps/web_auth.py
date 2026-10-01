@@ -322,7 +322,6 @@ def change_password():
 # ################################### Users own configuration #########################################################
 def change_profile(translations, languages):
     to_save = request.form.to_dict()
-    current_user.random_books = 0
     try:
         if current_user.role_passwd() or current_user.role_admin():
             if to_save.get("password", "") != "":
@@ -336,16 +335,21 @@ def change_profile(translations, languages):
             if to_save.get("name", current_user.name) != current_user.name:
                 # Query username, if not existing, change
                 current_user.name = check_username(to_save.get("name"))
-        current_user.random_books = 1 if to_save.get("show_random") == "on" else 0
-        current_user.default_language = to_save.get("default_language", "all")
-        current_user.locale = to_save.get("locale", "en")
+        # The profile form only shows account fields; anything it doesn't send keeps its value.
+        if "default_language" in to_save:
+            current_user.default_language = to_save["default_language"]
+        if "locale" in to_save:
+            current_user.locale = to_save["locale"]
         if "hardcover_token" in to_save:
             current_user.hardcover_token = to_save["hardcover_token"].replace("Bearer ", "") or None
-        current_user.auto_metadata_fetch = to_save.get("auto_metadata_fetch") == "on"
+        if "auto_metadata_fetch" in to_save:
+            current_user.auto_metadata_fetch = to_save.get("auto_metadata_fetch") == "on"
 
         # OPDS root order
         opds_order_raw = to_save.get("opds_root_order", "").strip()
-        if opds_order_raw:
+        if "opds_root_order" not in to_save:
+            pass
+        elif opds_order_raw:
             from .opds import normalize_opds_root_order
             opds_order_list = [item.strip() for item in opds_order_raw.split(',') if item.strip()]
             normalized_order = normalize_opds_root_order(opds_order_list)
@@ -362,7 +366,9 @@ def change_profile(translations, languages):
 
         # OPDS hidden entries
         opds_hidden_raw = to_save.get("opds_hidden_entries", "").strip()
-        if opds_hidden_raw:
+        if "opds_hidden_entries" not in to_save:
+            pass
+        elif opds_hidden_raw:
             from .opds import OPDS_ROOT_ENTRY_DEFS
             hidden_entries = [item.strip() for item in opds_hidden_raw.split(',') if item.strip()]
             hidden_entries = [key for key in hidden_entries if key in OPDS_ROOT_ENTRY_DEFS]

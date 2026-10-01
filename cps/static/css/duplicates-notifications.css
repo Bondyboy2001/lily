@@ -81,8 +81,7 @@
     border-radius: var(--control-radius);
     background: transparent;
     color: var(--muted);
-    font-size: 20px;
-    line-height: 1;
+    line-height: 0;
     cursor: pointer;
     transition: background-color .12s ease-out, color .12s ease-out;
 }

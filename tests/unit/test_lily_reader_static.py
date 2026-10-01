@@ -160,6 +160,37 @@ def test_unsupported_formats_have_no_reader(client, fmt):
     assert resp.status_code == 302
 
 
+def test_djvu_viewer_creates_its_worker_from_the_top_window():
+    # Chrome blocks a worker created inside GWT's helper iframe, so the viewer never got its
+    # document; the vendored build creates it through $wnd instead (see the lib's README).
+    scripts = sorted((JS / "libs/djvu_html5/djvu_html5").glob("*.cache.js"))
+    assert scripts
+    for script in scripts:
+        code = read(script)
+        assert "djvuWorker=new $wnd.Worker(" in code and "djvuWorker=new Worker(" not in code, script.name
+
+
+def test_rating_clear_buttons_are_trash_icons():
+    # bootstrap-rating-input draws an X unless told otherwise; clearing a rating is a delete.
+    for name in ("book_edit.html", "search_form.html"):
+        html = read(TEMPLATES / name)
+        for tag in re.findall(r"<input[^>]*data-clearable[^>]*>", html):
+            assert 'data-clearable-icon="glyphicon-trash"' in tag, (name, tag)
+
+
+@pytest.mark.unit
+def test_authors_page_has_no_letter_filter(client):
+    env, c, _ = client
+    # The letter menu used to appear once a list had more than nine initials.
+    for letter in "ABCDEFGHIJK":
+        env.add_book(f"{letter} Book", author=f"{letter} Author")
+    resp = c.get("/author")
+    assert resp.status_code == 200, resp.data[:300]
+    html = resp.get_data(as_text=True)
+    assert "lily-field-toggle" in html and "lily-order-toggle" in html
+    assert "lily-filter-toggle" not in html and "lily-letter-menu" not in html
+
+
 @pytest.mark.unit
 def test_advanced_search_renders(client):
     env, c, _ = client

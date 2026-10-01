@@ -1,4 +1,4 @@
-"""Static checks that Lily's styling follows ~/projects/DESIGN.md (Lily palette)."""
+"""Static checks that Lily's styling follow the Mauve palette."""
 import re
 from pathlib import Path
 
@@ -7,10 +7,10 @@ CSS = REPO_ROOT / "cps/static/css"
 TEMPLATES = REPO_ROOT / "cps/templates"
 
 LILY_PALETTE = {
-    "paper": "#FDFCFA", "surface": "#FFFFFF", "sunk": "#F4EFE7",
-    "ink": "#2B2326", "ink-soft": "#473C40", "muted": "#62575B", "faint": "#6B6064",
-    "line": "#C2B3A6", "line-soft": "#D6CABE",
-    "accent": "#9E2F55", "heading": "#9E2F55",
+    "paper": "#F1EEEA", "surface": "#F8F6F3", "sunk": "#E7E1DC",
+    "ink": "#2B2127", "ink-soft": "#4A3D45", "muted": "#655860", "faint": "#685B62",
+    "line": "#CBC1BF", "line-soft": "#DAD3D0",
+    "accent": "#854A73", "heading": "#854A73",
     "success": "#4F6B4B", "warning": "#A13F0E", "danger": "#B3261E",
 }
 TEXT_TOKENS = ["ink", "ink-soft", "muted", "faint", "accent", "heading", "success", "warning", "danger"]
@@ -70,7 +70,7 @@ def test_derived_states_use_guide_formulas():
     assert tokens["control-tint-strong"] == "color-mix(in srgb, var(--ink) 10%, transparent)"
     assert tokens["row-hover"] == "color-mix(in srgb, var(--ink) 5%, transparent)"
     assert tokens["row-active"] == "color-mix(in srgb, var(--ink) 9%, transparent)"
-    assert tokens["control-radius"] == "8px"
+    assert tokens["control-radius"] == "6px"
 
 
 def test_no_gradients_or_blur():
@@ -282,7 +282,10 @@ def test_library_refresh_notice_is_a_temporary_toast():
     toast = [b for s, b in rules if s == ".lily-refresh-toast"]
     assert toast and "position: fixed" in toast[0] and re.search(r"right\s*:", toast[0])
     assert re.search(r"bottom\s*:", toast[0]) and not re.search(r"\btop\s*:", toast[0])
-    assert "TOAST_MS" in read(REPO_ROOT / "cps/static/js/lily.js")
+    js = read(REPO_ROOT / "cps/static/js/lily.js")
+    assert "TOAST_MS" in js
+    # An inline top on top of the CSS bottom would stretch the toast down the whole screen.
+    assert "box.style.top" not in js
 
 
 def test_settings_button_opens_settings_with_tasks_and_logout_in_rail():
@@ -293,5 +296,14 @@ def test_settings_button_opens_settings_with_tasks_and_logout_in_rail():
     for gone in ("glyphicon-user", "glyphicon-dashboard", "glyphicon-tasks"):
         assert gone not in bar, gone
     rail = read(TEMPLATES / "settings_layout.html")
-    assert "'rail_id': 'top_tasks'" in rail and "id='logout'" in rail
+    assert "'tasks.get_tasks_status'" in rail and "id='logout'" in rail
     assert 'extends "settings_layout.html"' in read(TEMPLATES / "tasks.html")
+
+
+def test_list_view_centres_the_read_check_on_a_larger_thumbnail():
+    css = read(CSS / "lily-library.css")
+    assert 'grid-template-columns: 56px minmax(0, 1fr) auto;' in css
+    badge = re.search(r'body\[data-book-view="list"\] \.lily-grid > \.lily-book \.cover \.badge\.read \{([^}]*)\}', css)
+    assert badge and "top: 50%" in badge.group(1) and "left: 50%" in badge.group(1)
+    assert "var(--success)" in badge.group(1)
+    assert ":has(.badge.read)" not in css

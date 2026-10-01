@@ -21,8 +21,7 @@ from flask import Blueprint, current_app, flash, redirect, url_for, abort, reque
 from markupsafe import Markup
 from .cw_login import current_user
 from flask_babel import gettext as _
-from flask_babel import get_locale, format_time, format_timedelta
-from sqlalchemy import and_
+from flask_babel import format_time, format_timedelta
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.exc import IntegrityError, OperationalError, InvalidRequestError
 from sqlalchemy.sql.expression import func, or_, text
@@ -167,7 +166,7 @@ def trigger_hardcover_auto_fetch():
         )
 
         if not token_available:
-            show_text['text'] = _('Error: No Hardcover token available. Set HARDCOVER_TOKEN environment variable or configure in Basic Configuration.')
+            show_text['text'] = _('Error: No Hardcover token available. Set the HARDCOVER_TOKEN environment variable.')
             return json.dumps(show_text), 400
 
         # Get settings
@@ -491,11 +490,8 @@ def db_configuration():
 @user_login_required
 @admin_required
 def configuration():
-    return render_title_template("config_edit.html",
-                                 config=config,
-                                 feature_support=feature_support,
-                                 is_proxied=current_app.wsgi_app.is_proxied,
-                                 title=_("Basic Configuration"), page="config")
+    # The old General page; its options that are left live on Import & Metadata.
+    return redirect(url_for('cwa_settings.set_cwa_settings'))
 
 
 @admi.route("/admin/ajaxconfig", methods=["POST"])
@@ -523,58 +519,19 @@ def calibreweb_alive():
 @user_login_required
 @admin_required
 def view_configuration():
-    read_column = calibre_db.session.query(db.CustomColumns) \
-        .filter(and_(db.CustomColumns.datatype == 'bool', db.CustomColumns.mark_for_delete == 0)).all()
-    restrict_columns = calibre_db.session.query(db.CustomColumns) \
-        .filter(and_(db.CustomColumns.datatype == 'text', db.CustomColumns.mark_for_delete == 0)).all()
-    languages = calibre_db.speaking_language()
-    translations = get_available_locale()
-    return render_title_template("config_view_edit.html", conf=config, readColumns=read_column,
-                                 restrictColumns=restrict_columns,
-                                 languages=languages,
-                                 translations=translations,
-                                 title=_("UI Configuration"), page="uiconfig")
+    # The old Display page was folded away; keep the URL working.
+    return redirect(url_for('admin.db_configuration'))
 
 
 @admi.route("/admin/usertable")
 @user_login_required
 @admin_required
 def edit_user_table():
-    visibility = current_user.view_settings.get('useredit', {})
-    languages = calibre_db.speaking_language()
-    translations = get_available_locale()
     all_user = ub.session.query(ub.User)
-    tags = calibre_db.session.query(db.Tags) \
-        .join(db.books_tags_link) \
-        .join(db.Books) \
-        .filter(calibre_db.common_filters()) \
-        .group_by(text('books_tags_link.tag')) \
-        .order_by(db.Tags.name).all()
-    if config.config_restricted_column:
-        try:
-            custom_values = calibre_db.session.query(db.cc_classes[config.config_restricted_column]).all()
-        except (KeyError, AttributeError, IndexError):
-            custom_values = []
-            log.error("Custom Column No.{} does not exist in calibre database".format(
-                config.config_restricted_column))
-            flash(_("Custom Column No.%(column)d does not exist in calibre database",
-                    column=config.config_restricted_column),
-                  category="error")
-    else:
-        custom_values = []
     if not config.config_anonbrowse:
         all_user = all_user.filter(ub.User.role.op('&')(constants.ROLE_ANONYMOUS) != constants.ROLE_ANONYMOUS)
-    return render_title_template("user_table.html",
-                                 users=all_user.all(),
-                                 tags=tags,
-                                 custom_values=custom_values,
-                                 translations=translations,
-                                 languages=languages,
-                                 visiblility=visibility,
-                                 all_roles=constants.ALL_ROLES,
-                                 sidebar_settings=constants.sidebar_settings,
-                                 title=_("Edit Users"),
-                                 page="usertable")
+    return render_title_template("user_table.html", users=all_user.order_by(ub.User.name).all(),
+                                 title=_("Users"), page="usertable")
 
 
 @admi.route("/ajax/listusers")
@@ -660,30 +617,6 @@ def delete_user():
         success = [{'type': "success", 'message': _("{} users deleted successfully").format(count)}]
     success.extend(errors)
     return Response(json.dumps(success), mimetype='application/json')
-
-
-@admi.route("/ajax/getlocale")
-@user_login_required
-@admin_required
-def table_get_locale():
-    locale = get_available_locale()
-    ret = list()
-    current_locale = get_locale()
-    for loc in locale:
-        ret.append({'value': str(loc), 'text': loc.get_language_name(current_locale)})
-    return json.dumps(ret)
-
-
-@admi.route("/ajax/getdefaultlanguage")
-@user_login_required
-@admin_required
-def table_get_default_lang():
-    languages = calibre_db.speaking_language()
-    ret = list()
-    ret.append({'value': 'all', 'text': _('Show All')})
-    for lang in languages:
-        ret.append({'value': lang.lang_code, 'text': lang.name})
-    return json.dumps(ret)
 
 
 @admi.route("/ajax/editlistusers/<param>", methods=['POST'])
@@ -802,47 +735,6 @@ def update_table_settings():
         log.error("Invalid request received: {}".format(request))
         return "Invalid request", 400
     return ""
-
-
-@admi.route("/admin/viewconfig", methods=["POST"])
-@user_login_required
-@admin_required
-def update_view_configuration():
-    to_save = request.form.to_dict()
-
-    _config_string(to_save, "config_calibre_web_title")
-    _config_string(to_save, "config_columns_to_ignore")
-    if _config_string(to_save, "config_title_regex"):
-        calibre_db.create_functions(config)
-
-    if not check_valid_read_column(to_save.get("config_read_column", "0")):
-        flash(_("Invalid Read Column"), category="error")
-        log.debug("Invalid Read column")
-        return view_configuration()
-    _config_int(to_save, "config_read_column")
-
-    if not check_valid_restricted_column(to_save.get("config_restricted_column", "0")):
-        flash(_("Invalid Restricted Column"), category="error")
-        log.debug("Invalid Restricted Column")
-        return view_configuration()
-    _config_int(to_save, "config_restricted_column")
-
-    _config_int(to_save, "config_books_per_page")
-    _config_int(to_save, "config_authors_max")
-    _config_string(to_save, "config_default_language")
-    _config_string(to_save, "config_default_locale")
-
-    config.config_default_role = constants.selected_roles(to_save)
-    config.config_default_role &= ~constants.ROLE_ANONYMOUS
-
-    config.config_default_show = sum(int(k[5:]) for k in to_save if k.startswith('show_'))
-
-    config.save()
-    flash(_("Lily configuration updated"), category="success")
-    log.debug("Lily configuration updated")
-    before_request()
-
-    return view_configuration()
 
 
 @admi.route("/ajax/loaddialogtexts/<element_id>", methods=['POST'])
@@ -1094,22 +986,6 @@ def ajax_pathchooser():
     return pathchooser()
 
 
-def check_valid_read_column(column):
-    if column != "0":
-        if not calibre_db.session.query(db.CustomColumns).filter(db.CustomColumns.id == column) \
-          .filter(and_(db.CustomColumns.datatype == 'bool', db.CustomColumns.mark_for_delete == 0)).all():
-            return False
-    return True
-
-
-def check_valid_restricted_column(column):
-    if column != "0":
-        if not calibre_db.session.query(db.CustomColumns).filter(db.CustomColumns.id == column) \
-          .filter(and_(db.CustomColumns.datatype == 'text', db.CustomColumns.mark_for_delete == 0)).all():
-            return False
-    return True
-
-
 def restriction_addition(element, list_func):
     elementlist = list_func()
     if elementlist == ['']:
@@ -1344,64 +1220,8 @@ def new_user():
 @user_login_required
 @admin_required
 def edit_scheduledtasks():
-    content = config.get_scheduled_task_settings()
-    time_field = list()
-    duration_field = list()
-
-    for n in range(24):
-        time_field.append((n, format_time(datetime_time(hour=n), format="short", )))
-    for n in range(5, 65, 5):
-        t = timedelta(hours=n // 60, minutes=n % 60)
-        duration_field.append((n, format_timedelta(t, threshold=.97)))
-
-    return render_title_template("schedule_edit.html",
-                                 config=content,
-                                 starttime=time_field,
-                                 duration=duration_field,
-                                 title=_("Edit Scheduled Tasks Settings"))
-
-
-@admi.route("/admin/scheduledtasks", methods=["POST"])
-@user_login_required
-@admin_required
-def update_scheduledtasks():
-    error = False
-    to_save = request.form.to_dict()
-    if 0 <= int(to_save.get("schedule_start_time")) <= 23:
-        _config_int(to_save, "schedule_start_time")
-    else:
-        flash(_("Invalid start time for task specified"), category="error")
-        error = True
-    if 0 < int(to_save.get("schedule_duration")) <= 60:
-        _config_int(to_save, "schedule_duration")
-    else:
-        flash(_("Invalid duration for task specified"), category="error")
-        error = True
-    _config_checkbox(to_save, "schedule_generate_book_covers")
-    _config_checkbox(to_save, "schedule_generate_series_covers")
-    _config_checkbox(to_save, "schedule_metadata_backup")
-    _config_checkbox(to_save, "schedule_reconnect")
-
-    if not error:
-        try:
-            config.save()
-            flash(_("Scheduled tasks settings updated"), category="success")
-
-            # Cancel any running tasks
-            schedule.end_scheduled_tasks()
-
-            # Re-register tasks with new settings
-            schedule.register_scheduled_tasks(config.schedule_reconnect)
-        except IntegrityError:
-            ub.session.rollback()
-            log.error("An unknown error occurred while saving scheduled tasks settings")
-            flash(_("Oops! An unknown error occurred. Please try again later."), category="error")
-        except OperationalError:
-            ub.session.rollback()
-            log.error("Settings DB is not Writeable")
-            flash(_("Settings DB is not Writeable"), category="error")
-
-    return edit_scheduledtasks()
+    # Scheduled tasks run on their defaults; the old page is gone.
+    return redirect(url_for('admin.admin'))
 
 
 def _build_opds_context(user):
@@ -1437,7 +1257,7 @@ def edit_user(user_id):
     content = ub.session.query(ub.User).filter(ub.User.id == int(user_id)).first()  # type: ub.User
     if not content or (not config.config_anonbrowse and content.name == "Guest"):
         flash(_("User not found"), category="error")
-        return redirect(url_for('admin.admin'))
+        return redirect(url_for('admin.edit_user_table'))
     languages = calibre_db.speaking_language(return_all_languages=True)
     translations = get_available_locale()
 
@@ -1685,10 +1505,11 @@ def _db_configuration_result(error_flash=None, gdrive_error=None):
 
 
 def _handle_new_user(to_save, content, languages, translations):
-    content.default_language = to_save["default_language"]
+    content.default_language = to_save.get("default_language", config.config_default_language)
     content.locale = to_save.get("locale", content.locale)
 
-    content.sidebar_view = sum(int(key[5:]) for key in to_save if key.startswith('show_'))
+    shown = [int(key[5:]) for key in to_save if key.startswith('show_')]
+    content.sidebar_view = sum(shown) if shown else config.config_default_show
 
     content.role = constants.selected_roles(to_save)
     try:
@@ -1718,7 +1539,7 @@ def _handle_new_user(to_save, content, languages, translations):
         ub.session.commit()
         flash(_("User '%(user)s' created", user=content.name), category="success")
         log.debug("User {} created".format(content.name))
-        return redirect(url_for('admin.admin'))
+        return redirect(url_for('admin.edit_user_table'))
     except IntegrityError:
         ub.session.rollback()
         log.error("Found an existing account for {} or {}".format(content.name, content.email))
@@ -1760,27 +1581,32 @@ def _handle_edit_user(to_save, content, languages, translations):
         except Exception as ex:
             log.error(ex)
             flash(str(ex), category="error")
-        return redirect(url_for('admin.admin'))
+        return redirect(url_for('admin.edit_user_table'))
     if not ub.session.query(ub.User).filter(ub.User.role.op('&')(constants.ROLE_ADMIN) == constants.ROLE_ADMIN,
                                             ub.User.id != content.id).count() and 'admin_role' not in to_save:
         log.warning("No admin user remaining, can't remove admin role from {}".format(content.name))
         flash(_("No admin user remaining, can't remove admin role"), category="error")
-        return redirect(url_for('admin.admin'))
+        return redirect(url_for('admin.edit_user_table'))
 
+    # The user form no longer shows sidebar or OPDS options, so those keep their values.
     val = [int(k[5:]) for k in to_save if k.startswith('show_')]
-    sidebar, __ = get_sidebar_config()
-    for element in sidebar:
-        value = element['visibility']
-        if value in val and not content.check_visibility(value):
-            content.sidebar_view |= value
-        elif value not in val and content.check_visibility(value):
-            content.sidebar_view &= ~value
+    if val:
+        sidebar, __ = get_sidebar_config()
+        for element in sidebar:
+            value = element['visibility']
+            if value in val and not content.check_visibility(value):
+                content.sidebar_view |= value
+            elif value not in val and content.check_visibility(value):
+                content.sidebar_view &= ~value
 
-    content.auto_metadata_fetch = to_save.get("auto_metadata_fetch") == "on"
+    if "auto_metadata_fetch" in to_save:
+        content.auto_metadata_fetch = to_save.get("auto_metadata_fetch") == "on"
 
     # OPDS root order
     opds_order_raw = to_save.get("opds_root_order", "").strip()
-    if opds_order_raw:
+    if "opds_root_order" not in to_save:
+        pass
+    elif opds_order_raw:
         from .opds import normalize_opds_root_order
         opds_order_list = [item.strip() for item in opds_order_raw.split(',') if item.strip()]
         normalized_order = normalize_opds_root_order(opds_order_list)
@@ -1797,7 +1623,9 @@ def _handle_edit_user(to_save, content, languages, translations):
 
     # OPDS hidden entries
     opds_hidden_raw = to_save.get("opds_hidden_entries", "").strip()
-    if opds_hidden_raw:
+    if "opds_hidden_entries" not in to_save:
+        pass
+    elif opds_hidden_raw:
         from .opds import OPDS_ROOT_ENTRY_DEFS
         hidden_entries = [item.strip() for item in opds_hidden_raw.split(',') if item.strip()]
         hidden_entries = [key for key in hidden_entries if key in OPDS_ROOT_ENTRY_DEFS]

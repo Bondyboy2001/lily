@@ -81,7 +81,6 @@ def test_init_calibre_db_from_app_db_reads_settings(tmp_path):
         ("config_calibre_dir", "TEXT"),
         ("config_title_regex", "TEXT"),
         ("config_books_per_page", "INTEGER"),
-        ("config_random_books", "INTEGER"),
         ("config_read_column", "INTEGER"),
         ("config_restricted_column", "INTEGER"),
         ("config_columns_to_ignore", "TEXT"),
@@ -90,7 +89,6 @@ def test_init_calibre_db_from_app_db_reads_settings(tmp_path):
         "/calibre-library",
         "^Test\\s+",
         77,
-        9,
         2,
         3,
         "tags,authors",
@@ -107,7 +105,6 @@ def test_init_calibre_db_from_app_db_reads_settings(tmp_path):
     assert config.config_calibre_dir == "/calibre-library"
     assert config.config_title_regex == "^Test\\s+"
     assert config.config_books_per_page == 77
-    assert config.config_random_books == 9
     assert config.config_read_column == 2
     assert config.config_restricted_column == 3
     assert config.config_columns_to_ignore == "tags,authors"
@@ -134,7 +131,6 @@ def test_init_calibre_db_from_app_db_defaults_missing_columns(tmp_path):
     config = dummy_db.config
     assert config.config_calibre_dir == "/calibre-library"
     assert config.config_books_per_page == calibre_init.DEFAULT_BOOKS_PER_PAGE
-    assert config.config_random_books == calibre_init.DEFAULT_RANDOM_BOOKS
     assert config.config_read_column == calibre_init.DEFAULT_READ_COLUMN
     assert config.config_restricted_column == calibre_init.DEFAULT_RESTRICTED_COLUMN
     assert config.config_columns_to_ignore is None

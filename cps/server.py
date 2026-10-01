@@ -16,18 +16,14 @@ try:
     from .gevent_wsgi import MyWSGIHandler
     from gevent.pool import Pool
     from gevent.socket import socket as GeventSocket
-    from gevent import __version__ as _version
     from greenlet import GreenletExit
     import ssl
-    VERSION = 'Gevent ' + _version
     _GEVENT = True
 except ImportError:
     from .tornado_wsgi import MyWSGIContainer
     from tornado.httpserver import HTTPServer
     from tornado.ioloop import IOLoop
     from tornado import netutil
-    from tornado import version as _version
-    VERSION = 'Tornado ' + _version
     _GEVENT = False
 
 from . import logger, constants

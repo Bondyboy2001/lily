@@ -90,8 +90,8 @@ def author_list():
         entries = calibre_db.session.query(db.Authors, func.count('books_authors_link.book').label('count')) \
             .join(db.books_authors_link).join(db.Books).filter(calibre_db.common_filters()) \
             .group_by(text('books_authors_link.author')).order_by(order).all()
-        char_list = query_char_list(db.Authors.name, db.books_authors_link)
-        return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=char_list,
+        # No initials filter on the authors page: the list is sorted, so the letter menu only adds noise
+        return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=[],
                                      title="Authors", page="authorlist", data='author', order=order_no)
     else:
         abort(404)

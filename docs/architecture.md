@@ -94,5 +94,6 @@ New blueprints must be added in `main.py` **and** `tests/unit/lily_env.py`.
 ```bash
 .venv/bin/python -m pytest tests/unit -q
 .venv/bin/python -m ruff check cps scripts tests
+.venv/bin/vulture
 .venv/bin/python -m mypy
 ```

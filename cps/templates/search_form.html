@@ -7,7 +7,7 @@
   <input type="text" class="datepicker form-control" name="{{ name }}" id="{{ name }}" value="" aria-label="{{ label }}" autocomplete="off">
   <input type="text" class="form-control fake-input hidden" id="fake_{{ name }}" value="" tabindex="-1" aria-hidden="true">
   <span class="input-group-btn">
-    <button type="button" id="{{ name }}_delete" class="datepicker_delete btn btn-default" aria-label="{{_('Clear date')}}"><span class="glyphicon glyphicon-remove-circle" aria-hidden="true"></span></button>
+    <button type="button" id="{{ name }}_delete" class="datepicker_delete btn btn-default" aria-label="{{_('Clear date')}}"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span></button>
   </span>
 </div>
 {%- endmacro %}
@@ -56,10 +56,10 @@
         </select>
       {% endcall %}
       {% call f.row(_('Rating Above'), for_id='ratinghigh') %}
-        <input type="number" name="ratinghigh" id="ratinghigh" class="rating" data-clearable="">
+        <input type="number" name="ratinghigh" id="ratinghigh" class="rating" data-clearable="" data-clearable-icon="glyphicon-trash">
       {% endcall %}
       {% call f.row(_('Rating Below'), for_id='ratinglow') %}
-        <input type="number" name="ratinglow" id="ratinglow" class="rating" data-clearable="">
+        <input type="number" name="ratinglow" id="ratinglow" class="rating" data-clearable="" data-clearable-icon="glyphicon-trash">
       {% endcall %}
     {% endcall %}
 

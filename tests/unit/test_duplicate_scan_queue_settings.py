@@ -275,33 +275,34 @@ def test_direct_duplicate_queue_helper_defaults_to_settings(monkeypatch):
     assert timers[0].delay == 60
 
 
-def test_cwa_settings_criteria_change_marks_duplicate_index_pending(monkeypatch):
-    pending_reasons.clear()
+def test_cwa_settings_saves_only_the_fields_the_page_shows(monkeypatch):
     request = SimpleNamespace(
         method="POST",
-        form={"submit_button": "Submit", "duplicate_detection_title": "on"},
+        form={"auto_metadata_fetch_enabled": "on", "auto_ingest_automerge": "overwrite",
+              "config_google_books_api_key": " abc ", "config_uploading": "on"},
     )
     module = _load_cwa_functions(monkeypatch, request)
     _SettingsCwaDB.instances = []
 
     module.set_cwa_settings()
 
-    assert pending_reasons == ["duplicate criteria settings changed"]
+    saved = _SettingsCwaDB.instances[0].updated_settings
+    assert saved == {
+        "auto_metadata_fetch_enabled": 1,
+        "auto_metadata_enforcement": 0,
+        "auto_ingest_automerge": "overwrite",
+    }
+    # Settings the page no longer shows are never written.
+    assert "duplicate_detection_enabled" not in saved and "hardcover_auto_fetch_enabled" not in saved
+    config = sys.modules["cps.config"]
+    assert config.config_google_books_api_key == "abc" and config.config_uploading == 1
 
 
-def test_cwa_settings_unchanged_criteria_does_not_mark_pending(monkeypatch):
-    pending_reasons.clear()
-    request = SimpleNamespace(
-        method="POST",
-        form={
-            "submit_button": "Submit",
-            "duplicate_detection_title": "on",
-            "duplicate_detection_author": "on",
-        },
-    )
+def test_cwa_settings_ignores_an_unknown_merge_option(monkeypatch):
+    request = SimpleNamespace(method="POST", form={"auto_ingest_automerge": "drop_table"})
     module = _load_cwa_functions(monkeypatch, request)
     _SettingsCwaDB.instances = []
 
     module.set_cwa_settings()
 
-    assert pending_reasons == []
+    assert "auto_ingest_automerge" not in _SettingsCwaDB.instances[0].updated_settings

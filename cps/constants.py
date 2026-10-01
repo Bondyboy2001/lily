@@ -21,7 +21,6 @@ BASE_DIR            = os.path.abspath(os.path.join(os.path.dirname(os.path.abspa
 # if executable file the files should be placed in the parent dir (parallel to the exe file)
 
 STATIC_DIR          = os.path.join(BASE_DIR, 'cps', 'static')
-TRANSLATIONS_DIR    = os.path.join(BASE_DIR, 'cps', 'translations')
 
 # Cache dir - use CACHE_DIR environment variable, otherwise use the default directory: cps/cache
 DEFAULT_CACHE_DIR   = os.path.join(BASE_DIR, 'cps', 'cache')
@@ -109,8 +108,6 @@ ADMIN_USER_ROLES        = sum(r for r in ALL_ROLES.values()) & ~ROLE_ANONYMOUS
 DEFAULT_SIDEBAR         = (SIDEBAR_RECENT | SIDEBAR_CATEGORY | SIDEBAR_SERIES | SIDEBAR_AUTHOR
                            | SIDEBAR_READ_AND_UNREAD | SIDEBAR_ARCHIVED)
 ADMIN_USER_SIDEBAR      = DEFAULT_SIDEBAR
-
-UPDATE_STABLE       = 0 << 0
 
 DEFAULT_ADMIN_NAME  = "harry"
 DEFAULT_PASSWORD    = "harry10"  # nosec

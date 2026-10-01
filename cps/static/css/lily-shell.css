@@ -197,6 +197,13 @@ body { margin: 0; }
 
 .lily-search .form-control { width: 100%; }
 
+/* The field opens up while it has focus; the bar is a flex row, so it grows leftwards. */
+@media (prefers-reduced-motion: no-preference) {
+    .lily-topbar .lily-search { transition: width .4s cubic-bezier(.25, .46, .45, .94); }
+}
+
+.lily-topbar .lily-search:focus-within { width: min(480px, 52vw); }
+
 /* Top bar controls match the book page's action icons: 38px control, 21px glyph. */
 .lily-topbar .icon-btn {
     width: 38px;

@@ -20,6 +20,8 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
+import title_card  # stdlib only at import time; Wand loads when a card is drawn
+
 # ── Lazy-initialization sentinels ──────────────────────────────────────────
 # Heavy modules (GDrive sync, auto-send, metadata fetch, audiobook support,
 # EPUB fixing) are NOT imported at module level.  All globals below start as
@@ -773,9 +775,23 @@ class NewBookProcessor:
         imported = False
         try:
             if text:
-                result = subprocess.run([
+                add_command = [
                     "calibredb", "add", str(staged_path), "--automerge", self.cwa_settings['auto_ingest_automerge'], f"--library-path={self.library_dir}"
-                ], env=self.calibre_env, check=True, capture_output=True, text=True)
+                ]
+                # An EPUB with no cover image gets a title card rather than calibre's edge-to-edge
+                # render of its first page. calibredb only applies --cover to a new record; a merge
+                # into an existing book keeps that book's cover.
+                card_path = staged_path.with_name(staged_path.stem + ".title-card.jpg")
+                if staged_path.suffix.lower() == ".epub":
+                    try:
+                        if title_card.card_for_epub(staged_path, card_path):
+                            add_command.extend(["--cover", str(card_path)])
+                    except Exception as e:
+                        print(f"[ingest-processor] WARN: Could not make a title card, calibre will render the first page: {e}", flush=True)
+                try:
+                    result = subprocess.run(add_command, env=self.calibre_env, check=True, capture_output=True, text=True)
+                finally:
+                    card_path.unlink(missing_ok=True)
                 added_ids = self._parse_added_book_ids((result.stdout or '') + '\n' + (result.stderr or ''))
                 if added_ids:
                     self.last_added_book_ids = added_ids

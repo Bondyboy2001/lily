@@ -9,28 +9,31 @@
 <div class="lp">
   <form role="form" method="POST" action="{{ url_for('admin.db_configuration') }}" autocomplete="off">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    {% call f.group(_('Calibre Library')) %}
-      {% call f.row(_('Database Location'), for_id='config_calibre_dir', help=_('Found automatically inside /calibre-library on start-up. Change the host side of the volume in docker-compose, never the /calibre-library side.')) %}
+    {% call f.group(_('Calibre library')) %}
+      {% call f.row(_('Library folder'), for_id='config_calibre_dir', help=_('Found automatically in /calibre-library.')) %}
         <input type="text" class="form-control" id="config_calibre_dir" name="config_calibre_dir" value="{% if config.config_calibre_dir != None %}{{ config.config_calibre_dir }}{% endif %}" autocomplete="off" readonly>
         <button type="button" data-toggle="modal" id="calibre_modal_path" data-link="config_calibre_dir" data-filefilter="metadata.db" data-target="#fileModal" class="icon-btn" title="{{_('Choose a path')}}" aria-label="{{_('Choose a path')}}" disabled><span class="glyphicon glyphicon-folder-open" aria-hidden="true"></span></button>
       {% endcall %}
-      {{ f.toggle('config_calibre_split', _('Separate Book Files from Library'), config.config_calibre_split, help=_('Keep metadata.db in /calibre-library and the book files in another folder, such as /books.'), control='split_settings', attrs='data-t="' ~ (config.config_calibre_split_dir|e) ~ '"') }}
+      {{ f.toggle('config_calibre_split', _('Book files in another folder'), config.config_calibre_split, control='split_settings', attrs='data-t="' ~ (config.config_calibre_split_dir|e) ~ '"') }}
       {% call f.sub('split_settings') %}
-        {% call f.row(_('Book Files Location'), for_id='config_calibre_split_dir') %}
+        {% call f.row(_('Book files folder'), for_id='config_calibre_split_dir') %}
           <input type="text" class="form-control" id="config_calibre_split_dir" name="config_calibre_split_dir" value="{% if config.config_calibre_split_dir != None %}{{ config.config_calibre_split_dir }}{% endif %}" autocomplete="off">
           <button type="button" data-toggle="modal" id="calibre_modal_split_path" data-link="config_calibre_split_dir" data-filefilter="" data-target="#fileModal" class="icon-btn" title="{{_('Choose a path')}}" aria-label="{{_('Choose a path')}}"><span class="glyphicon glyphicon-folder-open" aria-hidden="true"></span></button>
         {% endcall %}
       {% endcall %}
+    {% endcall %}
+
     {% if feature_support['gdrive'] %}
-      {{ f.toggle('config_use_google_drive', _('Google Drive'), config.config_use_google_drive, control='gdrive_settings') }}
+    {% call f.group(_('Google Drive')) %}
+      {{ f.toggle('config_use_google_drive', _('Use Google Drive'), config.config_use_google_drive, help=_('Keep the library in Google Drive instead of on disk.'), control='gdrive_settings') }}
       {% if not gdriveError and config.config_use_google_drive %}
         {% if show_authenticate_google_drive and config.config_use_google_drive %}
-          {% call f.row(_('Google Drive')) %}
-            <a href="{{ url_for('gdrive.authenticate_google_drive') }}" id="gdrive_auth" class="btn btn-default">{{_('Authenticate Google Drive')}}</a>
+          {% call f.row(_('Account'), help=_('Sign in to the Google account that holds the library.')) %}
+            <a href="{{ url_for('gdrive.authenticate_google_drive') }}" id="gdrive_auth" class="btn btn-default">{{_('Connect')}}</a>
           {% endcall %}
         {% else %}
           {% if not show_authenticate_google_drive %}
-            {% call f.row(_('Google Drive Calibre folder'), for_id='config_google_drive_folder') %}
+            {% call f.row(_('Drive folder'), for_id='config_google_drive_folder') %}
               <select name="config_google_drive_folder" id="config_google_drive_folder" class="form-control">
                 {% for gdrivefolder in gdrivefolders %}
                 <option value="{{ gdrivefolder.title }}" {% if gdrivefolder.title == config.config_google_drive_folder %}selected{% endif %}>{{ gdrivefolder.title }}</option>
@@ -38,20 +41,20 @@
               </select>
             {% endcall %}
             {% if config.config_google_drive_watch_changes_response %}
-              {% call f.row(_('Metadata Watch Channel ID'), for_id='config_google_drive_watch_changes_response') %}
+              {% call f.row(_('Watching for changes'), for_id='config_google_drive_watch_changes_response') %}
                 <input type="text" class="form-control" name="config_google_drive_watch_changes_response" id="config_google_drive_watch_changes_response" value="{{ config.config_google_drive_watch_changes_response['id'] }} expires on {{ config.config_google_drive_watch_changes_response['expiration'] |  strftime }}" autocomplete="off" disabled="">
                 <a href="{{ url_for('gdrive.revoke_watch_gdrive') }}" id="watch_revoke" class="btn btn-danger">{{_('Revoke')}}</a>
               {% endcall %}
             {% else %}
-              {% call f.row(_('Metadata Watch')) %}
-                <a href="{{ url_for('gdrive.watch_gdrive') }}" id="enable_gdrive_watch" class="btn btn-default">Enable watch of metadata.db</a>
+              {% call f.row(_('Watch for changes'), help=_('Reload the library when metadata.db changes in Drive.')) %}
+                <a href="{{ url_for('gdrive.watch_gdrive') }}" id="enable_gdrive_watch" class="btn btn-default">{{ _('Turn on') }}</a>
               {% endcall %}
             {% endif %}
           {% endif %}
         {% endif %}
       {% endif %}
-    {% endif %}
     {% endcall %}
+    {% endif %}
 
     <div class="lp-actions">
       <span class="lp-spacer"></span>
@@ -60,35 +63,6 @@
     </div>
   </form>
 
-  {% call f.group(_('Troubleshooting')) %}
-    <details class="lp-more">
-      <summary>If Lily can't open your library</summary>
-      <div class="lp-more-body">
-        <div class="lp-row is-wide">
-          <div class="lp-text">
-            <span class="lp-title">Common causes</span>
-            <ul class="lp-help">
-              <li>Calibre or another app is using the same metadata.db while Lily runs</li>
-              <li>The library is on a network share, unionfs or mergerfs without <code>NETWORK_SHARE_MODE</code> enabled in docker-compose</li>
-              <li>The path to metadata.db changed or is wrong</li>
-              <li>metadata.db is missing or corrupted (try opening it in Calibre)</li>
-              <li>Lily lacks permission to read or write the file</li>
-            </ul>
-            <p class="lp-help">If none of these apply, restore metadata.db from a backup or use Last Resort below.</p>
-          </div>
-        </div>
-      </div>
-    </details>
-  {% endcall %}
-
-  <form method="POST" action="{{ url_for('admin.restore_calibre_db') }}">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    {% call f.group(_('Last Resort')) %}
-      {% call f.row(_('Restore Calibre Database (experimental)'), help=_('Rebuilds metadata.db from the OPF files in your library. Erases per-book data such as reading progress and shelf links; accounts and settings stay. Both databases are backed up to /config/backup first.')) %}
-        <button type="submit" class="btn btn-danger" data-confirm="{{ _('Are you sure? This cannot be undone.') }}" onclick="return confirm(this.dataset.confirm);">{{ _('Restore') }}</button>
-      {% endcall %}
-    {% endcall %}
-  </form>
 </div>
 {% endblock %}
 {% block modal %}

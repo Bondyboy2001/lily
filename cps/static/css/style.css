@@ -136,7 +136,7 @@ table .bg-dark-danger a {
 .rating .glyphicon-star.good {
   color: var(--accent);
 }
-.rating-clear .glyphicon-remove {
+.rating-clear .glyphicon {
   color: var(--muted);
 }
 

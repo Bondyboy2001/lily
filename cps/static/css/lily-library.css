@@ -123,6 +123,14 @@
     color: var(--accent);
 }
 
+.btn.lily-chip:hover,
+.btn.lily-chip:focus {
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
+.btn.lily-chip:active { background: var(--selected); }
+
 .btn.lily-chip.disabled {
     opacity: .4;
     pointer-events: none;
@@ -237,6 +245,9 @@
     font-size: 11px;
 }
 
+/* Grid covers show read state on the action chip; the corner tick is list-view only. */
+body:not([data-book-view="list"]) .lily-book .cover .badge.read { display: none; }
+
 .lily-cover-formats {
     position: absolute;
     top: 6px;
@@ -331,6 +342,12 @@
     letter-spacing: 1px;
 }
 
+/* A read book's cover is edged in green (lily.js toggles .is-read with the check button). */
+.lily-book.is-read .cover::after {
+    outline: 3px solid var(--success);
+    outline-offset: -3px;
+}
+
 /* Quick actions: a bar of round icon buttons over the cover's foot, shown on hover or keyboard focus.
    The buttons are skinned through the --btn-* variables, which list view overrides. */
 .lily-cover-actions {
@@ -367,7 +384,19 @@
 
 .lily-cover-actions .icon-btn .glyphicon { font-size: 15px; }
 
-.lily-cover-actions .icon-btn[aria-pressed="true"] { background: var(--btn-bg); color: var(--success); }
+/* Read: the check button fills green, and the cover gets a green edge (below). The solid disc is
+   drawn 4px smaller (the margin keeps its slot), since edge to edge it reads bigger than the
+   pale outlined buttons beside it. */
+.lily-cover-actions .icon-btn[aria-pressed="true"],
+.lily-cover-actions .icon-btn[aria-pressed="true"]:hover,
+.lily-cover-actions .icon-btn[aria-pressed="true"]:focus {
+    width: calc(var(--btn-size) - 4px);
+    height: calc(var(--btn-size) - 4px);
+    margin: 2px;
+    border-color: var(--success);
+    background: var(--success);
+    color: var(--surface);
+}
 
 .lily-cover-actions .icon-btn.is-busy { opacity: .4; pointer-events: none; }
 
@@ -381,6 +410,51 @@
     .lily-book:focus-within .lily-cover-actions { opacity: 1; }
 }
 
+/* Motion: covers fade in one after another on load (lily.js sets --i), lift on hover, and
+   the action buttons rise in a beat apart. Skipped entirely under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+    .lily-grid > .lily-book {
+        animation: lily-card-in .6s cubic-bezier(.25, .46, .45, .94) both;
+        animation-delay: calc(min(var(--i, 0), 14) * 30ms);
+    }
+
+    .lily-book .cover { transition: transform .3s cubic-bezier(.25, .46, .45, .94); }
+
+    .lily-book:hover .cover,
+    .lily-book:focus-within .cover { transform: translateY(-5px); }
+
+    .lily-book .meta .title { transition: color .2s; }
+
+    .lily-book:hover .meta .title { color: var(--accent); }
+
+    .lily-cover-actions .icon-btn {
+        transform: translateY(8px);
+        transition: transform .3s cubic-bezier(.25, .46, .45, .94), background-color .12s, color .12s;
+    }
+
+    .lily-book:hover .lily-cover-actions .icon-btn,
+    .lily-book:focus-within .lily-cover-actions .icon-btn { transform: none; }
+
+    .lily-cover-actions .icon-btn:nth-child(2) { transition-delay: .04s, 0s, 0s; }
+    .lily-cover-actions .icon-btn:nth-child(3) { transition-delay: .08s, 0s, 0s; }
+}
+
+/* Refresh spins once while the pointer is on it; a new read mark is drawn left to right. */
+@media (prefers-reduced-motion: no-preference) {
+    #refresh-library:hover .glyphicon { animation: lily-spin .8s cubic-bezier(.25, .46, .45, .94); }
+
+    .lily-book .cover .badge.read.is-new,
+    .book-detail-cover .badge.read.is-new { animation: lily-draw .45s cubic-bezier(.25, .46, .45, .94) both; }
+}
+
+@keyframes lily-spin { to { transform: rotate(360deg); } }
+
+@keyframes lily-draw { from { clip-path: inset(0 100% 0 0); } }
+
+@keyframes lily-card-in {
+    from { opacity: 0; transform: translateY(12px); }
+}
+
 /* Touch screens have no hover, so the bar stays visible with larger hit areas. */
 @media (hover: none) {
     .lily-cover-actions { --btn-size: 36px; }
@@ -389,75 +463,107 @@
 /* Grid cards show the title only; list rows keep the authors. */
 body:not([data-book-view="list"]) .lily-book .meta .author { display: none; }
 
-/* List view (the top bar's List icon sets body[data-book-view]): one row per
-   book, a small cover, the text in a column, rating and actions at the end. */
+/* List view (the top bar's List icon sets body[data-book-view]): one row per book.
+   The rules are anchored on ".lily-grid > .lily-book" to outrank the grid card rules above.
+   The cover box is dissolved (display: contents) so its link and its action bar become cells
+   of the row: thumbnail | title, authors, series | formats | rating | actions.
+   Formats, rating and actions keep fixed widths so the columns line up from row to row. */
 body[data-book-view="list"] .row.lily-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
 }
 
-body[data-book-view="list"] .lily-book {
+body[data-book-view="list"] .lily-grid > .lily-book {
     display: grid;
-    grid-template-columns: 44px minmax(0, 1fr);
-    column-gap: 14px;
-    align-items: center;
-    padding: 10px 0;
-}
-
-body[data-book-view="list"] .lily-book .cover {
-    margin: 0;
-    border-radius: 4px;
-}
-
-body[data-book-view="list"] .lily-book .cover::after { border-radius: 4px; }
-
-body[data-book-view="list"] .lily-book .cover .badge {
-    top: 3px;
-    left: 3px;
-    min-width: 14px;
-    width: 14px;
-    height: 14px;
-    font-size: 9px;
-}
-
-body[data-book-view="list"] .lily-book .meta {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: 56px minmax(0, 1fr) auto;
     column-gap: 16px;
     align-items: center;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line-soft);
 }
 
-body[data-book-view="list"] .lily-book .meta > :not(.rating):not(.lily-cover-actions) { grid-column: 1; }
+body[data-book-view="list"] .lily-grid > .lily-book:hover,
+body[data-book-view="list"] .lily-grid > .lily-book:focus-within { background: var(--row-hover); }
 
-body[data-book-view="list"] .lily-book .meta .title,
-body[data-book-view="list"] .lily-book .meta .author,
-body[data-book-view="list"] .lily-book .meta .series { -webkit-line-clamp: 1; }
+body[data-book-view="list"] .lily-grid > .lily-book .cover { display: contents; }
 
-body[data-book-view="list"] .lily-book .meta .rating {
-    grid-column: 2;
-    grid-row: 1 / span 3;
-    margin: 0;
+body[data-book-view="list"] .lily-grid > .lily-book .cover::after { display: none; }
+
+body[data-book-view="list"] .lily-grid > .lily-book .cover > a {
+    grid-column: 1;
+    grid-row: 1;
+    position: relative;
+    height: auto;
+    aspect-ratio: 1 / 1.414;
+    border-radius: 4px;
+    background: var(--sunk);
+    overflow: hidden;
 }
 
-/* The 44px list cover is too small for the bar: the actions leave it and sit at the row's end.
-   The cover stops being the positioning box, so the badge and hairline are re-anchored. */
-body[data-book-view="list"] .lily-book { position: relative; }
-
-body[data-book-view="list"] .lily-book .cover { position: static; }
-
-body[data-book-view="list"] .lily-book .cover::after { display: none; }
-
-body[data-book-view="list"] .lily-book .cover .img {
+body[data-book-view="list"] .lily-grid > .lily-book .cover .img {
     border-radius: 4px;
     outline: 1px solid var(--line-soft);
     outline-offset: -1px;
 }
 
-body[data-book-view="list"] .lily-book .cover .badge { top: 13px; left: 13px; }
+body[data-book-view="list"] .lily-book.is-read .cover .img { outline: 2px solid var(--success); }
+
+/* The read mark: a green check centred on the thumbnail. */
+body[data-book-view="list"] .lily-grid > .lily-book .cover .badge.read {
+    top: 50%;
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    transform: translate(-50%, -50%);
+    min-width: 26px;
+    width: 26px;
+    height: 26px;
+    background: var(--success);
+    color: var(--on-accent);
+    font-size: 12px;
+}
 
 body[data-book-view="list"] .lily-cover-formats { display: none; }
 
-body[data-book-view="list"] .lily-book .lily-cover-actions {
+body[data-book-view="list"] .lily-grid > .lily-book .meta {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 56px 84px;
+    column-gap: 16px;
+    align-items: center;
+}
+
+body[data-book-view="list"] .lily-grid > .lily-book .meta > * { grid-column: 1; }
+
+body[data-book-view="list"] .lily-grid > .lily-book .meta .title,
+body[data-book-view="list"] .lily-grid > .lily-book .meta .author,
+body[data-book-view="list"] .lily-grid > .lily-book .meta .series { -webkit-line-clamp: 1; }
+
+body[data-book-view="list"] .lily-grid > .lily-book .meta .title { margin: 0; }
+
+body[data-book-view="list"] .lily-grid > .lily-book .meta .author,
+body[data-book-view="list"] .lily-grid > .lily-book .meta .series { font-size: 13px; }
+
+body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-formats {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    display: flex;
+    gap: 6px;
+}
+
+body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-formats .lily-format {
+    width: 20px;
+    height: 20px;
+}
+
+body[data-book-view="list"] .lily-grid > .lily-book .meta .rating {
+    grid-column: 3;
+    grid-row: 1 / span 3;
+    margin: 0;
+}
+
+body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
     --btn-size: 30px;
     --btn-bg: transparent;
     --btn-hover-bg: var(--control-tint);
@@ -465,12 +571,29 @@ body[data-book-view="list"] .lily-book .lily-cover-actions {
     --btn-radius: var(--control-radius);
     --btn-ink: var(--faint);
     --btn-hover-ink: var(--ink);
-    left: auto;
-    top: 50%;
-    bottom: auto;
-    transform: translateY(-50%);
+    grid-column: 3;
+    grid-row: 1;
+    position: static;
     padding: 0;
     gap: 2px;
+}
+
+/* Grid cards only: the list rows have a column for these. */
+.lily-list-formats { display: none; }
+
+/* Phones: the format and rating columns go, so the title gets the room. */
+@media (max-width: 767px) {
+    body[data-book-view="list"] .lily-grid > .lily-book {
+        column-gap: 12px;
+        padding: 10px 4px;
+    }
+
+    body[data-book-view="list"] .lily-grid > .lily-book .meta { grid-template-columns: minmax(0, 1fr); }
+
+    body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-formats,
+    body[data-book-view="list"] .lily-grid > .lily-book .meta .rating { display: none; }
+
+    body[data-book-view="list"] .lily-grid > .lily-book .meta .title { -webkit-line-clamp: 2; }
 }
 
 /* Series grid (grid.html): Isotope lays the items out, so they need a fixed width. */
@@ -767,6 +890,7 @@ body[data-book-view="list"] .lily-book .lily-cover-actions {
 
 .container-fluid .book-detail-cover.cover,
 .book-detail-cover {
+    position: relative;
     height: auto;
     margin: 0;
 }
@@ -979,14 +1103,20 @@ dl.book-metadata {
 /* ------------------------------------------------------------------ */
 /* Advanced search (search_form.html) and shared pickers                */
 /* ------------------------------------------------------------------ */
-#search.lily-search-form,
-form#search { max-width: 640px; }
-
 /* Advanced search uses the settings rows (lily_form.html, lp-* in lily-admin.css) with a
-   narrower label column, so the fields and include/exclude pairs get the width. */
-.lily-search-page { max-width: 760px; }
+   narrower label column, so the fields and include/exclude pairs get the width.
+   It spans the page: the groups (Book, Filters, Custom Columns) sit side by side once
+   two columns fit, and stack below that. The Search button spans every column. */
+.lily-search-page form#search {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr));
+    column-gap: 28px;
+    align-items: start;
+}
 
-.lily-search-page .lp-row { grid-template-columns: minmax(0, 170px) minmax(0, 1fr); }
+.lily-search-page form#search > .lily-form-actions-left { grid-column: 1 / -1; }
+
+.lily-search-page .lp-row { grid-template-columns: minmax(0, 130px) minmax(0, 1fr); }
 
 .lily-search-page .lp-control > .bootstrap-select,
 .lily-search-page .lp-control > .input-group {
@@ -1088,17 +1218,11 @@ form#search { max-width: 640px; }
 .input-group .form-control:first-child { border-radius: 7px; }
 
 .input-group-btn:last-child > .btn.datepicker_delete {
-    width: 30px;
     margin-left: 4px;
     padding: 0;
+    border: 0;
     border-radius: var(--control-radius);
     background: transparent;
-    color: var(--muted);
-}
-
-.input-group-btn:last-child > .btn.datepicker_delete:hover {
-    background: var(--control-tint);
-    color: var(--ink);
 }
 
 .datepicker.dropdown-menu { padding: 8px; }
@@ -1148,7 +1272,6 @@ form#search { max-width: 640px; }
 /* Rating input (bootstrap-rating-input) */
 .rating-input .glyphicon-star { color: var(--accent); }
 .rating-input .glyphicon-star-empty { color: var(--line-strong); }
-.rating-input .rating-clear { color: var(--muted); }
 
 /* Pushes the following items in a flex row to the far end. */
 .lily-spacer { flex: 1; }
@@ -1259,18 +1382,42 @@ form#search { max-width: 640px; }
 /* A shelf name that doesn't match any of the user's shelves */
 .lily-edit-field .lily-edit-input.is-invalid { border-color: var(--danger); }
 
-.lily-edit-row .icon-btn {
+/* Every "remove/clear this value" control (row editor, date clear, rating clear) is the
+   same trash glyph in the same 30px square, muted until hovered, then danger red. */
+.icon-btn.lily-edit-remove,
+.btn.datepicker_delete,
+.rating-input .rating-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
     width: 30px;
     height: 30px;
-    flex: none;
-    font-size: 12px;
+    border-radius: var(--control-radius);
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1;
+    vertical-align: middle;
+    cursor: pointer;
 }
 
-/* Removing a row destroys it, so the highlight is the danger red, not the neutral tint. */
+.icon-btn.lily-edit-remove .glyphicon,
+.btn.datepicker_delete .glyphicon,
+.rating-input .rating-clear .glyphicon {
+    margin: 0;
+    font-size: 16px;
+    color: inherit;
+}
+
 .icon-btn.lily-edit-remove:hover,
-.icon-btn.lily-edit-remove:focus {
+.icon-btn.lily-edit-remove:focus,
+.btn.datepicker_delete:hover,
+.btn.datepicker_delete:focus,
+.rating-input .rating-clear:hover,
+.rating-input .rating-clear:focus {
     background: color-mix(in srgb, var(--danger) 12%, transparent);
     color: var(--danger);
+    text-decoration: none;
 }
 
 /* Each section: a heading, then plainly labelled fields */

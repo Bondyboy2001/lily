@@ -149,7 +149,7 @@
 {# One book in a cover grid (index, author, search, shelf). Cards are plain: cover, title, authors. #}
 {% macro book_card(book, user, is_read=False, authors_max=0, series_link=True, alt=None, extra_class='') -%}
     {%- set formats = book.data|map(attribute='format')|map('lower')|list -%}
-    <div class="book lily-book {{ extra_class }}">
+    <div class="book lily-book{{ " is-read" if is_read }} {{ extra_class }}">
       <div class="cover">
         <a href="{{ url_for('web.show_book', book_id=book.id) }}" class="book-cover-link" data-book-id="{{ book.id }}">
           <span class="img" title="{{ book.title }}">
@@ -198,6 +198,10 @@
           {% for number in range(stars) %}<span class="glyphicon glyphicon-star good" aria-hidden="true"></span>{% endfor %}
           {% for number in range(5 - stars) %}<span class="glyphicon glyphicon-star-empty" aria-hidden="true"></span>{% endfor %}
         </div>
+        {% endif %}
+        {# List rows show the file types as a column; grid cards mark them on the cover instead. #}
+        {% if marks %}
+        <span class="lily-list-formats">{% for f in marks %}<span class="lily-format lily-format-{{ f }}" title="{{ f|upper }}"></span>{% endfor %}</span>
         {% endif %}
       </div>
     </div>

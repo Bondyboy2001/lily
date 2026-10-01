@@ -15,13 +15,12 @@ from cwa_db import CWA_DB
 
 log = logger.create()
 
-def fetch_and_apply_metadata(book_id: int, user_enabled: bool = False) -> bool:
+def fetch_and_apply_metadata(book_id: int) -> bool:
     """
     Fetch metadata for a newly ingested book and apply it if settings allow.
 
     Args:
         book_id: The ID of the book to fetch metadata for
-        user_enabled: Deprecated parameter - metadata fetching is now admin-controlled only
 
     Returns:
         bool: True if metadata was successfully fetched and applied, False otherwise

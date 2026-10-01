@@ -57,13 +57,11 @@ class _Settings(_Base):
     config_trustedhosts = Column(String, default='')
     config_calibre_web_title = Column(String, default='Lily')
     config_books_per_page = Column(Integer, default=60)
-    config_random_books = Column(Integer, default=4)
     config_authors_max = Column(Integer, default=0)
     config_read_column = Column(Integer, default=0)
     config_title_regex = Column(String,
                                 default=r'^(A|The|An|Der|Die|Das|Den|Ein|Eine'
                                         r'|Einen|Dem|Des|Einem|Eines|Le|La|Les|L\'|Un|Une)\s+')
-    config_theme = Column(Integer, default=1)
 
     config_log_level = Column(SmallInteger, default=logger.DEFAULT_LOG_LEVEL)
     config_logfile = Column(String, default=logger.LOG_TO_STDOUT)
@@ -91,25 +89,15 @@ class _Settings(_Base):
     config_google_drive_folder = Column(String)
     config_google_drive_watch_changes_response = Column(JSON, default={})
 
-    config_use_goodreads = Column(Boolean, default=False)
-    config_goodreads_api_key = Column(String)
     config_hardcover_token = Column(String)
     config_google_books_api_key = Column(String)
 
-
-
-
-    config_kepubifypath = Column(String, default=None)
     config_converterpath = Column(String, default=None)
     config_binariesdir = Column(String, default=None)
     config_calibre = Column(String)
-    config_rarfile_location = Column(String, default=None)
     config_upload_formats = Column(String, default=','.join(constants.EXTENSIONS_UPLOAD))
     config_unicode_filename = Column(Boolean, default=False)
     config_embed_metadata = Column(Boolean, default=True)
-
-    config_updatechannel = Column(Integer, default=constants.UPDATE_STABLE)
-
 
     schedule_start_time = Column(Integer, default=4)
     schedule_duration = Column(Integer, default=10)
@@ -229,9 +217,6 @@ class ConfigSQL(object):
     def role_delete_books(self):
         return self._has_role(constants.ROLE_DELETE_BOOKS)
 
-    def show_element_new_user(self, value):
-        return constants.has_flag(self.config_default_show, value)
-
     def list_denied_tags(self):
         mct = self.config_denied_tags or ""
         return [strip_whitespaces(t) for t in mct.split(",")]
@@ -247,9 +232,6 @@ class ConfigSQL(object):
     def list_allowed_column_values(self):
         mct = self.config_allowed_column_value or ""
         return [strip_whitespaces(t) for t in mct.split(",")]
-
-    def get_scheduled_task_settings(self):
-        return {k: v for k, v in self.__dict__.items() if k.startswith('schedule_')}
 
     def set_from_dictionary(self, dictionary, field, convertor=None, default=None, encode=None):
         """Possibly updates a field of this object.

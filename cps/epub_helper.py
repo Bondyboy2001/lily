@@ -28,20 +28,6 @@ OPF_NS = {None: OPF_NAMESPACE}  # the default namespace (no prefix)
 NSMAP = {'dc': PURL_NAMESPACE, 'opf': OPF_NAMESPACE}
 
 
-def updateEpub(src, dest, filename, data, ):
-    # create a temp copy of the archive without filename
-    with zipfile.ZipFile(src, 'r') as zin:
-        with zipfile.ZipFile(dest, 'w') as zout:
-            zout.comment = zin.comment  # preserve the comment
-            for item in zin.infolist():
-                if item.filename != filename:
-                    zout.writestr(item, zin.read(item.filename))
-
-    # now add filename with its new data
-    with zipfile.ZipFile(dest, mode='a', compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr(filename, data)
-
-
 def _strip_xml_leading_noise(data):
     if isinstance(data, bytes):
         data = data.lstrip(b"\xef\xbb\xbf\r\n\t ")
@@ -162,15 +148,5 @@ def create_new_metadata_backup(book,  custom_columns, export_language, translate
     etree.SubElement(guide, "reference", type="cover", title=translated_cover_name, href="cover.jpg")
 
     return package
-
-
-def replace_metadata(tree, package):
-    rep_element = tree.xpath('/pkg:package/pkg:metadata', namespaces=default_ns)[0]
-    new_element = package.xpath('//metadata', namespaces=default_ns)[0]
-    tree.replace(rep_element, new_element)
-    return etree.tostring(tree,
-                          xml_declaration=True,
-                          encoding='utf-8',
-                          pretty_print=True).decode('utf-8')
 
 

@@ -2,40 +2,29 @@
 {% import "lily_form.html" as f with context %}
 {% block settings %}
 <div class="lp lp-dashboard">
-  {% call f.group(_('Library')) %}
-    {% call f.row(_('Hardcover Auto-Fetch'), help=_('Look up Hardcover IDs for books that have none')) %}
-      <button type="button" class="btn btn-default" id="hardcover_auto_fetch" data-toggle="modal" data-target="#StatusDialog">{{_('Run')}}</button>
-    {% endcall %}
-    {% if feature_support['scheduler'] %}
-    {% call f.row(_('Thumbnail Cache'), help=_('Rebuild every cover thumbnail')) %}
-      <button type="button" class="btn btn-default" id="admin_refresh_cover_cache">{{_('Refresh Thumbnail Cache')}}</button>
-    {% endcall %}
-    {% endif %}
-    {% call f.row(_('Reconnect Library'), help=_('Reload the Calibre database after changing it outside Lily')) %}
+  {% call f.group(_('Review')) %}
+    {{ f.link(url_for('duplicates.show_duplicates'), _('Duplicates')) }}
+    {{ f.link(url_for('admin.ingest_failures'), _('Failed imports')) }}
+    {{ f.link(url_for('suggestions.review_suggestions'), _('Metadata suggestions')) }}
+    {{ f.link(url_for('tasks.get_tasks_status'), _('Background tasks')) }}
+  {% endcall %}
+
+  {% call f.group(_('Tools')) %}
+    {% call f.row(_('Reconnect library'), help=_('After changing metadata.db outside Lily.')) %}
       <button type="button" class="btn btn-default" id="restart_database" data-toggle="modal" data-target="#StatusDialog">{{_('Reconnect')}}</button>
     {% endcall %}
-    {% if config.schedule_metadata_backup %}
-    {% call f.row(_('Metadata Backup'), help=_('Write metadata.opf next to every book')) %}
-      <button type="button" class="btn btn-default" id="metadata_backup" data-toggle="modal" data-target="#StatusDialog">{{_('Queue All Books')}}</button>
+    {% if feature_support['scheduler'] %}
+    {% call f.row(_('Cover thumbnails')) %}
+      <button type="button" class="btn btn-default" id="admin_refresh_cover_cache">{{_('Rebuild')}}</button>
     {% endcall %}
     {% endif %}
-  {% endcall %}
-
-  {% call f.group(_('Server')) %}
-    {{ f.link(url_for('cwa_check_status.cwa_flash_status'), _('Service Status'), help=_('Check that ingest and the other Lily services are running'), id='check_mon_srvs') }}
-    {% call f.row(_('Debug Package'), help=_('Logs and settings for a bug report')) %}
-      <a class="btn btn-default" id="debug" href="{{url_for('admin.download_debug')}}">{{_('Download')}}</a>
-    {% endcall %}
-    {% call f.row(_('Restart or shut down'), help=_('Restart applies changes that need a fresh start')) %}
+    {% call f.row(_('Server')) %}
       <button type="button" class="btn btn-default" id="admin_restart" data-toggle="modal" data-target="#RestartDialog">{{_('Restart')}}</button>
-      <button type="button" class="btn btn-danger" id="admin_stop" data-toggle="modal" data-target="#ShutdownDialog">{{_('Shutdown')}}</button>
+      <button type="button" class="btn btn-danger" id="admin_stop" data-toggle="modal" data-target="#ShutdownDialog">{{_('Shut down')}}</button>
     {% endcall %}
   {% endcall %}
 
-  <p class="lp-footnote">
-    Lily <span class="lp-mono">{{ cwa_version }}</span> · Calibre <span class="lp-mono">{{ calibre_version }}</span> ·
-    <a id="cwa_github_link" class="github" href="https://github.com/Bondyboy2001/lily/">GitHub</a>
-  </p>
+  <p class="lp-footnote">Lily <span class="lp-mono">{{ cwa_version }}</span> · Calibre <span class="lp-mono">{{ calibre_version }}</span></p>
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 </div>
 

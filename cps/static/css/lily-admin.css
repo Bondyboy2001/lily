@@ -842,48 +842,6 @@
 
 .lp-rail-item:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: -2px; }
 
-/* ---- Search: part of the rail, a faint tint and no edge until focused ---- */
-.lp-search { position: relative; }
-
-.lp-search .lp-search-field {
-    width: 100%;
-    border-color: transparent;
-    background: var(--control-tint);
-}
-
-.lp-search .lp-search-field:focus { border-color: var(--faint); background: var(--surface); }
-
-.lp-suggest {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    z-index: 50;
-    width: max(100%, 300px);
-    max-height: 360px;
-    padding: 6px;
-    overflow-y: auto;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--surface);
-    box-shadow: var(--menu-shadow);
-}
-
-.lp-suggest-row {
-    display: flex;
-    flex-direction: column;
-    padding: 7px 11px;
-    border-radius: 6px;
-    color: var(--ink);
-    text-decoration: none;
-}
-
-.lp-suggest-row:hover,
-.lp-suggest-row[aria-selected="true"] { background: var(--selected); color: var(--ink); text-decoration: none; }
-
-.lp-suggest-name { font-size: 14px; font-weight: 500; }
-.lp-suggest-where { font-size: 12px; color: var(--muted); }
-.lp-suggest-empty { padding: 9px; font-size: 13px; color: var(--muted); }
-
 /* ---- Pane ---- */
 .lp-pane { min-width: 0; }
 .lp-pane.is-wide { grid-column: 2 / -1; }
@@ -909,37 +867,6 @@
     margin: 0 0 22px;
     color: var(--muted);
 }
-
-/* ---- Tabs: the pages of one section, under its heading ---- */
-.lp-tabs {
-    display: flex;
-    gap: 2px;
-    margin: 0 0 20px;
-    padding: 0;
-    list-style: none;
-    border-bottom: 1px solid var(--line-soft);
-    overflow-x: auto;
-    scrollbar-width: none;
-}
-.lp-tabs::-webkit-scrollbar { display: none; }
-.lp-tabs[hidden] { display: none; }
-.lp-tabs > li { margin: 0; flex: none; }
-.lp-tabs a {
-    display: block;
-    margin-bottom: -1px;
-    padding: 8px 12px;
-    border-bottom: 2px solid transparent;
-    font-size: 14px;
-    line-height: 1.4;
-    color: var(--muted);
-    white-space: nowrap;
-    text-decoration: none;
-    transition: color .12s ease-out, border-color .12s ease-out;
-}
-.lp-tabs a:hover,
-.lp-tabs a:focus { color: var(--ink); text-decoration: none; }
-.lp-tabs > li.active > a { color: var(--ink); font-weight: 500; border-bottom-color: var(--accent); }
-.lp-tabs a:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: -2px; border-radius: 4px; }
 
 /* ---- Groups: a title over one card ---- */
 .lp-group { margin: 0 0 22px; }
@@ -1220,9 +1147,8 @@ input[type="checkbox"].lp-switch:focus-visible {
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
-    margin-top: 22px;
-    padding: 14px 0;
-    border-top: 1px solid var(--line-soft);
+    margin-top: 4px;
+    padding: 10px 0 14px;
     background: var(--paper);
 }
 

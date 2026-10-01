@@ -14,15 +14,12 @@
       {% endif %}
       {{ f.input('email', _('Email'), content.email, type='email') }}
       {% if ( current_user and current_user.role_passwd() or current_user.role_admin() ) and not content.role_anonymous() %}
-        {% call f.row(_('Password'), for_id='password', help=_('Leave empty to keep the current password.') if not new_user else None) %}
+        {% call f.row(_('Password'), for_id='password', help=_('Leave empty to keep the current one.') if not new_user else None) %}
           <input type="password" class="form-control" name="password" id="password" data-lang="{{ current_user.locale }}" data-verify="{{ config.config_password_policy }}" {% if config.config_password_policy %} data-min={{ config.config_password_min_length }} data-word={{ config.config_password_character }} data-special={{ config.config_password_special }} data-upper={{ config.config_password_upper }} data-lower={{ config.config_password_lower }} data-number={{ config.config_password_number }}{% endif %} value="" autocomplete="off">
         {% endcall %}
       {% endif %}
-    {% endcall %}
-
-    {% call f.group(_('Language')) %}
       {% if not content.role_anonymous() %}
-      {% call f.row(_('Interface Language'), for_id='locale') %}
+      {% call f.row(_('Language'), for_id='locale') %}
         <select name="locale" id="locale" class="form-control">
           {% for translation in translations %}
             <option value="{{translation}}" {% if translation|string == content.locale %}selected{% endif %}>{{ translation.display_name|capitalize }}</option>
@@ -30,62 +27,23 @@
         </select>
       {% endcall %}
       {% endif %}
-      {% call f.row(_('Language of Books'), for_id='default_language', help=_('Only show books in this language.')) %}
-        <select name="default_language" id="default_language" class="form-control">
-          <option value="all" {% if content.default_language == "all" %}selected{% endif %}>{{ _('Show All') }}</option>
-          {% for language in languages %}
-          <option value="{{ language.lang_code }}" {% if content.default_language == language.lang_code %}selected{% endif %}>{{ language.name }}</option>
-          {% endfor %}
-        </select>
-      {% endcall %}
-    {% endcall %}
-
-    {% if profile and not content.role_anonymous() %}
-    {% call f.group(_('Hardcover')) %}
-      {{ f.input('hardcover_token', _('Hardcover API key'), content.hardcover_token, help=_('Optional. Used for Fetch Metadata instead of the server-wide key.')) }}
-    {% endcall %}
-    {% endif %}
-
-    {% set restrict_actions %}{% if ( current_user and current_user.role_admin() and not new_user ) and not simple %}<a href="#" id="get_user_tags" class="btn btn-default" data-id="{{content.id}}" data-toggle="modal" data-target="#restrictModal">{{_('Tags')}}</a><a href="#" id="get_user_column_values" data-id="{{content.id}}" class="btn btn-default" data-toggle="modal" data-target="#restrictModal">{{_('Column Values')}}</a>{% endif %}{% endset %}
-    {% call f.group(_('Sidebar'), actions=restrict_actions) %}
-      <div class="lp-checks">
-        {% for element in sidebar %}
-          {% if element['config_show'] %}{{ f.check('show_' ~ element['visibility'], element['show_text'], content.check_visibility(element['visibility'])) }}{% endif %}
-        {% endfor %}
-      </div>
     {% endcall %}
 
     {% if current_user and current_user.role_admin() and not profile %}
     {% call f.group(_('Permissions')) %}
       <div class="lp-checks">
-        {% if not content.role_anonymous() %}{{ f.check('admin_role', _('Admin User'), content.role_admin()) }}{% endif %}
-        {{ f.check('download_role', _('Allow Downloads'), content.role_download()) }}
-        {{ f.check('viewer_role', _('Allow eBook Viewer'), content.role_viewer()) }}
-        {% if config.config_uploading %}{{ f.check('upload_role', _('Allow Uploads'), content.role_upload()) }}{% endif %}
-        {{ f.check('edit_role', _('Allow Edit'), content.role_edit(), attrs='data-control="edit_settings"') }}
-        <div data-related="edit_settings">{{ f.check('delete_role', _('Allow Delete Books'), content.role_delete_books()) }}</div>
+        {% if not content.role_anonymous() %}{{ f.check('admin_role', _('Admin'), content.role_admin()) }}{% endif %}
+        {{ f.check('download_role', _('Download'), content.role_download()) }}
+        {{ f.check('viewer_role', _('Read in browser'), content.role_viewer()) }}
+        {% if config.config_uploading %}{{ f.check('upload_role', _('Upload'), content.role_upload()) }}{% endif %}
+        {{ f.check('edit_role', _('Edit books'), content.role_edit()) }}
+        {{ f.check('delete_role', _('Delete books'), content.role_delete_books()) }}
         {% if not content.role_anonymous() %}
-          {{ f.check('passwd_role', _('Allow Changing Password'), content.role_passwd()) }}
-          {{ f.check('edit_shelf_role', _('Allow Editing Public Shelves'), content.role_edit_shelfs()) }}
+          {{ f.check('passwd_role', _('Change password'), content.role_passwd()) }}
+          {{ f.check('edit_shelf_role', _('Edit public shelves'), content.role_edit_shelfs()) }}
         {% endif %}
       </div>
     {% endcall %}
-    {% endif %}
-
-    {% if not content.role_anonymous() and (profile or (current_user and current_user.role_admin() and not new_user)) %}
-    <section class="lp-group">
-      <details class="lp-list lp-more">
-        <summary>{{_('OPDS Catalog Order')}}</summary>
-        <div class="lp-more-body lp-order">
-          <p class="lp-help">{{_('Drag to reorder OPDS root entries. Missing entries are appended automatically.') }}</p>
-          <input type="hidden" name="opds_root_order" id="opds_root_order" value="{{ opds_root_order_string }}">
-          <input type="hidden" name="opds_hidden_entries" id="opds_hidden_entries" value="{{ opds_hidden_entries_string }}">
-          <div id="opds_root_order_container">
-            <ul id="opds_root_order_list" class="lily-order-list"></ul>
-          </div>
-        </div>
-      </details>
-    </section>
     {% endif %}
 
     <div class="lp-actions">
@@ -94,170 +52,19 @@
       {% endif %}
       <span class="lp-spacer"></span>
       {% if not profile %}
-      <button id="back" class="btn btn-default" type="button" data-back="{{ url_for('admin.admin') }}">{{_('Cancel')}}</button>
+      <button id="back" class="btn btn-default" type="button" data-back="{{ url_for('admin.edit_user_table') }}">{{_('Cancel')}}</button>
       {% endif %}
       <button id="user_submit" class="btn btn-primary" type="button">{{_('Save')}}</button>
     </div>
   </form>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const opdsLabels = {{ opds_root_labels | tojson }};
-  const opdsOrderRaw = "{{ opds_root_order_string }}";
-  const opdsHiddenRaw = "{{ opds_hidden_entries_string }}";
-
-  function parseOrder(raw) {
-    if (!raw) return [];
-    return raw.split(',').map(item => item.trim()).filter(Boolean);
-  }
-
-  function buildOrderList(labels, order) {
-    const labelMap = new Map(labels.map(item => [item.key, item.label]));
-    const seen = new Set();
-    const result = [];
-    order.forEach(key => {
-      if (labelMap.has(key) && !seen.has(key)) {
-        result.push(key);
-        seen.add(key);
-      }
-    });
-    labels.forEach(item => {
-      if (!seen.has(item.key)) {
-        result.push(item.key);
-        seen.add(item.key);
-      }
-    });
-    return result;
-  }
-
-  function renderOpdsOrderList() {
-    const container = document.getElementById('opds_root_order_list');
-    if (!container) return;
-
-    const order = buildOrderList(opdsLabels, parseOrder(opdsOrderRaw));
-    container.innerHTML = '';
-
-    const hiddenSet = new Set(parseOrder(opdsHiddenRaw));
-    order.forEach(key => {
-      const label = opdsLabels.find(item => item.key === key)?.label || key;
-      const isHidden = hiddenSet.has(key);
-      const li = document.createElement('li');
-      li.className = 'opds-order-item';
-      li.dataset.key = key;
-      li.innerHTML = `
-        <span class="opds-order-drag-handle glyphicon glyphicon-menu-hamburger" aria-hidden="true"></span>
-        <span class="opds-order-label">${label}</span>
-        <label class="opds-order-toggle">
-          <input type="checkbox" class="opds-order-visible" data-key="${key}" ${isHidden ? '' : 'checked'}>
-          {{_('Visible')}}
-        </label>
-      `;
-      container.appendChild(li);
-    });
-
-    setupOpdsDragDrop();
-    updateOpdsHiddenInput();
-  }
-
-  function setupOpdsDragDrop() {
-    let dragged = null;
-    let isDragging = false;
-
-    const items = document.querySelectorAll('.opds-order-item');
-    items.forEach(item => {
-      item.addEventListener('mousedown', function(e) {
-        isDragging = true;
-        dragged = this;
-        this.classList.add('dragging');
-        document.body.style.userSelect = 'none';
-        e.preventDefault();
-      });
-    });
-
-    document.addEventListener('mousemove', function(e) {
-      if (!isDragging || !dragged) return;
-      const container = document.getElementById('opds_root_order_list');
-      const afterElement = getOpdsAfterElement(container, e.clientY);
-      if (afterElement == null) {
-        container.appendChild(dragged);
-      } else {
-        container.insertBefore(dragged, afterElement);
-      }
-    });
-
-    document.addEventListener('mouseup', function() {
-      if (!isDragging) return;
-      isDragging = false;
-      if (dragged) {
-        dragged.classList.remove('dragging');
-        dragged = null;
-      }
-      document.body.style.userSelect = '';
-      updateOpdsHiddenInput();
-    });
-  }
-
-  function getOpdsAfterElement(container, y) {
-    const draggableElements = [...container.querySelectorAll('.opds-order-item:not(.dragging)')];
-    return draggableElements.reduce((closest, child) => {
-      const box = child.getBoundingClientRect();
-      const offset = y - box.top - box.height / 2;
-      if (offset < 0 && offset > closest.offset) {
-        return { offset: offset, element: child };
-      }
-      return closest;
-    }, { offset: Number.NEGATIVE_INFINITY }).element;
-  }
-
-  function updateOpdsHiddenInput() {
-    const container = document.getElementById('opds_root_order_list');
-    const hiddenInput = document.getElementById('opds_root_order');
-    const hiddenEntriesInput = document.getElementById('opds_hidden_entries');
-    if (!container || !hiddenInput) return;
-    const items = container.querySelectorAll('.opds-order-item');
-    const order = Array.from(items).map(item => item.dataset.key);
-    hiddenInput.value = order.join(',');
-
-    if (!hiddenEntriesInput) return;
-    const hidden = [];
-    container.querySelectorAll('.opds-order-visible').forEach(checkbox => {
-      if (!checkbox.checked) {
-        hidden.push(checkbox.dataset.key);
-      }
-    });
-    hiddenEntriesInput.value = hidden.join(',');
-  }
-
-  const form = document.querySelector('form[role="form"]');
-  if (form) {
-    form.addEventListener('submit', function() {
-      updateOpdsHiddenInput();
-    });
-  }
-
-  document.addEventListener('change', function(e) {
-    if (e.target && e.target.classList.contains('opds-order-visible')) {
-      updateOpdsHiddenInput();
-    }
-  });
-
-  renderOpdsOrderList();
-});
-</script>
-
 {% endblock %}
 {% block modal %}
-{{ restrict_modal() }}
 {{ delete_confirm_modal() }}
 {% endblock %}
 {% block js %}
-<script src="{{ url_for('static', filename='js/libs/bootstrap-table/bootstrap-table.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/libs/bootstrap-table/bootstrap-table-editable.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/libs/bootstrap-table/bootstrap-editable.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/libs/pwstrength/i18next.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/libs/pwstrength/i18nextHttpBackend.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/libs/pwstrength/pwstrength-bootstrap.js') }}"></script>
 <script src="{{ url_for('static', filename='js/password.js') }}"></script>
-<script src="{{ url_for('static', filename='js/table.js') }}"></script>
 {% endblock %}

@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 import requests
 import unidecode
 
-from flask import send_from_directory, make_response, abort, url_for, Response
+from flask import send_from_directory, make_response, abort, Response
 from flask_babel import gettext as _
 from flask_babel import lazy_gettext as N_
 from flask_babel import get_locale
@@ -28,7 +28,6 @@ from .cw_login import current_user
 from sqlalchemy.sql.expression import true, false, and_, or_, func
 from sqlalchemy.exc import InvalidRequestError, OperationalError
 from werkzeug.datastructures import Headers
-from markupsafe import escape
 from urllib.parse import quote
 
 try:
@@ -42,7 +41,6 @@ except ImportError:
 
 from . import calibre_db, cli_param
 from .string_helper import strip_whitespaces
-from .tasks.convert import TaskConvert
 from . import logger, config, db, ub, fs
 from . import gdriveutils as gd
 from .constants import (STATIC_DIR as _STATIC_DIR, CACHE_TYPE_THUMBNAILS, THUMBNAIL_TYPE_COVER, THUMBNAIL_TYPE_SERIES,
@@ -55,7 +53,7 @@ _pending_thumbnail_books = set()
 import sys
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB
-from .services.worker import WorkerThread, STAT_FINISH_SUCCESS
+from .services.worker import WorkerThread
 from .tasks.thumbnail import TaskClearCoverThumbnailCache, TaskGenerateCoverThumbnails
 from .tasks.metadata_backup import TaskBackupMetadata
 from .file_helper import get_temp_dir
@@ -81,45 +79,6 @@ except (ImportError, RuntimeError) as e:
     MissingDelegateError = BaseException
 
 
-# Convert existing book entry to new format
-def convert_book_format(book_id, calibre_path, old_book_format, new_book_format, user_id, blocking=False):
-    book = calibre_db.get_book(book_id)
-    data = calibre_db.get_book_format(book.id, old_book_format)
-    if not data:
-        error_message = _("%(format)s format not found for book id: %(book)d", format=old_book_format, book=book_id)
-        log.error("convert_book_format: %s", error_message)
-        return error_message
-    file_path = os.path.join(calibre_path, book.path, data.name)
-    if config.config_use_google_drive:
-        if not gd.getFileFromEbooksFolder(book.path, data.name + "." + old_book_format.lower()):
-            error_message = _("%(format)s not found on Google Drive: %(fn)s",
-                              format=old_book_format, fn=data.name + "." + old_book_format.lower())
-            return error_message
-    else:
-        if not os.path.exists(file_path + "." + old_book_format.lower()):
-            error_message = _("%(format)s not found: %(fn)s",
-                              format=old_book_format, fn=data.name + "." + old_book_format.lower())
-            return error_message
-    # append converter task to queue
-    settings = dict()
-    link = '<a href="{}">{}</a>'.format(url_for('web.show_book', book_id=book.id), escape(book.title))  # prevent xss
-    txt = "{} -> {}: {}".format(
-           old_book_format.upper(),
-           new_book_format.upper(),
-           link)
-    settings['old_book_format'] = old_book_format
-    settings['new_book_format'] = new_book_format
-    task = TaskConvert(file_path, book.id, txt, settings, user_id)
-    WorkerThread.add(user_id, task)
-    if blocking:
-        finished = task.done_event.wait(timeout=120)
-        if not finished:
-            return _("Conversion timed out for book id: %(book)d", book=book_id)
-        if task.stat != STAT_FINISH_SUCCESS:
-            return task.error or _("Conversion failed for book id: %(book)d", book=book_id)
-    return None
-
-
 def change_archived_books(book_id, state=None, message=None):
     archived_book = ub.session.query(ub.ArchivedBook).filter(and_(ub.ArchivedBook.user_id == int(current_user.id),
                                                                   ub.ArchivedBook.book_id == book_id)).first()
@@ -137,7 +96,7 @@ def change_archived_books(book_id, state=None, message=None):
 # Check if a reader is existing for any of the book formats, if not, return empty list, otherwise return
 # list with supported formats
 def check_read_formats(entry):
-    extensions_reader = {'TXT', 'PDF', 'EPUB', 'KEPUB', 'CBZ', 'CBT', 'CBR', 'DJVU', 'DJV'}
+    extensions_reader = {'PDF', 'EPUB', 'DJVU', 'DJV'}
     book_formats = list()
     if len(entry.data):
         for ele in iter(entry.data):

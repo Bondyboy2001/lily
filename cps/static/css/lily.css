@@ -1,7 +1,7 @@
 /*
  * Lily design language — tokens and base components.
  *
- * Source of truth: ~/projects/DESIGN.md (palette "Lily", §2; components §5; tokens §7).
+ * Palette: Mauve (dusty orchid on warm stone, plum-tinted dark). Type: Literata. A new guide will replace DESIGN.md.
  * The light tokens live directly on :root; the dark theme redefines the same tokens below under
  * data-theme="dark", which the head script in layout.html sets from the saved choice or prefers-color-scheme. Bootstrap 3 classes are restyled here
  * into the guide's components, so existing markup picks them up without template changes:
@@ -11,23 +11,51 @@
  * Loaded after bootstrap.min.css, style.css, upload.css and lily-fixes.css in layout.html.
  */
 
+/* Literata, self-hosted (SIL OFL, see fonts/literata/OFL.txt): one variable font for the whole app. */
+@font-face {
+    font-family: Literata;
+    font-style: normal;
+    font-weight: 200 900;
+    font-display: swap;
+    src: url("../fonts/literata/literata-latin-wght-normal.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+    font-family: Literata;
+    font-style: normal;
+    font-weight: 200 900;
+    font-display: swap;
+    src: url("../fonts/literata/literata-latin-ext-wght-normal.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+    font-family: Literata;
+    font-style: italic;
+    font-weight: 200 900;
+    font-display: swap;
+    src: url("../fonts/literata/literata-latin-wght-italic.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
     color-scheme: light;
-    --paper: #FDFCFA;
-    --surface: #FFFFFF;
-    --sunk: #F4EFE7;
-    --ink: #2B2326;
-    --ink-soft: #473C40;
-    --muted: #62575B;
-    --faint: #6B6064;
+    --paper: #F1EEEA;
+    --surface: #F8F6F3;
+    --sunk: #E7E1DC;
+    --ink: #2B2127;
+    --ink-soft: #4A3D45;
+    --muted: #655860;
+    --faint: #685B62;
     /* Darkened so dividers and field edges read clearly (≈2:1 and 1.6:1 on paper). */
-    --line: #C2B3A6;
-    --line-soft: #D6CABE;
+    --line: #CBC1BF;
+    --line-soft: #DAD3D0;
     /* Control edges and empty rating stars: ≥3:1 on paper, surface and sunk (WCAG 1.4.11).
        --line stays the subtle divider. */
-    --line-strong: #8C7D72;
-    --accent: #9E2F55;
-    --heading: #9E2F55;
+    --line-strong: #85767C;
+    --accent: #854A73;
+    --heading: #854A73;
     --success: #4F6B4B;
     --warning: #A13F0E;
     --danger: #B3261E;
@@ -42,18 +70,18 @@
     --control-tint-strong: color-mix(in srgb, var(--ink) 10%, transparent);
     --row-hover: color-mix(in srgb, var(--ink) 5%, transparent);
     --row-active: color-mix(in srgb, var(--ink) 9%, transparent);
-    --control-radius: 8px;
+    --control-radius: 6px;
     /* Categorical chart series, validated for contrast and colour-blind separation on paper and surface.
        Not in DESIGN.md yet; move them there if another app charts. */
-    --series-1: #9E2F55;
+    --series-1: #854A73;
     --series-2: #2A78C6;
     --series-3: #B07A0C;
     --series-4: #2E8B6A;
     --series-5: #7A52B8;
     --menu-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent), 0 8px 24px color-mix(in srgb, var(--ink) 10%, transparent);
 
-    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    --font-body: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --font-ui: Literata, Charter, "Iowan Old Style", Georgia, serif;
+    --font-body: Literata, Charter, "Iowan Old Style", Georgia, serif;
     --font-mono: "SF Mono", ui-monospace, Menlo, monospace;
 }
 
@@ -62,24 +90,24 @@
    >=4.5:1 on paper, surface and sunk; --line-strong keeps >=3:1. */
 :root[data-theme="dark"] {
     color-scheme: dark;
-    --paper: #1A1B26;
-    --surface: #1F2335;
-    --sunk: #16161E;
-    --ink: #C8D1F5;
-    --ink-soft: #A9B1D6;
-    --muted: #9098C2;
-    --faint: #8A92BC;
-    --line: #2F3549;
-    --line-soft: #24283B;
-    --line-strong: #66729F;
-    --accent: #7AA2F7;
-    --heading: #7AA2F7;
+    --paper: #1A1517;
+    --surface: #221B1F;
+    --sunk: #151012;
+    --ink: #F0E8EC;
+    --ink-soft: #D6C8CF;
+    --muted: #B4A4AC;
+    --faint: #A89AA2;
+    --line: #392F35;
+    --line-soft: #2C2428;
+    --line-strong: #85757D;
+    --accent: #D49BC2;
+    --heading: #D49BC2;
     --success: #9ECE6A;
     --warning: #FF9E64;
     --danger: #F7768E;
-    --on-accent: #1A1B26;
-    --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%231A1B26' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    --series-1: #7AA2F7;
+    --on-accent: #1A1517;
+    --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%231A1517' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --series-1: #D49BC2;
     --series-2: #E88AAA;
     --series-3: #E0AF68;
     --series-4: #73DACA;
@@ -349,7 +377,7 @@ button:disabled {
 .icon-btn:hover,
 .icon-btn:focus {
     background: var(--control-tint);
-    color: var(--ink);
+    color: var(--accent);
     text-decoration: none;
 }
 
