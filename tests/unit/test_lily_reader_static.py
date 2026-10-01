@@ -132,6 +132,8 @@ def test_epub_resume_without_waiting_for_locations():
     epub = read(JS / "reading/epub.js")
     assert "restore: false" in epub and "restore: true" not in epub
     assert "previousLocationCfi: startCfi" in epub and "LilyProgress.create" in epub
+    # epub.js can land a page early on a mid-paragraph CFI; both restores step on.
+    assert "alignTo(startCfi)" in epub and "reader.lilyShow = function" in epub
     progress = read(JS / "reading/epub-progress.js")
     # One book instance: no second ePub() download just to count locations.
     assert "ePub(" not in progress

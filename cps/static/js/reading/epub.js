@@ -1,4 +1,4 @@
-/* global $, calibre, EPUBJS, ePubReader, LilyProgress, screenfull, themes */
+/* global $, calibre, ePub, EPUBJS, ePubReader, LilyProgress, screenfull, themes */
 
 var reader;
 
@@ -28,6 +28,37 @@ var reader;
     });
     reader.lilyStartCfi = startCfi;
 
+    // epub.js can land one page early on a saved position when that page starts in the middle
+    // of a paragraph (display() rounds the paragraph's column down). Step on when the target
+    // lies past the page shown.
+    var cfiTool = new ePub.CFI();
+    // The location is reported (relocated) a frame after display() resolves; read it then.
+    function settled() {
+        return new Promise(function (resolve) {
+            var timer = setTimeout(resolve, 400);
+            reader.rendition.once("relocated", function () {
+                clearTimeout(timer);
+                setTimeout(resolve, 0);
+            });
+        });
+    }
+    function alignTo(cfi) {
+        try {
+            var location = reader.rendition.location;
+            if (location && location.end && location.end.cfi && !location.atEnd &&
+                    cfiTool.compare(cfi, location.end.cfi) > 0) {
+                return reader.rendition.next();
+            }
+        } catch (e) {}
+        return null;
+    }
+    /** Shows a saved position (used for the server copy by epub-progress.js). */
+    reader.lilyShow = function (cfi) {
+        return reader.rendition.display(cfi).then(settled).then(function () {
+            return alignTo(cfi);
+        });
+    };
+
     // A saved position from an older copy of the file may no longer exist: open at the start.
     var startPending = !!startCfi;
     function openAtStart() {
@@ -39,6 +70,9 @@ var reader;
     if (startPending && reader.displayed && typeof reader.displayed.then === "function") {
         reader.displayed.then(function () {
             startPending = false;
+            return settled().then(function () {
+                return alignTo(startCfi);
+            });
         }, openAtStart);
     }
 

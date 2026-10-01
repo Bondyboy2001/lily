@@ -148,7 +148,7 @@
         }
         if (saved && saved.cfi && saved.cfi.indexOf("epubcfi(") === 0) {
             if (saved.cfi !== reader.lilyStartCfi) {
-                return rendition.display(saved.cfi).catch(function () {});
+                return reader.lilyShow(saved.cfi).catch(function () {});
             }
             return null;
         }
