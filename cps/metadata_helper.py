@@ -6,6 +6,9 @@
 # See CONTRIBUTORS for full list of authors.
 
 import json
+import re
+import unicodedata
+from difflib import SequenceMatcher
 
 from cps import logger, db
 from cps.search_metadata import cl as metadata_providers
@@ -14,6 +17,60 @@ sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB
 
 log = logger.create()
+
+# Minimum SequenceMatcher ratio between normalised titles for a provider result to be
+# treated as the same book. "Tide Tables for Beginners" vs "Tide tables and charts" scores ~0.60.
+TITLE_MATCH_THRESHOLD = 0.85
+
+_QUOTES = str.maketrans({'\u2018': "'", '\u2019': "'", '\u201c': '"', '\u201d': '"'})
+_ARTICLE = re.compile(r'^(the|a|an) ')
+
+
+def _normalise(text: str) -> str:
+    text = unicodedata.normalize('NFKD', (text or '').translate(_QUOTES).casefold())
+    text = ''.join(c for c in text if not unicodedata.combining(c)).replace("'", '')
+    return ' '.join(re.sub(r'[^\w\s]|_', ' ', text).split())
+
+
+def _title_variants(title: str) -> set:
+    variants = {_normalise(title), _normalise((title or '').split(':')[0])}
+    return {_ARTICLE.sub('', v) for v in variants if v} - {''}
+
+
+def _surnames(authors) -> set:
+    names = set()
+    for name in authors or []:
+        # Calibre sort form "Surname, Forename" puts the surname first
+        surname, comma, _ = (name or '').partition(',')
+        parts = _normalise(surname).split()
+        if parts and parts != ['unknown']:  # Calibre's placeholder author
+            names.add(parts[0] if comma else parts[-1])
+    return names
+
+
+def title_similarity(a: str, b: str) -> float:
+    return max((SequenceMatcher(None, x, y).ratio()
+                for x in _title_variants(a) for y in _title_variants(b)), default=0.0)
+
+
+def best_metadata_match(title: str, authors, results):
+    """Return the result most likely to be the same book, or None if none is close enough.
+
+    A result must have a title at least TITLE_MATCH_THRESHOLD similar and, when both
+    sides list authors, share at least one surname.
+    """
+    book_surnames = _surnames(authors)
+    best, best_score = None, 0.0
+    for result in results or []:
+        score = title_similarity(title, getattr(result, 'title', ''))
+        if score < TITLE_MATCH_THRESHOLD or score <= best_score:
+            continue
+        result_surnames = _surnames(getattr(result, 'authors', None))
+        if book_surnames and result_surnames and not book_surnames & result_surnames:
+            continue
+        best, best_score = result, score
+    return best
+
 
 def fetch_and_apply_metadata(book_id: int) -> bool:
     """
@@ -47,8 +104,8 @@ def fetch_and_apply_metadata(book_id: int) -> bool:
 
         # Create search query from book title and author
         search_query = book.title
-        if book.authors:
-            author_names = [author.name for author in book.authors]
+        author_names = [author.name for author in book.authors] if book.authors else []
+        if author_names:
             search_query += " " + " ".join(author_names)
 
         log.info(f"Fetching metadata for: {search_query}")
@@ -71,6 +128,7 @@ def fetch_and_apply_metadata(book_id: int) -> bool:
 
         # Try each provider in order
         metadata_found = False
+        matched = False
         for provider_id in provider_hierarchy:
             try:
                 # Find the provider
@@ -93,8 +151,12 @@ def fetch_and_apply_metadata(book_id: int) -> bool:
                 if not results or len(results) == 0:
                     continue
 
-                # Use the first result
-                metadata = results[0]
+                # Only accept a result that is recognisably the same book
+                metadata = best_metadata_match(book.title, author_names, results)
+                if metadata is None:
+                    log.debug(f"No result from {provider.__name__} matches '{book.title}'")
+                    continue
+                matched = True
 
                 # Apply metadata to book
                 if _apply_metadata_to_book(book, metadata, calibre_db_instance):
@@ -106,6 +168,8 @@ def fetch_and_apply_metadata(book_id: int) -> bool:
                 log.warning(f"Error fetching metadata from provider {provider_id}: {e}")
                 continue
 
+        if not matched:
+            log.info(f"No confident metadata match for '{book.title}'; keeping the file's metadata")
         calibre_db_instance.session.close()
         return metadata_found
 

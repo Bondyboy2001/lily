@@ -48,7 +48,11 @@ See https://github.com/adobe-type-tools/cmap-resources
         PDFViewerApplicationOptions.set('cMapUrl', "{{ url_for('static', filename='cmaps/') }}");
         PDFViewerApplicationOptions.set('standardFontDataUrl', "{{ url_for('static', filename='standard_fonts/') }}");
         PDFViewerApplicationOptions.set('sidebarViewOnLoad', 0);
-        PDFViewerApplicationOptions.set('defaultZoomValue', '150');
+        // Phones (§4.5 small phone, 600px) open at page width: 150% crops the page there.
+        // Lily restores only the page number (below) and pdf.js' default zoom always
+        // wins over its stored one, so this never overrides a saved reading position.
+        var phone = window.matchMedia('(max-width: 600px)').matches;
+        PDFViewerApplicationOptions.set('defaultZoomValue', phone ? 'page-width' : '150');
         PDFViewerApplicationOptions.set('workerSrc', "{{ url_for('static', filename='js/libs/pdf.worker.mjs') }}");
         PDFViewerApplicationOptions.set('defaultUrl',"{{ url_for('web.serve_book', book_id=pdffile, book_format='pdf') }}")
     });
@@ -105,7 +109,6 @@ See https://github.com/adobe-type-tools/cmap-resources
 
       <div id="mainContainer">
         <div id="progress-sync-status" role="status" aria-live="polite" class="lily-progress-status"
-             style="position: fixed; left: 16px; bottom: 12px; z-index: 10; font-size: 12px; opacity: .7;"
              data-pending-text="{{ _('Saved on this device; waiting to sync') }}"
              data-synced-text="{{ _('Synced') }}"></div>
         <div class="findbar hidden doorHanger" id="findbar">
@@ -296,6 +299,9 @@ See https://github.com/adobe-type-tools/cmap-resources
           <div id="toolbarContainer">
             <div id="toolbarViewer">
               <div id="toolbarViewerLeft">
+                <a id="backToBook" class="toolbarButton" href="{{ url_for('web.show_book', book_id=pdffile) }}" title="{{_('Back to book')}}" aria-label="{{_('Back to book')}}" tabindex="10">
+                  <span>{{_('Back to book')}}</span>
+                </a>
                 <button id="sidebarToggle" class="toolbarButton" title="Toggle Sidebar" tabindex="11" data-l10n-id="pdfjs-toggle-sidebar-button" aria-expanded="false" aria-controls="sidebarContainer">
                   <span data-l10n-id="pdfjs-toggle-sidebar-button-label">Toggle Sidebar</span>
                 </button>

@@ -140,17 +140,6 @@ body { margin: 0; }
 
 .lily-nav .create-shelf > a { color: var(--muted); }
 
-.lily-nav .duplicate-badge {
-    margin-left: auto;
-    padding: 1px 6px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--danger) 12%, transparent);
-    color: var(--danger);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 500;
-}
-
 /* ---- Main column and top bar ---- */
 .lily-main {
     display: flex;
@@ -215,7 +204,11 @@ body { margin: 0; }
 .lily-topbar .lily-search .form-control {
     height: 38px;
     padding: 0 14px;
-    font-size: 16px;
+    font-size: 15px;
+}
+
+@media (pointer: coarse) {
+    .lily-topbar .lily-search .form-control { font-size: 18px; }
 }
 
 /* typeahead wraps the field and hangs its menu off that wrapper. The vendor stylesheet
@@ -253,9 +246,10 @@ body { margin: 0; }
     flex: none;
     width: 36px;
     height: 54px;
-    border: 1px solid var(--line);
     border-radius: 3px;
-    background: var(--hover);
+    outline: 1px solid var(--line-soft);
+    outline-offset: -1px;
+    background: var(--sunk);
     object-fit: cover;
 }
 
@@ -428,16 +422,7 @@ label.lily-upload-btn { margin-bottom: 0; cursor: pointer; }
 .lily-refresh-toast-close {
     flex: none;
     margin: -4px 0 -4px 4px;
-    padding: 2px 6px;
-    border: 0;
-    border-radius: 6px;
-    background: none;
-    color: var(--faint);
-    font-size: 20px;
-    line-height: 1;
 }
-
-.lily-refresh-toast-close:hover { background: var(--hover); color: var(--ink); }
 
 @keyframes lily-refresh-toast-in {
     from { opacity: 0; transform: translateY(6px); }
@@ -468,20 +453,6 @@ label.lily-upload-btn { margin-bottom: 0; cursor: pointer; }
     min-height: 0;
     padding: 24px;
 }
-
-/* Upload progress overlay */
-#loader {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    z-index: 60;
-    padding: 24px;
-    border-radius: 10px;
-    background: var(--surface);
-    transform: translate(-50%, -50%);
-}
-
-#loader[hidden] { display: none; }
 
 .lily-scrim { display: none; }
 

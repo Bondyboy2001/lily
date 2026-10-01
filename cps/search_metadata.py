@@ -15,7 +15,6 @@ import os
 import sys
 
 from flask import Blueprint, request, url_for, make_response, jsonify, copy_current_request_context
-from .cw_login import current_user
 from flask_babel import get_locale
 
 from cps.services.Metadata import Metadata
@@ -104,34 +103,18 @@ def _enabled_providers():
 
 def _providers_to_ask(typed, enabled):
     """The providers to search: for a typed identifier, those that can look up its
-    type (even if the user switched them off), otherwise the user's active ones."""
+    type, otherwise every enabled one."""
     if typed:
         return [c for c in enabled if c.identifier_types & typed.keys()]
-    active = current_user.view_settings.get("metadata", {})
-    return [c for c in enabled if active.get(c.__id__, True)]
+    return list(enabled)
 
 
 @meta.route("/metadata/provider")
 @user_login_required
 def metadata_provider():
-    """The enabled providers, whether the user has each switched on, and whether to
-    search it for `query`."""
-    active = current_user.view_settings.get("metadata", {})
-    enabled = _enabled_providers()
-    ask = {c.__id__ for c in _providers_to_ask(parse_identifier(request.args.get("query")), enabled)}
-    return make_response(jsonify([
-        {"id": c.__id__, "name": c.__name__, "active": active.get(c.__id__, True), "search": c.__id__ in ask}
-        for c in enabled
-    ]))
-
-
-@meta.route("/metadata/provider/<prov_name>", methods=["POST"])
-@user_login_required
-def metadata_change_active_provider(prov_name):
-    """Remembers whether the user wants a provider searched."""
-    value = bool((request.get_json(silent=True) or {}).get("value"))
-    current_user.set_view_property("metadata", prov_name, value)
-    return ""
+    """The ids of the providers to search for `query`."""
+    ask = _providers_to_ask(parse_identifier(request.args.get("query")), _enabled_providers())
+    return make_response(jsonify([c.__id__ for c in ask]))
 
 
 # A provider that hasn't answered by then is reported as timed out

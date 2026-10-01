@@ -37,12 +37,12 @@
         <li class="lp-rail-head" role="presentation">{{ glabel }}</li>
         {% for s in visible %}
           {% set here = cur and cur.id == s.id %}
-          <li data-section="{{ s.id }}"{% if here %} class="active"{% endif %}><a href="{{ s.href }}" class="lp-rail-item"{% if here %} aria-current="page"{% endif %}>{{ s.label }}{% if s.id == 'duplicates' %}{% set dup_count = duplicate_notification.count if duplicate_notification is defined else 0 %} <span id="duplicate-count-badge" class="duplicate-badge" style="{% if dup_count > 0 %}display: inline-block;{% else %}display: none;{% endif %}">{% if dup_count > 99 %}99+{% else %}{{ dup_count }}{% endif %}</span>{% endif %}</a></li>
+          <li data-section="{{ s.id }}"{% if here %} class="active"{% endif %}><a href="{{ s.href }}" class="lp-rail-item"{% if here %} aria-current="page"{% endif %}>{{ s.label }}{% if s.id == 'duplicates' %}{% set dup_count = duplicate_notification.count if duplicate_notification is defined else 0 %} <span id="duplicate-count-badge" class="badge label-danger"{% if dup_count <= 0 %} hidden{% endif %}>{% if dup_count > 99 %}99+{% else %}{{ dup_count }}{% endif %}</span>{% endif %}</a></li>
         {% endfor %}
         {% endif %}
       {% endfor %}
       {% if signed_in %}
-        <li class="lp-rail-signout-row"><a href="{{ url_for('web.logout') }}" class="btn btn-default lp-rail-signout" id='logout'>{{ _('Sign out') }}</a></li>
+        <li class="lp-rail-signout-row"><a href="{{ url_for('web.logout') }}" class="btn btn-default is-danger lp-rail-signout" id='logout'>{{ _('Sign out') }}</a></li>
       {% endif %}
     </ul>
   </nav>

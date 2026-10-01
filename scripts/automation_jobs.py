@@ -68,6 +68,19 @@ def get_job(job_id):
     return _job_dict(row)
 
 
+def latest_job_for_file(kind, filename):
+    """The newest job of this kind for one ingest file name, or None before it starts."""
+    with _connect() as c:
+        mark_stale_interrupted(db=c)
+        c.cur.execute(
+            "SELECT id, kind, user_id, filename, parent_id, state, started_utc, "
+            "finished_utc, error, pid FROM cwa_operation_jobs WHERE kind=? AND filename=? "
+            "ORDER BY started_utc DESC LIMIT 1",
+            (kind, filename))
+        row = c.cur.fetchone()
+    return _job_dict(row) if row else None
+
+
 def _job_dict(row):
     return {"id": row[0], "kind": row[1], "user_id": row[2], "filename": row[3],
             "parent_id": row[4], "state": row[5], "started_utc": row[6],

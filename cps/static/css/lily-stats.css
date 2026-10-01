@@ -1,313 +1,19 @@
 /*
- * Lily design language: stats and duplicates pages.
+ * Lily design language: the duplicates page (templates/duplicates.html, static/js/duplicates.js).
  * Tokens and base components live in lily.css (docs/design.md). Nothing here sets a colour
- * that is not a token, and nothing sets a button's box (lily.css owns .btn, .nav-pills chips, fields).
- * Charts read the same tokens at runtime through static/js/lily-charts.js.
+ * that is not a token, and nothing sets a button's box (lily.css owns .btn, chips, fields).
  */
 
 /* ------------------------------------------------------------------ */
-/* Page frame and tabs                                                  */
-/* ------------------------------------------------------------------ */
-.stats-page {
-    min-width: 0;
-    /* Size from the column, never from content: a long chip row or table scrolls inside instead. */
-    contain: inline-size;
-}
-
-/* `hidden` must win over the flex/inline-block displays below and in lily.css (.label). */
-.stats-page [hidden] { display: none !important; }
-
-.stats-intro {
-    margin: -8px 0 14px;
-    color: var(--muted);
-}
-
-/* Tabs are chips (lily.css .nav-pills); a bar that runs out of room scrolls, it never wraps. */
-.stats-page .stats-tabs {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    margin-bottom: 22px;
-    padding: 2px;
-}
-
-.stats-page .stats-tabs::-webkit-scrollbar { display: none; }
-
-.stats-tab-panel[hidden] { display: none; }
-
-/* ------------------------------------------------------------------ */
-/* Toolbar: filter fields in a row, then quiet actions                  */
-/* ------------------------------------------------------------------ */
-.stats-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 8px 14px;
-    margin-bottom: 22px;
-}
-
-.stats-field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-}
-
-.stats-field > label,
-.stats-field-label {
-    margin: 0;
-    color: var(--muted);
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.stats-field .form-control,
-.stats-field select,
-.stats-field input {
-    width: auto;
-    min-width: 150px;
-    max-width: 100%;
-}
-
-.stats-field-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-}
-
-.stats-field-row[hidden] { display: none; }
-
-.stats-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    margin-left: auto;
-}
-
-.stats-note {
-    margin: -14px 0 22px;
-    color: var(--muted);
-    font-size: 12px;
-}
-
-.stats-note[hidden] { display: none; }
-
-/* ------------------------------------------------------------------ */
-/* Stat tiles: flat, a label, a number                                  */
-/* ------------------------------------------------------------------ */
-.stats-tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-    gap: 14px;
-    margin-bottom: 22px;
-}
-
-.stats-tile {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-    padding: 14px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--surface);
-}
-
-.stats-panel .stats-tile {
-    margin-bottom: 14px;
-    border-color: var(--line-soft);
-}
-
-.stats-tile-label {
-    color: var(--muted);
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.stats-tile-value {
-    color: var(--ink);
-    font-family: var(--font-body);
-    font-size: 31px;
-    font-weight: 600;
-    line-height: 1.15;
-    font-variant-numeric: tabular-nums lining-nums;
-    overflow-wrap: anywhere;
-}
-
-.stats-tile-note {
-    color: var(--muted);
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-}
-
-/* A trend is a fact with a sign: the arrow carries direction, the tone only supports it. */
-.stats-trend {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--muted);
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-}
-
-.stats-trend.is-up { color: var(--success); }
-.stats-trend.is-down { color: var(--danger); }
-
-/* ------------------------------------------------------------------ */
-/* Panels and chart grid                                                */
-/* ------------------------------------------------------------------ */
-.stats-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
-    margin-bottom: 14px;
-}
-
-.stats-grid > .stats-panel { margin-bottom: 0; }
-
-@media (min-width: 900px) {
-    .stats-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .stats-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-
-.stats-panel {
-    min-width: 0;
-    margin-bottom: 14px;
-    padding: 14px 14px 8px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--surface);
-}
-
-.stats-panel-title {
-    margin: 0 0 8px;
-    color: var(--heading);
-    font-family: var(--font-body);
-    font-size: var(--heading-size);
-    font-weight: 600;
-    line-height: 1.4;
-}
-
-.stats-panel-sub {
-    margin: -4px 0 8px;
-    color: var(--muted);
-    font-size: 12px;
-}
-
-.stats-chart {
-    width: 100%;
-    height: 320px;
-}
-
-.stats-chart-sm { height: 240px; }
-.stats-chart-lg { height: 380px; }
-
-.stats-scroll {
-    max-height: 420px;
-    overflow-y: auto;
-}
-
-.stats-scroll-sm { max-height: 220px; }
-
-/* ------------------------------------------------------------------ */
-/* Lists and rows inside panels                                         */
-/* ------------------------------------------------------------------ */
-.stats-list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.stats-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 34px;
-    padding: 6px 4px;
-    border-top: 0;
-}
-
-.stats-row:first-child { border-top: 0; }
-
-.stats-row-main {
-    flex: 1;
-    min-width: 0;
-}
-
-.stats-row-title {
-    display: block;
-    overflow: hidden;
-    color: var(--ink);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-a.stats-row-title:hover,
-a.stats-row-title:focus { color: var(--accent); }
-
-.stats-row-meta {
-    display: block;
-    overflow: hidden;
-    color: var(--muted);
-    font-size: 12px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.stats-row-value {
-    flex: none;
-    color: var(--ink-soft);
-    font-family: var(--font-mono);
-    font-size: 14px;
-    font-variant-numeric: tabular-nums;
-}
-
-.stats-rank {
-    flex: none;
-    width: 18px;
-    color: var(--faint);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    text-align: right;
-}
-
-.stats-row .label { flex: none; }
-
-/* A tiny bar behind a row value (shelf activity etc.): 4px, the guide's progress look. */
-.stats-meter {
-    height: 4px;
-    margin-top: 4px;
-    border-radius: 999px;
-    background: var(--control-tint);
-    overflow: hidden;
-}
-
-.stats-meter > span {
-    display: block;
-    height: 100%;
-    border-radius: 999px;
-    background: var(--accent);
-}
-
-/* Inline "empty" line inside a panel (no data yet). */
-.stats-none {
-    margin: 0;
-    padding: 22px 8px;
-    color: var(--muted);
-    text-align: center;
-}
-
-/* ------------------------------------------------------------------ */
-/* Empty state (§5): faint glyph, muted title, one sentence, next action */
+/* Empty state (§5.13, as .library-empty-state): faint glyph, title, one sentence */
 /* ------------------------------------------------------------------ */
 .stats-empty {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    padding: 40px 22px;
+    max-width: 560px;
+    margin: 48px auto;
     text-align: center;
 }
 
@@ -315,9 +21,8 @@ a.stats-row-title:focus { color: var(--accent); }
 
 .stats-empty-glyph {
     color: var(--faint);
-    font-size: 35px;
+    font-size: 44px;
     line-height: 1;
-    opacity: .6;
 }
 
 .stats-empty-title {
@@ -335,73 +40,9 @@ a.stats-row-title:focus { color: var(--accent); }
 }
 
 /* ------------------------------------------------------------------ */
-/* Tables (system tab, full-history pages)                              */
+/* Duplicates: one Primary, everything else Quiet; groups are flat cards  */
+/* with rows; notices are tone at 7% (lily.css .alert).                 */
 /* ------------------------------------------------------------------ */
-.stats-table-wrap {
-    width: 100%;
-    overflow-x: auto;
-}
-
-.stats-table-wrap .table { margin-bottom: 8px; }
-
-/* Long paths wrap inside their cell rather than widening the table. */
-.stats-table-wrap td { overflow-wrap: anywhere; }
-
-.stats-cell {
-    max-height: 20rem;
-    overflow-y: auto;
-    white-space: pre-line;
-    overflow-wrap: anywhere;
-}
-
-.stats-mono {
-    font-family: var(--font-mono);
-    font-size: 14px;
-    font-variant-numeric: tabular-nums;
-}
-
-.stats-section {
-    margin-bottom: 22px;
-}
-
-.stats-section-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 8px;
-}
-
-.stats-section-head h3 { margin: 0; }
-
-/* ------------------------------------------------------------------ */
-/* Phone                                                                */
-/* ------------------------------------------------------------------ */
-@media (max-width: 600px) {
-    .stats-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-    .stats-tile-value { font-size: 25px; }
-    .stats-actions { margin-left: 0; }
-    .stats-field { flex: 1 1 140px; }
-    .stats-field .form-control,
-    .stats-field select { width: 100%; min-width: 0; }
-    .stats-chart { height: 260px; }
-    .stats-chart-lg { height: 300px; }
-}
-
-/* === Activity tab === */
-
-/* === Library tab === */
-
-/* === API tab === */
-#endpoint-table td { vertical-align: middle; }
-
-/* The table scrolls inside its panel instead of widening the page on phones. */
-#api-tab .stats-table-wrap { contain: inline-size; }
-
-/* === Duplicates === */
-/* templates/duplicates.html + static/js/duplicates.js. One Primary (Scan), everything else Quiet;
-   groups are flat cards with rows; notices are tone at 7% (lily.css .alert). */
 
 .dup-toolbar {
     display: flex;
@@ -431,7 +72,7 @@ a.stats-row-title:focus { color: var(--accent); }
 .dup-notice-icon { top: 2px; flex: none; color: var(--accent); }
 .alert-warning .dup-notice-icon { color: var(--warning); }
 .alert-danger .dup-notice-icon { color: var(--danger); }
-.dup-notice-compact { margin: 14px 0 0; padding: 10px 14px; }
+.dup-notice-compact { margin: 14px 0 0; }
 
 #duplicate_scan_results_status { display: none; }
 #duplicate_scan_results_status.is-active { display: flex; }
@@ -449,14 +90,6 @@ a.stats-row-title:focus { color: var(--accent); }
 
 .duplicate-scan-progress { margin: 4px 0; }
 
-.dup-path {
-    padding: 1px 4px;
-    border-radius: 4px;
-    background: var(--control-tint);
-    color: var(--ink-soft);
-    overflow-wrap: anywhere;
-}
-
 .dup-mono {
     font-family: var(--font-mono);
     font-size: 12px;
@@ -472,7 +105,7 @@ a.stats-row-title:focus { color: var(--accent); }
     background: var(--surface);
 }
 
-.dup-card { padding: 14px 14px 14px; margin-bottom: 22px; }
+.dup-card { padding: 14px; margin-bottom: 22px; }
 
 .dup-card-title { margin: 0 0 4px; }
 
@@ -529,11 +162,11 @@ a.stats-row-title:focus { color: var(--accent); }
 
 .duplicate-count {
     margin-left: 6px;
-    padding: 2px 6px;
+    padding: 3px 6px;
     border-radius: 999px;
     background: color-mix(in srgb, var(--warning) 12%, transparent);
     color: var(--warning);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 500;
     vertical-align: 1px;
 }
@@ -616,7 +249,6 @@ a.stats-row-title:focus { color: var(--accent); }
 .strategy-summary { color: var(--ink-soft); }
 
 /* Resolution summary (success modal and preview). */
-.resolution-success-summary,
 .dup-preview-summary {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -673,6 +305,5 @@ a.stats-row-title:focus { color: var(--accent); }
     .dup-resolve-actions { width: 100%; }
     .book-item { gap: 10px; }
     .book-actions { flex-direction: column; }
-    .resolution-success-summary,
     .dup-preview-summary { grid-template-columns: minmax(0, 1fr); }
 }

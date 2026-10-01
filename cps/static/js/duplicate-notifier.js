@@ -101,9 +101,10 @@
         }
     }
 
+    // A Bootstrap .modal (layout.html): it handles the backdrop, Escape and focus.
     function isModalActive() {
         const modal = document.getElementById('duplicate-notification-modal');
-        return modal && modal.classList.contains('active');
+        return !!modal && modal.classList.contains('in');
     }
 
     function isDuplicatesPage() {
@@ -140,26 +141,17 @@
                 previewList.innerHTML = preview.map(item => `
                     <li class="duplicate-preview-item">
                         <strong>${escapeHtml(item.title)}</strong>
-                        <small>${escapeHtml(item.author)} - ${item.count} copies</small>
+                        <small>${escapeHtml(item.author)} · ${escapeHtml(String(item.count))}×</small>
                     </li>
                 `).join('');
             }
         }
         
-        // Show modal and backdrop
         const modal = document.getElementById('duplicate-notification-modal');
-        const backdrop = document.getElementById('duplicate-notification-backdrop');
-        
-        if (modal && backdrop) {
-            // Small delay for smooth animation
+        if (modal && window.jQuery) {
+            // A short pause so the dialog doesn't appear while the page is still drawing
             setTimeout(() => {
-                backdrop.classList.add('active');
-                modal.classList.add('active');
-
-                // Focus trap
-                modal.focus();
-
-                // Mark as shown and store count
+                window.jQuery(modal).modal('show');
                 markNotificationShown();
                 setLastNotifiedCount(count);
             }, 500);
@@ -202,11 +194,8 @@
      */
     function hideNotificationModal() {
         const modal = document.getElementById('duplicate-notification-modal');
-        const backdrop = document.getElementById('duplicate-notification-backdrop');
-        
-        if (modal && backdrop) {
-            modal.classList.remove('active');
-            backdrop.classList.remove('active');
+        if (modal && window.jQuery) {
+            window.jQuery(modal).modal('hide');
         }
     }
     
@@ -220,36 +209,6 @@
     }
     
     /**
-     * Initialize event listeners
-     */
-    function initializeEventListeners() {
-        // Close button
-        const closeBtn = document.getElementById('duplicate-notification-close');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', hideNotificationModal);
-        }
-        
-        // Remind me later button
-        const remindBtn = document.getElementById('duplicate-notification-remind');
-        if (remindBtn) {
-            remindBtn.addEventListener('click', hideNotificationModal);
-        }
-        
-        // Click outside to close
-        const backdrop = document.getElementById('duplicate-notification-backdrop');
-        if (backdrop) {
-            backdrop.addEventListener('click', hideNotificationModal);
-        }
-        
-        // Escape key to close
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                hideNotificationModal();
-            }
-        });
-    }
-    
-    /**
      * Main initialization function
      */
     function init() {
@@ -258,9 +217,6 @@
         if (!userHasPermission) {
             return; // Modal not rendered, user doesn't have permission
         }
-        
-        // Initialize event listeners
-        initializeEventListeners();
         
         // Fetch initial status once on page load
         // No periodic updates - badge refreshes after ingest operations only

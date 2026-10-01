@@ -19,7 +19,19 @@
 
 Sortable.create(sortTrue, {
     group: "sorting",
-    sort: true
+    sort: true,
+    filter: ".icon-btn",
+    preventOnFilter: false
+});
+
+// Keyboard and touch alternative to dragging: each row's arrows move it one place.
+$(sortTrue).on("click", ".lily-order-up, .lily-order-down", function () {
+    var $row = $(this).closest(".lily-order-row");
+    var up = $(this).hasClass("lily-order-up");
+    var $other = up ? $row.prev() : $row.next();
+    if (!$other.length) { return; }
+    if (up) { $row.insertBefore($other); } else { $row.insertAfter($other); }
+    this.focus();
 });
 
 // eslint-disable-next-line no-unused-vars

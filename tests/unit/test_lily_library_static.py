@@ -40,12 +40,18 @@ def test_detail_page_has_no_inline_styles_and_one_primary():
     html = read(TEMPLATES / "detail.html")
     assert 'style="' not in html
     # Actions are labelled buttons; Read is the one Primary.
-    m = re.search(r"<a target=\"_blank\" id=\"readbtn\"[^>]*>.*?</a>", html, flags=re.S)
+    # The reader always opens in a new tab.
+    m = re.search(r"<a id=\"readbtn\"[^>]*>.*?</a>", html, flags=re.S)
     assert m, "readbtn anchor missing"
     read_btn = m.group(0)
+    assert 'target="_blank" rel="noopener"' in read_btn
+    # So does the read button on a grid cover.
+    assert 'window.open(url, "_blank", "noopener")' in read(JS / "lily.js")
     assert 'class="btn btn-primary"' in read_btn
     assert "url_for('web.read_book'" in read_btn
     assert "{{ _('Read') }}" in read_btn
+    # A book in progress offers to continue, with how far in it is.
+    assert "{{ _('Continue') }}" in read_btn and "resume.percent" in read_btn
     assert html.count("btn-primary") == 1
     assert "btn-danger" not in html
 
@@ -54,7 +60,7 @@ def test_detail_edit_and_read_state_are_named_icon_buttons():
     html = read(TEMPLATES / "detail.html")
     edit = re.search(r'<a href="[^"]*show_edit_book[^"]*" id="edit_book" class="btn is-icon"[^>]*>', html, flags=re.S)
     assert edit, "Edit Metadata icon button missing"
-    assert "aria-label=\"{{ _('Edit Metadata') }}\"" in edit.group(0)
+    assert "aria-label=\"{{ _('Edit metadata') }}\"" in edit.group(0)
     toggle = re.search(r'<button[^>]*id="toggle-read-btn"[^>]*>(.*?)</button>', html, flags=re.S)
     assert toggle and 'class="btn is-icon"' in toggle.group(0)
     assert 'class="book-action-label sr-only"' in toggle.group(1)
@@ -65,7 +71,9 @@ def test_detail_edit_and_read_state_are_named_icon_buttons():
 def test_detail_rare_actions_are_icon_buttons_not_a_menu():
     html = read(TEMPLATES / "detail.html")
     assert "book-more" not in html and "More actions" not in html
-    for needle, label in (('class="btn is-icon uuid-copy"', "Copy UUID"), ('id="delete"', "Delete Book")):
+    # Copying the UUID was dropped: an internal id isn't a book action.
+    assert "uuid-copy" not in html and "Copy UUID" not in html
+    for needle, label in (('id="delete"', "Delete book"),):
         btn = re.search(r'<button[^>]*' + re.escape(needle) + r'[^>]*>', html, flags=re.S)
         assert btn, needle
         assert "aria-label=\"{{ _('" + label + "') }}\"" in btn.group(0)
@@ -93,17 +101,25 @@ def test_detail_tags_are_plain_links_in_the_facts_panel():
     assert "is-tag" not in html and "is-tag" not in read(CSS / "lily-library.css")
 
 
-def test_continue_reading_progress_sits_on_the_cover():
+def test_continue_reading_progress_sits_on_the_cover_and_its_share_under_the_author():
     html = read(TEMPLATES / "index.html")
     cover = re.search(r'<div class="cover">(.*?)\n      </div>', html, flags=re.S).group(1)
     meta = re.search(r'<div class="meta">(.*?)\n      </div>', html, flags=re.S).group(1)
-    assert "continue-reading-progress" in cover and "progress" not in meta
+    assert "continue-reading-progress" in cover and "continue-reading-progress" not in meta
+    assert 'class="continue-reading-percent"' in meta and "% read" in meta
 
 
 def test_continue_reading_opens_the_reader_in_a_new_tab():
     html = read(TEMPLATES / "index.html")
     cover = re.search(r'<div class="cover">(.*?)\n      </div>', html, flags=re.S).group(1)
-    assert '{% if resume_format %}target="_blank" rel="noopener"{% endif %}' in cover
+    # Only the reader link opens a new tab; a book with no readable format opens its page in place.
+    assert '{% if resume_format %}target="_blank" rel="noopener"' in cover
+    assert "Continue reading %(title)s (opens in a new tab)" in cover
+
+
+def test_continue_reading_is_one_scrolling_row():
+    body = re.search(r"^\.continue-reading-row \{([^}]*)\}", read(CSS / "lily-library.css"), flags=re.M).group(1)
+    assert "display: flex" in body and "overflow-x: auto" in body and "grid-template-columns" not in body
 
 
 def test_detail_toolbar_buttons_are_labelled():
@@ -135,7 +151,9 @@ def test_detail_read_toggle_shows_state_without_a_disc():
     for body in parts.values():
         assert "border-radius: 50%" not in body and "background: var(--success)" not in body
     html = read(TEMPLATES / "detail.html")
-    assert "entry.read_status and 'glyphicon-ok' or 'glyphicon-eye-open'" in html
+    # One glyph for both states (a tick in a circle); the colour shows which.
+    assert 'id="read-icon" class="glyphicon glyphicon-ok-circle"' in html
+    assert "eye-open" not in html
 
 
 def test_lily_library_css_uses_tokens_only():
@@ -149,7 +167,8 @@ def test_lily_library_css_shadows_only_on_menus():
     for selector, body in css_rules(read(CSS / "lily-library.css")):
         for value in re.findall(r"box-shadow\s*:\s*([^;]+)", body):
             if value.strip() != "none":
-                assert "tt-menu" in selector or "dropdown-menu" in selector, selector
+                # Floating layers only (design §4.4): menus, and the cover's round quick actions.
+                assert "tt-menu" in selector or "dropdown-menu" in selector or selector == ".lily-cover-actions .icon-btn", selector
 
 
 def test_sort_bars_are_dropdowns_not_solid_buttons():
@@ -259,7 +278,7 @@ def test_edit_shelf_is_beside_page_heading_not_in_actions_menu():
     actions = re.search(r'{% block page_title_actions %}(.*?){% endblock %}', shelf, flags=re.S)
     assert actions and 'id="edit_shelf"' in actions.group(1)
     assert "glyphicon-pencil" in actions.group(1)
-    assert 'aria-label="{{ _(\'Edit Shelf\') }}"' in actions.group(1)
+    assert 'aria-label="{{ _(\'Edit shelf\') }}"' in actions.group(1)
     assert shelf.count('id="edit_shelf"') == 1
     assert 'id="shelf-menu-toggle"' not in shelf
     assert 'id="delete_shelf"' not in shelf
@@ -267,6 +286,13 @@ def test_edit_shelf_is_beside_page_heading_not_in_actions_menu():
     assert re.search(r'<button[^>]*type="button"[^>]*id="delete_shelf"', edit)
     assert "shelf.delete_shelf" in edit
     assert "delete_confirm_modal()" in edit
+    # One card and one bar: delete is a quiet button at the left of the bar, not its own card.
+    actions = re.search(r'<div class="lp-actions">(.*?)</div>', edit, re.S).group(1)
+    assert actions.index('id="delete_shelf"') < actions.index("lp-spacer") < actions.index('id="submit"')
+    assert "section-delete" not in edit
+    assert "shelf.order_shelf" in edit
+    admin_css = read(TEMPLATES.parent / "static" / "css" / "lily-admin.css")
+    assert re.search(r"\.lp-shelf-edit\s*\{[^}]*max-width:\s*640px", admin_css)
 
 
 def test_shelf_heading_edit_action_preserves_permissions():
@@ -295,3 +321,41 @@ def test_shelf_heading_edit_action_preserves_permissions():
         if visible:
             assert html.index("Shelf: Papers") < html.index('id="edit_shelf"')
             assert 'href="/shelf/edit/7"' in html
+
+
+def test_grid_covers_have_no_popups():
+    # docs/design.md §5.6: nothing pops up over a grid cover or its quick-action buttons;
+    # the buttons keep an aria-label for screen readers.
+    image = read(TEMPLATES / "image.html")
+    actions = re.search(r"{% macro cover_actions.*?{%- endmacro %}", image, flags=re.S).group(0)
+    assert "title=" not in actions
+    assert actions.count("aria-label=") >= 4
+    for name in ("image.html", "index.html", "grid.html"):
+        html = read(TEMPLATES / name)
+        assert not re.search(r'<span class="img"[^>]*title=', html), name
+        assert not re.search(r'<span class="badge[^"]*"[^>]*title=', html), name
+    js = read(JS / "lily.js")
+    assert '$btn.attr({ title:' not in js
+    assert 'attr("title", $btn.data("label-read"))' not in js
+
+
+def test_cover_quick_actions_are_floating_round_buttons():
+    # docs/design.md §6.3: round frosted discs at the cover's bottom right, not a bar across its foot.
+    css = read(CSS / "lily-library.css")
+    bar = next(body for sel, body in css_rules(css) if sel == ".lily-cover-actions")
+    assert "--btn-radius: 50%" in bar and "right: 8px" in bar and "bottom: 8px" in bar
+    assert "left: 0" not in bar and "--cover-tint" not in css
+    assert "--cover-tint" not in read(JS / "lily.js")
+
+
+def test_editor_hides_empty_optional_fields_until_added_or_fetched():
+    template = read(TEMPLATES / "book_edit.html")
+    for key in ("series", "publisher", "pubdate", "languages", "rating"):
+        assert f'data-optional="{key}"{{% if not shown.{key} %}} hidden{{% endif %}}' in template
+        assert f"('{key}', _('Add " in template
+    # Title, authors, tags, shelves and description always show
+    for always in ('id="title"', 'id="author-rows"', 'id="tag-rows"', 'id="shelf-rows"', 'id="comments"'):
+        assert always in template
+    edit_js = read(JS / "edit_books.js")
+    assert '$form.on("lily:reveal-filled", function () {' in edit_js
+    assert '$("#book_edit_frm").trigger("lily:reveal-filled");' in read(JS / "get_meta.js")

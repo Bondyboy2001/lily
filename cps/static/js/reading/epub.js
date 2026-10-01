@@ -23,25 +23,33 @@ var reader;
         }
         var viewer = document.getElementById("viewer");
         if (viewer) {
-            viewer.innerHTML = "<div class=\"reader-error\">" + message + "</div>";
+            var box = document.createElement("div");
+            box.className = "reader-error";
+            box.textContent = message;
+            viewer.replaceChildren(box);
         }
     }
 
+    // Messages come translated from read.html; the console keeps the detail.
+    var viewerEl = document.getElementById("viewer");
+    var openFailed = viewerEl.getAttribute("data-open-failed");
+    var loadFailed = viewerEl.getAttribute("data-load-failed");
+
     if (reader && reader.book && typeof reader.book.on === 'function') {
         reader.book.on("openFailed", function(error) {
-            showReaderError("Failed to open this EPUB. It may be corrupted or DRM-protected.", error);
+            showReaderError(openFailed, error);
         });
         reader.book.on("error", function(error) {
-            showReaderError("An error occurred while loading this EPUB.", error);
+            showReaderError(loadFailed, error);
         });
     }
 
     if (reader && reader.rendition && typeof reader.rendition.on === 'function') {
         reader.rendition.on("displayerror", function(error) {
-            showReaderError("Unable to display this EPUB content.", error);
+            showReaderError(loadFailed, error);
         });
         reader.rendition.on("loaderror", function(error) {
-            showReaderError("Unable to load this EPUB resource.", error);
+            showReaderError(loadFailed, error);
         });
     }
 
@@ -179,6 +187,31 @@ var reader;
         }
     });
 
+    // The vendor script shows state with classes; mirror it for assistive tech.
+    function mirrorState(el, attr, isOn) {
+        if (!el) {
+            return;
+        }
+        var sync = function () { el.setAttribute(attr, isOn() ? "true" : "false"); };
+        new MutationObserver(sync).observe(el, { attributes: true, attributeFilter: ["class"] });
+        sync();
+    }
+
+    var sidebarEl = document.getElementById("sidebar");
+    var sliderEl = document.getElementById("slider");
+    if (sliderEl) {
+        new MutationObserver(function () {
+            sliderEl.setAttribute("aria-expanded", sidebarEl.classList.contains("open") ? "true" : "false");
+        }).observe(sidebarEl, { attributes: true, attributeFilter: ["class"] });
+    }
+    var bookmarkEl = document.getElementById("bookmark");
+    mirrorState(bookmarkEl, "aria-pressed", function () {
+        return bookmarkEl.classList.contains("icon-bookmark");
+    });
+    document.querySelectorAll("#panels .reader-tab").forEach(function (tab) {
+        mirrorState(tab, "aria-pressed", function () { return tab.classList.contains("active"); });
+    });
+
     // Title bar: the chapter being read, falling back to the author the vendor shows.
     var chapterTitle = document.getElementById("chapter-title");
     var authorText = null;
@@ -268,8 +301,7 @@ var reader;
     // Restore all settings after DOM and reader are ready
     document.addEventListener("DOMContentLoaded", function() {
         // Theme
-        const theme = localStorage.getItem("calibre.reader.theme") ?? "lightTheme";
-        if (typeof selectTheme === 'function') selectTheme(theme);
+        if (typeof selectTheme === 'function') selectTheme(savedReaderTheme(), false);
 
         // Font size (150% until the reader picks one)
         let savedFontSize = localStorage.getItem("calibre.reader.fontSize") || "150";

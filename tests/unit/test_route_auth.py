@@ -125,7 +125,7 @@ def test_every_route_has_an_auth_decorator(relpath):
 
 @pytest.mark.unit
 def test_admin_services_require_admin():
-    admin_only = {"cwa_flash_status", "set_cwa_settings"}
+    admin_only = {"set_cwa_settings"}
     routes = {name: decos for relpath in CWA_FUNCTIONS_MODULES for name, decos in _routes(relpath)}
     for name in admin_only:
         assert {"login_required_if_no_ano", "admin_required"} <= routes[name], name

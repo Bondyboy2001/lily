@@ -101,7 +101,7 @@ KEPT_IDS = [
     "query", "query_submit", "advanced_search", "form-upload", "btn-upload", "btn-upload2",
     "refresh-library", "top_settings", "login",
     "scnd-nav", "nav_createshelf",
-    "message_library_refresh", "library_refresh_message", "loader", "bookDetailsModal",
+    "message_library_refresh", "library_refresh_message", "bookDetailsModal",
 ]
 
 
@@ -337,8 +337,8 @@ PAGE_STYLESHEETS = ["lily-shell.css", "lily-library.css", "lily-admin.css", "lil
                     "lily-reader.css", "login.css"]
 # §4.5 breakpoints, then the §12 drift that is allowed until it is folded in.
 GUIDE_BREAKPOINTS = {600, 767, 768, 1099, 1100, 1400, 1499, 1700}
-DRIFT_BREAKPOINTS = {550, 640, 860, 900}
-DRIFT_FONT_FAMILIES = {('lily-library.css', '"Glyphicons Halflings"')}
+DRIFT_BREAKPOINTS = {640, 860}
+DRIFT_FONT_FAMILIES: set[tuple[str, str]] = set()
 
 
 def guide_palette():
@@ -404,3 +404,13 @@ def test_guide_documents_drift_breakpoints():
     drift = read(GUIDE).split("## 12. Known drift")[1]
     for width in DRIFT_BREAKPOINTS:
         assert str(width) in drift, width
+
+
+def test_destructive_controls_turn_red_on_hover():
+    css = (REPO_ROOT / "cps/static/css/lily.css").read_text(encoding="utf-8")
+    rule = re.search(r"\.btn\.is-danger:hover,[^{]*\{([^}]*)\}", css)
+    assert rule and ".icon-btn.is-danger:hover" in rule.group(0)
+    assert "var(--danger) 12%" in rule.group(1) and "color: var(--danger)" in rule.group(1)
+    library = (REPO_ROOT / "cps/static/css/lily-library.css").read_text(encoding="utf-8")
+    # The book page's accent override must not win over the red hover.
+    assert ".book-action-bar > .btn.is-danger:not(:hover):not(:focus-visible)" in library

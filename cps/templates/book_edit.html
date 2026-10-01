@@ -1,20 +1,6 @@
 {% extends "layout.html" %}
 {% block body %}
 {% if book %}
-<div class="modal fade" id="progress" data-backdrop="static" data-keyboard="false">
-  <div class="modal-dialog upload-modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h1>{{_('Uploading...')}}</h1>
-      </div>
-      <div class="modal-body">
-        <div class="progress">
-          <div class="progress-bar" role="progressbar" style="width: 0%;"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 <form role="form" action="{{ url_for('edit-book.edit_book', book_id=book.id) }}" method="post" enctype="multipart/form-data" id="book_edit_frm">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   {# Left: the cover and what replaces it #}
@@ -24,13 +10,13 @@
         <img id="detailcover" title="{{book.title}}" src="{{url_for('web.get_cover', book_id=book.id, resolution='og', c=book|last_modified)}}" />
     </div>
     <div class="editbook-cover-tools">
-      <a href="#" id="get_meta" class="btn btn-default btn-block editbook-fetch" data-toggle="modal" data-target="#metaModal"><span class="glyphicon glyphicon-search" aria-hidden="true"></span> {{_('Fetch Metadata')}}</a>
+      <a href="#" id="get_meta" class="btn btn-default btn-block editbook-fetch" data-toggle="modal" data-target="#metaModal"><span class="glyphicon glyphicon-search" aria-hidden="true"></span> {{_('Fetch metadata')}}</a>
       {% if current_user.role_delete_books() %}
-      <button type="button" class="btn btn-default btn-block editbook-delete" id="delete" data-toggle="modal" data-delete-id="{{ book.id }}" data-target="#deleteModal"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span> {{_("Delete Book")}}</button>
+      <button type="button" class="btn btn-default btn-block editbook-delete is-danger" id="delete" data-toggle="modal" data-delete-id="{{ book.id }}" data-target="#deleteModal"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span> {{_("Delete book")}}</button>
       {# Per-format deletes, shown only when the book has more than one file #}
       {% if book.data|length > 1 %}
       {% for file in book.data %}
-      <button type="button" class="btn btn-link editbook-delete-link" id="delete_format" data-toggle="modal" data-delete-id="{{ book.id }}" data-delete-format="{{ file.format }}" data-target="#deleteModal">{{_('Delete')}} {{file.format}}</button>
+      <button type="button" class="btn btn-default btn-block is-danger editbook-delete-format" id="delete_format_{{ file.format|lower }}" data-toggle="modal" data-delete-id="{{ book.id }}" data-delete-format="{{ file.format }}" data-target="#deleteModal">{{_('Delete %(format)s', format=file.format)}}</button>
       {% endfor %}
       {% endif %}
       {% endif %}
@@ -38,8 +24,8 @@
       {% if current_user.role_edit() %}
       <div class="editbook-side-group">
         <h3>{{_('Replace Cover')}}</h3>
-        <div class="form-group" aria-label="Upload cover from local drive">
-          <label class="btn btn-default btn-block btn-file" for="btn-upload-cover">{{ _('Upload from Disk') }}</label>
+        <div class="form-group">
+          <label class="btn btn-default btn-block btn-file" for="btn-upload-cover">{{ _('Upload from disk') }}</label>
           <div class="upload-cover-input-text" id="upload-cover"></div>
           <input id="btn-upload-cover" name="btn-upload-cover" type="file" accept=".jpg, .jpeg, .png, .webp">
         </div>
@@ -52,6 +38,14 @@
     </div>
   </div>
 
+  {# Optional fields show only when the book has a value for them #}
+  {% set shown = {
+    'series': book.series|length > 0,
+    'publisher': book.publishers|length > 0,
+    'pubdate': book.pubdate and (book.pubdate|formatdateinput) != '',
+    'languages': book.languages|length > 0,
+    'rating': (book.ratings|length > 0 and book.ratings[0].rating > 0),
+  } %}
   {# Middle: every section has a heading; fields under it carry plain labels #}
   <div class="editbook-form">
     <section class="editbook-section">
@@ -71,10 +65,10 @@
       </button>
       <input type="hidden" name="authors" id="authors" value="{{' & '.join(authors)}}">
     </div>
-    <div class="row">
+    <div class="row" data-optional="series"{% if not shown.series %} hidden{% endif %}>
       <div class="col-sm-9 form-group">
         <label for="series">{{_('Series')}}</label>
-        <input type="text" class="form-control typeahead" autocomplete="off" name="series" id="series" value="{% if book.series %}{{book.series[0].name}}{% endif %}">
+        <input type="text" class="form-control typeahead" autocomplete="off" name="series" id="series" data-optional-value value="{% if book.series %}{{book.series[0].name}}{% endif %}">
       </div>
       <div class="col-sm-3 form-group">
         <label for="series_index">{{_('Number')}}</label>
@@ -85,31 +79,38 @@
 
     <section class="editbook-section">
     <h3>{{_('Details')}}</h3>
-    <div class="row">
-      <div class="col-sm-7 form-group">
+    <div class="editbook-fields">
+      <div class="form-group" data-optional="publisher"{% if not shown.publisher %} hidden{% endif %}>
         <label for="publisher">{{_('Publisher')}}</label>
-        <input type="text" class="form-control typeahead" autocomplete="off" name="publisher" id="publisher" value="{% if book.publishers|length > 0 %}{{book.publishers[0].name}}{% endif %}">
+        <input type="text" class="form-control typeahead" autocomplete="off" name="publisher" id="publisher" data-optional-value value="{% if book.publishers|length > 0 %}{{book.publishers[0].name}}{% endif %}">
       </div>
-      <div class="col-sm-5 form-group">
+      <div class="form-group" data-optional="pubdate"{% if not shown.pubdate %} hidden{% endif %}>
         <label for="pubdate">{{_('Published Date')}}</label>
         <div class="input-group">
-          <input type="text" class="datepicker form-control" name="pubdate" id="pubdate" value="{% if book.pubdate %}{{book.pubdate|formatdateinput}}{% endif %}">
+          <input type="text" class="datepicker form-control" name="pubdate" id="pubdate" data-optional-value value="{% if book.pubdate %}{{book.pubdate|formatdateinput}}{% endif %}">
           <input type="text" class="form-control fake-input hidden" id="fake_pubdate" value="{% if book.pubdate %}{{book.pubdate|formatdate}}{% endif %}">
           <span class="input-group-btn">
-            <button type="button" id="pubdate_delete" class="datepicker_delete btn btn-default" aria-label="{{_('Clear date')}}"><span class="glyphicon glyphicon-trash"></span></button>
+            <button type="button" id="pubdate_delete" class="datepicker_delete btn btn-default" title="{{_('Clear date')}}" aria-label="{{_('Clear date')}}"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span></button>
           </span>
         </div>
       </div>
-    </div>
-    <div class="row">
-      <div class="col-sm-7 form-group">
+      <div class="form-group" data-optional="languages"{% if not shown.languages %} hidden{% endif %}>
         <label for="languages">{{_('Language')}}</label>
-        <input type="text" class="form-control typeahead" autocomplete="off" name="languages" id="languages" value="{% for language in book.languages %}{{language.language_name.strip()}}{% if not loop.last %}, {% endif %}{% endfor %}">
+        <input type="text" class="form-control typeahead" autocomplete="off" name="languages" id="languages" data-optional-value value="{% for language in book.languages %}{{language.language_name.strip()}}{% if not loop.last %}, {% endif %}{% endfor %}">
       </div>
-      <div class="col-sm-5 form-group">
+      <div class="form-group" data-optional="rating"{% if not shown.rating %} hidden{% endif %}>
         <label for="rating">{{_('Rating')}}</label>
-        <input type="number"  name="rating" id="rating" class="rating input-lg" data-clearable="" data-clearable-icon="glyphicon-trash" value="{% if book.ratings %}{{(book.ratings[0].rating / 2)|int}}{% endif %}"/>
+        <input type="number"  name="rating" id="rating" class="rating input-lg" data-clearable="" data-clearable-icon="glyphicon-trash" data-optional-value value="{% if book.ratings %}{{(book.ratings[0].rating / 2)|int}}{% endif %}"/>
       </div>
+    </div>
+    {# An empty field stays out of the way until it's wanted: its Add button shows it,
+       and Fetch Metadata shows any it fills (edit_books.js) #}
+    <div class="editbook-add-fields"{% if not shown.values()|reject|list %} hidden{% endif %}>
+      {% for key, label in [('series', _('Add series')), ('publisher', _('Add publisher')), ('pubdate', _('Add published date')), ('languages', _('Add language')), ('rating', _('Add rating'))] %}
+      <button type="button" class="btn btn-default btn-sm" data-optional-add="{{ key }}"{% if shown[key] %} hidden{% endif %}>
+        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> {{ label }}
+      </button>
+      {% endfor %}
     </div>
     </section>
 
@@ -207,7 +208,7 @@
                     value="{% if book['custom_column_' ~ c.id][0].value %}{{book['custom_column_' ~ c.id][0].value|formatdate}}{% endif %}"
                   {% endif %}>
                 <span class="input-group-btn">
-                  <button type="button" id="{{ 'custom_column_' ~ c.id }}_delete" class="datepicker_delete btn btn-default" aria-label="{{_('Clear date')}}"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span></button>
+                  <button type="button" id="{{ 'custom_column_' ~ c.id }}_delete" class="datepicker_delete btn btn-default" title="{{_('Clear date')}}" aria-label="{{_('Clear date')}}"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span></button>
                 </span>
               </div>
             {% endif %}
@@ -248,7 +249,7 @@
     <a href="{{ url_for('web.show_book', book_id=book.id) }}" id="edit_cancel" class="btn btn-default">{{_('Cancel')}}</a>
     <div class="checkbox">
       <label>
-        <input name="detail_view" type="checkbox" checked> {{_('View Book on Save')}}
+        <input name="detail_view" type="checkbox" checked> {{_('Open the book page after saving')}}
       </label>
     </div>
   </aside>
@@ -265,32 +266,25 @@
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <button type="button" class="close" data-dismiss="modal" aria-label="{{_('Close')}}"><span aria-hidden="true">&times;</span></button>
         <h4 class="modal-title" id="metaModalLabel">{{_('Fetch Metadata')}}</h4>
         <form class="padded-bottom" id="meta-search">
           <div class="input-group">
             <label class="sr-only" for="keyword">{{_('Keyword')}}</label>
             <input type="text" class="form-control" id="keyword" name="keyword" placeholder="{{_("Title and author, ISBN, DOI or arXiv id")}}">
             <span class="input-group-btn">
-              <button type="submit" class="btn btn-primary" id="do-search">{{_("Search")}}</button>
+              <button type="submit" class="btn btn-default" id="do-search">{{_("Search")}}</button>
             </span>
           </div>
         </form>
       </div>
       <div class="modal-body">
-        <div id="meta-import-alert" class="alert alert-success meta-import-alert" role="alert" aria-live="polite" style="display:none;">
-          {{_('The ticked fields were filled into the edit form. Save to keep them.')}}
-        </div>
-        <div class="text-center padded-bottom" id="metadata_provider">
-        </div>
-
         <div id="meta-info">
           {{_("Loading...")}}
         </div>
       </div>
       <div class="modal-footer">
         <button id="meta_close" type="button" class="btn btn-default" data-dismiss="modal">{{_('Close')}}</button>
-        <button id="meta_save" type="button" class="btn btn-primary" hidden>{{_('Save')}}</button>
       </div>
     </div>
   </div>
@@ -310,11 +304,10 @@
         <div class="image-dimensions"></div>
         <input type="checkbox" data-meta-value="cover" aria-label="{{_('Use this cover')}}" checked>
       </div>
-      <button type="button" class="btn btn-primary meta-apply" title="{{_('Fill the form with the ticked fields and save')}}">{{_("Apply")}}</button>
-      <button type="button" class="btn btn-default meta-fill" title="{{_('Fill the form with the ticked fields without saving, to combine several results')}}">{{_("Fill form")}}</button>
-      <div><a class="meta_source" href="<%- safeUrl(book.source.link) %>" target="_blank" rel="noopener"><%- book.source.description %></a></div>
+      <button type="button" class="btn btn-default meta-apply" title="{{_('Fill the form with the ticked fields and save')}}">{{_("Apply")}}</button>
+      <div><a class="meta_source" href="<%- safeUrl(book.url) || safeUrl(book.source.link) %>" target="_blank" rel="noopener"><%- book.source.description %></a></div>
       <% if (book.exact_match) { %>
-      <div class="meta-exact-match">{{_("Exact match")}}</div>
+      <div><span class="label label-success meta-exact-match">{{_("Exact match")}}</span></div>
       <% } else if (book.score) { %>
       <div class="meta-score">{{_("Match")}} <%- Math.round(book.score * 100) %>%</div>
       <% } %>
@@ -323,9 +316,6 @@
       <% } %>
     </div>
     <dl class="media-body">
-      <div class="meta-toggle-row">
-        <button type="button" class="btn btn-link btn-xs meta-toggle-all">{{_("Tick all / none")}}</button>
-      </div>
       <% fields.forEach(function (f) { %>
         <dt><label><input type="checkbox" data-meta-value="<%- f.key %>" checked> <%- f.label %></label></dt>
         <dd class="<%- f.cls || '' %><%- f.same ? ' meta-same' : '' %>">
@@ -353,9 +343,6 @@
     'rating': {{_('Rating')|safe|tojson}},
     'tags': {{_('Tags')|safe|tojson}},
     'languages': {{_('Languages')|safe|tojson}},
-    'searching': {{_('searching')|safe|tojson}},
-    'failed': {{_('failed')|safe|tojson}},
-    'timed_out': {{_('timed out')|safe|tojson}},
     'identifier_type': {{_('Identifier Type')|safe|tojson}},
     'identifier_value': {{_('Identifier Value')|safe|tojson}},
     'remove': {{_('Remove')|safe|tojson}},

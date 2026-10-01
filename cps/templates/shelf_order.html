@@ -1,45 +1,32 @@
 {% extends "layout.html" %}
 {% block body %}
   <div class="discover lily-shelf-order">
-    <p class="help-block">{{_('Drag to Rearrange Order')}}</p>
+    <p class="help-block">{{_('Drag a book to move it, or use its arrows.')}}</p>
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div id="sortTrue" class="list-group">
+      <ol id="sortTrue" class="lily-order-list">
         {% for entry in entries %}
-          <div id="{{entry['Books']['id']}}" class="list-group-item">
-            <div class="row">
-              <div class="col-lg-2 col-sm-4 hidden-xs">
-                {% if entry['visible'] %}
-                  <img title="{{entry['Books']['title']}}" alt="{{entry['Books']['title']}}" class="cover-height" src="{{ url_for('web.get_cover', book_id=entry['Books']['id']) }}">
-                {% else %}
-                  <img title="{{entry['Books']['title']}}" alt="{{entry['Books']['title']}}" class="cover-height" src="{{ url_for('static', filename='generic_cover.svg') }}">
-                {% endif %}
-              </div>
-              <div class="col-lg-10 col-sm-8 col-xs-12">
+          {% set book = entry['Books'] %}
+          <li id="{{ book['id'] }}" class="list-group-item lily-order-row">
+            <img class="lily-order-cover" alt="" src="{{ url_for('web.get_cover', book_id=book['id']) if entry['visible'] else url_for('static', filename='generic_cover.svg') }}">
+            <div class="lily-order-text">
               {% if entry['visible'] %}
-                  {{entry['Books']['title']}}
-                  {% if entry['Books']['series']|length > 0 %}
-                    <br>
-                    {{entry['Books']['series_index']|formatfloat(2)}} - {{entry['Books']['series'][0].name}}
-                  {% endif %}
-                  <br>
-                  {% for author in entry['Books']['author'] %}
-                    {{author.name.replace('|',',')}}
-                    {% if not loop.last %}
-                      &amp;
-                    {% endif %}
-                  {% endfor %}
+              <span class="lily-order-title">{{ book['title'] }}</span>
+              <span class="lily-order-meta">
+                {%- for author in book['author'] %}{{ author.name.replace('|', ',') }}{% if not loop.last %} &amp; {% endif %}{% endfor -%}
+                {%- if book['series']|length > 0 %} · {{ book['series'][0].name }} {{ book['series_index']|formatfloat(2) }}{% endif -%}
+              </span>
               {% else %}
-                  {{_('Hidden Book')}}
-                  <br>
+              <span class="lily-order-title">{{_('Hidden book')}}</span>
               {% endif %}
-              </div>
             </div>
-          </div>
+            <button type="button" class="icon-btn lily-order-up" title="{{_('Move up')}}" aria-label="{{_('Move up')}}"><span class="glyphicon glyphicon-collapse-up" aria-hidden="true"></span></button>
+            <button type="button" class="icon-btn lily-order-down" title="{{_('Move down')}}" aria-label="{{_('Move down')}}"><span class="glyphicon glyphicon-collapse-down" aria-hidden="true"></span></button>
+          </li>
         {% endfor %}
-      </div>
+      </ol>
       <div class="lily-form-actions">
         <a href="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}" id="shelf_back" class="btn btn-default">{{_('Back')}}</a>
-        <button onclick="sendData('{{ url_for('shelf.order_shelf', shelf_id=shelf.id) }}')" class="btn btn-primary" id="ChangeOrder">{{_('Save')}}</button>
+        <button type="button" onclick="sendData('{{ url_for('shelf.order_shelf', shelf_id=shelf.id) }}')" class="btn btn-primary" id="ChangeOrder">{{_('Save')}}</button>
       </div>
   </div>
 {% endblock %}

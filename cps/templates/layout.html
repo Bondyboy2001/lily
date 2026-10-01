@@ -1,4 +1,4 @@
-{% from 'modal_dialogs.html' import restrict_modal, delete_book, delete_confirm_modal, change_confirm_modal %}
+{% from 'modal_dialogs.html' import delete_book, delete_confirm_modal %}
 {% import 'image.html' as image %}
 
 <!DOCTYPE html>
@@ -62,12 +62,14 @@
               {% endif %}
             {% endfor %}
             <li class="nav-head">{{_('Shelves')}}</li>
+            {% set current_shelf_id = shelf.id if shelf is defined and shelf else None %}
             {% for shelf in g.shelves_access %}
               {% set book_count = (g.shelf_book_counts or {}).get(shelf.id, 0) %}
-              <li><a href="{{url_for('shelf.show_shelf', shelf_id=shelf.id)}}" title="{{shelf.name}} ({{book_count}})"><span class="glyphicon glyphicon-list shelf" aria-hidden="true"></span><span class="nav-name">{{shelf.name|shortentitle(40)}}{% if shelf.is_public == 1 %} {{_('(Public)')}}{% endif %}</span>{% if book_count %}<span class="nav-count">{{book_count}}</span>{% endif %}</a></li>
+              {% set shelf_active = page in ('shelf', 'shelforder', 'shelfedit') and current_shelf_id == shelf.id %}
+              <li{% if shelf_active %} class="active"{% endif %}><a href="{{url_for('shelf.show_shelf', shelf_id=shelf.id)}}"{% if shelf_active %} aria-current="page"{% endif %} title="{{shelf.name}} ({{book_count}})"><span class="glyphicon glyphicon-list shelf" aria-hidden="true"></span><span class="nav-name">{{shelf.name|shortentitle(40)}}{% if shelf.is_public == 1 %} {{_('(Public)')}}{% endif %}</span>{% if book_count %}<span class="nav-count">{{book_count}}</span>{% endif %}</a></li>
             {% endfor %}
             {% if not current_user.is_anonymous %}
-              <li id="nav_createshelf" class="create-shelf"><a href="{{url_for('shelf.create_shelf')}}"><span class="glyphicon glyphicon-plus" aria-hidden="true"></span><span class="nav-name">{{_('Create Shelf')}}</span></a></li>
+              <li id="nav_createshelf" class="create-shelf"><a href="{{url_for('shelf.create_shelf')}}"><span class="glyphicon glyphicon-plus" aria-hidden="true"></span><span class="nav-name">{{_('Create shelf')}}</span></a></li>
             {% endif %}
           </ul>
         </nav>
@@ -77,7 +79,7 @@
       <div class="lily-main">
         <header class="navbar lily-topbar">
           {% if show_sidebar %}
-          <button type="button" class="icon-btn lily-drawer-toggle" aria-controls="lily-sidebar" aria-expanded="false" aria-label="{{_('Toggle Navigation')}}" title="{{_('Toggle Navigation')}}"><span class="glyphicon glyphicon-menu-hamburger" aria-hidden="true"></span></button>
+          <button type="button" class="icon-btn lily-drawer-toggle" aria-controls="lily-sidebar" aria-expanded="false" aria-label="{{_('Show or hide sidebar')}}" title="{{_('Show or hide sidebar (⌘B)')}}"><span class="glyphicon glyphicon-menu-hamburger" aria-hidden="true"></span></button>
           {% else %}
           <a class="lily-brand" href="{{url_for('web.index')}}"><img src="{{ url_for('static', filename='icon.svg') }}" alt="" width="44" height="44">{{instance}}</a>
           {% endif %}
@@ -91,10 +93,10 @@
                    autocomplete="off" data-suggest-url="{{url_for('web.get_book_titles_json')}}">
             <button type="submit" id="query_submit" class="sr-only">{{_('Search')}}</button>
           </form>
-          <a href="{{url_for('search.advanced_search')}}" id="advanced_search" class="icon-btn" title="{{_('Advanced Search')}}" aria-label="{{_('Advanced Search')}}"><span class="glyphicon glyphicon-filter" aria-hidden="true"></span></a>
+          <a href="{{url_for('search.advanced_search')}}" id="advanced_search" class="icon-btn" title="{{_('Advanced search')}}" aria-label="{{_('Advanced search')}}"><span class="glyphicon glyphicon-filter" aria-hidden="true"></span></a>
           <div class="lily-topbar-actions">
             {% if current_user.role_upload() and g.allow_upload %}
-            <form id="form-upload" class="lily-upload" action="{{ url_for('edit-book.upload') }}" data-title="{{_('Uploading...')}}" data-footer="{{_('Close')}}" data-failed="{{_('Error')}}" data-message="{{_('Upload done, processing, please wait...')}}" method="post" enctype="multipart/form-data">
+            <form id="form-upload" class="lily-upload" action="{{ url_for('edit-book.upload') }}" data-title="{{_('Uploading…')}}" data-footer="{{_('Close')}}" data-failed="{{_('Upload Failed')}}" data-message="{{_('Upload done, processing, please wait...')}}" method="post" enctype="multipart/form-data">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <span class="icon-btn btn-file" title="{{_('Upload books')}}"><span class="glyphicon glyphicon-upload" aria-hidden="true"></span><input id="btn-upload" name="btn-upload" aria-label="{{_('Upload books')}}"
                 type="file" accept="{% for format in accept %}.{% if format != ''%}{{format}}{% else %}*{% endif %}{{ ',' if not loop.last }}{% endfor %}" multiple></span>
@@ -102,7 +104,7 @@
             </form>
             {% endif %}
             {% if current_user.role_admin() %}
-            <a id="refresh-library" class="icon-btn" href="#" role="button" title="{{_('Refresh Library')}}" aria-label="{{_('Refresh Library')}}" onclick="refreshLibrary(); return false;"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></a>
+            <a id="refresh-library" class="icon-btn" href="#" role="button" title="{{_('Refresh library')}}" aria-label="{{_('Refresh library')}}" onclick="refreshLibrary(); return false;"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></a>
             {% endif %}
             {# Light / Dark: lily.js flips it; lily_theme_head.html applies it before first paint #}
             <button type="button" id="lily-theme-toggle" class="icon-btn lily-theme-toggle"
@@ -111,9 +113,9 @@
               <span class="glyphicon glyphicon-theme-light" aria-hidden="true"></span>
               <span class="glyphicon glyphicon-theme-dark" aria-hidden="true"></span>
             </button>
-            {# Settings goes straight to the settings pages (account, tasks, admin, logout) #}
+            {# Settings goes straight to the settings pages (profile, import, users, maintenance) #}
             {% if current_user.is_anonymous %}
-            <a id="login" class="icon-btn" href="{{url_for('web.login', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}" title="{{_('Login')}}" aria-label="{{_('Login')}}"><span class="glyphicon glyphicon-log-in" aria-hidden="true"></span></a>
+            <a id="login" class="icon-btn" href="{{url_for('web.login', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}" title="{{_('Log in')}}" aria-label="{{_('Log in')}}"><span class="glyphicon glyphicon-log-in" aria-hidden="true"></span></a>
             {% else %}
             <a id="top_settings" class="icon-btn" href="{{url_for('web.profile')}}" title="{{_('Settings')}}" aria-label="{{_('Settings')}}"><span class="glyphicon glyphicon-cog" aria-hidden="true"></span></a>
             {% endif %}
@@ -125,11 +127,18 @@
     <div id="message_library_refresh" class="lily-refresh-toast" role="status" aria-live="polite" hidden
          data-error-message="{{ _('Library refresh failed. Please try again or check the logs.') }}"
          data-logs-url="{{ url_for('logs.show_logs') }}"
-         data-logs-label="{{ _('Logs') }}">
+         data-logs-label="{{ _('Logs') }}"
+         data-importing="{{ _('Importing %(name)s…', name='{name}') }}"
+         data-importing-many="{{ _('Importing %(count)s books…', count='{count}') }}"
+         data-imported="{{ _('Added %(name)s to the library', name='{name}') }}"
+         data-imported-many="{{ _('Added %(count)s books to the library', count='{count}') }}"
+         data-import-failed="{{ _('Couldn\'t import %(name)s', name='{name}') }}"
+         data-library-url="{{ url_for('web.index') }}"
+         data-library-label="{{ _('Show') }}">
       <span class="glyphicon glyphicon-refresh lily-refresh-toast-icon" aria-hidden="true"></span>
       <p id="library_refresh_message"></p>
-      <button id="refresh_message_dismiss_btn" type="button" class="lily-refresh-toast-close" onclick="dismissLibraryRefreshMessage()" aria-label="{{_('Close')}}">
-        <span aria-hidden="true">&times;</span>
+      <button id="refresh_message_dismiss_btn" type="button" class="icon-btn lily-refresh-toast-close" onclick="dismissLibraryRefreshMessage()" title="{{_('Close')}}" aria-label="{{_('Close')}}">
+        <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>
       </button>
     </div>
 
@@ -147,8 +156,8 @@
       </div>
       {% elif category == "cwa_update" %}
       <div class="row-fluid">
-        <div id="flash_info" class="alert alert-info alert-cwa">
-          {{ text }} <a href="https://github.com/Bondyboy2001/lily/releases">{{ _('See Changelog') }}</a>
+        <div class="alert alert-info alert-cwa">
+          {{ text }} <a href="https://github.com/Bondyboy2001/lily/releases">{{ _('See what\'s new') }}</a>
           <button type="button" class="close" data-dismiss="alert" aria-label="{{_('Close')}}">
             <span aria-hidden="true">&times;</span>
           </button>
@@ -156,8 +165,8 @@
       </div>
       {% elif category == "duplicate_scan_setup" %}
       <div class="row-fluid">
-        <div id="flash_info" class="alert alert-info alert-cwa">
-          {{ text }} <a href="{{ url_for('duplicates.show_duplicates') }}">{{ _('Open Duplicates') }}</a>
+        <div class="alert alert-info alert-cwa">
+          {{ text }} <a href="{{ url_for('duplicates.show_duplicates') }}">{{ _('Open duplicates') }}</a>
           <button type="button" class="close duplicate-scan-setup-dismiss"
                   data-dismiss-url="{{ url_for('duplicates.dismiss_duplicate_scan_setup_notice') }}"
                   data-dismiss="alert" aria-label="{{_('Close')}}">
@@ -167,16 +176,7 @@
       </div>
       {% elif category == "cwa_arch_warning" %}
       <div class="row-fluid">
-        <div id="flash_danger" class="alert alert-danger alert-cwa" role="alert">
-          {{ text }}
-          <button type="button" class="close" data-dismiss="alert" aria-label="{{_('Close')}}">
-            <span aria-hidden="true">&times;</span>
-          </button>
-        </div>
-      </div>
-      {% elif category == "cwa_refresh" %}
-      <div class="row-fluid">
-        <div id="flash_success" class="alert alert-info refresh-cwa">
+        <div class="alert alert-danger alert-cwa" role="alert">
           {{ text }}
           <button type="button" class="close" data-dismiss="alert" aria-label="{{_('Close')}}">
             <span aria-hidden="true">&times;</span>
@@ -195,10 +195,6 @@
     {% endfor %}
     </div>
     {% block flash %}{% endblock %}
-        <div id="loader" hidden>
-          <h3>{{_('Uploading...')}}</h3>
-          <p>{{_("Please do not refresh the page")}}.</p>
-        </div>
         <div class="container-fluid">
           <div class="row-fluid">
             <main class="col-sm-10 lily-content" id="lily-content" tabindex="-1">
@@ -245,7 +241,7 @@
       <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
           <div class="modal-header">
-            <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <button type="button" class="close" data-dismiss="modal" aria-label="{{_('Close')}}"><span aria-hidden="true">&times;</span></button>
             <h4 class="modal-title" id="bookDetailsModalLabel">{{_('Book Details')}}</h4>
           </div>
           <div class="modal-body">...</div>
@@ -277,29 +273,23 @@
     {% block js %}{% endblock %}
     {% if current_user.is_authenticated and (current_user.role_admin() or current_user.role_edit()) %}
     <!-- Duplicate Notification Modal -->
-    <div id="duplicate-notification-backdrop" class="duplicate-notification-backdrop"></div>
-    <div id="duplicate-notification-modal" class="duplicate-notification-modal" tabindex="-1" role="dialog" aria-labelledby="duplicate-notification-title">
-      <div class="duplicate-notification-header">
-        <button id="duplicate-notification-close" class="duplicate-notification-close" aria-label="{{_('Close')}}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg></button>
-        <h2 id="duplicate-notification-title">{{_('Duplicate Books Detected')}}</h2>
-        <p>{{_('You have unresolved duplicate books in your library')}}</p>
-      </div>
-      <div class="duplicate-notification-body">
-        <div class="duplicate-count-section">
-          <div class="duplicate-count-badge" id="duplicate-notification-count">0</div>
-          <h3>{{_('Duplicate Groups Found')}}</h3>
+    <div class="modal fade" id="duplicate-notification-modal" tabindex="-1" role="dialog" aria-labelledby="duplicate-notification-title">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="{{_('Close')}}"><span aria-hidden="true">&times;</span></button>
+            <h4 class="modal-title" id="duplicate-notification-title">{{_('Duplicate Books Found')}}</h4>
+          </div>
+          <div class="modal-body">
+            <p>{{_('Some books are in your library more than once. Review them and choose which copy to keep.')}}</p>
+            <p class="duplicate-count-section"><span class="duplicate-count-badge" id="duplicate-notification-count">0</span> {{_('groups of duplicates')}}</p>
+            <ul id="duplicate-notification-preview" class="duplicate-preview-list"></ul>
+          </div>
+          <div class="modal-footer">
+            <button type="button" id="duplicate-notification-remind" class="btn btn-default" data-dismiss="modal">{{_('Remind me later')}}</button>
+            <a href="{{ url_for('duplicates.show_duplicates') }}" class="btn btn-primary">{{_('Resolve duplicates')}}</a>
+          </div>
         </div>
-        <ul id="duplicate-notification-preview" class="duplicate-preview-list">
-          <!-- Preview items will be inserted here by JavaScript -->
-        </ul>
-      </div>
-      <div class="duplicate-notification-footer">
-        <button id="duplicate-notification-remind" class="duplicate-notification-btn duplicate-notification-btn-secondary">
-          {{_('Remind Me Later')}}
-        </button>
-        <a href="{{ url_for('duplicates.show_duplicates') }}" class="duplicate-notification-btn duplicate-notification-btn-primary">
-          {{_('View & Resolve Duplicates')}}
-        </a>
       </div>
     </div>
     <script>

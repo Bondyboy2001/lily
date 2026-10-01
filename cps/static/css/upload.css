@@ -1,16 +1,6 @@
-#progress.modal.in {
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-}
-
-.upload-modal-dialog > .modal-content {
-  position: absolute !important;
-  width: min(480px, calc(100vw - 32px)) !important;
-  margin: 0 !important;
-  top: 50% !important;  /* Move top edge to the middle */
-  left: 50% !important; /* Move left edge to the middle */
-  /* Pull the modal back by half its own width and height */
-  transform: translate(-50%, 100%) !important;
-  border-radius: 10px !important;
+/* Upload progress dialog (js/uploadprogress.js). It is a plain .modal, centred and styled by lily.css;
+   only the status line under the bar needs spacing. */
+.upload-modal-dialog .modal-message {
+  margin: 8px 0 0;
+  color: var(--muted);
 }

@@ -33,51 +33,29 @@
 <div class="discover">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="lily-actions lily-table-actions">
-      <div class="btn btn-default disabled" id="merge_books" aria-disabled="true">
-        {{_('Merge')}}
-      </div>
-      <div class="btn btn-default disabled" id="edit_selected_books" aria-disabled="true">
-        {{_('Edit')}}
-      </div>
-      <div class="btn btn-default disabled" id="archive_selected_books" aria-disabled="true">
-        {{_('Archive')}}
-      </div>
-      <div class="btn btn-default disabled" id="unarchive_selected_books" aria-disabled="true">
-        {{_('Unarchive')}}
-      </div>
-      <div class="btn btn-default disabled" id="read_selected_books" aria-disabled="true">
-        {{_('Mark as read')}}
-      </div>
-      <div class="btn btn-default disabled" id="unread_selected_books" aria-disabled="true">
-        {{_('Mark as unread')}}
-      </div>
-      <div class="btn btn-default disabled" id="delete_selected_books" aria-disabled="true">
-        {{_('Delete')}}
-      </div>
-      <div class="btn btn-default disabled" id="add_to_shelf_btn" aria-disabled="true">
-        {{_('Add to Shelf')}}
-      </div>
-        <div class="btn btn-default disabled" id="table_xchange">{{_('Exchange author & title')}}
-      </div>
-      <!-- New Select all button -->
+      <button type="button" class="btn btn-default disabled" id="merge_books" aria-disabled="true">{{_('Merge')}}</button>
+      <button type="button" class="btn btn-default disabled" id="edit_selected_books" aria-disabled="true">{{_('Edit')}}</button>
+      <button type="button" class="btn btn-default disabled" id="archive_selected_books" aria-disabled="true">{{_('Archive')}}</button>
+      <button type="button" class="btn btn-default disabled" id="unarchive_selected_books" aria-disabled="true">{{_('Unarchive')}}</button>
+      <button type="button" class="btn btn-default disabled" id="read_selected_books" aria-disabled="true">{{_('Mark as read')}}</button>
+      <button type="button" class="btn btn-default disabled" id="unread_selected_books" aria-disabled="true">{{_('Mark as unread')}}</button>
+      <button type="button" class="btn btn-default disabled" id="delete_selected_books" aria-disabled="true">{{_('Delete')}}</button>
+      <button type="button" class="btn btn-default disabled" id="add_to_shelf_btn" aria-disabled="true">{{_('Add to shelf')}}</button>
+      <button type="button" class="btn btn-default disabled" id="table_xchange" aria-disabled="true">{{_('Exchange author & title')}}</button>
       {% if current_user.role_edit() %}
-      <div class="btn btn-default" id="select_all">
-        {{ _('Select all') }}
-      </div>
-      <div class="btn btn-default" id="unselect_all">
-        {{ _('Clear all') }}
-      </div>
+      <button type="button" class="btn btn-default" id="select_all">{{ _('Select all') }}</button>
+      <button type="button" class="btn btn-default" id="unselect_all">{{ _('Clear all') }}</button>
       {% endif %}
     </div>
     <div>
       <div class="filterhead lily-inline-checks">
         <div class="checkbox">
           <input type="checkbox" id="autoupdate_titlesort" name="autoupdate_titlesort" checked>
-          <label for="autoupdate_titlesort">{{_('Update Title Sort automatically  ')}}</label>
+          <label for="autoupdate_titlesort">{{_('Update title sort automatically')}}</label>
         </div>
         <div class="checkbox">
           <input type="checkbox" id="autoupdate_authorsort" name="autoupdate_authorsort" checked>
-          <label for="autoupdate_authorsort">{{_('Update Author Sort automatically')}}</label>
+          <label for="autoupdate_authorsort">{{_('Update author sort automatically')}}</label>
         </div>
       </div>
     </div>
@@ -144,183 +122,165 @@
 {% block modal %}
 {{ delete_book(current_user.role_delete_books()) }}
 {% if current_user.role_edit() %}
-<div class="modal fade" id="mergeModal" role="dialog" aria-labelledby="metaMergeLabel">
+<div class="modal fade" id="mergeModal" tabindex="-1" role="dialog" aria-labelledby="mergeModalLabel">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header bg-danger text-center">
-        <span>{{_('Are you really sure?')}}</span>
+      <div class="modal-header">
+        <h4 class="modal-title" id="mergeModalLabel">{{_('Merge Books')}}</h4>
       </div>
-        <div class="modal-body">
-          <p></p>
-            <div class="text-left">{{_('Books with Title will be merged from:')}}</div>
-          <p></p>
-            <div class="text-left" id="merge_from"></div>
-          <p></p>
-            <div class="text-left">{{_('Into Book with Title:')}}</div>
-          <p></p>
-            <div class="text-left" id="merge_to"></div>
-        </div>
+      <div class="modal-body">
+        <p>{{_('These books will be merged and then deleted:')}}</p>
+        <div id="merge_from"></div>
+        <p>{{_('Into this book:')}}</p>
+        <div id="merge_to"></div>
+      </div>
       <div class="modal-footer">
-        <input id="merge_confirm" type="button" class="btn btn-danger" value="{{_('Merge')}}" name="merge_confirm" data-dismiss="modal">
         <button id="merge_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
+        <input id="merge_confirm" type="button" class="btn btn-danger" value="{{_('Merge books')}}" name="merge_confirm" data-dismiss="modal">
       </div>
     </div>
   </div>
 </div>
 
-<div class="modal fade" id="delete_selected_modal" role="dialog" aria-labelledby="metaDeleteSelectedLabel">
+<div class="modal fade" id="delete_selected_modal" tabindex="-1" role="dialog" aria-labelledby="delete_selected_modalLabel">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header bg-danger text-center">
-        <span>{{_('Are you really sure?')}}</span>
+      <div class="modal-header">
+        <h4 class="modal-title" id="delete_selected_modalLabel">{{_('Delete Books')}}</h4>
       </div>
       <div class="modal-body">
-        <p></p>
-          <div class="text-left">{{_('The following books will be deleted (recovery copies are kept for an administrator to restore):')}}</div>
-        <p></p>
-          <div class="text-left" id="display-delete-selected-books"></div>
+        <p>{{_('These books will be deleted:')}}</p>
+        <div id="display-delete-selected-books"></div>
+      </div>
       <div class="modal-footer">
-        <input id="delete_selected_confirm" type="button" class="btn btn-danger" value="{{_('Delete')}}" name="delete_selected_confirm" data-dismiss="modal">
         <button id="delete_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
-      </div>
+        <input id="delete_selected_confirm" type="button" class="btn btn-danger" value="{{_('Delete books')}}" name="delete_selected_confirm" data-dismiss="modal">
       </div>
     </div>
   </div>
 </div>
 
-<div class="modal fade" id="archive_selected_modal" role="dialog" aria-labelledby="metaArchiveSelectedLabel">
+<div class="modal fade" id="archive_selected_modal" tabindex="-1" role="dialog" aria-labelledby="archive_selected_modalLabel">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header bg-danger text-center">
-        <span>{{_('Are you really sure?')}}</span>
+      <div class="modal-header">
+        <h4 class="modal-title" id="archive_selected_modalLabel">{{_('Archive Books')}}</h4>
       </div>
       <div class="modal-body">
-        <p></p>
-          <div class="text-left">{{_('The following books will be archived:')}}</div>
-        <p></p>
-          <div class="text-left" id="display-archive-selected-books"></div>
+        <p>{{_('These books will be archived:')}}</p>
+        <div id="display-archive-selected-books"></div>
+      </div>
       <div class="modal-footer">
-        <input id="archive_selected_confirm" type="button" class="btn btn-danger" value="{{_('Archive')}}" name="archive_selected_confirm" data-dismiss="modal">
         <button id="archive_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
-      </div>
+        <input id="archive_selected_confirm" type="button" class="btn btn-primary" value="{{_('Archive books')}}" name="archive_selected_confirm" data-dismiss="modal">
       </div>
     </div>
   </div>
 </div>
 
-<div class="modal fade" id="unarchive_selected_modal" role="dialog" aria-labelledby="metaUnArchiveSelectedLabel">
+<div class="modal fade" id="unarchive_selected_modal" tabindex="-1" role="dialog" aria-labelledby="unarchive_selected_modalLabel">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header bg-danger text-center">
-        <span>{{_('Are you really sure?')}}</span>
+      <div class="modal-header">
+        <h4 class="modal-title" id="unarchive_selected_modalLabel">{{_('Unarchive Books')}}</h4>
       </div>
       <div class="modal-body">
-        <p></p>
-          <div class="text-left">{{_('The following books will be unarchived:')}}</div>
-        <p></p>
-          <div class="text-left" id="display-unarchive-selected-books"></div>
+        <p>{{_('These books will be unarchived:')}}</p>
+        <div id="display-unarchive-selected-books"></div>
+      </div>
       <div class="modal-footer">
-        <input id="unarchive_selected_confirm" type="button" class="btn btn-primary" value="{{_('Unarchive')}}" name="unarchive_selected_confirm" data-dismiss="modal">
         <button id="unarchive_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
-      </div>
+        <input id="unarchive_selected_confirm" type="button" class="btn btn-primary" value="{{_('Unarchive books')}}" name="unarchive_selected_confirm" data-dismiss="modal">
       </div>
     </div>
   </div>
 </div>
 
-<div class="modal fade" id="read_selected_modal" role="dialog" aria-labelledby="metaReadSelectedLabel">
+<div class="modal fade" id="read_selected_modal" tabindex="-1" role="dialog" aria-labelledby="read_selected_modalLabel">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header bg-danger text-center">
-        <span>{{_('Are you really sure?')}}</span>
+      <div class="modal-header">
+        <h4 class="modal-title" id="read_selected_modalLabel">{{_('Mark as Read')}}</h4>
       </div>
       <div class="modal-body">
-        <p></p>
-          <div class="text-left">{{_('The following books will be marked read:')}}</div>
-        <p></p>
-          <div class="text-left" id="display-read-selected-books"></div>
+        <p>{{_('These books will be marked as read:')}}</p>
+        <div id="display-read-selected-books"></div>
+      </div>
       <div class="modal-footer">
+        <button id="read_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
         <input id="read_selected_confirm" type="button" class="btn btn-primary" value="{{_('Mark as read')}}" name="read_selected_confirm" data-dismiss="modal">
-        <button id="read_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
-      </div>
       </div>
     </div>
   </div>
 </div>
 
-<div class="modal fade" id="unread_selected_modal" role="dialog" aria-labelledby="metaReadSelectedLabel">
+<div class="modal fade" id="unread_selected_modal" tabindex="-1" role="dialog" aria-labelledby="unread_selected_modalLabel">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header bg-danger text-center">
-        <span>{{_('Are you really sure?')}}</span>
+      <div class="modal-header">
+        <h4 class="modal-title" id="unread_selected_modalLabel">{{_('Mark as Unread')}}</h4>
       </div>
       <div class="modal-body">
-        <p></p>
-          <div class="text-left">{{_('The following books will be marked unread:')}}</div>
-        <p></p>
-          <div class="text-left" id="display-unread-selected-books"></div>
+        <p>{{_('These books will be marked as unread:')}}</p>
+        <div id="display-unread-selected-books"></div>
+      </div>
       <div class="modal-footer">
+        <button id="unread_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
         <input id="unread_selected_confirm" type="button" class="btn btn-primary" value="{{_('Mark as unread')}}" name="unread_selected_confirm" data-dismiss="modal">
-        <button id="read_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
-      </div>
       </div>
     </div>
   </div>
 </div>
 
-<div class="modal fade" id="edit_selected_modal" role="dialog" aria-labelledby="metaEditSelectedLabel">
+<div class="modal fade" id="edit_selected_modal" tabindex="-1" role="dialog" aria-labelledby="edit_selected_modalLabel">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header text-center">
-        <span>{{_('Edit Metadata')}}</span>
+      <div class="modal-header">
+        <h4 class="modal-title" id="edit_selected_modalLabel">{{_('Edit Metadata')}}</h4>
       </div>
       <div class="modal-body">
-        <div class="text-left">{{_('Edit the fields you want changed. Blank fields will be ignored:')}}</div>
-        <div class="text-left text-muted lily-table-note">
-          {{_('Multiple values are supported for Authors, Tags/Categories, Languages, and Publishers. Use comma-separated values (e.g., "Name1, Name2").')}}
-        </div>
-          <br>
-          Title:
+        <p>{{_('Fill in the fields to change. Blank fields stay as they are.')}}</p>
+        <p class="text-muted lily-table-note">{{_('Authors, tags, languages and publishers take several values, separated by commas.')}}</p>
+        <div class="form-group">
+          <label for="title_input">{{_('Title')}}</label>
           <input class="form-control" id="title_input">
-          <p></p>
-
-          Title Sort:
-          <input class="form-control" id="title_sort_input">
-          <p></p>
-
-          Author Sort:
-          <input class="form-control" id="author_sort_input">
-          <p></p>
-
-          Authors:
-          <input class="form-control" id="authors_input">
-          <p></p>
-
-          Tags / Categories:
-          <input class="form-control" id="categories_input">
-          <p></p>
-
-          Series:
-          <input class="form-control" id="series_input">
-          <p></p>
-
-          Languages:
-          <input class="form-control" id="languages_input">
-          <p></p>
-
-          Publishers:
-          <input class="form-control" id="publishers_input">
-          <p></p>
-
-          Comments:
-          <input class="form-control" id="comments_input">
-          <p></p>
         </div>
-
-      <div class="modal-footer">
-        <input id="edit_selected_confirm" type="button" class="btn btn-primary" value="{{_('Edit')}}" name="edit_selected_confirm" id="edit_selected_confirm" data-dismiss="modal">
-        <button id="edit_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
+        <div class="form-group">
+          <label for="title_sort_input">{{_('Title sort')}}</label>
+          <input class="form-control" id="title_sort_input">
+        </div>
+        <div class="form-group">
+          <label for="author_sort_input">{{_('Author sort')}}</label>
+          <input class="form-control" id="author_sort_input">
+        </div>
+        <div class="form-group">
+          <label for="authors_input">{{_('Authors')}}</label>
+          <input class="form-control" id="authors_input">
+        </div>
+        <div class="form-group">
+          <label for="categories_input">{{_('Tags')}}</label>
+          <input class="form-control" id="categories_input">
+        </div>
+        <div class="form-group">
+          <label for="series_input">{{_('Series')}}</label>
+          <input class="form-control" id="series_input">
+        </div>
+        <div class="form-group">
+          <label for="languages_input">{{_('Languages')}}</label>
+          <input class="form-control" id="languages_input">
+        </div>
+        <div class="form-group">
+          <label for="publishers_input">{{_('Publishers')}}</label>
+          <input class="form-control" id="publishers_input">
+        </div>
+        <div class="form-group">
+          <label for="comments_input">{{_('Comments')}}</label>
+          <input class="form-control" id="comments_input">
+        </div>
       </div>
+      <div class="modal-footer">
+        <button id="edit_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
+        <input id="edit_selected_confirm" type="button" class="btn btn-primary" value="{{_('Save changes')}}" name="edit_selected_confirm" data-dismiss="modal">
       </div>
     </div>
   </div>
@@ -328,7 +288,7 @@
 {% endif %}
 
 <!-- Add to Shelf Modal -->
-<div class="modal fade" id="addToShelfModal" role="dialog" aria-labelledby="addToShelfModalLabel">
+<div class="modal fade" id="addToShelfModal" tabindex="-1" role="dialog" aria-labelledby="addToShelfModalLabel">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">

@@ -127,7 +127,7 @@ def _build_app():
         babel.init_app(app, locale_selector=get_locale)
     cps.limiter.init_app(app)
 
-    from cps.cwa_functions import library_refresh, cwa_check_status, cwa_settings, cwa_internal
+    from cps.cwa_functions import library_refresh, cwa_settings, cwa_internal
     from cps.jinjia import jinjia
     from cps.web import web
     from cps.opds import opds
@@ -139,7 +139,7 @@ def _build_app():
     from cps.duplicates import duplicates
     from cps.logs import logs
     from cps.gdrive import gdrive
-    for bp in (library_refresh, cwa_check_status, cwa_settings, cwa_internal,
+    for bp in (library_refresh, cwa_settings, cwa_internal,
                admi, jinjia, web, opds, shelf, search, meta, gdrive, editbook,
                duplicates, logs):
         app.register_blueprint(bp)

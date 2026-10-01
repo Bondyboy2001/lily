@@ -10,6 +10,7 @@
 Routes are attached to the editbook blueprint; editbooks.py imports this module at its end."""
 
 import os
+import re
 from datetime import datetime, timezone
 
 
@@ -37,22 +38,38 @@ from .editbooks import editbook, log, upload_required
 
 # Helper to validate upload according to server settings
 def _validate_uploaded_file(uploaded_file):
+    """The name decides whether the format is allowed; only then is the content checked,
+    so a damaged file isn't reported as a format the server refuses."""
     allowed_extensions = config.config_upload_formats.split(',')
-    if uploaded_file:
-        if config.config_check_extensions and allowed_extensions != ['']:
-            if not validate_mime_type(uploaded_file, allowed_extensions):
-                flash(_("File type isn't allowed to be uploaded to this server"), category="error")
-                return False
-    if '.' in uploaded_file.filename:
-        file_ext = uploaded_file.filename.rsplit('.', 1)[-1].lower()
-        if file_ext not in allowed_extensions and '' not in allowed_extensions:
-            flash(_("File extension '%(ext)s' is not allowed to be uploaded to this server",
-                    ext=file_ext), category="error")
-            return False
-    else:
+    if '.' not in uploaded_file.filename:
         flash(_('File to be uploaded must have an extension'), category="error")
         return False
+    file_ext = uploaded_file.filename.rsplit('.', 1)[-1].lower()
+    if file_ext not in allowed_extensions and '' not in allowed_extensions:
+        flash(_("File extension '%(ext)s' is not allowed to be uploaded to this server",
+                ext=file_ext), category="error")
+        return False
+    if config.config_check_extensions and allowed_extensions != ['']:
+        if not validate_mime_type(uploaded_file, allowed_extensions):
+            flash(_("“%(name)s” couldn't be read as %(ext)s, so it wasn't added. The file may be "
+                    "damaged or incomplete; try downloading or exporting it again.",
+                    name=uploaded_file.filename, ext=file_ext.upper()), category="error")
+            return False
     return True
+
+
+# Ingest file names the upload status route will report on: <new|format>_<id>_<timestamp>_<name>
+_QUEUED_NAME = re.compile(r"^(new|format)_(\d+)_\d{8}_\d{6}_\d+_[\w.\-]*$")
+
+
+def _upload_response(location, queued):
+    """The JSON uploadprogress.js reads: where to go next and, when files were queued,
+    what lily.js should watch until the ingest finishes."""
+    body = {"location": location}
+    if queued:
+        body["uploads"] = queued
+        body["status_url"] = url_for("edit-book.upload_status")
+    return Response(json.dumps(body), mimetype='application/json')
 
 # Helper to get a unique, prefixed path in the ingest directory
 def _get_ingest_path(uploaded_file, prefix_parts=None):
@@ -166,9 +183,10 @@ def upload():
             flash(_("Cannot upload format: Book no longer exists in library"), category="error")
             return Response(json.dumps({"location": url_for("web.index")}), mimetype='application/json')
 
+        queued = []
         for requested_file in request.files.getlist("btn-upload-format"):
             if not _validate_uploaded_file(requested_file):
-                return Response(json.dumps({"location": url_for('edit-book.show_edit_book', book_id=book_id)}), mimetype='application/json')
+                return _upload_response(url_for('edit-book.show_edit_book', book_id=book_id), queued)
 
             try:
                 final_path = _get_ingest_path(requested_file, prefix_parts=["format", book_id])
@@ -186,6 +204,7 @@ def upload():
 
                 # Now that manifest is written, perform the atomic rename to trigger ingest
                 os.replace(tmp_path, final_path)
+                queued.append({"file": os.path.basename(final_path), "name": requested_file.filename})
 
                 # Queue a task entry for UX feedback
                 upload_text = N_("Upload done, processing, please wait...")
@@ -194,10 +213,10 @@ def upload():
             except Exception as e:
                 log.error_or_exception("Failed to queue format upload for ingest: {}".format(e))
                 flash(_("Failed to queue upload for processing"), category="error")
-                return Response(json.dumps({"location": url_for('edit-book.show_edit_book', book_id=book_id)}), mimetype='application/json')
+                return _upload_response(url_for('edit-book.show_edit_book', book_id=book_id), queued)
 
         # Redirect back to the book edit page
-        return Response(json.dumps({"location": url_for('edit-book.show_edit_book', book_id=book_id)}), mimetype='application/json')
+        return _upload_response(url_for('edit-book.show_edit_book', book_id=book_id), queued)
 
     # New book uploads: queue files to ingest atomically
     elif len(request.files.getlist("btn-upload")):
@@ -208,19 +227,48 @@ def upload():
             flash(_("Ingest folder is not writable. Check your /cwa-book-ingest volume permissions."),
                   category="error")
             return Response(json.dumps({"location": url_for("web.index")}), mimetype='application/json')
+        queued = []
         for requested_file in request.files.getlist("btn-upload"):
             if not _validate_uploaded_file(requested_file):
-                return Response(json.dumps({"location": url_for('web.index')}), mimetype='application/json')
+                return _upload_response(url_for('web.index'), queued)
             try:
                 final_path = _get_ingest_path(requested_file, prefix_parts=["new", current_user.id])
                 tmp_path, final_path = _save_to_ingest_atomic_rename(requested_file, final_path)
                 os.replace(tmp_path, final_path) # No manifest needed, just rename
+                queued.append({"file": os.path.basename(final_path), "name": requested_file.filename})
                 upload_text = N_("Upload done, processing, please wait...")
                 WorkerThread.add(current_user.name, TaskUpload(upload_text, escape(requested_file.filename)))
             except Exception as e:
                 log.error_or_exception("Failed to queue upload for ingest: {}".format(e))
                 flash(_("Failed to queue upload for processing"), category="error")
-                return Response(json.dumps({"location": url_for('web.index')}), mimetype='application/json')
+                return _upload_response(url_for('web.index'), queued)
 
-        return Response(json.dumps({"location": url_for('web.index')}), mimetype='application/json')
+        return _upload_response(url_for('web.index'), queued)
     abort(400)
+
+
+@editbook.route("/upload/status", methods=["GET"])
+@login_required_if_no_ano
+@upload_required
+def upload_status():
+    """How each queued upload is getting on: queued (the ingest hasn't picked it up yet),
+    running, succeeded, failed, skipped or interrupted. Only names this route's uploads
+    produce are answered, and new-book names only for the user who uploaded them."""
+    try:
+        from scripts.automation_jobs import latest_job_for_file
+    except ImportError:
+        from automation_jobs import latest_job_for_file
+    files = []
+    for name in request.args.getlist("file")[:20]:
+        match = _QUEUED_NAME.match(name or "")
+        if not match or (match.group(1) == "new" and int(match.group(2)) != int(current_user.id)):
+            abort(400)
+        try:
+            job = latest_job_for_file("ingest", name)
+        except Exception as e:
+            log.warning("could not read the ingest job for %s: %s", name, e)
+            job = None
+        files.append({"file": name,
+                      "state": job["state"] if job else "queued",
+                      "error": (job["error"] or "") if job else ""})
+    return Response(json.dumps({"files": files}), mimetype='application/json')

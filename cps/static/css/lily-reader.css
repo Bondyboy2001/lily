@@ -1,5 +1,6 @@
 /*
- * Lily chrome for the in-browser readers (epub, pdf, djvu) and the audio player.
+ * Lily chrome for the in-browser readers (epub, djvu) and the audio player. The pdf
+ * reader keeps pdf.js' chrome and only gets lily-pdf.css.
  *
  * Loaded after lily.css (tokens) and lily-icons.css. The epub reader still loads the
  * vendor layout (main.css): epub.js sizes its view from it. This file only restyles the
@@ -47,9 +48,10 @@ body.lily-reader {
     align-items: center;
     justify-content: center;
     gap: 6px;
+    position: relative;
     width: auto;
-    min-width: 36px;
-    height: 36px;
+    min-width: 38px;
+    height: 38px;
     margin: 0;
     padding: 0 8px;
     overflow: visible;
@@ -57,7 +59,7 @@ body.lily-reader {
     border-radius: var(--control-radius);
     background: transparent;
     color: inherit;
-    font: 500 14px/1 var(--font-ui);
+    font: 500 15px/1 var(--font-ui);
     text-decoration: none;
     opacity: .78;
     cursor: pointer;
@@ -76,17 +78,22 @@ body.lily-reader {
 
 .lily-reader .reader-btn:active { box-shadow: none; }
 
-.lily-reader .reader-btn:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
-    outline-offset: 1px;
-}
-
-.lily-reader .reader-btn .glyphicon { font-size: 18px; }
+/* The title bar takes the page theme's ink, so the large icon buttons tint with
+   currentColor rather than --control-tint. */
+.lily-reader .reader-btn .glyphicon { font-size: 21px; }
 
 .lily-reader .reader-btn svg {
-    width: 18px;
-    height: 18px;
+    width: 21px;
+    height: 21px;
     flex: none;
+}
+
+@media (pointer: coarse) {
+    .lily-reader .reader-btn::after {
+        content: "";
+        position: absolute;
+        inset: -3px;
+    }
 }
 
 /* The vendor scripts still toggle their icon-font classes (icon-menu/icon-right,
@@ -94,14 +101,12 @@ body.lily-reader {
 .lily-reader .reader-btn[class*="icon-"]::before,
 .lily-reader .closer[class*="icon-"]::before { content: none; display: none; }
 
-/* A saved bookmark on this page. */
-.lily-reader #bookmark.icon-bookmark {
-    background: var(--accent-soft);
-    color: var(--accent);
+/* Pressed: a saved bookmark on this page, or the open sidebar. */
+.lily-reader .reader-btn[aria-pressed="true"],
+.lily-reader .reader-btn[aria-expanded="true"] {
+    background: color-mix(in srgb, currentColor 16%, transparent);
     opacity: 1;
 }
-
-.lily-reader #slider.icon-right { background: color-mix(in srgb, currentColor 10%, transparent); opacity: 1; }
 
 /* ------------------------------------------------------------------ */
 /* Title bar (epub)                                                     */
@@ -111,9 +116,8 @@ body.lily-reader {
     align-items: center;
     gap: 8px;
     box-sizing: border-box;
-    height: 8%;
-    min-height: 52px;
-    padding: 8px 12px;
+    height: 56px;
+    padding: 8px 14px;
     color: inherit;
     font-family: var(--font-ui);
     font-weight: 400;
@@ -162,10 +166,12 @@ body.lily-reader {
     border: 0;
     background: transparent;
     color: inherit;
-    font: 400 56px/1 var(--font-ui);
+    font-size: 32px;
     opacity: .3;
     transition: opacity .12s ease-out;
 }
+
+.lily-reader #prev .glyphicon { transform: scaleX(-1); }
 
 .lily-reader .arrow:hover,
 .lily-reader .arrow:focus-visible { color: inherit; opacity: .75; }
@@ -175,10 +181,8 @@ body.lily-reader {
 
 .lily-reader .arrow.disabled { opacity: .12; }
 
-.lily-reader .arrow:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
-    outline-offset: -8px;
-}
+/* The arrows run the full height of the window, so the ring sits inside them. */
+.lily-reader .arrow:focus-visible { outline-offset: -2px; }
 
 .lily-reader #progress:not([role]) {
     right: 24px;
@@ -204,9 +208,9 @@ body.lily-reader {
 
 .lily-reader .reader-error {
     margin: 24px;
-    padding: 24px;
-    border: 1px solid var(--line-soft);
-    border-radius: 12px;
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
     background: var(--surface);
     color: var(--ink);
     font-size: 15px;
@@ -277,16 +281,16 @@ body.lily-reader {
 
 .lily-reader.lily-epub .lily-progress-status { bottom: 14px; }
 
-@media (max-width: 900px) {
-    .lily-reader.lily-epub #viewer { right: 56px; left: 56px; }
+@media (max-width: 1099px) {
+    .lily-reader.lily-epub #viewer { right: calc(56px * var(--reader-zoom)); left: calc(56px * var(--reader-zoom)); }
 
-    .lily-reader.lily-epub .arrow { width: 56px; font-size: 44px; }
+    .lily-reader.lily-epub .arrow { width: 56px; font-size: 24px; }
 }
 
 /* Phones: the page runs nearly edge to edge and the arrows become invisible tap
    strips along each side, as in most reading apps. */
-@media (max-width: 550px) {
-    .lily-reader.lily-epub #viewer { top: 56px; right: 18px; bottom: 36px; left: 18px; }
+@media (max-width: 600px) {
+    .lily-reader.lily-epub #viewer { top: 56px; right: 14px; bottom: 36px; left: 14px; }
 
     .lily-reader.lily-epub .arrow {
         top: 56px;
@@ -328,13 +332,16 @@ body.lily-reader {
     box-shadow: var(--menu-shadow);
     visibility: hidden;
     transform: translateX(-100%);
-    transition: transform .22s ease-out, visibility 0s linear .22s;
 }
 
 .lily-reader.lily-epub #sidebar.open {
     visibility: visible;
     transform: none;
-    transition: transform .22s ease-out;
+}
+
+/* Same slide as the app's sidebar drawer (lily-shell.css). */
+@media (prefers-reduced-motion: no-preference) {
+    .lily-reader.lily-epub #sidebar { transition: transform .12s ease-out, visibility .12s; }
 }
 
 .lily-reader.lily-epub #sidebar .view,
@@ -349,64 +356,76 @@ body.lily-reader {
     position: fixed;
     inset: 0;
     z-index: 29;
-    background: color-mix(in srgb, var(--ink) 25%, transparent);
+    background: color-mix(in srgb, var(--ink) 30%, transparent);
 }
 
 .lily-reader.lily-epub #sidebar.open + #sidebar-scrim { display: block; }
 
-@media (prefers-reduced-motion: reduce) {
-    .lily-reader.lily-epub #sidebar,
-    .lily-reader.lily-epub #sidebar.open { transition: none; }
-}
-
 .lily-reader #panels {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     box-sizing: border-box;
-    height: 52px;
-    padding: 8px 10px;
+    height: 56px;
+    padding: 8px 14px;
     background: var(--paper);
     border-bottom: 0;
     box-shadow: none;
 }
 
-.lily-reader #panels .reader-tab {
-    flex: 1 1 0;
-    width: auto;
-    height: 34px;
+/* Chips (§5.3), drawn here because the reader doesn't load lily-library.css. The
+   sidebar tabs and the settings sheet's options share them; the chosen one is pressed. */
+.lily-reader #panels .reader-tab,
+.lily-reader .md-content .reader-setting button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
     margin: 0;
-    padding: 0 8px;
+    padding: 0 14px;
     overflow: visible;
     border: 0;
     border-radius: var(--control-radius);
-    background: transparent;
-    color: var(--muted);
-    font: 500 13px/1 var(--font-ui);
+    background: var(--control-tint);
+    color: var(--ink-soft);
+    font: 500 15px/1 var(--font-ui);
+    white-space: nowrap;
     cursor: pointer;
+    transition: background-color .12s ease-out, color .12s ease-out;
 }
 
-.lily-reader #panels .reader-tab:hover { background: var(--hover); color: var(--ink); }
+.lily-reader #panels .reader-tab { flex: 1 1 0; padding: 0 8px; }
 
-.lily-reader #panels .reader-tab.active,
-.lily-reader #panels .reader-tab.active:hover {
+.lily-reader #panels .reader-tab:hover,
+.lily-reader .md-content .reader-setting button:hover { background: var(--control-tint-strong); color: var(--ink); }
+
+.lily-reader #panels .reader-tab[aria-pressed="true"],
+.lily-reader .md-content .reader-setting button[aria-pressed="true"] {
     margin: 0;
-    background: var(--selected);
+    background: var(--accent-soft);
     color: var(--accent);
+}
+
+.lily-reader #panels .reader-tab[aria-pressed="true"]:hover,
+.lily-reader .md-content .reader-setting button[aria-pressed="true"]:hover { background: var(--selected); color: var(--accent); }
+
+@media (forced-colors: active) {
+    .lily-reader #panels .reader-tab[aria-pressed="true"],
+    .lily-reader .md-content .reader-setting button[aria-pressed="true"] { outline: 2px solid Highlight; }
 }
 
 .lily-reader #panels .reader-tab::before { content: none; display: none; }
 
 .lily-reader .view {
     box-sizing: border-box;
-    padding-top: 60px;
+    padding-top: 64px;
 }
 
 .lily-reader #tocView > ul,
 .lily-reader #bookmarksView > ul,
 .lily-reader #searchResults {
-    margin: 0 0 40px;
-    padding: 0 16px 0 18px;
+    margin: 0 0 24px;
+    padding: 0 16px;
 }
 
 .lily-reader #tocView li,
@@ -436,35 +455,26 @@ body.lily-reader {
 /* In-book search */
 .lily-reader #searchForm {
     display: flex;
-    gap: 6px;
+    align-items: center;
+    gap: 8px;
     margin: 0 16px 8px;
 }
 
+/* A Field (§5.4) from lily.css; only its width is set here. */
 .lily-reader #searchBox {
     flex: 1 1 auto;
     width: auto;
     min-width: 0;
-    height: 34px;
     margin: 0;
-    padding: 0 10px;
-    border: 1px solid var(--line);
-    border-radius: var(--control-radius);
-    background: var(--paper);
-    color: var(--ink);
-    font: 15px var(--font-ui);
 }
 
-.lily-reader #searchBox:focus {
-    border-color: var(--faint);
-    outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent);
-    outline-offset: 0;
-}
+.lily-reader #searchBox:focus { border-color: var(--faint); }
 
 .lily-reader #searchBox::placeholder { color: var(--faint); }
 
 .lily-reader #searchStatus {
     min-height: 18px;
-    margin: 0 16px 10px;
+    margin: 0 16px 8px;
     font-size: 12px;
     color: var(--muted);
 }
@@ -502,7 +512,7 @@ body.lily-reader {
     max-height: 90vh;
     overflow-y: auto;
     border: 1px solid var(--line-soft);
-    border-radius: 12px;
+    border-radius: 10px;
     background: var(--surface);
     box-shadow: var(--menu-shadow);
     color: var(--ink);
@@ -510,7 +520,7 @@ body.lily-reader {
 
 .lily-reader .md-content h3 {
     margin: 0;
-    padding: 20px 56px 4px 24px;
+    padding: 24px 56px 4px 24px;
     background: transparent;
     color: var(--heading);
     font-family: var(--font-body);
@@ -521,8 +531,8 @@ body.lily-reader {
 }
 
 .lily-reader .md-content > div {
-    padding: 10px 24px 22px;
-    font-size: 14px;
+    padding: 8px 24px 22px;
+    font-size: 15px;
     font-weight: 400;
 }
 
@@ -530,61 +540,23 @@ body.lily-reader {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     margin: 0;
-    padding: 12px 24px;
+    padding: 14px 24px 0;
     border-top: 0;
 }
 
-.lily-reader .md-content > .reader-setting:last-of-type { padding-bottom: 22px; }
+.lily-reader .md-content > .reader-setting:last-of-type { padding-bottom: 24px; }
 
 .lily-reader .reader-setting-label,
 .lily-reader .md-content .item {
     flex: 0 0 120px;
     padding: 0;
-    color: var(--ink);
-    font: 500 14px var(--font-ui);
+    color: var(--ink-soft);
+    font: 500 15px var(--font-ui);
 }
 
-.lily-reader .md-content button:not(.closer) {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    height: 30px;
-    margin: 0;
-    padding: 0 12px;
-    border: 1px solid var(--line);
-    border-radius: var(--control-radius);
-    background: var(--surface);
-    color: var(--ink);
-    font: 400 14px/1 var(--font-ui);
-    cursor: pointer;
-}
-
-.lily-reader .md-content button:not(.closer):hover { border-color: var(--faint); }
-
-/* The tick span marks the chosen option (set by the page script). */
-.lily-reader .md-content button:not(.closer) > span:empty { display: none; }
-
-.lily-reader .md-content button:not(.closer) > span { color: var(--accent); font-weight: 600; }
-
-.lily-reader .md-content button:not(.closer):has(> span:not(:empty)) {
-    border-color: var(--accent);
-    box-shadow: inset 0 0 0 1px var(--accent);
-}
-
-/* Theme buttons preview the page colours; main.css paints them. */
-.lily-reader .md-content .themes button.lightTheme { background: var(--surface); color: var(--ink); }
-
-.lily-reader .md-content select {
-    height: 30px;
-    padding: 0 8px;
-    border: 1px solid var(--line);
-    border-radius: var(--control-radius);
-    background: var(--paper);
-    color: var(--ink);
-    font: 14px var(--font-ui);
-}
+/* Selects are Fields (§5.4) from lily.css. */
 
 .lily-reader input[type="range"] {
     flex: 1 1 160px;
@@ -592,45 +564,27 @@ body.lily-reader {
     accent-color: var(--accent);
 }
 
-.lily-reader .md-content > .closer,
-.lily-reader .md-content > button.closer {
+/* The close button is an icon button (§5.2): bare glyph at rest. */
+.lily-reader .md-content > .closer {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     position: absolute;
-    top: 14px;
-    right: 14px;
-    width: 32px;
-    height: 32px;
+    top: 20px;
+    right: 20px;
+    width: 30px;
+    height: 30px;
     padding: 0;
+    border: 0;
     border-radius: var(--control-radius);
+    background: transparent;
     color: var(--muted);
     font-size: 16px;
+    cursor: pointer;
+    transition: background-color .12s ease-out, color .12s ease-out;
 }
 
-.lily-reader .md-content > .closer:hover { background: var(--hover); color: var(--ink); }
-
-/* Comic settings: a table of keyboard shortcuts and a table of radio groups. */
-.lily-reader .md-content table { border-collapse: collapse; }
-
-.lily-reader .md-content th,
-.lily-reader .md-content td { padding: 5px 8px; font-weight: 400; }
-
-.lily-reader .md-content thead th {
-    padding-bottom: 8px;
-    font-size: var(--heading-size);
-    font-weight: 600;
-    text-align: left;
-    color: var(--heading);
-}
-
-.lily-reader .md-content tbody th { color: var(--ink); font-weight: 500; }
-
-.lily-reader #prev_page_key,
-.lily-reader #next_page_key,
-.lily-reader .md-content td:first-child:not([colspan]) { font-family: var(--font-mono); font-size: 13px; }
-
-.lily-reader .inputs input { accent-color: var(--accent); }
+.lily-reader .md-content > .closer:hover { background: var(--control-tint); color: var(--accent); }
 
 /* ------------------------------------------------------------------ */
 /* Audiobook title bar                                                  */
@@ -645,8 +599,8 @@ body.lily-reader {
     left: 0;
     z-index: 10;
     box-sizing: border-box;
-    height: 52px;
-    padding: 8px 12px;
+    height: 56px;
+    padding: 8px 14px;
     background: var(--paper);
     border-bottom: 0;
     color: var(--ink);
@@ -656,7 +610,7 @@ body.lily-reader {
     flex: 1 1 auto;
     min-width: 0;
     margin: 0;
-    color: inherit;
+    color: var(--heading);
     line-height: 1.3;
     overflow: hidden;
     font-family: var(--font-body);
@@ -673,9 +627,160 @@ body.lily-reader {
 /* ------------------------------------------------------------------ */
 /* DjVu reader                                                          */
 /* ------------------------------------------------------------------ */
+/* The epub reader's layout around a scanned page: the title bar sits on the same
+   backdrop the viewer paints (DJVU_CONTEXT.background = --sunk), the arrows keep to
+   the gutters, and the viewer's own toolbar and status sprite are hidden; the bar's
+   page box and zoom drive them (djvu_reader.js). */
+html.lily-reader-page:has(> body.lily-djvu),
+.lily-reader.lily-djvu { background: var(--sunk); }
+
+.lily-reader.lily-djvu [hidden] { display: none; }
+
+.lily-reader.lily-djvu #titlebar {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 10;
+}
+
+.lily-reader.lily-djvu #title-controls { gap: 14px; }
+
+.lily-reader .djvu-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* The page box and zoom are Fields (§5.4) from lily.css; only their size is set here. */
+.lily-reader .djvu-page {
+    box-sizing: content-box;
+    width: 3ch;
+    padding: 0 6px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.lily-reader .djvu-page-count {
+    margin: 0 2px 0 4px;
+    color: var(--muted);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.lily-reader #djvu-zoom { width: 118px; white-space: nowrap; }
+
+.lily-reader.lily-djvu .reader-btn:disabled {
+    background: transparent;
+    opacity: .3;
+    cursor: default;
+}
+
+/* Page buttons live in the bar on phones only; wider screens use the side arrows. */
+.lily-reader #djvu-prev,
+.lily-reader #djvu-next { display: none; }
+
 .lily-reader.lily-djvu #djvuContainer {
-    top: calc(52px * var(--reader-zoom));
-    height: calc(100% - 52px * var(--reader-zoom));
+    top: calc(56px * var(--reader-zoom));
+    right: calc(88px * var(--reader-zoom));
+    bottom: 0;
+    left: calc(88px * var(--reader-zoom));
+    width: auto;
+    height: auto;
+}
+
+.lily-reader.lily-djvu #djvuContainer .toolbar,
+.lily-reader.lily-djvu #djvuContainer .statusImage { display: none; }
+
+.lily-reader.lily-djvu #djvuContainer .scrollbar {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ink) 28%, transparent);
+    background-clip: padding-box;
+    box-shadow: none;
+}
+
+.lily-reader.lily-djvu #djvuContainer .scrollbar:hover { background-color: color-mix(in srgb, var(--ink) 42%, transparent); }
+
+.lily-reader.lily-djvu #djvuContainer .scrollbarClicked { background-color: color-mix(in srgb, var(--ink) 55%, transparent); }
+
+/* Zoomed with the chrome, so these are the epub reader's gutters. */
+.lily-reader.lily-djvu .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 56px;
+    bottom: 0;
+    width: 88px;
+    margin: 0;
+    padding: 0;
+}
+
+.lily-reader.lily-djvu #prev { left: 0; }
+.lily-reader.lily-djvu #next { right: 0; }
+
+.lily-reader.lily-djvu .arrow:disabled { opacity: .12; cursor: default; }
+
+/* "Opening book…" while the file loads; the viewer's error becomes a .reader-error panel. */
+.lily-reader .djvu-status {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 5;
+    box-sizing: border-box;
+    width: max-content;
+    max-width: min(440px, calc(100vw - 32px));
+    margin: 0;
+    color: var(--muted);
+    font-size: 15px;
+    text-align: center;
+    transform: translate(-50%, -50%);
+}
+
+.lily-reader .djvu-status.reader-error { margin: 0; color: var(--ink); }
+
+.lily-reader .djvu-status:empty { display: none; }
+
+.lily-reader.lily-djvu .lily-progress-status {
+    position: fixed;
+    left: 16px;
+    bottom: 14px;
+    z-index: 10;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--paper);
+}
+
+.lily-reader.lily-djvu .lily-progress-status:empty { display: none; }
+
+@media (max-width: 1099px) {
+    .lily-reader.lily-djvu #djvuContainer { right: calc(56px * var(--reader-zoom)); left: calc(56px * var(--reader-zoom)); }
+
+    .lily-reader.lily-djvu .arrow { width: 56px; font-size: 24px; }
+}
+
+/* Phones: the page runs edge to edge (it pans by touch), the arrows move into the bar,
+   zoom keeps just its list and fullscreen goes, leaving the title some room. */
+@media (max-width: 600px) {
+    .lily-reader.lily-djvu #djvuContainer { right: 0; left: 0; }
+
+    .lily-reader.lily-djvu .arrow,
+    .lily-reader #djvu-zoom-in,
+    .lily-reader #djvu-zoom-out,
+    .lily-reader.lily-djvu #fullscreen { display: none; }
+
+    .lily-reader #djvu-prev,
+    .lily-reader #djvu-next { display: inline-flex; }
+
+    .lily-reader.lily-djvu #title-controls { gap: 6px; }
+
+    .lily-reader .djvu-controls { gap: 0; }
+
+    .lily-reader .djvu-page-count { display: none; }
+
+    .lily-reader #djvu-zoom { width: 104px; padding: 0 8px; }
 }
 
 /* ------------------------------------------------------------------ */
@@ -687,24 +792,24 @@ body.lily-reader {
     box-sizing: border-box;
     max-width: 640px;
     margin: 0 auto;
-    padding: 84px 20px 48px;
+    padding: 80px 24px 48px;
 }
 
 .lily-audio-head {
     display: flex;
     align-items: flex-end;
-    gap: 20px;
-    margin-bottom: 26px;
+    gap: 22px;
+    margin-bottom: 22px;
 }
 
 .lily-audio-cover {
     flex: none;
     width: 140px;
-    aspect-ratio: 2 / 3;
+    aspect-ratio: 1 / 1.414;
     object-fit: cover;
-    border-radius: 6px;
+    border-radius: 8px;
     background: var(--sunk);
-    outline: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+    outline: 1px solid var(--line-soft);
     outline-offset: -1px;
 }
 
@@ -727,10 +832,10 @@ body.lily-reader {
 .lily-audio-series a:hover { color: var(--accent); text-decoration: underline; }
 
 .lily-audio-player {
-    padding: 20px 20px 16px;
-    border: 1px solid var(--line-soft);
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--ink) 2.5%, var(--paper));
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
 }
 
 /* Native range, tinted with the accent (the browser fills the played part). */
@@ -742,7 +847,7 @@ body.lily-reader {
     cursor: pointer;
 }
 
-.lily-audio-seek:disabled { cursor: default; opacity: .5; }
+.lily-audio-seek:disabled { cursor: default; opacity: .4; }
 
 .lily-audio-times {
     display: flex;
@@ -757,7 +862,7 @@ body.lily-reader {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 18px;
+    gap: 22px;
     margin: 8px 0 14px;
 }
 
@@ -775,16 +880,11 @@ body.lily-reader {
     border: 0;
     border-radius: 50%;
     background: var(--accent);
-    color: var(--surface);
+    color: var(--on-accent);
     cursor: pointer;
 }
 
 .lily-audio-play:hover { filter: brightness(1.08); }
-
-.lily-audio-play:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
-    outline-offset: 3px;
-}
 
 .lily-audio-play svg { width: 24px; height: 24px; }
 
@@ -798,52 +898,49 @@ body.lily-reader {
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 8px 12px;
-    padding-top: 12px;
+    gap: 8px;
+    padding-top: 14px;
     border-top: 0;
-    font-size: 13px;
+    font-size: 14px;
     color: var(--muted);
 }
 
 .lily-audio-options label { margin: 0; font-weight: 500; }
 
-.lily-audio-options select {
-    height: 30px;
-    padding: 0 8px;
-    border: 1px solid var(--line);
-    border-radius: var(--control-radius);
-    background: var(--paper);
-    color: var(--ink);
-    font: 14px var(--font-ui);
-    font-variant-numeric: tabular-nums;
-}
+/* The speed select is a Field (§5.4) from lily.css. */
+.lily-audio-options select { font-variant-numeric: tabular-nums; }
 
-.lily-audio-options select + label { margin-left: 12px; }
+.lily-audio-options select + label { margin-left: 14px; }
 
 .lily-audio-options input[type="range"] { flex: 0 1 140px; }
 
-.lily-audio-error { margin: 12px 0 0; color: var(--danger); font-size: 13px; text-align: center; }
+.lily-audio-error { margin: 14px 0 0; color: var(--danger); font-size: 14px; text-align: center; }
+
+.lily-audio-player .lily-progress-status { margin: 8px 0 0; text-align: center; }
+
+.lily-audio-player .lily-progress-status:empty { display: none; }
 
 .lily-audio-description {
-    margin-top: 30px;
+    margin-top: 22px;
     font-family: var(--font-body);
-    font-size: 16px;
+    font-size: 17px;
     line-height: 1.6;
-    color: var(--ink);
+    color: var(--ink-soft);
 }
 
 .lily-audio-description h2 {
-    margin: 0 0 8px;
+    margin: 0 0 14px;
+    color: var(--heading);
     font-size: var(--heading-size);
 }
 
 /* ------------------------------------------------------------------ */
 /* Phones                                                               */
 /* ------------------------------------------------------------------ */
-@media (max-width: 550px) {
-    .lily-reader #titlebar { gap: 2px; padding: 6px 4px; }
+@media (max-width: 600px) {
+    .lily-reader #titlebar { gap: 2px; padding: 8px 4px; }
 
-    .lily-reader .reader-btn { min-width: 40px; height: 40px; padding: 0 6px; }
+    .lily-reader .reader-btn { padding: 0 6px; }
 
     .lily-reader .reader-btn:hover,
     .lily-reader .reader-btn:focus-visible { padding: 0 6px; }
@@ -855,7 +952,7 @@ body.lily-reader {
     .lily-reader #chapter-title,
     .lily-reader #title-seperator { display: none; }
 
-    .lily-reader .md-content > .reader-setting { padding: 12px 16px; }
+    .lily-reader .md-content > .reader-setting { padding: 14px 16px 0; }
 
     .lily-reader .md-content h3 { padding-left: 16px; }
 
@@ -864,7 +961,7 @@ body.lily-reader {
 
     .lily-reader-bar .reader-bar-spacer { width: 40px; }
 
-    .lily-audio-page { padding-top: 72px; }
+    .lily-audio-page { padding: 72px 16px 48px; }
 
     .lily-audio-head { flex-direction: column; align-items: center; text-align: center; }
 

@@ -12,11 +12,11 @@
       {% else %}
       {{ image.empty_state('glyphicon-search', _('No Results Found'),
                            _('Nothing matches %(term)s. Check the spelling, try fewer words, or search by author, series or tag with Advanced Search.', term=adv_searchterm),
-                           [(_('Advanced Search'), url_for('search.advanced_search'), True),
+                           [(_('Advanced search'), url_for('search.advanced_search'), True),
                             (_('Clear search'), url_for('web.index'), False)]) }}
       {% endif %}
     {% else %}
-      <h2>{{result_count}} {{_('Results for:')}} {{adv_searchterm}}</h2>
+      <h2>{{ _('%(count)s Results for %(term)s', count=result_count, term=adv_searchterm) }}</h2>
       <div class="lily-list-toolbar">
         {# Grid/List icons, pinned to the toolbar's top right #}
         {{ self.view_switch() }}

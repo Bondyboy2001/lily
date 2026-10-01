@@ -1,16 +1,12 @@
 <!DOCTYPE html>
 <html class="http-error">
   <head>
-    <title>{{ instance }} | HTTP Error ({{ error_code }})</title>
+    <title>{{ instance }} | {{ _('Error') }} {{ error_code }}</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="mobile-web-app-capable" content="yes">
-    {% if g.google_site_verification|length > 0 %}
-      <meta name="google-site-verification" content="{{g.google_site_verification}}">
-    {% endif %}    
 
-    <!-- Bootstrap -->
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <link href="{{ url_for('static', filename='css/libs/bootstrap.min.css') }}" rel="stylesheet" media="screen">
@@ -25,7 +21,7 @@
     <p class="lily-error-code">{{ error_code }}</p>
     <h1>{{ error_name }}</h1>
     {% if unconfigured %}
-      <p>{{_('Lily Instance is unconfigured, please contact your administrator')}}</p>
+      <p>{{_('Lily isn’t set up yet. Ask your administrator to finish setting it up.')}}</p>
     {% endif %}
     {% if error_id %}
       <p>{{_('An unexpected error occurred. The details have been written to the server log.')}}</p>
@@ -39,16 +35,16 @@
       </details>
     {% endif %}
     {% if issue %}
-      <p class="help-block">{{_('If this keeps happening, please report it and include the error ID:')}}</p>
+      <p class="help-block">{{_('If this keeps happening, report it and include the error ID above.')}}</p>
     {% endif %}
     <div class="lily-actions errorlink">
     {% if not unconfigured %}
-      <a class="btn btn-primary" href="{{url_for('web.index')}}">{{_('Return to Home')}}</a>
+      <a class="btn btn-primary" href="{{url_for('web.index')}}">{{_('Go to the library')}}</a>
     {% else %}
-      <a class="btn btn-primary" href="{{url_for('web.logout')}}">{{ _('Logout User') }}</a>
+      <a class="btn btn-primary" href="{{url_for('web.logout')}}">{{ _('Sign out') }}</a>
     {% endif %}
     {% if issue %}
-      <a class="btn btn-default" href="https://github.com/Bondyboy2001/lily/issues/new" target="_blank" rel="noopener">{{_('Create Issue')}}</a>
+      <a class="btn btn-default" href="https://github.com/Bondyboy2001/lily/issues/new" target="_blank" rel="noopener">{{_('Report the problem')}}</a>
     {% endif %}
     </div>
   </main>

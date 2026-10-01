@@ -488,3 +488,31 @@ $("#book_edit_frm").on("submit", function () {
     }
 });
 
+
+/* Optional fields (series, publisher, date, language, rating) are hidden while empty.
+   An Add button shows one; Fetch Metadata fires "lily:reveal-filled" after filling the
+   form, which shows every field that now has a value. */
+(function () {
+    var $form = $("#book_edit_frm");
+    var $add = $form.find(".editbook-add-fields");
+    if (!$add.length) { return; }
+
+    function show(key) {
+        $form.find('[data-optional="' + key + '"]').prop("hidden", false);
+        $add.find('[data-optional-add="' + key + '"]').prop("hidden", true);
+        $add.prop("hidden", !$add.find("[data-optional-add]:not([hidden])").length);
+    }
+
+    $add.on("click", "[data-optional-add]", function () {
+        var key = this.dataset.optionalAdd;
+        show(key);
+        $form.find('[data-optional="' + key + '"] input:visible').first().trigger("focus");
+    });
+
+    $form.on("lily:reveal-filled", function () {
+        $form.find("[data-optional][hidden]").each(function () {
+            var value = $.trim($(this).find("[data-optional-value]").val() || "");
+            if (value !== "" && value !== "0") { show(this.dataset.optional); }
+        });
+    });
+})();

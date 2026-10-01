@@ -21,7 +21,7 @@ def request_username():
 def main():
     app = create_app()
 
-    from .cwa_functions import library_refresh, cwa_check_status, cwa_settings, cwa_internal
+    from .cwa_functions import library_refresh, cwa_settings, cwa_internal
     from .web import web
     from .opds import opds
     from .admin import admi
@@ -40,7 +40,6 @@ def main():
 
     # CWA Blueprints
     app.register_blueprint(library_refresh)
-    app.register_blueprint(cwa_check_status)
     app.register_blueprint(cwa_settings)
     app.register_blueprint(cwa_internal)
 

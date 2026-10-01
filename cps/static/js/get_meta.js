@@ -18,21 +18,15 @@
 
 // Fetch Metadata on the edit page. One search box takes a title and author, an ISBN,
 // a DOI or an arXiv id; the server says which providers to ask, and each is asked
-// separately so its results show as soon as they arrive, ranked with the rest. A result's ticked fields can fill the form
-// (several results can be combined) or fill it and save straight away.
+// separately so its results show as soon as they arrive, ranked with the rest. Apply
+// fills the form with a result's ticked fields and saves.
 $(function () {
   var msg = i18nMsg;
   var metaSelectionKey = "cwa.metaSelection";
   var metaSelectionCache = null;
-  var metaAlertTimer = null;
   var SCHOLAR = "googlescholar";
-  var STATUS = {
-    loading: { note: msg.searching, cls: "is-loading" },
-    error: { note: msg.failed, cls: "is-failed" },
-    timeout: { note: msg.timed_out, cls: "is-failed" },
-  };
+  var FAILED = { error: true, timeout: true };
 
-  var providers = [];   // {id, name, active, search} from the server, for the query
   var status = {};      // provider id -> "loading" | "ok" | "skipped" | "error" | "timeout"
   var results = [];     // {uid, provider, book, descText, $el}; uid is the index
   var query = "";
@@ -234,23 +228,7 @@ $(function () {
         $shelves.val(JSON.stringify(names)).trigger("change");
       }
     }
-    $("#meta_save").prop("hidden", false);
-    showFilledAlert();
-    // The cards' "Now" notes describe the form, which just changed
-    form = readForm();
-    results.forEach(refreshCard);
-  }
-
-  function showFilledAlert() {
-    var $alert = $("#meta-import-alert");
-    if (metaAlertTimer) {
-      clearTimeout(metaAlertTimer);
-    }
-    $alert.show().addClass("is-visible");
-    metaAlertTimer = setTimeout(function () {
-      $alert.removeClass("is-visible");
-      setTimeout(function () { $alert.hide(); }, 250);
-    }, 2500);
+    $("#book_edit_frm").trigger("lily:reveal-filled");
   }
 
   function save() {
@@ -291,20 +269,6 @@ $(function () {
     }));
   }
 
-  // Redraws a card from the form's current values, keeping its ticks
-  function refreshCard(result) {
-    var $el = renderCard(result);
-    applyTicks($el, ticksOf(result.$el));
-    result.$el.replaceWith($el);
-    result.$el = $el;
-  }
-
-  // Results show for providers being searched; switching one off hides its results
-  function isShown(providerId) {
-    var p = providers.find(function (x) { return x.id === providerId; });
-    return p ? p.search : true;
-  }
-
   function showMessage(text, isError) {
     $("#meta-info").empty().append($("<p>", { "class": isError ? "text-danger" : "text-muted" }).text(text));
   }
@@ -312,19 +276,17 @@ $(function () {
   // Exact identifier matches first, then the best match to the book; cards are
   // moved, not redrawn, so ticks survive new results arriving
   function renderResults() {
-    var shown = results.filter(function (r) { return isShown(r.provider); });
+    var shown = results.slice();
     shown.sort(function (a, b) {
       return (b.book.exact_match - a.book.exact_match) ||
         ((b.book.score || 0) - (a.book.score || 0)) || (a.uid - b.uid);
     });
-    var loading = Object.keys(status).some(function (id) {
-      return status[id] === "loading" && isShown(id);
-    });
+    var loading = Object.keys(status).some(function (id) { return status[id] === "loading"; });
     if (!shown.length) {
       if (loading) {
         showMessage(msg.loading);
       } else if (query) {
-        var failed = Object.keys(status).some(function (id) { return STATUS[status[id]]; });
+        var failed = Object.keys(status).some(function (id) { return FAILED[status[id]]; });
         showMessage(failed ? msg.search_error : msg.no_result, failed);
       }
       return;
@@ -336,30 +298,6 @@ $(function () {
     }
     $list.children().detach();
     shown.forEach(function (r) { $list.append(r.$el); });
-  }
-
-  function renderProviders() {
-    var $box = $("#metadata_provider").empty();
-    providers.forEach(function (p) {
-      var inputId = "show-" + p.id;
-      var count = results.filter(function (r) { return r.provider === p.id; }).length;
-      var state = STATUS[status[p.id]] || (status[p.id] === "ok" ? { note: String(count), cls: "" } : null);
-      var $label = $("<label>", { "for": inputId }).text(p.name + " ");
-      if (state) {
-        $label.append($("<span>", { "class": "meta-provider-status " + state.cls }).text(state.note));
-      }
-      $label.append(' <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>');
-      $box.append(
-        $("<input>", { type: "checkbox", id: inputId, "class": "pill", "data-control": p.id })
-          .prop("checked", p.active),
-        $label
-      );
-    });
-  }
-
-  function render() {
-    renderProviders();
-    renderResults();
   }
 
   function searchProvider(providerId, seq) {
@@ -382,20 +320,17 @@ $(function () {
       if (seq !== searchSeq) return;
       status[providerId] = "error";
     }).always(function () {
-      if (seq === searchSeq) render();
+      if (seq === searchSeq) renderResults();
     }));
   }
 
-  // Asks every provider the server picks for the query that hasn't been asked yet
-  function searchPending() {
+  // Asks every provider the server picks for the query
+  function searchAll() {
     var seq = searchSeq;
-    inFlight.push($.getJSON(getPath() + "/metadata/provider", { query: query }).done(function (data) {
+    inFlight.push($.getJSON(getPath() + "/metadata/provider", { query: query }).done(function (ids) {
       if (seq !== searchSeq) return;
-      providers = data;
-      providers.forEach(function (p) {
-        if (p.search && !status[p.id]) searchProvider(p.id, seq);
-      });
-      render();
+      ids.forEach(function (id) { searchProvider(id, seq); });
+      renderResults();
     }));
   }
 
@@ -415,31 +350,13 @@ $(function () {
     };
     if (query) {
       showMessage(msg.loading);
-      searchPending();
+      searchAll();
     } else {
       $("#meta-info").empty();
-      renderProviders();
     }
   }
 
   // ---- Events ----
-
-  $(document).on("change", "#metadata_provider .pill", function () {
-    var id = $(this).data("control");
-    var p = providers.find(function (x) { return x.id === id; });
-    if (!p) return;
-    p.active = $(this).prop("checked");
-    // The server then says what to search: switching off hides that provider's
-    // results, switching on searches it
-    $.ajax({
-      method: "post",
-      contentType: "application/json; charset=utf-8",
-      url: getPath() + "/metadata/provider/" + id,
-      data: JSON.stringify({ value: p.active }),
-    }).done(function () {
-      if (query) searchPending();
-    });
-  });
 
   $(document).on("change", '#meta-info input[type="checkbox"][data-meta-value]', function () {
     var change = {};
@@ -459,26 +376,12 @@ $(function () {
     }
   });
 
-  $("#meta-info").on("click", ".meta-fill", function () {
-    var r = resultFor(this);
-    if (r) populateForm(r);
-  });
-
-  $("#meta-info").on("click", ".meta-toggle-all", function () {
-    var $card = $(this).closest("li.media");
-    var $boxes = $card.find("[data-meta-value]");
-    $boxes.prop("checked", $boxes.filter(":checked").length < $boxes.length);
-    saveMetaSelections(ticksOf($card));
-  });
-
   $("#meta-info").on("click", ".meta-editions", function (e) {
     e.preventDefault();
     var text = "hardcover-id:" + $(this).data("hardcover-id");
     $("#keyword").val(text);
     runSearch(text);
   });
-
-  $("#meta_save").on("click", save);
 
   $("#meta-search").on("submit", function (e) {
     e.preventDefault();

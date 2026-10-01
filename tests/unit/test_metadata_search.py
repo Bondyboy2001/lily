@@ -77,3 +77,8 @@ def test_arxiv_entry_without_journal_doi_gets_arxivs_doi():
         "<author><name>A. Author</name></author></entry>")
     record = google_scholar()._parse_arxiv_entry(entry)
     assert record.identifiers == {"arxiv": "hep-th/9901001", "doi": "10.48550/arXiv.hep-th/9901001"}
+
+
+def test_a_text_search_asks_every_enabled_provider():
+    from cps.search_metadata import _providers_to_ask, cl
+    assert _providers_to_ask({}, cl) == list(cl)

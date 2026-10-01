@@ -23,27 +23,24 @@
         return;
     }
 
-    var template = "<div class=\"modal fade\" id=\"file-progress-modal\">" +
+    // A plain Lily dialog (§5.7): title, the bar and a status line; Close appears only after a failure.
+    var template = "<div class=\"modal fade\" id=\"file-progress-modal\" tabindex=\"-1\" role=\"dialog\" aria-labelledby=\"file-progress-title\">" +
     "<div class=\"modal-dialog upload-modal-dialog\">" +
     "  <div class=\"modal-content\">" +
     "    <div class=\"modal-header\">" +
-    "      <button type=\"button\" class=\"close\" data-dismiss=\"modal\" aria-label=\"Close\"><span aria-hidden=\"true\">&times;</span></button>" +
-    "      <h4 class=\"modal-title\">Uploading</h4>" +
+    "      <h4 class=\"modal-title\" id=\"file-progress-title\">Uploading</h4>" +
     "    </div>" +
     "    <div class=\"modal-body\">" +
-    "      <div class=\"modal-message\"></div>" +
     "      <div class=\"progress\">" +
-    "        <div class=\"progress-bar progress-bar-striped active\" role=\"progressbar\" aria-valuenow=\"0\" aria-valuemin=\"0\"" +
-    "             aria-valuemax=\"100\" style=\"width: 0%;min-width: 2em;\">" +
-    "          0%" +
-    "        </div>" +
-    "     </div>" +
-    "   </div>" +
-    "   <div class=\"modal-footer\" style=\"display:none\">" +
-    "     <button type=\"button\" class=\"btn btn-default\" data-dismiss=\"modal\">Close</button>" +
-    "   </div>" +
-    "   </div>" +
+    "        <div class=\"progress-bar\" role=\"progressbar\" aria-valuenow=\"0\" aria-valuemin=\"0\" aria-valuemax=\"100\"></div>" +
+    "      </div>" +
+    "      <p class=\"modal-message\" role=\"status\">0%</p>" +
+    "    </div>" +
+    "    <div class=\"modal-footer\" hidden>" +
+    "      <button type=\"button\" class=\"btn btn-default\" data-dismiss=\"modal\">Close</button>" +
+    "    </div>" +
     "  </div>" +
+    "</div>" +
     "</div>";
 
     var UploadProgress = function(element, options) {
@@ -60,6 +57,7 @@
             this.$modalTitle = this.$modal.find(".modal-title");
             this.$modalFooter = this.$modal.find(".modal-footer");
             this.$modalBar = this.$modal.find(".progress-bar");
+            this.$modalMessage = this.$modal.find(".modal-message");
 
             // Translate texts
             this.$modalTitle.text(this.options.modalTitle);
@@ -70,9 +68,9 @@
 
         reset: function() {
             this.$modalTitle.text(this.options.modalTitle);
-            this.$modalFooter.hide();
-            this.$modalBar.addClass("progress-bar-success");
+            this.$modalFooter.prop("hidden", true);
             this.$modalBar.removeClass("progress-bar-danger");
+            this.setProgress(0);
             if (this.xhr) {
                 this.xhr.abort();
             }
@@ -118,6 +116,16 @@
             if (contentType.indexOf("application/json") !== -1) {
                 var response = $.parseJSON(xhr.responseText);
                 url = response.location;
+                // lily.js picks this up on the next page and follows the import in its toast.
+                if (response.uploads && response.uploads.length && response.status_url) {
+                    try {
+                        window.sessionStorage.setItem("lily.pendingUploads", JSON.stringify({
+                            statusUrl: response.status_url,
+                            uploads: response.uploads,
+                            since: Date.now()
+                        }));
+                    } catch (err) { /* storage optional: the book still arrives */ }
+                }
             } else {
                 url = this.options.redirect_url;
             }
@@ -130,30 +138,17 @@
             this.$modalTitle.text(this.options.modalTitleFailed);
 
             this.setProgress(100);
-            this.$modalBar.removeClass("progress-bar-success");
             this.$modalBar.addClass("progress-bar-danger");
-            this.$modalFooter.show();
+            this.$modalFooter.prop("hidden", false);
 
-            var contentType = xhr.getResponseHeader("Content-Type");
-            // Write the error response to the document.
-            if (xhr.status === 502 || xhr.status === 0) {
-                if (xhr.statusText) {
-                    this.$modalBar.text(xhr.statusText + ": File size may be too big");
-                } else {
-                    this.$modalBar.text("Error: File size may be too big");
-                }
-
-            }
-            else if (contentType || xhr.status === 422) {
-                var responseText = xhr.responseText;
-                if (contentType.indexOf("text/plain") === -1) {
-                    responseText = "<pre>" + responseText + "</pre>";
-                    document.write(responseText);
-                } else {
-                    this.$modalBar.text(responseText);
-                }
+            // Say what broke and what to do next; a plain-text reply from the server is its own explanation.
+            var contentType = xhr.getResponseHeader("Content-Type") || "";
+            if (xhr.status === 502 || xhr.status === 0 || xhr.status === 413) {
+                this.$modalMessage.text(this.options.tooLargeMsg);
+            } else if (contentType.indexOf("text/plain") !== -1 && xhr.responseText) {
+                this.$modalMessage.text(xhr.responseText);
             } else {
-                this.$modalBar.text(this.options.modalTitleFailed);
+                this.$modalMessage.text(this.options.failedMsg);
             }
         },
 
@@ -163,8 +158,8 @@
                 txt = this.options.uploadedMsg;
             }
             this.$modalBar.attr("aria-valuenow", percent);
-            this.$modalBar.text(txt);
             this.$modalBar.css("width", percent + "%");
+            this.$modalMessage.text(txt);
         },
 
         progress: function(/*ProgressEvent*/e) {
@@ -199,10 +194,12 @@
 
     $.fn.uploadprogress.defaults = {
         template: template,
-        uploadedMsg: "Upload done, processing, please wait...",
+        uploadedMsg: "Uploaded. Adding to the library…",
         modalTitle: "Uploading",
         modalFooter: "Close",
-        modalTitleFailed: "Upload failed"
+        modalTitleFailed: "Upload Failed",
+        tooLargeMsg: "The upload didn’t finish. The file may be larger than the server accepts; try a smaller file.",
+        failedMsg: "The server couldn’t add this file. Check it’s a supported format, then try again."
         //redirect_url: ...
         // need to customize stuff? Add here, and change code accordingly.
     };

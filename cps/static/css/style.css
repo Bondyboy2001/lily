@@ -220,40 +220,6 @@ table .bg-primary:hover {
   top: 0;
 }
 
-input.pill {
-  position: absolute;
-  opacity: 0;
-}
-
-/* A checkbox drawn as a chip (§5 Chips). */
-input.pill + label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 30px;
-  padding: 0 14px;
-  border-radius: var(--control-radius);
-  background: var(--control-tint);
-  color: var(--ink-soft);
-  font-weight: 500;
-  cursor: pointer;
-  user-select: none;
-}
-
-input.pill:checked + label {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-input.pill:focus-visible + label {
-  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
-  outline-offset: 2px;
-}
-
-input.pill:not(:checked) + label .glyphicon {
-  display: none;
-}
-
 .author-link {
   display: inline-block;
   margin-top: 10px;
@@ -283,15 +249,6 @@ input.pill:not(:checked) + label .glyphicon {
 
 #metaModal #keyword { height: 38px; }
 #metaModal #do-search { height: 38px; padding: 0 18px; }
-
-#metadata_provider {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding-bottom: 0;
-}
 
 /* The dialog never outgrows the window: header, search and providers stay put
    and only the results scroll. */
@@ -435,55 +392,8 @@ input.pill:not(:checked) + label .glyphicon {
 /* Fields the form already has are dimmed */
 #meta-info #book-list .media .media-body dd.meta-same { color: var(--muted); }
 
-#meta-info #book-list .media .media-body .meta-toggle-row {
-  grid-column: 1 / -1;
-  margin: -8px 0 -4px;
-  text-align: right;
-}
-
-#meta-info #book-list .media .media-image .meta-fill {
-  margin-top: 6px;
-}
-
 #meta-info #book-list .media .media-image .meta-score {
   font-weight: 600;
-}
-
-/* Shown once a result has filled the form */
-#meta_save[hidden] { display: none; }
-
-/* Provider chips: results found, still searching, or failed */
-#metadata_provider .meta-provider-status {
-  font-size: 11px;
-  font-weight: 600;
-  opacity: 0.75;
-}
-
-#metadata_provider .meta-provider-status.is-loading { font-style: italic; font-weight: 400; }
-#metadata_provider .meta-provider-status.is-failed { color: var(--danger); opacity: 1; }
-
-#meta-import-alert.meta-import-alert {
-  position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%) translateY(6px) scale(0.98);
-  z-index: 1055;
-  text-align: center;
-  margin: 0;
-  border-radius: 10px;
-  border: 0;
-  color: var(--ink);
-  background: color-mix(in srgb, var(--success) 12%, var(--paper));
-  opacity: 0;
-  transition: opacity 200ms ease, transform 200ms ease;
-  padding: 10px 16px;
-  min-width: 280px;
-  max-width: min(720px, calc(100vw - 32px));
-}
-
-#meta-import-alert.meta-import-alert.is-visible {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0) scale(1);
 }
 
 .padded-bottom {
@@ -685,9 +595,4 @@ select.cwa-settings-select {
 .stats_see_more_btn {
   border-radius: 6px !important;
   margin-bottom: 0px !important;
-}
-
-.refresh-cwa {
-  width: -webkit-fill-available;
-  justify-content: space-evenly;
 }

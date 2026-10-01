@@ -13,6 +13,11 @@
     var scrim = document.querySelector(".lily-scrim");
     if (!app || !toggle) { return; }
 
+    // The tooltip names the shortcut with ⌘; other platforms use Ctrl.
+    if (!/Mac|iPhone|iPad/.test(navigator.platform || "")) {
+      toggle.title = toggle.title.replace("⌘", "Ctrl+");
+    }
+
     function setOpen(open) {
       app.classList.toggle("drawer-open", open);
       toggle.setAttribute("aria-expanded", open ? "true" : "false");
@@ -100,8 +105,9 @@
     });
   }
 
+  // Cover buttons carry no title: the design wants no popups over them, so only screen readers get the label.
   function setLabel($btn, label) {
-    $btn.attr({ title: label, "aria-label": label });
+    $btn.attr("aria-label", label);
   }
 
   $(function () {
@@ -138,6 +144,7 @@
 
     // Quick actions under grid covers (image.html cover_actions).
     $(document).on("click", ".lily-cover-actions .lily-read-now", function () {
+      // Books always open in a new tab, so the library stays where it was.
       var url = this.getAttribute("data-reader-url");
       if (url) {
         window.open(url, "_blank", "noopener");
@@ -162,7 +169,7 @@
         var $img = $book.find(".cover .img");
         $img.find(".badge.read").remove();
         if (nowRead) {
-          $("<span class='badge read is-new glyphicon glyphicon-eye-open'></span>").attr("title", $btn.data("label-read")).appendTo($img);
+          $("<span class='badge read is-new glyphicon glyphicon-ok-circle' aria-hidden='true'></span>").appendTo($img);
         }
       }).fail(function (xhr) {
         flash((xhr.responseJSON && xhr.responseJSON.message) || "Could not change the read status. Try again.", "danger");
@@ -227,7 +234,8 @@
 
   // state: "busy" while the refresh runs (stays up), "done" or "error" once it has finished
   // (leaves by itself after TOAST_MS, but not while the pointer is over it).
-  function showMessage(messages, state) {
+  // link, when given, is [href, label] and follows the text.
+  function showMessage(messages, state, link) {
     var box = toast();
     var para = document.getElementById("library_refresh_message");
     if (!box || !para) { return; }
@@ -236,6 +244,13 @@
       if (i) { para.appendChild(document.createElement("br")); }
       para.appendChild(document.createTextNode(tidy(text)));
     });
+    if (link) {
+      para.appendChild(document.createTextNode(" "));
+      var more = document.createElement("a");
+      more.href = link[0];
+      more.textContent = link[1];
+      para.appendChild(more);
+    }
     if (state === "error") {
       var links = [];
       if (box.dataset.failedImportsUrl) {
@@ -404,6 +419,74 @@
     }
   })();
 
+  /*
+   * Browser uploads: uploadprogress.js leaves the queued ingest file names in sessionStorage,
+   * and this follows them in the same toast until the ingest has finished with each one.
+   */
+  var UPLOAD_KEY = "lily.pendingUploads";
+  var UPLOAD_GIVE_UP_MS = 15 * 60 * 1000; // the ingest's own per-file timeout
+  var DONE_STATES = ["succeeded", "failed", "skipped", "interrupted"];
+
+  function pendingUploads() {
+    try { return JSON.parse(window.sessionStorage.getItem(UPLOAD_KEY) || "null"); } catch (e) { return null; }
+  }
+
+  function forgetUploads() {
+    try { window.sessionStorage.removeItem(UPLOAD_KEY); } catch (e) { /* storage optional */ }
+  }
+
+  function uploadText(key, uploads) {
+    var box = toast();
+    var many = uploads.length > 1;
+    var text = (box && box.dataset[many ? key + "Many" : key]) || (box && box.dataset[key]) || "";
+    return text.replace("{name}", uploads[0].name).replace("{count}", String(uploads.length));
+  }
+
+  function watchUploads() {
+    var pending = pendingUploads();
+    if (!pending || !pending.uploads || !pending.uploads.length || !pending.statusUrl) { return; }
+    if (Date.now() - (pending.since || 0) > UPLOAD_GIVE_UP_MS) {
+      forgetUploads();
+      return;
+    }
+    showMessage(uploadText("importing", pending.uploads), "busy");
+    var query = pending.uploads.map(function (u) { return "file=" + encodeURIComponent(u.file); }).join("&");
+    fetch(pending.statusUrl + "?" + query, { credentials: "same-origin",
+                                            headers: { "Accept": "application/json" } })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (data) {
+        if (!data) {
+          forgetUploads();
+          window.dismissLibraryRefreshMessage();
+          return;
+        }
+        var files = data.files || [];
+        var finished = files.filter(function (f) { return DONE_STATES.indexOf(f.state) !== -1; });
+        if (finished.length < files.length) {
+          setTimeout(watchUploads, POLL_MS);
+          return;
+        }
+        forgetUploads();
+        var box = toast();
+        var failed = pending.uploads.filter(function (u) {
+          return files.some(function (f) { return f.file === u.file && f.state !== "succeeded"; });
+        });
+        if (failed.length) {
+          showMessage(uploadText("importFailed", failed), "error");
+        } else {
+          showMessage(uploadText("imported", pending.uploads), "done",
+                      box ? [box.dataset.libraryUrl, box.dataset.libraryLabel] : null);
+        }
+      })
+      .catch(function () { setTimeout(watchUploads, POLL_MS * 2); });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", watchUploads);
+  } else {
+    watchUploads();
+  }
+
   window.dismissLibraryRefreshMessage = function () {
     var box = toast();
     cancelHide();
@@ -417,34 +500,6 @@
     }, 200);
   };
 
-})();
-
-/*
- * Filter buttons sit in the title bar only when the page has no pagination and is wide enough.
- */
-(function () {
-  "use strict";
-
-  function update() {
-    document.querySelectorAll(".row-fluid").forEach(function (row) {
-      var filterheader = row.querySelector(".filterheader");
-      if (!filterheader) { return; }
-      var hasPagination = !!row.querySelector(".pagination");
-      filterheader.classList.toggle("filterheader-fixed", window.innerWidth >= 915 && !hasPagination);
-    });
-  }
-
-  var rafPending = false;
-  document.addEventListener("DOMContentLoaded", update);
-  window.addEventListener("resize", function () {
-    // At most one update per animation frame
-    if (rafPending) { return; }
-    rafPending = true;
-    window.requestAnimationFrame(function () {
-      rafPending = false;
-      update();
-    });
-  });
 })();
 
 /*
@@ -578,15 +633,16 @@ window.lilyToggleSortDir = function (btn) {
 (function () {
   "use strict";
 
-  var COLOURS = { light: "#F1EEEA", dark: "#1A1517" };
-
   function apply(pref) {
     var root = document.documentElement;
     root.setAttribute("data-theme-pref", pref);
     root.setAttribute("data-theme", pref);
+    // The browser chrome takes the page colour, read from the token once the theme is set.
+    var paper = getComputedStyle(root).getPropertyValue("--paper").trim();
+    if (!paper) { return; }
     var metas = document.querySelectorAll('meta[name="theme-color"]');
     for (var i = 0; i < metas.length; i++) {
-      metas[i].setAttribute("content", COLOURS[pref]);
+      metas[i].setAttribute("content", paper);
     }
   }
 
@@ -639,52 +695,5 @@ window.lilyToggleSortDir = function (btn) {
   document.addEventListener("DOMContentLoaded", function () {
     var cards = document.querySelectorAll(".lily-grid > .lily-book");
     for (var i = 0; i < cards.length; i++) { cards[i].style.setProperty("--i", i); }
-  });
-})();
-
-/* Quick-action bar colour: take the dominant colour of the strip of cover the bar sits on (as
-   cropped by object-fit: cover), so the bar reads as part of the cover. Sets --cover-tint on the
-   bar and data-tone so lily-library.css picks a legible ink. */
-(function () {
-  "use strict";
-  var W = 32, H = 8, canvas, ctx;
-
-  function tint(img) {
-    var card = img.closest(".lily-book"), bar = card && card.querySelector(".lily-cover-actions");
-    var box = img.closest(".cover");
-    if (!bar || !box || !img.naturalWidth) { return; }
-    if (!ctx) {
-      canvas = document.createElement("canvas");
-      canvas.width = W;
-      canvas.height = H;
-      ctx = canvas.getContext("2d", { willReadFrequently: true });
-    }
-    try {
-      var nw = img.naturalWidth, nh = img.naturalHeight;
-      var bw = box.clientWidth || nw, bh = box.clientHeight || nh;
-      var scale = Math.max(bw / nw, bh / nh);
-      var visW = bw / scale, visH = bh / scale;
-      var sx = (nw - visW) / 2, bottom = (nh - visH) / 2 + visH;
-      var sh = Math.max(1, (bar.offsetHeight || 38) / scale);
-      ctx.drawImage(img, sx, bottom - sh, visW, sh, 0, 0, W, H);
-      var d = ctx.getImageData(0, 0, W, H).data, buckets = {}, best = null;
-      for (var i = 0; i < d.length; i += 4) {
-        var key = (d[i] >> 4) + "," + (d[i + 1] >> 4) + "," + (d[i + 2] >> 4);
-        var b = buckets[key] || (buckets[key] = { n: 0, r: 0, g: 0, b: 0 });
-        b.n++; b.r += d[i]; b.g += d[i + 1]; b.b += d[i + 2];
-        if (!best || b.n > best.n) { best = b; }
-      }
-      var r = Math.round(best.r / best.n), g = Math.round(best.g / best.n), bl = Math.round(best.b / best.n);
-      bar.style.setProperty("--cover-tint", "rgb(" + r + "," + g + "," + bl + ")");
-      bar.setAttribute("data-tone", (0.2126 * r + 0.7152 * g + 0.0722 * bl) > 150 ? "light" : "dark");
-    } catch (err) { /* tainted or undecodable image: keep the surface fallback */ }
-  }
-
-  document.addEventListener("load", function (e) {
-    if (e.target.tagName === "IMG" && e.target.closest(".lily-book .cover")) { tint(e.target); }
-  }, true);
-  document.addEventListener("DOMContentLoaded", function () {
-    var imgs = document.querySelectorAll(".lily-book .cover img");
-    for (var i = 0; i < imgs.length; i++) { if (imgs[i].complete) { tint(imgs[i]); } }
   });
 })();

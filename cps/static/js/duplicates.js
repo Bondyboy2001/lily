@@ -51,31 +51,28 @@ $(document).ready(function() {
         });
     }
 
+    // Outcomes are flash messages in the page's live region (lily.js), not dialogs.
+    var FLASH_KEY = 'lily-duplicates-flash';
+    function notify(message, tone) {
+        if (window.lilyFlash) { window.lilyFlash(message, tone || 'danger'); }
+    }
+    // After a change that rebuilds the groups, reload and say what happened on the fresh page.
+    function notifyAfterReload(message) {
+        try { sessionStorage.setItem(FLASH_KEY, message); } catch (e) { /* storage blocked: reload quietly */ }
+        window.location.reload();
+    }
+    try {
+        var pending = sessionStorage.getItem(FLASH_KEY);
+        if (pending) { sessionStorage.removeItem(FLASH_KEY); notify(pending, 'success'); }
+    } catch (e) { /* storage blocked */ }
+
     function showResolutionSuccess(data) {
-        $('#success_modal_title').text('Resolution Complete');
-        $('#success_modal_message').html(
-            '<div class="resolution-success-summary">' +
-                '<div class="resolution-success-stat">' +
-                    '<span class="resolution-success-value">' + data.resolved_count + '</span>' +
-                    '<span class="resolution-success-label">Groups Resolved</span>' +
-                '</div>' +
-                '<div class="resolution-success-stat">' +
-                    '<span class="resolution-success-value">' + data.kept_count + '</span>' +
-                    '<span class="resolution-success-label">Books Kept</span>' +
-                '</div>' +
-                '<div class="resolution-success-stat">' +
-                    '<span class="resolution-success-value">' + data.deleted_count + '</span>' +
-                    '<span class="resolution-success-label">Books Deleted</span>' +
-                '</div>' +
-            '</div>'
-        );
-        $('#success_modal').modal('show');
+        notifyAfterReload('Resolved ' + data.resolved_count + ' groups: kept ' + data.kept_count +
+                          ' books and deleted ' + data.deleted_count + '.');
     }
 
     function showResolutionError(message) {
-        $('#error_modal_title').text('Resolution Failed');
-        $('#error_modal_message').html(message);
-        $('#error_modal').modal('show');
+        notify('Couldn\'t apply the resolution. ' + message);
     }
 
     function applyBatchOutcome(response) {
@@ -185,8 +182,7 @@ $(document).ready(function() {
         } else {
             // Check if at least 2 books are selected
             if (selectedBooks.length < 2) {
-                $('#error_modal_message').text('Please select at least 2 books to merge.');
-                $('#error_modal').modal('show');
+                notify('Select at least two books to merge.', 'warning');
                 return;
             }
 
@@ -228,8 +224,7 @@ $(document).ready(function() {
                     }
                 },
                 error: function(xhr, status, error) {
-                    $('#error_modal_message').text('Error loading book list for merge confirmation. Status: ' + xhr.status + '. Check browser console for details.');
-                    $('#error_modal').modal('show');
+                    notify('Couldn\'t load the books to merge (error ' + xhr.status + '). Reload the page and try again.');
                 }
             });
         }
@@ -242,8 +237,7 @@ $(document).ready(function() {
         } else {
             // Check if any books are actually selected
             if (selectedBooks.length === 0) {
-                $('#error_modal_message').text("No books selected! Please select books to delete.");
-                $('#error_modal').modal('show');
+                notify('Select the books to delete first.', 'warning');
                 return;
             }
             
@@ -277,8 +271,7 @@ $(document).ready(function() {
                     });
                 },
                 error: function(xhr, status, error) {
-                    $('#error_modal_message').text("Error loading book list for confirmation. Status: " + xhr.status + ". Check browser console for details.");
-                    $('#error_modal').modal('show');
+                    notify('Couldn\'t load the books to delete (error ' + xhr.status + '). Reload the page and try again.');
                 }
             });
         }
@@ -311,18 +304,14 @@ $(document).ready(function() {
                 var outcome = applyBatchOutcome(response);
                 dropSucceededBooks(outcome.succeeded);
                 if (response && response.success === true) {
-                    $('#success_modal_message').text('Selected books have been merged successfully!');
-                    $('#success_modal').modal('show');
+                    notifyAfterReload('Merged the selected books.');
                 } else {
-                    $('#error_modal_message').text('Some books could not be merged; they remain selected. Details are listed above the results.');
-                    $('#error_modal').modal('show');
+                    notify('Some books couldn\'t be merged and are still selected. The reasons are listed above the results.');
                 }
             },
             error: function(xhr, status, error) {
                 $('#merge_selected_modal').modal('hide');
-                $('#error_modal_message').text(
-                    ajaxErrorMessage(xhr, 'Request failed; check the library before retrying'));
-                $('#error_modal').modal('show');
+                notify(ajaxErrorMessage(xhr, 'The merge request failed. Check the library, then try again.'));
             }
         });
     });
@@ -353,26 +342,16 @@ $(document).ready(function() {
                 var outcome = applyBatchOutcome(response);
                 dropSucceededBooks(outcome.succeeded);
                 if (response && response.success === true) {
-                    $('#success_modal_message').text("Selected duplicate books have been deleted successfully!");
-                    $('#success_modal').modal('show');
+                    notifyAfterReload('Deleted the selected books.');
                 } else {
-                    $('#error_modal_message').text('Some books could not be deleted; they remain selected. Details are listed above the results.');
-                    $('#error_modal').modal('show');
+                    notify('Some books couldn\'t be deleted and are still selected. The reasons are listed above the results.');
                 }
             },
             error: function(xhr, status, error) {
                 $('#delete_selected_modal').modal('hide');
-                $('#error_modal_message').text(
-                    ajaxErrorMessage(xhr, 'Request failed; check the library before retrying'));
-                $('#error_modal').modal('show');
+                notify(ajaxErrorMessage(xhr, 'The delete request failed. Check the library, then try again.'));
             }
         });
-    });
-    
-    // Success modal OK button handler
-    $('#success_modal_ok').click(function() {
-        // Reload the page to refresh the duplicate list
-        window.location.reload();
     });
     
     // Dismiss/Undismiss duplicate group handlers
@@ -631,7 +610,7 @@ $(document).ready(function() {
     $('#execute_resolution_confirm').on('click', function() {
         var strategy = $('#resolution_strategy').val();
         var btn = $('#execute_resolution');
-        btn.addClass('disabled').html('<span class="glyphicon glyphicon-refresh glyphicon-spin"></span> Executing...');
+        btn.addClass('disabled').html('<span class="glyphicon glyphicon-refresh glyphicon-spin"></span> Applying…');
         
         $.ajax({
             url: '/duplicates/execute-resolution',
@@ -646,14 +625,14 @@ $(document).ready(function() {
                     showResolutionSuccess(data);
                 } else {
                     var errors = data.errors || ['Unknown error occurred during resolution'];
-                    showResolutionError('Errors occurred:<br>' + errors.map(escapeHtml).join('<br>'));
+                    showResolutionError(errors.join(' '));
                     btn.removeClass('disabled').html('<span class="glyphicon glyphicon-flash"></span> Apply resolution');
                 }
             },
             error: function(xhr, status, error) {
                 console.error('[CWA Duplicates] Failed to execute resolution:', error);
                 var response = xhr.responseJSON || {};
-                showResolutionError(response.message || response.error || 'Failed to execute resolution. Check browser console for details.');
+                showResolutionError(response.message || response.error || 'Reload the page and try again.');
                 btn.removeClass('disabled').html('<span class="glyphicon glyphicon-flash"></span> Apply resolution');
             }
         });

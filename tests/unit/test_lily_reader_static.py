@@ -100,7 +100,7 @@ def test_epub_reader_layout_and_loading():
     # Only fonts that suit an English UI; the row labels survive the tick reset.
     for font in ("Yahei", "SimSun", "KaiTi"):
         assert font not in html
-    assert html.count('querySelectorAll("button > span")') == 3
+    assert "function pressOption" in html and html.count('aria-pressed="false"') >= 6
 
 
 def test_progress_sync_contract():
@@ -154,14 +154,14 @@ def test_advanced_search_uses_lily_form_rows():
 
 def _register_remaining_blueprints(app):
     """layout.html links to every blueprint; add the ones the shared test app lacks."""
-    from cps.cwa_functions import (library_refresh, cwa_check_status, cwa_settings,
+    from cps.cwa_functions import (library_refresh, cwa_settings,
                                    cwa_internal)
     from cps.editbooks import editbook
     from cps.search_metadata import meta
     from cps.duplicates import duplicates
     from cps.logs import logs
     from cps.gdrive import gdrive
-    for bp in (library_refresh, cwa_check_status, cwa_settings, cwa_internal,
+    for bp in (library_refresh, cwa_settings, cwa_internal,
                editbook, meta, duplicates, logs, gdrive):
         if bp.name not in app.blueprints:
             app.register_blueprint(bp)
@@ -194,7 +194,7 @@ def test_reader_pages_render(client, fmt, marker):
     assert marker in html
     if fmt != "pdf":
         assert f'href="/book/{book_id}"' in html
-    if fmt in ("epub", "mp3", "pdf"):
+    if fmt in ("epub", "mp3", "pdf", "djvu"):
         assert f"/ajax/progress/{book_id}?format={fmt}" in html
 
 
@@ -214,6 +214,23 @@ def test_djvu_viewer_creates_its_worker_from_the_top_window():
     for script in scripts:
         code = read(script)
         assert "djvuWorker=new $wnd.Worker(" in code and "djvuWorker=new Worker(" not in code, script.name
+
+
+def test_djvu_reader_uses_the_lily_chrome():
+    # The epub title bar with the pdf reader's page box and zoom; the viewer's own toolbar
+    # and status sprite are hidden and driven from djvu_reader.js.
+    html = read(TEMPLATES / "readdjvu.html")
+    assert "{% include 'lily_theme_head.html' %}" in html
+    for control in ('id="titlebar"', 'id="book-title"', 'id="djvu-page"', 'id="djvu-zoom"',
+                    'id="prev" class="arrow"', 'id="next" class="arrow"', 'id="progress-sync-status"',
+                    "js/reading/progress-sync.js", "css/lily-icons.css"):
+        assert control in html, control
+    css = strip_comments(read(CSS / "lily-reader.css"))
+    assert re.search(r"#djvuContainer \.toolbar,\s*\.lily-reader\.lily-djvu #djvuContainer \.statusImage \{ display: none; \}", css)
+    js = strip_comments(read(JS / "reading/djvu_reader.js"))
+    # The canvas backdrop follows the theme, and positions save like the pdf reader's.
+    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", js)
+    assert 'getPropertyValue("--sunk")' in js and '"page:" + page' in js
 
 
 def test_rating_clear_buttons_are_trash_icons():
@@ -267,3 +284,50 @@ def test_reading_and_finished_lists_show_in_the_sidebar_and_filter_by_status(cli
 
     html = c.get("/read/stored/").get_data(as_text=True)
     assert "Done Book" in html and "Halfway Book" not in html and "Untouched Book" not in html
+
+
+def test_pdf_reader_has_a_back_to_book_link_first_in_its_toolbar():
+    html = read(TEMPLATES / "readpdf.html")
+    link = re.search(r'<a id="backToBook"[^>]*>', html).group(0)
+    assert 'class="toolbarButton"' in link
+    assert "url_for('web.show_book', book_id=pdffile)" in link
+    assert "aria-label=\"{{_('Back to book')}}\"" in link and "title=\"{{_('Back to book')}}\"" in link
+    left = html.index('id="toolbarViewerLeft"')
+    assert left < html.index('id="backToBook"') < html.index('id="sidebarToggle"')
+    css = strip_comments(read(CSS / "lily-pdf.css"))
+    assert re.search(r"#backToBook::before \{[^}]*mask-image: url\(libs/images/toolbarButton-pageUp\.svg\)", css)
+    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", css)
+
+
+def test_pdf_reader_opens_at_page_width_on_phones_only():
+    html = read(TEMPLATES / "readpdf.html")
+    assert "window.matchMedia('(max-width: 600px)')" in html
+    assert "PDFViewerApplicationOptions.set('defaultZoomValue', phone ? 'page-width' : '150')" in html
+    # The saved position is a page number only, so the default zoom never fights it.
+    assert '"page:"' in html and "app.page = Math.floor(page)" in html
+
+
+def test_epub_page_theme_follows_the_app_theme_until_one_is_picked():
+    html = read(TEMPLATES / "read.html")
+    assert "function savedReaderTheme ()" in html
+    assert 'localStorage.getItem("lily-theme")' in html and '"darkTheme" : "lightTheme"' in html
+    # Applying the starting theme must not save it, or the first open would pin Light for good.
+    assert "if (remember !== false)" in html
+    assert 'localStorage.setItem("calibre.reader.theme"' not in html
+    js = read(JS / "reading" / "epub.js")
+    assert "selectTheme(savedReaderTheme(), false)" in js
+
+
+@pytest.mark.unit
+def test_book_editor_shows_only_the_optional_fields_with_values(client):
+    env, c, book_id = client
+    resp = c.get(f"/admin/book/{book_id}")
+    assert resp.status_code == 200, resp.data[:300]
+    html = resp.get_data(as_text=True)
+    # The fixture book has a language and a publish date, but no series, publisher or rating
+    for key in ("languages", "pubdate"):
+        assert f'data-optional="{key}">' in html, key
+        assert f'data-optional-add="{key}" hidden>' in html, key
+    for key in ("series", "publisher", "rating"):
+        assert f'data-optional="{key}" hidden>' in html, key
+        assert f'data-optional-add="{key}">' in html, key

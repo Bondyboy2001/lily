@@ -13,7 +13,7 @@ body.modal-open div.tags > p > span.glyphicon.glyphicon-tags {
 }
 /* Dim and indicate globally disabled metadata providers in modal */
 .provider-disabled {
-  opacity: 0.6;
+  opacity: .4;
   cursor: not-allowed;
 }
 .provider-disabled .glyphicon-ok {

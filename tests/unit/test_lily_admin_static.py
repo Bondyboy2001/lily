@@ -102,7 +102,7 @@ def test_settings_rail_signout_is_a_quiet_button():
     frag = block.group(1)
     assert 'class="lp-rail-signout-row"' in frag
     assert re.search(
-        r'<a href="{{ url_for\(\'web\.logout\'\) }}" class="btn btn-default lp-rail-signout" id=\'logout\'>{{ _\(\'Sign out\'\) }}</a>',
+        r'<a href="{{ url_for\(\'web\.logout\'\) }}" class="btn btn-default is-danger lp-rail-signout" id=\'logout\'>{{ _\(\'Sign out\'\) }}</a>',
         frag)
 
 
@@ -111,7 +111,7 @@ def test_signout_row_styles_desktop_and_mobile():
     assert re.search(
         r"\.lp-rail-list > \.lp-rail-signout-row\s*{[^}]*margin-top:\s*12px[^}]*padding-left:\s*10px", css)
     assert re.search(r"\.lp-rail-signout\s*{[^}]*white-space:\s*nowrap", css)
-    assert re.search(r"\.lp-rail-signout\.btn,[^{]*{[^}]*background:\s*var\(--danger\)", css)
+    assert not re.search(r"\.lp-rail-signout[^{]*{[^}]*background:\s*var\(--danger\)", css)
     container = re.search(r"@container lp-settings[^\n]*{(.*)", css, flags=re.S)
     assert container
     assert re.search(

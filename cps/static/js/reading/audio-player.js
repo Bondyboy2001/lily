@@ -75,7 +75,9 @@
 
     function setPlaying(playing) {
         player.classList.toggle("is-playing", playing);
-        playBtn.setAttribute("aria-label", player.getAttribute(playing ? "data-label-pause" : "data-label-play"));
+        var label = player.getAttribute(playing ? "data-label-pause" : "data-label-play");
+        playBtn.setAttribute("aria-label", label);
+        playBtn.setAttribute("title", label);
     }
 
     function skip(delta) {

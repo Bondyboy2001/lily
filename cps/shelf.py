@@ -154,8 +154,10 @@ def create_edit_shelf(shelf, page_title, page, shelf_id=False):
                 ub.session.rollback()
                 log.error_or_exception(ex)
                 flash(_("There was an error"), category="error")
+    book_count = ub.session.query(ub.BookShelf).filter(ub.BookShelf.shelf == shelf_id).count() if shelf_id else 0
     return render_title_template('shelf_edit.html',
                                  shelf=shelf,
+                                 book_count=book_count,
                                  title=page_title,
                                  page=page)
 

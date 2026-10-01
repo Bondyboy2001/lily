@@ -26,3 +26,22 @@
 #sidebarContent {
     inset-block-start: calc(32px * var(--pdf-chrome-zoom));
 }
+
+/* Back to the book page, first in the toolbar: pdf.js' own chevron turned to point back. */
+#backToBook { cursor: pointer; }
+#backToBook::before {
+    -webkit-mask-image: url(libs/images/toolbarButton-pageUp.svg);
+    mask-image: url(libs/images/toolbarButton-pageUp.svg);
+    transform: rotate(calc(-90deg * var(--dir-factor)));
+}
+
+/* Reading-position sync note, bottom left over the pages in pdf.js' own text colour. */
+#progress-sync-status {
+    position: fixed;
+    left: 16px;
+    bottom: 14px;
+    z-index: 10;
+    color: var(--main-color);
+    font-size: 12px;
+    opacity: .7;
+}

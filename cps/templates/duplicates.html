@@ -43,25 +43,25 @@
       <!-- Auto-resolution -->
       <section class="dup-card dup-resolve">
         <h3 class="dup-card-title">{{_('Auto-Resolve Duplicates')}}</h3>
-        <p class="dup-card-text">{{_('Automatically resolve all duplicate groups by keeping one book and deleting others based on a strategy.')}}</p>
+        <p class="dup-card-text">{{_('Resolve every group at once: keep one copy by the strategy you pick and delete the others.')}}</p>
 
         <div class="dup-resolve-row">
           <div class="dup-field">
             <label for="resolution_strategy">{{_('Strategy')}}</label>
             <select id="resolution_strategy" class="form-control">
-              <option value="newest">{{_('Keep Newest - Delete older copies, keep the most recently added')}}</option>
-              <option value="oldest">{{_('Keep Oldest - Delete newer copies, keep the earliest added')}}</option>
-              <option value="merge">{{_('Merge Formats - Merge formats into the newest book, delete the rest')}}</option>
-              <option value="highest_quality_format">{{_('Keep Highest Quality Format - Prefer formats based on your Duplicate Format Priority Ranking')}}</option>
-              <option value="most_metadata">{{_('Keep Most Metadata - Keep book with most complete information')}}</option>
-              <option value="largest_file_size">{{_('Keep Largest File Size - Keep book with largest total file size')}}</option>
+              <option value="newest">{{_('Keep the newest: delete copies added earlier')}}</option>
+              <option value="oldest">{{_('Keep the oldest: delete copies added later')}}</option>
+              <option value="merge">{{_('Merge formats into the newest copy, then delete the rest')}}</option>
+              <option value="highest_quality_format">{{_('Keep the best format, by your format ranking')}}</option>
+              <option value="most_metadata">{{_('Keep the copy with the most complete details')}}</option>
+              <option value="largest_file_size">{{_('Keep the copy with the largest files')}}</option>
             </select>
           </div>
           <div class="dup-resolve-actions">
             <button type="button" class="btn btn-default" id="preview_resolution">
               <span class="glyphicon glyphicon-eye-open" aria-hidden="true"></span> {{_('Preview')}}
             </button>
-            <button type="button" class="btn btn-danger disabled" id="execute_resolution" aria-disabled="true">
+            <button type="button" class="btn btn-default is-danger disabled" id="execute_resolution" aria-disabled="true">
               <span class="glyphicon glyphicon-flash" aria-hidden="true"></span> {{_('Apply resolution')}}
             </button>
           </div>
@@ -70,9 +70,7 @@
         <div class="alert alert-danger dup-notice dup-notice-compact">
           <span class="glyphicon glyphicon-warning-sign dup-notice-icon" aria-hidden="true"></span>
           <div>
-            <strong>{{_('Warning:')}}</strong>
-            {{_('This will delete books. Recovery copies are archived for restore, and original files will also be backed up to')}}
-            <code class="dup-path">/config/processed_books/duplicate_resolutions/</code>
+            {{_('This deletes books. The server keeps a recovery copy of each one.')}}
           </div>
         </div>
       </section>
@@ -80,7 +78,7 @@
       <div class="dup-toolbar bulk-actions">
         <button type="button" class="btn btn-default" id="select_all">{{_('Select duplicates')}}</button>
         <button type="button" class="btn btn-default" id="select_none">{{_('Select none')}}</button>
-        <button type="button" class="btn btn-danger disabled" id="delete_selected" aria-disabled="true">{{_('Delete selected')}}</button>
+        <button type="button" class="btn btn-default is-danger disabled" id="delete_selected" aria-disabled="true">{{_('Delete selected')}}</button>
         <span id="selection_count" class="selection-info" aria-live="polite"></span>
       </div>
 
@@ -166,16 +164,16 @@
 </div>
 
 <!-- Execute Resolution Confirmation Modal -->
-<div class="modal fade" id="execute_resolution_modal" role="dialog" aria-labelledby="executeResolutionLabel">
+<div class="modal fade" id="execute_resolution_modal" tabindex="-1" role="dialog" aria-labelledby="executeResolutionLabel">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h4 class="modal-title" id="executeResolutionLabel">{{_('Execute Auto-Resolution')}}</h4>
+        <h4 class="modal-title" id="executeResolutionLabel">{{_('Apply Resolution?')}}</h4>
       </div>
       <div class="modal-body">
-        <p>{{_('Lily will resolve duplicate groups using the selected strategy and delete duplicate books. Recovery copies are archived for restore.')}}</p>
+        <p>{{_('Lily keeps one copy in every group and deletes the others.')}}</p>
         <p class="strategy-summary">{{_('Selected strategy:')}} <strong id="execute_resolution_strategy_name"></strong></p>
-        <p class="danger-note">{{_('Deleted books leave the library immediately; an administrator can restore them from Book Recovery.')}}</p>
+        <p class="danger-note">{{_('Deleted books leave the library at once. The server keeps a recovery copy of each one.')}}</p>
       </div>
       <div class="modal-footer">
         <button id="execute_resolution_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
@@ -186,54 +184,53 @@
 </div>
 
 <!-- Delete Confirmation Modal -->
-<div class="modal fade" id="delete_selected_modal" role="dialog" aria-labelledby="deleteSelectedLabel">
+<div class="modal fade" id="delete_selected_modal" tabindex="-1" role="dialog" aria-labelledby="deleteSelectedLabel">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h4 class="modal-title" id="deleteSelectedLabel">{{_('Are You Sure?')}}</h4>
+        <h4 class="modal-title" id="deleteSelectedLabel">{{_('Delete Books?')}}</h4>
       </div>
       <div class="modal-body">
-        <p>{{_('The following books will be deleted (recovery copies are kept):')}}</p>
+        <p>{{_('These books will be deleted:')}}</p>
         <div id="display-delete-selected-books" class="dup-modal-list"></div>
-        <p class="danger-note">{{_('Deleted books leave the library immediately; an administrator can restore them from Book Recovery.')}}</p>
+        <p class="danger-note">{{_('Deleted books leave the library at once. The server keeps a recovery copy of each one.')}}</p>
       </div>
       <div class="modal-footer">
         <button id="delete_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
-        <input id="delete_selected_confirm" type="button" class="btn btn-danger" value="{{_('Delete')}}" name="delete_selected_confirm" data-dismiss="modal">
+        <input id="delete_selected_confirm" type="button" class="btn btn-danger" value="{{_('Delete books')}}" name="delete_selected_confirm" data-dismiss="modal">
       </div>
     </div>
   </div>
 </div>
 
 <!-- Merge Confirmation Modal -->
-<div class="modal fade" id="merge_selected_modal" role="dialog" aria-labelledby="mergeSelectedLabel">
+<div class="modal fade" id="merge_selected_modal" tabindex="-1" role="dialog" aria-labelledby="mergeSelectedLabel">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title" id="mergeSelectedLabel">{{_('Merge Books')}}</h4>
       </div>
       <div class="modal-body">
-        <p>{{_('The following book will be kept:')}}</p>
+        <p>{{_('This book is kept:')}}</p>
         <div id="display-merge-target-book" class="dup-modal-list dup-keep"></div>
-        <p>{{_('The following books will be merged into it (and then deleted):')}}</p>
+        <p>{{_('These books are merged into it, then deleted:')}}</p>
         <div id="display-merge-source-books" class="dup-modal-list"></div>
-        <p class="text-muted">{{_('Note: File formats from source books will be added to the target book.')}}</p>
+        <p class="text-muted">{{_('Their formats are added to the kept book.')}}</p>
       </div>
       <div class="modal-footer">
         <button id="merge_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
-        <input id="merge_selected_confirm" type="button" class="btn btn-primary" value="{{_('Merge')}}" name="merge_selected_confirm" data-dismiss="modal">
+        <input id="merge_selected_confirm" type="button" class="btn btn-primary" value="{{_('Merge books')}}" name="merge_selected_confirm" data-dismiss="modal">
       </div>
     </div>
   </div>
 </div>
 
 <!-- Resolution Preview Modal -->
-<div class="modal fade" id="resolution_preview_modal" role="dialog" aria-labelledby="resolutionPreviewLabel">
+<div class="modal fade" id="resolution_preview_modal" tabindex="-1" role="dialog" aria-labelledby="resolutionPreviewLabel">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
         <h4 class="modal-title" id="resolutionPreviewLabel">{{_('Resolution Preview')}}</h4>
-        <button type="button" class="close" data-dismiss="modal" title="{{_('Close')}}" aria-label="{{_('Close')}}">&times;</button>
       </div>
       <div class="modal-body dup-preview-body" id="resolution_preview_body">
         <!-- Preview content will be injected here -->
@@ -245,39 +242,6 @@
   </div>
 </div>
 
-<!-- Success Modal -->
-<div class="modal fade" id="success_modal" role="dialog" aria-labelledby="success_modal_title">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h4 class="modal-title" id="success_modal_title">{{_('Success')}}</h4>
-      </div>
-      <div class="modal-body">
-        <div id="success_modal_message">{{_('Selected duplicate books have been deleted successfully!')}}</div>
-      </div>
-      <div class="modal-footer">
-        <button id="success_modal_ok" type="button" class="btn btn-default" data-dismiss="modal">{{_('Close')}}</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Error Modal -->
-<div class="modal fade" id="error_modal" role="dialog" aria-labelledby="error_modal_title">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h4 class="modal-title" id="error_modal_title">{{_('Error')}}</h4>
-      </div>
-      <div class="modal-body">
-        <p id="error_modal_message">{{_('An error occurred while processing your request.')}}</p>
-      </div>
-      <div class="modal-footer">
-        <button id="error_modal_ok" type="button" class="btn btn-default" data-dismiss="modal">{{_('Close')}}</button>
-      </div>
-    </div>
-  </div>
-</div>
 {% endblock %}
 
 {% block js %}

@@ -64,6 +64,17 @@ class TestReaderPositionApi:
         pdf = client.get(f"/ajax/progress/{bid}?format=pdf").get_json()
         assert epub["cfi"] == "epubcfi(/6/4)" and pdf["cfi"] == "page:7"
 
+    @pytest.mark.parametrize("fmt", ["DJVU", "DJV"])
+    def test_djvu_positions_are_pages(self, env, fmt):
+        client = _login(env)
+        bid = env.add_book("Scanned " + fmt, fmt=fmt)
+        url = f"/ajax/progress/{bid}?format={fmt.lower()}"
+        assert client.post(url, json={"cfi": "epubcfi(/6/4)", "percent": 0.1}).status_code == 400
+        assert client.post(url, json={"cfi": "page:0", "percent": 0.1}).status_code == 400
+        assert client.post(url, json={"cfi": "page:12", "percent": 0.5}).status_code == 200
+        got = client.get(url).get_json()
+        assert got["cfi"] == "page:12" and got["format"] == fmt.lower()
+
     def test_cfi_and_format_guards(self, env):
         client = _login(env)
         bid = env.add_book("Guarded", fmt="EPUB")
@@ -284,3 +295,21 @@ class TestContinueReadingPositions:
         ub.session_commit()
         rows = web._continue_reading_rows(ub.session, admin.id, 12, lib)
         assert rows == [(bid, pytest.approx(40.0), "pdf")]
+
+
+@pytest.mark.unit
+class TestBookPageResume:
+    def test_in_progress_book_offers_to_continue(self, env):
+        client = _login(env)
+        bid = env.add_book("Halfway", fmt="EPUB")
+        client.post(f"/ajax/progress/{bid}?format=epub",
+                    json={"cfi": "epubcfi(/6/4)", "percent": 0.42})
+        html = client.get(f"/book/{bid}").get_data(as_text=True)
+        assert "Continue" in html and "42%" in html
+        assert f'href="/read/{bid}/epub"' in html
+
+    def test_unstarted_book_just_reads(self, env):
+        client = _login(env)
+        bid = env.add_book("Fresh", fmt="EPUB")
+        html = client.get(f"/book/{bid}").get_data(as_text=True)
+        assert "book-resume-percent" not in html

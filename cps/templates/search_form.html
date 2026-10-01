@@ -7,7 +7,7 @@
   <input type="text" class="datepicker form-control" name="{{ name }}" id="{{ name }}" value="" aria-label="{{ label }}" autocomplete="off">
   <input type="text" class="form-control fake-input hidden" id="fake_{{ name }}" value="" tabindex="-1" aria-hidden="true">
   <span class="input-group-btn">
-    <button type="button" id="{{ name }}_delete" class="datepicker_delete btn btn-default" aria-label="{{_('Clear date')}}"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span></button>
+    <button type="button" id="{{ name }}_delete" class="datepicker_delete btn btn-default" title="{{_('Clear date')}}" aria-label="{{_('Clear date')}}"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span></button>
   </span>
 </div>
 {%- endmacro %}
@@ -31,7 +31,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     {% call f.group(_('Book'), id='search-book') %}
-      {% call f.row(_('Book Title'), for_id='title') %}
+      {% call f.row(_('Title'), for_id='title') %}
         <input type="text" class="form-control" name="title" id="title" value="">
       {% endcall %}
       {% call f.row(_('Author'), for_id='authors') %}
@@ -44,32 +44,32 @@
         <input type="text" class="form-control" name="comments" id="comments" value="">
       {% endcall %}
       {% call f.row(_('Published'), for_id='publishstart', cls='lily-search-pair') %}
-        {{ date_field('publishstart', _('Published Date From')) }}
-        {{ date_field('publishend', _('Published Date To')) }}
+        {{ date_field('publishstart', _('Published from')) }}
+        {{ date_field('publishend', _('Published to')) }}
       {% endcall %}
-      {% call f.row(_('Read Status'), for_id='read_status') %}
+      {% call f.row(_('Read status'), for_id='read_status') %}
         <select name="read_status" id="read_status" class="form-control">
           <option value="Any" selected>{{_('Any')}}</option>
           <option value="True">{{_('Yes')}}</option>
           <option value="False">{{_('No')}}</option>
         </select>
       {% endcall %}
-      {% call f.row(_('Rating Above'), for_id='ratinghigh') %}
+      {% call f.row(_('Rating above'), for_id='ratinghigh') %}
         <input type="number" name="ratinghigh" id="ratinghigh" class="rating" data-clearable="" data-clearable-icon="glyphicon-trash">
       {% endcall %}
-      {% call f.row(_('Rating Below'), for_id='ratinglow') %}
+      {% call f.row(_('Rating below'), for_id='ratinglow') %}
         <input type="number" name="ratinglow" id="ratinglow" class="rating" data-clearable="" data-clearable-icon="glyphicon-trash">
       {% endcall %}
     {% endcall %}
 
     {% call f.group(_('Filters'), help=_('Books must match everything you include and nothing you exclude.'), id='search-filters') %}
-      {{ include_exclude('tag', _('Tags'), _('Exclude Tags'), tags) }}
-      {{ include_exclude('serie', _('Series'), _('Exclude Series'), series) }}
-      {{ include_exclude('shelf', _('Shelves'), _('Exclude Shelves'), shelves) }}
+      {{ include_exclude('tag', _('Tags'), _('Exclude tags'), tags) }}
+      {{ include_exclude('serie', _('Series'), _('Exclude series'), series) }}
+      {{ include_exclude('shelf', _('Shelves'), _('Exclude shelves'), shelves) }}
       {% if languages %}
-      {{ include_exclude('language', _('Languages'), _('Exclude Languages'), languages) }}
+      {{ include_exclude('language', _('Languages'), _('Exclude languages'), languages) }}
       {% endif %}
-      {{ include_exclude('extension', _('Extensions'), _('Exclude Extensions'), extensions, value_attr='format', text_attr='format') }}
+      {{ include_exclude('extension', _('Extensions'), _('Exclude extensions'), extensions, value_attr='format', text_attr='format') }}
     {% endcall %}
 
     {% if cc|length > 0 %}

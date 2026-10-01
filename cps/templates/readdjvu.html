@@ -2,6 +2,7 @@
 <html class="lily-reader-page">
   <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    {% include 'lily_theme_head.html' %}
     <title>{{_('DJVU Reader')}} | {{title}}</title>
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,16 +16,51 @@
 
     <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='css/libs/Djvu_html5.css') }}">
     <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='css/lily.css') }}">
+    <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='css/lily-icons.css') }}">
     <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='css/lily-reader.css') }}">
-    <script src="{{ url_for('static', filename='js/libs/djvu_html5/djvu_html5/djvu_html5.nocache.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/reading/progress-sync.js') }}"></script>
     <script src="{{ url_for('static', filename='js/reading/djvu_reader.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/libs/djvu_html5/djvu_html5/djvu_html5.nocache.js') }}"></script>
   </head>
   <body class="lily-reader lily-djvu">
-    <header class="lily-reader-bar">
-      <a id="back-button" class="reader-btn" href="{{ url_for('web.show_book', book_id=djvufile) }}" aria-label="{{_('Back to book')}}" title="{{_('Back to book')}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="reader-btn-label">{{_('Book')}}</span></a>
-      <h1 class="reader-title">{{ title }}</h1>
-      <span class="reader-bar-spacer" aria-hidden="true"></span>
-    </header>
-    <div id="djvuContainer" file="{{ url_for('web.serve_book', book_id=djvufile, book_format=extension) }}"></div>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {# Same title bar as the epub reader; the page and zoom controls drive the viewer's own
+       (hidden) toolbar, like the page box and zoom in the pdf reader. #}
+    <div id="titlebar">
+      <div id="opener">
+        <a id="back-button" class="reader-btn" href="{{ url_for('web.show_book', book_id=djvufile) }}" aria-label="{{_('Back to book')}}" title="{{_('Back to book')}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="reader-btn-label">{{_('Book')}}</span></a>
+      </div>
+      <div id="metainfo">
+        <span id="book-title">{{ title }}</span>
+      </div>
+      <div id="title-controls">
+        <div class="djvu-controls" role="group" aria-label="{{_('Pages')}}" hidden>
+          <button type="button" id="djvu-prev" class="reader-btn" aria-label="{{_('Previous page')}}" title="{{_('Previous page')}}" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+          <input id="djvu-page" class="djvu-page" type="text" inputmode="numeric" autocomplete="off" aria-label="{{_('Page')}}" title="{{_('Page')}}" disabled>
+          <span id="djvu-page-count" class="djvu-page-count" data-template="{{_('of %(count)s', count='%(count)s')}}"></span>
+          <button type="button" id="djvu-next" class="reader-btn" aria-label="{{_('Next page')}}" title="{{_('Next page')}}" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+        </div>
+        <div class="djvu-controls djvu-zoom" role="group" aria-label="{{_('Zoom')}}" hidden>
+          <button type="button" id="djvu-zoom-out" class="reader-btn" aria-label="{{_('Zoom out')}}" title="{{_('Zoom out')}}" disabled><span class="glyphicon glyphicon-minus" aria-hidden="true"></span></button>
+          <select id="djvu-zoom" aria-label="{{_('Zoom')}}" title="{{_('Zoom')}}" disabled
+                  data-fit-width="{{_('Fit width')}}" data-fit-page="{{_('Fit page')}}"></select>
+          <button type="button" id="djvu-zoom-in" class="reader-btn" aria-label="{{_('Zoom in')}}" title="{{_('Zoom in')}}" disabled><span class="glyphicon glyphicon-plus" aria-hidden="true"></span></button>
+        </div>
+        <button type="button" id="fullscreen" class="reader-btn" aria-label="{{_('Fullscreen')}}" title="{{_('Fullscreen')}}" aria-pressed="false" hidden><span class="glyphicon glyphicon-fullscreen" aria-hidden="true"></span></button>
+      </div>
+    </div>
+
+    <button type="button" id="prev" class="arrow" aria-label="{{_('Previous page')}}" title="{{_('Previous page')}}" disabled><span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span></button>
+    <div id="djvuContainer" file="{{ url_for('web.serve_book', book_id=djvufile, book_format=extension) }}"
+         data-progress-url="{{ progress_url }}" data-progress-key="{{ progress_key }}"
+         data-progress-format="{{ progress_format }}" data-sync="{{ current_user.is_authenticated | tojson }}"></div>
+    <button type="button" id="next" class="arrow" aria-label="{{_('Next page')}}" title="{{_('Next page')}}" disabled><span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span></button>
+
+    <p id="djvu-status" class="djvu-status" role="status" aria-live="polite"
+       data-loading-text="{{_('Opening book…')}}"
+       data-error-text="{{_('This DjVu file could not be opened. You can still download it from the book page.')}}"></p>
+    <div id="progress-sync-status" role="status" aria-live="polite" class="lily-progress-status"
+         data-pending-text="{{ _('Saved on this device; waiting to sync') }}"
+         data-synced-text="{{ _('Synced') }}"></div>
   </body>
 </html>

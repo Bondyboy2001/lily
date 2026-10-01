@@ -24,9 +24,6 @@
     <a id="back-button" class="reader-btn" href="{{ url_for('web.show_book', book_id=entry.id) }}" aria-label="{{_('Back to book')}}" title="{{_('Back to book')}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="reader-btn-label">{{_('Book')}}</span></a>
     <span class="reader-title">{{ entry.title }}</span>
     <span class="reader-bar-spacer" aria-hidden="true"></span>
-    <span id="progress-sync-status" role="status" aria-live="polite" class="lily-progress-status"
-          data-pending-text="{{ _('Saved on this device; waiting to sync') }}"
-          data-synced-text="{{ _('Synced') }}"></span>
   </header>
 
   <main class="lily-audio-page">
@@ -59,7 +56,7 @@
         <button type="button" id="audio-back" class="reader-btn" aria-label="{{_('Back 15 seconds')}}" title="{{_('Back 15 seconds')}}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg><span aria-hidden="true">15</span>
         </button>
-        <button type="button" id="audio-play" class="lily-audio-play" aria-label="{{_('Play')}}">
+        <button type="button" id="audio-play" class="lily-audio-play" aria-label="{{_('Play')}}" title="{{_('Play')}}">
           <svg class="icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15a1 1 0 0 0 1.52.85l12-7.5a1 1 0 0 0 0-1.7l-12-7.5A1 1 0 0 0 7 4.5z"/></svg>
           <svg class="icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
         </button>
@@ -79,11 +76,14 @@
         <input type="range" id="audio-volume" min="0" max="1" step="0.05" value="1">
       </div>
       <p id="audio-error" class="lily-audio-error" role="alert" hidden>{{_('This file could not be played in the browser.')}}</p>
+      <p id="progress-sync-status" role="status" aria-live="polite" class="lily-progress-status"
+         data-pending-text="{{ _('Saved on this device; waiting to sync') }}"
+         data-synced-text="{{ _('Synced') }}"></p>
     </section>
 
     {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
     <section class="lily-audio-description">
-      <h2>{{_('Description:')}}</h2>
+      <h2>{{_('Description')}}</h2>
       {{ entry.comments[0].text|flatten_breaks }}
     </section>
     {% endif %}

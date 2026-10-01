@@ -77,11 +77,8 @@ format: one token per row, the light value, then the dark value.
 | `--warning` | `#A13F0E` | `#FF9E64` | Needs attention |
 | `--danger` | `#B3261E` | `#F7768E` | Failed (status text and tints) |
 | `--on-accent` | `#FFFFFF` | `#1A1517` | Text and marks drawn on an accent fill |
-| `--cover-ink-dark` | `#2B2127` | `#2B2127` | Icons on a pale sampled cover colour (same in both themes) |
-| `--cover-ink-light` | `#F8F6F3` | `#F8F6F3` | Icons on a dark sampled cover colour (same in both themes) |
 
-Also defined per theme: `--check-mark` (an SVG tick in `--on-accent`) and
-`--menu-shadow` (§4.4).
+Also defined per theme: `--menu-shadow` (§4.4).
 
 **Contrast rules (tested):** every text token (`ink` … `faint`, `accent`,
 `heading`, `success`, `warning`, `danger`) is ≥4.5:1 on `paper`, `surface` and
@@ -203,7 +200,7 @@ The book-page cover is a spine shape: `4px 8px 8px 4px`.
 | Chip | 30 tall, 14 side padding | 15px, 500; count 11px mono |
 | Icon button | 30 × 30, 16px glyph | — |
 | Large icon button (top bar, list toolbar) | 38 × 38, 21px glyph | — |
-| Book action bar button | 36 tall, 15 side padding, 14px glyph | 15px |
+| Book action bar button | 36 tall (44 on coarse pointers), 15 side padding, 14px glyph | 15px |
 | Field | 30 tall, 10 inner padding | 15px |
 | Switch | 34 × 20, 16px thumb | — |
 | Checkbox / radio | 14 × 14, `accent-color` | — |
@@ -215,8 +212,8 @@ button is one size within its context. On coarse pointers icon buttons get a
 ### 4.4 Elevation
 
 Only layers that float above the page cast a shadow, and only
-`var(--menu-shadow)`: menus, select pickers, popovers, typeahead, toasts and the
-reader settings sheet. Panels, cards, dialogs and covers are flat (tested).
+`var(--menu-shadow)`: menus, select pickers, popovers, typeahead, toasts, the
+reader settings sheet and the round quick-action buttons on a grid cover. Panels, cards, dialogs and covers are flat (tested).
 
 ### 4.5 Breakpoints
 
@@ -279,14 +276,17 @@ get the Lily component:
 | Primary | `--accent` fill, `--on-accent` label, 600 | brightness 1.08 | brightness 0.94 |
 | Quiet | `--control-tint`, `--ink-soft`, 500 | `--control-tint-strong`, `--ink` | `aria-pressed="true"`: `--accent-soft`, `--accent` |
 | Destructive confirm (`.btn-danger`) | Same as Primary (accent, not red) | as Primary | as Primary |
-| Quiet danger (`.btn-default.is-danger`) | `--control-tint`, `--accent` label | `--accent-soft` | — |
+| Quiet danger (`.btn.is-danger`, `.icon-btn.is-danger`) | `--control-tint` (icon: no fill), `--accent` label | `--danger` 12%, `--danger` label | — |
 | Link (`.btn-link`) | transparent, `--accent` | underline | — |
 | Icon (`.icon-btn`) | bare glyph, `--muted`, no fill | `--control-tint`, `--accent` | `aria-pressed`/`aria-expanded`: `--control-tint-strong`, `--ink` |
 
 - No border in any state (tested). Disabled is `opacity: .4` on the whole
   control, never a colour change.
-- Destructive actions use the accent, not red: trash icons are `.icon-btn.is-danger`
-  in `--accent`. Red (`--danger`) is for *failure status*, not actions.
+- Destructive actions rest in the accent, not red: trash icons are
+  `.icon-btn.is-danger` in `--accent`. On hover and keyboard focus every
+  destructive control (`.is-danger`, row removers, clear-date buttons) turns red:
+  `--danger` at 12% behind a `--danger` label, so the pointer warns before the
+  click. Otherwise red is for *failure status*.
 - A glyph inside a text button is a leading mark in the label's colour.
 - Text on any accent fill is `--on-accent`. Never `--paper` or `--surface`.
 - Button groups: 8px gap, every button keeps its own radius.
@@ -333,6 +333,9 @@ heads (`.dropdown-header`) are headings at `--heading-size`. No dividers
 (`.divider` is hidden): separate groups with a header. Tooltips use
 `--font-ui`; every icon button and truncated text has one, phrased as a plain
 sentence with no full stop and the shortcut in brackets: "Hide sidebar (⌘B)".
+The exception is a grid cover: no popups over it. The cover, its badges and
+its quick-action buttons carry no `title`, only an `aria-label`; the title
+printed under the cover already names the book.
 
 ### 5.7 Dialogs
 
@@ -387,10 +390,11 @@ one level deep.
 
 - **Progress bar:** 4px, radius 999, track `--control-tint`, bar `--accent`
   (tone variants for success/warning/danger). On a cover (Continue Reading) it
-  runs flush along the bottom edge, 5px, with no label.
+  runs flush along the bottom edge, 5px, on an ink-22% track (`--control-tint`
+  vanishes over cover art); the share read is written under the author
+  ("33% read", 14px `--muted`), not on the bar.
 - **Busy:** spin the control's own glyph (`.glyphicon-spin`), or `.is-busy`
-  (opacity .4) on an icon button. No full-page spinners; the upload overlay
-  `#loader` is the one exception.
+  (opacity .4) on an icon button. No full-page spinners.
 
 ### 5.13 Empty states
 
@@ -408,7 +412,9 @@ Stars are icons: filled `--accent`, empty `--line-strong`. Sizes: 11px in cards,
 
 Aspect ratio **1 : 1.414**, `object-fit: cover`, `--sunk` behind, a 1px
 `--line-soft` inset hairline (`outline-offset: -1px`), no shadow. Read state is
-a 3px `--success` inset outline on grid covers and a green dot in list view.
+a 3px `--success` inset outline plus a corner tick badge titled "Finished" on grid
+covers, and a green dot in list view. Mark-as-read controls use the tick-in-a-circle
+glyph (`glyphicon-ok-circle`), the same mark as the sidebar's Finished row.
 
 ---
 
@@ -444,17 +450,24 @@ content (grid, panel, rows)
 
 - **Grid** (`.lily-grid`): `repeat(auto-fill, minmax(190px, 1fr))`, gap 26;
   phones 2-up, gap 22×14. Card: cover (§5.15), then title 15/500 clamped to
-  two lines, then meta 14px `--muted`. Quick actions are a box across the cover's foot
-  filled with the cover's own colour (lily.js takes the dominant colour of the strip it covers into
-  `--cover-tint`, falling back to `--surface`; `data-tone` picks
-  `--cover-ink-dark` or `--cover-ink-light`). The cover's hairline stays drawn
-  over it, and its icon buttons split it evenly with a hairline between them
-  (ink 22%); it slides up on hover/focus and stays visible on touch. Read state tints the eye's slot green.
+  two lines, then meta 14px `--muted`. Quick actions are round buttons
+  in a row at the cover's bottom right, 8px in, 6 apart: 32px `--surface`
+  discs with a 1px `--line` edge and `--menu-shadow`, `--ink` icons, `--accent` on hover. They rise and fade in
+  on hover/focus and stay visible on touch (36px, 8 apart). Read state fills the tick's disc
+  `--success` with a `--surface` tick. No popups over the cover or its buttons (§5.6).
+- **Series grid** (`grid.html`): Isotope lays it out with fixed 160px tiles,
+  22 apart, so it doesn't follow the 190/26 card grid.
 - **List view ("ledger"):** one shared `--ledger-cols` track list for header and
   rows; rows radius 6, alternate ink 3%, hover `--hover`; read state is a dot.
+- **Continue Reading** (`.continue-reading-row`): one row that scrolls sideways,
+  never wraps, so the library starts on the first screen. Covers are 140px wide
+  (112 on phones), 22 apart (14 on phones). The cover opens the reader in a
+  new tab at the saved format; the title opens the book page.
 - **Toolbar** (`.lily-list-toolbar`): chips and sort on the left, view switch
   (large icon buttons) top-right, margin-bottom 22. Toolbar chips are 38 tall
-  so they sit level with the view switch.
+  so they sit level with the view switch. The direction chip shows only its
+  arrow (38 square, the word kept for screen readers and the tooltip naming
+  the next order).
 
 ### 6.4 Book page ("Shelf" layout)
 
@@ -465,6 +478,8 @@ content (grid, panel, rows)
 - **≤767px:** the cover becomes a 108px thumbnail beside the title; actions,
   description and facts go full-width, facts last. Reset row sizing here. The
   primary action takes a full line; the rest share the next.
+- The Primary reads "Continue · 33%" for a book in progress (the share at 500)
+  and opens the reader in a new tab at the format last read.
 - Description: `--font-body` 18px, line-height 1.68, max 78ch, `--ink-soft`.
 - Every fact is one line; a long value ends in an ellipsis, never wraps.
 - Shelves and tags are plain rows in the facts panel: names as comma-separated
@@ -473,6 +488,10 @@ content (grid, panel, rows)
   DOI isn't shown. Other identifiers (a non-arXiv paper's DOI included) stay as
   named links in one Identifiers row. A Citations row fills in after load from OpenAlex
   and stays hidden when the paper isn't found.
+- **Editor** (`book_edit.html`): Title, authors, tags, shelves and description
+  always show. Series, publisher, published date, language and rating show only
+  when the book has a value; the rest wait behind small "Add …" buttons at the
+  end of Details, and Fetch Metadata reveals any field it fills.
 
 ### 6.5 Settings (`settings_layout.html`, `lily_form.html`)
 
@@ -494,6 +513,10 @@ Build every settings page from the macros. Never hand-write rows.
   (max 52ch). **No hairlines between rows.**
 - Save bar `.lp-actions.is-save`: sticky to the bottom on `--paper`, Primary
   last on the right; hidden until the form is dirty (visible without JS).
+- A form page outside the frame (the shelf editor) is the same groups and
+  bar, capped at 640px. A short field like a name is a wide row, label
+  above the field. Its quiet `.is-danger` delete sits at the left of the bar,
+  Cancel and the Primary at the right.
 
 ### 6.6 Login and standalone pages
 
@@ -502,6 +525,9 @@ It has exactly one Primary button and no inline styles (tested). Error pages
 use `.lily-standalone` with max-width 560.
 
 ### 6.7 Reader
+
+Every way into the reader (Read/Continue, a cover's read button, Continue
+Reading) opens it in a new tab, so the library stays where it was.
 
 `lily-reader.css` styles the reader **chrome** (title bar, sidebar, settings
 sheet, audio player) with tokens. The page zoom is reset to 1, and the chrome
@@ -512,7 +538,26 @@ multiplied by `--reader-zoom` by hand. The book *page* themes (Light, Sepia,
 Dark, Black in `main.css`) are content and keep their own hex values. The PDF
 reader (pdf.js `viewer.css`) is outside the system; `lily-pdf.css` only zooms
 its toolbars (1.25× base, times the site zoom, from 1100px) to the site's
-control size and keeps the pages unzoomed.
+control size and keeps the pages unzoomed. Its toolbar starts with a "Back to
+book" link (`#backToBook`, a pdf.js `toolbarButton` with its own chevron), and
+at 600px and below PDFs open at page width instead of 150%.
+The DjVu reader uses the epub title bar (`#titlebar`: Back, title, controls),
+the pdf reader's page box ("3 of 120") and zoom list as Fields, and the epub
+side arrows in 88/56px gutters. The vendored viewer's own toolbar and status
+sprite are hidden; `djvu_reader.js` drives them and paints the canvas backdrop
+with `--sunk`, so the bar and page sit on one surface in both themes. Books open
+at Fit page (Fit width at 600px and below), where the arrows move into the bar
+and the page runs edge to edge. A file that is missing or isn't a DjVu shows a
+`.reader-error` panel instead of loading for ever. Like PDFs, the position is
+synced as `page:N`.
+Reader title bars are 56px. Their buttons are large icon buttons (§4.3). The
+EPUB title bar and page arrows take the page theme's ink (set inline from
+`window.themes`, a content colour like the page background), so they tint with
+`currentColor` (16% when pressed or expanded) instead of `--control-tint`.
+Sidebar tabs and settings options are chips with `aria-pressed`.
+The EPUB page theme follows the app's Light/Dark choice (Light → Light, Dark →
+Dark) until one is picked in the reader's settings; only a pick is saved
+(`localStorage["lily-reader-theme"]`).
 
 ---
 
@@ -524,6 +569,11 @@ control size and keeps the pages unzoomed.
 | Entrance | 600 ms `cubic-bezier(.25,.46,.45,.94)`, staggered 30 ms (cap 14) | Book cards |
 | Hover lift | 300 ms, `translateY(-5px)` | Grid covers |
 | Toast | 180 ms in, 200 ms out | `.lily-refresh-toast` |
+| Drawer slide | 120 ms `ease-out` | App drawer, reader sidebar |
+| Cover actions rise | 300 ms, same curve as the hover lift | Grid quick actions |
+| Search widen | 400 ms, entrance curve | Top bar search on focus |
+| Refresh spin | 800 ms once on hover | `#refresh-library` |
+| Read-mark draw | 450 ms, entrance curve | A tick just marked read |
 
 Anything beyond a state change goes inside
 `@media (prefers-reduced-motion: no-preference)`. The global
@@ -636,43 +686,20 @@ Then look at the changed page in both themes and at phone width.
 Places where the code doesn't yet match this guide. Fix toward the guide and
 delete the line. Don't copy any of these.
 
-**Radii and panels**
-- Panels at radius 12 instead of 10: `.lily-setup`, `.editbook-actions`,
-  `.reader-error`, `.md-content` (reader settings sheet), `.lily-audio-player`.
-- Panel padding varies (14 18 8, 14 14 8, 16, 20 20 16, 24); target 22 or dense 14.
-- `.lily-list-row` (category lists) is a bordered card at radius 7; target a
-  list row (§5.11). Settings rail items are radius 7; target 5.
-- Cover/thumbnail radii: list thumbnail 2, shelf-order 5, editor 10, audio 6.
-  Targets in §4.2. Audio cover is 2:3; target 1:1.414.
-
 **Duplicated components (promote to `lily.css`)**
-- Empty states: `.stats-empty` on the duplicates page (35px glyph, opacity .6), `.lily-admin .lily-empty`
-  (unused; delete). Target `.library-empty-state`.
-- Dialog skins: `duplicates-notifications.css`, reader `.md-content`, `#metaModal`
-  in `style.css`, `upload.css`. Target `.modal` (§5.7).
-- Tone pills: `.lp-pill`, `.duplicate-count`, `.meta-exact-match`. Target
-  `.label-*` (§5.9).
-- 30px square remove/close glyph buttons in library, admin, duplicates and reader. Target `.icon-btn`.
-- Field-over-label columns: `.dup-field`, `.logs-field`.
-- Notices at 10×14 padding: `.cwa-settings-tip`, `.lp-notice`, `.dup-notice-compact`.
-- Focus ring rewritten by hand about 7 times; `@keyframes lily-spin` defined twice.
-- Reader selects and search box use radius 6 and `--line`; target the Field (§5.4).
-
-**Tokens**
-- Text on accent uses `--paper` (`duplicates-notifications.css`) or `--surface`
-  (cover actions, audio play button); target `--on-accent`.
-- `.lp-rail-signout` is the only red-filled button; target a Quiet
-  `.is-danger` button, or record why it's an exception.
-- `.lily-book .cover .badge.read` sets `font-family: "Glyphicons Halflings"`.
-
-**Breakpoints** (allowed by the tests only until they're folded)
-- 640 (`.lp-row` collapse): fold into 600. 550 (reader): fold into 600.
-- `max-width: 1100px` (list view columns): change to 1099 to match the editor.
-- 900 (old stats grid; delete with the stats CSS) and 860 (login): fold into 1099/767, or use a container query.
+- Empty state: `.stats-empty` on the duplicates page repeats
+  `.library-empty-state`; use the shared class.
+- Dialog skins: reader `.md-content` (the vendored `reader.min.js` drives it
+  with `md-show`, and the reader has no Bootstrap), `#metaModal` in `style.css`.
+  Target `.modal` (§5.7).
+- Tone pill: `.duplicate-count`. Target `.label-*` (§5.9).
+- 30px square remove glyph buttons in the library editor, search form and
+  duplicates. Target `.icon-btn`.
+- Field-over-label columns: `.dup-field`.
+- Focus ring rewritten by hand on `.bootstrap-select` (it has to beat the
+  library's `!important`).
 
 **Legacy**
-- `style.css` still holds live components (`input.pill` chips, Fetch Metadata
-  modal) and dead ones (`.cwa_stats_*`, old book card). Move the live ones,
-  delete the dead ones.
-- `.lily-progress-status` is used by three reader templates but styled nowhere.
-- `upload.css`: seven `!important`s and a `translate(-50%, 100%)` that looks wrong.
+- `style.css` still holds live components (the Fetch Metadata
+  modal) and dead ones (`.cwa_stats_*`, old book card, `.stats_see_more_btn`).
+  Move the live ones, delete the dead ones.

@@ -196,8 +196,9 @@ function confirmDialog(id, dialogid, dataValue, yesFn, noFn) {
         dataType: "json",
         url: getPath() + "/ajax/loaddialogtexts/" + id,
         success: function success(data) {
-            $("#header-"+ dialogid).html(data.header);
-            $("#text-"+ dialogid).html(data.main);
+            $("#header-"+ dialogid).text(data.header);
+            $("#text-"+ dialogid).text(data.main);
+            if (data.button) { $("#btnConfirmYes-"+ dialogid).text(data.button); }
         }
     });
     $confirm.modal('show');

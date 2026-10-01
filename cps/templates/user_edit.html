@@ -19,13 +19,9 @@
         {% endcall %}
       {% endif %}
       {% if not content.role_anonymous() %}
-      {% call f.row(_('Language'), for_id='locale') %}
-        <select name="locale" id="locale" class="form-control">
-          {% for translation in translations %}
-            <option value="{{translation}}" {% if translation|string == content.locale %}selected{% endif %}>{{ translation.display_name|capitalize }}</option>
-          {% endfor %}
-        </select>
-      {% endcall %}
+      {% set locales = namespace(options=[]) %}
+      {% for translation in translations %}{% set locales.options = locales.options + [(translation|string, translation.display_name|capitalize)] %}{% endfor %}
+      {{ f.select('locale', _('Language'), locales.options, content.locale) }}
       {% endif %}
     {% endcall %}
 
@@ -46,9 +42,11 @@
     {% endcall %}
     {% endif %}
 
-    <div class="lp-actions">
+    {# Your own profile waits for an edit before offering Save; the user editor always shows its bar. #}
+    <div class="lp-actions{% if profile %} is-save{% endif %}">
       {% if current_user and current_user.role_admin() and not profile and not new_user and not content.role_anonymous() %}
-      <button id="btndeluser" class="btn btn-danger" type="button" data-value="{{ content.id }}" data-remote="false">{{_('Delete User')}}</button>
+      {# Left of the bar, away from Save, and behind a confirm dialog. #}
+      <button id="btndeluser" class="btn btn-default is-danger" type="button" data-value="{{ content.id }}" data-remote="false">{{_('Delete user')}}</button>
       {% endif %}
       <span class="lp-spacer"></span>
       {% if not profile %}

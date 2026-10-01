@@ -38,9 +38,9 @@
         <a href="{% if resume_format %}{{ url_for('web.read_book', book_id=book.id, book_format=resume_format) }}{% else %}{{ url_for('web.show_book', book_id=book.id) }}{% endif %}"
            data-book-id="{{ book.id }}"
            data-book-formats="{% for format in book.data %}{{ format.format.lower() }}{% if not loop.last %},{% endif %}{% endfor %}"
-           {% if resume_format %}target="_blank" rel="noopener"{% endif %}
+           {% if resume_format %}target="_blank" rel="noopener" aria-label="{{ _('Continue reading %(title)s (opens in a new tab)', title=book.title) }}"{% endif %}
            class="book-cover-link">
-          <span class="img" title="{{ book.title }}">
+          <span class="img">
             {{ image.book_cover(book) }}
           </span>
         </a>
@@ -57,6 +57,9 @@
         </a>
         {% if book.authors %}
         <p class="author">{{ book.authors[0].name.replace('|',',')|shortentitle(30) }}</p>
+        {% endif %}
+        {% if item.progress is not none %}
+        <p class="continue-reading-percent">{{ _('%(percent)s%% read', percent=item.progress|round|int) }}</p>
         {% endif %}
       </div>
     </div>
@@ -85,24 +88,22 @@
                        _('Try removing a filter, or clear them all.'),
                        [(_('Clear filters'), list_filters.url(format=None, lang=None, status=None, tag=None), True)]) }}
   {% elif not entries[0] and page == 'newest' %}
-  <div class="library-empty-state">
-    <span class="glyphicon glyphicon-book library-empty-icon" aria-hidden="true"></span>
-    <h3>{{_('Your Library Is Empty')}}</h3>
-    <p>{{_('Add books by dropping files into the ingest folder (%(folder)s in Docker). Lily imports them automatically.', folder='/cwa-book-ingest')}}</p>
+  {% call image.empty_state('glyphicon-book', _('Add Your First Book'),
+                            _('Add books by dropping files into the ingest folder (%(folder)s in Docker). Lily imports them automatically.', folder='/cwa-book-ingest')) %}
     {% if current_user.role_upload() and g.allow_upload %}
     {# Opens the same file picker as the top bar's Upload button #}
-    <p><label for="btn-upload" class="btn btn-primary lily-upload-btn"><span class="glyphicon glyphicon-upload" aria-hidden="true"></span>{{_('Upload books')}}</label></p>
+    <label for="btn-upload" class="btn btn-primary lily-upload-btn"><span class="glyphicon glyphicon-upload" aria-hidden="true"></span>{{_('Upload books')}}</label>
     {% elif current_user.role_admin() and not g.allow_upload %}
-    <p><a class="btn btn-default" href="{{ url_for('cwa_settings.set_cwa_settings') }}">{{_('Turn on uploads')}}</a></p>
+    <a class="btn btn-default" href="{{ url_for('cwa_settings.set_cwa_settings') }}">{{_('Turn on uploads')}}</a>
     {% endif %}
-  </div>
+  {% endcall %}
   {% elif not entries[0] and page == 'inprogress' %}
   {{ image.empty_state('glyphicon-education', _('Nothing on the Go'),
                        _('Books you open in the reader appear here until you finish them.'),
                        [(_('Browse all books'), url_for('web.index'), True)]) }}
   {% elif not entries[0] and page == 'read' %}
   {{ image.empty_state('glyphicon-ok-circle', _('No Finished Books Yet'),
-                       _('Mark a book as read with its eye button, or finish it in the reader.'),
+                       _('Mark a book as read with its tick button, or finish it in the reader.'),
                        [(_('Browse all books'), url_for('web.index'), True)]) }}
   {% elif not entries[0] and page != 'hot' %}
   {{ image.empty_state('glyphicon-book', _('No Books Here Yet'),

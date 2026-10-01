@@ -16,9 +16,6 @@ See CONTRIBUTORS for full list of authors. -->
   {{ image.list_menu(order, data, charlist|map(attribute=0)|list) }}
 </div>
 <div class="lily-list-columns" id="{{_(title)}}">
-  {% if title == "Downloads" %}
-  <h2>{{_('Books Downloaded by Users')}}</h2>
-  {% endif %}
   <div id="{{_(title)}}_list" class="lily-list list-container">
   {% for entry in entries %}
     {% if loop.index0 == (loop.length/2+loop.length%2)|int and loop.length > 20 %}

@@ -8,7 +8,6 @@
 
     common        blueprints, logger, shared paths
     settings      /cwa-settings page + metadata-provider settings helpers
-    logs          service status check, log archive routes + helpers
     ingest        library refresh, ingest helpers, internal endpoints used by the
                   ingest process (auto-send, debounced duplicate scans, DB reconnect)
 
@@ -18,7 +17,7 @@ its owning submodule; patch it there (``cps.cwa_functions.ingest``), not here.
 """
 
 from .common import (library_refresh,
-                     cwa_check_status, cwa_settings, cwa_internal,
+                     cwa_settings, cwa_internal,
                      log, DIRS_JSON)
 # Import order mirrors the old single module (web, scheduler, worker, tasks) to keep
 # circular-import behaviour the same.
@@ -28,7 +27,6 @@ from .ingest import (_duplicate_full_scan_running, get_ingest_dir, get_ingest_st
                      cwa_internal_queue_duplicate_scan, cwa_internal_run_duplicate_scan,
                      cwa_internal_duplicate_scan_status, queue_debounced_duplicate_scan,
                      duplicate_scan_debounce_pending, cwa_internal_reconnect_db)
-from .logs import cwa_flash_status
 from .settings import (parse_metadata_providers_enabled, validate_and_cleanup_provider_enabled_map,
                        set_cwa_settings)
 
@@ -36,7 +34,7 @@ from .settings import (parse_metadata_providers_enabled, validate_and_cleanup_pr
 # listed so linters treat them as intentional re-exports.
 __all__ = [
     # common
-    "library_refresh", "cwa_check_status", "cwa_settings",
+    "library_refresh", "cwa_settings",
     "cwa_internal", "log", "DIRS_JSON",
     # ingest
     "_duplicate_full_scan_running", "get_ingest_dir", "get_ingest_status",
@@ -46,8 +44,6 @@ __all__ = [
     "cwa_internal_run_duplicate_scan", "cwa_internal_duplicate_scan_status",
     "queue_debounced_duplicate_scan", "duplicate_scan_debounce_pending",
     "cwa_internal_reconnect_db",
-    # logs
-    "cwa_flash_status",
     # settings
     "parse_metadata_providers_enabled", "validate_and_cleanup_provider_enabled_map",
     "set_cwa_settings",

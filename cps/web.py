@@ -175,6 +175,10 @@ def _web_progress_json(progress, fmt=None):
             "format": fmt}
 
 
+# Readers that save their position as "page:N" (1-based).
+PAGED_PROGRESS_FORMATS = ("pdf", "djvu", "djv")
+
+
 def _progress_formats(book):
     try:
         stored = {str(d.format).lower() for d in book.data}
@@ -189,7 +193,7 @@ def _valid_progress_format(book, fmt):
     fmt = fmt.lower()
     if fmt not in _progress_formats(book):
         return None
-    if fmt in ("epub", "kepub", "pdf"):
+    if fmt in PAGED_PROGRESS_FORMATS or fmt in ("epub", "kepub"):
         return fmt
     if fmt in constants.EXTENSIONS_AUDIO:
         return fmt
@@ -199,7 +203,7 @@ def _valid_progress_format(book, fmt):
 def _progress_cfi_ok(fmt, cfi):
     if fmt in ("epub", "kepub"):
         return cfi.startswith("epubcfi(")
-    if fmt == "pdf":
+    if fmt in PAGED_PROGRESS_FORMATS:
         m = re.fullmatch(r"page:(\d+)", cfi)
         return bool(m) and int(m.group(1)) >= 1
     m = re.fullmatch(r"time:(\d+(?:\.\d+)?)", cfi)
@@ -622,6 +626,28 @@ def _continue_reading_rows(session, user_id, limit, library_uuid):
                 percent = None
         result.append((book_id, percent, pos[1] if pos else None))
     return result
+
+
+def _book_resume(user_id, book_id, reader_list):
+    """{'percent': 0-100, 'format': fmt} for the book page's Continue button, or None.
+
+    The newest scoped position wins, like Continue Reading; the format is only kept
+    when the browser can still read it.
+    """
+    try:
+        pos = _latest_reader_positions(ub.session, user_id, _library_uuid(), {book_id}).get(book_id)
+        raw, fmt = (pos[0], pos[1]) if pos else (None, None)
+        if raw is None:
+            legacy = (ub.session.query(ub.WebReaderProgress.percent)
+                      .filter(ub.WebReaderProgress.user_id == user_id,
+                              ub.WebReaderProgress.book_id == book_id).first())
+            raw = legacy[0] if legacy else None
+        if raw is None:
+            return None
+        return {'percent': int(round(max(0.0, min(1.0, float(raw))) * 100)),
+                'format': fmt if fmt in reader_list else None}
+    except (TypeError, ValueError, OperationalError, InvalidRequestError):
+        return None
 
 
 def get_continue_reading_progress(session, user_id, limit=CONTINUE_READING_LIMIT,
@@ -1268,7 +1294,7 @@ def read_book(book_id, book_format):
     user_key = str(current_user.id) if current_user.is_authenticated else "anonymous"
     progress_args = {}
     progress_uuid = _library_uuid()
-    if progress_uuid and (fmt_lower in ("epub", "kepub", "pdf")
+    if progress_uuid and (fmt_lower in ("epub", "kepub") or fmt_lower in PAGED_PROGRESS_FORMATS
                           or fmt_lower in constants.EXTENSIONS_AUDIO):
         progress_args = {
             "progress_key": "%s.%s.%s.%s" % (user_key, progress_uuid, book_id, fmt_lower),
@@ -1290,7 +1316,7 @@ def read_book(book_id, book_format):
     elif book_format.lower() in ["djvu", "djv"]:
         log.debug("Start djvu reader for %d", book_id)
         return render_title_template('readdjvu.html', djvufile=book_id, title=book.title,
-                                     extension=book_format.lower())
+                                     extension=book_format.lower(), **progress_args)
     else:
         for fileExt in constants.EXTENSIONS_AUDIO:
             if book_format.lower() == fileExt:
@@ -1355,11 +1381,16 @@ def show_book(book_id):
             if media_format.format.lower() in constants.EXTENSIONS_AUDIO:
                 entry.audio_entries.append(media_format.format.lower())
 
+        resume = None
+        if read_book == ub.ReadBook.STATUS_IN_PROGRESS and current_user.is_authenticated:
+            resume = _book_resume(int(current_user.id), book_id, entry.reader_list)
+
         cwa_db = CWA_DB()
         cwa_settings = cwa_db.cwa_settings
 
         return render_title_template('detail.html',
                                      entry=entry,
+                                     resume=resume,
                                      cc=cc,
                                      is_xhr=request.headers.get('X-Requested-With') == 'XMLHttpRequest',
                                      title=entry.title,

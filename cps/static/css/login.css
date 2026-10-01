@@ -17,11 +17,11 @@
     color: var(--ink);
 }
 
-/* The page's own messages replace the shell's flash notices. */
+/* The page's own messages replace the shell's flash notices, so each one is shown and announced once. */
 body.login .lily-sidebar,
 body.login .lily-scrim,
 body.login .lily-topbar,
-body.login .lily-topbar ~ .row-fluid {
+body.login #messageContainer {
     display: none;
 }
 
@@ -145,7 +145,7 @@ body.login .lily-topbar ~ .row-fluid {
 }
 
 /* ---- Phone: the plate becomes a band across the top ---- */
-@media (max-width: 860px) {
+@media (max-width: 767px) {
     .lily-login {
         display: flex;
         flex-direction: column;

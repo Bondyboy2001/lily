@@ -17,7 +17,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/libs/normalize.css') }}">
     {# main.css still lays out the epub.js viewer; lily-reader.css restyles the chrome over it. #}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/popup.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/lily.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/lily-icons.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/lily-reader.css') }}">
@@ -27,9 +26,9 @@
     <div id="sidebar">
         <div id="panels">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="button" id="show-Toc" class="show_view reader-tab active" data-view="Toc">{{_('Contents')}}</button>
-            <button type="button" id="show-Bookmarks" class="show_view reader-tab" data-view="Bookmarks">{{_('Bookmarks')}}</button>
-            <button type="button" id="show-Search" class="show_view reader-tab" data-view="Search">{{_('Search')}}</button>
+            <button type="button" id="show-Toc" class="show_view reader-tab active" data-view="Toc" aria-pressed="true">{{_('Contents')}}</button>
+            <button type="button" id="show-Bookmarks" class="show_view reader-tab" data-view="Bookmarks" aria-pressed="false">{{_('Bookmarks')}}</button>
+            <button type="button" id="show-Search" class="show_view reader-tab" data-view="Search" aria-pressed="false">{{_('Search')}}</button>
         </div>
         <div id="tocView" class="view">
         </div>
@@ -37,7 +36,7 @@
              data-none="{{_('No Results')}}" data-short="{{_('Type at least two letters.')}}">
             <form id="searchForm" role="search">
                 <input id="searchBox" type="search" placeholder="{{_('Search this book')}}" aria-label="{{_('Search this book')}}" autocomplete="off">
-                <button type="submit" class="reader-btn" aria-label="{{_('Search')}}"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
+                <button type="submit" class="reader-btn" aria-label="{{_('Search')}}" title="{{_('Search')}}"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
             </form>
             <p id="searchStatus" aria-live="polite"></p>
             <ul id="searchResults"></ul>
@@ -52,7 +51,7 @@
         <div id="titlebar">
             <div id="opener">
                 <a id="back-button" class="reader-btn" href="{{ url_for('web.show_book', book_id=bookid) }}" aria-label="{{_('Back to book')}}" title="{{_('Back to book')}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg><span class="reader-btn-label">{{_('Book')}}</span></a>
-                <button type="button" id="slider" class="reader-btn icon-menu" aria-label="{{_('Contents, bookmarks and search')}}" title="{{_('Contents, bookmarks and search')}}" aria-controls="sidebar"><span class="glyphicon glyphicon-menu-hamburger" aria-hidden="true"></span></button>
+                <button type="button" id="slider" class="reader-btn icon-menu" aria-label="{{_('Contents, bookmarks and search')}}" title="{{_('Contents, bookmarks and search')}}" aria-controls="sidebar" aria-expanded="false"><span class="glyphicon glyphicon-menu-hamburger" aria-hidden="true"></span></button>
             </div>
             <div id="metainfo">
 	            <span id="book-title"></span>
@@ -60,16 +59,18 @@
 	            <span id="chapter-title"></span>
 	        </div>
 	        <div id="title-controls">
-	            <button type="button" id="bookmark" class="reader-btn icon-bookmark-empty" aria-label="{{_('Bookmark this page')}}" title="{{_('Bookmark this page')}}"><span class="glyphicon glyphicon-bookmark" aria-hidden="true"></span></button>
+	            <button type="button" id="bookmark" class="reader-btn icon-bookmark-empty" aria-label="{{_('Bookmark this page')}}" title="{{_('Bookmark this page')}}" aria-pressed="false"><span class="glyphicon glyphicon-bookmark" aria-hidden="true"></span></button>
 	            <button type="button" id="setting" class="reader-btn icon-cog" aria-label="{{_('Reader settings')}}" title="{{_('Reader settings')}}" aria-controls="settings-modal"><span class="glyphicon glyphicon-cog" aria-hidden="true"></span></button>
 	            <button type="button" id="fullscreen" class="reader-btn icon-resize-full" aria-label="{{_('Fullscreen')}}" title="{{_('Fullscreen')}}"><span class="glyphicon glyphicon-fullscreen" aria-hidden="true"></span></button>
 	        </div>
 	    </div>
 
 	    <div id="divider"></div>
-	    <button type="button" id="prev" class="arrow" aria-label="{{_('Previous Page')}}">‹</button>
-	    <div id="viewer"></div>
-	    <button type="button" id="next" class="arrow" aria-label="{{_('Next Page')}}">›</button>
+	    <button type="button" id="prev" class="arrow" aria-label="{{_('Previous page')}}" title="{{_('Previous page')}}"><span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span></button>
+	    <div id="viewer"
+	         data-open-failed="{{_('This EPUB could not be opened. It may be damaged or DRM-protected; try downloading it instead.')}}"
+	         data-load-failed="{{_('This EPUB could not be loaded. Reload the page to try again.')}}"></div>
+	    <button type="button" id="next" class="arrow" aria-label="{{_('Next page')}}" title="{{_('Next page')}}"><span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span></button>
 	    <div id="progress" aria-live="off"></div>
 	    <div id="progress-sync-status" role="status" aria-live="polite" class="lily-progress-status"
          data-pending-text="{{ _('Saved on this device; waiting to sync') }}"
@@ -81,15 +82,11 @@
             <h3 id="settings-title">{{_('Settings')}}</h3>
             <div class="reader-setting themes" id="themes">
                 <span class="reader-setting-label">{{_('Theme')}}</span>
-                <!-- The tick is set from the saved theme by markSelectedTheme() below and again by selectTheme() on startup -->
-                <button type="button" id="lightTheme" class="lightTheme" onclick="selectTheme(this.id)"><span
-                        id="lightSelected"></span>{{_('Light')}}</button>
-                <button type="button" id="darkTheme" class="darkTheme" onclick="selectTheme(this.id)"><span
-                        id="darkSelected"></span>{{_('Dark')}}</button>
-                <button type="button" id="sepiaTheme" class="sepiaTheme" onclick="selectTheme(this.id)"><span
-                        id="sepiaSelected"></span>{{_('Sepia')}}</button>
-                <button type="button" id="blackTheme" class="blackTheme" onclick="selectTheme(this.id)"><span
-                        id="blackSelected"></span>{{_('Black')}}</button>
+                <!-- The chosen theme is pressed: markSelectedTheme() below and selectTheme() on startup -->
+                <button type="button" id="lightTheme" aria-pressed="false" onclick="selectTheme(this.id)">{{_('Light')}}</button>
+                <button type="button" id="darkTheme" aria-pressed="false" onclick="selectTheme(this.id)">{{_('Dark')}}</button>
+                <button type="button" id="sepiaTheme" aria-pressed="false" onclick="selectTheme(this.id)">{{_('Sepia')}}</button>
+                <button type="button" id="blackTheme" aria-pressed="false" onclick="selectTheme(this.id)">{{_('Black')}}</button>
             </div>
             <div class="reader-setting fontSizeWrapper">
                 <label class="reader-setting-label" for="fontSizeFader">{{ _('Text size') }}</label>
@@ -97,9 +94,9 @@
             </div>
             <div class="reader-setting font" id="font">
                 <span class="reader-setting-label">{{_('Font')}}</span>
-                <button type="button" id="default" onclick="selectFont(this.id)"><span>✓</span>{{_('Book default')}}</button>
-                <button type="button" id="Serif" onclick="selectFont(this.id)"><span></span>{{_('Serif')}}</button>
-                <button type="button" id="SansSerif" onclick="selectFont(this.id)"><span></span>{{_('Sans-serif')}}</button>
+                <button type="button" id="default" aria-pressed="true" onclick="selectFont(this.id)">{{_('Book default')}}</button>
+                <button type="button" id="Serif" aria-pressed="false" onclick="selectFont(this.id)">{{_('Serif')}}</button>
+                <button type="button" id="SansSerif" aria-pressed="false" onclick="selectFont(this.id)">{{_('Sans-serif')}}</button>
             </div>
             <div class="reader-setting">
                 <label class="reader-setting-label" for="lineHeightSelect">{{_('Line spacing')}}</label>
@@ -123,10 +120,10 @@
             </div>
             <div class="reader-setting" id="layout">
                 <span class="reader-setting-label">{{ _('Pages') }}</span>
-                <button type="button" id="nonespread" onclick="spread(this.id)"><span></span>{{_('Single page')}}</button>
-                <button type="button" id="spread" onclick="spread(this.id)"><span>✓</span>{{_('Two pages')}}</button>
+                <button type="button" id="nonespread" aria-pressed="false" onclick="spread(this.id)">{{_('Single page')}}</button>
+                <button type="button" id="spread" aria-pressed="true" onclick="spread(this.id)">{{_('Two pages')}}</button>
             </div>
-            <button type="button" class="closer icon-cancel-circled" aria-label="{{_('Close')}}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></button>
+            <button type="button" class="closer icon-cancel-circled" aria-label="{{_('Close')}}" title="{{_('Close')}}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></button>
         </div>
     </div>
     <div class="overlay"></div>
@@ -180,34 +177,59 @@
             "SansSerif": 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif'
         };
 
+        // The chosen option in a settings row is the one pressed button.
+        function pressOption (rowId, id) {
+            document.getElementById(rowId).querySelectorAll("button").forEach(function (button) {
+              button.setAttribute("aria-pressed", button.id === id ? "true" : "false");
+            });
+        }
+
         function markSelectedTheme (id) {
-            let themeButton = themes[id] ? document.getElementById(id) : null;
-            if (!themeButton) {
+            if (!themes[id] || !document.getElementById(id)) {
               return false;
             }
-            // Remove tick mark from all theme buttons
-            document.getElementById("themes").querySelectorAll("button > span").forEach(function (tickSpan) {
-              tickSpan.textContent = "";
-            });
-            // Add tick mark to the button corresponding to the currently selected theme
-            themeButton.querySelector("span").textContent = "✓";
+            pressOption("themes", id);
             return true;
         }
 
-        function selectTheme (id) {
+        // Until a page theme is picked here, the book follows the app's Light/Dark choice
+        // (lily_theme_head.html's rule). The old key was written on every open, so its
+        // "lightTheme" was usually the default rather than a choice and is ignored.
+        function savedReaderTheme () {
+            let picked = null, legacy = null, pref = null;
+            try {
+              picked = localStorage.getItem("lily-reader-theme");
+              legacy = localStorage.getItem("calibre.reader.theme");
+              pref = localStorage.getItem("lily-theme");
+            } catch (e) {}
+            if (themes[picked]) {
+              return picked;
+            }
+            if (themes[legacy] && legacy !== "lightTheme") {
+              return legacy;
+            }
+            if (pref !== "light" && pref !== "dark") {
+              pref = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+            }
+            return pref === "dark" ? "darkTheme" : "lightTheme";
+        }
+
+        // remember is false when the reader applies the starting theme, so only a pick is saved.
+        function selectTheme (id, remember) {
             if (!markSelectedTheme(id)) {
               id = "lightTheme";
               markSelectedTheme(id);
             }
-            // Saving theme to local storage
-            localStorage.setItem("calibre.reader.theme", id);
+            if (remember !== false) {
+              try { localStorage.setItem("lily-reader-theme", id); } catch (e) {}
+            }
             // Apply theme to epubjs iframe
             reader.rendition.themes.select(id);
             // Apply theme to rest of the page. 
             document.getElementById("main").style.backgroundColor = themes[id]["bgColor"];
-            // The toolbar and page arrows follow the page colours.
-            document.getElementById("main").style.color = themes[id]["title-color"] || "#fff";
-            document.getElementById("titlebar").style.color = themes[id]["title-color"] || "#fff";
+            // The toolbar and page arrows take the page theme's ink, like its background.
+            document.getElementById("main").style.color = themes[id]["title-color"];
+            document.getElementById("titlebar").style.color = themes[id]["title-color"];
           }
 
         // Font size and font logic (wait for reader to be ready)
@@ -218,16 +240,12 @@
               defaultFont = reader.rendition.getContents()[0]?.css('font-family');
             } catch (e) { defaultFont = null; }
           }
-          let spans = document.getElementById("font").querySelectorAll("button > span");
-          for(var i = 0; i < spans.length; i++) {
-            spans[i].textContent = "";
-          }
           let fontButton = document.getElementById(id);
           if (!fontButton || (id !== 'default' && !readerFontStacks[id])) {
             id = 'default';
             fontButton = document.getElementById(id);
           }
-          fontButton.querySelector("span").textContent = "✓";
+          pressOption("font", id);
           localStorage.setItem("calibre.reader.font", id);
           if (id == 'default') {
             if (defaultFont) {
@@ -239,11 +257,10 @@
         }
 
         window.spread = function(id) {
-          let spans = document.getElementById("layout").querySelectorAll("button > span");
-          for(var i = 0; i < spans.length; i++) {
-            spans[i].textContent = "";
+          if (!document.getElementById(id)) {
+            id = "spread";
           }
-          document.getElementById(id).querySelector("span").textContent = "✓";
+          pressOption("layout", id);
           localStorage.setItem("calibre.reader.spread", id);
           reader.rendition.spread(id==='spread'?true:'none');
         }
@@ -263,9 +280,9 @@
           }
         });
 
-        // Show the saved theme's tick straight away, before the reader has finished loading
+        // Press the saved theme straight away, before the reader has finished loading
         document.addEventListener("DOMContentLoaded", function() {
-          markSelectedTheme(localStorage.getItem("calibre.reader.theme") || "lightTheme") || markSelectedTheme("lightTheme");
+          markSelectedTheme(savedReaderTheme()) || markSelectedTheme("lightTheme");
         });
       </script>
       <script src="{{ url_for('static', filename='js/libs/screenfull.min.js') }}"></script>
