@@ -43,7 +43,7 @@ def security_page():
     setup_secret = flask_session.get(_SETUP_KEY)
     locked = []
     if current_user.role_admin():
-        from .web import _2fa_failures
+        from .web_auth import _2fa_failures
         ids = _2fa_failures.locked_keys()
         if ids:
             locked = ub.session.query(ub.User).filter(ub.User.id.in_(ids)).all()
@@ -143,7 +143,7 @@ def revoke_api_token():
 def unlock_2fa(user_id):
     if not current_user.role_admin():
         return redirect(url_for('web.index'))
-    from .web import _2fa_failures
+    from .web_auth import _2fa_failures
     _2fa_failures.success(user_id)
     flash(_("Account unlocked."), category="success")
     return _back()

@@ -106,8 +106,10 @@ class TestForcedPasswordChangeFlow:
     def forced(self, env, monkeypatch):
         # lily_env registers only some blueprints, so full pages (layout.html) can't be built here
         import cps.web
-        monkeypatch.setattr(cps.web, "render_title_template",
-                            lambda template, **kw: f"{template} forced={kw.get('forced')}")
+        import cps.web_auth
+        for module in (cps.web, cps.web_auth):
+            monkeypatch.setattr(module, "render_title_template",
+                                lambda template, **kw: f"{template} forced={kw.get('forced')}")
         admin = env.admin()
         admin.force_password_change = True
         env.ub.session.commit()

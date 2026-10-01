@@ -58,8 +58,8 @@ def env(tmp_path):
         e.app.jinja_env.globals.setdefault("csrf_token", lambda: "test-token")
         from tests.unit.test_lily_reader_static import _register_remaining_blueprints
         _register_remaining_blueprints(e.app)
-        from cps import web
-        web._2fa_failures = totp.FailureTracker()
+        from cps import web_auth
+        web_auth._2fa_failures = totp.FailureTracker()
         yield e
 
 
