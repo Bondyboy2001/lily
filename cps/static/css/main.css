@@ -10,6 +10,9 @@
   font-style: normal;
 }
 
+/* The sidebar's width, which is also how far the page slides over when it opens. */
+:root { --reader-sidebar: 320px; }
+
 body {
   background: #4e4e4e;
   overflow: hidden;
@@ -151,8 +154,7 @@ body {
   background: #6b6b6b;
   position: absolute;
   top: 0;
-  min-width: 300px;
-  width: 25%;
+  width: var(--reader-sidebar);
   height: 100%;
   -webkit-transition: -webkit-transform 0.5s;
   -moz-transition: -moz-transform 0.5s;
@@ -161,14 +163,12 @@ body {
 }
 
 #main.closed {
-  /* left: 300px; */
-  -webkit-transform: translate(300px, 0);
-  -moz-transform: translate(300px, 0);
-  -ms-transform: translate(300px, 0);
+  -webkit-transform: translate(var(--reader-sidebar), 0);
+  transform: translate(var(--reader-sidebar), 0);
 }
 
 #main.single {
-  width: 75%;
+  width: calc(100% - var(--reader-sidebar));
 }
 
 #main.single #viewer {
@@ -270,8 +270,7 @@ input:-moz-placeholder { color: #454545; }
 #bookmarksView {
   overflow-x: hidden;
   overflow-y: hidden;
-  min-width: 300px;
-  width: 25%;
+  width: var(--reader-sidebar);
   height: 100%;
   visibility: hidden;
   -webkit-transition: visibility 0s ease 0.5s;
@@ -389,7 +388,7 @@ input:-moz-placeholder { color: #454545; }
 }
 
 .view {
-  width: 300px;
+  width: var(--reader-sidebar);
   height: 100%;
   display: none;
   padding-top: 50px;
@@ -577,8 +576,8 @@ input:-moz-placeholder { color: #454545; }
 }
 
 .md-content .themes button.darkTheme {
-  background-color: #202124;
-  color: white;
+  background-color: #1A1B26;
+  color: #C8D1F5;
 }
 
 .md-content .themes button.whiteTheme {
@@ -648,8 +647,8 @@ input:-moz-placeholder { color: #454545; }
 
 @media only screen and (max-width: 900px) {
   #viewer {
-    width: 60%;
-    margin-left: 20%;
+    width: 80%;
+    margin-left: 10%;
   }
 
   #prev {
@@ -661,10 +660,26 @@ input:-moz-placeholder { color: #454545; }
   }
 }
 
+/* Phones. No device-width sizes: the page fills the screen whatever the model. The title
+   bar (52px) and the progress line (28px) are set in lily-reader.css; both grow by the
+   safe-area insets when the page runs under a notch or home indicator (viewport-fit=cover). */
 @media only screen and (max-width: 550px) {
-  #viewer {
-    width: 80%;
-    margin-left: 10%;
+  :root {
+    --reader-sidebar: min(85vw, 320px);
+    --reader-top: calc(52px + env(safe-area-inset-top, 0px));
+    --reader-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .lily-epub #main {
+    height: 100%;
+    height: 100dvh;
+  }
+
+  .lily-epub #viewer {
+    width: auto;
+    height: calc(100vh - var(--reader-top) - var(--reader-bottom));
+    height: calc(100dvh - var(--reader-top) - var(--reader-bottom));
+    margin: 0 calc(12px + env(safe-area-inset-right, 0px)) 0 calc(12px + env(safe-area-inset-left, 0px));
   }
 
   #prev {
@@ -683,26 +698,12 @@ input:-moz-placeholder { color: #454545; }
   }
 
   #main {
-    -webkit-transform: translate(0, 0);
-    -moz-transform: translate(0, 0);
-    -ms-transform: translate(0, 0);
     -webkit-transition: -webkit-transform 0.3s;
-    -moz-transition: -moz-transform 0.3s;
-    transition: -moz-transform 0.3s;
-  }
-
-  #main.closed {
-    -webkit-transform: translate(260px, 0);
-    -moz-transform: translate(260px, 0);
-    -ms-transform: translate(260px, 0);
+    transition: transform 0.3s;
   }
 
   #metainfo {
     font-size: 10px;
-  }
-
-  #tocView {
-    width: 260px;
   }
 
   #tocView li {
@@ -711,85 +712,6 @@ input:-moz-placeholder { color: #454545; }
 
   #tocView > ul {
     padding-left: 10px;
-  }
-}
-
-/* For iPad portrait layouts only */
-@media only screen and (min-device-width: 481px) and (max-device-width: 1024px) and (orientation: portrait) {
-  #viewer iframe {
-    width: 460px;
-    height: 740px;
-  }
-}
-
-@media only screen
-  and (min-device-width: 768px)
-  and (max-device-width: 1024px)
-  and (orientation: landscape)
-  /* and (-webkit-min-device-pixel-ratio: 2)*/ {
-  #viewer {
-    width: 80%;
-    margin-left: 10%;
-  }
-
-  #divider,
-  #divider.show {
-    display: none;
-  }
-}
-
-/* For iPad landscape layouts only */
-@media only screen and (min-device-width: 481px) and (max-device-width: 1024px) and (orientation: landscape) {
-  #viewer iframe {
-    width: 960px;
-    height: 515px;
-  }
-}
-
-/* For iPhone 6\6s portrait layouts only */
-@media only screen and (min-device-width: 375px) and (max-device-width: 667px) and (orientation: portrait) {
-  #viewer {
-    width: 300px;
-    height: 480px;
-  }
-
-  #viewer iframe {
-   width: 300px;
-   height: 480px;
-  }
-}
-
-/* For iPhone 6\6s landscape layouts only */
-@media only screen and (min-device-width: 375px) and (max-device-width: 667px) and (orientation: landscape) {
-  #viewer {
-    width: 450px;
-    height: 300px;
-  }
-
-  #viewer iframe {
-    width: 450px;
-    height: 300px;
-  }
-}
-
-/* For iPhone portrait layouts only */
-@media only screen and (max-device-width: 374px) and (orientation: portrait) {
-  #viewer {
-    width: 256px;
-    height: 432px;
-  }
-
-  #viewer iframe {
-    width: 256px;
-    height: 432px;
-  }
-}
-
-/* For iPhone landscape layouts only */
-@media only screen and (max-device-width: 374px) and (orientation: landscape) {
-  #viewer iframe {
-    width: 256px;
-    height: 124px;
   }
 }
 

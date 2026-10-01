@@ -262,3 +262,16 @@ def serve_book(book_id, book_format, anyname):
 def download_link(book_id, book_format, anyname):
     client = "kobo" if "Kobo" in request.headers.get('User-Agent', '') else ""
     return get_download_link(book_id, book_format, client)
+
+
+@web.route("/reader-sw.js")
+def reader_service_worker():
+    """The reader's offline service worker (static/js/reading/reader-sw.js).
+
+    Served from the app root rather than /static/ because a worker may only control pages
+    at or below its own path; the reader pages register it with scope <root>/read/. Public
+    like any static file, so the browser's update check never hits a login redirect."""
+    response = make_response(send_from_directory(os.path.join(constants.STATIC_DIR, "js", "reading"),
+                                                 "reader-sw.js", mimetype="text/javascript"))
+    response.headers["Cache-Control"] = "no-cache"
+    return response
