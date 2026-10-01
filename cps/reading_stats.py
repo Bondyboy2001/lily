@@ -44,6 +44,9 @@ def summarise(finished, year):
         'top_authors': authors.most_common(TOP_N),
         'top_tags': tags.most_common(TOP_N),
         'recent': [i['title'] for i in sorted(finished, key=lambda i: i['when'], reverse=True)[:TOP_N]],
+        # The same books as (id, title), so the page can link them; id is None when unknown.
+        'recent_books': [(i.get('id'), i['title'])
+                         for i in sorted(finished, key=lambda i: i['when'], reverse=True)[:TOP_N]],
     }
 
 
@@ -59,7 +62,7 @@ def _finished_in_year(user_id, year):
     calibre_db.ensure_session()
     books = (calibre_db.session.query(db.Books).filter(db.Books.id.in_(list(when)))
              .filter(calibre_db.common_filters(allow_show_archived=True)).all())
-    return [{'when': when[b.id], 'title': b.title,
+    return [{'when': when[b.id], 'id': b.id, 'title': b.title,
              'authors': [a.name.replace('|', ',') for a in b.authors],
              'tags': [t.name for t in b.tags]} for b in books]
 

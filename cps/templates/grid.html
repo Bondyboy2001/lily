@@ -7,24 +7,26 @@
   {# Grid/List icons, pinned to the toolbar's top right #}
   {{ self.view_switch() }}
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  {{ image.list_menu(order, 'series', charlist|map(attribute='char')|list) }}
+  {{ image.list_menu(order, 'series', charlist, letter, list_url, show_all) }}
 </div>
 
-    {% if entries[0] %}
-        <div id="list" class="row lily-series-grid">
+    {# One card per series, one letter at a time (web_lists.series_grid_entries): the cover is the
+       series' first book. A CSS grid lays the cards out. #}
+    {% if entries %}
+        <div id="list" class="lily-series-grid">
           {% for entry in entries %}
-              <div class="book lily-book sortable" {% if entry[0].sort %}data-name="{{entry[0].series[0].name}}"{% endif %} data-id="{% if entry[0].series[0].name %}{{entry[0].series[0].name}}{% endif %}">
+              <div class="book lily-book" data-name="{{ entry.name }}" data-id="{{ entry.sort or entry.name }}">
                   <div class="cover">
-                      <a href="{{url_for('web.books_list', data=data, sort_param='stored', book_id=entry[0].series[0].id )}}">
-                          <span class="img" title="{{entry[0].series[0].name}}">
-                              {{ image.book_cover(entry[0])}}
-                              <span class="badge lily-cover-count" title="{{_('Books')}}">{{entry.count}}</span>
-                            </span>
+                      <a href="{{ url_for('web.books_list', data=data, sort_param='stored', book_id=entry.id) }}">
+                          <span class="img" title="{{ entry.name }}">
+                              {{ image.book_cover(entry.cover, alt=entry.name) }}
+                              <span class="badge lily-cover-count" title="{{ _('Books') }}">{{ entry.count }}</span>
+                          </span>
                       </a>
                   </div>
                   <div class="meta">
-                      <a href="{{url_for('web.books_list', data=data, sort_param='stored', book_id=entry[0].series[0].id )}}">
-                          <p title="{{entry[0].series[0].name}}" class="title">{{entry[0].series[0].name}}</p>
+                      <a href="{{ url_for('web.books_list', data=data, sort_param='stored', book_id=entry.id) }}">
+                          <p title="{{ entry.name }}" class="title">{{ entry.name }}</p>
                       </a>
                   </div>
               </div>

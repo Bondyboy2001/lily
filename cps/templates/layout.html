@@ -65,6 +65,14 @@
               </li>
               {% endif %}
             {% endfor %}
+            {% if not current_user.is_anonymous %}
+              <li id="nav_reading"{% if page == 'reading' %} class="active"{% endif %}>
+                <a href="{{url_for('reading.reading_summary')}}"{% if page == 'reading' %} aria-current="page"{% endif %}>
+                  <span class="glyphicon glyphicon-stats" aria-hidden="true"></span>
+                  <span class="nav-name">{{_('My Reading')}}</span>
+                </a>
+              </li>
+            {% endif %}
             <li class="nav-head">{{_('Shelves')}}</li>
             {% for shelf in g.shelves_access %}
               {% set book_count = (g.shelf_book_counts or {}).get(shelf.id, 0) %}
@@ -91,7 +99,7 @@
           <form class="lily-search" role="search" action="{{url_for('search.simple_search')}}" method="GET">
             <label for="query" class="sr-only">{{_('Search')}}</label>
             <input type="search" class="form-control" id="query" name="query" placeholder="{{_('Search Library')}}" value="{{searchterm}}"
-                   autocomplete="off" data-suggest-url="{{url_for('web.get_book_titles_json')}}">
+                   autocomplete="off" data-suggest-url="{{url_for('web.get_book_titles_json')}}" data-label-authors="{{_('Authors')}}">
             <button type="submit" id="query_submit" class="sr-only">{{_('Search')}}</button>
           </form>
           <a href="{{url_for('search.advanced_search')}}" id="advanced_search" class="icon-btn" title="{{_('Advanced Search')}}" aria-label="{{_('Advanced Search')}}"><span class="glyphicon glyphicon-filter" aria-hidden="true"></span></a>
@@ -281,7 +289,7 @@
     <div id="duplicate-notification-backdrop" class="duplicate-notification-backdrop"></div>
     <div id="duplicate-notification-modal" class="duplicate-notification-modal" tabindex="-1" role="dialog" aria-labelledby="duplicate-notification-title">
       <div class="duplicate-notification-header">
-        <button id="duplicate-notification-close" class="duplicate-notification-close" aria-label="{{_('Close')}}">&times;</button>
+        <button type="button" id="duplicate-notification-close" class="duplicate-notification-close" aria-label="{{_('Close')}}">&times;</button>
         <h2 id="duplicate-notification-title">{{_('Duplicate Books Detected')}}</h2>
         <p>{{_('You have unresolved duplicate books in your library')}}</p>
       </div>
@@ -295,8 +303,9 @@
         </ul>
       </div>
       <div class="duplicate-notification-footer">
-        <button id="duplicate-notification-remind" class="duplicate-notification-btn duplicate-notification-btn-secondary">
-          {{_('Remind Me Later')}}
+        <button type="button" id="duplicate-notification-remind" class="duplicate-notification-btn duplicate-notification-btn-secondary"
+                title="{{_('Hide this for 7 days; the sidebar count stays')}}">
+          {{_('Remind me in a week')}}
         </button>
         <a href="{{ url_for('duplicates.show_duplicates') }}" class="duplicate-notification-btn duplicate-notification-btn-primary">
           {{_('View & Resolve Duplicates')}}

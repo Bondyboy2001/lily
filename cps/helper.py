@@ -136,16 +136,21 @@ def change_archived_books(book_id, state=None, message=None):
     return archived_book.is_archived
 
 
-# Check if a reader is existing for any of the book formats, if not, return empty list, otherwise return
-# list with supported formats
+# Formats the built-in readers open, best first: the first one present is what "Read" opens.
+# Audio comes last because it opens the player rather than a reader.
+READER_FORMAT_ORDER = ('epub', 'kepub', 'pdf', 'cbz', 'cbr', 'cbt', 'txt', 'djvu', 'djv',
+                       'm4b', 'mp3', 'm4a', 'mp4', 'ogg', 'opus', 'flac', 'wav')
+
+
+def readable_formats(formats):
+    """The formats in `formats` (any case) that a built-in reader opens, lower case, best first."""
+    present = {str(fmt).lower() for fmt in formats}
+    return [fmt for fmt in READER_FORMAT_ORDER if fmt in present]
+
+
+# Formats the built-in readers open for this book, best first; an empty list when none of them can.
 def check_read_formats(entry):
-    extensions_reader = {'TXT', 'PDF', 'EPUB', 'KEPUB', 'CBZ', 'CBT', 'CBR', 'DJVU', 'DJV'}
-    book_formats = list()
-    if len(entry.data):
-        for ele in iter(entry.data):
-            if ele.format.upper() in extensions_reader:
-                book_formats.append(ele.format.lower())
-    return book_formats
+    return readable_formats(ele.format for ele in entry.data)
 
 
 def get_valid_filename(value, replace_whitespace=True, chars=128):

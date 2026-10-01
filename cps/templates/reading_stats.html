@@ -28,7 +28,7 @@
   {% call f.group(_('Most read')) %}
     {% call f.row(_('Authors'), wide=True) %}{% for name, n in summary.top_authors %}<div>{{ name }} <span class="lp-pill is-muted">{{ n }}</span></div>{% endfor %}{% endcall %}
     {% if summary.top_tags %}{% call f.row(_('Tags'), wide=True) %}{% for name, n in summary.top_tags %}<div>{{ name }} <span class="lp-pill is-muted">{{ n }}</span></div>{% endfor %}{% endcall %}{% endif %}
-    {% call f.row(_('Latest finished'), wide=True) %}{% for title in summary.recent %}<div>{{ title }}</div>{% endfor %}{% endcall %}
+    {% call f.row(_('Latest finished'), wide=True) %}{% for book_id, title in summary.recent_books %}<div>{% if book_id %}<a href="{{ url_for('web.show_book', book_id=book_id) }}">{{ title }}</a>{% else %}{{ title }}{% endif %}</div>{% endfor %}{% endcall %}
   {% endcall %}
   {% endif %}
   <p class="lp-footnote">{{ _('A book counts when it is marked as read; the date it was marked is the finish date.') }}</p>

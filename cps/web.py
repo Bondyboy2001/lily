@@ -35,6 +35,7 @@ from . import list_filters
 from . import series_nav
 from .setup_checklist import setup_checklist
 from .helper import change_archived_books
+from .shelf import up_next_row
 from .usermanagement import user_login_required
 
 # CWA Imports
@@ -388,12 +389,14 @@ def render_books_list(data, sort_param, book_id, page):
             title = _('Books (%(count)s)', count=cwa_get_num_books_in_library())
 
         continue_reading = []
+        up_next = None
         if website == "newest" and page == 1 and not list_filters.active_filters():
             continue_reading = get_continue_reading_entries()
+            up_next = up_next_row()
 
         return render_title_template('index.html', random=random, entries=entries, pagination=pagination,
                                      title=title, page=website, order=order[1],
-                                     continue_reading=continue_reading,
+                                     continue_reading=continue_reading, up_next=up_next,
                                      list_filters=list_filters.filter_context(),
                                      setup_checklist=(setup_checklist() if website == "newest" and page == 1
                                                       else None))
@@ -1172,7 +1175,8 @@ def show_book(book_id):
                                      title=entry.title,
                                      books_shelfs=book_in_shelves,
                                      cwa_settings=cwa_settings,
-                                     page="book")
+                                     page="book",
+                                     **web_book.book_page_context(entry))
     else:
         log.debug("Selected book is unavailable. File does not exist or is not accessible")
         flash(_("Oops! Selected book is unavailable. File does not exist or is not accessible"),
@@ -1186,3 +1190,5 @@ from . import web_lists  # noqa: E402,F401  (attaches its routes to this bluepri
 from . import web_files  # noqa: E402,F401  (attaches its routes to this blueprint)
 
 from . import web_typeahead  # noqa: E402,F401  (attaches its routes to this blueprint)
+
+from . import web_book  # noqa: E402  (attaches its routes to this blueprint)

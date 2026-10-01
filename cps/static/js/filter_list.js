@@ -20,12 +20,43 @@ function getListContainer() {
     return $l;
 }
 
+// Long lists (authors, series: image.server_list_menu) are sorted and cut by letter on the
+// server. Their letters are links, a new direction is saved and the page reloads, and the
+// filter box hides the rows on screen that do not match (Enter submits it to search them all).
+var serverList = $(".filterheader[data-server-list]").length > 0;
+
+function saveDirectionAndReload(link, dir) {
+    var view = {};
+    view[$(link).data("id")] = {dir: dir};
+    $.ajax({
+        method: "post",
+        contentType: "application/json; charset=utf-8",
+        dataType: "json",
+        url: getPath() + "/ajax/view",
+        data: JSON.stringify(view)
+    }).always(function() {
+        window.location.reload();
+    });
+}
+
+$(document).on("input", "#list-search", function() {
+    var needle = this.value.trim().toLowerCase();
+    $(".lily-list > .lily-list-row").each(function() {
+        var hay = ((this.getAttribute("data-name") || "") + " " + (this.getAttribute("data-id") || "")).toLowerCase();
+        this.hidden = needle !== "" && hay.indexOf(needle) === -1;
+    });
+});
+
 // Delegate events to handle dynamically rendered elements
 // The options live in dropdowns (image.list_menu); lilyPickOption (lily.js) ticks the picked one
 // and returns false when it was already picked, so each handler only runs on a real change.
 $(document).on("click", "#desc", function(e) {
     e.preventDefault();
     if (!lilyPickOption(this)) {
+        return;
+    }
+    if (serverList) {
+        saveDirectionAndReload(this, "desc");
         return;
     }
 
@@ -70,6 +101,10 @@ $(document).on("click", "#desc", function(e) {
 $(document).on("click", "#asc", function(e) {
     e.preventDefault();
     if (!lilyPickOption(this)) {
+        return;
+    }
+    if (serverList) {
+        saveDirectionAndReload(this, "asc");
         return;
     }
 

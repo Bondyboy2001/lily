@@ -73,3 +73,17 @@ def test_page_handles_no_reading_and_bad_year(client):
     _, c = client
     assert c.get("/reading").status_code == 200
     assert c.get("/reading?year=99999").status_code == 200
+
+
+def test_latest_finished_titles_link_to_their_books(client):
+    env, c = client
+    book = env.add_book("Linked Title", author="Ann")
+    _mark(env, env.admin(), book, datetime(2026, 3, 1))
+    html = c.get("/reading?year=2026").get_data(as_text=True)
+    assert f'<a href="/book/{book}">Linked Title</a>' in html
+
+
+def test_sidebar_links_my_reading(client):
+    _, c = client
+    html = c.get("/reading").get_data(as_text=True)
+    assert 'id="nav_reading" class="active"' in html and 'href="/reading" aria-current="page"' in html
