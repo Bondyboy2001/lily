@@ -49,7 +49,9 @@ Works with nginx, Caddy, Traefik, Cloudflare Tunnel and similar.
 Lily uses Werkzeug's `ProxyFix` to handle `X-Forwarded-For`, `X-Forwarded-Proto` and
 related headers. By default it trusts **no** proxy (`TRUSTED_PROXY_COUNT=0`) and ignores
 `X-Forwarded-*` entirely, because trusting those headers while Lily is also reachable
-directly lets any client spoof its IP and bypass login rate limits.
+directly lets any client spoof its IP and bypass login rate limits. The same applies to
+`X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Scheme` and `X-Script-Name` (serving Lily under
+a path prefix): they are honoured only when `TRUSTED_PROXY_COUNT` is at least `1`.
 
 | Proxy chain | `TRUSTED_PROXY_COUNT` |
 |---|---|
