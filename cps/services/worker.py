@@ -221,8 +221,20 @@ class WorkerThread(threading.Thread):
         return False
 
 
+def _record_job(job, event, error=None):
+    try:
+        from cps.services.job_status import record_job_event
+        record_job_event(job, event, error)
+    except Exception as e:
+        log.warning("Job status for %s not recorded: %s", job, e)
+
+
 class CalibreTask:
     __metaclass__ = abc.ABCMeta
+
+    # Recurring jobs set this to have their runs recorded in cwa.db (cps/services/job_status.py)
+    # for the admin banner and /health. A task may clear it in run() when it had nothing to do.
+    job_name = None
 
     def __init__(self, message):
         self._progress = 0
@@ -254,6 +266,8 @@ class CalibreTask:
     def start(self, *args):
         self.start_time = datetime.now()
         self.stat = STAT_STARTED
+        if self.job_name:
+            _record_job(self.job_name, "start")
 
         # catch any unhandled exceptions in a task and automatically fail it
         try:
@@ -263,6 +277,11 @@ class CalibreTask:
             log.error_or_exception(ex)
 
         self.end_time = datetime.now()
+        # Cancelled/ended runs are neither a success nor a failure
+        if self.job_name and self.stat == STAT_FINISH_SUCCESS:
+            _record_job(self.job_name, "success")
+        elif self.job_name and self.stat == STAT_FAIL:
+            _record_job(self.job_name, "error", self.error)
 
     @property
     def stat(self):

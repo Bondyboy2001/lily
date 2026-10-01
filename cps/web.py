@@ -877,10 +877,20 @@ def health_check():
     except Exception:
         db_up = False
 
+    # Background jobs (backups, mirror, ...): informational only. A stale backup must not
+    # change the status code, or Docker's healthcheck would restart a working server.
+    try:
+        from .services.job_status import health_checks
+        checks = health_checks()
+    except Exception as e:
+        log.debug("Job health check failed: %s", e)
+        checks = {"ok": None, "backup_age_hours": None, "jobs": {}}
+
     return jsonify({
         "status": "ok" if db_up else "degraded",
         "uptime": uptime,
         "version": f"Lily/{constants.INSTALLED_VERSION}",
+        "checks": checks,
     }), 200 if db_up else 503
 
 # ################################### View Books list ##################################################################

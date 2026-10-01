@@ -34,6 +34,8 @@ log = logger.create()
 
 
 class TaskDuplicateScan(CalibreTask):
+    job_name = "duplicate_scan"
+
     def __init__(self, full_scan=True, task_message=None, trigger_type='manual', user_id=None, book_ids=None):
         super(TaskDuplicateScan, self).__init__(task_message or N_('Duplicate scan'))
         self.full_scan = full_scan

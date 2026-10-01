@@ -237,6 +237,19 @@ def cwa_update_notification() -> None:
             f.write(current_date)
     _update_notice_done_date = current_date
 
+def _admin_job_problems():
+    """Background jobs that failed or stopped succeeding, for the admin banner in layout.html.
+    One small cwa.db read, cached for a minute (cps/services/job_status.py)."""
+    if not current_user.is_authenticated or not current_user.role_admin():
+        return []
+    try:
+        from .services.job_status import job_problems
+        return job_problems()
+    except Exception as e:
+        log.debug("Could not check background job status: %s", e)
+        return []
+
+
 # Returns the template for rendering and includes the instance name
 def render_title_template(*args, **kwargs):
     sidebar, simple = get_sidebar_config(kwargs)
@@ -322,6 +335,7 @@ def render_title_template(*args, **kwargs):
         return render_template(instance=config.config_calibre_web_title, sidebar=sidebar, simple=simple,
                        accept=config.config_upload_formats.split(','),
                        duplicate_notification=duplicate_notification,
+                       job_problems=_admin_job_problems(),
                        *args, **kwargs)
     except PermissionError:
         log.error("No permission to access {} file.".format(args[0]))

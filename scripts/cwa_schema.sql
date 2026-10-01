@@ -205,3 +205,12 @@ CREATE TABLE IF NOT EXISTS cwa_duplicate_resolutions (
 
 CREATE INDEX IF NOT EXISTS idx_duplicate_resolutions_timestamp ON cwa_duplicate_resolutions(timestamp);
 CREATE INDEX IF NOT EXISTS idx_duplicate_resolutions_group_hash ON cwa_duplicate_resolutions(group_hash);
+
+-- Last run of each recurring background job (scripts/job_status.py). Timestamps are UTC ISO 8601.
+CREATE TABLE IF NOT EXISTS job_status (
+    job TEXT PRIMARY KEY NOT NULL,      -- 'db_backup', 'library_mirror', 'processed_cleanup', ...
+    last_started TEXT,
+    last_success TEXT,
+    last_error_at TEXT,
+    last_error TEXT DEFAULT ''
+);
