@@ -19,7 +19,7 @@ from flask_babel import gettext as _
 from flask_babel import get_locale
 from .cw_login import current_user
 from sqlalchemy.exc import IntegrityError, InvalidRequestError, OperationalError
-from sqlalchemy.sql.expression import text, func, false, and_
+from sqlalchemy.sql.expression import func, false, and_
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.sql.functions import coalesce
 
@@ -894,8 +894,12 @@ def list_books():
     search_param = request.args.get("search")
     sort_param = request.args.get("sort", "id")
     order = request.args.get("order", "").lower()
+    if order not in ("asc", "desc"):
+        order = ""
     state = None
     join = tuple()
+    plain_columns = {"sort": db.Books.sort, "title": db.Books.title,
+                     "authors_sort": db.Books.author_sort, "series_index": db.Books.series_index}
 
     if sort_param == "state":
         state = json.loads(request.args.get("state", "[]"))
@@ -918,8 +922,9 @@ def list_books():
     elif sort_param == "languages":
         order = [db.Languages.lang_code.asc()] if order == "asc" else [db.Languages.lang_code.desc()]
         join = db.books_languages_link, db.Books.id == db.books_languages_link.c.book, db.Languages
-    elif order and sort_param in ["sort", "title", "authors_sort", "series_index"]:
-        order = [text(sort_param + " " + order)]
+    elif order and sort_param in plain_columns:
+        column = plain_columns[sort_param]
+        order = [column.asc() if order == "asc" else column.desc()]
     elif not state:
         order = [db.Books.timestamp.desc()]
 

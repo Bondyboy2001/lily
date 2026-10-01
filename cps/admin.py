@@ -605,9 +605,12 @@ def list_users():
         if sort not in ub.User.__table__.columns.keys():
             sort = "id"
     order = request.args.get("order", "").lower()
+    if order not in ("asc", "desc"):
+        order = ""
 
     if sort != "state" and order:
-        order = text(sort + " " + order)
+        column = ub.User.__table__.columns[sort]
+        order = column.asc() if order == "asc" else column.desc()
     elif not state:
         order = ub.User.id.asc()
 
