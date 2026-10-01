@@ -198,3 +198,6 @@ CREATE TABLE IF NOT EXISTS cwa_duplicate_resolutions (
 
 CREATE INDEX IF NOT EXISTS idx_duplicate_resolutions_timestamp ON cwa_duplicate_resolutions(timestamp);
 CREATE INDEX IF NOT EXISTS idx_duplicate_resolutions_group_hash ON cwa_duplicate_resolutions(group_hash);
+
+-- Search-success stats look up a user's downloads/reads right after each search
+CREATE INDEX IF NOT EXISTS idx_activity_user_event_time ON cwa_user_activity(user_id, event_type, timestamp);

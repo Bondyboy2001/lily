@@ -28,6 +28,15 @@ class TaskClean(CalibreTask):
             pass
         except (PermissionError, OSError) as e:
             self.log.error("Error deleting temp folder: {}".format(e))
+        # prune statistics past their retention period
+        try:
+            from cwa_db import CWA_DB
+            with CWA_DB() as cwa_db:
+                pruned = cwa_db.prune_old_stats()
+            if any(pruned.values()):
+                self.log.info("Pruned old statistics rows: %s", pruned)
+        except Exception as ex:
+            self.log.warning("Could not prune old statistics: %s", ex)
         # delete expired session keys
         self.log.debug("Deleted expired session_keys" )
         expiry = int(datetime.datetime.now().timestamp())
