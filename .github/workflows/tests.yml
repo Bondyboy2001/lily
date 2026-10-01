@@ -70,13 +70,6 @@ jobs:
             # httplib2 0.22.0: capped <0.23 for oauth2client/PyDrive2. Unbounded
             # decompression of responses; it only talks to Google's API endpoints.
             PYSEC-2026-3444
-            # py7zr 0.20.8: 1.x removed SevenZipFile.read(), which comicapi 3.0.0
-            # (and cps/comic.py) call to read CB7 pages, so CB7 support would break.
-            # Exposure is limited to .cb7 files the admin imports; nothing extracts
-            # archives to disk with py7zr.
-            PYSEC-2026-2972      # decompression bomb
-            PYSEC-2026-2973      # O(n^2) header parsing
-            PYSEC-2026-2974      # arbitrary file write on extract (Lily never extracts)
           )
           args=()
           for id in "${ignores[@]}"; do args+=(--ignore-vuln "$id"); done

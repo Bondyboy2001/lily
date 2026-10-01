@@ -464,8 +464,6 @@ def change_profile(translations, languages):
                 log.warning(f"Skipping invalid sidebar checkbox key: {key}")
                 continue
     current_user.sidebar_view = val
-    if to_save.get("Show_detail_random"):
-        current_user.sidebar_view += constants.DETAIL_RANDOM
 
     try:
         ub.session.commit()

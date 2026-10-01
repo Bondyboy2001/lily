@@ -1,11 +1,13 @@
 /*
  * Settings frame (templates/settings_layout.html): the search at the head of
- * the section rail, the section heading on the Lily settings tabs, and landing
- * on one setting when a search result is picked.
+ * the section rail, the rail and tab strip following the open pane on the Lily
+ * settings page, landing on one setting when a search result is picked, and
+ * save bars that wait for an edit.
  *
  * The search index is built from the settings pages themselves: every page the
- * rail links to is fetched once, and each row's label becomes an entry. What a
- * person can search is therefore exactly what the rail lets them open.
+ * rail or a tab links to (the #lp-nav list) is fetched once, and each row's
+ * label becomes an entry. What a person can search is therefore exactly what
+ * the settings let them open.
  */
 (function () {
   "use strict";
@@ -16,7 +18,7 @@
   var rail = document.querySelector(".lp-rail-list");
   if (!field || !suggest || !rail) { return; }
 
-  var CACHE_KEY = "lily-settings-index-v1";
+  var CACHE_KEY = "lily-settings-index-v2";
   var index = null;
   var loading = null;
   var active = -1;
@@ -24,30 +26,29 @@
   function text(el) { return el ? el.textContent.replace(/\s+/g, " ").trim() : ""; }
   function pathOf(href) { var a = document.createElement("a"); a.href = href; return a.pathname; }
 
-  /* ---------------- Rail: pages and the Lily tabs ---------------- */
-  var railLinks = Array.prototype.slice.call(rail.querySelectorAll("a.lp-rail-item"));
+  /* ---------------- Navigation: sections, their tabs, and the pages behind them ---------------- */
+  var nav = [];
+  try { nav = JSON.parse(document.getElementById("lp-nav").textContent) || []; } catch (e) { nav = []; }
+  var railItems = Array.prototype.slice.call(rail.querySelectorAll("li[data-section]"));
   var pages = [];
-  railLinks.forEach(function (a) {
-    var path = pathOf(a.href);
-    if (!pages.some(function (p) { return p.path === path; })) { pages.push({ path: path, label: text(a) }); }
+  nav.forEach(function (n) {
+    var path = pathOf(n.href);
+    if (!pages.some(function (p) { return p.path === path; })) { pages.push({ path: path }); }
   });
 
-  function tabLabel(name) {
-    for (var i = 0; i < railLinks.length; i++) {
-      if (railLinks[i].hash === "#" + name) { return text(railLinks[i]); }
+  /* Where a setting lives, as "Section › Tab": by Lily settings pane, or by the page it is on. */
+  function whereOf(pane, path) {
+    for (var i = 0; i < nav.length; i++) {
+      var n = nav[i];
+      var hit = pane ? n.pane === pane : (!n.pane && pathOf(n.href) === path);
+      if (hit) { return n.label.toLowerCase() === n.section.toLowerCase() ? n.section : n.section + " › " + n.label; }
     }
-    return "";
-  }
-
-  function pageLabel(path) {
-    for (var i = 0; i < pages.length; i++) { if (pages[i].path === path) { return pages[i].label; } }
     return "";
   }
 
   /* ---------------- Index ---------------- */
   function rowsOf(doc, path) {
     var out = [];
-    var page = pageLabel(path);
     doc.querySelectorAll(".lp-pane .lp-row, .lp-pane .lp-check").forEach(function (row) {
       var labelEl = row.matches(".lp-check") ? row : row.querySelector(".lp-text > label, .lp-text > .lp-title");
       var name = text(labelEl);
@@ -61,12 +62,12 @@
         if (control) { target = control.id; }
       }
       var pane = row.closest("[data-lily-pane]");
-      var section = pane ? tabLabel(pane.getAttribute("data-lily-pane")) : page;
+      var section = whereOf(pane ? pane.getAttribute("data-lily-pane") : "", path);
       var group = row.closest(".lp-group");
       var groupLabel = group ? text(group.querySelector(".lp-label")) : "";
       if (!target && group) { target = group.id; }
       var where = section;
-      if (groupLabel && groupLabel.toLowerCase() !== section.toLowerCase()) { where += " › " + groupLabel; }
+      if (groupLabel && section.toLowerCase().indexOf(groupLabel.toLowerCase()) === -1) { where += " › " + groupLabel; }
       var help = text(row.querySelector(".lp-help"));
       out.push({ name: name, where: where, help: help, href: path + (target ? "#" + target : "") });
     });
@@ -74,8 +75,9 @@
   }
 
   function sectionEntries() {
-    return railLinks.map(function (a) {
-      return { name: text(a), where: "", help: "", href: pathOf(a.href) + a.hash, section: true };
+    return nav.map(function (n) {
+      var same = n.label.toLowerCase() === n.section.toLowerCase();
+      return { name: n.label, where: same ? "" : n.section, help: "", href: n.href, section: true };
     });
   }
 
@@ -227,7 +229,7 @@
     if (!el || !el.closest(".lp-pane") || el.matches("[data-lily-pane]")) { return; }
     var pane = el.closest("[data-lily-pane]");
     if (pane && !pane.classList.contains("active")) {
-      var tab = rail.querySelector('[data-lily-tab="' + pane.getAttribute("data-lily-pane") + '"]');
+      var tab = document.querySelector('.lp-tabs [data-lily-tab="' + pane.getAttribute("data-lily-pane") + '"]');
       if (tab) { tab.click(); }
     }
     var row = el.closest(".lp-row, .lp-check, .lp-group") || el;
@@ -240,35 +242,71 @@
     }, 30);
   }
 
-  /* ---------------- Heading follows the Lily settings tab ---------------- */
+  /* ---------------- Rail, tabs and heading follow the open Lily settings pane ---------------- */
   /* A group titled the same as the page says nothing twice. */
   function hideEchoes() {
     if (!heading) { return; }
     var h = text(heading).toLowerCase();
+    var tab = document.querySelector(".lp-tabs > li.active > a");
+    var t = tab ? text(tab).toLowerCase() : "";
     document.querySelectorAll(".lp-pane .lp-group-head").forEach(function (head) {
       var label = head.querySelector(".lp-label");
-      var echo = label && text(label).toLowerCase() === h;
+      var name = label ? text(label).toLowerCase() : "";
+      var echo = !!label && (name === h || name === t);
       if (label) { label.style.visibility = echo ? "hidden" : ""; }
-      head.classList.toggle("is-echo", !!echo && !head.querySelector(".btn"));
+      head.classList.toggle("is-echo", echo && !head.querySelector(".btn"));
     });
   }
 
-  function syncHeading() {
-    if (!heading) { return; }
-    var on = rail.querySelector("li.active > [data-lily-tab]");
-    if (on) { heading.textContent = text(on); }
+  /* The Lily settings page holds panes from several sections, so the server cannot say
+     which one is open; the pane's tab can. Show that section's strip and rail item. */
+  function syncChrome() {
+    var on = document.querySelector(".lp-tabs > li.active > [data-lily-tab]");
+    if (on) {
+      var id = on.closest(".lp-tabs").getAttribute("data-section");
+      document.querySelectorAll(".lp-tabs[data-section]").forEach(function (strip) {
+        strip.hidden = strip.getAttribute("data-section") !== id;
+      });
+      railItems.forEach(function (li) {
+        var here = li.getAttribute("data-section") === id;
+        li.classList.toggle("active", here);
+        var a = li.querySelector("a");
+        if (here) { a.setAttribute("aria-current", "page"); if (heading) { heading.textContent = text(a); } }
+        else { a.removeAttribute("aria-current"); }
+      });
+    }
     hideEchoes();
   }
 
-  if (rail.querySelector("[data-lily-tab]")) {
-    rail.addEventListener("click", function (e) {
-      if (e.target.closest("[data-lily-tab]")) { setTimeout(syncHeading, 0); }
+  if (document.querySelector(".lp-tabs [data-lily-tab]")) {
+    document.addEventListener("click", function (e) {
+      if (e.target.closest && e.target.closest("[data-lily-tab]")) { setTimeout(syncChrome, 0); }
     });
-    window.addEventListener("hashchange", function () { setTimeout(syncHeading, 0); });
+    window.addEventListener("hashchange", function () { setTimeout(syncChrome, 0); });
+    /* After lily-settings.js has opened the pane the URL names, before the page finishes loading. */
+    document.addEventListener("DOMContentLoaded", syncChrome);
+  }
+
+  /* ---------------- Save bars that wait for an edit ---------------- */
+  /* Armed here, not in the stylesheet alone, so a page without script keeps its Save button. */
+  document.querySelectorAll(".lp-actions.is-save").forEach(function (bar) {
+    var form = bar.closest("form");
+    if (!form) { return; }
+    bar.classList.add("is-armed");
+    function dirty() { bar.classList.add("is-dirty"); }
+    form.addEventListener("input", dirty);
+    form.addEventListener("change", dirty);
+  });
+
+  /* On a phone the rail is a row of chips; bring the open section's chip into view. */
+  function revealActive() {
+    var li = rail.querySelector("li.active");
+    if (li && rail.scrollWidth > rail.clientWidth) { rail.scrollLeft = Math.max(0, li.offsetLeft - 16); }
   }
 
   function ready() {
-    syncHeading();
+    syncChrome();
+    revealActive();
     land(window.location.hash.replace(/^#/, ""));
   }
   if (document.readyState === "complete") { setTimeout(ready, 0); }

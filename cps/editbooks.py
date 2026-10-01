@@ -1305,7 +1305,6 @@ def upload_book_formats(requested_files, book, book_id, no_cover=True):
             meta = uploader.process(
                 saved_filename,
                 *os.path.splitext(current_filename),
-                rar_executable=config.config_rarfile_location,
                 no_cover=no_cover)
             merge_metadata(book, meta, to_save)
     return to_save, error

@@ -33,12 +33,13 @@ def _admin(env):
     return c
 
 
-def test_txt_is_served_as_plain_text(env):
+def test_txt_is_plain_text_and_a_download(env):
+    # No TXT reader any more: never rendered as a page on this origin, offered as a file
     book = _book_with_file(env, "Plain", "txt")
     resp = _admin(env).get(f"/show/{book}/txt")
     assert resp.status_code == 200
     assert resp.headers["Content-Type"] == "text/plain; charset=utf-8"
-    assert "attachment" not in resp.headers.get("Content-Disposition", "")
+    assert resp.headers["Content-Disposition"].startswith("attachment")
     assert resp.data == PAYLOAD
 
 
@@ -51,7 +52,7 @@ def test_formats_no_reader_opens_are_sandboxed_downloads(env, fmt):
     assert resp.headers["Content-Disposition"].startswith("attachment")
 
 
-@pytest.mark.parametrize("fmt", ["pdf", "epub", "cbz", "djvu", "mp3"])
+@pytest.mark.parametrize("fmt", ["pdf", "epub", "djvu", "mp3"])
 def test_reader_and_audio_formats_are_not_forced_to_download(env, fmt):
     book = _book_with_file(env, "Readable " + fmt, fmt, content=b"not really a book")
     resp = _admin(env).get(f"/show/{book}/{fmt}")

@@ -129,7 +129,7 @@ def test_legacy_theme_switching_is_gone():
         assert needle not in main_js, needle
 
 
-DARK_PALETTE_BLOCKS = (':root:not([data-theme="light"])', ':root[data-theme="dark"]')
+DARK_PALETTE_BLOCK = ':root[data-theme="dark"]'
 
 
 def dark_tokens(selector):
@@ -140,20 +140,17 @@ def dark_tokens(selector):
     return tokens
 
 
-def test_dark_theme_redefines_every_colour_token_for_system_and_explicit_choice():
+def test_dark_theme_redefines_every_colour_token_in_one_block():
     css = read(CSS / "lily.css")
-    assert "@media (prefers-color-scheme: dark)" in css
-    light = root_tokens()
-    colour_tokens = [n for n, v in light.items() if v.startswith("#")]
-    for selector in DARK_PALETTE_BLOCKS:
-        dark = dark_tokens(selector)
-        for name in colour_tokens:
-            assert name in dark, (selector, name)
-        assert dark_tokens(DARK_PALETTE_BLOCKS[0]) == dark_tokens(DARK_PALETTE_BLOCKS[1])
+    assert "@media (prefers-color-scheme: dark)" not in css  # the head script resolves "system" to data-theme
+    dark = dark_tokens(DARK_PALETTE_BLOCK)
+    for name, value in root_tokens().items():
+        if value.startswith("#"):
+            assert name in dark, name
 
 
 def test_dark_text_tokens_meet_contrast():
-    dark = dark_tokens(DARK_PALETTE_BLOCKS[1])
+    dark = dark_tokens(DARK_PALETTE_BLOCK)
     for name in TEXT_TOKENS:
         for ground in ("paper", "surface", "sunk"):
             ratio = contrast(dark[name], dark[ground])
@@ -162,7 +159,7 @@ def test_dark_text_tokens_meet_contrast():
 
 
 def test_control_edges_meet_non_text_contrast_in_both_themes():
-    light, dark = root_tokens(), dark_tokens(DARK_PALETTE_BLOCKS[1])
+    light, dark = root_tokens(), dark_tokens(DARK_PALETTE_BLOCK)
     for palette in (light, dark):
         for ground in ("paper", "surface", "sunk"):
             assert contrast(palette["line-strong"], palette[ground]) >= 3, (ground, palette["line-strong"])
@@ -276,7 +273,7 @@ def test_hidden_sidebar_links_leave_the_tab_order():
 
 
 def test_library_refresh_notice_is_a_temporary_toast():
-    # The refresh result pops up in the top right and goes away on its own, rather than
+    # The refresh result pops up in the bottom right and goes away on its own, rather than
     # sitting as a full-width banner above the page.
     layout = read(TEMPLATES / "layout.html")
     assert re.search(r'<div id="message_library_refresh" class="lily-refresh-toast"[^>]*\shidden', layout)
@@ -284,6 +281,7 @@ def test_library_refresh_notice_is_a_temporary_toast():
     rules = css_rules(read(CSS / "lily-shell.css"))
     toast = [b for s, b in rules if s == ".lily-refresh-toast"]
     assert toast and "position: fixed" in toast[0] and re.search(r"right\s*:", toast[0])
+    assert re.search(r"bottom\s*:", toast[0]) and not re.search(r"\btop\s*:", toast[0])
     assert "TOAST_MS" in read(REPO_ROOT / "cps/static/js/lily.js")
 
 
@@ -295,5 +293,5 @@ def test_settings_button_opens_settings_with_tasks_and_logout_in_rail():
     for gone in ("glyphicon-user", "glyphicon-dashboard", "glyphicon-tasks"):
         assert gone not in bar, gone
     rail = read(TEMPLATES / "settings_layout.html")
-    assert "id='top_tasks'" in rail and "id='logout'" in rail
+    assert "'rail_id': 'top_tasks'" in rail and "id='logout'" in rail
     assert 'extends "settings_layout.html"' in read(TEMPLATES / "tasks.html")

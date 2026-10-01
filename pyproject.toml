@@ -89,13 +89,10 @@ gdrive = [
     "rsa>=3.4.2,<4.10.0",
 ]
 metadata = [
-    "rarfile>=3.2,<5.0",
-    "py7zr>=0.15.0,<0.21.0",
     "mutagen>=1.40.0,<1.50.0",
 ]
-comics = [
+sorting = [
     "natsort>=2.2.0,<8.5.0",
-    "comicapi>=2.2.0,<3.3.0",
 ]
 
 [project.scripts]

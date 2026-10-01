@@ -1,12 +1,11 @@
 /*
- * Lily chrome for the in-browser readers (epub, comic, txt, djvu) and the audio player.
+ * Lily chrome for the in-browser readers (epub, pdf, djvu) and the audio player.
  *
- * Loaded after lily.css (tokens) and lily-icons.css. The epub and comic readers still
- * load the vendor layout (main.css, kthoom.css): epub.js and kthoom size their views
- * from it. This file only restyles the chrome on top (toolbar, sidebar, settings sheet,
- * arrows) and uses tokens only, so a dark palette applies here too. The book's own page
- * colours (the epub Light/Dark/Sepia/Black themes, kthoom's dark theme) are content, not
- * chrome, and stay as they are.
+ * Loaded after lily.css (tokens) and lily-icons.css. The epub reader still loads the
+ * vendor layout (main.css): epub.js sizes its view from it. This file only restyles the
+ * chrome on top (toolbar, sidebar, settings sheet, arrows) and uses tokens only, so a
+ * dark palette applies here too. The book's own page colours (the epub
+ * Light/Dark/Sepia/Black themes) are content, not chrome, and stay as they are.
  */
 
 /* The readers size everything in % of the window; lily.css' wide-screen zoom would
@@ -96,7 +95,7 @@ body.lily-reader {
 .lily-reader #slider.icon-right { background: color-mix(in srgb, currentColor 10%, transparent); opacity: 1; }
 
 /* ------------------------------------------------------------------ */
-/* Title bar (epub and comic)                                           */
+/* Title bar (epub)                                                     */
 /* ------------------------------------------------------------------ */
 .lily-reader #titlebar {
     display: flex;
@@ -246,7 +245,7 @@ body.lily-reader {
 }
 
 /* ------------------------------------------------------------------ */
-/* Sidebar: contents, bookmarks, search (epub), thumbnails (comic)      */
+/* Sidebar: contents, bookmarks, search (epub)                          */
 /* ------------------------------------------------------------------ */
 .lily-reader #sidebar {
     background: var(--surface);
@@ -577,35 +576,7 @@ body.lily-reader {
 .lily-reader .inputs input { accent-color: var(--accent); }
 
 /* ------------------------------------------------------------------ */
-/* Comic reader (kthoom)                                                */
-/* ------------------------------------------------------------------ */
-.lily-reader.lily-comic #titlebar {
-    height: auto;
-    background: color-mix(in srgb, var(--paper) 94%, transparent);
-    border-bottom: 1px solid var(--line-soft);
-    color: var(--ink);
-}
-
-.lily-reader.lily-comic #main { background: var(--sunk); }
-
-.lily-reader.lily-comic #sidebar a:hover,
-.lily-reader.lily-comic #sidebar a:focus { box-shadow: 0 0 0 2px var(--line); }
-
-.lily-reader.lily-comic #sidebar a.active { background: var(--accent); }
-
-.lily-reader.lily-comic #sidebar a.active img + span { background: var(--accent); color: var(--surface); }
-
-.lily-reader.lily-comic #sidebar li img + span { background: var(--ink-soft); color: var(--surface); font-size: 12px; }
-
-.lily-reader.lily-comic #progress .bar-load { background: var(--line-soft); color: var(--ink); }
-
-.lily-reader.lily-comic #progress .bar-read,
-.lily-reader.lily-comic.dark-theme #progress .bar-read { background: var(--accent); color: var(--surface); }
-
-.lily-reader.lily-comic .view { padding-top: 12px; }
-
-/* ------------------------------------------------------------------ */
-/* Plain-text reader                                                    */
+/* Audiobook title bar                                                  */
 /* ------------------------------------------------------------------ */
 .lily-reader-bar {
     display: flex;
@@ -641,35 +612,6 @@ body.lily-reader {
 
 /* Keeps the title centred against the back button. */
 .lily-reader-bar .reader-bar-spacer { flex: none; width: 76px; }
-
-.lily-reader.lily-txt { background: var(--paper); overflow: hidden; }
-
-.lily-reader.lily-txt #readmain {
-    top: 52px;
-    bottom: 0;
-    height: auto;
-}
-
-.lily-reader.lily-txt #content {
-    margin: 0;
-    color: var(--ink);
-    font-family: var(--font-body);
-    font-size: 17px;
-    line-height: 1.6;
-    column-gap: 48px;
-}
-
-.lily-reader.lily-txt .arrow {
-    position: absolute;
-    top: 50%;
-    margin-top: -48px;
-    padding: 20px 8px;
-    cursor: pointer;
-    user-select: none;
-}
-
-.lily-reader.lily-txt #left { left: 12px; }
-.lily-reader.lily-txt #right { right: 12px; }
 
 /* ------------------------------------------------------------------ */
 /* DjVu reader                                                          */
@@ -900,10 +842,6 @@ body.lily-reader {
     .lily-reader .md-content .item { flex-basis: 100%; }
 
     .lily-reader-bar .reader-bar-spacer { width: 40px; }
-
-    .lily-reader.lily-txt .arrow { display: none; }
-
-    .lily-reader.lily-txt #content { column-count: 1; }
 
     .lily-audio-page { padding-top: 72px; }
 

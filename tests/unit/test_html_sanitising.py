@@ -34,8 +34,18 @@ def test_templates_no_longer_trust_descriptions():
     for name in ("detail.html", "listenmp3.html"):
         text = (REPO / "cps" / "templates" / name).read_text()
         assert "comments[0].text|safe" not in text, name
-        assert "comments[0].text|sanitize_html" in text, name
+        # flatten_breaks sanitises too (test below)
+        assert "comments[0].text|flatten_breaks" in text, name
     assert "column.value|safe" not in (REPO / "cps" / "templates" / "detail.html").read_text()
+
+
+def test_flatten_breaks_sanitises_before_marking_safe():
+    from cps.jinjia import flatten_breaks_filter
+    out = flatten_breaks_filter(EVIL)
+    _assert_clean(str(out))
+    assert hasattr(out, "__html__")
+    assert str(flatten_breaks_filter("<p>One</p><p>Two</p>")) == "<p>One Two</p>"
+    assert str(flatten_breaks_filter(None)) == ""
 
 
 @pytest.fixture

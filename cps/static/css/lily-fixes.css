@@ -1,5 +1,5 @@
-/* Truncates a books description if if spans more than 8 lines */
-dd.meta_description {
+/* Fetch Metadata: a result's description stops after 15 lines */
+#meta-info dd.meta-description .meta-value {
     display: -webkit-box;
     -webkit-line-clamp: 15;
     -webkit-box-orient: vertical;

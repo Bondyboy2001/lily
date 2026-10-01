@@ -38,15 +38,6 @@ DUPLICATE_INDEX_REBUILD_BATCH_SIZE = 250
 INGEST_BATCH_DIRTY_FILE = "/config/cwa_ingest_batch_dirty"
 INGEST_BATCH_ACTIVE_FILE = "/config/cwa_ingest_batch_active"
 
-CRITERIA_KEYS = (
-    "duplicate_detection_title",
-    "duplicate_detection_author",
-    "duplicate_detection_language",
-    "duplicate_detection_series",
-    "duplicate_detection_publisher",
-    "duplicate_detection_format",
-)
-
 
 @dataclass(frozen=True)
 class BookKeyParts:

@@ -19,13 +19,12 @@ import requests
 
 from cps import logger
 from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata
+from cps.services.identifiers import ARXIV_DOI_PREFIX, ARXIV_ID_RE, DOI_RE, arxiv_id_from_doi
 
 log = logger.create()
 
 ATOM = "{http://www.w3.org/2005/Atom}"
 ARXIV_NS = "{http://arxiv.org/schemas/atom}"
-ARXIV_ID_RE = re.compile(r"(\d{4}\.\d{4,5})(v\d+)?")
-DOI_RE = re.compile(r"10\.\d{4,9}/\S+")
 
 
 class google_scholar(Metadata):
@@ -33,6 +32,7 @@ class google_scholar(Metadata):
     # provider settings and hierarchies keep working.
     __name__ = "Scholar"
     __id__ = "googlescholar"
+    identifier_types = frozenset({"doi", "arxiv"})
     ARXIV_URL = "https://export.arxiv.org/api/query"
     CROSSREF_URL = "https://api.crossref.org/works"
     # arXiv answers 406 when brotli/zstd are offered, which requests does
@@ -69,12 +69,15 @@ class google_scholar(Metadata):
         if not self.active:
             return []
         records = []
-        arxiv_id = ARXIV_ID_RE.search(identifiers.get("arxiv", ""))
+        doi = DOI_RE.search(identifiers.get("doi", ""))
+        doi = doi.group(0) if doi else ""
+        # An arXiv DOI names the arXiv id; Crossref doesn't know it
+        doi_arxiv = arxiv_id_from_doi(doi)
+        arxiv_id = ARXIV_ID_RE.search(identifiers.get("arxiv", "") or doi_arxiv)
         if arxiv_id:
             records += self._search_arxiv(arxiv_id.group(0))
-        doi = DOI_RE.search(identifiers.get("doi", ""))
-        if doi:
-            records += self._search_crossref(doi.group(0))
+        if doi and not doi_arxiv:
+            records += self._search_crossref(doi)
         return records
 
     def _search_arxiv(self, query: str) -> List[MetaRecord]:
@@ -131,9 +134,8 @@ class google_scholar(Metadata):
             c.get("term") for c in entry.findall(ATOM + "category") if c.get("term")
         ]
         match.identifiers = {"arxiv": arxiv_id}
-        doi = entry.findtext(ARXIV_NS + "doi")
-        if doi:
-            match.identifiers["doi"] = doi
+        # The journal's DOI once published, otherwise arXiv's own
+        match.identifiers["doi"] = entry.findtext(ARXIV_NS + "doi") or ARXIV_DOI_PREFIX + arxiv_id
         return match
 
     def _search_crossref(self, query: str) -> List[MetaRecord]:

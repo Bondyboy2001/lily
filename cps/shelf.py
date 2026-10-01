@@ -246,7 +246,7 @@ def render_show_shelf(shelf_id, page_no, sort_param):
                                               db.Series.name.desc(),
                                               db.Books.series_index.desc()])
 
-        result, __, pagination = calibre_db.fill_indexpage(page_no, 0,
+        result, pagination = calibre_db.fill_indexpage(page_no, 0,
                                                            db.Books,
                                                            ub.BookShelf.shelf == shelf_id,
                                                            [ub.BookShelf.order.asc()],

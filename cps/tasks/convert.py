@@ -7,8 +7,6 @@
 
 import os
 import re
-import glob
-from shutil import copyfile
 from time import time
 from uuid import uuid4
 
@@ -22,7 +20,7 @@ from cps.subproc_wrapper import process_open, ProcessTimeout, drain_in_backgroun
 from flask_babel import gettext as _
 from cps.file_helper import get_temp_dir
 
-from cps import gdriveutils, helper
+from cps import gdriveutils
 from cps.constants import SUPPORTED_CALIBRE_BINARIES
 from cps.string_helper import strip_whitespaces
 
@@ -149,17 +147,12 @@ class TaskConvert(CalibreTask):
                      book_id,
                      format_new_ext)
 
-        if config.config_kepubifypath and format_old_ext == '.epub' and format_new_ext == '.kepub':
-            check, error_message = self._convert_kepubify(file_path,
-                                                          format_old_ext,
-                                                          format_new_ext)
-        else:
-            # check if calibre converter-executable is existing
-            if not os.path.exists(config.config_converterpath):
-                self._handleError(N_("Calibre ebook-convert %(tool)s not found", tool=config.config_converterpath))
-                return
-            has_cover = local_db.get_book(book_id).has_cover
-            check, error_message = self._convert_calibre(file_path, format_old_ext, format_new_ext, has_cover)
+        # check if calibre converter-executable is existing
+        if not os.path.exists(config.config_converterpath):
+            self._handleError(N_("Calibre ebook-convert %(tool)s not found", tool=config.config_converterpath))
+            return
+        has_cover = local_db.get_book(book_id).has_cover
+        check, error_message = self._convert_calibre(file_path, format_old_ext, format_new_ext, has_cover)
 
         if check == 0:
             cur_book = local_db.get_book(book_id)
@@ -195,60 +188,6 @@ class TaskConvert(CalibreTask):
             log.error(error_message)
         self._handleError(error_message)
         return
-
-    def _convert_kepubify(self, file_path, format_old_ext, format_new_ext):
-        if config.config_embed_metadata and config.config_binariesdir:
-            tmp_dir, temp_file_name = helper.do_calibre_export(self.book_id, format_old_ext[1:])
-            filename = os.path.join(tmp_dir, temp_file_name + format_old_ext)
-            temp_file_path = tmp_dir
-        else:
-            filename = file_path + format_old_ext
-            temp_file_path = os.path.dirname(file_path)
-        quotes = [1, 3]
-        command = [config.config_kepubifypath, filename, '-o', temp_file_path, '-i']
-        try:
-            p = process_open(command, quotes, new_session=True)
-        except OSError as e:
-            return 1, N_("Kepubify-converter failed: %(error)s", error=e)
-        self.progress = 0.01
-        stderr_thread, _stderr = drain_in_background(p.stderr)
-        with ProcessTimeout(p, convert_timeout(filename), kill_group=True) as watchdog:
-            while True:
-                nextline = p.stdout.readlines()
-                nextline = [x.strip('\n') for x in nextline if x != '\n']
-                for line in nextline:
-                    log.debug(line)
-                if p.poll() is not None:
-                    break
-        stderr_thread.join(timeout=10)
-        if watchdog.timed_out:
-            log.error("kepubify of book %s was killed after %d s", self.book_id, watchdog.seconds)
-            return 1, _timeout_message(watchdog.seconds)
-
-        # process returncode
-        check = p.returncode
-
-        # move file
-        if check == 0:
-            converted_file = glob.glob(glob.escape(os.path.splitext(filename)[0]) + "*.kepub.epub")
-            if len(converted_file) == 1:
-                copyfile(converted_file[0], (file_path + format_new_ext))
-                os.unlink(converted_file[0])
-            else:
-                if config.config_embed_metadata and config.config_binariesdir and os.path.isfile(filename):
-                    try:
-                        os.remove(filename)
-                    except OSError:
-                        pass
-                return 1, N_("Converted file not found or more than one file in folder %(folder)s",
-                             folder=os.path.dirname(file_path))
-
-        if config.config_embed_metadata and config.config_binariesdir and os.path.isfile(filename):
-            try:
-                os.remove(filename)
-            except OSError:
-                pass
-        return check, None
 
     def _convert_calibre(self, file_path, format_old_ext, format_new_ext, has_cover):
         path_tmp_opf = None

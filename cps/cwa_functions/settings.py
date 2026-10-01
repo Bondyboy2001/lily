@@ -124,14 +124,7 @@ def set_cwa_settings():
     cwa_default_settings = cwa_db.cwa_default_settings
     cwa_settings = cwa_db.cwa_settings
 
-    ignorable_formats = ['acsm', 'azw', 'azw3', 'azw4', 'cbz',
-                        'cbr', 'cb7', 'cbc', 'chm',
-                        'djvu', 'docx', 'epub', 'fb2',
-                        'fbz', 'html', 'htmlz', 'kepub', 'lit',
-                        'lrf', 'mobi', 'odt', 'pdf',
-                        'prc', 'pdb', 'pml', 'rb',
-                        'rtf', 'snb', 'tcr', 'txt', 'txtz',
-                        'kfx', 'kfx-zip']
+    ignorable_formats = ['djvu', 'epub', 'pdf']
     automerge_options = ['ignore', 'overwrite', 'new_record']
     autoingest_options = ['ignore', 'overwrite', 'new_record']
 

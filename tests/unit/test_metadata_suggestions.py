@@ -57,3 +57,7 @@ def test_fill_never_overwrites_existing_description():
 
 def test_nothing_to_add_gives_empty_result():
     assert m.fill_fields({"description": None, "identifiers": {}}, {"description": "", "identifiers": {}}) == {}
+
+
+def test_calibres_unknown_author_counts_as_no_author():
+    assert m.match_score("Dune", ["Unknown"], "Dune", ["Frank Herbert"]) == m.match_score("Dune", [], "Dune", ["Frank Herbert"])

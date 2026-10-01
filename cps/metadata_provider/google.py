@@ -22,6 +22,7 @@ log = logger.create()
 class Google(Metadata):
     __name__ = "Google"
     __id__ = "google"
+    identifier_types = frozenset({"isbn"})
     DESCRIPTION = "Google Books"
     META_URL = "https://books.google.com/"
     BOOK_URL = "https://books.google.com/books?id="

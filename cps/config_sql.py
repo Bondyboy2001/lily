@@ -173,16 +173,6 @@ class ConfigSQL(object):
             self.config_binariesdir = autodetect_calibre_binaries()
             self.config_converterpath = autodetect_converter_binary(self.config_binariesdir)
 
-        # Autodetect Kepubify if not configured or empty string
-        if not self.config_kepubifypath:
-            change = True
-            self.config_kepubifypath = autodetect_kepubify_binary()
-
-        # Autodetect UnRar if not configured or empty string
-        # (empty string can occur from failed previous autodetection or manual clearing)
-        if not self.config_rarfile_location:
-            change = True
-            self.config_rarfile_location = autodetect_unrar_binary()
         if change:
             self.save()
 
@@ -242,9 +232,6 @@ class ConfigSQL(object):
 
     def show_element_new_user(self, value):
         return constants.has_flag(self.config_default_show, value)
-
-    def show_detail_random(self):
-        return self.show_element_new_user(constants.DETAIL_RANDOM)
 
     def list_denied_tags(self):
         mct = self.config_denied_tags or ""
@@ -332,6 +319,17 @@ class ConfigSQL(object):
         if self.config_calibre_web_title in ('Calibre-Web Automated', 'Calibre-Web'):
             self.config_calibre_web_title = 'Lily'
             s.config_calibre_web_title = 'Lily'
+            try:
+                self._session.merge(s)
+                self._session.commit()
+            except OperationalError as e:
+                log.error('Database error: %s', e)
+                self._session.rollback()
+
+        # Only readable books (and audiobooks) are supported; drop any other format saved by an older install
+        allowed = [x for x in (self.config_upload_formats or '').split(',') if x in constants.EXTENSIONS_UPLOAD]
+        if ','.join(allowed) != self.config_upload_formats:
+            self.config_upload_formats = s.config_upload_formats = ','.join(allowed)
             try:
                 self._session.merge(s)
                 self._session.commit()
@@ -483,34 +481,6 @@ def autodetect_converter_binary(calibre_path):
         converter_path = os.path.join(calibre_path, "ebook-convert")
     if calibre_path and os.path.isfile(converter_path) and os.access(converter_path, os.X_OK):
         return converter_path
-    return ""
-
-
-def autodetect_unrar_binary():
-    if sys.platform == "win32":
-        calibre_path = ["C:\\program files\\WinRar\\unRAR.exe",
-                        "C:\\program files(x86)\\WinRar\\unRAR.exe"]
-    elif sys.platform.startswith("freebsd"):
-        calibre_path = ["/usr/local/bin/unrar"]
-    else:
-        calibre_path = ["/usr/bin/unrar"]
-    for element in calibre_path:
-        if os.path.isfile(element) and os.access(element, os.X_OK):
-            return element
-    return ""
-
-
-def autodetect_kepubify_binary():
-    if sys.platform == "win32":
-        calibre_path = ["C:\\program files\\kepubify\\kepubify-windows-64Bit.exe",
-                        "C:\\program files(x86)\\kepubify\\kepubify-windows-64Bit.exe"]
-    elif sys.platform.startswith("freebsd"):
-        calibre_path = ["/usr/local/bin/kepubify"]
-    else:
-        calibre_path = ["/opt/kepubify/kepubify-linux-64bit", "/opt/kepubify/kepubify-linux-32bit"]
-    for element in calibre_path:
-        if os.path.isfile(element) and os.access(element, os.X_OK):
-            return element
     return ""
 
 

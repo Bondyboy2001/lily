@@ -22,7 +22,7 @@ pytestmark = pytest.mark.unit
 
 def test_readable_formats_are_ordered_best_first_and_skip_formats_without_a_reader():
     assert readable_formats(["TXT", "MOBI", "PDF", "CBZ", "KEPUB", "EPUB", "MP3", "DJVU"]) == \
-        ["epub", "kepub", "pdf", "cbz", "txt", "djvu", "mp3"]
+        ["epub", "kepub", "pdf", "djvu", "mp3"]
     assert readable_formats(["MOBI", "AZW3", "FB2", "HTML", "DOCX"]) == []
 
 

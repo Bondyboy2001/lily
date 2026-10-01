@@ -43,7 +43,7 @@ def simple_search():
                     user_id=int(current_user.id),
                     user_name=current_user.name,
                     event_type='SEARCH',
-                    extra_data=term[:100]  # Limit search term length
+                    extra_data={'query': term.strip()[:100]}  # Limit search term length
                 )
             except Exception as e:
                 log.debug(f"Failed to log search activity: {e}")

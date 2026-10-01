@@ -237,6 +237,26 @@
     font-size: 11px;
 }
 
+.lily-cover-formats {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 1;
+    display: flex;
+    gap: 4px;
+}
+
+/* Coloured file-type marks (Material Icon Theme), so they keep their colours in both themes. */
+.lily-format {
+    width: 24px;
+    height: 24px;
+    background: center / contain no-repeat;
+}
+
+.lily-format-pdf { background-image: url("../icons/formats/pdf.svg"); }
+.lily-format-epub { background-image: url("../icons/formats/epub.svg"); }
+
+.lily-book .cover .lily-cover-count { left: auto; right: 6px; }
 .lily-book .cover .lily-cover-count,
 .container-fluid .lily-book .cover .lily-cover-count { left: auto; right: 6px; }
 
@@ -313,16 +333,43 @@
     letter-spacing: 1px;
 }
 
-/* Quick actions: bare icon buttons under the text, shown on hover or keyboard focus. */
+/* Quick actions: a bar of round icon buttons over the cover's foot, shown on hover or keyboard focus.
+   The buttons are skinned through the --btn-* variables, which list view overrides. */
 .lily-cover-actions {
+    --btn-size: 32px;
+    --btn-bg: var(--surface);
+    --btn-hover-bg: var(--surface);
+    --btn-border: var(--line-soft);
+    --btn-radius: 50%;
+    --btn-ink: var(--ink);
+    --btn-hover-ink: var(--accent);
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
     display: flex;
-    gap: 2px;
-    margin: 4px 0 0 -7px;
+    justify-content: space-around;
+    padding: 8px;
+    pointer-events: none;
 }
+
+.lily-cover-actions .icon-btn {
+    pointer-events: auto;
+    width: var(--btn-size);
+    height: var(--btn-size);
+    border: 1px solid var(--btn-border);
+    border-radius: var(--btn-radius);
+    background: var(--btn-bg);
+    color: var(--btn-ink);
+}
+
+.lily-cover-actions .icon-btn:hover,
+.lily-cover-actions .icon-btn:focus { background: var(--btn-hover-bg); color: var(--btn-hover-ink); }
 
 .lily-cover-actions .icon-btn .glyphicon { font-size: 15px; }
 
-.lily-cover-actions .icon-btn[aria-pressed="true"] { color: var(--success); }
+.lily-cover-actions .icon-btn[aria-pressed="true"] { background: var(--btn-bg); color: var(--success); }
 
 .lily-cover-actions .icon-btn.is-busy { opacity: .4; pointer-events: none; }
 
@@ -336,23 +383,13 @@
     .lily-book:focus-within .lily-cover-actions { opacity: 1; }
 }
 
-/* Touch screens have no hover, so the actions stay visible in a compact row that
-   wraps on narrow cards. Hit areas grow into the gap without overlapping. */
+/* Touch screens have no hover, so the bar stays visible with larger hit areas. */
 @media (hover: none) {
-    .lily-cover-actions {
-        flex-wrap: wrap;
-        gap: 6px;
-        margin: 6px 0 0 -5px;
-    }
-
-    .lily-cover-actions .icon-btn {
-        width: 32px;
-        height: 32px;
-        color: var(--faint);
-    }
-
-    .lily-cover-actions .icon-btn::after { inset: -3px; }
+    .lily-cover-actions { --btn-size: 36px; }
 }
+
+/* Grid cards show the title only; list rows keep the authors. */
+body:not([data-book-view="list"]) .lily-book .meta .author { display: none; }
 
 /* List view (the top bar's List icon sets body[data-book-view]): one row per
    book, a small cover, the text in a column, rating and actions at the end. */
@@ -404,10 +441,38 @@ body[data-book-view="list"] .lily-book .meta .rating {
     margin: 0;
 }
 
-body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
-    grid-column: 3;
-    grid-row: 1 / span 3;
-    margin: 0;
+/* The 44px list cover is too small for the bar: the actions leave it and sit at the row's end.
+   The cover stops being the positioning box, so the badge and hairline are re-anchored. */
+body[data-book-view="list"] .lily-book { position: relative; }
+
+body[data-book-view="list"] .lily-book .cover { position: static; }
+
+body[data-book-view="list"] .lily-book .cover::after { display: none; }
+
+body[data-book-view="list"] .lily-book .cover .img {
+    border-radius: 4px;
+    outline: 1px solid var(--line-soft);
+    outline-offset: -1px;
+}
+
+body[data-book-view="list"] .lily-book .cover .badge { top: 13px; left: 13px; }
+
+body[data-book-view="list"] .lily-cover-formats { display: none; }
+
+body[data-book-view="list"] .lily-book .lily-cover-actions {
+    --btn-size: 30px;
+    --btn-bg: transparent;
+    --btn-hover-bg: var(--control-tint);
+    --btn-border: transparent;
+    --btn-radius: var(--control-radius);
+    --btn-ink: var(--faint);
+    --btn-hover-ink: var(--ink);
+    left: auto;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    padding: 0;
+    gap: 2px;
 }
 
 /* Series grid (grid.html): a CSS grid of one letter's series. */
@@ -494,7 +559,7 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
 
 .library-empty-state p { color: var(--muted); }
 
-/* The Lucide mask is a fixed-width block; centre it like the text. */
+/* The icon mask is a fixed-width block; centre it like the text. */
 .library-empty-state .library-empty-icon::before { margin: -0.1em auto; }
 
 .library-empty-state .library-empty-actions {

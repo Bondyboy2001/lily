@@ -499,9 +499,7 @@ class NewBookProcessor:
 
 
         # Formats
-        self.supported_book_formats = {
-            'acsm','azw','azw3','azw4','cbz','cbr','cb7','cbc','chm','djvu','docx','epub','fb2','fbz','html','htmlz','kepub','kfx','kfx-zip','lit','lrf','mobi','odt','pdf','prc','pdb','pml','rb','rtf','snb','tcr','txtz','txt'
-        }
+        self.supported_book_formats = {'epub', 'pdf', 'djvu'}
         self.supported_audiobook_formats = {'m4b', 'm4a', 'mp4'}
 
         # Directories

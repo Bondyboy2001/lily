@@ -29,8 +29,3 @@ def test_task_table_escapes_cells():
     table = re.search(r'<table[^>]*id="tasktable"[^>]*>', tasks).group(0)
     assert 'data-escape="true"' in table
 
-
-def test_txt_reader_does_not_parse_the_book_as_html():
-    src = (JS / "reading" / "txt_reader.js").read_text()
-    assert "$(\"#content\").load(" not in src
-    assert '"text")' in src and "content.text(textStr)" in src

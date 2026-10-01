@@ -48,6 +48,9 @@ class Metadata:
     __id__ = "generic"
     # Whether the provider is on when the admin hasn't switched it either way
     default_enabled = True
+    # Identifier types search_identifiers can look up; a typed identifier of one of
+    # these types is sent to the provider even when the user switched it off
+    identifier_types: frozenset = frozenset()
 
     def __init__(self):
         self.active = True

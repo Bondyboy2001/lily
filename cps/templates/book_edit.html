@@ -270,7 +270,7 @@
         <form class="padded-bottom" id="meta-search">
           <div class="input-group">
             <label class="sr-only" for="keyword">{{_('Keyword')}}</label>
-            <input type="text" class="form-control" id="keyword" name="keyword" placeholder="{{_("Search keyword")}}">
+            <input type="text" class="form-control" id="keyword" name="keyword" placeholder="{{_("Title and author, ISBN, DOI or arXiv id")}}">
             <span class="input-group-btn">
               <button type="submit" class="btn btn-primary" id="do-search">{{_("Search")}}</button>
             </span>
@@ -279,7 +279,7 @@
       </div>
       <div class="modal-body">
         <div id="meta-import-alert" class="alert alert-success meta-import-alert" role="alert" aria-live="polite" style="display:none;">
-          {{_('Selected metadata fields were applied to the edit form.')}}
+          {{_('The ticked fields were filled into the edit form. Save to keep them.')}}
         </div>
         <div class="text-center padded-bottom" id="metadata_provider">
         </div>
@@ -290,6 +290,7 @@
       </div>
       <div class="modal-footer">
         <button id="meta_close" type="button" class="btn btn-default" data-dismiss="modal">{{_('Close')}}</button>
+        <button id="meta_save" type="button" class="btn btn-primary" hidden>{{_('Save')}}</button>
       </div>
     </div>
   </div>
@@ -298,7 +299,7 @@
 
 {% block js %}
 <script type="text/template" id="template-book-result">
-  <li class="media" data-related="<%- book.source.id %>">
+  <li class="media<%- book.exact_match ? ' meta-exact' : '' %>" data-uid="<%- uid %>">
     <div class="media-image">
       <div class="media-image-wrapper">
         <img
@@ -307,62 +308,38 @@
           alt="<%- book.title ? 'Cover of ' + book.title : 'Cover' %>"
         >
         <div class="image-dimensions"></div>
-        <input type="checkbox" data-meta-index="<%- index %>" data-meta-value="cover" checked>
+        <input type="checkbox" data-meta-value="cover" aria-label="{{_('Use this cover')}}" checked>
       </div>
-      <button class="btn btn-default">{{_("Apply")}}</button>
+      <button type="button" class="btn btn-primary meta-apply" title="{{_('Fill the form with the ticked fields and save')}}">{{_("Apply")}}</button>
+      <button type="button" class="btn btn-default meta-fill" title="{{_('Fill the form with the ticked fields without saving, to combine several results')}}">{{_("Fill form")}}</button>
       <div><a class="meta_source" href="<%- safeUrl(book.source.link) %>" target="_blank" rel="noopener"><%- book.source.description %></a></div>
       <% if (book.exact_match) { %>
       <div class="meta-exact-match">{{_("Exact match")}}</div>
+      <% } else if (book.score) { %>
+      <div class="meta-score">{{_("Match")}} <%- Math.round(book.score * 100) %>%</div>
       <% } %>
-      <% if(book.format) { %>
-      <div>Format: <%- book.format %></div>
+      <% if (book.format) { %>
+      <div>{{_("Format")}}: <%- book.format %></div>
       <% } %>
     </div>
     <dl class="media-body">
-      <dt><input type="checkbox" data-meta-index="<%- index %>" data-meta-value="title" checked>Title:</dt>
-      <dd><a class="meta_title" href="<%- safeUrl(book.url) %>" target="_blank" rel="noopener"><%- book.title %></a></dd>
-      <dt><input type="checkbox" data-meta-index="<%- index %>" data-meta-value="authors" checked>Author:</dt>
-      <dd class="meta_author"><%- (book.authors || []).join(" & ") %></dd>
-      <% if (book.publisher) { %>
-        <dt><input type="checkbox" data-meta-index="<%- index %>" data-meta-value="publisher" checked>Publisher:</dt>
-        <dd class="meta_publisher"><%- book.publisher %></dd>
-      <% } %>
-      <% if (book.publishedDate) { %>
-        <dt><input type="checkbox" data-meta-index="<%- index %>" data-meta-value="pubDate" checked>Published Date:</dt>
-        <dd class="meta_publishedDate"><%- book.publishedDate %></dd>
-      <% } %>
-      <% if (book.series) { %>
-        <dt><input type="checkbox" data-meta-index="<%- index %>" data-meta-value="series" checked>Series:</dt>
-        <dd class="meta_publishedDate"><%- book.series %></dd>
-      <% } %>
-      <% if (book.series_index) { %>
-        <dt><input type="checkbox" data-meta-index="<%- index %>" data-meta-value="seriesIndex" checked>Series Index:</dt>
-        <dd class="meta_publishedDate"><%- book.series_index %></dd>
-      <% } %>
-			<% if (book.rating) { %>
-				<dt><input type="checkbox" data-meta-index="<%- index %>" data-meta-value="rating" checked>Rating:</dt>
-				<dd class="meta_rating"><%- book.rating %> / 5</dd>
-			<% } %>
-      <% if (book.description) { %>
-        <dt><input type="checkbox" data-meta-index="<%- index %>" data-meta-value="description" checked>Description:</dt>
-        <dd class="meta_description"><%- htmlToText(book.description) %></dd>
-      <% } %>
-      <% if (book.tags && book.tags.length !== 0) { %>
-        <dt><input type="checkbox" data-meta-index="<%- index %>" data-meta-value="tags" checked>Tags:</dt>
-        <dd class="meta_author"><%- book.tags.join(", ") %></dd>
-      <% } %>
-      <% if (book.identifiers && Object.keys(book.identifiers).length !== 0 ) { %>
-        <% for (const key in book.identifiers) { %>
-          <% if (book.identifiers[key] !== "") { %>
-            <dt><input type="checkbox" data-meta-index="<%- index %>" data-meta-value="<%- key %>" checked>Identifier</dt>
-            <dd class="meta_identifier"><%- key %>:<%- book.identifiers[key] %>
-              <% if (key === "hardcover-id" && !document.getElementById("keyword").value.includes("hardcover-id")) { %>
-                <a href="#" data-hardcover-id="<%- book.identifiers[key] %>" ><span class="glyphicon glyphicon-search" aria-hidden="true"></span> Editions</a>
-              <% } %>
-            </dd>
+      <div class="meta-toggle-row">
+        <button type="button" class="btn btn-link btn-xs meta-toggle-all">{{_("Tick all / none")}}</button>
+      </div>
+      <% fields.forEach(function (f) { %>
+        <dt><label><input type="checkbox" data-meta-value="<%- f.key %>" checked> <%- f.label %></label></dt>
+        <dd class="<%- f.cls || '' %><%- f.same ? ' meta-same' : '' %>">
+          <% if (f.link) { %><a href="<%- safeUrl(f.link) %>" target="_blank" rel="noopener"><%- f.text %></a><% } else { %><span class="meta-value"><%- f.text %></span><% } %>
+          <% if (f.editions) { %>
+            <a href="#" class="meta-editions" data-hardcover-id="<%- f.editions %>"><span class="glyphicon glyphicon-search" aria-hidden="true"></span> {{_("Editions")}}</a>
           <% } %>
-        <% } %>
-      <% } %>
+          <% if (f.same) { %>
+            <span class="meta-note">{{_("same as now")}}</span>
+          <% } else if (f.current) { %>
+            <div class="meta-note">{{_("Now")}}: <%- f.current %></div>
+          <% } %>
+        </dd>
+      <% }); %>
     </dl>
   </li>
 </script>
@@ -370,11 +347,23 @@
   var i18nMsg = {
     'loading': {{_('Loading...')|safe|tojson}},
     'search_error': {{_('Search error!')|safe|tojson}},
-    'no_result': {{_('No Result(s) found! Please try another keyword.')|safe|tojson}},
+    'no_result': {{_('No results. Try another title, or an ISBN, DOI or arXiv id.')|safe|tojson}},
     'author': {{_('Author')|safe|tojson}},
     'publisher': {{_('Publisher')|safe|tojson}},
     'comments': {{_('Description')|safe|tojson}},
-    'source': {{_('Source')|safe|tojson}},
+    'title': {{_('Title')|safe|tojson}},
+    'pubdate': {{_('Published')|safe|tojson}},
+    'series': {{_('Series')|safe|tojson}},
+    'series_index': {{_('Series index')|safe|tojson}},
+    'rating': {{_('Rating')|safe|tojson}},
+    'tags': {{_('Tags')|safe|tojson}},
+    'languages': {{_('Languages')|safe|tojson}},
+    'searching': {{_('searching')|safe|tojson}},
+    'failed': {{_('failed')|safe|tojson}},
+    'timed_out': {{_('timed out')|safe|tojson}},
+    'identifier_type': {{_('Identifier Type')|safe|tojson}},
+    'identifier_value': {{_('Identifier Value')|safe|tojson}},
+    'remove': {{_('Remove')|safe|tojson}},
   };
   var language = '{{ current_user.locale }}';
 
@@ -387,12 +376,6 @@
       el.nextElementSibling.classList.add("larger")
     }
   }
-  $(document).on('click','.meta_identifier a',
-    function (e) {
-      e.preventDefault()
-      document.getElementById("keyword").value = `hardcover-id:${e.target.dataset.hardcoverId}`
-      document.getElementById("do-search").click()
-    })
 </script>
 <script src="{{ url_for('static', filename='js/libs/typeahead.bundle.js') }}"></script>
 <script src="{{ url_for('static', filename='js/libs/bootstrap-rating-input.min.js') }}"></script>

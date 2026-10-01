@@ -193,7 +193,8 @@
 {# Quick actions under a grid cover: bare icon buttons, revealed on hover or focus (lily.js wires them).
    Read opens the best format a built-in reader handles (helper.check_read_formats), in this tab;
    it is left out when no format opens in a reader. #}
-{% macro cover_actions(book, user, is_read=False) -%}
+{% macro cover_actions(book, user, formats=None, is_read=False) -%}
+    {#- `formats` (all of the book's formats) is accepted for the card's call; Read uses only readable ones -#}
     {%- set formats = book|reader_formats -%}
     <div class="lily-cover-actions" data-book-id="{{ book.id }}">
       {% if formats and user.role_viewer() %}
@@ -215,6 +216,7 @@
 
 {# One book in a cover grid (index, author, search, shelf). Cards are plain: cover, title, authors. #}
 {% macro book_card(book, user, is_read=False, authors_max=0, series_link=True, alt=None, extra_class='') -%}
+    {%- set formats = book.data|map(attribute='format')|map('lower')|list -%}
     <div class="book lily-book {{ extra_class }}">
       <div class="cover">
         <a href="{{ url_for('web.show_book', book_id=book.id) }}" class="book-cover-link" data-book-id="{{ book.id }}">
@@ -222,8 +224,13 @@
             {{ book_cover(book, alt=alt, list_sizes=LIST_COVER_SIZES,
                           list_view=(user.get_view_property('books', 'view') == 'list')) }}
             {% if is_read %}<span class="badge read glyphicon glyphicon-ok" title="{{ _('Read') }}"></span>{% endif %}
+            {% set marks = ['epub', 'pdf']|select('in', formats)|list %}
+            {% if marks %}
+            <span class="lily-cover-formats">{% for f in marks %}<span class="lily-format lily-format-{{ f }}" title="{{ f|upper }}"></span>{% endfor %}</span>
+            {% endif %}
           </span>
         </a>
+        {{ cover_actions(book, user, formats, is_read) }}
       </div>
       <div class="meta">
         <a href="{{ url_for('web.show_book', book_id=book.id) }}">
@@ -261,7 +268,6 @@
           {% for number in range(5 - stars) %}<span class="glyphicon glyphicon-star-empty" aria-hidden="true"></span>{% endfor %}
         </div>
         {% endif %}
-        {{ cover_actions(book, user, is_read) }}
       </div>
     </div>
 {%- endmacro %}

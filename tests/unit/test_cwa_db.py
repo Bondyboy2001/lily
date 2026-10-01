@@ -214,6 +214,22 @@ class TestCWADBUserFilters:
         assert [count for _day, count in stats["most_active_days"]] == [2]
         assert "active_users" not in stats["totals"]
 
+    def test_recent_searches_return_the_term_not_json(self, temp_cwa_db):
+        """Recent searches show the typed term, including legacy rows stored as {"format": term}."""
+        temp_cwa_db.log_activity(1, "harry", "SEARCH", extra_data={"query": "graph"})
+        temp_cwa_db.log_activity(1, "harry", "SEARCH", extra_data={"query": "1984"})
+        temp_cwa_db.cur.execute(
+            "INSERT INTO cwa_user_activity (user_id, user_name, event_type, extra_data) VALUES (?, ?, ?, ?)",
+            (1, "harry", "SEARCH", '{"format": "the", "device_type": "desktop"}'))
+        temp_cwa_db.cur.execute(
+            "INSERT INTO cwa_user_activity (user_id, user_name, event_type, extra_data) VALUES (?, ?, ?, ?)",
+            (1, "harry", "SEARCH", "plain term"))
+        temp_cwa_db.con.commit()
+
+        terms = {row[0] for row in temp_cwa_db.get_dashboard_stats(days=1)["recent_searches"]}
+
+        assert terms == {"graph", "1984", "the", "plain term"}
+
 
 @pytest.mark.unit
 class TestCWADBStatistics:

@@ -10,7 +10,6 @@
 <link href="{{ url_for('static', filename='css/lily-settings.css') }}" rel="stylesheet">
 {% endblock %}
 
-{% block heading %}{{ _('Services') }}{% endblock %}
 {% block settings %}
 <div class="lp lily-settings">
   <form id="cwa_settings_form" action="{{ url_for('cwa_settings.set_cwa_settings')}}" method="post"
@@ -26,19 +25,9 @@
     <div class="tab-content lily-settings-panes">
 
     {# ================================================================== #}
-    {# Services                                                           #}
-    {# ================================================================== #}
-    <div role="tabpanel" class="tab-pane active" id="lily-tab-services" data-lily-pane="services" aria-labelledby="lily-tablink-services">
-    {% call f.group(_('Services')) %}
-      {{ f.toggle('auto_metadata_enforcement', _('Write edits into book files'), cwa_settings['auto_metadata_enforcement'],
-         help=_('Metadata and cover edits are applied to the EPUB or AZW3 file, not just the library.'), attrs='value="True"') }}
-    {% endcall %}
-    </div>
-
-    {# ================================================================== #}
     {# Ingest                                                             #}
     {# ================================================================== #}
-    <div role="tabpanel" class="tab-pane" id="lily-tab-ingest" data-lily-pane="ingest" aria-labelledby="lily-tablink-ingest">
+    <div role="tabpanel" class="tab-pane active" id="lily-tab-ingest" data-lily-pane="ingest" aria-labelledby="lily-tablink-ingest">
     {% call f.group(_('Processing')) %}
       {% call f.row(_('Timeout'), for_id='ingest_timeout_minutes', help=_('Books that take longer are moved to the failed folder. 5–120, default 15.')) %}
         <input type="number" class="form-control" name="ingest_timeout_minutes" id="ingest_timeout_minutes" value="{{ cwa_settings['ingest_timeout_minutes'] }}" min="5" max="120">
@@ -79,6 +68,11 @@
     {# Metadata & Covers                                                  #}
     {# ================================================================== #}
     <div role="tabpanel" class="tab-pane" id="lily-tab-metadata" data-lily-pane="metadata" aria-labelledby="lily-tablink-metadata">
+    {% call f.group(_('Editing')) %}
+      {{ f.toggle('auto_metadata_enforcement', _('Write edits into book files'), cwa_settings['auto_metadata_enforcement'],
+         help=_('Metadata and cover edits are applied to the EPUB or AZW3 file, not just the library.'), attrs='value="True"') }}
+    {% endcall %}
+
     {% call f.group(_('Automatic Fetching')) %}
       {{ f.toggle('auto_metadata_fetch_enabled', _('Fetch metadata for new books'), cwa_settings['auto_metadata_fetch_enabled'],
          help=_('Looks up title, authors, description and cover using the providers below.'), attrs='value="True"') }}

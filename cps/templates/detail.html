@@ -283,7 +283,7 @@
     {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
         <section class="book-detail-description" aria-labelledby="decription">
             <h3 id="decription">{{ _('Description') }}</h3>
-            <div class="comments">{{ entry.comments[0].text|sanitize_html }}</div>
+            <div class="comments">{{ entry.comments[0].text|flatten_breaks }}</div>
         </section>
     {% endif %}
     <div id="action-toast" class="action-toast" role="status" aria-live="polite"></div>
