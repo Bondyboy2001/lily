@@ -1,7 +1,10 @@
 """Library mirror: incremental copy-only backup of book files."""
 
+import io
 import os
 import sys
+import zipfile
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -14,11 +17,21 @@ import library_mirror as mod  # noqa: E402
 pytestmark = pytest.mark.unit
 
 
+def _epub(text, size=0):
+    """A valid zip with one member; `size` pads it with incompressible bytes."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+        zf.writestr("content.xhtml", text)
+        if size:
+            zf.writestr("pad.bin", os.urandom(size))
+    return buf.getvalue()
+
+
 @pytest.fixture
 def lib(tmp_path):
     src = tmp_path / "library"
     (src / "Ann" / "Book (1)").mkdir(parents=True)
-    (src / "Ann" / "Book (1)" / "Book.epub").write_bytes(b"epub-bytes")
+    (src / "Ann" / "Book (1)" / "Book.epub").write_bytes(_epub("epub-bytes"))
     (src / "Ann" / "Book (1)" / "cover.jpg").write_bytes(b"jpg")
     (src / "metadata.db").write_bytes(b"live-db")
     (src / ".caltrash").mkdir()
@@ -42,11 +55,12 @@ def test_second_run_copies_nothing_then_only_what_changed(lib):
     mod.mirror_library(str(src), str(dest))
     assert mod.mirror_library(str(src), str(dest))["copied"] == 0
     book = src / "Ann" / "Book (1)" / "Book.epub"
-    book.write_bytes(b"longer epub bytes now")
+    book.write_bytes(_epub("longer epub bytes now"))
     (src / "New").mkdir()
     (src / "New" / "n.epub").write_bytes(b"n")
-    assert mod.mirror_library(str(src), str(dest))["copied"] == 2
-    assert (dest / "Ann" / "Book (1)" / "Book.epub").read_bytes() == b"longer epub bytes now"
+    result = mod.mirror_library(str(src), str(dest))
+    assert result["copied"] == 2 and result["versioned"] == 1 and not result["suspicious"]
+    assert (dest / "Ann" / "Book (1)" / "Book.epub").read_bytes() == _epub("longer epub bytes now")
 
 
 def test_newer_source_with_same_size_is_recopied(lib):
@@ -109,10 +123,10 @@ def test_one_unreadable_file_does_not_stop_the_rest(lib, monkeypatch):
     src, dest = lib
     real = mod._copy_atomic
 
-    def flaky(source, target):
+    def flaky(source, target, before_replace=None):
         if source.endswith("cover.jpg"):
             raise OSError("disk hiccup")
-        real(source, target)
+        real(source, target, before_replace)
 
     monkeypatch.setattr(mod, "_copy_atomic", flaky)
     result = mod.mirror_library(str(src), str(dest))
@@ -148,3 +162,109 @@ def test_task_mirrors_and_reports_errors(lib, monkeypatch):
     bad = task_mod.TaskMirrorLibrary()
     bad.start(None)
     assert bad.stat == STAT_FAIL
+
+
+BOOK = "Ann/Book (1)/Book.epub"
+
+
+def test_replaced_copy_is_kept_under_versions_by_day(lib):
+    src, dest = lib
+    mod.mirror_library(str(src), str(dest), today=date(2026, 3, 1))
+    original = (dest / BOOK).read_bytes()
+    (src / BOOK).write_bytes(_epub("second edition"))
+    result = mod.mirror_library(str(src), str(dest), today=date(2026, 3, 2))
+    assert result["versioned"] == 1
+    assert (dest / ".versions" / "2026-03-02" / BOOK).read_bytes() == original
+    assert (dest / BOOK).read_bytes() == _epub("second edition")
+
+    # A second change the same day doesn't overwrite the first saved version
+    (src / BOOK).write_bytes(_epub("the third edition"))
+    mod.mirror_library(str(src), str(dest), today=date(2026, 3, 2))
+    assert (dest / ".versions" / "2026-03-02" / BOOK).read_bytes() == original
+    assert (dest / ".versions" / "2026-03-02_1" / BOOK).read_bytes() == _epub("second edition")
+
+
+def test_corrupt_zip_replacement_is_refused_and_reported(lib):
+    src, dest = lib
+    mod.mirror_library(str(src), str(dest))
+    good = (dest / BOOK).read_bytes()
+    (src / BOOK).write_bytes(b"PK\x03\x04 this is not really a zip" * 3)
+    result = mod.mirror_library(str(src), str(dest))
+    assert result["copied"] == 0 and list(result["suspicious"]) == [BOOK]
+    assert "zip" in result["suspicious"][BOOK]
+    assert (dest / BOOK).read_bytes() == good
+    assert not (dest / ".versions").exists()
+
+
+def test_zip_with_bad_crc_is_refused(lib):
+    src, dest = lib
+    mod.mirror_library(str(src), str(dest))
+    data = bytearray(_epub("x" * 200))
+    data[data.index(b"xxxx")] = ord("y")  # flip a stored byte: the CRC no longer matches
+    (src / BOOK).write_bytes(bytes(data))
+    result = mod.mirror_library(str(src), str(dest))
+    assert result["suspicious"][BOOK] == "corrupt zip member content.xhtml"
+
+
+def test_file_that_lost_more_than_half_its_size_is_refused(lib):
+    src, dest = lib
+    cover = src / "Ann" / "Book (1)" / "cover.jpg"
+    cover.write_bytes(b"j" * 1000)
+    mod.mirror_library(str(src), str(dest))
+    cover.write_bytes(b"j" * 400)
+    result = mod.mirror_library(str(src), str(dest))
+    assert result["suspicious"] == {"Ann/Book (1)/cover.jpg": "shrank from 1000 to 400 bytes"}
+    assert (dest / "Ann" / "Book (1)" / "cover.jpg").stat().st_size == 1000
+    cover.write_bytes(b"j" * 600)  # a smaller but plausible edit goes through
+    assert mod.mirror_library(str(src), str(dest))["copied"] == 1
+
+
+def test_new_files_are_copied_even_if_they_look_damaged(lib):
+    src, dest = lib
+    (src / "broken.cbz").write_bytes(b"nope")
+    result = mod.mirror_library(str(src), str(dest))
+    assert (dest / "broken.cbz").exists() and not result["suspicious"]
+
+
+def test_old_version_folders_are_pruned(lib):
+    src, dest = lib
+    versions = dest / ".versions"
+    for name in ("2026-01-01", "2026-01-01_1", "2026-02-15", "2026-03-01", "notes", "2026-13-01"):
+        (versions / name).mkdir(parents=True)
+    (versions / "stray.txt").write_text("x")
+    (versions / "2025-01-01").symlink_to(versions / "notes")
+    result = mod.mirror_library(str(src), str(dest), version_days=30, today=date(2026, 3, 1))
+    assert sorted(os.path.basename(p) for p in result["pruned_versions"]) == ["2026-01-01", "2026-01-01_1"]
+    assert sorted(os.listdir(versions)) == ["2025-01-01", "2026-02-15", "2026-03-01", "2026-13-01",
+                                            "notes", "stray.txt"]
+    assert mod.prune_versions(str(dest), 0, date(2030, 1, 1)) == []
+    assert mod.prune_versions(str(dest / "nowhere"), 30) == []
+
+
+@pytest.mark.parametrize("value,expected", [(30, 30), ("7", 7), ("0", 0), (-3, 30), ("x", 30),
+                                            (None, 30), (True, 30)])
+def test_normalize_version_days(value, expected):
+    assert mod.normalize_version_days(value) == expected
+
+
+def test_task_reports_suspicious_files_as_failure(lib, monkeypatch):
+    from cps import config
+    from cps.services.worker import STAT_FAIL
+    from cps.tasks import library_mirror as task_mod
+    src, dest = lib
+    monkeypatch.setattr(config, "config_calibre_dir", str(src), raising=False)
+    monkeypatch.setattr(task_mod, "get_mirror_dir", lambda: str(dest))
+    monkeypatch.setattr(task_mod, "get_version_days", lambda: 30)
+    task_mod.TaskMirrorLibrary().start(None)
+    (src / BOOK).write_bytes(b"garbage")
+    task = task_mod.TaskMirrorLibrary()
+    task.start(None)
+    assert task.stat == STAT_FAIL and "1 suspicious" in task.error
+
+
+def test_task_version_days_setting(monkeypatch):
+    from cps.tasks import library_mirror as task_mod
+    monkeypatch.setattr(task_mod, "_setting", lambda name: "12" if name == "library_mirror_version_days" else "")
+    assert task_mod.get_version_days() == 12
+    monkeypatch.setattr(task_mod, "_setting", lambda name: "")
+    assert task_mod.get_version_days() == 30
