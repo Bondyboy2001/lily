@@ -24,6 +24,7 @@ from .server import WebServer
 from .dep_check import dependency_check
 from . import config_sql
 from . import cache_buster
+from . import compression
 from . import ub, db
 
 # CSRF protection and rate limiting are security controls: a missing dependency must stop
@@ -168,6 +169,7 @@ def create_app():
     app.wsgi_app = ReverseProxied(app.wsgi_app)
 
     cache_buster.init_cache_busting(app)
+    compression.init_compression(app)
     log.info('Starting Calibre Web...')
     Principal(app)
     lm.init_app(app)

@@ -1067,18 +1067,8 @@ class CalibreDB:
         self.ensure_session()
         viewing_tag_id = kwargs.get('viewing_tag_id')
         pagesize = pagesize or self.config.config_books_per_page
-        if current_user.show_detail_random():
-            random_query = self.generate_linked_query(config_read_column, database)
-            # Eagerly load template relationships to prevent detached lazy-load
-            # failures if another request tears down the shared scoped session.
-            # The Discover row only renders book cards, so skip everything else.
-            if database == Books:
-                random_query = random_query.options(*_card_load_options(skip_others=True))
-            randm = (random_query.filter(self.common_filters(allow_show_archived, viewing_tag_id=viewing_tag_id))
-                     .order_by(func.random())
-                     .limit(self.config.config_random_books).all())
-        else:
-            randm = false()
+        # The Discover row is gone, so no template reads this slot; kept so callers still unpack three values.
+        randm = false()
         if join_archive_read:
             query = self.generate_linked_query(config_read_column, database)
         else:
