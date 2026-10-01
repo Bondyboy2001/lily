@@ -229,8 +229,13 @@ echo "[cwa-init] CWA-init complete! Service exiting now..."
 #  Set required permissions
 #------------------------------------------------------------------------------------------------------------------------
 
-# In addition to /config and /app/calibre-web-automated, parse required dirs from dirs.json
-declare -a requiredDirs=("/config" "/app/calibre-web-automated" "/calibre-library")
+# In addition to /config and the few app dirs abc writes, parse required dirs from dirs.json.
+# The rest of /app/calibre-web-automated stays root-owned and read-only for abc (see
+# scripts/setup-cwa.sh, which lists the same writable dirs).
+declare -a requiredDirs=("/config" "/calibre-library"
+  "/app/calibre-web-automated/metadata_change_logs"
+  "/app/calibre-web-automated/metadata_temp"
+  "/app/calibre-web-automated/cps/cache")
 if [ -f /app/calibre-web-automated/dirs.json ]; then
   while IFS= read -r dir; do
     [ -n "$dir" ] && requiredDirs+=("$dir")
