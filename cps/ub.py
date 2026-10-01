@@ -16,7 +16,7 @@ import itertools
 import uuid
 from flask import session as flask_session
 
-from .cw_login import AnonymousUserMixin, current_user
+from .cw_login import AnonymousUserMixin
 from .cw_login import user_logged_in
 
 from sqlalchemy import create_engine, exc, exists, event, text
@@ -44,7 +44,6 @@ app_DB_path = None
 _app_db_engine = None
 _task_session_factory = None
 Base = declarative_base()
-searched_ids = {}
 
 logged_in = dict()
 
@@ -136,13 +135,6 @@ def check_user_session(user_id, session_key, random):
 
 
 user_logged_in.connect(signal_store_user_session)
-
-def store_combo_ids(result):
-    ids = list()
-    for element in result:
-        ids.append(element[0].id)
-    searched_ids[current_user.id] = ids
-
 
 class UserBase:
 

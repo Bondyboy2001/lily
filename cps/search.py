@@ -371,11 +371,6 @@ def render_adv_search_results(term, offset=None, order=None, limit=None):
         pagination = Pagination(page=1, per_page=limit, total_count=result_count)
         results = q.all()
 
-    # Note: store_combo_ids will now only contain the IDs of the currently visible page.
-    # This improves performance drastically for large search results, but affects
-    # functionality that relies on having all search result IDs (e.g., "download all").
-    ub.store_combo_ids(results)
-
     entries = calibre_db.order_authors(results, list_return=True, combined=True)
     return render_title_template('search.html',
                                  adv_searchterm=search_term,
@@ -425,7 +420,8 @@ def render_search_results(term, offset=None, order=None, limit=None):
                                                                           offset,
                                                                           order,
                                                                           limit,
-                                                                          *join)
+                                                                          *join,
+                                                                          cards_only=True)
     else:
         entries = list()
         order = [None, None]

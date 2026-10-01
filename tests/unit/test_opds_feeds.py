@@ -185,6 +185,18 @@ class TestSearch:
         assert _titles(_get_feed(env, "/opds/search?query=nomatch", _admin_headers(env))) == []
         assert _titles(_get_feed(env, "/opds/search?query=", _admin_headers(env))) == []
 
+    def test_search_is_paginated_and_next_link_keeps_the_query(self, env):
+        for title in ("Diary One", "Diary Two", "Diary Three"):
+            env.add_book(title)
+        env.add_book("Unrelated")
+        root = _get_feed(env, "/opds/search?query=diary", _admin_headers(env))
+        assert len(_titles(root)) == 2  # config_books_per_page=2
+        next_href = _link(root, "next")
+        assert "offset=2" in next_href and "query=diary" in next_href
+        rest = _get_feed(env, next_href, _admin_headers(env))
+        assert sorted(_titles(root) + _titles(rest)) == ["Diary One", "Diary Three", "Diary Two"]
+        assert _link(rest, "next") is None
+
     def test_search_respects_denied_tags(self, env):
         env.add_book("Secret Diary", tags=["Secret"])
         env.add_book("Public Diary", tags=["Public"])

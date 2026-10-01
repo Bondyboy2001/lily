@@ -688,9 +688,9 @@ class FeedObject:
 
 def feed_search(term):
     if term:
-        entries, __, ___ = calibre_db.get_search_results(term, config=config)
-        entries_count = len(entries) if len(entries) > 0 else 1
-        pagination = Pagination(1, entries_count, entries_count)
+        off = int(request.args.get("offset") or 0)
+        entries, __, pagination = calibre_db.get_search_results(term, config, off, None,
+                                                                config.config_books_per_page)
         return render_xml_template('feed.xml', searchterm=term, entries=entries, pagination=pagination)
     else:
         return render_xml_template('feed.xml', searchterm="")
