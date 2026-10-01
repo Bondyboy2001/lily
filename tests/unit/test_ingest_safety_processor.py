@@ -345,12 +345,14 @@ def chown_env(ingest_processor, monkeypatch, tmp_path):
     library = tmp_path / "library"
     for rel in ("Jane Doe/New Book (5)", "Jane Doe/Older (4)", "Other/Formatted (9)"):
         (library / rel).mkdir(parents=True)
-    with sqlite3.connect(library / "metadata.db") as con:
+    con = sqlite3.connect(library / "metadata.db")
+    with con:
         con.execute("CREATE TABLE books (id INTEGER PRIMARY KEY, path TEXT)")
         con.executemany("INSERT INTO books VALUES (?, ?)", [
             (5, "Jane Doe/New Book (5)"), (4, "Jane Doe/Older (4)"),
             (9, "Other/Formatted (9)"), (13, "../../outside (13)"),
         ])
+    con.close()
     nbp = object.__new__(ingest_processor.NewBookProcessor)
     nbp.library_dir = str(library) + "/"
     nbp.metadata_db = str(library / "metadata.db")

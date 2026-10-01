@@ -293,10 +293,12 @@ def test_lock_is_taken_by_main_and_blocks_a_second_instance(ce, monkeypatch, tmp
 def _library(tmp_path, db_path=None):
     library = tmp_path / "library"
     library.mkdir(exist_ok=True)
-    with sqlite3.connect(library / "metadata.db") as con:
+    con = sqlite3.connect(library / "metadata.db")
+    with con:
         con.execute("CREATE TABLE books (id INTEGER PRIMARY KEY, path TEXT)")
         if db_path:
             con.execute("INSERT INTO books VALUES (7, ?)", (db_path,))
+    con.close()
     return library
 
 
