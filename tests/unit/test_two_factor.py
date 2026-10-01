@@ -179,12 +179,33 @@ def test_opds_accepts_token_and_password_until_2fa_is_on(env):
     assert opds.get("/opds", headers=_basic(name, token)).status_code == 200
 
 
-def test_bearer_token_authenticates_web_endpoints_and_revoke_stops_it(env):
+def test_bearer_token_works_only_for_opds_and_stats_export(env, monkeypatch):
+    from cps.cwa_functions import stats
+    monkeypatch.setattr(stats, "CWA_DB", lambda: object())  # export then answers with its error CSV
     c = env.app.test_client()
     _login(c, env.admin().name, ADMIN_PASSWORD)
     token = _make_token(env, c)
+    bearer = {"Authorization": "Bearer " + token}
     anon = env.app.test_client()
-    assert anon.get("/account/security").status_code in (302, 401)
-    assert anon.get("/account/security", headers={"Authorization": "Bearer " + token}).status_code == 200
+
+    assert anon.get("/opds", headers=bearer).status_code == 200
+    resp = anon.get("/cwa-stats-export-csv/activity", headers=bearer)
+    assert resp.status_code == 200 and resp.headers["Content-Type"].startswith("text/csv")
+    # Not a login: the user's own pages, admin pages and admin actions stay closed
+    for path in ("/account/security", "/me", "/admin/view", "/admin/db_backups", "/cwa-stats-show"):
+        assert anon.get(path, headers=bearer).status_code in (302, 401, 403), path
+    assert anon.post("/admin/user/new", headers=bearer, data={"name": "x"}).status_code in (302, 401, 403)
+
     c.post("/account/security/token/revoke")
-    assert anon.get("/account/security", headers={"Authorization": "Bearer " + token}).status_code in (302, 401)
+    assert anon.get("/opds", headers=bearer).status_code == 401
+    assert anon.get("/cwa-stats-export-csv/activity", headers=bearer).status_code in (302, 401)
+
+
+def test_opds_refuses_the_default_password_until_it_is_changed(env):
+    env.add_user("fresh", password="default-pw", force_password_change=True)
+    opds = env.app.test_client()
+    assert opds.get("/opds", headers=_basic("fresh", "default-pw")).status_code == 401
+    user = env.ub.session.query(env.ub.User).filter(env.ub.User.name == "fresh").one()
+    user.force_password_change = False
+    env.ub.session.commit()
+    assert opds.get("/opds", headers=_basic("fresh", "default-pw")).status_code == 200

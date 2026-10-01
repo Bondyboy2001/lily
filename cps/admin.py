@@ -35,7 +35,7 @@ from .embed_helper import get_calibre_binarypath
 from .gdriveutils import is_gdrive_ready, gdrive_support
 from .render_template import render_title_template, get_sidebar_config
 from .services.worker import WorkerThread
-from .usermanagement import user_login_required
+from .usermanagement import user_login_required, refuse_token_auth
 from .cw_babel import get_available_translations, get_available_locale, get_user_locale_language
 from . import debug_info
 from .string_helper import strip_whitespaces
@@ -64,7 +64,8 @@ def admin_required(f):
 
     @wraps(f)
     def inner(*args, **kwargs):
-        if current_user.role_admin():
+        # An API token never counts as an admin login (see usermanagement.TOKEN_AUTH_ENDPOINTS)
+        if current_user.role_admin() and not refuse_token_auth():
             return f(*args, **kwargs)
         abort(403)
 
