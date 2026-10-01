@@ -12,7 +12,7 @@ CSS = REPO_ROOT / "cps/static/css"
 JS = REPO_ROOT / "cps/static/js"
 TEMPLATES = REPO_ROOT / "cps/templates"
 
-READERS = ["read.html", "listenmp3.html"]
+READERS = ["read.html", "readdjvu.html", "listenmp3.html"]
 
 
 def read(path):
@@ -136,6 +136,7 @@ def client(tmp_path):
 @pytest.mark.unit
 @pytest.mark.parametrize("fmt, marker", [
     ("epub", 'id="searchView"'),
+    ("djvu", 'class="lily-reader lily-djvu"'),
     ("mp3", 'id="audio-speed"'),
     ("pdf", "js/reading/progress-sync.js"),
 ])
@@ -152,7 +153,7 @@ def test_reader_pages_render(client, fmt, marker):
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("fmt", ["cbz", "txt", "djvu"])
+@pytest.mark.parametrize("fmt", ["cbz", "txt"])
 def test_unsupported_formats_have_no_reader(client, fmt):
     env, c, book_id = client
     resp = c.get(f"/read/{book_id}/{fmt}")

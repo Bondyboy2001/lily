@@ -1,5 +1,5 @@
 /*
- * Lily chrome for the in-browser readers (epub, pdf) and the audio player.
+ * Lily chrome for the in-browser readers (epub, pdf, djvu) and the audio player.
  *
  * Loaded after lily.css (tokens) and lily-icons.css. The epub reader still loads the
  * vendor layout (main.css): epub.js sizes its view from it. This file only restyles the
@@ -534,6 +534,14 @@ body.lily-reader {
 
 /* Keeps the title centred against the back button. */
 .lily-reader-bar .reader-bar-spacer { flex: none; width: 76px; }
+
+/* ------------------------------------------------------------------ */
+/* DjVu reader                                                          */
+/* ------------------------------------------------------------------ */
+.lily-reader.lily-djvu #djvuContainer {
+    top: 52px;
+    height: calc(100% - 52px);
+}
 
 /* ------------------------------------------------------------------ */
 /* Audiobook player                                                     */

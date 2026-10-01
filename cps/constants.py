@@ -125,7 +125,7 @@ if env_CWA_PORT_OVERRIDE:
 
 
 EXTENSIONS_AUDIO = {'mp3', 'mp4', 'ogg', 'opus', 'wav', 'flac', 'm4a', 'm4b'}
-EXTENSIONS_BOOK = {'epub', 'pdf'}
+EXTENSIONS_BOOK = {'epub', 'pdf', 'djvu', 'djv'}
 EXTENSIONS_UPLOAD = EXTENSIONS_BOOK | EXTENSIONS_AUDIO
 
 _extension = ""
