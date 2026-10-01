@@ -25,12 +25,12 @@ from flask_babel import get_locale, format_time, format_timedelta
 from sqlalchemy import and_
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.exc import IntegrityError, OperationalError, InvalidRequestError
-from sqlalchemy.sql.expression import func, or_, text
+from sqlalchemy.sql.expression import func, text
 
 from . import constants, logger, helper, cli_param
 from . import db, calibre_db, ub, web_server, config, gdriveutils, schedule
 from werkzeug.security import generate_password_hash
-from .helper import check_email, valid_email, check_username
+from .helper import check_username
 from .embed_helper import get_calibre_binarypath
 from .gdriveutils import is_gdrive_ready, gdrive_support
 from .render_template import render_title_template, get_sidebar_config
@@ -618,8 +618,7 @@ def list_users():
     total_count = filtered_count = all_user.count()
 
     if search:
-        all_user = all_user.filter(or_(func.lower(ub.User.name).ilike("%" + search + "%"),
-                                       func.lower(ub.User.email).ilike("%" + search + "%")))
+        all_user = all_user.filter(func.lower(ub.User.name).ilike("%" + search + "%"))
     if state:
         users = calibre_db.get_checkbox_sorted(all_user.all(), state, off, limit, request.args.get("order", "").lower())
     else:
@@ -734,8 +733,6 @@ def edit_list_user(param):
                     if user.name == "Guest":
                         raise Exception(_("Guest Name can't be changed"))
                     user.name = check_username(vals['value'])
-                elif param == 'email':
-                    user.email = check_email(vals['value'])
                 elif param.endswith('role'):
                     value = int(vals['field_index'])
                     if user.name == "Guest" and value in \
@@ -1341,7 +1338,10 @@ def new_user():
     translations = get_available_locale()
     if request.method == "POST":
         to_save = request.form.to_dict()
-        _handle_new_user(to_save, content, languages, translations)
+        # A redirect on success or the re-rendered form on a validation error
+        response = _handle_new_user(to_save, content, languages, translations)
+        if response:
+            return response
     else:
         content.role = config.config_default_role
         content.sidebar_view = config.config_default_show
@@ -1720,11 +1720,10 @@ def _handle_new_user(to_save, content, languages, translations):
 
     content.role = constants.selected_roles(to_save)
     try:
-        if not to_save["name"] or not to_save["email"] or not to_save["password"]:
+        if not to_save["name"] or not to_save["password"]:
             log.info("Missing entries on new user")
             raise Exception(_("Oops! Please complete all fields."))
         content.password = generate_password_hash(helper.valid_password(to_save.get("password", "")))
-        content.email = check_email(to_save["email"])
         # Query username, if not existing, change
         content.name = check_username(to_save["name"])
     except Exception as ex:
@@ -1749,8 +1748,8 @@ def _handle_new_user(to_save, content, languages, translations):
         return redirect(url_for('admin.admin'))
     except IntegrityError:
         ub.session.rollback()
-        log.error("Found an existing account for {} or {}".format(content.name, content.email))
-        flash(_("Oops! An account already exists for this Email. or name."), category="error")
+        log.error("Found an existing account for {}".format(content.name))
+        flash(_("This username is already taken"), category="error")
     except OperationalError as e:
         ub.session.rollback()
         log.error_or_exception("Settings Database error: {}".format(e))
@@ -1859,11 +1858,6 @@ def _handle_edit_user(to_save, content, languages, translations):
             if to_save.get("password", ""):
                 content.password = generate_password_hash(helper.valid_password(to_save.get("password", "")))
 
-        new_email = valid_email(to_save.get("email", content.email))
-        if not new_email:
-            raise Exception(_("Email can't be empty and has to be a valid Email"))
-        if new_email != content.email:
-            content.email = check_email(new_email)
         # Query username, if not existing, change
         if to_save.get("name", content.name) != content.name:
             if to_save.get("name") == "Guest":

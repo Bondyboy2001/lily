@@ -141,8 +141,8 @@ def set_cwa_settings():
     integer_settings = ['ingest_timeout_minutes', 'ingest_stale_temp_minutes', 'ingest_stale_temp_interval', 'hardcover_auto_fetch_batch_size', 'hardcover_auto_fetch_schedule_hour', 'duplicate_scan_hour', 'duplicate_scan_chunk_size', 'duplicate_scan_debounce_seconds', 'duplicate_auto_resolve_cooldown_minutes', 'archived_cleanup_schedule_hour', 'cover_download_max_mb', 'db_backup_keep_count']  # Special handling for integer settings
     float_settings = ['hardcover_auto_fetch_min_confidence', 'hardcover_auto_fetch_rate_limit']  # Special handling for float settings
     json_settings = ['metadata_provider_hierarchy', 'metadata_providers_enabled', 'duplicate_format_priority']  # Special handling for JSON settings
-    # Handled through individual format checkboxes, or left over from removed features
-    skip_settings = ['auto_ingest_ignored_formats', 'auto_send_delay_minutes', 'koreader_sync_enabled']
+    # Handled through individual format checkboxes
+    skip_settings = ['auto_ingest_ignored_formats']
 
     for setting in cwa_default_settings:
         if setting in integer_settings or setting in float_settings or setting in json_settings or setting in skip_settings:

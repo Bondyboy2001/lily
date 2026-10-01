@@ -26,8 +26,6 @@
     </div>
 
     <div class="stats-actions">
-        <span class="label label-warning" id="library-demo-badge" hidden>Demo data</span>
-        <button type="button" onclick="toggleLibraryDemoMode()" class="btn btn-default" id="library-demo-button" aria-pressed="false">Show demo data</button>
         <button type="button" onclick="window.location.href='/cwa-stats-show?tab=library'" class="btn btn-default">Reset</button>
         <button type="button" onclick="exportLibraryCSV()" class="btn btn-default">Export CSV</button>
     </div>
@@ -94,7 +92,7 @@
 
 <script>
 // Data from backend
-const realLibraryData = {
+const currentLibraryData = {
     growth: {{ library_growth | tojson }},
     formats: {{ library_formats | tojson }},
     booksAddedStats: {{ books_added_stats | tojson }},
@@ -104,10 +102,6 @@ const realLibraryData = {
     ratingStats: {{ rating_statistics | tojson }},
     topEnforced: {{ top_enforced_books | tojson }}
 };
-
-// State management
-let libraryDemoMode = false;
-let currentLibraryData = realLibraryData;
 
 // Initialize charts (colours come from the Lily tokens via LilyCharts; see static/js/lily-charts.js)
 let growthChart, libraryFormatsChart, seriesChart, publicationYearChart;
@@ -407,137 +401,6 @@ function applyLibraryDateRange() {
     }
     
     window.location.href = `/cwa-stats-show?tab=library&start_date=${startDate}&end_date=${endDate}`;
-}
-
-// Demo data generator
-function generateLibraryDemoData() {
-    // Read URL parameters for date range
-    const urlParams = new URLSearchParams(window.location.search);
-    const days = parseInt(urlParams.get('days')) || 30;
-    const startDate = urlParams.get('start_date');
-    const endDate = urlParams.get('end_date');
-    
-    let demoGrowth = [];
-    let totalDays = days;
-    
-    // Calculate number of days for demo data
-    if (startDate && endDate) {
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        totalDays = Math.floor((end - start) / (1000 * 60 * 60 * 24));
-    }
-    
-    // Generate demo growth data
-    const today = new Date();
-    let cumulative = Math.floor(Math.random() * 500) + 100; // Starting library size
-    
-    for (let i = totalDays; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0];
-        // Random books added per day (0-15, weighted towards lower numbers)
-        const booksAdded = Math.floor(Math.random() * Math.random() * 16);
-        cumulative += booksAdded;
-        demoGrowth.push([dateStr, booksAdded]);
-    }
-    
-    // Generate demo format distribution
-    const demoFormats = [
-        ['EPUB', Math.floor(Math.random() * 300) + 200],
-        ['PDF', Math.floor(Math.random() * 250) + 150],
-        ['MOBI', Math.floor(Math.random() * 150) + 80],
-        ['AZW3', Math.floor(Math.random() * 100) + 50],
-        ['CBR', Math.floor(Math.random() * 80) + 30],
-        ['CBZ', Math.floor(Math.random() * 60) + 20],
-        ['TXT', Math.floor(Math.random() * 40) + 10],
-        ['DJVU', Math.floor(Math.random() * 30) + 5]
-    ];
-    
-    // Generate demo books added stats
-    const totalBooksAdded = demoGrowth.reduce((sum, [date, count]) => sum + count, 0);
-    const booksAddedTrend = (Math.random() * 50) - 15; // -15% to +35%
-    
-    // Generate demo series completion (now largest series)
-    const seriesNames = ['Harry Potter', 'The Expanse', 'Foundation', 'Discworld', 'Wheel of Time', 
-                        'A Song of Ice and Fire', 'The Witcher', 'Mistborn', 'The Stormlight Archive', 'Dune'];
-    const demoSeries = seriesNames.map(name => {
-        const bookCount = Math.floor(Math.random() * 15) + 3; // 3-17 books
-        const highestIndex = Math.floor(Math.random() * 3) + bookCount; // May have gaps
-        return [name, bookCount, highestIndex];
-    }).sort((a, b) => b[1] - a[1]); // Sort by book count descending
-    
-    // Generate demo publication years
-    const currentYear = new Date().getFullYear();
-    const demoYears = [];
-    for (let year = currentYear - 30; year <= currentYear; year++) {
-        const count = Math.floor(Math.random() * 50) + 5;
-        demoYears.push([year, count]);
-    }
-    
-    // Generate demo rating statistics
-    const ratingDist = [
-        [5, Math.floor(Math.random() * 80) + 50],
-        [4, Math.floor(Math.random() * 150) + 100],
-        [3, Math.floor(Math.random() * 100) + 80],
-        [2, Math.floor(Math.random() * 40) + 20],
-        [1, Math.floor(Math.random() * 20) + 5]
-    ];
-    const totalRated = ratingDist.reduce((sum, [_, count]) => sum + count, 0);
-    const weightedSum = ratingDist.reduce((sum, [stars, count]) => sum + (stars * count), 0);
-    const avgRating = weightedSum / totalRated;
-    const demoRatingStats = {
-        average_rating: Math.round(avgRating * 100) / 100,
-        rating_distribution: ratingDist,
-        unrated_percentage: Math.round((Math.random() * 30 + 10) * 10) / 10,
-        trend: Math.round((Math.random() * 10 - 5) * 10) / 10,
-        total_books: cumulative,
-        rated_books: totalRated
-    };
-    
-    // Generate demo top enforced books
-    const enforcedBookTitles = [
-        'The Fellowship of the Ring', 'A Game of Thrones', 'The Name of the Wind',
-        'Neuromancer', 'Snow Crash', 'The Hitchhiker\'s Guide', 'Ender\'s Game',
-        'Do Androids Dream of Electric Sheep', 'Foundation', 'Dune'
-    ];
-    const demoTopEnforced = enforcedBookTitles.map((title, idx) => {
-        const count = Math.floor(Math.random() * 15) + (10 - idx); // Higher for top books
-        return [idx + 1, title, count, '2024-12-28 10:30:00'];
-    }).sort((a, b) => b[2] - a[2]).slice(0, 10);
-    
-    return {
-        growth: demoGrowth,
-        formats: demoFormats,
-        booksAddedStats: {
-            total: totalBooksAdded,
-            trend: Math.round(booksAddedTrend * 10) / 10
-        },
-        totalBooks: cumulative,
-        seriesCompletion: demoSeries,
-        publicationYears: demoYears,
-        ratingStats: demoRatingStats,
-        topEnforced: demoTopEnforced
-    };
-}
-
-function toggleLibraryDemoMode() {
-    libraryDemoMode = !libraryDemoMode;
-    const button = document.getElementById('library-demo-button');
-    const badge = document.getElementById('library-demo-badge');
-    
-    if (libraryDemoMode) {
-        currentLibraryData = generateLibraryDemoData();
-        button.textContent = 'Show real data';
-        button.setAttribute('aria-pressed', 'true');
-        badge.hidden = false;
-    } else {
-        currentLibraryData = realLibraryData;
-        button.textContent = 'Show demo data';
-        button.setAttribute('aria-pressed', 'false');
-        badge.hidden = true;
-    }
-    
-    updateAllLibraryCharts();
 }
 
 function exportLibraryCSV() {

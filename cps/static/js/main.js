@@ -481,7 +481,7 @@ $(function() {
             pollInFlight = true;
             $.ajax({
                 method: "get",
-                url: getPath() + "/ajax/emailstat",
+                url: getPath() + "/ajax/taskstatus",
                 dataType: "json",
                 success: function(tasks) {
                     var thumbnailTask = tasks.find(function(task) {

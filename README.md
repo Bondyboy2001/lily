@@ -4,7 +4,7 @@
 
 **A self-hosted digital library that gives you Calibre-Web's web UI with Calibre's full feature set.**
 
-[![Docker](https://img.shields.io/badge/docker-build--local-2496ed)](docker-compose.yml)
+[![Docker](https://img.shields.io/badge/image-ghcr.io%2Fbondyboy2001%2Flily-2496ed)](https://github.com/Bondyboy2001/lily/pkgs/container/lily)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 [![Upstream](https://img.shields.io/badge/fork%20of-Calibre--Web%20Automated-8a8a8a)](https://github.com/crocodilestick/calibre-web-automated)
 
@@ -52,16 +52,17 @@ Most of these are toggleable in the Lily Settings panel.
 
 ## Install
 
-Lily is not published to Docker Hub — the image builds from this repo.
+Releases are published to GHCR as `ghcr.io/bondyboy2001/lily:<version>`. Pin an exact
+version (never `:latest`) so an upgrade only happens when you change the tag.
 
 ```bash
-git clone https://github.com/Bondyboy2001/lily.git
-cd lily
-$EDITOR docker-compose.yml    # set your timezone and bind paths
-docker compose up -d --build
+mkdir lily && cd lily
+$EDITOR docker-compose.yml    # paste the template below; set the version, timezone and paths
+docker compose up -d
 ```
 
-Then open <http://localhost:8083>.
+Then open <http://localhost:8083>. To build from source instead, clone the repo and run
+`docker compose up -d --build` with its own `docker-compose.yml`.
 
 <details>
 <summary>Full <code>docker-compose.yml</code> template</summary>
@@ -69,8 +70,8 @@ Then open <http://localhost:8083>.
 ```yaml
 services:
   lily:
-    image: lily:latest
-    build: .
+    # Pin an exact release, never :latest
+    image: ghcr.io/bondyboy2001/lily:X.Y.Z
     container_name: lily
     environment:
       - PUID=1000
@@ -81,6 +82,9 @@ services:
       - HARDCOVER_TOKEN=your_hardcover_api_key_here
       - NETWORK_SHARE_MODE=false
       - CWA_PORT_OVERRIDE=8083
+      # Optional: your own private session-signing key (e.g. `openssl rand -hex 32`).
+      # Without it Lily generates one and keeps it in app.db.
+      # - SECRET_KEY=change-me-to-a-long-random-string
     volumes:
       # Config, logs, backups. Use an empty folder for a fresh install;
       # point at your existing /config to migrate from Calibre-Web.
@@ -96,6 +100,11 @@ services:
     ports:
       - 8083:8083
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 ```
 
 </details>
@@ -136,6 +145,7 @@ Keep these as separate directories — nesting binds inside each other causes er
 | `CWA_PORT_OVERRIDE` | `8083` | Change the web server port |
 | `TRUSTED_PROXY_COUNT` | `0` | Number of trusted reverse proxies — set to `1` behind nginx/Caddy |
 | `SESSION_COOKIE_SECURE` | `false` | Set `true` when serving over HTTPS |
+| `SECRET_KEY` | generated | Private key that signs session cookies; set your own to keep it out of `app.db` |
 
 Behind a reverse proxy or on a network share? See **[docs/deployment.md](docs/deployment.md)**.
 
@@ -144,7 +154,7 @@ Behind a reverse proxy or on a network share? See **[docs/deployment.md](docs/de
 1. Stop your Calibre-Web instance.
 2. Map your old `/books` bind to Lily's `/calibre-library`, and mount the **same**
    `/config` folder (copy it first if you want a safety net).
-3. `docker compose up -d --build`.
+3. `docker compose up -d`.
 
 Your users, shelves and settings carry over. If the web UI doesn't load, start on the
 same port Calibre-Web used.
@@ -152,14 +162,16 @@ same port Calibre-Web used.
 ## Development
 
 ```bash
-$EDITOR build.sh && ./build.sh            # build a local image
-$EDITOR docker-compose.yml.dev            # set image tag + bind paths
-docker compose -f docker-compose.yml.dev up -d
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt -r requirements-dev.txt -c requirements.lock
+.venv/bin/python -m pytest tests/unit -q          # unit tests (see pytest.ini for markers)
+.venv/bin/python -m ruff check cps scripts tests
+.venv/bin/python -m mypy
+docker compose up -d --build                      # build and run an image from this checkout
 ```
 
-`docker-compose.yml.dev` documents live-edit mounts for auto-reload on code changes.
-See [pytest.ini](pytest.ini) and [`run_tests.sh`](run_tests.sh) for the test suite, and
-[docs/architecture.md](docs/architecture.md) for how the code is laid out.
+[docs/architecture.md](docs/architecture.md) explains how the code is laid out, and
+[docs/deployment.md](docs/deployment.md) how releases are published and deployed.
 
 ## Affiliated projects
 

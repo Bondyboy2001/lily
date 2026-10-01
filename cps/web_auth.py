@@ -22,9 +22,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from . import constants
 from . import ub, config, app
 from . import calibre_db
-from .helper import check_email, check_username, \
-    valid_email, \
-    valid_password
+from .helper import check_username, valid_password
 from .redirect import get_redirect_location
 from .cw_babel import get_available_locale
 from .render_template import render_title_template
@@ -327,11 +325,6 @@ def change_profile(translations, languages):
         if current_user.role_passwd() or current_user.role_admin():
             if to_save.get("password", "") != "":
                 current_user.password = generate_password_hash(valid_password(to_save.get("password")))
-        new_email = valid_email(to_save.get("email", current_user.email))
-        if not new_email:
-            raise Exception(_("Email can't be empty and has to be a valid Email"))
-        if new_email != current_user.email:
-            current_user.email = check_email(new_email)
         if current_user.role_admin():
             if to_save.get("name", current_user.name) != current_user.name:
                 # Query username, if not existing, change

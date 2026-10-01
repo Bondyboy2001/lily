@@ -1,6 +1,8 @@
 ---
 services:
   lily:
+    # Builds from this checkout. To run a published release instead, remove `build: .` and pin an
+    # exact version: image: ghcr.io/bondyboy2001/lily:X.Y.Z (never :latest, see docs/deployment.md)
     image: lily:latest
     build: .
     container_name: lily
@@ -32,6 +34,10 @@ services:
       # Where nightly database snapshots go (default: /config/backup/db). Point it at a separate volume, below,
       # so a lost or corrupted /config volume doesn't take the backups with it.
       # - DB_BACKUP_DIR=/backups
+      # Signs session and remember-me cookies. Optional: without it Lily generates a random key and keeps it in
+      # app.db. Set your own long random value (e.g. `openssl rand -hex 32`) to keep it out of the database
+      # and its backups. Keep it private; changing it signs everyone out.
+      # - SECRET_KEY=change-me-to-a-long-random-string
     volumes:
       # Calibre-Web / CWA users migrating should stop their existing CW instance, make a copy of the config folder, and bind that here to carry over all of their user settings etc.
       - /path/to/config/folder:/config
@@ -54,3 +60,9 @@ services:
     # cap_add:
     #   - NET_BIND_SERVICE
     restart: unless-stopped
+    # Cap the container log so it can't fill the disk
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

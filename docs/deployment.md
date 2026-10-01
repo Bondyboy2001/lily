@@ -73,6 +73,7 @@ chain depth is wrong — adjust this variable to match.
 |---|---|---|
 | `TRUSTED_PROXY_COUNT` | `0` | Number of reverse proxies whose `X-Forwarded-*` headers are trusted. Set to `1` behind a single reverse proxy. |
 | `SESSION_COOKIE_SECURE` | `false` | Set to `true` when Lily is served over HTTPS, so session and remember-me cookies are only sent over HTTPS. |
+| `SECRET_KEY` | generated | Key that signs session and remember-me cookies. Unset, Lily generates a random key on first start and stores it in `app.db` (so it is also in every `app.db` backup). Set a private, long random value (`openssl rand -hex 32`) to keep it out of the database; changing it signs everyone out. |
 | `NETWORK_SHARE_MODE` | `false` | See [Network shares](#network-shares-nfssmb) above. |
 | `CWA_WATCH_MODE` | `auto` | Force `poll` to override watcher auto-detection. |
 | `CWA_PORT_OVERRIDE` | `8083` | Change the web server port. |
@@ -120,16 +121,39 @@ opened directly with `sqlite3` to inspect or recover individual rows.
 ## Runbook
 
 ### Deploying to the NAS
-1. Build the image: `docker buildx build --platform linux/amd64 -t lily:nas-amd64 --load .`
-   (retry if gcc segfaults building `faust-cchardet`), then `docker save lily:nas-amd64 | gzip > lily-amd64.tar.gz`.
-2. Copy the tarball to the NAS `docker/lily/` share and `docker load -i lily-amd64.tar.gz`.
-3. Stop any other app using the same library, and back up `metadata.db`, `app.db` and `cwa.db` first.
-4. `docker compose up -d`. The first start can take about 2 minutes (ownership fix on a large library).
-5. Check `/health` and the log for `Starting Calibre Web...`.
+Releases are published by `.github/workflows/release.yml` when a `vX.Y.Z` tag is pushed on
+`main`: it checks the commit is on `main`, runs the lint, type and unit checks, smoke-tests an
+amd64 build, then pushes `ghcr.io/bondyboy2001/lily:X.Y.Z` (plus `:X.Y` and `:latest`) for
+amd64 and arm64.
+
+The NAS compose pins an **exact** version. Never use `:latest` or `:X.Y`: the tag in the
+compose file is then the record of what is running, and rolling back is changing it back.
+
+```yaml
+    image: ghcr.io/bondyboy2001/lily:X.Y.Z
+```
+
+First deploy:
+1. Stop any other app using the same library, and back up `metadata.db`, `app.db` and `cwa.db`.
+2. Set `image:` to the release, set a private `SECRET_KEY` (see [above](#security-environment-variables)),
+   then pull and start it (`docker compose pull && docker compose up -d`, or deploy the
+   project from the NAS Docker app). The first start can take about
+   2 minutes (ownership fix on a large library).
+3. Check `/health` (`{"status": "ok", "version": "Lily/vX.Y.Z", ...}`) and the log for
+   `Starting Calibre Web...`.
 
 ### Upgrading
-Take a snapshot (Admin -> Database backups -> Back up now), deploy the new image, confirm `/health`.
-To roll back, redeploy the previous image tag and restore the snapshot if migrations ran.
+1. Take a snapshot: Settings → Database Backups → Back up now.
+2. Bump the tag in the compose file to the new exact version.
+3. Pull and recreate: `docker compose pull && docker compose up -d`, or on the NAS without
+   a shell, edit the project's compose in the Docker app and redeploy it (it pulls the new
+   tag and recreates the container).
+4. Confirm `/health` reports the new version (the admin page shows it too).
+
+To roll back, put the previous tag back in the compose file and pull and recreate the
+same way. If the new version ran `app.db` migrations, also restore the snapshot from step 1
+(see [Restoring a snapshot](#restoring-a-snapshot-from-the-web-ui)); older versions ignore
+columns they don't know, but a restore is the safe path.
 
 ### Verifying that backups restore
 The nightly backup task restores every new snapshot into a scratch directory and fails loudly if it

@@ -25,9 +25,9 @@ tasks = Blueprint('tasks', __name__)
 log = logger.create()
 
 
-@tasks.route("/ajax/emailstat")
+@tasks.route("/ajax/taskstatus")
 @user_login_required
-def get_email_status_json():
+def get_task_status_json():
     tasks = WorkerThread.get_instance().tasks
     return jsonify(render_task_status(tasks))
 

@@ -126,6 +126,4 @@ img = Image.open(png).convert("RGBA")
 img.resize((800, 800), Image.LANCZOS).save(png)
 img.resize((180, 180), Image.LANCZOS).save(static / "img" / "apple-touch-icon.png")
 img.save(static / "favicon.ico", sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
-for name in ("cwa-logo-round-light.png", "cwa-logo-round-dark.png"):
-    img.resize((300, 300), Image.LANCZOS).save(ROOT / "README_images" / name)
-print("wrote icon.svg, icon.png, favicon.ico, apple-touch-icon.png, README logos")
+print("wrote icon.svg, icon.png, favicon.ico, apple-touch-icon.png")
