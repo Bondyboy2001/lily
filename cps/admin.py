@@ -428,8 +428,7 @@ def update_thumbnails():
         task_id = helper.update_thumbnail_cache()
 
         # Check if there are any books to process
-        books_with_covers = TaskGenerateCoverThumbnails.get_books_with_covers()
-        book_count = len(books_with_covers)
+        book_count = TaskGenerateCoverThumbnails.count_books_with_covers()
 
         if book_count > 0:
             message = _('Thumbnail cache refresh started for {} book(s). This may take a few minutes.').format(book_count)

@@ -734,8 +734,9 @@ def get_book_cover_internal(book, resolution=None):
             webp_exists = webp_thumb and cache.get_cache_file_exists(webp_thumb.filename, CACHE_TYPE_THUMBNAILS)
             jpg_exists = jpg_thumb and cache.get_cache_file_exists(jpg_thumb.filename, CACHE_TYPE_THUMBNAILS)
 
-            # Generate missing thumbnails on-demand
-            if not webp_exists or not jpg_exists:
+            # Generate missing thumbnails on-demand (only WebP is generated; an old JPEG is
+            # still served while it exists, but its absence must not re-queue generation)
+            if not webp_exists:
                 try:
                     if use_IM:
                         from .tasks.thumbnail import TaskGenerateCoverThumbnails
