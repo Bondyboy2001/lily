@@ -35,6 +35,7 @@
       <form method="POST" action="{{ url_for('admin.restore_db_snapshot') }}" class="lp-checks">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="snapshot" value="{{ snap.name }}">
+        <a class="btn btn-default" href="{{ url_for('admin.download_db_snapshot', name=snap.name) }}">{{ _('Download') }}</a>
         {% if snap.pre_restore %}<span class="lp-pill">{{ _('Before restore') }}</span>{% endif %}
         {% for db_name in restorable_dbs if db_name in snap.databases %}
           {{ f.check('databases', db_name, True, id=sid ~ '-' ~ loop.index, attrs='value="' ~ db_name ~ '"') }}

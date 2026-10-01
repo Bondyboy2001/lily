@@ -11,7 +11,7 @@
 <img src="README_images/CWA-Homepage.png" alt="Lily home screen">
 
 Drop a book into the ingest folder. Lily imports it, fetches metadata, enforces your
-cover, backs it up, and can email it to your e-reader — automatically.
+cover, and backs it up — automatically.
 
 ---
 

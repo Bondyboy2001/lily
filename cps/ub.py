@@ -265,6 +265,13 @@ class User(UserBase, Base):
     # password change before anything else can be used. Cleared whenever the password
     # is assigned (see _clear_force_password_change below).
     force_password_change = Column(Boolean, default=False)
+    # Optional TOTP second factor for the web login (see cps/totp.py). totp_last_step is
+    # the last accepted time step, so a code cannot be replayed.
+    totp_secret = Column(String, default=None)
+    totp_enabled = Column(Boolean, default=False)
+    totp_last_step = Column(Integer, default=0)
+    # SHA-256 of the user's personal API token (accepted by OPDS and as a Bearer token)
+    api_token_hash = Column(String, default=None)
 
 
 @event.listens_for(User.password, 'set')
@@ -291,6 +298,8 @@ class Anonymous(AnonymousUserMixin, UserBase):
         self.role = None
         self.name = None
         self.force_password_change = False
+        self.totp_enabled = False
+        self.api_token_hash = None
         self.loadSettings()
 
     def loadSettings(self):
@@ -624,6 +633,15 @@ def migrate_user_table(engine, _session):
     except exc.OperationalError:
         _safe_session_rollback(_session, "user.force_password_change")
         _run_ddl_with_retry(engine, "ALTER TABLE user ADD column 'force_password_change' Boolean DEFAULT 0")
+
+    for column, ddl in (("totp_secret", "String"), ("totp_enabled", "Boolean DEFAULT 0"),
+                        ("totp_last_step", "Integer DEFAULT 0"), ("api_token_hash", "String")):
+        try:
+            _session.query(exists().where(getattr(User, column))).scalar()
+            _session.commit()
+        except exc.OperationalError:
+            _safe_session_rollback(_session, "user." + column)
+            _run_ddl_with_retry(engine, "ALTER TABLE user ADD column '%s' %s" % (column, ddl))
 
     # Migration to enable duplicates sidebar for existing admin users (one-time)
     try:

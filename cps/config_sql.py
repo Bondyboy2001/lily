@@ -550,8 +550,10 @@ def get_encryption_key(key_path):
     if generate:
         key = Fernet.generate_key()
         try:
-            with open(key_file, "wb") as f:
+            fd = os.open(key_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "wb") as f:
                 f.write(key)
+            os.chmod(key_file, 0o600)
         except PermissionError as e:
             error = e
     return key, error

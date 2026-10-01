@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from datetime import time as datetime_time
 from functools import wraps
 
-from flask import Blueprint, current_app, flash, redirect, url_for, abort, request, make_response, g, Response, jsonify
+from flask import Blueprint, current_app, send_file, flash, redirect, url_for, abort, request, make_response, g, Response, jsonify
 from markupsafe import Markup
 from .cw_login import current_user
 from flask_babel import gettext as _
@@ -338,7 +338,7 @@ def hardcover_review_action():
                 calibre_db.session.rollback()
                 ub.session.rollback()
                 log.error(f"Error applying Hardcover ID: {e}")
-                return json.dumps({'success': False, 'error': str(e)}), 500
+                return json.dumps({'success': False, 'error': 'Internal error; see server log for details'}), 500
         
         elif action in ['reject', 'skip']:
             # Mark as reviewed with appropriate action
@@ -356,7 +356,7 @@ def hardcover_review_action():
             
     except Exception as e:
         log.error(f"Error processing review action: {e}")
-        return json.dumps({'success': False, 'error': str(e)}), 500
+        return json.dumps({'success': False, 'error': 'Internal error; see server log for details'}), 500
 
 
 @admi.route("/admin/hardcover/review-reject-all", methods=["POST"])
@@ -399,7 +399,7 @@ def hardcover_review_reject_all():
     except Exception as e:
         ub.session.rollback()
         log.error(f"Error rejecting all pending matches: {e}")
-        return json.dumps({'success': False, 'error': str(e)}), 500
+        return json.dumps({'success': False, 'error': 'Internal error; see server log for details'}), 500
 
 
 # method is available without login and not protected by CSRF to make it easy reachable, is per default switched off
@@ -1939,6 +1939,55 @@ def _format_size(num_bytes):
         size /= 1024
 
 
+def _ingest_failure_dirs():
+    from .tasks.db_backup import get_backup_root  # noqa: F401 (puts scripts/ on sys.path)
+    from ingest_failures import FAILED_DIR
+    from .cwa_functions.ingest import get_ingest_dir
+    return FAILED_DIR, get_ingest_dir()
+
+
+@admi.route("/admin/ingest_failures", methods=["GET"])
+@user_login_required
+@admin_required
+def ingest_failures():
+    """Lists files the ingest pipeline rejected, with Retry and Delete per file."""
+    from .tasks.db_backup import get_backup_root  # noqa: F401 (puts scripts/ on sys.path)
+    from ingest_failures import list_failed, FAILED_DIR
+    failed = list_failed(FAILED_DIR)
+    for item in failed:
+        item["size_text"] = _format_size(item["size"])
+    return render_title_template("ingest_failures.html", title=_("Failed Imports"), page="ingest_failures",
+                                 failed=failed, failed_dir=FAILED_DIR)
+
+
+@admi.route("/admin/ingest_failures/<action>", methods=["POST"])
+@user_login_required
+@admin_required
+def ingest_failure_action(action):
+    from ingest_failures import retry_failed, delete_failed
+    failed_dir, ingest_dir = _ingest_failure_dirs()
+    names = [n for n in request.form.getlist("names") if n]
+    if action not in ("retry", "delete") or not names:
+        abort(400)
+    done = 0
+    for name in names:
+        try:
+            if action == "retry":
+                retry_failed(failed_dir, ingest_dir, name)
+            else:
+                delete_failed(failed_dir, name)
+            done += 1
+        except (ValueError, FileNotFoundError):
+            flash(_("File not found: %(name)s", name=name), category="error")
+        except OSError as e:
+            log.error("Ingest failure %s of %s failed: %s", action, name, e)
+            flash(_("Could not %(action)s %(name)s; see the server log.", action=action, name=name), category="error")
+    if done:
+        flash(_("Queued %(n)d file(s) for another import attempt.", n=done) if action == "retry"
+              else _("Deleted %(n)d file(s).", n=done), category="success")
+    return redirect(url_for("admin.ingest_failures"))
+
+
 @admi.route("/admin/db_backups", methods=["GET"])
 @user_login_required
 @admin_required
@@ -1991,6 +2040,28 @@ def db_backups_settings():
         return redirect(url_for("admin.db_backups"))
     flash(_("Backup settings saved."), category="success")
     return redirect(url_for("admin.db_backups"))
+
+
+@admi.route("/admin/db_backups/download/<name>", methods=["GET"])
+@user_login_required
+@admin_required
+def download_db_snapshot(name):
+    """Streams one snapshot's database files as a zip, for keeping an off-box copy."""
+    import io
+    import zipfile
+    from .tasks.db_backup import get_backup_root
+    from db_backup import resolve_snapshot, _snapshot_db_files
+    try:
+        snap_dir = resolve_snapshot(get_backup_root(), name)
+    except (ValueError, FileNotFoundError):
+        abort(404)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for db_file in _snapshot_db_files(snap_dir):
+            zf.write(os.path.join(snap_dir, db_file), arcname=db_file)
+    buf.seek(0)
+    return send_file(buf, mimetype="application/zip", as_attachment=True,
+                     download_name="lily-db-%s.zip" % name)
 
 
 @admi.route("/admin/db_backups/restore", methods=["POST"])

@@ -1157,7 +1157,7 @@ def get_duplicate_status():
         log.error("[cwa-duplicates] Error getting duplicate status: %s", str(e))
         return jsonify({
             'success': False,
-            'error': str(e),
+            'error': 'Internal error; see server log for details',
             'count': 0,
             'preview': []
         }), 500
@@ -1180,7 +1180,7 @@ def dismiss_duplicate_scan_setup_notice():
         return jsonify({"success": True})
     except Exception as e:
         log.error("[cwa-duplicates] Failed to dismiss duplicate setup notice: %s", str(e))
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": 'Internal error; see server log for details'}), 500
 
 
 @duplicates.route("/duplicates/dismiss/<group_hash>", methods=['POST'])
@@ -1234,7 +1234,7 @@ def dismiss_duplicate_group(group_hash):
         log.error("[cwa-duplicates] Error dismissing duplicate group: %s", str(e))
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': 'Internal error; see server log for details'
         }), 500
 
 
@@ -1280,7 +1280,7 @@ def undismiss_duplicate_group(group_hash):
         log.error("[cwa-duplicates] Error un-dismissing duplicate group: %s", str(e))
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': 'Internal error; see server log for details'
         }), 500
 
 
@@ -1301,7 +1301,7 @@ def invalidate_cache():
             
     except Exception as e:
         log.error("[cwa-duplicates] Error invalidating cache: %s", str(e))
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': 'Internal error; see server log for details'}), 500
 
 
 @duplicates.route("/duplicates/trigger-scan", methods=['POST'])
@@ -1419,7 +1419,7 @@ def trigger_scan():
         log.error("[cwa-duplicates] Error triggering scan: %s", str(e))
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': 'Internal error; see server log for details'
         }), 500
 
 
@@ -1467,7 +1467,7 @@ def preview_resolution():
         log.error("[cwa-duplicates] Error previewing resolution: %s\n%s", str(e), error_trace)
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': 'Internal error; see server log for details'
         }), 500
 
 
@@ -1514,7 +1514,7 @@ def execute_resolution():
         log.error("[cwa-duplicates] Error executing resolution: %s", str(e))
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': 'Internal error; see server log for details'
         }), 500
 
 

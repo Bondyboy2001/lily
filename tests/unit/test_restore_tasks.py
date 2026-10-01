@@ -218,6 +218,19 @@ def test_backups_page_lists_snapshots(admin_client):
 
 
 @pytest.mark.unit
+def test_snapshot_download_returns_zip_and_rejects_bad_names(admin_client):
+    import io
+    import zipfile
+    c, _ = admin_client
+    resp = c.get("/admin/db_backups/download/20260101_030000")
+    assert resp.status_code == 200
+    assert resp.mimetype == "application/zip"
+    assert zipfile.ZipFile(io.BytesIO(resp.data)).namelist() == ["cwa.db"]
+    assert c.get("/admin/db_backups/download/20990101_000000").status_code == 404
+    assert c.get("/admin/db_backups/download/..%2Fetc").status_code == 404
+
+
+@pytest.mark.unit
 def test_restore_routes_queue_tasks_and_return_immediately(admin_client):
     c, queued = admin_client
     resp = c.post("/admin/db_backups/restore", data={"snapshot": "20260101_030000", "databases": ["cwa.db"]},

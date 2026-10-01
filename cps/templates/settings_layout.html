@@ -20,6 +20,8 @@
     <ul class="lp-rail-list"{% if on_cwa %} role="tablist"{% endif %}>
       {% if not current_user.is_anonymous %}
         {{ rail_item(_('Account'), url_for('web.profile'), ep == 'web.profile') }}
+        {% if not current_user.role_anonymous() %}{{ rail_item(_('My Reading'), url_for('reading.reading_summary'), ep == 'reading.reading_summary') }}{% endif %}
+        {% if not current_user.role_anonymous() %}{{ rail_item(_('Security'), url_for('account_security.security_page'), ep == 'account_security.security_page') }}{% endif %}
         {% if not simple %}
         {{ rail_item(_('Tasks'), url_for('tasks.get_tasks_status'), ep == 'tasks.get_tasks_status', id='top_tasks') }}
         {% endif %}
@@ -32,6 +34,7 @@
         {{ rail_item(_('Duplicate Books'), url_for('duplicates.show_duplicates'), ep == 'duplicates.show_duplicates') }}
         {% if current_user.role_admin() %}
         {{ rail_item(_('Hardcover Matches'), url_for('admin.hardcover_review_matches'), ep == 'admin.hardcover_review_matches') }}
+        {{ rail_item(_('Failed Imports'), url_for('admin.ingest_failures'), ep == 'admin.ingest_failures') }}
         {% endif %}
       {% endif %}
       {% if current_user.role_admin() %}
