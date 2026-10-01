@@ -10,9 +10,9 @@ import zipfile
 from lxml import etree
 
 from . import isoLanguages, cover
-from . import config, logger
+from . import logger
 from .helper import split_authors
-from .epub_helper import get_content_opf, default_ns
+from .epub_helper import get_content_opf
 from .constants import BookMeta
 from .string_helper import strip_whitespaces
 
@@ -34,25 +34,6 @@ def _extract_cover(zip_file, cover_file, cover_path, tmp_file_name):
     if extension in cover.COVER_EXTENSIONS:
         cf = zip_file.read(zip_cover_path)
     return cover.cover_processing(tmp_file_name, cf, extension)
-
-
-def get_epub_layout(book, book_data):
-    file_path = os.path.normpath(os.path.join(config.get_book_path(),
-                                              book.path, book_data.name + "." + book_data.format.lower()))
-
-    try:
-        tree, __ = get_content_opf(file_path, default_ns)
-        p = tree.xpath('/pkg:package/pkg:metadata', namespaces=default_ns)[0]
-
-        layout = p.xpath('pkg:meta[@property="rendition:layout"]/text()', namespaces=default_ns)
-    except (etree.XMLSyntaxError, KeyError, IndexError, OSError) as e:
-        log.error("Could not parse epub metadata of book {} during kobo sync: {}".format(book.id, e))
-        layout = []
-
-    if len(layout) == 0:
-        return None
-    else:
-        return layout[0]
 
 
 def get_epub_info(tmp_file_path, original_file_name, original_file_extension, no_cover_processing):

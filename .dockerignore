@@ -37,3 +37,12 @@ docs/
 .superpowers/
 .claude/
 docker-compose.local.yml
+
+# Docs, scratch data and caches never needed at runtime
+docs/
+private/
+kubernetes/
+*.db
+**/__pycache__/
+*.pyc
+messages.pot

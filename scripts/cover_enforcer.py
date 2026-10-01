@@ -774,7 +774,7 @@ def main():
         print('[cover-metadata-enforcer]: Enforcing metadata and covers for all books in library...')
         n_enforced, completion_time, n_supported_files = enforcer.enforce_all_covers()
         if n_enforced == False:
-            print(f"\n[cover-metadata-enforcer]: No supported ebook files found in library (only EPUB & AZW3 formats are currently supported)")
+            print("\n[cover-metadata-enforcer]: No supported ebook files found in library (only EPUB & AZW3 formats are currently supported)")
         elif n_enforced == n_supported_files:
             print(f"\n[cover-metadata-enforcer]: SUCCESS: All covers & metadata successfully updated for all {n_enforced} supported ebooks in the library in {completion_time:.2f} seconds!")
         elif n_enforced == 0:
@@ -800,7 +800,7 @@ def main():
         
         # Handle case where log file doesn't exist (race condition)
         if log_info is None:
-            print(f"[cover-metadata-enforcer] Skipping processing due to missing or invalid log file. This is normal if the file was already processed.")
+            print("[cover-metadata-enforcer] Skipping processing due to missing or invalid log file. This is normal if the file was already processed.")
             sys.exit(0)
 
         # If multiple logs exist for the same book, prefer the newest one
@@ -811,7 +811,7 @@ def main():
             enforcer.delete_log(auto=False, log_path=current_log_path)
             log_info = enforcer.read_log(auto=False, log_path=latest_log_path)
             if log_info is None:
-                print(f"[cover-metadata-enforcer] Skipping processing due to missing or invalid log file. This is normal if the file was already processed.")
+                print("[cover-metadata-enforcer] Skipping processing due to missing or invalid log file. This is normal if the file was already processed.")
                 sys.exit(0)
         
         book_dir = enforcer.get_book_dir_from_log(log_info)

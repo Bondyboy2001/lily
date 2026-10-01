@@ -96,11 +96,11 @@ class TaskGenerateCoverThumbnails(CalibreTask):
 
                     # Check if job has been cancelled or ended
                     if self.stat == STAT_CANCELLED:
-                        self.log.info(f'GenerateCoverThumbnails task has been cancelled.')
+                        self.log.info('GenerateCoverThumbnails task has been cancelled.')
                         return
 
                     if self.stat == STAT_ENDED:
-                        self.log.info(f'GenerateCoverThumbnails task has been ended.')
+                        self.log.info('GenerateCoverThumbnails task has been ended.')
                         return
 
                 if total_generated == 0:
@@ -341,11 +341,11 @@ class TaskGenerateSeriesThumbnails(CalibreTask):
 
                 # Check if job has been cancelled or ended
                 if self.stat == STAT_CANCELLED:
-                    self.log.info(f'GenerateSeriesThumbnails task has been cancelled.')
+                    self.log.info('GenerateSeriesThumbnails task has been cancelled.')
                     return
 
                 if self.stat == STAT_ENDED:
-                    self.log.info(f'GenerateSeriesThumbnails task has been ended.')
+                    self.log.info('GenerateSeriesThumbnails task has been ended.')
                     return
 
             if total_generated == 0:

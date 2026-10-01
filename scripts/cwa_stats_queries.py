@@ -343,7 +343,7 @@ class CWAStatsQueries:
             metadata_cur = metadata_con.cursor()
             
             # Query series with book counts and highest index, ordered by count
-            metadata_cur.execute(f"""
+            metadata_cur.execute("""
                 SELECT 
                     s.name as series_name,
                     COUNT(DISTINCT bs.book) as book_count,
@@ -950,7 +950,7 @@ class CWAStatsQueries:
             limit = min(limit, 10000)
             
             # Pass 1: Get enforcement counts from cwa.db
-            self.cur.execute(f"""
+            self.cur.execute("""
                 SELECT 
                     book_id,
                     COUNT(DISTINCT file_path) as enforcement_count,

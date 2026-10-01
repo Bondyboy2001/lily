@@ -98,7 +98,7 @@ def main():
         sys.exit(2)
     try:
         zipper.remove_zipped_files()
-        print(f"[cwa-auto-zipper] All zipped files successfully removed!")
+        print("[cwa-auto-zipper] All zipped files successfully removed!")
     except Exception as e:
         print(f"[cwa-auto-zipper] The following error occurred when trying to remove the zipped files:\n{e}")
         sys.exit(3)

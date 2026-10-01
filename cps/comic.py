@@ -22,10 +22,6 @@ try:
     from comicapi.comicarchive import ComicArchive, MetaDataStyle
     use_comic_meta = True
     try:
-        from comicapi import __version__ as comic_version
-    except ImportError:
-        comic_version = ''
-    try:
         from comicapi.comicarchive import load_archive_plugins
         import comicapi.utils
         comicapi.utils.add_rar_paths()

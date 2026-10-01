@@ -925,10 +925,6 @@ class CalibreDB:
                                             int(current_user.id) == ub.ArchivedBook.user_id), isouter=True)
                 .filter(self.common_filters(allow_show_archived)).first())
 
-    def get_book_by_uuid(self, book_uuid):
-        self.ensure_session()
-        return self.session.query(Books).filter(Books.uuid == book_uuid).first()
-
     def get_book_format(self, book_id, file_format):
         self.ensure_session()
         return self.session.query(Data).filter(Data.book == book_id).filter(Data.format == file_format).first()
