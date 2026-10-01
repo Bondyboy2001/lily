@@ -128,7 +128,7 @@ Keep these as separate directories — nesting binds inside each other causes er
 4. Drop a book in the ingest folder to confirm it works.
 
 > **Default login** — username `harry`, password `harry10`. The password must be changed at
-> first login; OPDS keeps working in the meantime.
+> first login; OPDS and API tokens stay blocked until it is.
 
 ### Environment variables
 

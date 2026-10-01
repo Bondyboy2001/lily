@@ -170,7 +170,9 @@ def _load_editbooks_module(delete_key_calls):
     calls = []
     calibre_db = _install_stub(
         "cps.calibre_db",
-        {"get_book": lambda book_id: SimpleNamespace(id=book_id), "session": _Session(calls)},
+        {"get_book": lambda book_id: SimpleNamespace(id=book_id),
+         "get_filtered_book": lambda book_id, allow_show_archived=False: SimpleNamespace(id=book_id),
+         "session": _Session(calls)},
     )
     data_cls = SimpleNamespace(book=_Field(), format=_Field())
     db = _install_stub("cps.db", {"Data": data_cls})
@@ -186,7 +188,7 @@ def _load_editbooks_module(delete_key_calls):
         module = _install_stub(f"cps.{name}")
         setattr(cps, name, module)
 
-    _install_stub("cps.ub")
+    _install_stub("cps.ub", {"session": _Session([])})
     _install_stub("cps.clean_html", {"clean_string": lambda value: value})
     _install_stub("cps.services")
     _install_stub("cps.services.worker", {"WorkerThread": SimpleNamespace(get_instance=lambda: None)})
@@ -234,6 +236,16 @@ def _load_editbooks_module(delete_key_calls):
         "_ensure_ingest_dir_writable", "_get_ingest_path", "_save_to_ingest_atomic_rename",
         "_validate_uploaded_file")})
     _install_stub("cps.editbooks_bulk")
+    def _delete_captured(book, book_format="", recovery_id=None):
+        calls.append("format-delete" if book_format else ("whole", book.id))
+        calls.append("commit")
+        return "recovery-id"
+
+    _install_stub("cps.book_recovery", {"capture_book": lambda *args, **kwargs: "recovery-id",
+                                       "RecoveryError": Exception,
+                                       "RECOVERY_LOCK": __import__("threading").RLock(),
+                                       "delete_captured_book": _delete_captured})
+    cps.book_recovery = sys.modules["cps.book_recovery"]
 
     editbooks_path = pathlib.Path(__file__).resolve().parents[2] / "cps" / "editbooks.py"
     spec = importlib.util.spec_from_file_location("cps.editbooks", editbooks_path)
@@ -242,7 +254,6 @@ def _load_editbooks_module(delete_key_calls):
     sys.modules["cps.editbooks"] = module
     spec.loader.exec_module(module)
     module.render_delete_book_result = lambda *args, **kwargs: "deleted"
-    module.delete_whole_book = lambda book_id, book: calls.append(("whole", book_id))
     return module, calls
 
 
@@ -295,7 +306,7 @@ def _load_duplicates_module(delete_key_calls):
         },
     )
     _install_stub("cps.services")
-    _install_stub("cps.editbooks", {"delete_whole_book": lambda book_id, book: calls.append(("whole", book_id))})
+    _install_stub("cps.editbooks", {"delete_book_automatic": lambda book, recovery_id=None: calls.append(("whole", book.id))})
     _install_stub(
         "cps.duplicate_index",
         {

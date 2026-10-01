@@ -44,7 +44,7 @@ from .string_helper import strip_whitespaces
 from . import logger, config, db, ub, fs
 from . import gdriveutils as gd
 from .constants import (STATIC_DIR as _STATIC_DIR, CACHE_TYPE_THUMBNAILS, THUMBNAIL_TYPE_COVER, THUMBNAIL_TYPE_SERIES,
-                        SUPPORTED_CALIBRE_BINARIES)
+                        SUPPORTED_CALIBRE_BINARIES, EXTENSIONS_AUDIO)
 from .subproc_wrapper import process_wait
 
 # Track books with pending thumbnail generation to prevent duplicate tasks
@@ -95,14 +95,13 @@ def change_archived_books(book_id, state=None, message=None):
 
 # Check if a reader is existing for any of the book formats, if not, return empty list, otherwise return
 # list with supported formats
+READER_PREFERENCE = ('epub', 'kepub', 'pdf', 'djvu', 'djv')
+
+
 def check_read_formats(entry):
-    extensions_reader = {'PDF', 'EPUB', 'DJVU', 'DJV'}
-    book_formats = list()
-    if len(entry.data):
-        for ele in iter(entry.data):
-            if ele.format.upper() in extensions_reader:
-                book_formats.append(ele.format.lower())
-    return book_formats
+    supported = READER_PREFERENCE + tuple(sorted(EXTENSIONS_AUDIO))
+    present = {ele.format.lower() for ele in iter(entry.data)}
+    return [fmt for fmt in supported if fmt in present]
 
 
 def get_valid_filename(value, replace_whitespace=True, chars=128):

@@ -115,23 +115,13 @@ def select_book_to_keep(books, strategy):
             format_priority = json.loads(format_priority_json)
         except Exception as e:
             log.warning("[cwa-duplicates] Error loading format priority from settings, using defaults: %s", str(e))
-            # Fallback to default priority
+            # Fallback to default priority. Mirrors the duplicate_format_priority
+            # default in scripts/cwa_schema.sql; only the formats Lily supports
+            # are listed, anything else scores 0.
             format_priority = {
                 'EPUB': 100,
-                'KEPUB': 95,
-                'AZW3': 90,
-                'MOBI': 80,
-                'AZW': 75,
                 'PDF': 60,
-                'TXT': 40,
-                'CBZ': 35,
-                'CBR': 35,
-                'FB2': 30,
                 'DJVU': 25,
-                'HTML': 20,
-                'RTF': 15,
-                'DOC': 10,
-                'DOCX': 10,
             }
 
         def get_best_format_score(book):

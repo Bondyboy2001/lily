@@ -39,13 +39,82 @@ def test_library_templates_have_no_inline_style_blocks():
 def test_detail_page_has_no_inline_styles_and_one_primary():
     html = read(TEMPLATES / "detail.html")
     assert 'style="' not in html
-    # Actions are icon-only; Read is the one primary, marked by the accent colour.
-    read_btn = html[html.index('id="readbtn"'):html.index('glyphicon-book')]
-    assert "icon-btn" in read_btn and "is-primary" in read_btn
-    assert html.count("is-primary") == 1
-    # The trash is a plain icon button, not red at rest.
-    delete_btn = html[html.index('id="delete"') - 200:html.index('id="delete"')]
-    assert "icon-btn" in delete_btn and "btn-danger" not in delete_btn
+    # Actions are labelled buttons; Read is the one Primary.
+    m = re.search(r"<a target=\"_blank\" id=\"readbtn\"[^>]*>.*?</a>", html, flags=re.S)
+    assert m, "readbtn anchor missing"
+    read_btn = m.group(0)
+    assert 'class="btn btn-primary"' in read_btn
+    assert "url_for('web.read_book'" in read_btn
+    assert "{{ _('Read') }}" in read_btn
+    assert html.count("btn-primary") == 1
+    assert "btn-danger" not in html
+
+
+def test_detail_edit_and_read_state_are_named_icon_buttons():
+    html = read(TEMPLATES / "detail.html")
+    edit = re.search(r'<a href="[^"]*show_edit_book[^"]*" id="edit_book" class="btn is-icon"[^>]*>', html, flags=re.S)
+    assert edit, "Edit Metadata icon button missing"
+    assert "aria-label=\"{{ _('Edit Metadata') }}\"" in edit.group(0)
+    toggle = re.search(r'<button[^>]*id="toggle-read-btn"[^>]*>(.*?)</button>', html, flags=re.S)
+    assert toggle and 'class="btn is-icon"' in toggle.group(0)
+    assert 'class="book-action-label sr-only"' in toggle.group(1)
+    css = read(CSS / "lily-library.css")
+    assert "width: 36px" in _rules_by_selector(css, ".book-action-bar > .btn.is-icon")[".book-action-bar > .btn.is-icon"]
+
+
+def test_detail_rare_actions_are_icon_buttons_not_a_menu():
+    html = read(TEMPLATES / "detail.html")
+    assert "book-more" not in html and "More actions" not in html
+    for needle, label in (('class="btn is-icon uuid-copy"', "Copy UUID"), ('id="delete"', "Delete Book")):
+        btn = re.search(r'<button[^>]*' + re.escape(needle) + r'[^>]*>', html, flags=re.S)
+        assert btn, needle
+        assert "aria-label=\"{{ _('" + label + "') }}\"" in btn.group(0)
+    archive = re.search(r'<button[^>]*id="toggle-archive-btn"[^>]*>(.*?)</button>', html, flags=re.S)
+    assert archive and 'class="btn is-icon"' in archive.group(0)
+    assert 'class="book-action-label sr-only"' in archive.group(1)
+
+
+def test_detail_description_has_no_heading_and_shows_in_full():
+    html = read(TEMPLATES / "detail.html")
+    section = re.search(r'<section class="book-detail-description"(.*?)</section>', html, flags=re.S).group(0)
+    assert "<h3" not in section and "aria-label=\"{{ _('Description') }}\"" in section
+    assert 'class="comments"' in section
+    assert "is-clamped" not in html and "book-description-toggle" not in html
+    for selector, body in css_rules(read(CSS / "lily-library.css")):
+        if ".book-detail-description" in selector:
+            assert "line-clamp" not in body, selector
+
+
+def test_detail_toolbar_buttons_are_labelled():
+    css = read(CSS / "lily-library.css")
+    parts = _rules_by_selector(css, ".book-action-bar")
+    body = parts[".book-action-bar > .btn"]
+    for decl in ("display: inline-flex", "height: 36px"):
+        assert decl in body, decl
+    lily = read(CSS / "lily.css")
+    assert re.search(r"\.icon-btn:hover,\s*\.icon-btn:focus\s*{[^}]*color:\s*var\(--accent\)", lily)
+    assert re.search(r":focus-visible[^{]*{[^}]*outline:\s*2px solid", lily)
+    assert re.search(r"\.icon-btn::after\s*{[^}]*content:\s*[\"']", lily)
+
+
+def _rules_by_selector(css_text, prefix):
+    parts = {}
+    for selector, body in css_rules(css_text):
+        for part in selector.split(","):
+            part = part.strip()
+            if part.startswith(prefix):
+                parts[part] = body
+    return parts
+
+
+def test_detail_read_toggle_shows_state_without_a_disc():
+    sel = '.book-action-bar #toggle-read-btn[aria-pressed="true"] .glyphicon'
+    parts = _rules_by_selector(read(CSS / "lily-library.css"), ".book-action-bar #toggle-read-btn")
+    assert "color: var(--success)" in parts[sel]
+    for body in parts.values():
+        assert "border-radius: 50%" not in body and "background: var(--success)" not in body
+    html = read(TEMPLATES / "detail.html")
+    assert "entry.read_status and 'glyphicon-ok' or 'glyphicon-eye-open'" in html
 
 
 def test_lily_library_css_uses_tokens_only():
@@ -124,3 +193,78 @@ def test_style_css_has_no_legacy_colours():
 def test_book_links_open_the_book_page_not_a_modal():
     for name in ["index.html", "author.html", "search.html", "shelf.html", "image.html"]:
         assert "#bookDetailsModal" not in read(TEMPLATES / name), name
+
+
+def test_detail_rows_keep_metadata_in_a_side_panel():
+    css = read(CSS / "lily-library.css")
+    main_rules = [body for selector, body in css_rules(css) if selector == ".book-detail-main"]
+    # Wide: cover | book | facts panel, with content-sized heading and action rows.
+    # The middle column fits its content, so the panel fills the space a short title leaves.
+    assert "grid-template-columns: clamp(220px, 17vw, 300px) minmax(min(100%, 420px), max-content) minmax(260px, 1fr)" in main_rules[0]
+    assert "grid-template-rows: min-content min-content 1fr" in main_rules[0]
+    # Phone: row sizing is reset.
+    assert "grid-template-rows: auto" in main_rules[-1]
+    metadata = next(body for selector, body in css_rules(css) if selector == "dl.book-metadata")
+    for declaration in ("grid-column: 3", "padding: 20px 22px", "border: 0", "border-radius: 10px",
+                        "background: var(--surface)", "margin: 0"):
+        assert declaration in metadata
+    html = read(TEMPLATES / "detail.html")
+    # The panel is its own grid item, not tucked under the description.
+    assert html.index('<dl class="book-metadata">') < html.index('<div class="book-detail-extra">')
+
+
+def test_site_has_no_horizontal_separator_borders():
+    names = ["style.css", "lily.css", "lily-shell.css", "lily-library.css",
+             "lily-admin.css", "lily-stats.css", "lily-reader.css",
+             "duplicates-notifications.css", "login.css"]
+    for name in names:
+        css = re.sub(r"/\*.*?\*/", "", read(CSS / name), flags=re.S)
+        assert not re.search(r"border-(?:top|bottom):\s*1px solid var\(--line(?:-soft)?\)", css), name
+    rules = dict(css_rules(read(CSS / "lily.css")))
+    assert "display: none" in rules["hr"]
+    assert "display: none" in rules[".dropdown-menu .divider"]
+
+
+def test_edit_shelf_is_beside_page_heading_not_in_actions_menu():
+    layout = read(TEMPLATES / "layout.html")
+    assert re.search(r'</h1>\s*{% block page_title_actions %}', layout)
+    shelf = read(TEMPLATES / "shelf.html")
+    actions = re.search(r'{% block page_title_actions %}(.*?){% endblock %}', shelf, flags=re.S)
+    assert actions and 'id="edit_shelf"' in actions.group(1)
+    assert "glyphicon-pencil" in actions.group(1)
+    assert 'aria-label="{{ _(\'Edit Shelf\') }}"' in actions.group(1)
+    assert shelf.count('id="edit_shelf"') == 1
+    assert 'id="shelf-menu-toggle"' not in shelf
+    assert 'id="delete_shelf"' not in shelf
+    edit = read(TEMPLATES / "shelf_edit.html")
+    assert re.search(r'<button[^>]*type="button"[^>]*id="delete_shelf"', edit)
+    assert "shelf.delete_shelf" in edit
+    assert "delete_confirm_modal()" in edit
+
+
+def test_shelf_heading_edit_action_preserves_permissions():
+    from types import SimpleNamespace
+
+    from jinja2 import DictLoader, Environment
+
+    env = Environment(loader=DictLoader({
+        "shelf.html": read(TEMPLATES / "shelf.html"),
+        "layout.html": '<h1>{{ title }}</h1>{% block page_title_actions %}{% endblock %}',
+        "image.html": "",
+    }))
+    for authenticated, public, editor, visible in (
+        (True, False, False, True), (True, True, True, True),
+        (True, True, False, False), (False, False, True, False),
+        (False, True, True, False),
+    ):
+        html = env.get_template("shelf.html").render(
+            title="Shelf: Papers",
+            current_user=SimpleNamespace(is_authenticated=authenticated, role_edit_shelfs=lambda: editor),
+            shelf=SimpleNamespace(id=7, is_public=public),
+            _=lambda text: text,
+            url_for=lambda endpoint, **kwargs: "/shelf/edit/7",
+        )
+        assert ('id="edit_shelf"' in html) is visible
+        if visible:
+            assert html.index("Shelf: Papers") < html.index('id="edit_shelf"')
+            assert 'href="/shelf/edit/7"' in html

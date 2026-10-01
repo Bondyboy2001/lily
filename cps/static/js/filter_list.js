@@ -5,7 +5,6 @@ SPDX-License-Identifier: GPL-3.0-or-later
 See CONTRIBUTORS for full list of authors.
  */
 
-var direction = $("#asc").data('order');  // 0=Descending order; 1= ascending order
 
 // Helper: get the primary list container regardless of template id
 function getListContainer() {
@@ -21,13 +20,11 @@ function getListContainer() {
 }
 
 // Delegate events to handle dynamically rendered elements
-// The options live in dropdowns (image.list_menu); lilyPickOption (lily.js) ticks the picked one
-// and returns false when it was already picked, so each handler only runs on a real change.
-$(document).on("click", "#desc", function(e) {
+// The direction button (image.list_menu) flips between ascending and descending; lilyToggleSortDir
+// (lily.js) relabels it and returns the new direction. Either way the rows simply reverse.
+$(document).on("click", "#lily-order-toggle", function(e) {
     e.preventDefault();
-    if (!lilyPickOption(this)) {
-        return;
-    }
+    var dir = lilyToggleSortDir(this);
 
     var page = $(this).data("id");
     $.ajax({
@@ -35,51 +32,7 @@ $(document).on("click", "#desc", function(e) {
         contentType: "application/json; charset=utf-8",
         dataType: "json",
         url: getPath() + "/ajax/view",
-        data: "{\"" + page + "\": {\"dir\": \"desc\"}}",
-    });
-    var index = 0;
-    var list = getListContainer();
-    var second = $("#second");
-    list.append(second.contents());
-    var listItems = list.children(".row");
-    var reversed, elementLength, middle;
-    reversed = listItems.get().reverse();
-    elementLength = reversed.length;
-    // Find count of middle element
-    var count = list.find("> .row:visible").length;
-    if (count > 20) {
-        middle = parseInt(count / 2, 10) + (count % 2);
-        $(reversed).each(function() {
-            index++;
-            if ($(this).css("display") !== "none") {
-                middle--;
-                if (middle <= 0) {
-                    return false;
-                }
-            }
-        });
-        list.append(reversed.slice(0, index));
-        second.append(reversed.slice(index, elementLength));
-    } else {
-        list.append(reversed.slice(0, elementLength));
-    }
-    direction = 0;
-});
-
-
-$(document).on("click", "#asc", function(e) {
-    e.preventDefault();
-    if (!lilyPickOption(this)) {
-        return;
-    }
-
-    var page = $(this).data("id");
-    $.ajax({
-        method:"post",
-        contentType: "application/json; charset=utf-8",
-        dataType: "json",
-        url: getPath() + "/ajax/view",
-        data: "{\"" + page + "\": {\"dir\": \"asc\"}}",
+        data: JSON.stringify({[page]: {dir: dir}}),
     });
     var index = 0;
     var list = getListContainer();
@@ -107,7 +60,6 @@ $(document).on("click", "#asc", function(e) {
     } else {
         list.append(reversed.slice(0, elementLength));
     }
-    direction = 1;
 });
 
 $(document).on("click", "#all", function(e) {

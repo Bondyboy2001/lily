@@ -58,6 +58,8 @@ function calculateProgress(){
 const progressSync = LilyProgress.create({
     url: calibre.progressUrl,
     storageKey: calibre.progressKey || calibre.bookUrl,
+    format: calibre.progressFormat,
+    statusEl: document.getElementById("progress-sync-status"),
     enabled: calibre.syncProgress === true
 });
 // Nothing is saved until the starting position has been restored, otherwise the
@@ -90,13 +92,7 @@ let progressDiv=document.getElementById("progress");
 
 /** Pre-sync builds kept an integer percentage under this key; read it once as a fallback. */
 function legacyLocalPercent(){
-    try {
-        let saved = localStorage.getItem("calibre.reader.progress." + calibre.bookUrl);
-        let percent = parseInt(saved, 10);
-        return isNaN(percent) ? null : percent / 100;
-    } catch (e) {
-        return null;
-    }
+    return null;
 }
 
 function displayPosition(pos){

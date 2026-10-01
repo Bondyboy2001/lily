@@ -20,7 +20,7 @@ its owning submodule; patch it there (``cps.cwa_functions.ingest``), not here.
 
 from .common import (library_refresh, cwa_stats,
                      cwa_check_status, cwa_settings, cwa_internal,
-                     log, LOG_ARCHIVE, DIRS_JSON)
+                     log, DIRS_JSON)
 # Import order mirrors the old single module (web, scheduler, worker, tasks) to keep
 # circular-import behaviour the same.
 from .stats import (get_cwa_stats, headers, cwa_stats_show, export_stats_csv,
@@ -33,14 +33,14 @@ from .ingest import (_duplicate_full_scan_running, get_ingest_dir, get_ingest_st
                      duplicate_scan_debounce_pending, cwa_internal_reconnect_db)
 from .logs import cwa_flash_status
 from .settings import (parse_metadata_providers_enabled, validate_and_cleanup_provider_enabled_map,
-                       set_cwa_settings, get_next_duplicate_scan_run)
+                       set_cwa_settings)
 
 # The imports above are the package's public facade, not local use. Keep them
 # listed so linters treat them as intentional re-exports.
 __all__ = [
     # common
     "library_refresh", "cwa_stats", "cwa_check_status", "cwa_settings",
-    "cwa_internal", "log", "LOG_ARCHIVE", "DIRS_JSON",
+    "cwa_internal", "log", "DIRS_JSON",
     # stats
     "get_cwa_stats", "headers", "cwa_stats_show",
     "export_stats_csv", "show_full_enforcement",
@@ -57,5 +57,5 @@ __all__ = [
     "cwa_flash_status",
     # settings
     "parse_metadata_providers_enabled", "validate_and_cleanup_provider_enabled_map",
-    "set_cwa_settings", "get_next_duplicate_scan_run",
+    "set_cwa_settings",
 ]

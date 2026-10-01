@@ -10,41 +10,22 @@
 {% block body %}
 <div class="discover lily-book-detail">
     <div class="book-detail-main">
-        <div class="book-detail-cover cover">
-            <img id="detailcover" alt="{{ entry.title }}" title="{{ entry.title }}"
-                 src="{{ url_for('web.get_cover', book_id=entry.id, resolution='og', c=entry|last_modified) }}"/>
-            {% set marks = ['epub', 'pdf']|select('in', entry.data|map(attribute='format')|map('lower')|list)|list %}
-            {% if marks %}
-            <span class="lily-cover-formats">{% for f in marks %}<span class="lily-format lily-format-{{ f }}" title="{{ f|upper }}"></span>{% endfor %}</span>
-            {% endif %}
-            {# Read-only here; shelves and tags are changed on the edit page. Squares are
-               shelves and pills are tags, so the two kinds read apart at a glance. #}
-            {% set shelves = (g.shelves_access|selectattr('id', 'in', books_shelfs)|list) if (current_user.is_authenticated and books_shelfs) else [] %}
-            {% if shelves or entry.tags|length > 0 %}
-            <div class="book-detail-taxonomy">
-                {# Five tones per kind, wired to .tone-1..5 in lily-library.css. A new tag or shelf
-                   takes the next tone, and tags are offset so a shelf and a tag rarely match. #}
-                {% for shelf in shelves %}
-                    <a class="btn lily-chip is-shelf tone-{{ (shelf.id % 5) + 1 }}" href="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}"
-                       aria-label="{{ _('Shelves') }}: {{ shelf.name }}{% if shelf.is_public == 1 %} {{ _('(Public)') }}{% endif %}">{{ shelf.name }}{% if shelf.is_public == 1 %} {{ _('(Public)') }}{% endif %}</a>
-                {% endfor %}
-                {% for tag in entry.tags|sort(attribute='name') %}
-                    <a class="btn lily-chip is-tag tone-{{ ((tag.id + 2) % 5) + 1 }}" href="{{ url_for('web.books_list', data='category', sort_param='stored', book_id=tag.id) }}"
-                       aria-label="{{ _('Tags') }}: {{ tag.name }}">{{ tag.name }}</a>
-                {% endfor %}
+        <div class="book-detail-cover">
+            <div class="book-detail-cover-art cover">
+                <img id="detailcover" alt="{{ entry.title }}"
+                     src="{{ url_for('web.get_cover', book_id=entry.id, resolution='og', c=entry|last_modified) }}"/>
             </div>
-            {% endif %}
         </div>
         <div class="book-detail-meta">
+            {% if entry.series|length > 0 %}
+                <p id="book_of">{{ _("Book %(index)s of %(range)s", index=entry.series_index|formatfloat(2), range=(url_for('web.books_list', data='series', sort_param='stored', book_id=entry.series[0].id)|escapedlink(entry.series[0].name))|safe) }}</p>
+            {% endif %}
             <h2 id="title">{{ entry.title }}</h2>
             <p class="author">
                 {% for author in entry.ordered_authors %}
                     <a href="{{ url_for('web.books_list',  data='author', sort_param='stored', book_id=author.id ) }}">{{ author.name.replace('|',',') }}</a>{% if not loop.last %} &amp; {% endif %}
                 {% endfor %}
             </p>
-            {% if entry.series|length > 0 %}
-                <p id="book_of">{{ _("Book %(index)s of %(range)s", index=entry.series_index|formatfloat(2), range=(url_for('web.books_list', data='series', sort_param='stored', book_id=entry.series[0].id)|escapedlink(entry.series[0].name))|safe) }}</p>
-            {% endif %}
             {% set current_rating = (entry.ratings[0].rating / 2)|int if entry.ratings|length > 0 else 0 %}
             {% if current_rating > 0 %}
             <div class="rating" id="detail-rating-block" title="{{ current_rating }} / 5">
@@ -53,177 +34,194 @@
                 <span class="sr-only">{{ _('Rating') }}: {{ current_rating }} / 5</span>
             </div>
             {% endif %}
+        </div>
 
-            <div class="book-detail-actions">
-                <div class="book-action-bar" role="toolbar" aria-label="{{ _('Book actions') }}">
-                    {% set can_read = entry.reader_list and current_user.role_viewer() %}
-                    {% set can_download = current_user.role_download() and entry.data|length %}
-                    <span class="book-action-icons">
-                    {% if can_read %}
-                        <a target="_blank" id="readbtn" class="icon-btn action-icon-btn is-primary"
-                           href="{{ url_for('web.read_book', book_id=entry.id, book_format=entry.reader_list[0]) }}"
-                           title="{{ _('Read in Browser') }}" aria-label="{{ _('Read in Browser') }}">
-                            <span class="glyphicon glyphicon-book" aria-hidden="true"></span>
-                        </a>
-                    {% endif %}
-                    {% if can_download %}
-                        {% if entry.data|length < 2 %}
-                            {% for format in entry.data %}
-                                {% set download_label = _('Download') ~ ' ' ~ format.format ~ ' (' ~ format.uncompressed_size|filesizeformat_binary ~ ')' %}
-                                <a href="{{ url_for('web.download_link', book_id=entry.id, book_format=format.format|lower, anyname=entry.id|string+'.'+format.format|lower|replace('kepub', 'kepub.epub')) }}"
-                                   class="icon-btn action-icon-btn" title="{{ download_label }}" aria-label="{{ download_label }}">
-                                    <span class="glyphicon glyphicon-download" aria-hidden="true"></span>
-                                </a>
-                            {% endfor %}
-                        {% else %}
-                            <span class="dropdown">
-                                <button id="downloadMenu" type="button" class="icon-btn action-icon-btn dropdown-toggle"
-                                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
-                                        title="{{ _('Download') }}" aria-label="{{ _('Download') }}">
-                                    <span class="glyphicon glyphicon-download" aria-hidden="true"></span>
-                                </button>
-                                <ul class="dropdown-menu" aria-labelledby="downloadMenu">
-                                    {% for format in entry.data %}
-                                        <li>
-                                            <a href="{{ url_for('web.download_link', book_id=entry.id, book_format=format.format|lower, anyname=entry.id|string+'.'+format.format|lower|replace('kepub', 'kepub.epub')) }}">{{ format.format }}
-                                                ({{ format.uncompressed_size|filesizeformat_binary }})</a></li>
-                                    {% endfor %}
-                                </ul>
-                            </span>
-                        {% endif %}
-                    {% endif %}
-                    {% if not current_user.is_anonymous %}
-                        {% set read_label = entry.read_status and _('Mark As Unread') or _('Mark As Read') %}
-                        <button type="button" class="icon-btn action-icon-btn" id="toggle-read-btn"
-                                aria-pressed="{{ 'true' if entry.read_status else 'false' }}"
-                                title="{{ read_label }}" aria-label="{{ read_label }}"
-                                data-toast-on="{{ _('Marked as read') }}"
-                                data-toast-off="{{ _('Marked as unread') }}">
-                            <span id="read-icon" class="glyphicon {{ entry.read_status and 'glyphicon-eye-open' or 'glyphicon-eye-close' }}" aria-hidden="true"></span>
-                        </button>
-                        {% if current_user.check_visibility(32768) %}
-                            {% set archive_label = entry.is_archived and _('Restore from archive') or _('Add to archive') %}
-                            <button type="button" class="icon-btn action-icon-btn" id="toggle-archive-btn"
-                                    aria-pressed="{{ 'true' if entry.is_archived else 'false' }}"
-                                    title="{{ archive_label }}" aria-label="{{ archive_label }}"
-                                    data-toast-on="{{ _('Archived') }}"
-                                    data-toast-off="{{ _('Restored from archive') }}">
-                                <span id="archive-icon" class="glyphicon {{ entry.is_archived and 'glyphicon-folder-open' or 'glyphicon-folder-close' }}" aria-hidden="true"></span>
+        <div class="book-detail-actions">
+            {# Read is the one Primary and Download keeps its label. Everything else (read state,
+               edit, archive, copy UUID, delete) is a square icon button named by its title. #}
+            <div class="book-action-bar" role="toolbar" aria-label="{{ _('Book actions') }}">
+                {% set can_read = entry.reader_list and current_user.role_viewer() %}
+                {% set can_download = current_user.role_download() and entry.data|length %}
+                {% set can_archive = not current_user.is_anonymous and current_user.check_visibility(32768) %}
+                {% set can_delete = current_user.role_edit() and current_user.role_delete_books() %}
+                {% if can_read %}
+                    <a target="_blank" id="readbtn" class="btn btn-primary"
+                       href="{{ url_for('web.read_book', book_id=entry.id, book_format=entry.reader_list[0]) }}">
+                        <span class="glyphicon glyphicon-book" aria-hidden="true"></span>{{ _('Read') }}
+                    </a>
+                {% endif %}
+                {% if can_download %}
+                    {% if entry.data|length < 2 %}
+                        {% for format in entry.data %}
+                            <a href="{{ url_for('web.download_link', book_id=entry.id, book_format=format.format|lower, anyname=entry.id|string+'.'+format.format|lower|replace('kepub', 'kepub.epub')) }}"
+                               class="btn" id="downloadbtn">
+                                <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span>{{ _('Download') }}
+                            </a>
+                        {% endfor %}
+                    {% else %}
+                        <span class="dropdown">
+                            <button id="downloadMenu" type="button" class="btn dropdown-toggle"
+                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span>{{ _('Download') }}<span class="caret"></span>
                             </button>
-                        {% endif %}
+                            <ul class="dropdown-menu" aria-labelledby="downloadMenu">
+                                {% for format in entry.data %}
+                                    <li>
+                                        <a href="{{ url_for('web.download_link', book_id=entry.id, book_format=format.format|lower, anyname=entry.id|string+'.'+format.format|lower|replace('kepub', 'kepub.epub')) }}">{{ format.format }}
+                                            ({{ format.uncompressed_size|filesizeformat_binary }})</a></li>
+                                {% endfor %}
+                            </ul>
+                        </span>
                     {% endif %}
-                    {% if current_user.role_edit() %}
-                        <a href="{{ url_for('edit-book.show_edit_book', book_id=entry.id) }}" id="edit_book"
-                           class="icon-btn action-icon-btn" title="{{ _('Edit Metadata') }}" aria-label="{{ _('Edit Metadata') }}">
-                            <span class="glyphicon glyphicon-pencil" aria-hidden="true"></span>
-                        </a>
-                    {% endif %}
-                    {% if current_user.role_edit() and current_user.role_delete_books() %}
-                        <button type="button" class="icon-btn action-icon-btn is-danger" id="delete"
-                                data-toggle="modal" data-delete-id="{{ entry.id }}" data-target="#deleteModal"
-                                title="{{ _('Delete Book') }}" aria-label="{{ _('Delete Book') }}">
-                            <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
-                        </button>
-                    {% endif %}
-                    </span>
-                </div>
+                {% endif %}
+                {% if not current_user.is_anonymous %}
+                    {# An eye while unread, a green tick once read; the hidden label is the button's name. #}
+                    {% set read_label = entry.read_status and _('Mark As Unread') or _('Mark As Read') %}
+                    <button type="button" class="btn is-icon" id="toggle-read-btn" title="{{ read_label }}"
+                            aria-pressed="{{ 'true' if entry.read_status else 'false' }}">
+                        <span id="read-icon" class="glyphicon {{ entry.read_status and 'glyphicon-ok' or 'glyphicon-eye-open' }}" aria-hidden="true"></span><span class="book-action-label sr-only">{{ read_label }}</span>
+                    </button>
+                {% endif %}
+                {% if current_user.role_edit() %}
+                    <a href="{{ url_for('edit-book.show_edit_book', book_id=entry.id) }}" id="edit_book" class="btn is-icon"
+                       title="{{ _('Edit Metadata') }}" aria-label="{{ _('Edit Metadata') }}">
+                        <span class="glyphicon glyphicon-pencil" aria-hidden="true"></span>
+                    </a>
+                {% endif %}
+                {% if can_archive %}
+                    {% set archive_label = entry.is_archived and _('Restore from archive') or _('Add to archive') %}
+                    <button type="button" class="btn is-icon" id="toggle-archive-btn" title="{{ archive_label }}"
+                            aria-pressed="{{ 'true' if entry.is_archived else 'false' }}">
+                        <span id="archive-icon" class="glyphicon {{ entry.is_archived and 'glyphicon-folder-open' or 'glyphicon-folder-close' }}" aria-hidden="true"></span><span class="book-action-label sr-only">{{ archive_label }}</span>
+                    </button>
+                {% endif %}
+                {% if entry.uuid %}
+                    <button type="button" class="btn is-icon uuid-copy" title="{{ _('Copy UUID') }}" aria-label="{{ _('Copy UUID') }}"
+                            data-uuid="{{ entry.uuid }}">
+                        <span class="glyphicon glyphicon-duplicate" aria-hidden="true"></span>
+                    </button>
+                {% endif %}
+                {% if can_delete %}
+                    <button type="button" class="btn is-icon is-danger" id="delete" title="{{ _('Delete Book') }}" aria-label="{{ _('Delete Book') }}"
+                            data-toggle="modal" data-delete-id="{{ entry.id }}" data-target="#deleteModal">
+                        <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
+                    </button>
+                {% endif %}
             </div>
+        </div>
 
-            <dl class="book-metadata">
-                {% if entry.publishers|length > 0 %}
-                    <div class="publishers">
-                        <dt>{{ _('Publisher') }}</dt>
-                        <dd><a href="{{ url_for('web.books_list', data='publisher', sort_param='stored', book_id=entry.publishers[0].id ) }}">{{ entry.publishers[0].name }}</a></dd>
-                    </div>
-                {% endif %}
-                {% if (entry.pubdate|string)[:10] != '0101-01-01' %}
-                    <div class="publishing-date">
-                        <dt>{{ _('Published') }}</dt>
-                        <dd>{{ entry.pubdate|formatdate }}</dd>
-                    </div>
-                {% endif %}
-                {% if entry.languages|length > 0 %}
-                    <div class="languages">
-                        <dt>{{ _('Languages') }}</dt>
-                        <dd>{% for language in entry.languages %}{{ language.language_name }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>
-                    </div>
-                {% endif %}
-                {% if entry.data|length > 0 %}
-                    <div class="formats">
-                        <dt>{{ _('File sizes') }}</dt>
-                        <dd>
-                            {% for format in entry.data %}
-                                {{ format.format }} ({{ format.uncompressed_size|filesizeformat_binary }}){% if not loop.last %}, {% endif %}
-                            {% endfor %}
-                        </dd>
-                    </div>
-                {% endif %}
-                {% set ids = namespace(linked=false) %}
-                {% for identifier in entry.identifiers if identifier.__repr__() != identifier.val %}{% set ids.linked = true %}{% endfor %}
-                {% if ids.linked %}
-                    <div class="identifiers">
-                        <dt>{{ _('Identifiers') }}</dt>
-                        <dd>
-                            {% for identifier in entry.identifiers if identifier.__repr__() != identifier.val %}
-                                <a href="{{ identifier|escape }}" target="_blank" rel="noopener">{{ identifier.format_type() }}</a>{% if not loop.last %}, {% endif %}
-                            {% endfor %}
-                        </dd>
-                    </div>
-                {% endif %}
-                {% if cc|length > 0 %}
-                    {% for c in cc %}
-                        {% if entry['custom_column_' ~ c.id]|length > 0 %}
-                            <div class="real_custom_columns">
-                                <dt>{{ c.name }}</dt>
-                                <dd>
-                                    {% for column in entry['custom_column_' ~ c.id] %}
-                                        {% if c.datatype == 'rating' %}
-                                            {{ (column.value / 2)|formatfloat }}
-                                        {% elif c.datatype == 'bool' %}
-                                            {% if column.value == true %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}
-                                        {% elif c.datatype == 'float' %}
-                                            {{ column.value|formatfloat(2) }}
-                                        {% elif c.datatype == 'datetime' %}
-                                            {{ column.value|formatdate }}
-                                        {% elif c.datatype == 'comments' %}
-                                            {{ column.value|safe }}
-                                        {% elif c.datatype == 'series' %}
-                                            {{ '%s [%s]' % (column.value, column.extra|formatfloat(2)) }}
-                                        {% elif c.datatype == 'text' %}
-                                            {{ column.value.strip() }}{% if not loop.last %}, {% endif %}
-                                        {% else %}
-                                            {{ column.value }}
-                                        {% endif %}
-                                    {% endfor %}
-                                </dd>
-                            </div>
-                        {% endif %}
-                    {% endfor %}
-                {% endif %}
-                <div class="book-date-added">
-                    <dt>{{ _('Date added') }}</dt>
-                    <dd>{{ entry.timestamp|formatdate }}</dd>
-                </div>
-                <div class="book-last-modified">
-                    <dt>{{ _('Last modified') }}</dt>
-                    <dd>{{ entry.last_modified|formatdate }}</dd>
-                </div>
-                <div class="book-id">
-                    <dt>{{ _('ID') }}</dt>
-                    <dd>
-                        {{ entry.id }}
-                        {% if entry.uuid %}
-                            <button type="button" class="icon-btn uuid-copy"
-                                    data-uuid="{{ entry.uuid }}"
-                                    data-toast="{{ _('UUID copied to clipboard') }}"
-                                    data-toast-error="{{ _('Unable to copy UUID') }}"
-                                    title="{{ _('Copy UUID') }}" aria-label="{{ _('Copy UUID') }}">
-                                <span class="glyphicon glyphicon-duplicate" aria-hidden="true"></span>
-                            </button>
-                        {% endif %}
+        {# The facts as a side panel: each file as a tile (type mark, format, size), then one
+           label/value line per fact. Downloading goes through the Download button. Empty
+           fields are left out. #}
+        <dl class="book-metadata">
+            {% if entry.data|length > 0 %}
+                <div class="formats">
+                    <dt class="sr-only">{{ _('Files') }}</dt>
+                    <dd class="book-detail-files">
+                        {% for format in entry.data %}
+                            {% set f = format.format|lower %}
+                            <span class="book-detail-file">
+                                {% if f in ['epub', 'pdf'] %}<span class="lily-format lily-format-{{ f }}" aria-hidden="true"></span>{% endif %}
+                                <span class="book-detail-file-name">{{ format.format }}</span>
+                                <span class="book-detail-file-size">{{ format.uncompressed_size|filesizeformat_binary }}</span>
+                            </span>
+                        {% endfor %}
                     </dd>
                 </div>
-            </dl>
+            {% endif %}
+            {% if (entry.pubdate|string)[:10] != '0101-01-01' %}
+                <div class="publishing-date">
+                    <dt>{{ _('Published') }}</dt>
+                    <dd>{{ entry.pubdate|formatdate }}</dd>
+                </div>
+            {% endif %}
+            {% if entry.publishers|length > 0 %}
+                <div class="publishers">
+                    <dt>{{ _('Publisher') }}</dt>
+                    <dd><a href="{{ url_for('web.books_list', data='publisher', sort_param='stored', book_id=entry.publishers[0].id ) }}">{{ entry.publishers[0].name }}</a></dd>
+                </div>
+            {% endif %}
+            {% if entry.languages|length > 0 %}
+                <div class="languages">
+                    <dt>{{ _('Languages') }}</dt>
+                    <dd>{% for language in entry.languages %}{{ language.language_name }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>
+                </div>
+            {% endif %}
+            {% set ids = namespace(linked=false) %}
+            {% for identifier in entry.identifiers if identifier.__repr__() != identifier.val %}{% set ids.linked = true %}{% endfor %}
+            {% if ids.linked %}
+                <div class="identifiers">
+                    <dt>{{ _('Identifiers') }}</dt>
+                    <dd>
+                        {% for identifier in entry.identifiers if identifier.__repr__() != identifier.val %}
+                            <a href="{{ identifier|escape }}" target="_blank" rel="noopener">{{ identifier.format_type() }}</a>{% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                    </dd>
+                </div>
+            {% endif %}
+            {% if cc|length > 0 %}
+                {% for c in cc %}
+                    {% if entry['custom_column_' ~ c.id]|length > 0 %}
+                        <div class="real_custom_columns">
+                            <dt>{{ c.name }}</dt>
+                            <dd>
+                                {% for column in entry['custom_column_' ~ c.id] %}
+                                    {% if c.datatype == 'rating' %}
+                                        {{ (column.value / 2)|formatfloat }}
+                                    {% elif c.datatype == 'bool' %}
+                                        {% if column.value == true %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}
+                                    {% elif c.datatype == 'float' %}
+                                        {{ column.value|formatfloat(2) }}
+                                    {% elif c.datatype == 'datetime' %}
+                                        {{ column.value|formatdate }}
+                                    {% elif c.datatype == 'comments' %}
+                                        {{ column.value|safe }}
+                                    {% elif c.datatype == 'series' %}
+                                        {{ '%s [%s]' % (column.value, column.extra|formatfloat(2)) }}
+                                    {% elif c.datatype == 'text' %}
+                                        {{ column.value.strip() }}{% if not loop.last %}, {% endif %}
+                                    {% else %}
+                                        {{ column.value }}
+                                    {% endif %}
+                                {% endfor %}
+                            </dd>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+            <div class="book-date-added">
+                <dt>{{ _('Date added') }}</dt>
+                <dd>{{ entry.timestamp|formatdate }}</dd>
+            </div>
+            <div class="book-last-modified">
+                <dt>{{ _('Last edited') }}</dt>
+                <dd>{{ entry.last_modified|formatdate }}</dd>
+            </div>
+        </dl>
+
+        <div class="book-detail-extra">
+            {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
+                <section class="book-detail-description" aria-label="{{ _('Description') }}">
+                    <div class="comments" id="book-description">{{ entry.comments[0].text|flatten_breaks }}</div>
+                </section>
+            {% endif %}
+
+            {# Read-only here; shelves and tags are changed on the edit page. Every shelf and every
+               tag shares one look per kind: shelves are filled accent chips with the shelf glyph
+               from the sidebar, tags are outlined pills with a tag glyph. #}
+            {% set shelves = (g.shelves_access|selectattr('id', 'in', books_shelfs)|list) if (current_user.is_authenticated and books_shelfs) else [] %}
+            {% if shelves or entry.tags|length > 0 %}
+            <div class="book-detail-taxonomy">
+                {% for shelf in shelves %}
+                    <a class="btn lily-chip is-shelf" href="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}"
+                       aria-label="{{ _('Shelves') }}: {{ shelf.name }}{% if shelf.is_public == 1 %} {{ _('(Public)') }}{% endif %}"><span class="glyphicon glyphicon-list" aria-hidden="true"></span><span class="chip-label">{{ shelf.name }}{% if shelf.is_public == 1 %} {{ _('(Public)') }}{% endif %}</span></a>
+                {% endfor %}
+                {% for tag in entry.tags|sort(attribute='name') %}
+                    <a class="btn lily-chip is-tag" href="{{ url_for('web.books_list', data='category', sort_param='stored', book_id=tag.id) }}"
+                       aria-label="{{ _('Tags') }}: {{ tag.name }}"><span class="glyphicon glyphicon-tag" aria-hidden="true"></span><span class="chip-label">{{ tag.name }}</span></a>
+                {% endfor %}
+            </div>
+            {% endif %}
 
             {% if not current_user.is_anonymous %}
                 <div class="meta-actions" hidden>
@@ -245,14 +243,6 @@
             {% endif %}
         </div>
     </div>
-
-    {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
-        <section class="book-detail-description" aria-labelledby="decription">
-            <h3 id="decription">{{ _('Description') }}</h3>
-            <div class="comments">{{ entry.comments[0].text|flatten_breaks }}</div>
-        </section>
-    {% endif %}
-    <div id="action-toast" class="action-toast" role="status" aria-live="polite"></div>
     {{ delete_book(current_user.role_delete_books() and current_user.role_edit()) }}
 </div>
 {% endblock %}
@@ -262,25 +252,6 @@
 <script src="{{ url_for('static', filename='js/fullscreen.js') }}"></script>
 <script type="text/javascript">
     $(function () {
-        var toastTimer;
-        function showActionToast(message, anchor) {
-            if (!message) {
-                return;
-            }
-            var $toast = $("#action-toast");
-            $toast.text(message);
-            if (anchor && anchor.getBoundingClientRect) {
-                var rect = anchor.getBoundingClientRect();
-                var top = rect.bottom + 8;
-                var left = rect.left;
-                $toast.css({ top: top + "px", left: left + "px" });
-            }
-            $toast.fadeIn(150);
-            clearTimeout(toastTimer);
-            toastTimer = setTimeout(function () {
-                $toast.fadeOut(200);
-            }, 1800);
-        }
         $("#toggle-read-btn").on("click", function () {
             var $cb = $("#have_read_cb");
             var $form = $("#have_read_form");
@@ -297,15 +268,14 @@
                     if (typeof handleResponse === "function") {
                         handleResponse(data);
                     }
-                    var $icon = $("#read-icon");
                     var isRead = $cb.prop("checked");
-                    $icon.toggleClass("glyphicon-eye-open", isRead)
-                         .toggleClass("glyphicon-eye-close", !isRead);
-                    var title = isRead ? $cb.data("checked") : $cb.data("unchecked");
-                    $("#toggle-read-btn").attr("title", title).attr("aria-label", title).attr("aria-pressed", isRead ? "true" : "false");
+                    // Unread shows an eye; read shows a green tick (styled off aria-pressed).
+                    $("#read-icon").toggleClass("glyphicon-ok", isRead)
+                        .toggleClass("glyphicon-eye-open", !isRead);
                     var $btn = $("#toggle-read-btn");
-                    var toastMsg = isRead ? $btn.data("toast-on") : $btn.data("toast-off");
-                    showActionToast(toastMsg, $btn[0]);
+                    var label = isRead ? $cb.data("checked") : $cb.data("unchecked");
+                    $btn.attr({ "aria-pressed": isRead ? "true" : "false", title: label })
+                        .find(".book-action-label").text(label);
                 },
                 error: function () {
                     $cb.prop("checked", !nextChecked);
@@ -333,11 +303,10 @@
                     var isArchived = $cb.prop("checked");
                     $icon.toggleClass("glyphicon-folder-open", isArchived)
                         .toggleClass("glyphicon-folder-close", !isArchived);
-                    var title = isArchived ? $cb.data("checked") : $cb.data("unchecked");
-                    $("#toggle-archive-btn").attr("title", title).attr("aria-label", title).attr("aria-pressed", isArchived ? "true" : "false");
                     var $btn = $("#toggle-archive-btn");
-                    var toastMsg = isArchived ? $btn.data("toast-on") : $btn.data("toast-off");
-                    showActionToast(toastMsg, $btn[0]);
+                    var label = isArchived ? $cb.data("checked") : $cb.data("unchecked");
+                    $btn.attr({ "aria-pressed": isArchived ? "true" : "false", title: label })
+                        .find(".book-action-label").text(label);
                 },
                 error: function () {
                     $cb.prop("checked", !nextChecked);
@@ -351,30 +320,18 @@
             if (!uuid) {
                 return;
             }
-            var successMessage = $btn.data("toast");
-            var errorMessage = $btn.data("toast-error");
-            function showSuccess() {
-                showActionToast(successMessage, $btn[0]);
-            }
-            function showError() {
-                showActionToast(errorMessage, $btn[0]);
-            }
+            // No confirmation popup: the copy just happens.
             if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(uuid).then(showSuccess).catch(showError);
+                navigator.clipboard.writeText(uuid).catch(function () {});
                 return;
             }
             var $temp = $("<textarea>").val(uuid).css({ position: "fixed", left: "-9999px", top: "-9999px" });
             $("body").append($temp);
             $temp[0].select();
             try {
-                var copied = document.execCommand("copy");
-                if (copied) {
-                    showSuccess();
-                } else {
-                    showError();
-                }
+                document.execCommand("copy");
             } catch (e) {
-                showError();
+                // Nothing to do; the browser refused the copy.
             }
             $temp.remove();
         });

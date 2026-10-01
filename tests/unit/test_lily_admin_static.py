@@ -9,7 +9,7 @@ CSS = REPO_ROOT / "cps/static/css"
 TEMPLATES = REPO_ROOT / "cps/templates"
 
 ADMIN_TEMPLATES = [
-    "admin.html", "config_db.html", "cwa_settings.html", "db_backups.html", "user_edit.html",
+    "config_db.html", "cwa_settings.html", "db_backups.html", "user_edit.html",
     "user_table.html", "hardcover_review_matches.html",
     "tasks.html", "http_error.html",
     "lily_form.html",
@@ -60,13 +60,14 @@ def test_profile_hides_theme_picker_but_still_posts_theme():
     assert re.search(r'<input type="hidden" name="theme"[^>]*value="1"', html)
 
 
-def test_admin_headings_carry_no_emoji():
-    html = read(TEMPLATES / "admin.html")
-    assert '<span aria-hidden="true">{{ emoji }}</span>' not in html
+@pytest.mark.parametrize("name", existing(ADMIN_TEMPLATES))
+def test_admin_headings_carry_no_emoji(name):
+    html = read(TEMPLATES / name)
+    assert '<span aria-hidden="true">{{ emoji }}</span>' not in html, name
     # Emoji survive only inside the msgids passed to emoji_heading, which strips them.
     for line in html.splitlines():
         if re.search(r"[\U0001F300-\U0001FAFF⌛⚡⚙]", line):
-            assert "emoji_heading(" in line, line
+            assert "emoji_heading(" in line, (name, line)
 
 
 def test_folder_pickers_are_labelled_icon_buttons():
@@ -77,7 +78,7 @@ def test_folder_pickers_are_labelled_icon_buttons():
             assert "aria-label=" in button and "title=" in button, (name, button)
 
 
-SETTINGS_FORMS = ["admin.html", "config_db.html", "user_edit.html", "cwa_settings.html", "db_backups.html"]
+SETTINGS_FORMS = ["config_db.html", "user_edit.html", "cwa_settings.html", "db_backups.html"]
 
 
 @pytest.mark.parametrize("name", SETTINGS_FORMS)
@@ -103,10 +104,64 @@ def test_settings_frame_is_a_short_rail_without_search_or_tabs():
         assert gone not in html, gone
 
 
+def test_settings_rail_signout_is_a_quiet_button():
+    html = read(TEMPLATES / "settings_layout.html")
+    assert "lp-rail-sep" not in html
+    assert "_('Logout')" not in html
+    block = re.search(r"{% if signed_in %}(.*?){% endif %}", html, flags=re.S)
+    assert block, "signed_in block missing"
+    frag = block.group(1)
+    assert 'class="lp-rail-signout-row"' in frag
+    assert re.search(
+        r'<a href="{{ url_for\(\'web\.logout\'\) }}" class="btn btn-default lp-rail-signout" id=\'logout\'>{{ _\(\'Sign out\'\) }}</a>',
+        frag)
+
+
+def test_signout_row_styles_desktop_and_mobile():
+    css = read(CSS / "lily-admin.css")
+    assert re.search(
+        r"\.lp-rail-list > \.lp-rail-signout-row\s*{[^}]*margin-top:\s*12px[^}]*padding-left:\s*10px", css)
+    assert re.search(r"\.lp-rail-signout\s*{[^}]*white-space:\s*nowrap", css)
+    assert re.search(r"\.lp-rail-signout\.btn,[^{]*{[^}]*background:\s*var\(--danger\)", css)
+    container = re.search(r"@container lp-settings[^\n]*{(.*)", css, flags=re.S)
+    assert container
+    assert re.search(
+        r"\.lp-rail-list > \.lp-rail-signout-row\s*{[^}]*margin-top:\s*0[^}]*padding-left:\s*0", container.group(1))
+
+
 def test_settings_rail_lists_only_the_essential_pages():
     html = read(TEMPLATES / "settings_layout.html")
     ids = re.findall(r"\{'id': '(\w+)', 'group'", html)
-    assert ids == ["profile", "import", "users", "maintenance"]
+    assert ids == ["profile", "import", "users", "duplicates", "logs"]
+    assert "maintenance" not in html and "admin.admin" not in html
+
+
+def test_admin_view_redirects_to_duplicates():
+    source = read(REPO_ROOT / "cps/admin.py")
+    assert re.search(r"def admin\(\):\s*\n\s*return redirect\(url_for\('duplicates\.show_duplicates'\)\)",
+                     source)
+
+
+@pytest.mark.parametrize("name", ["duplicates.html", "logs.html"])
+def test_utility_pages_share_the_settings_frame(name):
+    html = read(TEMPLATES / name)
+    assert html.startswith('{% extends "settings_layout.html" %}'), name
+    assert "{% block settings %}" in html and "{% block body %}" not in html, name
+    assert "{% block pane_class %} is-wide{% endblock %}" in html, name
+
+
+def test_sidebar_has_no_utility_links():
+    layout = read(TEMPLATES / "layout.html")
+    assert 'id="nav_duplicates"' not in layout and 'id="nav_logs"' not in layout
+    sidebar = layout[layout.index('<aside class="lily-sidebar"'):layout.index("</aside>")]
+    assert "logs.show_logs" not in sidebar
+    settings = read(TEMPLATES / "settings_layout.html")
+    assert "'id': 'duplicates'" in settings and "duplicates.show_duplicates" in settings
+    assert "signed_in and (is_admin or current_user.role_edit())" in settings
+    assert "'id': 'logs'" in settings and "logs.show_logs" in settings
+    assert 'id="duplicate-count-badge"' in settings
+    sidebar_source = read(REPO_ROOT / "cps/render_template.py")
+    assert '"id": "duplicates"' not in sidebar_source
 
 
 def test_removed_settings_pages_are_gone():
@@ -119,7 +174,7 @@ def test_library_page_keeps_google_drive():
     assert "config_use_google_drive" in html and "gdrive.authenticate_google_drive" in html
 
 
-@pytest.mark.parametrize("name", [n for n in SETTINGS_FORMS if n != "admin.html"])
+@pytest.mark.parametrize("name", SETTINGS_FORMS)
 def test_settings_forms_have_one_primary(name):
     html = read(TEMPLATES / name)
     body = html[html.index("{% block settings %}"):]

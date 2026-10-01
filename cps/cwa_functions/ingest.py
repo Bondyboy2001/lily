@@ -7,14 +7,16 @@
 """Library refresh, ingest status helpers and the internal endpoints the ingest
 process calls (auto-send scheduling, debounced duplicate scans, DB reconnect)."""
 
-from flask import request, jsonify, current_app
+from flask import request, jsonify, current_app, url_for, abort
 from flask_babel import gettext as _, lazy_gettext as _l
 
 from .. import csrf
 from ..usermanagement import login_required_if_no_ano
 from ..admin import admin_required
+from ..cw_login import current_user
 
 import os
+import re
 import subprocess
 
 import json
@@ -106,36 +108,93 @@ def _library_refresh_timeout() -> int:
     return value if value > 0 else 7200
 
 
-def refresh_library(app):
-    with app.app_context():  # Create app context for session
-        ingest_dir = get_ingest_dir()
-        timeout = _library_refresh_timeout()
+def _automation_jobs():
+    try:
+        from scripts.automation_jobs import (
+            create_job, finish_job, get_job, list_jobs, active_job,
+            claim_job, failed_children,
+        )
+    except ImportError:
+        from automation_jobs import (
+            create_job, finish_job, get_job, list_jobs, active_job,
+            claim_job, failed_children,
+        )
+    return create_job, finish_job, get_job, list_jobs, active_job, claim_job, failed_children
+
+
+def _finish_refresh_job(finish_job, job_id, return_code, app, failed_children=None):
+    """Record the message and the durable job outcome for a refresh run."""
+    job_failed_imports = 0
+    if return_code == 0 and job_id and failed_children:
         try:
-            result = subprocess.run(['python3', '/app/calibre-web-automated/scripts/ingest_processor.py', ingest_dir],
-                                    timeout=timeout)
-            return_code = result.returncode
-        except subprocess.TimeoutExpired:
-            # run() has already killed the processor; its flock is released with it
-            log.error("Library refresh: ingest processor did not finish within %s seconds and was stopped", timeout)
-            return_code = None
+            job_failed_imports = failed_children(job_id)
+        except Exception as e:
+            log.warning("could not count failed ingest jobs for refresh %s: %s", job_id, e)
+            job_failed_imports = -1
+    if return_code is None:
+        outcome_message = _l("Library Refresh 🔄 The ingest process took too long and was stopped, check the logs ⛔")
+    elif return_code == 2:
+        outcome_message = _l("Library Refresh 🔄 The book ingest service is already running ✋ Please wait until it has finished before trying again ⌛")
+    elif return_code == 0 and job_failed_imports == 0:
+        outcome_message = _l("Library Refresh 🔄 Library refreshed & ingest process complete! ✅")
+    elif return_code == 0 and job_failed_imports > 0:
+        outcome_message = _l("Library Refresh 🔄 %d import(s) failed; open Failed Imports ⛔") % job_failed_imports
+    else:
+        outcome_message = _l("Library Refresh 🔄 An unexpected error occurred, check the logs ⛔")
 
-        # Add empty list for messages in app context if a list doesn't already exist
-        if "library_refresh_messages" not in current_app.config:
-            current_app.config["library_refresh_messages"] = []
+    if "library_refresh_messages" not in app.config:
+        app.config["library_refresh_messages"] = []
+    app.config["library_refresh_messages"].append(outcome_message)
+    # Print result to docker log (force English by casting within temporary locale guard if desired)
+    print(str(outcome_message).replace('Library Refresh 🔄', '[library-refresh]'), flush=True)
 
-        if return_code is None:
-            message = _l("Library Refresh 🔄 The ingest process took too long and was stopped, check the logs ⛔")
-        elif return_code == 2:
-            message = _l("Library Refresh 🔄 The book ingest service is already running ✋ Please wait until it has finished before trying again ⌛")
-        elif return_code == 0:
-            message = _l("Library Refresh 🔄 Library refreshed & ingest process complete! ✅")
-        else:
-            message = _l("Library Refresh 🔄 An unexpected error occurred, check the logs ⛔")
+    if job_id and finish_job:
+        try:
+            if return_code == 0 and job_failed_imports == 0:
+                finish_job(job_id, "succeeded")
+            elif return_code == 0 and job_failed_imports > 0:
+                finish_job(job_id, "failed",
+                           "%d import(s) failed; open Failed Imports" % job_failed_imports)
+            elif return_code == 2:
+                finish_job(job_id, "skipped",
+                           "the ingest service is already running")
+            elif return_code == 0:
+                finish_job(job_id, "failed", "could not verify ingest results")
+            elif return_code is None:
+                finish_job(job_id, "failed", "ingest processor timed out")
+            else:
+                finish_job(job_id, "failed", "ingest processor exited with %s" % return_code)
+        except Exception as e:
+            log.warning("could not persist refresh job %s result: %s", job_id, e)
 
-        # Store lazy message objects (will be translated when converted to string)
-        current_app.config["library_refresh_messages"].append(message)
-        # Print result to docker log (force English by casting within temporary locale guard if desired)
-        print(str(message).replace('Library Refresh 🔄', '[library-refresh]'), flush=True)
+
+def refresh_library(app, job_id=None):
+    _create, finish_job, _get, _list, _active, _claim, failed_children = \
+        ([None] * 7) if not job_id else _automation_jobs()
+    return_code = -1
+    try:
+        with app.app_context():  # Create app context for session
+            ingest_dir = get_ingest_dir()
+            timeout = _library_refresh_timeout()
+            env = dict(os.environ)
+            if job_id:
+                env["LILY_REFRESH_JOB_ID"] = job_id
+            try:
+                result = subprocess.run(['python3', '/app/calibre-web-automated/scripts/ingest_processor.py', ingest_dir],
+                                        timeout=timeout, env=env)
+                return_code = result.returncode
+            except subprocess.TimeoutExpired:
+                # run() has already killed the processor; its flock is released with it
+                log.error("Library refresh: ingest processor did not finish within %s seconds and was stopped", timeout)
+                return_code = None
+            except Exception as e:
+                log.error("Library refresh: could not start the ingest processor: %s", e)
+                return_code = -1
+    except Exception as e:
+        log.error("Library refresh failed before the ingest processor ran: %s", e)
+        return_code = -1
+    _finish_refresh_job(finish_job, job_id, return_code, app, failed_children)
+
 
 @library_refresh.route("/cwa-library-refresh", methods=["POST"])
 @login_required_if_no_ano
@@ -144,25 +203,65 @@ def cwa_library_refresh():
     print("[library-refresh] Library refresh manually triggered by user...", flush=True)
     app = current_app._get_current_object()  # Get actual app instance
 
-    current_app.config["library_refresh_messages"] = []
+    try:
+        try:
+            from scripts.automation_jobs import claim_job, finish_job
+        except ImportError:
+            from automation_jobs import claim_job, finish_job
+        job_id, created = claim_job("refresh", user_id=int(current_user.id))
+        if created:
+            app.config["library_refresh_messages"] = []
+            library_refresh_thread = Thread(target=refresh_library, args=(app, job_id))
+            try:
+                library_refresh_thread.start()
+            except Exception as e:
+                log.error("could not start the refresh worker: %s", e)
+                try:
+                    finish_job(job_id, "failed", "refresh worker could not start")
+                except Exception:
+                    pass
+                return jsonify({"error": _("Could not start the library refresh")}), 503
+    except Exception as e:
+        log.error("could not start a durable refresh job: %s", e)
+        return jsonify({"error": _("Refresh status storage is unavailable; refresh not started")}), 503
 
-    # Run refresh_library() in a background thread
-    library_refresh_thread = Thread(target=refresh_library, args=(app,))
-    library_refresh_thread.start()
+    status_url = url_for("library_refresh.library_refresh_job", job_id=job_id)
+    return jsonify({"message": _("Library Refresh 🔄 Checking for any books that may have been missed, please wait..."),
+                    "state": "running", "job_id": job_id, "status_url": status_url}), 200
 
-    return jsonify({"message": _("Library Refresh 🔄 Checking for any books that may have been missed, please wait...")}), 200
+
+@library_refresh.route("/cwa-library-refresh/jobs/<job_id>", methods=["GET"])
+@login_required_if_no_ano
+@admin_required
+def library_refresh_job(job_id):
+    if not re.fullmatch(r"[0-9a-fA-F]{32}", job_id or ""):
+        abort(404)
+    _create, _finish, get_job, _list, _active, _claim, _fc = _automation_jobs()
+    job = get_job(job_id)
+    if job is None or job["kind"] != "refresh":
+        return jsonify({"error": "Unknown job"}), 404
+    message = job["error"] or ""
+    if job["state"] == "running":
+        message = message or _("Checking the library for new books, please wait...")
+    elif job["state"] == "succeeded":
+        message = _("Library refreshed & ingest process complete!")
+    elif job["state"] == "skipped":
+        message = _("The ingest service is already running; nothing was queued twice.")
+    elif job["state"] in ("failed", "interrupted"):
+        message = message or _("Refresh did not finish; check the logs.")
+    return jsonify({"job_id": job["id"], "state": job["state"], "message": message,
+                    "kind": job["kind"], "filename": job["filename"] or "",
+                    "started_utc": job["started_utc"],
+                    "finished_utc": job["finished_utc"]})
+
 
 @library_refresh.route("/cwa-library-refresh/messages", methods=["GET"])
 @login_required_if_no_ano
+@admin_required
 def get_library_refresh_messages():
+    # Non-consuming: every admin client sees the latest message until the next run.
     messages = current_app.config.get("library_refresh_messages", [])
-
-    # Convert lazy messages to strings (translation occurs here)
     rendered = [str(m) for m in messages]
-
-    # Clear messages after they have been retrieved
-    current_app.config["library_refresh_messages"] = []
-
     return jsonify({"messages": rendered})
 
 ##————————————————————————————————————————————————————————————————————————————##

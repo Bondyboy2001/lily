@@ -4,19 +4,22 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Admin routes for database backups, restores, the library mirror and failed imports.
+"""Admin routes for database backups, restores, the library mirror, failed imports
+and per-book delete recovery.
 
 Registered on the admin blueprint (see the bottom of admin.py), so endpoint names are
 unchanged: admin.db_backups, admin.restore_db_snapshot, admin.ingest_failures, ...
 """
 
 import os
+import re
 
 from flask import abort, flash, jsonify, redirect, request, send_file, url_for
 from flask_babel import gettext as _
 from markupsafe import Markup
 
-from . import config, logger
+from . import book_recovery, config, logger
+from .book_recovery import RecoveryError
 from .admin import admi, admin_required, _tasks_page_link
 from .cw_login import current_user
 from .render_template import render_title_template
@@ -123,6 +126,7 @@ def db_backups():
     from .tasks.library_mirror import get_mirror_dir
     from db_backup import describe_snapshots
     from .tasks.processed_cleanup import get_retention_days
+    from .book_recovery import get_recovery_retention_days
     backup_root = get_backup_root()
     try:
         snapshots = describe_snapshots(backup_root)
@@ -138,6 +142,7 @@ def db_backups():
                                  backup_dir_env=os.environ.get("DB_BACKUP_DIR", ""),
                                  mirror_dir=get_mirror_dir(),
                                  retention_days=get_retention_days(),
+                                 recovery_retention_days=get_recovery_retention_days(),
                                  restorable_dbs=RESTORABLE_DBS,
                                  restore_running=restore_in_progress())
 
@@ -166,10 +171,21 @@ def db_backups_settings():
     if days < 0 or days > 3650:
         flash(_("Retention must be a whole number of days between 0 and 3650."), category="error")
         return redirect(url_for("admin.db_backups"))
+    if "book_recovery_retention_days" in request.form:
+        raw_recovery_days = (request.form.get("book_recovery_retention_days") or "").strip()
+        recovery_days = normalize_retention_days(raw_recovery_days, default=-1)
+        if recovery_days < 0 or recovery_days > 3650:
+            flash(_("Recovery retention must be a whole number of days between 0 and 3650."),
+                  category="error")
+            return redirect(url_for("admin.db_backups"))
+    else:
+        from .book_recovery import get_recovery_retention_days
+        recovery_days = get_recovery_retention_days()
     try:
         with CWA_DB() as cwa_db:
             cwa_db.update_cwa_settings({"db_backup_dir": backup_dir, "library_mirror_dir": mirror_dir,
-                                        "processed_books_retention_days": str(days)})
+                                        "processed_books_retention_days": str(days),
+                                        "book_recovery_retention_days": str(recovery_days)})
     except Exception as e:
         log.error("Saving backup settings failed: %s", e)
         flash(_("Saving backup settings failed: %(err)s", err=str(e)), category="error")
@@ -246,3 +262,49 @@ def restore_db_snapshot():
     return _reply(True, Markup(_("Restore of %(dbs)s from %(name)s started. A safety copy of the current "
                                  "databases is taken first. Follow its progress on the %(link)s page.",
                                  dbs=", ".join(databases), name=name, link=_tasks_page_link())))
+
+
+@admi.route("/admin/book-recovery", methods=["GET"])
+@user_login_required
+@admin_required
+def book_recovery_page():
+    """Lists captured recovery archives of deleted books/formats with a Restore action."""
+    try:
+        entries = book_recovery.list_recovery()
+    except Exception as e:
+        log.error("Could not list book recovery entries: %s", e)
+        entries = []
+        flash(_("Could not list recovery archives: %(err)s", err=str(e)), category="error")
+    live_uuids = set()
+    try:
+        from . import calibre_db, db
+        live_uuids = {row[0] for row in calibre_db.session.query(db.Books.uuid)}
+    except Exception as e:
+        log.error("Could not load live book uuids for recovery page: %s", e)
+    for entry in entries:
+        entry["book_live"] = bool(entry.get("book_uuid")) and entry["book_uuid"] in live_uuids
+    return render_title_template("book_recovery.html", title=_("Book Recovery"),
+                                 page="book_recovery", entries=entries,
+                                 recovery_root=book_recovery.recovery_root())
+
+
+@admi.route("/admin/book-recovery/<string:recovery_id>/restore", methods=["POST"])
+@user_login_required
+@admin_required
+def book_recovery_restore(recovery_id):
+    """Restores one archived book (or one archived format into a live book)."""
+    if not re.fullmatch(r"[0-9a-fA-F]{32}", recovery_id or ""):
+        abort(404)
+    try:
+        book_id, skipped = book_recovery.restore_book(recovery_id)
+        flash(_("Book restored. It is back in the library as book %(id)s.", id=book_id),
+              category="success")
+        if skipped:
+            flash(_("Some per-user data was skipped because the user or shelf no longer "
+                    "exists: %(items)s", items=", ".join(skipped)), category="warning")
+    except RecoveryError as e:
+        flash(_("Restore refused: %(err)s", err=str(e)), category="error")
+    except Exception as e:
+        log.error_or_exception("Book recovery restore of %s failed: %s", recovery_id, e)
+        flash(_("Restore failed: %(err)s", err=str(e)), category="error")
+    return redirect(url_for("admin.book_recovery_page"))

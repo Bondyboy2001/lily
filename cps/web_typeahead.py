@@ -134,6 +134,8 @@ def get_book_titles_json():
         .order_by(func.lower(db.Books.title)).limit(8).all()
     # Each suggestion carries its small cover thumbnail, cache-busted like the library grid.
     return json.dumps([dict(name=book.title,
+                            id=book.id,
+                            url=url_for('web.show_book', book_id=book.id),
                             author=" & ".join(a.name.replace("|", ",") for a in book.authors),
                             cover=url_for('web.get_cover', book_id=book.id, resolution='sm',
                                           c=str(int(book.last_modified.timestamp()))))

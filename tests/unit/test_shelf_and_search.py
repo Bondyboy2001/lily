@@ -54,6 +54,36 @@ def test_create_shelf_add_books_and_delete(env):
     assert ub.session.query(ub.BookShelf).filter(ub.BookShelf.shelf == sid).count() == 0
 
 
+def test_delete_shelf_control_is_only_on_edit_page(env):
+    admin = _client(env, env.admin().name, ADMIN_PASSWORD)
+    admin.post("/shelf/create", data={"title": "Editable"})
+    sid = _shelf_id(env, "Editable")
+
+    browse = admin.get(f"/shelf/{sid}")
+    assert browse.status_code == 200
+    html = browse.get_data(as_text=True)
+    assert 'id="shelf-menu-toggle"' not in html
+    assert 'id="delete_shelf"' not in html
+    assert 'id="edit_shelf"' in html
+
+    edit = admin.get(f"/shelf/edit/{sid}")
+    assert edit.status_code == 200
+    html = edit.get_data(as_text=True)
+    assert 'id="delete_shelf"' in html
+    assert f'data-action="/shelf/delete/{sid}"' in html
+    assert 'id="GeneralDeleteModal"' in html
+    assert 'name="csrf_token"' in html
+
+
+def test_create_shelf_has_no_delete_control(env):
+    admin = _client(env, env.admin().name, ADMIN_PASSWORD)
+    response = admin.get("/shelf/create")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'id="delete_shelf"' not in html
+    assert 'id="GeneralDeleteModal"' not in html
+
+
 def test_shelf_names_must_be_unique_per_scope(env):
     admin = _client(env, env.admin().name, ADMIN_PASSWORD)
     admin.post("/shelf/create", data={"title": "Dupe"})

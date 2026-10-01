@@ -97,3 +97,9 @@ prev_end
 
 # Route parameters required by the URL rule signature
 anyname
+
+_.isolation_level
+
+delete_whole_book
+delete_book
+get_continue_reading_progress

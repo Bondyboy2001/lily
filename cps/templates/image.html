@@ -60,18 +60,13 @@
           {% endfor %}
         </ul>
       </div>
-      <div class="dropdown lily-sort">
-        <button type="button" class="btn lily-chip dropdown-toggle" id="lily-sort-dir-toggle" data-toggle="dropdown"
-                aria-haspopup="true" aria-expanded="false">
-          <span class="glyphicon glyphicon-sort-by-attributes{% if ns.desc %}-alt{% endif %}" aria-hidden="true"></span>
-          {{ _('Descending') if ns.desc else _('Ascending') }}
-          <span class="caret" aria-hidden="true"></span>
-        </button>
-        <ul class="dropdown-menu" aria-labelledby="lily-sort-dir-toggle">
-          {{ sort_item(_('Ascending'), href|replace('SORT_PARAM', sorts[ns.field][1]), not ns.desc, disabled) }}
-          {{ sort_item(_('Descending'), href|replace('SORT_PARAM', sorts[ns.field][2]), ns.desc, disabled) }}
-        </ul>
-      </div>
+      {# The direction is one button: pressing it reloads the list in the other order. #}
+      <a class="btn lily-chip lily-sort-dir{% if disabled %} disabled{% endif %}" id="lily-sort-dir-toggle"
+         href="{{ href|replace('SORT_PARAM', sorts[ns.field][1 if ns.desc else 2]) }}"
+         title="{{ _('Sort ascending') if ns.desc else _('Sort descending') }}"{% if disabled %} aria-disabled="true"{% endif %}>
+        <span class="glyphicon glyphicon-sort-by-attributes{% if ns.desc %}-alt{% endif %}" aria-hidden="true"></span>
+        <span class="lily-sort-value">{{ _('Descending') if ns.desc else _('Ascending') }}</span>
+      </a>
     </div>
 {%- endmacro %}
 
@@ -84,10 +79,15 @@
       {% call list_dropdown('lily-field-toggle', 'glyphicon-sort', _('Sort'), _('Name')) %}
         <li class="active"><a role="button" aria-current="true">{{ _('Name') }}</a></li>
       {% endcall %}
-      {% call list_dropdown('lily-order-toggle', 'glyphicon-sort-by-attributes' ~ ('-alt' if order == 0 else ''), None, _('Descending') if order == 0 else _('Ascending')) %}
-        <li{% if order != 0 %} class="active"{% endif %}><a href="#" role="button" id="asc" data-order="{{ order }}" data-id="{{ data }}" data-icon="glyphicon-sort-by-attributes">{{ _('Ascending') }}</a></li>
-        <li{% if order == 0 %} class="active"{% endif %}><a href="#" role="button" id="desc" data-id="{{ data }}" data-icon="glyphicon-sort-by-attributes-alt">{{ _('Descending') }}</a></li>
-      {% endcall %}
+      {% set desc = order == 0 %}
+      <button type="button" class="btn lily-chip lily-sort-dir" id="lily-order-toggle" data-id="{{ data }}"
+              data-dir="{{ 'desc' if desc else 'asc' }}"
+              data-label-asc="{{ _('Ascending') }}" data-label-desc="{{ _('Descending') }}"
+              data-tip-asc="{{ _('Sort ascending') }}" data-tip-desc="{{ _('Sort descending') }}"
+              title="{{ _('Sort ascending') if desc else _('Sort descending') }}">
+        <span class="glyphicon glyphicon-sort-by-attributes{% if desc %}-alt{% endif %}" aria-hidden="true"></span>
+        <span class="lily-sort-value">{{ _('Descending') if desc else _('Ascending') }}</span>
+      </button>
       {% if chars|length > 9 %}
       {% call list_dropdown('lily-filter-toggle', 'glyphicon-filter', _('Letter'), _('All'), 'lily-letter-menu') %}
         <li class="active lily-letter-all"><a href="#" role="button" id="all">{{ _('All') }}</a></li>
@@ -131,18 +131,32 @@
 
 {# Quick actions on a grid cover: icon bar over the cover's foot, revealed on hover or focus (lily.js wires them). #}
 {% macro cover_actions(book, user, formats, is_read=False) -%}
-    <div class="lily-cover-actions" data-book-id="{{ book.id }}" data-book-formats="{{ formats|join(',') }}">
-      {% if formats and user.role_viewer() %}
-      <button type="button" class="icon-btn lily-read-now" title="{{ _('Read in Browser') }}" aria-label="{{ _('Read in Browser') }}"><span class="glyphicon glyphicon-book" aria-hidden="true"></span></button>
+    {%- set readable = book|readable_formats -%}
+    <div class="lily-cover-actions" data-book-id="{{ book.id }}" data-book-formats="{{ readable|join(',') }}">
+      {% if readable and user.role_viewer() %}
+      <button type="button" class="icon-btn lily-read-now" title="{{ _('Read in Browser') }}" aria-label="{{ _('Read in Browser') }}"
+              data-reader-url="{{ url_for('web.read_book', book_id=book.id, book_format=readable[0]) }}"><span class="glyphicon glyphicon-book" aria-hidden="true"></span></button>
+      {% elif formats and user.role_download() %}
+      {% set first = book.data[0] %}
+      <a class="icon-btn" href="{{ url_for('web.download_link', book_id=book.id, book_format=first.format|lower, anyname=book.id|string+'.'+first.format|lower|replace('kepub', 'kepub.epub')) }}"
+         title="{{ _('Download') }}" aria-label="{{ _('Download') }}"><span class="glyphicon glyphicon-download" aria-hidden="true"></span></a>
       {% endif %}
       {% if not user.is_anonymous %}
       {% set read_label = _('Mark As Unread') if is_read else _('Mark As Read') %}
       <button type="button" class="icon-btn lily-toggle-read" aria-pressed="{{ 'true' if is_read else 'false' }}" title="{{ read_label }}" aria-label="{{ read_label }}"
-              data-label-read="{{ _('Mark As Unread') }}" data-label-unread="{{ _('Mark As Read') }}"><span class="glyphicon glyphicon-ok" aria-hidden="true"></span></button>
+              data-label-read="{{ _('Mark As Unread') }}" data-label-unread="{{ _('Mark As Read') }}"><span class="glyphicon glyphicon-eye-open" aria-hidden="true"></span></button>
       {% endif %}
       {% if user.role_edit() %}
       <a class="icon-btn" href="{{ url_for('edit-book.show_edit_book', book_id=book.id) }}" title="{{ _('Edit Metadata') }}" aria-label="{{ _('Edit Metadata') }}"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></span></a>
       {% endif %}
+    </div>
+{%- endmacro %}
+
+{# Column labels over the list view's rows; hidden in grid view. Decorative, so screen readers skip them. #}
+{% macro list_head() -%}
+    <div class="lily-list-head" aria-hidden="true">
+      <span></span>
+      <div class="lily-list-head-cols"><span>{{ _('Title') }}</span><span>{{ _('Author') }}</span><span>{{ _('Format') }}</span><span>{{ _('Year') }}</span><span>{{ _('Rating') }}</span></div>
     </div>
 {%- endmacro %}
 
@@ -154,7 +168,7 @@
         <a href="{{ url_for('web.show_book', book_id=book.id) }}" class="book-cover-link" data-book-id="{{ book.id }}">
           <span class="img" title="{{ book.title }}">
             {{ book_cover(book, alt=alt) }}
-            {% if is_read %}<span class="badge read glyphicon glyphicon-ok" title="{{ _('Read') }}"></span>{% endif %}
+            {% if is_read %}<span class="badge read glyphicon glyphicon-eye-open" title="{{ _('Read') }}"></span>{% endif %}
             {% set marks = ['epub', 'pdf']|select('in', formats)|list %}
             {% if marks %}
             <span class="lily-cover-formats">{% for f in marks %}<span class="lily-format lily-format-{{ f }}" title="{{ f|upper }}"></span>{% endfor %}</span>
@@ -199,10 +213,11 @@
           {% for number in range(5 - stars) %}<span class="glyphicon glyphicon-star-empty" aria-hidden="true"></span>{% endfor %}
         </div>
         {% endif %}
-        {# List rows show the file types as a column; grid cards mark them on the cover instead. #}
-        {% if marks %}
-        <span class="lily-list-formats">{% for f in marks %}<span class="lily-format lily-format-{{ f }}" title="{{ f|upper }}"></span>{% endfor %}</span>
+        {# List rows show the file types and year as columns; grid cards mark the types on the cover instead. #}
+        {% if formats %}
+        <span class="lily-list-formats">{% for f in formats|unique %}<span class="lily-format lily-format-{{ f if f in ['epub', 'pdf'] else 'other' }}" role="img" aria-label="{{ f|upper }}" title="{{ f|upper }}"></span>{% endfor %}</span>
         {% endif %}
+        <span class="lily-list-year">{% if book.pubdate and (book.pubdate|string)[:10] != '0101-01-01' %}{{ (book.pubdate|string)[:4] }}{% endif %}</span>
       </div>
     </div>
 {%- endmacro %}

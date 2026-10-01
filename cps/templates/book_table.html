@@ -82,6 +82,7 @@
       </div>
     </div>
 
+    <div id="batch-results" class="lily-batch-results" aria-live="polite"></div>
     <div>
       <table id="books-table" class="table table-no-bordered table-striped"
         data-url="{{url_for('web.list_books')}}" data-locale="{{ current_user.locale }}" data-classes="table table-no-bordered table-hover">
@@ -175,7 +176,7 @@
       </div>
       <div class="modal-body">
         <p></p>
-          <div class="text-left">{{_('The following books will be deleted:')}}</div>
+          <div class="text-left">{{_('The following books will be deleted (recovery copies are kept for an administrator to restore):')}}</div>
         <p></p>
           <div class="text-left" id="display-delete-selected-books"></div>
       <div class="modal-footer">

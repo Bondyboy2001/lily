@@ -73,7 +73,8 @@ def env(ingest_processor, monkeypatch, tmp_path):
 
 
 def _failed_files(env):
-    return sorted(p.name for p in env["failed_dir"].iterdir())
+    return sorted(p.name for p in env["failed_dir"].iterdir()
+                  if not p.name.startswith("."))
 
 
 def test_successful_import_deletes_source(ingest_processor, env):
@@ -246,3 +247,86 @@ def test_lock_held_by_other_process_blocks_until_it_dies(ingest_processor, tmp_p
         assert contender.acquire(timeout=2)
     finally:
         contender.release()
+
+
+
+
+def _patch_jobs(monkeypatch, created=None, finished=None, create_error=None):
+    import automation_jobs
+    monkeypatch.setattr(automation_jobs, "create_job",
+                        create_error or (lambda *a, **k: (created.append(k), "job-7")[1]))
+    monkeypatch.setattr(automation_jobs, "finish_job",
+                        lambda *a: finished.append(a))
+    try:
+        import scripts.automation_jobs as saj
+        monkeypatch.setattr(saj, "create_job",
+                            create_error or (lambda *a, **k: (created.append(k), "job-7")[1]))
+        monkeypatch.setattr(saj, "finish_job", lambda *a: finished.append(a))
+    except ImportError:
+        pass
+
+
+def _failure_reason(env):
+    import ingest_failures
+    items = ingest_failures.list_failed(str(env["failed_dir"]))
+    return items[0] if items else None
+
+
+def test_ingest_job_and_sidecar_reason(ingest_processor, env, monkeypatch):
+    created, finished = [], []
+    _patch_jobs(monkeypatch, created, finished)
+    env["import_result"] = False
+    src = env["ingest_dir"] / "book.epub"
+    src.write_bytes(b"bad")
+
+    assert ingest_processor.main(str(src)) == 0
+
+    assert created == [{"filename": "book.epub", "parent_id": None}]
+    assert finished[0][:2] == ("job-7", "failed")
+    item = _failure_reason(env)
+    assert item and item["reason"] and item["job_id"] == "job-7"
+
+
+def test_unsupported_format_reason_on_sidecar(ingest_processor, env, monkeypatch):
+    _patch_jobs(monkeypatch, [], [])
+    src = env["ingest_dir"] / "notes.xyz"
+    src.write_bytes(b"data")
+    assert ingest_processor.main(str(src)) == 0
+    item = _failure_reason(env)
+    assert "not a known ebook format" in item["reason"]
+
+
+def test_called_process_error_stderr_bounded(ingest_processor, env, monkeypatch):
+    _patch_jobs(monkeypatch, [], [])
+    err = subprocess.CalledProcessError(1, "calibredb", stderr="x" * 5000)
+    env["import_result"] = err
+    src = env["ingest_dir"] / "big.epub"
+    src.write_bytes(b"data")
+    with pytest.raises(subprocess.CalledProcessError):
+        ingest_processor.main(str(src))
+    item = _failure_reason(env)
+    assert item and len(item["reason"]) <= 800 and "xxx" in item["reason"]
+
+
+def test_add_format_bad_manifest_reason(ingest_processor, env, monkeypatch):
+    finished = []
+    _patch_jobs(monkeypatch, [], finished)
+    src = env["ingest_dir"] / "extra.epub"
+    src.write_bytes(b"data")
+    (env["ingest_dir"] / "extra.epub.cwa.json").write_text(
+        '{"action": "add_format", "book_id": -1}')
+    assert ingest_processor.main(str(src)) == 0
+    item = _failure_reason(env)
+    assert item and "manifest" in item["reason"]
+    assert (env["ingest_dir"] / "extra.epub.cwa.failed.json").exists()
+
+
+def test_jobs_db_down_still_imports_safely(ingest_processor, env, monkeypatch):
+    def boom(**k):
+        raise RuntimeError("cwa.db missing")
+    _patch_jobs(monkeypatch, finished=[], create_error=boom)
+    src = env["ingest_dir"] / "book.epub"
+    src.write_bytes(b"ok")
+    assert ingest_processor.main(str(src)) == 0
+    assert env["import_calls"] == [str(src)]
+    assert not src.exists()

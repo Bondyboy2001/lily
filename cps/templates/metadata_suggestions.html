@@ -11,7 +11,7 @@
     <span class="lp-footnote">{{ _('%(n)d book(s) looked up so far, %(m)d without a usable match.', n=looked_up, m=no_match) }}</span>
   </form>
 
-  {% call f.group(_('To review'), help=(_('Nothing to review. Run a lookup to find suggestions.') if not items else None)) %}
+  {% call f.group(None, id='to-review', help=(_('Nothing to review. Run a lookup to find suggestions.') if not items else None)) %}
     {% for item in items %}
     {% set row = item.row %}
     {% call f.row(row.book_title, help=(row.book_authors ~ ' · ' ~ row.provider ~ ' · ' ~ item.percent ~ '%'), wide=True) %}

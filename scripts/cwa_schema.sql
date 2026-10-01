@@ -68,6 +68,9 @@ CREATE TABLE IF NOT EXISTS cwa_settings(
     -- Days to keep files in /config/processed_books/{imported,failed}, pruned nightly. '0' = keep forever.
     -- Stored as TEXT so the generic settings form doesn't treat it as a checkbox.
     processed_books_retention_days TEXT DEFAULT '30' NOT NULL,
+    -- Days to keep deleted-book recovery archives under book_recovery/, pruned nightly.
+    -- '0' = keep forever. Ages are read from each entry's manifest, not file mtimes.
+    book_recovery_retention_days TEXT DEFAULT '0' NOT NULL,
     -- Optional second folder that nightly receives a copy of new/changed book files. '' = off.
     library_mirror_dir TEXT DEFAULT '' NOT NULL,
     -- Duplicate notification and auto-resolution settings
@@ -76,7 +79,7 @@ CREATE TABLE IF NOT EXISTS cwa_settings(
     duplicate_auto_resolve_enabled SMALLINT DEFAULT 0 NOT NULL,
     duplicate_auto_resolve_strategy TEXT DEFAULT 'newest' NOT NULL,
     duplicate_auto_resolve_cooldown_minutes INTEGER DEFAULT 0 NOT NULL,  -- 0 = disabled, >0 = minutes between auto-resolutions
-    duplicate_format_priority TEXT DEFAULT '{"EPUB":100,"KEPUB":95,"AZW3":90,"MOBI":80,"AZW":75,"PDF":60,"TXT":40,"CBZ":35,"CBR":35,"FB2":30,"DJVU":25,"HTML":20,"RTF":15,"DOC":10,"DOCX":10}' NOT NULL,
+    duplicate_format_priority TEXT DEFAULT '{"EPUB":100,"PDF":60,"DJVU":25}' NOT NULL,
     -- Duplicate scanning performance settings
     duplicate_detection_use_sql SMALLINT DEFAULT 1 NOT NULL, -- Enable SQL prefilter for hybrid by default
     duplicate_scan_method TEXT DEFAULT 'hybrid' NOT NULL, -- Use hybrid prefilter by default
@@ -198,3 +201,23 @@ CREATE TABLE IF NOT EXISTS cwa_duplicate_resolutions (
 
 CREATE INDEX IF NOT EXISTS idx_duplicate_resolutions_timestamp ON cwa_duplicate_resolutions(timestamp);
 CREATE INDEX IF NOT EXISTS idx_duplicate_resolutions_group_hash ON cwa_duplicate_resolutions(group_hash);
+
+CREATE TABLE IF NOT EXISTS cwa_operation_jobs (
+    id TEXT PRIMARY KEY NOT NULL,
+    kind TEXT NOT NULL,
+    user_id INTEGER,
+    filename TEXT,
+    parent_id TEXT,
+    state TEXT NOT NULL,
+    started_utc TEXT NOT NULL,
+    finished_utc TEXT,
+    error TEXT DEFAULT '',
+    pid INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cwa_operation_jobs_started
+    ON cwa_operation_jobs(started_utc);
+CREATE INDEX IF NOT EXISTS idx_cwa_operation_jobs_kind_state
+    ON cwa_operation_jobs(kind, state);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cwa_operation_jobs_one_running
+    ON cwa_operation_jobs(kind) WHERE state='running' AND kind='refresh';

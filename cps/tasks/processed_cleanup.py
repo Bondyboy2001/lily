@@ -97,11 +97,18 @@ class TaskCleanProcessedBooks(CalibreTask):
         days = get_retention_days()
         if days <= 0:
             self.log.debug("processed_books retention disabled (keep forever)")
-            self._handleSuccess()
-            return
-        removed = prune_processed_books(self.root, days)
-        if removed:
-            self.log.info("Removed %d processed_books file(s) older than %d days", len(removed), days)
+        else:
+            removed = prune_processed_books(self.root, days)
+            if removed:
+                self.log.info("Removed %d processed_books file(s) older than %d days",
+                              len(removed), days)
+        from cps.book_recovery import get_recovery_retention_days, prune_book_recovery
+        recovery_days = get_recovery_retention_days()
+        if recovery_days > 0:
+            removed = prune_book_recovery(days=recovery_days)
+            if removed:
+                self.log.info("Removed %d book_recovery entries older than %d days",
+                              len(removed), recovery_days)
         self._handleSuccess()
 
     @property

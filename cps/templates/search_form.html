@@ -13,10 +13,10 @@
 {%- endmacro %}
 
 {#- Include and exclude pickers for one kind of item, side by side in one row. -#}
-{% macro include_exclude(kind, label, exclude_label, items, value_attr='id', text_attr='name', actions=True) -%}
+{% macro include_exclude(kind, label, exclude_label, items, value_attr='id', text_attr='name') -%}
 {% call f.row(label, for_id='include_' ~ kind, cls='lily-search-pair') %}
   {% for mode, title in [('include', _('Include')), ('exclude', _('Exclude'))] %}
-  <select class="selectpicker" name="{{ mode }}_{{ kind }}" id="{{ mode }}_{{ kind }}" title="{{ title }}"{% if mode == 'exclude' %} aria-label="{{ exclude_label }}"{% endif %} data-live-search="true" data-style="btn-default" data-dropup-auto="false" data-width="100%"{% if actions %} data-actions-box="true"{% endif %} multiple>
+  <select class="selectpicker" name="{{ mode }}_{{ kind }}" id="{{ mode }}_{{ kind }}" title="{{ title }}"{% if mode == 'exclude' %} aria-label="{{ exclude_label }}"{% endif %} data-live-search="true" data-style="btn-default" data-dropup-auto="false" data-width="100%" multiple>
     {% for item in items %}
     <option{% if kind == 'tag' %} class="tags_click"{% endif %} value="{{ item[value_attr] }}">{{ item[text_attr] }}</option>
     {% endfor %}
@@ -50,7 +50,6 @@
       {% call f.row(_('Read Status'), for_id='read_status') %}
         <select name="read_status" id="read_status" class="form-control">
           <option value="Any" selected>{{_('Any')}}</option>
-          <option value="">{{_('Empty')}}</option>
           <option value="True">{{_('Yes')}}</option>
           <option value="False">{{_('No')}}</option>
         </select>
@@ -64,7 +63,7 @@
     {% endcall %}
 
     {% call f.group(_('Filters'), help=_('Books must match everything you include and nothing you exclude.'), id='search-filters') %}
-      {{ include_exclude('tag', _('Tags'), _('Exclude Tags'), tags, actions=False) }}
+      {{ include_exclude('tag', _('Tags'), _('Exclude Tags'), tags) }}
       {{ include_exclude('serie', _('Series'), _('Exclude Series'), series) }}
       {{ include_exclude('shelf', _('Shelves'), _('Exclude Shelves'), shelves) }}
       {% if languages %}

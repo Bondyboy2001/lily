@@ -28,7 +28,7 @@ from .helper import check_email, check_username, \
 from .redirect import get_redirect_location
 from .cw_babel import get_available_locale
 from .render_template import render_title_template
-from . import limiter, totp
+from . import limiter
 from .usermanagement import user_login_required
 from .string_helper import strip_whitespaces
 
@@ -115,7 +115,7 @@ def handle_login_user(user, remember, message, category, next_url=None):
     return redirect(get_redirect_location(next_url, "web.index"))
 
 
-def render_login(username="", password="", second_factor=False):
+def render_login(username="", password=""):
     # Detect authentication redirect loops
     redirect_count = flask_session.get('_login_redirect_count', 0)
     if redirect_count > 3:
@@ -135,7 +135,6 @@ def render_login(username="", password="", second_factor=False):
                                  config=config,
                                  username=username,
                                  password=password,
-                                 second_factor=second_factor,
                                  page="login")
 
 
@@ -159,11 +158,6 @@ def login_post():
     ip_address = request.remote_addr
     if user and check_password_hash(str(user.password), form.get('password', '')) and user.name != "Guest":
         config.config_is_initial = False
-        if user.totp_enabled and user.totp_secret:
-            # Password accepted; the account still needs its second factor
-            flask_session['_2fa_pending'] = {'uid': user.id, 'remember': remember_me,
-                                             'next': form.get('next', None), 'ts': time.time()}
-            return redirect(url_for('web.login_2fa'))
         log.debug(u"You are now logged in as: '{}'".format(user.name))
         return handle_login_user(user,
                                  remember_me,
@@ -192,46 +186,6 @@ def login_post():
     return render_login(username, form.get("password", ""))
 
 
-_2FA_PENDING_SECONDS = 5 * 60
-_2fa_failures = totp.FailureTracker()
-
-
-def _pending_2fa_user():
-    pending = flask_session.get('_2fa_pending')
-    if not pending or time.time() - pending.get('ts', 0) > _2FA_PENDING_SECONDS:
-        flask_session.pop('_2fa_pending', None)
-        return None, None
-    return ub.session.query(ub.User).filter(ub.User.id == pending['uid']).first(), pending
-
-
-@web.route('/login/2fa', methods=['GET', 'POST'])
-def login_2fa():
-    user, pending = _pending_2fa_user()
-    if user is None or not user.totp_enabled:
-        flash(_("Your sign-in expired. Please log in again."), category="error")
-        return redirect(url_for('web.login'))
-    if request.method == 'GET':
-        return render_login(second_factor=True)
-    if _2fa_failures.locked(user.id):
-        flask_session.pop('_2fa_pending', None)
-        log.warning('2FA locked out for user "%s" IP-address: %s', user.name, request.remote_addr)
-        flash(_("Too many wrong codes. Try again in 15 minutes."), category="error")
-        return redirect(url_for('web.login'))
-    step = totp.verify_code(user.totp_secret, request.form.get('code', ''), user.totp_last_step)
-    if step is None:
-        _2fa_failures.failure(user.id)
-        log.warning('Wrong 2FA code for user "%s" IP-address: %s', user.name, request.remote_addr)
-        flash(_("Wrong code. Please try again."), category="error")
-        return render_login(second_factor=True)
-    _2fa_failures.success(user.id)
-    user.totp_last_step = step
-    ub.session_commit()
-    flask_session.pop('_2fa_pending', None)
-    return handle_login_user(user, pending.get('remember', False),
-                             _(u"You are now logged in as: '%(nickname)s'", nickname=user.name), "success",
-                             next_url=pending.get('next') or '')
-
-
 @web.route('/logout')
 @user_login_required
 def logout():
@@ -258,7 +212,7 @@ def logout():
 # /change-password on every web request. Device and machine endpoints keep working so e-readers
 # and internal services are not locked out while the admin picks a new password.
 _FORCE_PW_EXEMPT_BLUEPRINTS = {"opds", "cwa_internal"}
-_FORCE_PW_EXEMPT_ENDPOINTS = {"static", "web.login", "web.login_post", "web.login_2fa", "web.logout",
+_FORCE_PW_EXEMPT_ENDPOINTS = {"static", "web.login", "web.login_post", "web.logout",
                               "web.change_password", "web.health_check",
                               "gdrive.on_received_watch_confirmation"}
 

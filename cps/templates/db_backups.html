@@ -21,6 +21,11 @@
         <input type="number" class="form-control" name="processed_books_retention_days" id="processed_books_retention_days" value="{{ retention_days }}" min="0" max="3650" step="1">
         <span class="lp-unit">{{ _('days') }}</span>
       {% endcall %}
+      {% call f.row(_('Keep deleted books for'), for_id='book_recovery_retention_days',
+         help=_('Recovery archives of deleted books on the Recovery page. 0 keeps them forever.')) %}
+        <input type="number" class="form-control" name="book_recovery_retention_days" id="book_recovery_retention_days" value="{{ recovery_retention_days }}" min="0" max="3650" step="1">
+        <span class="lp-unit">{{ _('days') }}</span>
+      {% endcall %}
     {% endcall %}
     <div class="lp-actions">
       <span class="lp-spacer"></span>

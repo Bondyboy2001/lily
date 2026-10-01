@@ -46,9 +46,9 @@ See CONTRIBUTORS for full list of authors. -->
   </div>
 </div>
 {% if not entries %}
-  {% set empty_heading = {'author': _('No authors yet'), 'series': _('No series yet'), 'category': _('No categories yet'),
-                          'publisher': _('No publishers yet'), 'language': _('No languages yet'),
-                          'formats': _('No file formats yet'), 'ratings': _('No ratings yet')}.get(data, _('Nothing to list yet')) %}
+  {% set empty_heading = {'author': _('No Authors Yet'), 'series': _('No Series Yet'), 'category': _('No Categories Yet'),
+                          'publisher': _('No Publishers Yet'), 'language': _('No Languages Yet'),
+                          'formats': _('No File Formats Yet'), 'ratings': _('No Ratings Yet')}.get(data, _('Nothing to List Yet')) %}
   {{ image.empty_state('glyphicon-list-alt', empty_heading,
                        _('This list fills in from your books. Books you cannot see because of your account restrictions are left out.'),
                        [(_('Browse all books'), url_for('web.index'), True)]) }}

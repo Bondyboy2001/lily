@@ -26,6 +26,8 @@
     var progress = LilyProgress.create({
         url: calibre.progressUrl,
         storageKey: calibre.progressKey,
+        format: calibre.progressFormat,
+        statusEl: document.getElementById("progress-sync-status"),
         enabled: calibre.syncProgress === true
     });
     var restored = false;

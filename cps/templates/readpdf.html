@@ -102,6 +102,9 @@ See https://github.com/adobe-type-tools/cmap-resources
       </div>  <!-- sidebarContainer -->
 
       <div id="mainContainer">
+        <div id="progress-sync-status" role="status" aria-live="polite" class="lily-progress-status"
+             data-pending-text="{{ _('Saved on this device; waiting to sync') }}"
+             data-synced-text="{{ _('Synced') }}"></div>
         <div class="findbar hidden doorHanger" id="findbar">
           <div id="findbarInputContainer">
             <span class="loadingInput end">
@@ -528,8 +531,10 @@ See https://github.com/adobe-type-tools/cmap-resources
     // Reading position: cfi "page:N" (1-based) and the fraction read, synced across devices.
     (function () {
         var progress = LilyProgress.create({
-            url: "{{ url_for('web.index') }}ajax/progress/{{ pdffile }}",
-            storageKey: "{{ pdffile }}.pdf",
+            url: "{{ progress_url }}",
+            storageKey: "{{ progress_key }}",
+            format: "{{ progress_format }}",
+            statusEl: document.getElementById("progress-sync-status"),
             enabled: {{ current_user.is_authenticated | tojson }}
         });
         var restored = false;

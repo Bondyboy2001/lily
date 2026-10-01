@@ -9,7 +9,7 @@
 <section class="lily-setup" id="lily-setup" aria-labelledby="lily-setup-heading" data-dismiss-key="lily-setup-dismissed-{{ current_user.id }}">
   <script>try { if (localStorage.getItem(document.currentScript.parentNode.dataset.dismissKey) === "1") { document.currentScript.parentNode.hidden = true; } } catch (e) {}</script>
   <div class="lily-setup-head">
-    <h2 id="lily-setup-heading">{{_('Get started')}}</h2>
+    <h2 id="lily-setup-heading">{{_('Get Started')}}</h2>
     <button type="button" class="icon-btn lily-setup-dismiss" aria-label="{{_('Dismiss')}}" title="{{_('Dismiss')}}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></button>
   </div>
   <p class="lily-setup-lede">{{_('%(done)s of %(total)s set up. Finish the rest when you are ready.', done=setup_checklist|selectattr('done')|list|length, total=setup_checklist|length)}}</p>
@@ -32,9 +32,10 @@
   <div class="continue-reading-row" role="list">
     {% for item in continue_reading %}
     {% set book = item.entry.Books %}
-    <div class="book continue-reading-item" role="listitem">
+    {% set resume_format = item.format|lower if item.format and item.format|upper in book.data|map(attribute='format')|map('upper')|list else none %}
+    <div class="book lily-book continue-reading-item" role="listitem">
       <div class="cover">
-        <a href="{{ url_for('web.show_book', book_id=book.id) }}"
+        <a href="{% if resume_format %}{{ url_for('web.read_book', book_id=book.id, book_format=resume_format) }}{% else %}{{ url_for('web.show_book', book_id=book.id) }}{% endif %}"
            data-book-id="{{ book.id }}"
            data-book-formats="{% for format in book.data %}{{ format.format.lower() }}{% if not loop.last %},{% endif %}{% endfor %}"
            class="book-cover-link">
@@ -73,19 +74,20 @@
     {{ image.sort_menu(order, url_for('web.books_list', data=page, book_id=id, sort_param='SORT_PARAM', **(list_filters.args if list_filters else {})), sort_fields) }}
   </div>
 
+  {% if entries %}{{ image.list_head() }}{% endif %}
   <div class="row display-flex lily-grid">
     {% for entry in entries if entry %}
     {{ image.book_card(entry.Books, current_user, entry[2] == True, g.config_authors_max, series_link=(page != 'series'), extra_class='books') }}
     {% endfor %}
   </div>
   {% if not entries[0] and list_filters and list_filters.active %}
-  {{ image.empty_state('glyphicon-filter', _('No books match these filters'),
+  {{ image.empty_state('glyphicon-filter', _('No Books Match These Filters'),
                        _('Try removing a filter, or clear them all.'),
                        [(_('Clear filters'), list_filters.url(format=None, lang=None, status=None, tag=None), True)]) }}
   {% elif not entries[0] and page == 'newest' %}
   <div class="library-empty-state">
     <span class="glyphicon glyphicon-book library-empty-icon" aria-hidden="true"></span>
-    <h3>{{_('Your library is empty')}}</h3>
+    <h3>{{_('Your Library Is Empty')}}</h3>
     <p>{{_('Add books by dropping files into the ingest folder (%(folder)s in Docker). Lily imports them automatically.', folder='/cwa-book-ingest')}}</p>
     {% if current_user.role_upload() and g.allow_upload %}
     {# Opens the same file picker as the top bar's Upload button #}
@@ -94,8 +96,16 @@
     <p><a class="btn btn-default" href="{{ url_for('admin.configuration') }}">{{_('Turn on uploads')}}</a></p>
     {% endif %}
   </div>
+  {% elif not entries[0] and page == 'inprogress' %}
+  {{ image.empty_state('glyphicon-education', _('Nothing on the Go'),
+                       _('Books you open in the reader appear here until you finish them.'),
+                       [(_('Browse all books'), url_for('web.index'), True)]) }}
+  {% elif not entries[0] and page == 'read' %}
+  {{ image.empty_state('glyphicon-ok-circle', _('No Finished Books Yet'),
+                       _('Mark a book as read with its eye button, or finish it in the reader.'),
+                       [(_('Browse all books'), url_for('web.index'), True)]) }}
   {% elif not entries[0] and page != 'hot' %}
-  {{ image.empty_state('glyphicon-book', _('No books here yet'),
+  {{ image.empty_state('glyphicon-book', _('No Books Here Yet'),
                        _('Books appear here once they match this list.'),
                        [(_('Browse all books'), url_for('web.index'), True)]) }}
   {% endif %}

@@ -51,10 +51,6 @@ $(document).ready(function() {
         });
     }
 
-    function escapeHtml(value) {
-        return $('<div>').text(value || '').html();
-    }
-
     function showResolutionSuccess(data) {
         $('#success_modal_title').text('Resolution Complete');
         $('#success_modal_message').html(
@@ -82,12 +78,56 @@ $(document).ready(function() {
         $('#error_modal').modal('show');
     }
 
-    function showDuplicateScanError(title, message) {
-        $('#error_modal_title').text(title);
-        $('#error_modal_message').html(escapeHtml(message));
-        $('#error_modal').modal('show');
+    function applyBatchOutcome(response) {
+        var outcome = {failed: [], succeeded: [], reasons: []};
+        var results = (response && $.isArray(response.results)) ? response.results : [];
+        $.each(results, function (i, r) {
+            if (r && r.status === 'succeeded') {
+                outcome.succeeded.push(r.book_id);
+            } else {
+                outcome.failed.push(r ? r.book_id : null);
+                if (r && r.message) { outcome.reasons.push('#' + r.book_id + ': ' + r.message); }
+            }
+        });
+        var ok = !!(response && response.success === true);
+        var summary = (response && response.summary) || {};
+        var parts = [];
+        if (summary.succeeded) { parts.push(summary.succeeded + ' succeeded'); }
+        if (summary.failed) { parts.push(summary.failed + ' failed'); }
+        if (summary.skipped) { parts.push(summary.skipped + ' skipped'); }
+        var region = $('#batch-results');
+        region.empty();
+        var box = $('<div></div>')
+            .attr('class', ok ? 'alert alert-success' : 'alert alert-danger')
+            .attr('role', ok ? 'status' : 'alert');
+        $('<p></p>').text(parts.join(', ') || (ok ? 'Done.' : 'The request failed.')).appendTo(box);
+        if (outcome.reasons.length) {
+            var list = $('<ul></ul>');
+            $.each(outcome.reasons, function (i, m) { $('<li></li>').text(m).appendTo(list); });
+            list.appendTo(box);
+            $('<p></p>').text('Books that failed stay selected; retry the action to try them again.').appendTo(box);
+        }
+        region.append(box);
+        return outcome;
     }
-    
+
+    function dropSucceededBooks(ids) {
+        $.each(ids, function (i, id) {
+            var checkbox = $('.book-checkbox[value="' + id + '"]');
+            checkbox.prop('checked', false);
+            checkbox.closest('.book-item').remove();
+            var idx = selectedBooks.indexOf(String(id));
+            if (idx > -1) { selectedBooks.splice(idx, 1); }
+        });
+        updateSelectionCount();
+        updateBookItemVisuals();
+    }
+
+    function ajaxErrorMessage(xhr, fallback) {
+        return (xhr && xhr.responseJSON &&
+                (xhr.responseJSON.msg || xhr.responseJSON.message || xhr.responseJSON.reason)) || fallback;
+    }
+
     // Handle individual checkbox changes  
     $(document).on('change', '.book-checkbox', function() {
         var bookId = $(this).val();
@@ -267,28 +307,21 @@ $(document).ready(function() {
                 }
             },
             success: function(response) {
-                if (response.success) {
-                    // Close the merge confirmation modal
-                    $('#merge_selected_modal').modal('hide');
-
-                    // Show success modal
+                $('#merge_selected_modal').modal('hide');
+                var outcome = applyBatchOutcome(response);
+                dropSucceededBooks(outcome.succeeded);
+                if (response && response.success === true) {
                     $('#success_modal_message').text('Selected books have been merged successfully!');
                     $('#success_modal').modal('show');
                 } else {
-                    // Close the merge confirmation modal
-                    $('#merge_selected_modal').modal('hide');
-
-                    // Show error modal
-                    $('#error_modal_message').text('Error: ' + (response.error || 'Unknown error occurred during merge'));
+                    $('#error_modal_message').text('Some books could not be merged; they remain selected. Details are listed above the results.');
                     $('#error_modal').modal('show');
                 }
             },
             error: function(xhr, status, error) {
-                // Close the merge confirmation modal
                 $('#merge_selected_modal').modal('hide');
-
-                // Show error modal
-                $('#error_modal_message').text('An error occurred while merging books. Check browser console for details.');
+                $('#error_modal_message').text(
+                    ajaxErrorMessage(xhr, 'Request failed; check the library before retrying'));
                 $('#error_modal').modal('show');
             }
         });
@@ -316,28 +349,21 @@ $(document).ready(function() {
                 }
             },
             success: function(response) {
-                if (response.success) {
-                    // Close the delete confirmation modal
-                    $('#delete_selected_modal').modal('hide');
-                    
-                    // Show success modal
+                $('#delete_selected_modal').modal('hide');
+                var outcome = applyBatchOutcome(response);
+                dropSucceededBooks(outcome.succeeded);
+                if (response && response.success === true) {
                     $('#success_modal_message').text("Selected duplicate books have been deleted successfully!");
                     $('#success_modal').modal('show');
                 } else {
-                    // Close the delete confirmation modal
-                    $('#delete_selected_modal').modal('hide');
-                    
-                    // Show error modal
-                    $('#error_modal_message').text("Error: " + (response.error || "Unknown error occurred"));
+                    $('#error_modal_message').text('Some books could not be deleted; they remain selected. Details are listed above the results.');
                     $('#error_modal').modal('show');
                 }
             },
             error: function(xhr, status, error) {
-                // Close the delete confirmation modal
                 $('#delete_selected_modal').modal('hide');
-                
-                // Show error modal
-                $('#error_modal_message').text("An error occurred while deleting books. Check browser console for details.");
+                $('#error_modal_message').text(
+                    ajaxErrorMessage(xhr, 'Request failed; check the library before retrying'));
                 $('#error_modal').modal('show');
             }
         });
@@ -413,25 +439,8 @@ $(document).ready(function() {
         });
     });
     
-    function showScanNotification(message, alertClass) {
-        $('#duplicate_scan_notification').parent().remove();
-
-        var notificationHtml =
-            '<div class="row-fluid text-center">' +
-                '<div id="duplicate_scan_notification" class="alert ' + alertClass + ' refresh-cwa">' +
-                    message +
-                    '<button type="button" class="close" data-dismiss="alert" aria-label="Close">' +
-                        '<span aria-hidden="true">&times;</span>' +
-                    '</button>' +
-                '</div>' +
-            '</div>';
-
-        $('.navbar').after(notificationHtml);
-    }
-
     var duplicateScanPollTimer = null;
     var duplicateScanTaskId = null;
-    var duplicateScanWasActive = false;
     window.CWADuplicateScanActive = false;
 
     function duplicateScanEndpoint(path) {
@@ -471,7 +480,7 @@ $(document).ready(function() {
         $('#duplicate_results_content').hide();
         $('#no_duplicate_books_message').hide();
         $('#duplicate_scan_results_status').addClass('is-active');
-        $('#duplicate_scan_task_title').text('Duplicate scan is running.');
+        $('#duplicate_scan_task_title').text('Duplicate Scan Running');
         $('#duplicate_scan_task_message').text(message);
         $('#duplicate_scan_task_progress_container').show();
         $('#duplicate_scan_task_link')
@@ -490,7 +499,7 @@ $(document).ready(function() {
         $('#duplicate_results_content').hide();
         $('#no_duplicate_books_message').hide();
         $('#duplicate_scan_results_status').addClass('is-active');
-        $('#duplicate_scan_task_title').text('Duplicate scan is running.');
+        $('#duplicate_scan_task_title').text('Duplicate Scan Running');
         $('#duplicate_scan_task_message').text('Duplicate scan finished. Updating results...');
         $('#duplicate_scan_task_progress_container').show();
         $('#duplicate_scan_task_link')
@@ -534,6 +543,11 @@ $(document).ready(function() {
             .text('Refresh Page');
     }
 
+    // A scan queued by the page render (the one-time index baseline) may finish
+    // before this script's first poll, so treat it as already seen running.
+    var autoQueuedAttr = $('#duplicate_scan_results_status').data('scan-auto-queued');
+    var duplicateScanWasActive = autoQueuedAttr === true || autoQueuedAttr === 'true';
+
     var duplicateScanPollInFlight = false;
     function pollDuplicateScanTask() {
         // Avoid overlapping requests, and skip interval ticks while the tab is hidden
@@ -576,72 +590,6 @@ $(document).ready(function() {
         }
     });
 
-    // Manual scan trigger
-    $('#trigger_scan').on('click', function() {
-        var btn = $(this);
-        btn.prop('disabled', true);
-        btn.html('<span class="glyphicon glyphicon-refresh glyphicon-spin"></span> Scanning...');
-        
-        $.ajax({
-            url: duplicateScanEndpoint('/duplicates/trigger-scan'),
-            type: 'POST',
-            headers: {
-                'X-CSRFToken': csrfToken
-            },
-            dataType: 'json',
-            success: function(response) {
-                if (response.success) {
-                    if (response.queued === true) {
-                        duplicateScanTaskId = response.task_id || null;
-                        duplicateScanWasActive = true;
-                        setDuplicateScanNotice({
-                            taskMessage: 'Duplicate scan is queued.',
-                            progress: '0 %',
-                            task_id: duplicateScanTaskId,
-                            stat: 0
-                        });
-                        if (!duplicateScanPollTimer) {
-                            duplicateScanPollTimer = setInterval(pollDuplicateScanTask, 2000);
-                        }
-                        pollDuplicateScanTask();
-                        return;
-                    }
-                    if (response.queued === false && response.fallback_reason) {
-                        console.warn('[CWA Duplicates] Background queue failed, fallback used:', response.fallback_reason);
-                    }
-                    var count = (response.count !== undefined && response.count !== null)
-                        ? response.count
-                        : null;
-                    var message = count !== null
-                        ? 'Scan completed. Found ' + count + ' duplicate groups.'
-                        : 'Scan completed.';
-                    showScanNotification(message, 'alert-success');
-                    setTimeout(function() {
-                        location.reload();
-                    }, 800);
-                } else {
-                    showScanNotification('Scan failed: ' + response.error, 'alert-danger');
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('[CWA Duplicates] Error triggering scan:', error);
-                var response = xhr.responseJSON || {};
-                if (xhr.status === 409 && response.blocked) {
-                    showDuplicateScanError(
-                        'Duplicate Scan Blocked',
-                        response.message || 'Import is in progress. Run a full duplicate scan after ingest finishes.'
-                    );
-                } else {
-                    showScanNotification('Error: Failed to trigger duplicate scan', 'alert-danger');
-                }
-            },
-            complete: function() {
-                btn.prop('disabled', false);
-                btn.html('<span class="glyphicon glyphicon-refresh"></span> Scan for duplicates');
-            }
-        });
-    });
-    
     // Auto-resolution preview
     $('#preview_resolution').on('click', function() {
         var strategy = $('#resolution_strategy').val();

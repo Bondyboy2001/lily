@@ -21,6 +21,4 @@ cwa_internal = Blueprint('cwa_internal', __name__)
 
 log = logger.create()
 
-# Folder where the log files are stored
-LOG_ARCHIVE = "/config/log_archive"
 DIRS_JSON = "/app/calibre-web-automated/dirs.json"

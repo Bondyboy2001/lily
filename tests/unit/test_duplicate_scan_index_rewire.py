@@ -632,8 +632,85 @@ def test_duplicates_page_prompts_for_full_scan_when_index_baseline_missing(monke
 
     assert response["duplicate_index_needs_full_scan"] is True
     assert response["duplicate_groups"] == []
+    # The queue is stubbed to fail, so the page reports the baseline as still unbuilt.
+    assert response["duplicate_scan_auto_queued"] is False
     assert calls == []
     assert render_calls
+
+
+def test_duplicates_page_auto_queues_baseline_scan_when_index_is_missing(monkeypatch):
+    calls = []
+    module = _load_duplicates_route_module(monkeypatch, calls, baseline_valid=False)
+    queued = []
+
+    class _QueueableWorkerThread:
+        @staticmethod
+        def add(user, task, hidden=False):
+            queued.append((user, task, hidden))
+
+    _install_stub(
+        "cps.tasks.duplicate_scan",
+        {"TaskDuplicateScan": lambda **kwargs: SimpleNamespace(id="baseline-task", kwargs=kwargs)},
+    )
+    monkeypatch.setattr(module, "WorkerThread", _QueueableWorkerThread)
+
+    response = module.show_duplicates()
+
+    assert response["duplicate_index_needs_full_scan"] is True
+    assert response["duplicate_scan_auto_queued"] is True
+    assert len(queued) == 1
+    user, task, hidden = queued[0]
+    assert user == "tester"
+    assert hidden is False
+    assert task.kwargs == {"full_scan": True, "trigger_type": "manual", "user_id": 7}
+    # No inline scan: the index work happens in the worker.
+    assert calls == []
+
+
+def test_duplicates_page_does_not_queue_baseline_scan_while_ingest_is_active(monkeypatch):
+    calls = []
+    module = _load_duplicates_route_module(monkeypatch, calls, baseline_valid=False, ingest_pending=True)
+    queued = []
+
+    class _QueueableWorkerThread:
+        @staticmethod
+        def add(user, task, hidden=False):
+            queued.append((user, task, hidden))
+
+    _install_stub(
+        "cps.tasks.duplicate_scan",
+        {"TaskDuplicateScan": lambda **kwargs: SimpleNamespace(id="baseline-task", kwargs=kwargs)},
+    )
+    monkeypatch.setattr(module, "WorkerThread", _QueueableWorkerThread)
+
+    response = module.show_duplicates()
+
+    assert response["duplicate_index_needs_full_scan"] is False
+    assert response["duplicate_scan_auto_queued"] is False
+    assert queued == []
+
+
+def test_duplicates_page_does_not_queue_baseline_scan_when_index_is_ready(monkeypatch):
+    calls = []
+    module = _load_duplicates_route_module(monkeypatch, calls, baseline_valid=True)
+    queued = []
+
+    class _QueueableWorkerThread:
+        @staticmethod
+        def add(user, task, hidden=False):
+            queued.append((user, task, hidden))
+
+    _install_stub(
+        "cps.tasks.duplicate_scan",
+        {"TaskDuplicateScan": lambda **kwargs: SimpleNamespace(id="baseline-task", kwargs=kwargs)},
+    )
+    monkeypatch.setattr(module, "WorkerThread", _QueueableWorkerThread)
+
+    response = module.show_duplicates()
+
+    assert response["duplicate_index_needs_full_scan"] is False
+    assert response["duplicate_scan_auto_queued"] is False
+    assert queued == []
 
 
 def test_duplicates_page_does_not_prompt_for_full_scan_when_library_empty(monkeypatch):

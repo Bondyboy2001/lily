@@ -83,6 +83,10 @@
     --font-ui: Literata, Charter, "Iowan Old Style", Georgia, serif;
     --font-body: Literata, Charter, "Iowan Old Style", Georgia, serif;
     --font-mono: "SF Mono", ui-monospace, Menlo, monospace;
+    /* Two heading sizes for the whole app: page titles, and every other heading
+       (sections, table columns, sidebar groups, menu groups). All are title case in --heading. */
+    --title-size: 22px;
+    --heading-size: 15px;
 }
 
 /* Dark theme: DESIGN.md "Abyss", the same tokens redefined. lily_theme_head.html resolves "system" to a
@@ -137,11 +141,13 @@ html { --page-zoom: 1; }
 @media (min-width: 1400px) { html { zoom: 1.1; --page-zoom: 1.1; } }
 @media (min-width: 1700px) { html { zoom: 1.2; --page-zoom: 1.2; } }
 
-h1, h2, h3,
-.h1, .h2, .h3 {
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
     margin: 0 0 14px;
     font-family: var(--font-body);
+    font-size: var(--heading-size);
     font-weight: 600;
+    line-height: 1.4;
     color: var(--heading);
     text-transform: none;
     letter-spacing: 0;
@@ -157,26 +163,18 @@ h1, h2, h3,
 /* Section labels: the settings rail's group headings and each page's section titles look identical. */
 .lp-label,
 .lp-rail-head {
-    font-family: var(--font-ui);
-    font-size: 11px;
+    font-family: var(--font-body);
+    font-size: var(--heading-size);
     font-weight: 600;
     line-height: 1.4;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-}
-
-h1, .h1, h2, .h2 { font-size: 25px; line-height: 1.25; }
-h3, .h3 { font-size: 19px; line-height: 1.3; }
-
-h4, h5, h6,
-.h4, .h5, .h6 {
-    margin: 0 0 8px;
-    font-family: var(--font-ui);
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--ink);
+    letter-spacing: 0;
     text-transform: none;
 }
+
+h1, .h1, h2, .h2 { font-size: var(--title-size); line-height: 1.25; }
+
+h4, h5, h6,
+.h4, .h5, .h6 { margin: 0 0 8px; }
 
 p { margin: 0 0 14px; }
 
@@ -195,16 +193,16 @@ code {
     color: var(--ink);
 }
 
-hr { border-top: 1px solid var(--line); }
+hr { display: none; }
 
 .lily-section-label,
 .dropdown-header {
-    font-family: var(--font-ui);
-    font-size: 11px;
+    font-family: var(--font-body);
+    font-size: var(--heading-size);
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .8px;
-    color: var(--faint);
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--heading);
 }
 
 /* ------------------------------------------------------------------ */
@@ -297,6 +295,12 @@ hr { border-top: 1px solid var(--line); }
 .user-remove { color: var(--accent); }
 
 .icon-btn.is-danger:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+/* A destructive action that isn't the page's main job: Quiet, with accent text so it
+   doesn't compete with Save. */
+.btn-default.is-danger,
+.btn-default.is-danger:focus { color: var(--accent); }
+.btn-default.is-danger:hover { background: var(--accent-soft); color: var(--accent); }
 
 .btn-link,
 .btn-link:focus {
@@ -616,11 +620,13 @@ input[type="radio"] {
 }
 
 .dropdown-menu .divider {
-    margin: 6px 0;
-    background: var(--line-soft);
+    display: none;
 }
 
 .dropdown-header { padding: 8px 11px 4px; }
+
+/* Bootstrap gives tooltips and popovers their own Helvetica stack. */
+.tooltip { font-family: var(--font-ui); }
 
 .popover {
     border: 1px solid var(--line);
@@ -632,9 +638,10 @@ input[type="radio"] {
 }
 
 .popover-title {
-    border-bottom: 1px solid var(--line-soft);
+    border-bottom: 0;
     background: transparent;
-    font-size: 15px;
+    color: var(--heading);
+    font-size: var(--heading-size);
     font-weight: 600;
 }
 
@@ -643,6 +650,16 @@ input[type="radio"] {
 /* ------------------------------------------------------------------ */
 .modal-backdrop.in { opacity: .35; }
 .modal-backdrop { background: var(--ink); }
+
+/* Dialogs sit in the middle of the window, not pinned near the top. The upload dialog
+   positions itself (upload.css). */
+.modal-dialog:not(.upload-modal-dialog) {
+    display: flex;
+    align-items: center;
+    min-height: calc(100% - 60px);
+}
+
+.modal-dialog:not(.upload-modal-dialog) > .modal-content { flex: 1 1 auto; }
 
 .modal-content {
     border: 0;
@@ -665,9 +682,14 @@ input[type="radio"] {
 .modal-header::before,
 .modal-header::after { display: none; }
 
+/* Confirm dialogs fill the title from the server and often leave it blank. */
+.modal-header:has(> .modal-title:only-child:empty) { display: none; }
+.modal-header:has(> .modal-title:only-child:empty) + .modal-body { padding-top: 24px; }
+.modal-body > p:last-child { margin-bottom: 0; }
+
 .modal-title {
     font-family: var(--font-body);
-    font-size: 25px;
+    font-size: var(--title-size);
     font-weight: 600;
     color: var(--heading);
 }
@@ -683,6 +705,8 @@ input[type="radio"] {
 }
 
 .modal-footer .btn + .btn { margin-left: 0; }
+.modal-footer::before,
+.modal-footer::after { display: none; }
 
 /* ------------------------------------------------------------------ */
 /* Notices, pills (§5 Notices, Pills)                                   */
@@ -822,35 +846,36 @@ input[type="radio"] {
 .panel-heading,
 .panel-default > .panel-heading {
     padding: 14px 22px;
-    border-bottom: 1px solid var(--line-soft);
+    border-bottom: 0;
     border-radius: 10px 10px 0 0;
     background: transparent;
-    color: var(--ink);
+    color: var(--heading);
+    font-size: var(--heading-size);
     font-weight: 600;
 }
 
 .panel-footer {
-    border-top: 1px solid var(--line-soft);
+    border-top: 0;
     background: transparent;
 }
 
 .list-group-item {
-    border-color: var(--line-soft);
+    border: 0;
     background: transparent;
     color: var(--ink);
 }
 
 .table > thead > tr > th {
-    border-bottom: 1px solid var(--line);
-    color: var(--muted);
-    font-size: 12px;
+    border-bottom: 0;
+    color: var(--heading);
+    font-size: var(--heading-size);
     font-weight: 600;
 }
 
 .table > tbody > tr > td,
 .table > tbody > tr > th {
     padding: 8px 10px;
-    border-top: 1px solid var(--line-soft);
+    border-top: 0;
     color: var(--ink);
     font-variant-numeric: tabular-nums;
 }
@@ -862,9 +887,11 @@ input[type="radio"] {
 
 .table-bordered,
 .table-bordered > thead > tr > th,
-.table-bordered > tbody > tr > td {
-    border-left: 0;
-    border-right: 0;
+.table-bordered > tbody > tr > td,
+.table-bordered > tbody > tr > th,
+.table-bordered > tfoot > tr > td,
+.table-bordered > tfoot > tr > th {
+    border: 0;
 }
 
 .progress {
@@ -889,10 +916,6 @@ input[type="radio"] {
 /* ------------------------------------------------------------------ */
 /* Layout helpers used by simple form pages                             */
 /* ------------------------------------------------------------------ */
-.lily-narrow {
-    max-width: 560px;
-}
-
 .lily-form-actions {
     display: flex;
     justify-content: flex-end;

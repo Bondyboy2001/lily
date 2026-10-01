@@ -104,3 +104,17 @@ def test_duplicates_empty_state_follows_the_guide():
     html = read(TEMPLATES / "duplicates.html")
     assert "stats-empty" in html
     assert "stats-empty-glyph" in html and "stats-empty-title" in html
+
+
+def test_duplicates_page_has_no_manual_scan_controls():
+    # The page is a read-and-resolve view: scanning runs itself after an import,
+    # so there is no scan card, no trigger button, and no settings link.
+    html = read(TEMPLATES / "duplicates.html")
+    assert "trigger_scan" not in html
+    assert "Scan for duplicates" not in html
+    assert "Run Full Duplicate Scan" not in html
+    assert "Duplicate settings" not in html
+    assert "next_scan_run" not in html
+    script = read(JS / "duplicates.js")
+    assert "trigger_scan" not in script
+    assert "trigger-scan" not in script

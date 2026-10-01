@@ -67,6 +67,6 @@
 {% macro link(href, label, help=None, value=None, id=None, cls='', attrs='') -%}
 <a class="lp-row{% if cls %} {{ cls }}{% endif %}" href="{{ href }}"{% if id %} id="{{ id }}"{% endif %} {{ attrs|safe }}>
   <span class="lp-text"><span class="lp-title">{{ label }}</span>{% if help %}<span class="lp-help">{{ help }}</span>{% endif %}</span>
-  <span class="lp-control">{% if value %}<span class="lp-value">{{ value }}</span>{% endif %}<span class="lp-chevron glyphicon glyphicon-chevron-right" aria-hidden="true"></span></span>
+  <span class="lp-control">{% if value is not none and value != '' %}<span class="lp-value">{{ value }}</span>{% endif %}<span class="lp-chevron glyphicon glyphicon-chevron-right" aria-hidden="true"></span></span>
 </a>
 {%- endmacro %}

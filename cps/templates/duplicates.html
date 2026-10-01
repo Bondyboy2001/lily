@@ -4,36 +4,24 @@
 {% block settings %}
 <div class="lp dup-page">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div id="batch-results" class="lily-batch-results" aria-live="polite"></div>
 
-  {% call f.group(_('Scan'), help=_('Books with matching titles, authors, and languages. Books in different languages are not considered duplicates.')) %}
-    {% call f.row(_('Duplicate scan') if not duplicate_index_needs_full_scan else _('Full duplicate scan'),
-                  help=(_('Next scheduled scan:') ~ ' ' ~ next_scan_run) if next_scan_run else _('Check the library for books that appear more than once')) %}
-      <button type="button" class="btn btn-primary" id="trigger_scan">
-        {% if duplicate_index_needs_full_scan %}{{_('Run Full Duplicate Scan')}}{% else %}{{_('Scan for duplicates')}}{% endif %}
-      </button>
-    {% endcall %}
-    {% if current_user.role_admin() %}
-    {% call f.row(_('Scan schedule'), help=_('How often scans run and which formats win')) %}
-      <a class="btn btn-default" href="{{ url_for('cwa_settings.set_cwa_settings') }}#duplicates">{{_('Duplicate settings')}}</a>
-    {% endcall %}
-    {% endif %}
-  {% endcall %}
-
-  {% if duplicate_index_needs_full_scan %}
+  {% if duplicate_index_needs_full_scan and not duplicate_scan_auto_queued %}
     <div id="duplicate_index_setup_notice" class="alert alert-warning dup-notice">
       <span class="glyphicon glyphicon-info-sign dup-notice-icon" aria-hidden="true"></span>
       <div>
-        <strong class="dup-notice-title">{{_('Duplicate scanning needs a one-time full scan.')}}</strong>
-        <p>{{_('Lily now uses a duplicate index to keep duplicate checks fast during imports and metadata changes. Before incremental scans can run, the index needs an initial baseline.')}}</p>
-        <p>{{_('Click "Run Full Duplicate Scan" to build it. This may take several minutes on large libraries, and you can keep using Lily while it runs.')}}</p>
+        <strong class="dup-notice-title">{{_('Building the Duplicate Index')}}</strong>
+        <p>{{_('Lily now uses a duplicate index to keep duplicate checks fast during imports and metadata changes. The first scan builds that index.')}}</p>
+        <p>{{_('It starts on its own and can take several minutes on large libraries. You can keep using Lily while it runs.')}}</p>
       </div>
     </div>
   {% endif %}
 
-  <div id="duplicate_scan_results_status" class="alert alert-info dup-notice">
+  <div id="duplicate_scan_results_status" class="alert alert-info dup-notice{% if duplicate_scan_auto_queued %} is-active{% endif %}"
+       data-scan-auto-queued="{{ 'true' if duplicate_scan_auto_queued else 'false' }}">
     <span class="glyphicon glyphicon-refresh dup-notice-icon" aria-hidden="true"></span>
     <div id="duplicate_scan_task_notice">
-      <strong id="duplicate_scan_task_title" class="dup-notice-title">{{_('Duplicate scan is running.')}}</strong>
+      <strong id="duplicate_scan_task_title" class="dup-notice-title">{{_('Duplicate Scan Running')}}</strong>
       <p id="duplicate_scan_task_message">{{_('You can keep using Lily while it runs.')}}</p>
       <div id="duplicate_scan_task_progress_container">
         <div class="duplicate-scan-progress-header">
@@ -54,7 +42,7 @@
     <div id="duplicate_results_content">
       <!-- Auto-resolution -->
       <section class="dup-card dup-resolve">
-        <h3 class="dup-card-title">{{_('Auto-resolve duplicates')}}</h3>
+        <h3 class="dup-card-title">{{_('Auto-Resolve Duplicates')}}</h3>
         <p class="dup-card-text">{{_('Automatically resolve all duplicate groups by keeping one book and deleting others based on a strategy.')}}</p>
 
         <div class="dup-resolve-row">
@@ -83,7 +71,7 @@
           <span class="glyphicon glyphicon-warning-sign dup-notice-icon" aria-hidden="true"></span>
           <div>
             <strong>{{_('Warning:')}}</strong>
-            {{_('This will permanently delete books. Original files will be backed up to')}}
+            {{_('This will delete books. Recovery copies are archived for restore, and original files will also be backed up to')}}
             <code class="dup-path">/config/processed_books/duplicate_resolutions/</code>
           </div>
         </div>
@@ -166,10 +154,10 @@
     </div>
   {% elif not duplicate_index_needs_full_scan %}
     <div id="no_duplicate_books_message">
-      {% call f.group(_('Results')) %}
+      {% call f.group(None, id='results') %}
         <div class="stats-empty dup-empty">
           <span class="glyphicon glyphicon-ok-circle stats-empty-glyph" aria-hidden="true"></span>
-          <h3 class="stats-empty-title">{{_('No duplicate books')}}</h3>
+          <h3 class="stats-empty-title">{{_('No Duplicate Books')}}</h3>
           <p>{{_('No two books share the same title, author, and language.')}}</p>
         </div>
       {% endcall %}
@@ -185,9 +173,9 @@
         <h4 class="modal-title" id="executeResolutionLabel">{{_('Execute Auto-Resolution')}}</h4>
       </div>
       <div class="modal-body">
-        <p>{{_('Lily will resolve duplicate groups using the selected strategy and permanently delete duplicate books.')}}</p>
+        <p>{{_('Lily will resolve duplicate groups using the selected strategy and delete duplicate books. Recovery copies are archived for restore.')}}</p>
         <p class="strategy-summary">{{_('Selected strategy:')}} <strong id="execute_resolution_strategy_name"></strong></p>
-        <p class="danger-note">{{_('This action cannot be undone!')}}</p>
+        <p class="danger-note">{{_('Deleted books leave the library immediately; an administrator can restore them from Book Recovery.')}}</p>
       </div>
       <div class="modal-footer">
         <button id="execute_resolution_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
@@ -202,12 +190,12 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h4 class="modal-title" id="deleteSelectedLabel">{{_('Are you really sure?')}}</h4>
+        <h4 class="modal-title" id="deleteSelectedLabel">{{_('Are You Sure?')}}</h4>
       </div>
       <div class="modal-body">
-        <p>{{_('The following books will be permanently deleted:')}}</p>
+        <p>{{_('The following books will be deleted (recovery copies are kept):')}}</p>
         <div id="display-delete-selected-books" class="dup-modal-list"></div>
-        <p class="danger-note">{{_('This action cannot be undone!')}}</p>
+        <p class="danger-note">{{_('Deleted books leave the library immediately; an administrator can restore them from Book Recovery.')}}</p>
       </div>
       <div class="modal-footer">
         <button id="delete_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>

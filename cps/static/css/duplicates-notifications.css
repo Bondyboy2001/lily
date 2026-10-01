@@ -55,7 +55,7 @@
     margin: 0 0 4px;
     color: var(--heading);
     font-family: var(--font-body);
-    font-size: 22px;
+    font-size: var(--title-size);
     font-weight: 600;
     line-height: 1.25;
 }
@@ -115,13 +115,7 @@
     font-variant-numeric: tabular-nums;
 }
 
-.duplicate-notification-body h3 {
-    margin: 0;
-    color: var(--ink-soft);
-    font-family: var(--font-ui);
-    font-size: 13px;
-    font-weight: 500;
-}
+.duplicate-notification-body h3 { margin: 0; }
 
 .duplicate-preview-list {
     margin: 0;
@@ -131,7 +125,7 @@
 
 .duplicate-preview-item {
     padding: 8px 4px;
-    border-top: 1px solid var(--line-soft);
+    border-top: 0;
 }
 
 .duplicate-preview-item:first-child { border-top: 0; }

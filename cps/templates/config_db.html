@@ -9,7 +9,7 @@
 <div class="lp">
   <form role="form" method="POST" action="{{ url_for('admin.db_configuration') }}" autocomplete="off">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    {% call f.group(_('Calibre library')) %}
+    {% call f.group(_('Calibre Library')) %}
       {% call f.row(_('Library folder'), for_id='config_calibre_dir', help=_('Found automatically in /calibre-library.')) %}
         <input type="text" class="form-control" id="config_calibre_dir" name="config_calibre_dir" value="{% if config.config_calibre_dir != None %}{{ config.config_calibre_dir }}{% endif %}" autocomplete="off" readonly>
         <button type="button" data-toggle="modal" id="calibre_modal_path" data-link="config_calibre_dir" data-filefilter="metadata.db" data-target="#fileModal" class="icon-btn" title="{{_('Choose a path')}}" aria-label="{{_('Choose a path')}}" disabled><span class="glyphicon glyphicon-folder-open" aria-hidden="true"></span></button>

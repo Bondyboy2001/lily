@@ -19,7 +19,10 @@
     color: var(--heading);
 }
 
-.lily-content .discover > h3 { font-size: 19px; margin-top: 22px; }
+.lily-content .discover > h3 { margin-top: 22px; }
+
+/* Home page sections are headed like every other section, not like a page. */
+.continue-reading > h2 { font-size: var(--heading-size); line-height: 1.4; }
 
 /* ------------------------------------------------------------------ */
 /* Toolbars above a list: actions, then sort/filter chips               */
@@ -35,7 +38,7 @@
    toolbar's own controls never run underneath. */
 .lily-list-toolbar { position: relative; }
 
-.lily-list-toolbar:has(> .lily-view-switch) { padding-right: 76px; }
+.lily-list-toolbar:has(> .lily-view-switch) { padding-right: 92px; }
 
 .lily-list-toolbar > .lily-view-switch {
     position: absolute;
@@ -45,10 +48,16 @@
     gap: 2px;
 }
 
-.lily-view-switch .icon-btn { font-size: 18px; }
+/* Same size as the top bar's icons: 38px control, 21px glyph. */
+.lily-view-switch .icon-btn,
+.lily-toolbar-end .dropdown > .icon-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 21px;
+}
 
 /* The same corner when a page adds its own ⋯ menu beside the Grid/List icons */
-.lily-list-toolbar:has(> .lily-toolbar-end) { padding-right: 112px; }
+.lily-list-toolbar:has(> .lily-toolbar-end) { padding-right: 132px; }
 
 .lily-list-toolbar > .lily-toolbar-end {
     position: absolute;
@@ -60,7 +69,6 @@
 }
 
 .lily-toolbar-end .lily-view-switch { display: flex; gap: 2px; }
-.lily-toolbar-end .dropdown > .icon-btn { font-size: 18px; }
 
 .dropdown-menu > li > a.lily-menu-danger,
 .dropdown-menu > li > a.lily-menu-danger:hover,
@@ -266,6 +274,7 @@ body:not([data-book-view="list"]) .lily-book .cover .badge.read { display: none;
 
 .lily-format-pdf { background-image: url("../icons/formats/pdf.svg"); }
 .lily-format-epub { background-image: url("../icons/formats/epub.svg"); }
+.lily-format-other { background-image: url("../icons/formats/file.svg"); }
 
 .lily-book .cover .lily-cover-count { left: auto; right: 6px; }
 
@@ -342,7 +351,7 @@ body:not([data-book-view="list"]) .lily-book .cover .badge.read { display: none;
     letter-spacing: 1px;
 }
 
-/* A read book's cover is edged in green (lily.js toggles .is-read with the check button). */
+/* A read book's cover is edged in green (lily.js toggles .is-read with the eye button). */
 .lily-book.is-read .cover::after {
     outline: 3px solid var(--success);
     outline-offset: -3px;
@@ -384,7 +393,7 @@ body:not([data-book-view="list"]) .lily-book .cover .badge.read { display: none;
 
 .lily-cover-actions .icon-btn .glyphicon { font-size: 15px; }
 
-/* Read: the check button fills green, and the cover gets a green edge (below). The solid disc is
+/* Read: the eye button fills green, and the cover gets a green edge (below). The solid disc is
    drawn 4px smaller (the margin keeps its slot), since edge to edge it reads bigger than the
    pale outlined buttons beside it. */
 .lily-cover-actions .icon-btn[aria-pressed="true"],
@@ -444,7 +453,7 @@ body:not([data-book-view="list"]) .lily-book .cover .badge.read { display: none;
     #refresh-library:hover .glyphicon { animation: lily-spin .8s cubic-bezier(.25, .46, .45, .94); }
 
     .lily-book .cover .badge.read.is-new,
-    .book-detail-cover .badge.read.is-new { animation: lily-draw .45s cubic-bezier(.25, .46, .45, .94) both; }
+    .book-detail-cover-art .badge.read.is-new { animation: lily-draw .45s cubic-bezier(.25, .46, .45, .94) both; }
 }
 
 @keyframes lily-spin { to { transform: rotate(360deg); } }
@@ -463,27 +472,65 @@ body:not([data-book-view="list"]) .lily-book .cover .badge.read { display: none;
 /* Grid cards show the title only; list rows keep the authors. */
 body:not([data-book-view="list"]) .lily-book .meta .author { display: none; }
 
-/* List view (the top bar's List icon sets body[data-book-view]): one row per book.
+/* List view, "Ledger" (the top bar's List icon sets body[data-book-view]): one table-like row per book.
    The rules are anchored on ".lily-grid > .lily-book" to outrank the grid card rules above.
-   The cover box is dissolved (display: contents) so its link and its action bar become cells
-   of the row: thumbnail | title, authors, series | formats | rating | actions.
-   Formats, rating and actions keep fixed widths so the columns line up from row to row. */
+   The cover box is dissolved (display: contents) so its link and its action bar become cells of
+   the row: thumbnail | title, author, formats, year, rating | actions. The .meta columns come from
+   --ledger-cols, which .lily-list-head shares so the column labels sit over their cells.
+   Rows are told apart by alternate tints, not rules; a dot before the title marks read books. */
+body[data-book-view="list"] {
+    --ledger-cols: minmax(0, 2.4fr) minmax(0, 1.4fr) 72px 48px 76px;
+    --ledger-gap: 14px;
+}
+
+.lily-list-head { display: none; }
+
+body[data-book-view="list"] .lily-list-head,
+body[data-book-view="list"] .lily-grid > .lily-book {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) 96px;
+    column-gap: var(--ledger-gap);
+    align-items: center;
+    padding: 0 10px;
+}
+
+body[data-book-view="list"] .lily-list-head .lily-list-head-cols,
+body[data-book-view="list"] .lily-grid > .lily-book .meta {
+    display: grid;
+    grid-template-columns: var(--ledger-cols);
+    column-gap: var(--ledger-gap);
+    align-items: center;
+}
+
+body[data-book-view="list"] .lily-list-head {
+    padding-bottom: 8px;
+    color: var(--heading);
+    font-family: var(--font-body);
+    font-size: var(--heading-size);
+    font-weight: 600;
+}
+
+body[data-book-view="list"] .lily-list-head .lily-list-head-cols { grid-column: 2; }
+
 body[data-book-view="list"] .row.lily-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
 }
 
 body[data-book-view="list"] .lily-grid > .lily-book {
-    display: grid;
-    grid-template-columns: 56px minmax(0, 1fr) auto;
-    column-gap: 16px;
-    align-items: center;
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--line-soft);
+    min-height: 48px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+    border-bottom: 0;
+    border-radius: var(--control-radius);
+}
+
+body[data-book-view="list"] .lily-grid > .lily-book:nth-child(odd of .lily-book) {
+    background: color-mix(in srgb, var(--ink) 3%, transparent);
 }
 
 body[data-book-view="list"] .lily-grid > .lily-book:hover,
-body[data-book-view="list"] .lily-grid > .lily-book:focus-within { background: var(--row-hover); }
+body[data-book-view="list"] .lily-grid > .lily-book:focus-within { background: var(--hover); }
 
 body[data-book-view="list"] .lily-grid > .lily-book .cover { display: contents; }
 
@@ -495,60 +542,79 @@ body[data-book-view="list"] .lily-grid > .lily-book .cover > a {
     position: relative;
     height: auto;
     aspect-ratio: 1 / 1.414;
-    border-radius: 4px;
+    border-radius: 2px;
     background: var(--sunk);
     overflow: hidden;
 }
 
 body[data-book-view="list"] .lily-grid > .lily-book .cover .img {
-    border-radius: 4px;
+    border-radius: 2px;
     outline: 1px solid var(--line-soft);
     outline-offset: -1px;
 }
 
-body[data-book-view="list"] .lily-book.is-read .cover .img { outline: 2px solid var(--success); }
-
-/* The read mark: a green check centred on the thumbnail. */
-body[data-book-view="list"] .lily-grid > .lily-book .cover .badge.read {
-    top: 50%;
-    left: 50%;
-    right: auto;
-    bottom: auto;
-    transform: translate(-50%, -50%);
-    min-width: 26px;
-    width: 26px;
-    height: 26px;
-    background: var(--success);
-    color: var(--on-accent);
-    font-size: 12px;
-}
-
+/* The title's dot carries the read state, so the thumbnail keeps no badge. */
+body[data-book-view="list"] .lily-grid > .lily-book .cover .badge.read,
 body[data-book-view="list"] .lily-cover-formats { display: none; }
 
-body[data-book-view="list"] .lily-grid > .lily-book .meta {
-    grid-column: 2;
-    grid-row: 1;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 56px 84px;
-    column-gap: 16px;
-    align-items: center;
+body[data-book-view="list"] .lily-grid > .lily-book .meta > * {
+    grid-row: 1 / span 2;
+    margin: 0;
 }
 
-body[data-book-view="list"] .lily-grid > .lily-book .meta > * { grid-column: 1; }
+body[data-book-view="list"] .lily-grid > .lily-book .meta > a {
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+body[data-book-view="list"] .lily-grid > .lily-book .meta > a::before {
+    content: "";
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border: 1.5px solid var(--line-strong);
+    border-radius: 50%;
+}
+
+body[data-book-view="list"] .lily-grid > .lily-book.is-read .meta > a::before {
+    border-color: var(--success);
+    background: var(--success);
+}
 
 body[data-book-view="list"] .lily-grid > .lily-book .meta .title,
 body[data-book-view="list"] .lily-grid > .lily-book .meta .author,
-body[data-book-view="list"] .lily-grid > .lily-book .meta .series { -webkit-line-clamp: 1; }
+body[data-book-view="list"] .lily-grid > .lily-book .meta .series {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 
-body[data-book-view="list"] .lily-grid > .lily-book .meta .title { margin: 0; }
+body[data-book-view="list"] .lily-grid > .lily-book .meta .title { margin: 0; font-weight: 550; }
 
-body[data-book-view="list"] .lily-grid > .lily-book .meta .author,
-body[data-book-view="list"] .lily-grid > .lily-book .meta .series { font-size: 13px; }
+body[data-book-view="list"] .lily-grid > .lily-book .meta .author {
+    grid-column: 2;
+    color: var(--ink-soft);
+    font-size: 14px;
+}
+
+body[data-book-view="list"] .lily-grid > .lily-book .meta .author a { color: inherit; }
+
+body[data-book-view="list"] .lily-grid > .lily-book .meta .series {
+    grid-column: 1;
+    grid-row: 2;
+    padding-left: 15px;
+    font-size: 13px;
+}
 
 body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-formats {
-    grid-column: 2;
-    grid-row: 1 / span 3;
+    grid-column: 3;
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
 }
 
@@ -557,10 +623,19 @@ body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-formats .li
     height: 20px;
 }
 
+body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-year {
+    grid-column: 4;
+    display: block;
+    color: var(--muted);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-year:empty::before { content: "\2014"; }
+
 body[data-book-view="list"] .lily-grid > .lily-book .meta .rating {
-    grid-column: 3;
-    grid-row: 1 / span 3;
-    margin: 0;
+    grid-column: 5;
+    white-space: nowrap;
 }
 
 body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
@@ -574,26 +649,57 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
     grid-column: 3;
     grid-row: 1;
     position: static;
+    justify-content: end;
     padding: 0;
     gap: 2px;
 }
 
-/* Grid cards only: the list rows have a column for these. */
-.lily-list-formats { display: none; }
+/* The read eye keeps its green disc even in list rows, where the other
+   quick actions go square and flat. */
+body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read {
+    border-radius: 50%;
+}
 
-/* Phones: the format and rating columns go, so the title gets the room. */
+body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read[aria-pressed="true"],
+body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read[aria-pressed="true"]:hover,
+body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read[aria-pressed="true"]:focus {
+    border-radius: 50%;
+}
+
+/* Grid cards only: the list rows have columns for these. */
+.lily-list-formats,
+.lily-list-year { display: none; }
+
+/* Narrow screens drop the year and rating columns, then phones fold the row to
+   thumbnail | title over author | actions, with the column labels gone. */
+@media (max-width: 1100px) {
+    body[data-book-view="list"] { --ledger-cols: minmax(0, 2fr) minmax(0, 1.2fr) 72px; }
+
+    body[data-book-view="list"] .lily-list-head .lily-list-head-cols > :nth-child(n + 4),
+    body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-year,
+    body[data-book-view="list"] .lily-grid > .lily-book .meta .rating { display: none; }
+}
+
 @media (max-width: 767px) {
+    body[data-book-view="list"] .lily-list-head { display: none; }
+
     body[data-book-view="list"] .lily-grid > .lily-book {
         column-gap: 12px;
-        padding: 10px 4px;
+        padding: 8px 6px;
     }
 
     body[data-book-view="list"] .lily-grid > .lily-book .meta { grid-template-columns: minmax(0, 1fr); }
 
-    body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-formats,
-    body[data-book-view="list"] .lily-grid > .lily-book .meta .rating { display: none; }
+    body[data-book-view="list"] .lily-grid > .lily-book .meta > * { grid-row: auto; }
 
-    body[data-book-view="list"] .lily-grid > .lily-book .meta .title { -webkit-line-clamp: 2; }
+    body[data-book-view="list"] .lily-grid > .lily-book .meta .author,
+    body[data-book-view="list"] .lily-grid > .lily-book .meta .series {
+        grid-column: 1;
+        padding-left: 15px;
+        font-size: 13px;
+    }
+
+    body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-formats { display: none; }
 }
 
 /* Series grid (grid.html): Isotope lays the items out, so they need a fixed width. */
@@ -628,24 +734,20 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
 /* ------------------------------------------------------------------ */
 .continue-reading { margin: 0 0 22px; }
 
+/* Same columns as the library grid below, so the covers line up at the same size. */
 .continue-reading-row {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 22px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 2px 2px 8px;
-    scroll-snap-type: x proximity;
-    -webkit-overflow-scrolling: touch;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 26px;
 }
 
 .continue-reading-row > .continue-reading-item {
-    flex: 0 0 140px;
-    width: 140px;
+    width: auto;
+    max-width: none;
+    min-width: 0;
     margin: 0;
     padding: 0;
     float: none;
-    scroll-snap-align: start;
 }
 
 .continue-reading-item .meta .title { -webkit-line-clamp: 1; }
@@ -654,9 +756,9 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
 .continue-reading-progress { margin: 6px 0 0; }
 
 @media (max-width: 767px) {
-    .continue-reading-row > .continue-reading-item {
-        flex-basis: 112px;
-        width: 112px;
+    .continue-reading-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 22px 14px;
     }
 }
 
@@ -673,11 +775,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
     font-size: 44px;
 }
 
-.library-empty-state h3 {
-    color: var(--muted);
-    font-family: var(--font-body);
-    font-size: 19px;
-}
+.library-empty-state h3 { font-size: var(--heading-size); }
 
 .library-empty-state p { color: var(--muted); }
 
@@ -712,7 +810,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
     gap: 8px;
 }
 
-.lily-setup-head h2 { margin: 0; font-size: 19px; }
+.lily-setup-head h2 { margin: 0; font-size: var(--heading-size); line-height: 1.4; }
 .lily-setup-lede { margin: 4px 0 8px; color: var(--muted); }
 
 .lily-setup-list {
@@ -726,7 +824,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
     align-items: flex-start;
     gap: 10px;
     padding: 8px 0;
-    border-top: 1px solid var(--line-soft);
+    border-top: 0;
 }
 
 .lily-setup-mark {
@@ -767,7 +865,6 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 8px 22px;
-    max-width: 1000px;
 }
 
 .lily-list-columns > h2 { grid-column: 1 / -1; }
@@ -864,7 +961,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
 
 #sortTrue .list-group-item {
     border: 0;
-    border-bottom: 1px solid var(--line-soft);
+    border-bottom: 0;
     border-radius: 0;
     cursor: grab;
 }
@@ -879,68 +976,134 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
 /* ------------------------------------------------------------------ */
 /* Book detail (detail.html)                                             */
 /* ------------------------------------------------------------------ */
-.lily-book-detail { max-width: 1400px; }
+.lily-book-detail { max-width: none; }
 
+/* Three zones: the cover, the book itself (heading, actions, description, chips) and the
+   facts as a side panel. The heading and action rows stay content-sized so a tall cover
+   never pushes the description down. */
 .book-detail-main {
     display: grid;
-    grid-template-columns: 340px minmax(0, 1fr);
-    gap: 28px 40px;
+    /* The middle column is only as wide as its content (the description stops at 78ch), so
+       with a short title and description the facts panel takes the space that is left. */
+    grid-template-columns: clamp(220px, 17vw, 300px) minmax(min(100%, 420px), max-content) minmax(260px, 1fr);
+    grid-template-rows: min-content min-content 1fr;
+    gap: 28px clamp(40px, 4vw, 72px);
     align-items: start;
 }
 
-.container-fluid .book-detail-cover.cover,
 .book-detail-cover {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    grid-row: 1 / -1;
+    grid-column: 1;
+    min-width: 0;
+}
+
+.container-fluid .book-detail-cover-art.cover,
+.book-detail-cover-art {
     position: relative;
     height: auto;
     margin: 0;
 }
 
-.container-fluid .book-detail-cover img,
-.book-detail-cover img {
+.container-fluid .book-detail-cover-art img,
+.book-detail-cover-art img {
     display: block;
     width: 100%;
     height: auto;
     border: 0;
-    border-radius: 10px;
+    border-radius: 4px 8px 8px 4px;
     box-shadow: none;
     outline: 1px solid var(--line-soft);
     outline-offset: -1px;
 }
 
-/* Shelves (squares) and tags (pills) sit under the cover in one row. Each chip takes a tone
-   from the categorical palette, so no two in a row look alike, and the shape still tells the
-   two kinds apart. */
+/* Each file on its own line: type mark, format, and its size pushed to the right. */
+.book-metadata dd.book-detail-files {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.book-detail-file {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--paper);
+    color: var(--ink);
+}
+
+.book-detail-file-name { font-weight: 500; }
+
+.book-detail-file-size {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.book-detail-file .lily-format { flex: none; width: 22px; height: 22px; }
+
+/* Shelves and tags close the right-hand column in one row. Each kind has one fixed look so
+   it reads at a glance: shelves are filled accent chips with the sidebar's shelf glyph, tags
+   are outlined pills with a tag glyph. */
 .book-detail-taxonomy {
+    /* Many tags wrap here instead of widening the middle column. */
+    max-width: 720px;
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
-    margin-top: 14px;
 }
 
-/* The tone itself is picked in detail.html: (id % 5) + 1, tags offset by two. */
-.book-detail-taxonomy .btn.lily-chip.tone-1 { --chip-tone: var(--series-1); }
-.book-detail-taxonomy .btn.lily-chip.tone-2 { --chip-tone: var(--series-2); }
-.book-detail-taxonomy .btn.lily-chip.tone-3 { --chip-tone: var(--series-3); }
-.book-detail-taxonomy .btn.lily-chip.tone-4 { --chip-tone: var(--series-4); }
-.book-detail-taxonomy .btn.lily-chip.tone-5 { --chip-tone: var(--series-5); }
-
 .book-detail-taxonomy .btn.lily-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     margin: 0;
     max-width: 100%;
-    background: color-mix(in srgb, var(--chip-tone, var(--accent)) 12%, transparent);
-    color: var(--chip-tone, var(--accent));
+    border: 1px solid transparent;
+}
+
+.book-detail-taxonomy .btn.lily-chip .glyphicon {
+    top: 0;
+    flex: none;
+    font-size: .8em;
+    opacity: .75;
+}
+
+.book-detail-taxonomy .chip-label {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.book-detail-taxonomy .btn.lily-chip.is-shelf { border-radius: 3px; }
-.book-detail-taxonomy .btn.lily-chip.is-tag { border-radius: 999px; }
+.book-detail-taxonomy .btn.lily-chip.is-shelf {
+    border-radius: var(--control-radius);
+    background: var(--accent-soft);
+    color: var(--accent);
+}
 
-.book-detail-taxonomy .btn.lily-chip:hover,
-.book-detail-taxonomy .btn.lily-chip:focus {
-    background: color-mix(in srgb, var(--chip-tone, var(--accent)) 22%, transparent);
-    color: var(--chip-tone, var(--accent));
+.book-detail-taxonomy .btn.lily-chip.is-tag {
+    border-radius: 999px;
+    border-color: var(--line);
+    background: transparent;
+    color: var(--ink-soft);
+}
+
+.book-detail-taxonomy .btn.lily-chip.is-shelf:hover,
+.book-detail-taxonomy .btn.lily-chip.is-shelf:focus {
+    background: var(--selected);
+    color: var(--accent);
+}
+
+.book-detail-taxonomy .btn.lily-chip.is-tag:hover,
+.book-detail-taxonomy .btn.lily-chip.is-tag:focus {
+    border-color: var(--line-strong);
+    background: var(--row-hover);
+    color: var(--ink);
 }
 
 .book-detail-meta {
@@ -948,34 +1111,59 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
     flex-direction: column;
     gap: 12px;
     min-width: 0;
+    grid-row: 1;
+    grid-column: 2;
+}
+
+.book-detail-actions { grid-row: 2; grid-column: 2; min-width: 0; }
+
+.book-detail-extra {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 28px;
+    grid-row: 3;
+    grid-column: 2;
+    min-width: 0;
+    padding-top: 12px;
 }
 
 .book-detail-meta h2#title {
     margin: 0;
     font-family: var(--font-body);
-    font-size: 30px;
-    font-weight: 600;
-    line-height: 1.2;
-    color: var(--heading);
+    font-size: 40px;
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    /* Long titles wrap at this measure; without it the middle column would size itself to
+       the whole title on one line and squeeze the facts panel. */
+    max-width: 15em;
     overflow-wrap: break-word;
+    text-wrap: balance;
 }
 
-.book-detail-meta .author,
 .book-detail-meta #book_of {
     margin: 0;
     color: var(--muted);
-    font-size: 17px;
+    font-size: 15px;
+}
+
+.book-detail-meta #book_of a { font-weight: 500; }
+
+.book-detail-meta .author {
+    margin: 0;
+    font-size: 19px;
 }
 
 .book-detail-meta #detail-rating-block {
     display: flex;
     align-items: center;
-    gap: 4px;
-    font-size: 19px;
+    gap: 2px;
+    margin-top: 2px;
 }
 
-.book-detail-actions { margin: 10px 0 8px; }
-
+/* Labelled buttons: Read is the one Primary, the rest are Quiet. */
 .book-action-bar {
     display: flex;
     flex-wrap: wrap;
@@ -984,120 +1172,153 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
 }
 
 .book-action-bar > .btn,
-.book-action-bar > .btn-group { margin: 0; }
+.book-action-bar > .dropdown > .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 36px;
+    margin: 0;
+    padding: 0 15px;
+    line-height: 36px;
+}
 
 .book-action-bar .btn .glyphicon {
-    top: 1px;
-    margin-right: 4px;
+    top: 0;
     font-size: 14px;
 }
 
-.book-action-bar .btn .caret { margin-left: 4px; }
+.book-action-bar .btn .caret { margin-left: 2px; }
 
-.book-action-icons {
-    display: inline-flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-    margin-left: -7px;
+/* Read state and Edit are square icon buttons in the same Quiet style. */
+.book-action-bar > .btn.is-icon {
+    justify-content: center;
+    width: 36px;
+    padding: 0;
 }
 
-.book-action-icons .icon-btn {
-    width: 38px;
-    height: 38px;
-    font-size: 21px;
+/* Read state: an eye while unread, a green tick on a green tint once read. */
+.book-action-bar #toggle-read-btn[aria-pressed="true"],
+.book-action-bar #toggle-read-btn[aria-pressed="true"]:focus {
+    background: color-mix(in srgb, var(--success) 24%, transparent);
 }
 
-.book-action-icons .glyphicon { top: 0; }
+.book-action-bar #toggle-read-btn[aria-pressed="true"]:hover {
+    background: color-mix(in srgb, var(--success) 32%, transparent);
+}
 
-/* Read is the page's main action: same icon, in the accent colour. */
-.book-action-icons .icon-btn.is-primary { color: var(--accent); }
-.book-action-icons .icon-btn.is-danger { color: var(--accent); }
+.book-action-bar #toggle-read-btn[aria-pressed="true"] .glyphicon { color: var(--success); }
 
-/* Label / value list for the book's facts. */
+/* Archived reads as a chosen chip like any pressed toggle; delete takes the accent. */
+.book-action-bar > .btn.is-danger,
+.book-action-bar > .btn.is-danger:hover,
+.book-action-bar > .btn.is-danger:focus { color: var(--accent); }
+
+/* The book's facts as a compact surface side panel: the files as tiles on top, then one
+   line per fact with the label on the left and the value on the right. */
 dl.book-metadata {
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
-    gap: 8px 28px;
-    margin: 6px 0 6px;
-    padding-top: 16px;
-    border-top: 1px solid var(--line-soft);
+    grid-row: 1 / -1;
+    grid-column: 3;
+    /* A wide panel lays its facts out in columns rather than stretching each row across. */
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    align-content: start;
+    gap: 10px 40px;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 20px 22px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--surface);
 }
 
-.book-metadata > div { display: contents; }
+dl.book-metadata:not(:has(> div)) { display: none; }
+
+.book-metadata > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    min-width: 0;
+}
 
 .book-metadata dt {
+    flex: none;
     color: var(--muted);
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 400;
 }
 
 .book-metadata dd {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0 4px;
     margin: 0;
     color: var(--ink);
     font-size: 15px;
+    font-weight: 500;
     font-variant-numeric: tabular-nums;
     min-width: 0;
+    text-align: right;
     overflow-wrap: anywhere;
 }
 
-.book-metadata dd .icon-btn {
-    width: 28px;
-    height: 28px;
-    font-size: 16px;
-}
+/* Files lead the panel as tiles; the tiles say what they are, so the label is sr-only. */
+.book-metadata > .formats { display: block; grid-column: 1 / -1; margin-bottom: 6px; }
+.book-metadata > .formats > dd { text-align: left; }
 
-.book-detail-description {
-    margin-top: 32px;
-    padding-top: 22px;
-    border-top: 1px solid var(--line-soft);
-}
-
-.book-detail-description h3 {
-    margin: 0 0 14px;
-    font-family: var(--font-body);
-    font-size: 19px;
-}
+.book-detail-description { align-self: stretch; }
 
 .book-detail-description .comments {
+    max-width: 78ch;
     font-family: var(--font-body);
-    font-size: 19px;
-    line-height: 1.6;
-    color: var(--ink);
+    font-size: 18px;
+    line-height: 1.68;
+    color: var(--ink-soft);
 }
 
 .book-detail-description .comments p { margin: 0 0 14px; }
+.book-detail-description .comments p:last-child { margin-bottom: 0; }
 
-/* A short confirmation next to the control that caused it. */
-.action-toast {
-    position: fixed;
-    z-index: 1055;
-    display: none;
-    padding: 4px 8px;
-    border-radius: 5px;
-    background: var(--ink);
-    color: var(--paper);
-    font-size: 12px;
-    white-space: nowrap;
+
+/* Narrower: two columns, with the facts panel stacked under the cover so the description
+   keeps the full middle width. The description spans the cover's last row and the panel's
+   row, so a tall cover never opens a gap above it. */
+@media (max-width: 1499px) {
+    .book-detail-main {
+        grid-template-columns: clamp(200px, 22vw, 280px) minmax(0, 1fr);
+        grid-template-rows: min-content min-content auto 1fr;
+    }
+
+    .book-detail-cover { grid-row: 1 / 4; }
+    .book-detail-extra { grid-row: 3 / 5; }
+
+    dl.book-metadata {
+        grid-row: 4;
+        grid-column: 1;
+    }
 }
 
+/* Phone: a cover thumbnail beside the heading, then everything full width. */
 @media (max-width: 767px) {
     .book-detail-main {
-        grid-template-columns: 1fr;
-        gap: 22px;
+        grid-template-columns: 108px minmax(0, 1fr);
+        grid-template-rows: auto;
+        gap: 18px 16px;
     }
 
-    .book-detail-cover {
-        width: min(100%, 320px);
-    }
+    .book-detail-cover { grid-row: 1; grid-column: 1; }
+    .book-detail-meta { grid-row: 1; grid-column: 2; align-self: center; }
+    .book-detail-actions { grid-row: 2; grid-column: 1 / -1; }
+    .book-detail-extra { grid-row: 3; grid-column: 1 / -1; padding-top: 0; }
+    dl.book-metadata { grid-row: 4; grid-column: 1 / -1; padding: 14px 16px; }
 
-    .book-detail-meta h2#title { font-size: 29px; }
+    .book-detail-meta h2#title { font-size: 23px; }
+    .book-detail-meta .author { font-size: 16px; }
 
-    dl.book-metadata { gap: 4px 14px; }
+    /* Read takes the whole first line; the rest share the line below. */
+    .book-action-bar > .btn-primary { flex: 1 0 100%; justify-content: center; }
+    .book-action-bar > .btn:not(.btn-primary) { flex: 1 1 0; width: auto; justify-content: center; }
+    .book-action-bar > .dropdown { flex: 1 1 0; }
+    .book-action-bar > .dropdown > .btn { width: 100%; justify-content: center; }
+
+    .book-detail-description .comments { font-size: 17px; }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1201,18 +1422,15 @@ dl.book-metadata {
 
 .bootstrap-select .dropdown-menu li a span.check-mark { color: var(--accent); }
 
+/* The library pins the tick 5px from the top; centre it on the row instead. */
+.bootstrap-select.show-tick .dropdown-menu li.selected a span.check-mark {
+    top: 50%;
+    transform: translateY(-50%);
+}
+
 .bootstrap-select .dropdown-menu li.selected a { background: var(--selected); color: var(--ink); }
 
-.bootstrap-select .bs-searchbox,
-.bootstrap-select .bs-actionsbox { padding: 4px 4px 6px; }
-
-.bootstrap-select .bs-actionsbox .btn-group { display: flex; gap: 6px; }
-
-.bootstrap-select .bs-actionsbox .btn-group > .btn {
-    flex: 1;
-    width: auto;
-    margin: 0;
-}
+.bootstrap-select .bs-searchbox { padding: 4px 4px 6px; }
 
 /* Date pickers: a Field with its clear glyph inside the same row. */
 .input-group .form-control:first-child { border-radius: 7px; }
@@ -1276,7 +1494,6 @@ dl.book-metadata {
 /* Pushes the following items in a flex row to the far end. */
 .lily-spacer { flex: 1; }
 
-.lily-shelf-order { max-width: 720px; }
 
 /* ------------------------------------------------------------------ */
 /* Book editor (book_edit.html) and books table (book_table.html)       */
@@ -1312,7 +1529,7 @@ dl.book-metadata {
 /* Matches .editbook-section h3 (Details, Description...) */
 .editbook-side-group h3 {
     margin: 0 0 14px;
-    font-size: 17px;
+    font-size: var(--heading-size);
     font-weight: 600;
 }
 
@@ -1427,7 +1644,7 @@ dl.book-metadata {
 
 .editbook-section h3 {
     margin: 0 0 14px;
-    font-size: 17px;
+    font-size: var(--heading-size);
     font-weight: 600;
 }
 
@@ -1546,7 +1763,7 @@ dl.book-metadata {
         align-items: center;
         padding: 14px 0;
         border: 0;
-        border-top: 1px solid var(--line);
+        border-top: 0;
         border-radius: 0;
         background: var(--paper);
     }
@@ -1587,11 +1804,12 @@ body.book_table .pagination {
 }
 
 /* Book page stars (editable and read-only): larger, with room between them */
-.rating-input > .glyphicon,
-#detail-rating-block .glyphicon {
+.rating-input > .glyphicon {
     font-size: 27px;
     margin-right: 8px;
 }
+
+#detail-rating-block .glyphicon { top: 0; font-size: 16px; }
 
 /* ------------------------------------------------------------------ */
 /* Sort controls (image.sort_menu): a field chip and a direction chip */

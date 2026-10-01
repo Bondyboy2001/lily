@@ -17,6 +17,7 @@ from .lily_env import lily_env, ADMIN_PASSWORD
 @pytest.fixture
 def env(tmp_path):
     with lily_env(tmp_path) as e:
+        e.app.jinja_env.globals.setdefault("csrf_token", lambda: "test-token")
         yield e
 
 
@@ -50,6 +51,25 @@ class TestBookTitleSuggestions:
         # The small thumbnail, with the cache-busting stamp the library grid uses.
         assert item["cover"].startswith(f"/cover/{book_id}/sm?c=")
         assert client.get(item["cover"]).status_code == 200
+
+    def test_carries_the_book_page_url_for_direct_navigation(self, env, temp_cwa_db):
+        book_id = env.add_book("Direct Book", author="An Author")
+        client = _login(env)
+        [item] = _suggest(client, "Direct")
+        assert item["id"] == book_id
+        assert item["url"] == f"/book/{book_id}"
+        assert client.get(item["url"]).status_code in (200, 302)
+
+    def test_same_title_different_authors_have_distinct_urls(self, env):
+        first = env.add_book("Same Title", author="Author One")
+        second = env.add_book("Same Title", author="Author Two")
+        client = _login(env)
+        items = _suggest(client, "Same Title")
+        assert len(items) == 2
+        by_id = {item["id"]: item for item in items}
+        assert by_id[first]["author"] == "Author One"
+        assert by_id[second]["author"] == "Author Two"
+        assert by_id[first]["url"] != by_id[second]["url"]
 
     def test_matches_author(self, env):
         env.add_book("Paper One", author="Bertrand Gauthier")

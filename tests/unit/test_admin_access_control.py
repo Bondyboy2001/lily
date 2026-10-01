@@ -40,8 +40,12 @@ def test_admin_pages_are_closed_to_users_and_visitors(clients, path):
     visitor, user, admin = clients
     assert _blocked(visitor.get(path), path), "visitor reached " + path
     assert _blocked(user.get(path), path), "regular user reached " + path
-    # 404 is fine for the snapshot download: the admin got past the gate, the snapshot just doesn't exist here
-    assert admin.get(path).status_code in (200, 404)
+    resp = admin.get(path)
+    if path == "/admin/view":
+        assert resp.status_code == 302 and resp.headers["Location"].endswith("/duplicates")
+    else:
+        # 404 is fine for the snapshot download: the admin got past the gate, the snapshot just doesn't exist here
+        assert resp.status_code in (200, 404)
 
 
 @pytest.mark.parametrize("path", ADMIN_POSTS)

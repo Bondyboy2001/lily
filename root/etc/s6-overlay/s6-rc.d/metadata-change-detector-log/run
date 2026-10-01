@@ -1,0 +1,2 @@
+#!/usr/bin/with-contenv sh
+exec s6-setuidgid abc s6-log -b -- 1 n5 s2000000 T /config/logs/metadata-change-detector

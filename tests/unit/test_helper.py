@@ -31,6 +31,7 @@ from cps.helper import (
     get_sorted_author,
     check_email,
     check_username,
+    check_read_formats,
     valid_email,
     valid_password,
     uniq,
@@ -520,6 +521,25 @@ class TestUniq:
         """Test single item list is unchanged"""
         result = uniq(["only"])
         assert result == ["only"]
+
+
+class TestCheckReadFormats:
+    @staticmethod
+    def _entry(*formats):
+        return SimpleNamespace(data=[SimpleNamespace(format=f) for f in formats])
+
+    def test_unsupported_formats_yield_no_reader(self):
+        for fmt in ("TXT", "MOBI", "CBZ", "HTML", "AZW3", "FB2", "CBR"):
+            assert check_read_formats(self._entry(fmt)) == [], fmt
+        assert check_read_formats(SimpleNamespace(data=[])) == []
+
+    def test_document_and_audio_formats_are_supported(self):
+        for fmt in ("EPUB", "KEPUB", "PDF", "DJVU", "DJV", "MP3", "M4B", "FLAC"):
+            assert check_read_formats(self._entry(fmt)) == [fmt.lower()], fmt
+
+    def test_reader_preference_orders_the_list(self):
+        entry = self._entry("TXT", "M4B", "PDF", "MP3", "EPUB", "MOBI")
+        assert check_read_formats(entry) == ["epub", "pdf", "m4b", "mp3"]
 
 
 # ============================================================================

@@ -15,8 +15,6 @@
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-var direction = $("#asc").data('order');  // 0=Descending order; 1= ascending order
-
 let selectedLayoutMode;
 
 if ($("body").hasClass("blur")) {
@@ -34,13 +32,12 @@ var $list = $("#list").isotope({
 });
 
 
-// The options live in dropdowns (image.list_menu); lilyPickOption (lily.js) ticks the picked one
-// and returns false when it was already picked.
-$("#desc").click(function(e) {
+// The direction button (image.list_menu) flips between ascending and descending; lilyToggleSortDir
+// (lily.js) relabels it and returns the new direction. The other options live in dropdowns, where
+// lilyPickOption (lily.js) ticks the picked one and returns false when it was already picked.
+$("#lily-order-toggle").click(function(e) {
     e.preventDefault();
-    if (!lilyPickOption(this)) {
-        return;
-    }
+    var dir = lilyToggleSortDir(this);
 
     var page = $(this).data("id");
     $.ajax({
@@ -48,7 +45,7 @@ $("#desc").click(function(e) {
         contentType: "application/json; charset=utf-8",
         dataType: "json",
         url: getPath() + "/ajax/view",
-        data: "{\"" + page + "\": {\"dir\": \"desc\"}}",
+        data: JSON.stringify({[page]: {dir: dir}}),
     });
     // invert sorting order to make already inverted start order working
     if ($list.data('isotope')) {  // no grid when the library has no series
@@ -57,30 +54,6 @@ $("#desc").click(function(e) {
             sortAscending: !$list.data('isotope').options.sortAscending
         });
     }
-    direction = 0;
-});
-
-$("#asc").click(function(e) {
-    e.preventDefault();
-    if (!lilyPickOption(this)) {
-        return;
-    }
-
-    var page = $(this).data("id");
-    $.ajax({
-        method:"post",
-        contentType: "application/json; charset=utf-8",
-        dataType: "json",
-        url: getPath() + "/ajax/view",
-        data: "{\"" + page + "\": {\"dir\": \"asc\"}}",
-    });
-    if ($list.data('isotope')) {  // no grid when the library has no series
-        $list.isotope({
-            sortBy: "name",
-            sortAscending: !$list.data('isotope').options.sortAscending
-        });
-    }
-    direction = 1;
 });
 
 $("#all").click(function(e) {

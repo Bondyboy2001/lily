@@ -1,0 +1,34 @@
+{% extends "settings_layout.html" %}
+{% block pane_class %} is-wide{% endblock %}
+{% block settings %}
+<div class="lily-admin lily-admin-wide lily-logs" data-logs-url="{{ url_for('logs.logs_data') }}" data-empty-message="{{ _('No logs captured yet.') }}">
+  <section class="lily-admin-section">
+    <p class="logs-intro">{{_('A bounded, recent view of the application and service logs. Pick a service from the source list to read only its logs.')}}</p>
+    <div class="logs-controls">
+      <div class="logs-field">
+        <label for="log_source">{{_('Source')}}</label>
+        <select id="log_source" class="form-control">
+          <option value="all">{{_('All logs')}}</option>
+        </select>
+      </div>
+      <div class="logs-field">
+        <label for="log_search">{{_('Search')}}</label>
+        <input type="search" id="log_search" class="form-control" placeholder="{{_('Filter lines')}}" autocomplete="off">
+      </div>
+      <div class="logs-field logs-checks">
+        <label class="logs-check"><input type="checkbox" id="log_errors"> {{_('Errors & warnings')}}</label>
+        <label class="logs-check"><input type="checkbox" id="log_autorefresh"> {{_('Auto-refresh (5 s)')}}</label>
+      </div>
+      <button type="button" id="log_refresh" class="btn btn-default">
+        <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> {{_('Refresh')}}
+      </button>
+    </div>
+    <p id="logs_status" class="logs-status" role="status" aria-live="polite"></p>
+    <pre id="log_output" class="logs-output" tabindex="0"></pre>
+  </section>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/logs.js') }}" defer></script>
+{% endblock %}

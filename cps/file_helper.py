@@ -24,14 +24,13 @@ except ImportError as e:
 
 
 def get_mimetype(ext):
-    # overwrite some mimetypes for proper file detection
-    mimes = {".cbz": "application/zip",
-             ".cbr": "application/x-rar",
-             ".cbt": "application/x-tar",
-             ".kfx": "application/octet-stream",
-             ".kfx-zip": "application/zip",
-             }
-    return mimes.get(ext, mimetypes.types_map[ext])
+    """Return the mimetype for a file extension (including the leading dot).
+
+    Raises KeyError for unknown extensions; validate_mime_type catches that and
+    skips the extension. The formats Lily supports are registered with
+    `mimetypes.add_type` in cps/__init__.py.
+    """
+    return mimetypes.types_map[ext]
 
 
 def get_temp_dir():

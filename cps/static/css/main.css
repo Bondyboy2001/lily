@@ -42,7 +42,7 @@ body {
   position: relative;
   color: #4f4f4f;
   font-weight: 100;
-  font-family: Georgia, "Times New Roman", Times, serif;
+  font-family: var(--font-ui);
   opacity: 0.5;
   text-align: center;
   -webkit-transition: opacity 0.5s;
@@ -127,7 +127,7 @@ body {
   margin-top: -192px;
   font-size: 64px;
   color: #e2e2e2;
-  font-family: arial, sans-serif;
+  font-family: var(--font-ui);
   font-weight: bold;
   cursor: pointer;
   -webkit-user-select: none;
@@ -315,7 +315,7 @@ input:-moz-placeholder { color: #454545; }
 #bookmarksView li {
   margin-bottom: 10px;
   width: 225px;
-  font-family: Georgia, "Times New Roman", Times, serif;
+  font-family: var(--font-ui);
   list-style: none;
   text-transform: capitalize;
 }
@@ -332,7 +332,7 @@ input:-moz-placeholder { color: #454545; }
 #searchResults li {
   margin-bottom: 10px;
   width: 225px;
-  font-family: Georgia, "Times New Roman", Times, serif;
+  font-family: var(--font-ui);
   list-style: none;
 }
 
@@ -490,7 +490,7 @@ input:-moz-placeholder { color: #454545; }
 
 #settingsPanel h3 {
   color: #f1f1f1;
-  font-family: Georgia, "Times New Roman", Times, serif;
+  font-family: var(--font-ui);
   margin-bottom: 10px;
 }
 

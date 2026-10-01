@@ -43,13 +43,12 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-          <h4 class="modal-title" id="metaDeleteLabel">{{_('Are you really sure?')}}</h4>
+          <h4 class="modal-title" id="metaDeleteLabel">{{_('Are You Sure?')}}</h4>
       </div>
         <div class="modal-body">
           <p>
-          <span class="hidden" id="book_format">{{_('This book format will be permanently erased from database')}}</span>
-          <span class="hidden" id="book_complete">{{_('This book will be permanently erased from database')}}</span>
-          <span>{{_('and hard disk')}}</span>
+          <span class="hidden" id="book_format">{{_('This book format will be deleted. A recovery copy is kept for an administrator to restore.')}}</span>
+          <span class="hidden" id="book_complete">{{_('This book will be deleted. A recovery copy is kept for an administrator to restore.')}}</span>
 		  </p>
         </div>
 
@@ -73,9 +72,9 @@
          <table id="file_table" class="table table-striped">
             <thead>
               <tr>
-                  <th>{{_('type')}}</th>
-                  <th>{{_('name')}}</th>
-                  <th>{{_('size')}}</th>
+                  <th>{{_('Type')}}</th>
+                  <th>{{_('Name')}}</th>
+                  <th>{{_('Size')}}</th>
               </tr>
             </thead>
             <tbody id="tbody">
@@ -98,15 +97,14 @@
 {% endmacro %}
 
 {% macro delete_confirm_modal() %}
-<div id="GeneralDeleteModal" class="modal fade" role="Dialog">
+<div id="GeneralDeleteModal" class="modal fade" role="dialog" aria-modal="true" aria-labelledby="header-GeneralDeleteModal" aria-describedby="text-GeneralDeleteModal">
   <div class="modal-dialog modal-sm">
     <div class="modal-content">
-      <div class="modal-header">
-      <h4 class="modal-title" id="header-GeneralDeleteModal"></h4>
-      </div>
+      <div class="modal-header"><h4 class="modal-title" id="header-GeneralDeleteModal"></h4></div>
       <div class="modal-body">
-        <span id="text-GeneralDeleteModal"></span>
-          <p></p>
+        <p id="text-GeneralDeleteModal"></p>
+      </div>
+      <div class="modal-footer">
         <button id="btnConfirmNo-GeneralDeleteModal" type="button" class="btn btn-default">{{_('Cancel')}}</button>
         <button id="btnConfirmYes-GeneralDeleteModal" type="button" class="btn btn-danger">{{_('Delete')}}</button>
       </div>
@@ -116,15 +114,14 @@
 {% endmacro %}
 
 {% macro change_confirm_modal() %}
-<div id="GeneralChangeModal" class="modal fade" role="Dialog">
+<div id="GeneralChangeModal" class="modal fade" role="dialog" aria-modal="true" aria-labelledby="header-GeneralChangeModal" aria-describedby="text-GeneralChangeModal">
   <div class="modal-dialog modal-sm">
     <div class="modal-content">
-      <div class="modal-header">
-      <h4 class="modal-title" id="header-GeneralChangeModal"></h4>
-      </div>
+      <div class="modal-header"><h4 class="modal-title" id="header-GeneralChangeModal"></h4></div>
       <div class="modal-body">
-        <span id="text-GeneralChangeModal"></span>
-          <p></p>
+        <p id="text-GeneralChangeModal"></p>
+      </div>
+      <div class="modal-footer">
         <button id="btnConfirmNo-GeneralChangeModal" type="button" class="btn btn-default">{{_('Cancel')}}</button>
         <button id="btnConfirmYes-GeneralChangeModal" type="button" class="btn btn-primary">{{_('Confirm')}}</button>
       </div>

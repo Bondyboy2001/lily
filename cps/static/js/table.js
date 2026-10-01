@@ -323,17 +323,100 @@ $(function() {
     })
     /////
 
+    function batchOutcome(response) {
+        var out = {ok: !!(response && response.success === true),
+                   retry: [], reasons: [], summary: ""};
+        var results = (response && $.isArray(response.results)) ? response.results : [];
+        var summary = (response && response.summary) || {};
+        var parts = [];
+        if (summary.succeeded) { parts.push(summary.succeeded + " succeeded"); }
+        if (summary.failed) { parts.push(summary.failed + " failed"); }
+        if (summary.skipped) { parts.push(summary.skipped + " skipped"); }
+        $.each(results, function (i, r) {
+            if (!r || r.status !== "succeeded") {
+                out.retry.push(r ? r.book_id : null);
+                if (r && r.message) { out.reasons.push("#" + r.book_id + ": " + r.message); }
+            }
+        });
+        if (!results.length && response && response.msg) { parts.push(String(response.msg)); }
+        out.summary = parts.join(", ");
+        return out;
+    }
+
+    function showBatchOutcome(response) {
+        var info = batchOutcome(response);
+        var region = $("#batch-results");
+        region.empty();
+        var box = $("<div></div>")
+            .attr("class", info.ok ? "alert alert-success" : "alert alert-danger")
+            .attr("role", info.ok ? "status" : "alert");
+        $("<p></p>").text(info.summary ||
+            (info.ok ? "Done." : "The request failed; check the library before retrying"))
+            .appendTo(box);
+        if (info.reasons.length) {
+            var list = $("<ul></ul>");
+            $.each(info.reasons, function (i, m) { $("<li></li>").text(m).appendTo(list); });
+            list.appendTo(box);
+            $("<p></p>").text("Books that failed or were skipped stay selected; " +
+                              "confirm the action again to retry them.").appendTo(box);
+        }
+        region.append(box);
+        if (window.lilyFlash && info.summary) {
+            window.lilyFlash(info.summary, info.ok ? "success" : "danger");
+        }
+        return info;
+    }
+
+    function reselectAfterRefresh(ids) {
+        var table = $("#books-table");
+        var wanted = (ids || []).slice();
+        selections = [];
+        table.bootstrapTable("uncheckAll");
+        if (wanted.length) {
+            table.one("load-success.bs.table", function () {
+                table.bootstrapTable("uncheckAll");
+                table.bootstrapTable("checkBy", {field: "id", values: wanted});
+                selections = wanted.slice();
+            });
+        }
+        table.bootstrapTable("refresh");
+    }
+
+    function ajaxErrorResult(xhr) {
+        var msg = (xhr && xhr.responseJSON &&
+                   (xhr.responseJSON.msg || xhr.responseJSON.message || xhr.responseJSON.reason)) ||
+            "Request failed; check the library before retrying";
+        showBatchOutcome({success: false, results: [], summary: {}, msg: msg});
+        if (window.lilyFlash) { window.lilyFlash(msg, "danger"); }
+    }
+
+    window.LilyBatch = {
+        outcome: batchOutcome,
+        mergeRetrySelection: function (targetId, info) {
+            return info.retry.length ? [targetId].concat(info.retry) : [];
+        }
+    };
+
+    function renderTitleList(target, items) {
+        $(target).empty();
+        $.each(items, function (i, item) {
+            $("<p>").append($("<span>").text("- " + item)).appendTo(target);
+        });
+    }
+
     $("#merge_confirm").click(function() {
+        var mergeIds = selections.slice();
         $.ajax({
             method:"post",
             contentType: "application/json; charset=utf-8",
             dataType: "json",
             url: window.location.pathname + "/../ajax/mergebooks",
-            data: JSON.stringify({"Merge_books":selections}),
-            success: function success() {
-                $("#books-table").bootstrapTable("refresh");
-                $("#books-table").bootstrapTable("uncheckAll");
-            }
+            data: JSON.stringify({"Merge_books":mergeIds}),
+            success: function success(response) {
+                var info = showBatchOutcome(response);
+                reselectAfterRefresh(window.LilyBatch.mergeRetrySelection(mergeIds[0], info));
+            },
+            error: ajaxErrorResult
         });
     });
 
@@ -350,13 +433,21 @@ $(function() {
             url: window.location.pathname + "/../ajax/simulatemerge",
             data: JSON.stringify({"Merge_books":selections}),
             success: function success(booTitles) {
-                $('#merge_from').empty();
-                $.each(booTitles.from, function(i, item) {
-                    $("<span>- " + item + "</span><p></p>").appendTo("#merge_from");
-                });
+                var conflicts = booTitles.conflicts || [];
+                $("#merge_confirm").prop("disabled", conflicts.length > 0);
+                if (conflicts.length) {
+                    $('#merge_from').empty();
+                    $.each(conflicts, function (i, conflict) {
+                        $("<p>").append($("<span class='text-danger'>").text(conflict))
+                            .appendTo("#merge_from");
+                    });
+                } else {
+                    renderTitleList('#merge_from', booTitles.from);
+                }
                 $("#merge_to").text("- " + booTitles.to);
 
-            }
+            },
+            error: ajaxErrorResult
         });
     });
 
@@ -387,9 +478,13 @@ $(function() {
                 "comments": $("#comments_input").val().toString(),
                 "checkA": $("#autoupdate_authorsort").prop('checked').toString()
             }),
-            success: function success(booTitles) {
-                $("#books-table").bootstrapTable("refresh");
-                $("#books-table").bootstrapTable("uncheckAll");
+            error: ajaxErrorResult,
+            success: function success(response) {
+                var info = showBatchOutcome(response);
+                reselectAfterRefresh(info.retry);
+                if (!response || response.success !== true) {
+                    return;
+                }
 
                 $("#title_input").val("");
                 $("#title_sort_input").val("");
@@ -416,11 +511,9 @@ $(function() {
             dataType: "json",
             url: window.location.pathname + "/../ajax/displayselectedbooks",
             data: JSON.stringify({"selections":selections}),
+            error: ajaxErrorResult,
             success: function success(booTitles) {
-                $('#display-archive-selected-books').empty();
-                $.each(booTitles.books, function(i, item) {
-                    $("<span>- " + item + "</span><p></p>").appendTo("#display-archive-selected-books");
-                });
+                renderTitleList('#display-archive-selected-books', booTitles.books);
 
             }
         });
@@ -433,10 +526,10 @@ $(function() {
             dataType: "json",
             url: window.location.pathname + "/../ajax/archiveselectedbooks",
             data: JSON.stringify({"selections":selections, "archive": true}),
-            success: function success(booTitles) {
-                $("#books-table").bootstrapTable("refresh");
-                $("#books-table").bootstrapTable("uncheckAll");
-            }
+            success: function success(response) {
+                reselectAfterRefresh(showBatchOutcome(response).retry);
+            },
+            error: ajaxErrorResult
         });
     });
 
@@ -452,11 +545,9 @@ $(function() {
             dataType: "json",
             url: window.location.pathname + "/../ajax/displayselectedbooks",
             data: JSON.stringify({"selections":selections}),
+            error: ajaxErrorResult,
             success: function success(booTitles) {
-                $('#display-unarchive-selected-books').empty();
-                $.each(booTitles.books, function(i, item) {
-                    $("<span>- " + item + "</span><p></p>").appendTo("#display-unarchive-selected-books");
-                });
+                renderTitleList('#display-unarchive-selected-books', booTitles.books);
 
             }
         });
@@ -469,10 +560,10 @@ $(function() {
             dataType: "json",
             url: window.location.pathname + "/../ajax/archiveselectedbooks",
             data: JSON.stringify({"selections":selections, "archive": false}),
-            success: function success(booTitles) {
-                $("#books-table").bootstrapTable("refresh");
-                $("#books-table").bootstrapTable("uncheckAll");
-            }
+            success: function success(response) {
+                reselectAfterRefresh(showBatchOutcome(response).retry);
+            },
+            error: ajaxErrorResult
         });
     });
 
@@ -488,11 +579,9 @@ $(function() {
             dataType: "json",
             url: window.location.pathname + "/../ajax/displayselectedbooks",
             data: JSON.stringify({"selections":selections}),
+            error: ajaxErrorResult,
             success: function success(booTitles) {
-                $('#display-delete-selected-books').empty();
-                $.each(booTitles.books, function(i, item) {
-                    $("<span>- " + item + "</span><p></p>").appendTo("#display-delete-selected-books");
-                });
+                renderTitleList('#display-delete-selected-books', booTitles.books);
 
             }
         });
@@ -505,10 +594,10 @@ $(function() {
             dataType: "json",
             url: window.location.pathname + "/../ajax/deleteselectedbooks",
             data: JSON.stringify({"selections":selections}),
-            success: function success(booTitles) {
-                $("#books-table").bootstrapTable("refresh");
-                $("#books-table").bootstrapTable("uncheckAll");
-            }
+            success: function success(response) {
+                reselectAfterRefresh(showBatchOutcome(response).retry);
+            },
+            error: ajaxErrorResult
         });
     });
 
@@ -524,11 +613,9 @@ $(function() {
             dataType: "json",
             url: window.location.pathname + "/../ajax/displayselectedbooks",
             data: JSON.stringify({"selections":selections}),
+            error: ajaxErrorResult,
             success: function success(booTitles) {
-                $('#display-read-selected-books').empty();
-                $.each(booTitles.books, function(i, item) {
-                    $("<span>- " + item + "</span><p></p>").appendTo("#display-read-selected-books");
-                });
+                renderTitleList('#display-read-selected-books', booTitles.books);
 
             }
         });
@@ -542,13 +629,9 @@ $(function() {
             url: window.location.pathname + "/../ajax/readselectedbooks",
             data: JSON.stringify({"selections":selections, "markAsRead": true}),
             success: function success(response) {
-                if (response && response.success === false) {
-                    if (window.lilyFlash) { window.lilyFlash(response.msg || "Could not update the read status.", "danger"); }
-                    return;
-                }
-                $("#books-table").bootstrapTable("refresh");
-                $("#books-table").bootstrapTable("uncheckAll");
-            }
+                reselectAfterRefresh(showBatchOutcome(response).retry);
+            },
+            error: ajaxErrorResult
         });
     });
 
@@ -564,11 +647,9 @@ $(function() {
             dataType: "json",
             url: window.location.pathname + "/../ajax/displayselectedbooks",
             data: JSON.stringify({"selections":selections}),
+            error: ajaxErrorResult,
             success: function success(booTitles) {
-                $('#display-unread-selected-books').empty();
-                $.each(booTitles.books, function(i, item) {
-                    $("<span>- " + item + "</span><p></p>").appendTo("#display-unread-selected-books");
-                });
+                renderTitleList('#display-unread-selected-books', booTitles.books);
 
             }
         });
@@ -581,10 +662,10 @@ $(function() {
             dataType: "json",
             url: window.location.pathname + "/../ajax/readselectedbooks",
             data: JSON.stringify({"selections":selections, "markAsRead": false}),
-            success: function success(booTitles) {
-                $("#books-table").bootstrapTable("refresh");
-                $("#books-table").bootstrapTable("uncheckAll");
-            }
+            success: function success(response) {
+                reselectAfterRefresh(showBatchOutcome(response).retry);
+            },
+            error: ajaxErrorResult
         });
     });
 
@@ -596,10 +677,10 @@ $(function() {
             dataType: "json",
             url: window.location.pathname + "/../ajax/xchange",
             data: JSON.stringify({"xchange":selections}),
-            success: function success() {
-                $("#books-table").bootstrapTable("refresh");
-                $("#books-table").bootstrapTable("uncheckAll");
-            }
+            success: function success(response) {
+                reselectAfterRefresh(showBatchOutcome(response).retry);
+            },
+            error: ajaxErrorResult
         });
     });
 

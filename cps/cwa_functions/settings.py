@@ -14,8 +14,6 @@ from ..usermanagement import login_required_if_no_ano
 from ..admin import admin_required
 from ..render_template import render_title_template
 
-from datetime import datetime
-
 # common puts the scripts dir on sys.path, so it must be imported before cwa_db
 from .common import cwa_settings
 from cwa_db import CWA_DB
@@ -129,24 +127,3 @@ def set_cwa_settings():
 
     return render_title_template("cwa_settings.html", title=_("Import & Metadata"), page="cwa-settings",
                                  cwa_settings=cwa_db.get_cwa_settings(), config=config)
-
-
-def get_next_duplicate_scan_run(settings):
-    """Compute next scheduled duplicate scan run time based on settings."""
-    try:
-        enabled = bool(settings.get('duplicate_scan_enabled', 0))
-        cron_expr = (settings.get('duplicate_scan_cron') or '').strip()
-
-        if not enabled:
-            return None
-
-        if not cron_expr:
-            return None
-
-        from apscheduler.triggers.cron import CronTrigger
-        now = datetime.now().astimezone()
-        trigger = CronTrigger.from_crontab(cron_expr, timezone=now.tzinfo)
-        next_run = trigger.get_next_fire_time(None, now)
-        return next_run.isoformat() if next_run else None
-    except Exception:
-        return None

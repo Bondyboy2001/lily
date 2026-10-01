@@ -81,7 +81,7 @@ body { margin: 0; }
     padding: 22px 10px 6px;
     font-family: var(--font-body);
     color: var(--heading);
-    font-size: 17px;
+    font-size: var(--heading-size);
     font-weight: 600;
 }
 
@@ -170,7 +170,7 @@ body { margin: 0; }
     margin: 0;
     padding: 0 24px;
     border: 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 0;
     border-radius: 0;
     background: var(--paper);
 }
@@ -181,7 +181,7 @@ body { margin: 0; }
     overflow: hidden;
     color: var(--heading);
     font-family: var(--font-body);
-    font-size: 22px;
+    font-size: var(--title-size);
     font-weight: 600;
     line-height: 1.2;
     text-overflow: ellipsis;

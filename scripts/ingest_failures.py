@@ -9,6 +9,7 @@ watcher picks it up again. Kept free of Flask/cps imports so it can be tested
 on its own.
 """
 
+import json
 import os
 import re
 import shutil
@@ -46,6 +47,37 @@ def resolve_failed(failed_dir: str, name: str) -> str:
     return path
 
 
+def _sidecar_path(path: str) -> str:
+    return os.path.join(os.path.dirname(path),
+                        "." + os.path.basename(path) + ".failure.json")
+
+
+def write_failure(path: str, reason: str, job_id: str | None = None) -> None:
+    """Atomically record why `path` (a file already inside failed/) was rejected."""
+    try:
+        payload = {"reason": " ".join(str(reason).split())[:2000]
+                   or "Import failed; check logs",
+                   "job_id": job_id or ""}
+        target = _sidecar_path(path)
+        tmp = target + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(payload, f)
+        os.replace(tmp, target)
+    except OSError:
+        pass
+
+
+def read_failure(path: str) -> dict:
+    try:
+        with open(_sidecar_path(path), "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, dict):
+            return data
+    except (OSError, ValueError):
+        pass
+    return {}
+
+
 def list_failed(failed_dir: str = FAILED_DIR) -> list[dict]:
     """Rejected files, newest first."""
     try:
@@ -59,8 +91,11 @@ def list_failed(failed_dir: str = FAILED_DIR) -> list[dict]:
             size = _entry_size(e.path)
         except OSError:
             continue
+        detail = read_failure(e.path)
         items.append({"name": e.name, "original": original_name(e.name), "size": size,
-                      "mtime": mtime, "is_dir": e.is_dir()})
+                      "mtime": mtime, "is_dir": e.is_dir(),
+                      "reason": detail.get("reason") or "No failure details recorded",
+                      "job_id": detail.get("job_id") or ""})
     return sorted(items, key=lambda i: i["mtime"], reverse=True)
 
 
@@ -74,11 +109,19 @@ def _free_path(directory: str, filename: str) -> str:
     return candidate
 
 
+def _drop_sidecar(path: str) -> None:
+    try:
+        os.remove(_sidecar_path(path))
+    except OSError:
+        pass
+
+
 def retry_failed(failed_dir: str, ingest_dir: str, name: str) -> str:
     """Moves a rejected file back into the ingest folder; returns its new path."""
     source = resolve_failed(failed_dir, name)
     destination = _free_path(ingest_dir, original_name(name))
     shutil.move(source, destination)
+    _drop_sidecar(source)
     return destination
 
 
@@ -88,3 +131,4 @@ def delete_failed(failed_dir: str, name: str) -> None:
         shutil.rmtree(path)
     else:
         os.remove(path)
+    _drop_sidecar(path)

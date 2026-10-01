@@ -265,7 +265,7 @@ def formats_list():
         if no_format_count:
             entries.append([db.Category(_("Unknown"), "-1"), no_format_count])
         return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=list(),
-                                     title=_("File formats list"), page="formatslist", data="formats", order=order_no)
+                                     title=_("File Formats List"), page="formatslist", data="formats", order=order_no)
     else:
         abort(404)
 

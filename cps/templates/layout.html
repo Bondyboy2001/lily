@@ -39,7 +39,7 @@
       window.scriptRoot = {{ request.script_root|tojson }};
     </script>
   </head>
-  <body class="{{ page }} {{ bodyClass }}" data-book-view="{{ current_user.get_view_property('books', 'view') or 'grid' }}" data-text="{{_('Home')}}" data-textback="{{_('Back')}}">
+  <body class="{{ page }} {{ bodyClass }}" data-book-view="{{ current_user.get_view_property('books', 'view') or 'grid' }}" data-text="{{_('Home')}}" data-textback="{{_('Back')}}" data-user-id="{{ current_user.id if current_user.is_authenticated else 'anonymous' }}">
     <a class="lily-skip-link" href="#lily-content">{{_('Skip to content')}}</a>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% set show_sidebar = current_user.is_authenticated or g.allow_anonymous %}
@@ -57,10 +57,6 @@
                 <a href="{{url_for(element['link'], data=element['page'], sort_param='stored')}}"{% if page == element['page'] %} aria-current="page"{% endif %}>
                   <span class="glyphicon {{element['glyph']}}" aria-hidden="true"></span>
                   <span class="nav-name">{{_(element['text'])}}</span>
-                  {% if element['id'] == 'duplicates' %}
-                    {% set dup_count = duplicate_notification.count if duplicate_notification is defined else 0 %}
-                    <span id="duplicate-count-badge" class="duplicate-badge" style="{% if dup_count > 0 %}display: inline-block;{% else %}display: none;{% endif %}">{% if dup_count > 99 %}99+{% else %}{{ dup_count }}{% endif %}</span>
-                  {% endif %}
                 </a>
               </li>
               {% endif %}
@@ -87,6 +83,7 @@
           {% endif %}
           {# The book page shows its title as the page heading, so the top bar leaves it out #}
           <h1 class="lily-page-title">{% block page_title %}{% if page != 'book' %}{{ title }}{% endif %}{% endblock %}</h1>
+          {% block page_title_actions %}{% endblock %}
           {% if show_sidebar %}
           <form class="lily-search" role="search" action="{{url_for('search.simple_search')}}" method="GET">
             <label for="query" class="sr-only">{{_('Search')}}</label>
@@ -126,7 +123,11 @@
     
     {# Library refresh status: a temporary toast in the bottom right (lily.js shows and hides it) #}
     <div id="message_library_refresh" class="lily-refresh-toast" role="status" aria-live="polite" hidden
-         data-error-message="{{ _('Library refresh failed. Please try again or check the logs.') }}">
+         data-error-message="{{ _('Library refresh failed. Please try again or check the logs.') }}"
+         data-logs-url="{{ url_for('logs.show_logs') }}"
+         data-failed-imports-url="{{ url_for('admin.ingest_failures') }}"
+         data-failed-imports-label="{{ _('Failed imports') }}"
+         data-logs-label="{{ _('Logs') }}">
       <span class="glyphicon glyphicon-refresh lily-refresh-toast-icon" aria-hidden="true"></span>
       <p id="library_refresh_message"></p>
       <button id="refresh_message_dismiss_btn" type="button" class="lily-refresh-toast-close" onclick="dismissLibraryRefreshMessage()" aria-label="{{_('Close')}}">

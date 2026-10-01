@@ -100,13 +100,6 @@
     });
   }
 
-  function pickFormat(formats, priority) {
-    for (var i = 0; i < priority.length; i++) {
-      if (formats.indexOf(priority[i]) !== -1) { return priority[i]; }
-    }
-    return formats[0] || null;
-  }
-
   function setLabel($btn, label) {
     $btn.attr({ title: label, "aria-label": label });
   }
@@ -145,11 +138,9 @@
 
     // Quick actions under grid covers (image.html cover_actions).
     $(document).on("click", ".lily-cover-actions .lily-read-now", function () {
-      var $box = $(this).closest(".lily-cover-actions");
-      var formats = String($box.data("book-formats") || "").split(",").filter(Boolean);
-      var format = pickFormat(formats, ["epub", "pdf", "txt", "html", "mobi", "azw3", "fb2", "cbz", "cbr"]);
-      if (format) {
-        window.open(root + "/read/" + $box.data("book-id") + "/" + format, "_blank", "noopener");
+      var url = this.getAttribute("data-reader-url");
+      if (url) {
+        window.open(url, "_blank", "noopener");
       }
     });
 
@@ -171,7 +162,7 @@
         var $img = $book.find(".cover .img");
         $img.find(".badge.read").remove();
         if (nowRead) {
-          $("<span class='badge read is-new glyphicon glyphicon-ok'></span>").attr("title", $btn.data("label-read")).appendTo($img);
+          $("<span class='badge read is-new glyphicon glyphicon-eye-open'></span>").attr("title", $btn.data("label-read")).appendTo($img);
         }
       }).fail(function (xhr) {
         flash((xhr.responseJSON && xhr.responseJSON.message) || "Could not change the read status. Try again.", "danger");
@@ -190,11 +181,26 @@
   "use strict";
 
   var root = window.scriptRoot || "";
-  var POLL_MS = 500;
-  var MAX_ATTEMPTS = 600; // ~5 minutes of visible polling
-  var interval = null;
-  var attempts = 0;
+  var POLL_MS = 2000;
+  var timer = null;
   var inFlight = false;
+  var pollDelay = POLL_MS;
+  var activeStatusUrl = null;
+
+  var jobStorageKey = "lily.refreshJob." +
+    ((document.body && document.body.getAttribute("data-user-id")) || "anonymous");
+
+  function rememberJob(statusUrl) {
+    try { window.localStorage.setItem(jobStorageKey, statusUrl); } catch (e) { /* storage optional */ }
+  }
+
+  function forgetJob() {
+    try { window.localStorage.removeItem(jobStorageKey); } catch (e) { /* storage optional */ }
+  }
+
+  function recalledJob() {
+    try { return window.localStorage.getItem(jobStorageKey); } catch (e) { return null; }
+  }
 
   var TOAST_MS = 2500; // how long a finished result stays up
   var hideTimer = null;
@@ -230,6 +236,23 @@
       if (i) { para.appendChild(document.createElement("br")); }
       para.appendChild(document.createTextNode(tidy(text)));
     });
+    if (state === "error") {
+      var links = [];
+      if (box.dataset.failedImportsUrl) {
+        links.push([box.dataset.failedImportsUrl,
+                    box.dataset.failedImportsLabel || "Failed imports"]);
+      }
+      if (box.dataset.logsUrl) {
+        links.push([box.dataset.logsUrl, box.dataset.logsLabel || "Logs"]);
+      }
+      links.forEach(function (pair) {
+        para.appendChild(document.createTextNode(" "));
+        var a = document.createElement("a");
+        a.href = pair[0];
+        a.textContent = pair[1];
+        para.appendChild(a);
+      });
+    }
     box.classList.remove("is-busy", "is-done", "is-error", "is-leaving");
     box.classList.add("is-" + state);
     var icon = box.querySelector(".lily-refresh-toast-icon");
@@ -239,47 +262,100 @@
     }
     box.hidden = false;
     cancelHide();
-    if (state !== "busy") { scheduleHide(); }
+    if (state === "done") { scheduleHide(); }
     if (!box.dataset.hoverWired) {
       box.dataset.hoverWired = "1";
       box.addEventListener("mouseenter", cancelHide);
       box.addEventListener("mouseleave", function () {
-        if (!box.hidden && !box.classList.contains("is-busy")) { scheduleHide(); }
+        if (!box.hidden && box.classList.contains("is-done")) { scheduleHide(); }
       });
     }
   }
 
   function stopChecking() {
-    if (interval) {
-      clearInterval(interval);
-      interval = null;
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
     }
   }
 
-  function checkMessages() {
-    // Pause while the tab is hidden and never overlap requests
-    if (document.hidden || inFlight) { return; }
-    attempts += 1;
-    if (attempts > MAX_ATTEMPTS) {
-      stopChecking();
+  function setButtonBusy(busy) {
+    var btn = document.getElementById("refresh-library");
+    if (btn) {
+      btn.classList.toggle("disabled", busy);
+      btn.setAttribute("aria-disabled", busy ? "true" : "false");
+    }
+  }
+
+  function schedulePoll(delay) {
+    if (timer || !activeStatusUrl) { return; }
+    timer = setTimeout(function () {
+      timer = null;
+      pollJob();
+    }, delay);
+  }
+
+  function finishJob(job, state) {
+    activeStatusUrl = null;
+    forgetJob();
+    setButtonBusy(false);
+    showMessage(job && job.message ? job.message : "", state);
+  }
+
+  function pollJob() {
+    if (!activeStatusUrl || inFlight) { return; }
+    if (document.hidden) {
+      schedulePoll(POLL_MS);
       return;
     }
     inFlight = true;
-    fetch(root + "/cwa-library-refresh/messages", { credentials: "same-origin" })
-      .then(function (response) { return response.json(); })
-      .then(function (data) {
-        if (data.messages.length > 0) {
-          var failed = data.messages.some(function (m) { return m.indexOf("⛔") !== -1; });
-          showMessage(data.messages, failed ? "error" : "done");
-          stopChecking();
+    fetch(activeStatusUrl, { credentials: "same-origin",
+                             headers: { "Accept": "application/json" } })
+      .then(function (response) {
+        var type = response.headers.get("Content-Type") || "";
+        if (!response.ok || type.indexOf("json") === -1) {
+          var box = toast();
+          showMessage("Status unavailable; job may still be running", "busy");
+          pollDelay = Math.min(pollDelay * 2, 30000);
+          schedulePoll(pollDelay);
+          return null;
+        }
+        return response.json();
+      })
+      .then(function (job) {
+        if (!job) { return; }
+        pollDelay = POLL_MS;
+        if (job.state === "running") {
+          showMessage(job.message || "", "busy");
+          schedulePoll(POLL_MS);
+        } else if (job.state === "succeeded" || job.state === "skipped") {
+          finishJob(job, "done");
+        } else {
+          finishJob(job, "error");
         }
       })
-      .catch(function (error) { console.error("Error fetching messages:", error); })
+      .catch(function () {
+        var box = toast();
+        showMessage("Status unavailable; job may still be running", "busy");
+        pollDelay = Math.min(pollDelay * 2, 30000);
+        schedulePoll(pollDelay);
+      })
       .finally(function () { inFlight = false; });
   }
 
+  function resumeJob(statusUrl) {
+    if (!statusUrl) { return; }
+    activeStatusUrl = statusUrl;
+    setButtonBusy(true);
+    showMessage("", "busy");
+    schedulePoll(0);
+  }
+
   window.refreshLibrary = function () {
+    var btn = document.getElementById("refresh-library");
+    if (btn && btn.classList.contains("disabled")) { return; }
     var csrfInput = document.querySelector("input[name='csrf_token']");
+    setButtonBusy(true);
     fetch(root + "/cwa-library-refresh", {
       method: "POST",
       credentials: "same-origin",
@@ -294,17 +370,39 @@
       })
       .then(function (data) {
         showMessage(data.message, "busy");
-        if (!interval) {
-          attempts = 0;
-          interval = setInterval(checkMessages, POLL_MS);
+        if (data.status_url) {
+          rememberJob(data.status_url);
+          resumeJob(data.status_url);
+        } else {
+          setButtonBusy(false);
         }
       })
       .catch(function (error) {
         console.error("Error:", error);
+        setButtonBusy(false);
         var box = toast();
         showMessage(box ? box.getAttribute("data-error-message") : "Library refresh failed.", "error");
       });
   };
+
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && activeStatusUrl) {
+      if (timer) { clearTimeout(timer); timer = null; }
+      schedulePoll(0);
+    }
+  });
+
+  // Pick up an in-flight refresh after a navigation or reload.
+  (function () {
+    var saved = recalledJob();
+    if (saved) {
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", function () { resumeJob(saved); });
+      } else {
+        resumeJob(saved);
+      }
+    }
+  })();
 
   window.dismissLibraryRefreshMessage = function () {
     var box = toast();
@@ -375,6 +473,54 @@ window.lilyPickOption = function (item) {
 };
 
 /*
+ * Name-list direction button (image.list_menu): flip data-dir, swap the icon, label and tooltip,
+ * and return the new direction ("asc" or "desc"). filter_list.js / filter_grid.js call this.
+ */
+window.lilyToggleSortDir = function (btn) {
+  "use strict";
+  // The callers reorder the rows next; scroll anchoring would then follow a moved row, so put
+  // the page back where it was once they are done.
+  var y = window.scrollY;
+  window.requestAnimationFrame(function () { window.scrollTo(0, y); });
+  var dir = btn.getAttribute("data-dir") === "desc" ? "asc" : "desc";
+  var next = dir === "desc" ? "asc" : "desc";
+  btn.setAttribute("data-dir", dir);
+  btn.querySelector(".glyphicon").className = "glyphicon glyphicon-sort-by-attributes" + (dir === "desc" ? "-alt" : "");
+  btn.querySelector(".lily-sort-value").textContent = btn.getAttribute("data-label-" + dir);
+  btn.title = btn.getAttribute("data-tip-" + next);
+  return dir;
+};
+
+/*
+ * Book-list direction link (image.sort_menu, #lily-sort-dir-toggle): it reloads the list in the
+ * other order, which would land at the top. Remember the scroll position for that URL and return
+ * to it when the new page loads.
+ */
+(function () {
+  "use strict";
+  var KEY = "lily-sort-scroll";
+
+  document.addEventListener("click", function (e) {
+    var link = e.target.closest && e.target.closest("a#lily-sort-dir-toggle");
+    if (!link || link.classList.contains("disabled")) { return; }
+    try {
+      sessionStorage.setItem(KEY, JSON.stringify({ url: link.pathname + link.search, y: window.scrollY }));
+    } catch (err) { /* storage blocked: the list just opens at the top */ }
+  });
+
+  document.addEventListener("DOMContentLoaded", function () {
+    var saved;
+    try {
+      saved = JSON.parse(sessionStorage.getItem(KEY) || "null");
+      sessionStorage.removeItem(KEY);
+    } catch (err) { return; }
+    if (saved && saved.url === location.pathname + location.search) {
+      window.scrollTo(0, saved.y);
+    }
+  });
+})();
+
+/*
  * Top bar search: suggest matching books while typing. The endpoint applies the same
  * visibility rules as the library lists, so nothing hidden is ever suggested.
  * Markup: layout.html (#query + data-suggest-url); menu look: lily-library.css.
@@ -417,8 +563,10 @@ window.lilyPickOption = function (item) {
     });
 
     // The box is a search form, so picking a suggestion runs that search.
-    $(input).on("typeahead:select typeahead:autocomplete", function () {
-      $(this).closest("form").trigger("submit");
+    $(input).on("typeahead:select", function (event, book) {
+      if (book && book.url) {
+        window.location.assign(book.url);
+      }
     });
   });
 })(window.jQuery);

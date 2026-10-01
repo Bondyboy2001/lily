@@ -1,26 +1,39 @@
 {% extends "layout.html" %}
+{% import "lily_form.html" as f with context %}
 {% block body %}
-<div class="discover lily-narrow">
+{# Same card, row and toggle pieces as the settings pages, so editing a shelf feels like the rest of Lily. #}
+<div class="lp lp-shelf-edit">
   <form role="form" method="POST">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="form-group">
-      <label for="title">{{_('Title')}}</label>
-      <input type="text" class="form-control" name="title" id="title" value="{{ shelf.name if shelf.name != None }}">
-    </div>
-    {% if current_user.role_edit_shelfs() %}
-      <div class="checkbox">
-        <label>
-          <input type="checkbox" name="is_public" {% if shelf.is_public == 1 %}checked{% endif %}> {{_('Share with Everyone')}}
-        </label>
-      </div>
-    {% endif %}
 
-    <div class="lily-form-actions">
+    {% call f.group(None, id='shelf') %}
+      {{ f.input('title', _('Name'), shelf.name, attrs='required') }}
+      {% if current_user.role_edit_shelfs() %}
+        {{ f.toggle('is_public', _('Share with Everyone'), shelf.is_public == 1,
+                    help=_('Everyone who can sign in to Lily can see this shelf.')) }}
+      {% endif %}
+    {% endcall %}
+
+    <div class="lp-actions">
+      <span class="lp-spacer"></span>
       {% if shelf.id != None %}
       <a href="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}" class="btn btn-default">{{_('Cancel')}}</a>
       {% endif %}
       <button type="submit" class="btn btn-primary" id="submit">{{_('Save')}}</button>
     </div>
+
+    {% if shelf.id != None %}
+    {# Kept apart from Save so it is never the button you hit by habit. #}
+    {% call f.group(None, id='section-delete') %}
+      {% call f.row(_('Delete this shelf'), help=_('The books stay in your library; only the shelf is removed.')) %}
+        <button type="button" class="btn btn-default is-danger" id="delete_shelf"
+                data-action="{{ url_for('shelf.delete_shelf', shelf_id=shelf.id) }}" data-value="{{ shelf.id }}">{{_('Delete Shelf')}}</button>
+      {% endcall %}
+    {% endcall %}
+    {% endif %}
   </form>
 </div>
+{% endblock %}
+{% block modal %}
+{% if shelf.id != None %}{{ delete_confirm_modal() }}{% endif %}
 {% endblock %}

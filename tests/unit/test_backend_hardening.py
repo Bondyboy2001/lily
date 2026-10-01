@@ -7,6 +7,7 @@
 """Backend hardening: forced default-password change, content restrictions on reading /
 sending, stats SQL parameter binding, missing User-Agent headers and web reader progress."""
 
+import base64
 import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -128,11 +129,13 @@ class TestForcedPasswordChangeFlow:
         assert resp.status_code == 200
         assert resp.get_data(as_text=True) == "change_password.html forced=True"
         assert client.get("/health").status_code in (200, 503)
-        # OPDS uses HTTP basic auth and must keep working for e-readers
-        import base64
+
+    @pytest.mark.parametrize("path", ["/opds", "/opds/new"])
+    def test_opds_requires_password_change(self, forced, path):
         creds = base64.b64encode(f"{forced.admin().name}:{ADMIN_PASSWORD}".encode()).decode()
-        resp = forced.app.test_client().get("/opds", headers={"Authorization": f"Basic {creds}"})
-        assert resp.status_code == 200
+        resp = forced.app.test_client().get(path, headers={"Authorization": f"Basic {creds}"})
+        assert resp.status_code == 401
+        assert resp.headers.get("WWW-Authenticate", "").startswith("Basic")
 
     def test_wrong_current_password_keeps_the_flag(self, forced):
         client = _login(forced)
@@ -163,6 +166,14 @@ class TestForcedPasswordChangeFlow:
         assert admin.force_password_change is False
         assert check_password_hash(admin.password, "N3w-passw0rd!")
         assert client.get("/ajax/emailstat").status_code == 200
+        anon = forced.app.test_client()
+        old_creds = base64.b64encode(f"{admin.name}:{ADMIN_PASSWORD}".encode()).decode()
+        assert anon.get("/opds", headers={"Authorization": f"Basic {old_creds}"}).status_code == 401
+        # OPDS uses HTTP basic auth and must keep working for e-readers
+        new_creds = base64.b64encode(f"{admin.name}:N3w-passw0rd!".encode()).decode()
+        resp = anon.get("/opds", headers={"Authorization": f"Basic {new_creds}"})
+        assert resp.status_code == 200
+        assert resp.headers.get("Content-Type", "").startswith("application/atom+xml")
 
 
 @pytest.mark.unit
@@ -315,7 +326,7 @@ class TestWebReaderProgress:
         client = _login(env)
         resp = client.get(f"/ajax/progress/{book_id}")
         assert resp.status_code == 200
-        assert resp.get_json() == {"cfi": None, "percent": None, "updated": None}
+        assert resp.get_json() == {"cfi": None, "percent": None, "updated": None, "format": None}
 
     def test_save_and_load(self, env):
         book_id = env.add_book("Progress Book")

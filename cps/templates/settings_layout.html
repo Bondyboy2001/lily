@@ -18,9 +18,10 @@
    'href': url_for('cwa_settings.set_cwa_settings'), 'eps': ['cwa_settings.set_cwa_settings']},
   {'id': 'users', 'group': 'admin', 'label': _('Users'), 'shown': is_admin,
    'href': url_for('admin.edit_user_table'), 'eps': ['admin.edit_user_table', 'admin.edit_user', 'admin.new_user']},
-  {'id': 'maintenance', 'group': 'admin', 'label': _('Maintenance'), 'shown': is_admin,
-   'href': url_for('admin.admin'), 'eps': ['admin.admin', 'tasks.get_tasks_status', 'duplicates.show_duplicates',
-     'admin.ingest_failures', 'suggestions.review_suggestions']},
+  {'id': 'duplicates', 'group': 'admin', 'label': _('Duplicates'), 'shown': signed_in and (is_admin or current_user.role_edit()),
+   'href': url_for('duplicates.show_duplicates'), 'eps': ['duplicates.show_duplicates']},
+  {'id': 'logs', 'group': 'admin', 'label': _('Logs'), 'shown': signed_in and is_admin,
+   'href': url_for('logs.show_logs'), 'eps': ['logs.show_logs']},
 ] %}
 {% set groups = [('account', _('Account')), ('admin', _('Server'))] %}
 {% set found = namespace(section=None) %}
@@ -36,13 +37,12 @@
         <li class="lp-rail-head" role="presentation">{{ glabel }}</li>
         {% for s in visible %}
           {% set here = cur and cur.id == s.id %}
-          <li data-section="{{ s.id }}"{% if here %} class="active"{% endif %}><a href="{{ s.href }}" class="lp-rail-item"{% if here %} aria-current="page"{% endif %}>{{ s.label }}</a></li>
+          <li data-section="{{ s.id }}"{% if here %} class="active"{% endif %}><a href="{{ s.href }}" class="lp-rail-item"{% if here %} aria-current="page"{% endif %}>{{ s.label }}{% if s.id == 'duplicates' %}{% set dup_count = duplicate_notification.count if duplicate_notification is defined else 0 %} <span id="duplicate-count-badge" class="duplicate-badge" style="{% if dup_count > 0 %}display: inline-block;{% else %}display: none;{% endif %}">{% if dup_count > 99 %}99+{% else %}{{ dup_count }}{% endif %}</span>{% endif %}</a></li>
         {% endfor %}
         {% endif %}
       {% endfor %}
       {% if signed_in %}
-        <li class="lp-rail-sep" role="separator"></li>
-        <li><a href="{{ url_for('web.logout') }}" class="lp-rail-item" id='logout'>{{ _('Logout') }}</a></li>
+        <li class="lp-rail-signout-row"><a href="{{ url_for('web.logout') }}" class="btn btn-default lp-rail-signout" id='logout'>{{ _('Sign out') }}</a></li>
       {% endif %}
     </ul>
   </nav>

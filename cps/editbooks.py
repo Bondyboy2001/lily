@@ -8,7 +8,9 @@
 """Editing a book's metadata and files, deleting books, and the helpers the bulk and upload modules share."""
 
 import os
+import shutil
 import sys
+import tempfile
 import time
 from datetime import datetime, timezone
 import json
@@ -56,6 +58,16 @@ def edit_required(f):
     @wraps(f)
     def inner(*args, **kwargs):
         if current_user.role_edit() or current_user.role_admin():
+            return f(*args, **kwargs)
+        abort(403)
+
+    return inner
+
+
+def delete_required(f):
+    @wraps(f)
+    def inner(*args, **kwargs):
+        if current_user.role_delete_books() or current_user.role_admin():
             return f(*args, **kwargs)
         abort(403)
 
@@ -113,21 +125,33 @@ def edit_list_book(param):
 @login_required_if_no_ano
 @edit_required
 def edit_selected_books():
-    d = request.get_json()
-    selections = d.get('selections')
+    from .editbooks_bulk import parse_batch_ids, batch_response
+    d = request.get_json(silent=True)
+    if not isinstance(d, dict):
+        return batch_response([], status=400)
+    selections, error = parse_batch_ids(d.get('selections'))
+    if error is not None:
+        return error
+    for field in ('title', 'title_sort', 'author_sort', 'authors', 'categories',
+                  'series', 'languages', 'publishers', 'comments', 'checkA'):
+        if field in d and d[field] is not None and not isinstance(d[field], str):
+            return batch_response([], status=400)
     checkA = d.get('checkA')
 
-    if len(selections) != 0:
-        for book_id in selections:
-            vals = {
-                "pk": book_id,
-                "value": None,
-                "checkA": checkA,
-            }
-            book = calibre_db.get_book(book_id)
-            if not book:
-                continue
+    results = []
+    for book_id in selections:
+        vals = {
+            "pk": book_id,
+            "value": None,
+            "checkA": checkA,
+        }
+        book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+        if not book:
+            results.append({"book_id": book_id, "status": "failed",
+                            "message": _("Book not found")})
+            continue
 
+        try:
             # Collect all changes
             changes = {key: d.get(key) for key in ['title', 'title_sort', 'author_sort', 'authors', 'categories', 'series', 'languages', 'publishers', 'comments'] if d.get(key)}
 
@@ -199,6 +223,8 @@ def edit_selected_books():
                 if rename_error:
                     # Handle error appropriately, maybe flash a message
                     calibre_db.session.rollback()
+                    results.append({"book_id": book_id, "status": "failed",
+                                    "message": str(rename_error)})
                     continue # or return an error response
 
             book.last_modified = datetime.now(timezone.utc)
@@ -209,8 +235,12 @@ def edit_selected_books():
                 calibre_db.session.commit()
             except (OperationalError, IntegrityError, StaleDataError) as e:
                 calibre_db.session.rollback()
+                ub.session.rollback()
                 log.error_or_exception("Database error: {}".format(e))
                 # Handle error appropriately
+                results.append({"book_id": book_id, "status": "failed",
+                                "message": _("Database error: %(err)s",
+                                             err=str(e.orig if hasattr(e, "orig") else e))})
                 continue
 
             if metadata_changed and log_payload:
@@ -232,8 +262,14 @@ def edit_selected_books():
                 except Exception as e:
                     log.error_or_exception(f"Failed to write metadata change log for book {book.id}: {e}")
 
-        return json.dumps({'success': True})
-    return ""
+            results.append({"book_id": book_id, "status": "succeeded", "message": ""})
+        except Exception as e:
+            calibre_db.session.rollback()
+            ub.session.rollback()
+            log.error_or_exception("Batch edit failed for book %s: %s", book_id, e)
+            results.append({"book_id": book_id, "status": "failed", "message": str(e)})
+
+    return batch_response(results)
 
 # Separated from /editbooks so that /editselectedbooks can also use this
 #
@@ -817,53 +853,6 @@ def prepare_authors(authr, calibre_path, gdrive=False):
     return input_authors
 
 
-def delete_whole_book(book_id, book):
-    # delete book from shelves, Downloads, Read list
-    ub.session.query(ub.BookShelf).filter(ub.BookShelf.book_id == book_id).delete()
-    ub.session.query(ub.ReadBook).filter(ub.ReadBook.book_id == book_id).delete()
-    ub.session.query(ub.ArchivedBook).filter(ub.ArchivedBook.book_id == book_id).delete()
-    ub.delete_download(book_id)
-    ub.session_commit()
-
-    # check if only this book links to:
-    # author, language, series, tags, custom columns
-    modify_database_object([''], book.authors, db.Authors, calibre_db.session, 'author')
-    modify_database_object([u''], book.tags, db.Tags, calibre_db.session, 'tags')
-    modify_database_object([u''], book.series, db.Series, calibre_db.session, 'series')
-    modify_database_object([u''], book.languages, db.Languages, calibre_db.session, 'languages')
-    modify_database_object([u''], book.publishers, db.Publishers, calibre_db.session, 'publishers')
-
-    cc = calibre_db.session.query(db.CustomColumns). \
-        filter(db.CustomColumns.datatype.notin_(db.cc_exceptions)).all()
-    for c in cc:
-        cc_string = "custom_column_" + str(c.id)
-        if not c.is_multiple:
-            if len(getattr(book, cc_string)) > 0:
-                if c.datatype == 'bool' or c.datatype == 'integer' or c.datatype == 'float':
-                    del_cc = getattr(book, cc_string)[0]
-                    getattr(book, cc_string).remove(del_cc)
-                    log.debug('remove ' + str(c.id))
-                    calibre_db.session.delete(del_cc)
-                    calibre_db.session.commit()
-                elif c.datatype == 'rating':
-                    del_cc = getattr(book, cc_string)[0]
-                    getattr(book, cc_string).remove(del_cc)
-                    if len(del_cc.books) == 0:
-                        log.debug('remove ' + str(c.id))
-                        calibre_db.session.delete(del_cc)
-                        calibre_db.session.commit()
-                else:
-                    del_cc = getattr(book, cc_string)[0]
-                    getattr(book, cc_string).remove(del_cc)
-                    log.debug('remove ' + str(c.id))
-                    calibre_db.session.delete(del_cc)
-                    calibre_db.session.commit()
-        else:
-            modify_database_object([u''], getattr(book, cc_string), db.cc_classes[c.id],
-                                   calibre_db.session, 'custom')
-    calibre_db.session.query(db.Books).filter(db.Books.id == book_id).delete()
-
-
 def render_delete_book_result(book_format, json_response, warning, book_id, location=""):
     if book_format:
         if json_response:
@@ -885,81 +874,211 @@ def render_delete_book_result(book_format, json_response, warning, book_id, loca
             return redirect(get_redirect_location(location, "web.index"))
 
 
+def _perform_book_deletion(book, book_format="", recovery_id=None):
+    """Capture a recovery archive, then delete the book's files and DB rows.
+
+    Returns (warning_message, recovery_id). Raises before anything is removed
+    when the capture or the delete itself fails."""
+    from . import book_recovery
+    from .book_recovery import RecoveryError
+    if getattr(config, "config_use_google_drive", False):
+        raise RecoveryError(_("Deleting is disabled while Google Drive storage is enabled: "
+                              "recovery archives cannot capture remote files safely."))
+    book_id = book.id
+    warning = None
+    recovery_id = book_recovery.delete_captured_book(book, book_format,
+                                                     recovery_id=recovery_id)
+
+    refreshed_duplicate_cache = False
+    if not book_format:
+        try:
+            from cps.duplicate_index import (
+                _current_max_book_id,
+                delete_book_keys,
+                get_duplicate_groups_from_index,
+            )
+            sys.path.insert(1, '/app/calibre-web-automated/scripts/')
+            from cwa_db import CWA_DB
+
+            delete_book_keys([book_id])
+            cwa_db = CWA_DB()
+            duplicate_groups = get_duplicate_groups_from_index(cwa_db.cwa_settings, include_dismissed=True)
+            cwa_db.update_duplicate_cache(duplicate_groups, len(duplicate_groups), _current_max_book_id())
+            refreshed_duplicate_cache = True
+        except Exception as e:
+            log.warning("Failed to refresh duplicate index/cache after deleting book %s: %s", book_id, str(e))
+
+    # Format-only deletions and refresh failures need a later cache refresh.
+    if not refreshed_duplicate_cache:
+        try:
+            sys.path.insert(1, '/app/calibre-web-automated/scripts/')
+            from cwa_db import CWA_DB
+            cwa_db = CWA_DB()
+            cwa_db.invalidate_duplicate_cache()
+        except Exception as e:
+            log.error("Failed to invalidate duplicate cache after deletion: %s", str(e))
+    return warning, recovery_id
+
+
+def perform_delete(book_id, book_format=""):
+    """Structured single-book delete for batch callers and merges."""
+    result = {"book_id": book_id, "status": "failed", "message": ""}
+    if not current_user.role_delete_books():
+        result["message"] = str(_("You are missing permissions to delete books"))
+        return result
+    book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+    if not book:
+        result["message"] = str(_("Book not found"))
+        return result
+    try:
+        warning, recovery_id = _perform_book_deletion(book, book_format)
+    except Exception as e:
+        calibre_db.session.rollback()
+        ub.session.rollback()
+        log.error_or_exception("Deleting book %s failed: %s", book_id, e)
+        result["message"] = str(e)
+        return result
+    result["status"] = "succeeded"
+    result["message"] = str(warning) if warning else ""
+    result["recovery_id"] = recovery_id
+    return result
+
+
+def delete_book_automatic(book, recovery_id=None):
+    """Recovery-captured delete for system callers (duplicate resolution)."""
+    return _perform_book_deletion(book, "", recovery_id=recovery_id)
+
+
+def merge_books(to_book, from_books, delete_sources=True):
+    """Merge formats from source books into to_book: shared preflight refuses
+    same-format byte differences, every affected book is captured into the
+    recovery archive before the first mutation, and absent formats are added
+    through staged non-overwriting copies. Returns (per-source results,
+    recovery_ids)."""
+    from . import book_recovery
+    from .book_recovery import RecoveryError
+    if getattr(config, "config_use_google_drive", False):
+        raise RecoveryError(_("Merging is disabled while Google Drive storage is enabled: "
+                              "recovery archives cannot capture remote files safely."))
+    with book_recovery.RECOVERY_LOCK, book_recovery.paused_services():
+        calibrepath = config.get_book_path()
+        conflicts = book_recovery.merge_preflight(to_book, from_books, calibrepath)
+        if conflicts:
+            raise RecoveryError("; ".join(conflicts))
+        book_recovery.capture_book(to_book, "", reason="merge")
+        recovery_ids = {}
+        for source in from_books:
+            recovery_ids[source.id] = book_recovery.capture_book(source, "", reason="merge")
+
+        author_name = to_book.authors[0].name if to_book.authors else "Unknown"
+        to_name = helper.get_valid_filename(to_book.title, chars=96) + ' - ' + \
+            helper.get_valid_filename(author_name, chars=96)
+        # load all formats from target book
+        to_formats = {element.format.upper() for element in to_book.data}
+        staged = []
+        for source in from_books:
+            for element in source.data:
+                if element.format.upper() in to_formats:
+                    continue
+                src = os.path.normpath(os.path.join(calibrepath, source.path,
+                                                    element.name + "." + element.format.lower()))
+                dest = os.path.normpath(os.path.join(calibrepath, to_book.path,
+                                                     to_name + "." + element.format.lower()))
+                staged.append((src, dest, element))
+                to_formats.add(element.format.upper())
+
+        staged_copies = []
+        created_files = []
+        created_dirs = []
+        stage_dir = tempfile.mkdtemp(prefix=".lily_merge_", dir=calibrepath)
+        try:
+            for index, (src, dest, element) in enumerate(staged):
+                tmp = os.path.join(stage_dir, str(index) + "." + element.format.lower())
+                info = book_recovery._copy_hashed(src, tmp)
+                staged_copies.append((tmp, dest, info, element))
+            for tmp, dest, info, element in staged_copies:
+                book_recovery._install_exclusive(tmp, dest, info["sha256"],
+                                                 created_files, created_dirs)
+            for _tmp, _dest, _info, element in staged_copies:
+                # create new data entry with: book_id, book_format, uncompressed_size, name
+                to_book.data.append(db.Data(to_book.id, element.format,
+                                            element.uncompressed_size, to_name))
+            calibre_db.session.commit()
+        except Exception:
+            calibre_db.session.rollback()
+            for path in created_files:
+                try:
+                    if os.path.isfile(path) and not os.path.islink(path):
+                        os.remove(path)
+                except OSError:
+                    pass
+            for path in sorted(created_dirs, key=len, reverse=True):
+                try:
+                    os.rmdir(path)
+                except OSError:
+                    pass
+            raise
+        finally:
+            shutil.rmtree(stage_dir, ignore_errors=True)
+
+    results = []
+    if delete_sources:
+        for source in from_books:
+            entry = {"book_id": source.id, "status": "failed", "message": "",
+                     "recovery_id": recovery_ids.get(source.id)}
+            try:
+                _perform_book_deletion(source, "", recovery_id=recovery_ids[source.id])
+                entry["status"] = "succeeded"
+                entry["message"] = ""
+            except Exception as e:
+                calibre_db.session.rollback()
+                ub.session.rollback()
+                entry["message"] = str(_(
+                    "Deletion failed: %(err)s. The book may be partially deleted; "
+                    "its full state is archived in recovery entry %(id)s.",
+                    err=str(e), id=recovery_ids.get(source.id)))
+            results.append(entry)
+    return results, recovery_ids
+
+
 def delete_book_from_table(book_id, book_format, json_response, location=""):
     warning = {}
     if current_user.role_delete_books():
-        book = calibre_db.get_book(book_id)
+        book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
         if book:
             try:
-                result, error = helper.delete_book(book, config.get_book_path(), book_format=book_format.upper())
-                if not result:
-                    if json_response:
-                        return json.dumps([{"location": url_for("edit-book.show_edit_book", book_id=book_id),
-                                            "type": "danger",
-                                            "format": "",
-                                            "message": error}])
-                    else:
-                        flash(error, category="error")
-                        return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
-                if error:
+                warning_msg, _recovery_id = _perform_book_deletion(book, book_format)
+                if warning_msg:
                     if json_response:
                         warning = {"location": url_for("edit-book.show_edit_book", book_id=book_id),
                                    "type": "warning",
                                    "format": "",
-                                   "message": error}
+                                   "message": warning_msg}
                     else:
-                        flash(error, category="warning")
-                if not book_format:
-                    delete_whole_book(book_id, book)
-                else:
-                    calibre_db.session.query(db.Data).filter(db.Data.book == book.id).\
-                        filter(db.Data.format == book_format).delete()
-                calibre_db.session.commit()
-
-                refreshed_duplicate_cache = False
-                if not book_format:
-                    try:
-                        from cps.duplicate_index import (
-                            _current_max_book_id,
-                            delete_book_keys,
-                            get_duplicate_groups_from_index,
-                        )
-                        sys.path.insert(1, '/app/calibre-web-automated/scripts/')
-                        from cwa_db import CWA_DB
-
-                        delete_book_keys([book_id])
-                        cwa_db = CWA_DB()
-                        duplicate_groups = get_duplicate_groups_from_index(cwa_db.cwa_settings, include_dismissed=True)
-                        cwa_db.update_duplicate_cache(duplicate_groups, len(duplicate_groups), _current_max_book_id())
-                        refreshed_duplicate_cache = True
-                    except Exception as e:
-                        log.warning("Failed to refresh duplicate index/cache after deleting book %s: %s", book_id, str(e))
-
-                # Format-only deletions and refresh failures need a later cache refresh.
-                if not refreshed_duplicate_cache:
-                    try:
-                        sys.path.insert(1, '/app/calibre-web-automated/scripts/')
-                        from cwa_db import CWA_DB
-                        cwa_db = CWA_DB()
-                        cwa_db.invalidate_duplicate_cache()
-                    except Exception as e:
-                        log.error("Failed to invalidate duplicate cache after deletion: %s", str(e))
-
+                        flash(warning_msg, category="warning")
             except Exception as ex:
                 log.error_or_exception(ex)
                 calibre_db.session.rollback()
+                ub.session.rollback()
                 if json_response:
                     return json.dumps([{"location": url_for("edit-book.show_edit_book", book_id=book_id),
                                         "type": "danger",
                                         "format": "",
-                                        "message": ex}])
+                                        "message": str(ex)}])
                 else:
                     flash(str(ex), category="error")
                     return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
-
         else:
             # book not found
             log.error('Book with id "%s" could not be deleted: not found', book_id)
+            if json_response:
+                return json.dumps([{"location": url_for("edit-book.show_edit_book", book_id=book_id),
+                                    "type": "danger",
+                                    "format": "",
+                                    "message": _("Book not found")}])
+            else:
+                flash(_("Book not found"), category="error")
+                return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
         return render_delete_book_result(book_format, json_response, warning, book_id, location)
     message = _("You are missing permissions to delete books")
     if json_response:

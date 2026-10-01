@@ -26,14 +26,6 @@
     {% endif %}
     <input type="hidden" name="next" value="{{next_url}}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    {% if second_factor %}
-    <div class="form-group">
-      <label for="code">{{_('Authentication code')}}</label>
-      <input type="text" class="form-control" id="code" name="code" inputmode="numeric" pattern="[0-9 ]*" maxlength="7"
-        autocomplete="one-time-code" autocapitalize="off" spellcheck="false" autofocus>
-      <p class="help-block">{{_('Enter the 6-digit code from your authenticator app.')}}</p>
-    </div>
-    {% else %}
     <div class="form-group">
       <label for="username">{{_('Username')}}</label>
       <input type="text" class="form-control" id="username" name="username" autocapitalize="off" autocorrect="off" spellcheck="false"
@@ -56,8 +48,7 @@
         <input type="checkbox" name="remember_me" checked> {{_('Remember Me')}}
       </label>
     </div>
-    {% endif %}
-    <button type="submit" name="submit" class="btn btn-primary btn-block">{{ _('Verify') if second_factor else _('Login') }}</button>
+    <button type="submit" name="submit" class="btn btn-primary btn-block">{{ _('Login') }}</button>
   </form>
 
   {% if g.allow_anonymous %}

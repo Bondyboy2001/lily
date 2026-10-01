@@ -85,7 +85,7 @@ def duplicate_index_setup_notification(settings, cwa_db=None, cache_data=None, c
     try:
         message = _(
             "Duplicate scanning needs a one-time full scan before fast duplicate checks can run after imports "
-            "and metadata changes. "
+            "and metadata changes. Open the Duplicates page to start it. "
         )
         flash(message, category="duplicate_scan_setup")
         return True
@@ -124,8 +124,12 @@ def get_sidebar_config(kwargs=None):
         {"glyph": "glyphicon-star", "text": _('Top Rated Books'), "link": 'web.books_list', "id": "rated",
          "visibility": constants.SIDEBAR_BEST_RATED, 'public': True, "page": "rated",
          "show_text": _('Show Top Rated Books'), "config_show": True})
-    sidebar.append({"glyph": "glyphicon-eye-open", "text": _('Read Books'), "link": 'web.books_list', "id": "read",
-                    "visibility": constants.SIDEBAR_READ_AND_UNREAD, 'public': (not current_user.is_anonymous),
+    # Reading and Finished always show for signed-in users (SIDEBAR_RECENT is the always-visible flag).
+    sidebar.append({"glyph": "glyphicon-education", "text": _('Reading'), "link": 'web.books_list', "id": "inprogress",
+                    "visibility": constants.SIDEBAR_RECENT, 'public': (not current_user.is_anonymous),
+                    "page": "inprogress", "show_text": _('Show Reading'), "config_show": False})
+    sidebar.append({"glyph": "glyphicon-ok-circle", "text": _('Finished'), "link": 'web.books_list', "id": "read",
+                    "visibility": constants.SIDEBAR_RECENT, 'public': (not current_user.is_anonymous),
                     "page": "read", "show_text": _('Show Read and Unread'), "config_show": content})
     sidebar.append(
         {"glyph": "glyphicon-eye-close", "text": _('Unread Books'), "link": 'web.books_list', "id": "unread",
@@ -163,11 +167,6 @@ def get_sidebar_config(kwargs=None):
             {"glyph": "glyphicon-th-list", "text": _('Books List'), "link": 'web.books_table', "id": "list",
              "visibility": constants.SIDEBAR_LIST, 'public': (not current_user.is_anonymous), "page": "list",
              "show_text": _('Show Books List'), "config_show": content})
-    if current_user.role_admin() or current_user.role_edit():
-        sidebar.append(
-            {"glyph": "glyphicon-copy", "text": _('Duplicates'), "link": 'duplicates.show_duplicates', "id": "duplicates",
-             "visibility": constants.SIDEBAR_DUPLICATES, 'public': (not current_user.is_anonymous), "page": "duplicates",
-             "show_text": _('Show Duplicate Books'), "config_show": content})
     g.shelves_access = ub.session.query(ub.Shelf).filter(
         or_(ub.Shelf.is_public == 1, ub.Shelf.user_id == current_user.id)).order_by(ub.Shelf.name).all()
     g.shelf_book_counts = shelf_book_counts([shelf.id for shelf in g.shelves_access])

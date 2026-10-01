@@ -83,7 +83,7 @@ class TestFilterChips:
     def test_filters_are_kept_in_sort_links_and_empty_result_offers_a_way_out(self, env):
         self._library(env)
         html = _get(_login(env), "/", format="MOBI")
-        assert "No books match these filters" in html
+        assert "No Books Match These Filters" in html
         assert "Clear filters" in html
         assert "format=MOBI" in html  # the sort menu links keep the filter
 
@@ -95,7 +95,7 @@ class TestFilterChips:
         ann = calibre_db.session.query(db.Authors).filter(db.Authors.name == "Ann").one()
         assert _titles(_get(client, f"/author/stored/{ann.id}", format="PDF")) == ["A2"]
         # An author page with no match renders an empty state instead of bouncing home.
-        assert "No books match these filters" in _get(client, f"/author/stored/{ann.id}", format="CBZ")
+        assert "No Books Match These Filters" in _get(client, f"/author/stored/{ann.id}", format="CBZ")
 
 
 @pytest.mark.unit

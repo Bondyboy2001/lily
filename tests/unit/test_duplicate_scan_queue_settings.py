@@ -171,8 +171,6 @@ def _load_cwa_functions(monkeypatch, request):
     sys.modules["cps.cwa_functions"] = module
     spec.loader.exec_module(module)
     module.ingest.WorkerThread = worker_module.WorkerThread
-    # Patch names where the functions look them up (the owning submodule).
-    monkeypatch.setattr(module.settings, "get_next_duplicate_scan_run", lambda settings: None)
     return module
 
 

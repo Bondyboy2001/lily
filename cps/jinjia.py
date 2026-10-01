@@ -135,6 +135,12 @@ def escapedlink_filter(url, text):
     return "<a href='{}'>{}</a>".format(url, escape(text))
 
 
+@jinjia.app_template_filter('readable_formats')
+def readable_formats_filter(book):
+    from .helper import check_read_formats
+    return check_read_formats(book)
+
+
 @jinjia.app_template_filter('cache_timestamp')
 def cache_timestamp(rolling_period='month'):
     if rolling_period == 'day':

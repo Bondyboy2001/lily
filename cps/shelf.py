@@ -37,7 +37,7 @@ def edit_shelf(shelf_id):
     if not check_shelf_edit_permissions(shelf):
         flash(_("Sorry you are not allowed to edit this shelf"), category="error")
         return redirect(url_for('web.index'))
-    return create_edit_shelf(shelf, page_title=_("Edit a shelf"), page="shelfedit", shelf_id=shelf_id)
+    return create_edit_shelf(shelf, page_title=_("Edit a Shelf"), page="shelfedit", shelf_id=shelf_id)
 
 
 @shelf.route("/shelf/delete/<int:shelf_id>", methods=["POST"])
@@ -92,7 +92,7 @@ def order_shelf(shelf_id):
                 .add_columns(calibre_db.common_filters().label("visible")) \
                 .filter(ub.BookShelf.shelf == shelf_id).order_by(ub.BookShelf.order.asc()).all()
         return render_title_template('shelf_order.html', entries=result,
-                                     title=_("Change order of Shelf: %(name)s", name=shelf.name),
+                                     title=_("Change Order of Shelf: %(name)s", name=shelf.name),
                                      shelf=shelf, page="shelforder")
     else:
         abort(404)

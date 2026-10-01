@@ -53,6 +53,21 @@ _runtime_init_attempted = False
 _duplicate_scan_timer = None
 _duplicate_scan_lock = threading.Lock()
 
+
+def _bounded_reason(text: str, limit: int = 800) -> str:
+    text = " ".join(str(text or "").split())
+    return text[:limit]
+
+
+def _record_job(job_id, state, error=""):
+    if not job_id:
+        return
+    try:
+        from automation_jobs import finish_job
+        finish_job(job_id, state, error)
+    except Exception as e:
+        print(f"[ingest-processor] WARN: could not record job {job_id}: {e}", flush=True)
+
 class ProcessLock:
     """Process lock backed by flock(2).
 
@@ -528,6 +543,8 @@ class NewBookProcessor:
 
         # Track the last added Calibre book id(s) from calibredb output
         self.last_added_book_id: int | None = None
+        # Short reason recorded on the failed-file sidecar when import fails
+        self.failure_reason = ""
         self.last_added_book_ids: list[int] = []
         self._title_sort_regex = self._get_title_sort_regex()
 
@@ -661,7 +678,7 @@ class NewBookProcessor:
             # Never let backups crash ingest; just log the problem
             print(f"[ingest-processor]: ERROR - Failed to backup '{input_file}' to '{output_path}': {e}")
 
-    def move_to_failed(self) -> bool:
+    def move_to_failed(self, job_id=None) -> bool:
         """Move the ingest source into processed_books/failed under a unique name.
 
         Returns True once the source is safely out of the ingest folder. If the move
@@ -676,6 +693,13 @@ class NewBookProcessor:
             destination = unique_failed_path(failed_dir, self.filename)
             shutil.move(self.filepath, destination)
             print(f"[ingest-processor] Moved {self.filename} to failed backups: {destination}", flush=True)
+            try:
+                from ingest_failures import write_failure
+                write_failure(destination,
+                              getattr(self, "failure_reason", "") or "Import failed; check logs",
+                              job_id=job_id)
+            except Exception as e:
+                print(f"[ingest-processor] WARN: could not record failure reason: {e}", flush=True)
             return True
         except Exception as e:
             print(
@@ -905,11 +929,14 @@ class NewBookProcessor:
 
         except subprocess.CalledProcessError as e:
             print(f"[ingest-processor] {staged_path.stem} was not able to be added to the Calibre Library due to the following error:\nCALIBREDB EXIT/ERROR CODE: {e.returncode}\n{e.stderr}", flush=True)
+            self.failure_reason = _bounded_reason(
+                "calibredb exited with %s: %s" % (e.returncode, (e.stderr or "").strip()[-500:]))
             # Keep the exact file calibredb rejected;
             # the original ingest source is moved to failed/ separately by main()
             self.backup(str(staged_path), backup_type="failed")
         except Exception as e:
             print(f"[ingest-processor] ingest-processor ran into the following error:\n{e}", flush=True)
+            self.failure_reason = _bounded_reason(str(e))
         finally:
             if staged_path.exists():
                 os.remove(staged_path)
@@ -962,8 +989,11 @@ class NewBookProcessor:
         except subprocess.CalledProcessError as e:
             stderr_output = e.stderr if e.stderr else "No error details available"
             print(f"[ingest-processor] Failed to add format for book id {book_id}: {os.path.basename(str(staged_path))}\nCALIBREDB EXIT/ERROR CODE: {e.returncode}\nError details: {stderr_output}", flush=True)
+            self.failure_reason = _bounded_reason(
+                "add_format exited with %s: %s" % (e.returncode, stderr_output.strip()[-500:]))
         except Exception as e:
             print(f"[ingest-processor] Unexpected error while adding format for book id {book_id}: {e}", flush=True)
+            self.failure_reason = _bounded_reason(str(e))
         finally:
             if staged_path.exists():
                 os.remove(staged_path)
@@ -1035,6 +1065,8 @@ def main(filepath=None):
         return run_post_batch_follow_up()
 
     nbp = None
+    job_id = None
+    parent_job_id = os.environ.get("LILY_REFRESH_JOB_ID") or None
     # What happens to the ingest source once we're done with it:
     #   "delete" - only after a confirmed successful import
     #   "keep"   - leave it in place (temp/ignored files, not ready yet)
@@ -1050,7 +1082,8 @@ def main(filepath=None):
         allowed_len = MAX_LENGTH - len(ext)
 
         # Ignore sidecar manifests entirely (handled when the real file is processed)
-        if filename.endswith(".cwa.json") or filename.endswith(".cwa.failed.json"):
+        if filename.endswith(".cwa.json") or filename.endswith(".cwa.failed.json") \
+                or filename.endswith(".failure.json"):
             print(f"[ingest-processor] Skipping sidecar manifest file: {filename}", flush=True)
             return 0
 
@@ -1078,6 +1111,14 @@ def main(filepath=None):
             return 2
 
         nbp = NewBookProcessor(filepath)
+
+        try:
+            from automation_jobs import create_job
+            job_id = create_job("ingest", filename=nbp.filename,
+                                parent_id=parent_job_id)
+        except Exception as e:
+            print(f"[ingest-processor] WARN: could not record ingest job: {e}", flush=True)
+            job_id = None
 
         # If this file is not an ignored temporary, wait briefly for stability to avoid importing a still-growing file
         ext_tmp_check = Path(nbp.filename).suffix.replace('.', '')
@@ -1109,9 +1150,13 @@ def main(filepath=None):
                         if nbp._validate_book_exists(book_id):
                             success = nbp.add_format_to_book(book_id, filepath)
                         else:
+                            nbp.failure_reason = "target book %s is no longer in the library" % book_id
                             print(f"[ingest-processor] ERROR: Book ID {book_id} not found in library for {os.path.basename(filepath)}", flush=True)
                     else:
+                        nbp.failure_reason = "manifest has no valid book_id"
                         print(f"[ingest-processor] ERROR: Invalid book_id in manifest for {os.path.basename(filepath)}", flush=True)
+                    if not success and not getattr(nbp, "failure_reason", ""):
+                        nbp.failure_reason = "add_format did not complete; check logs"
 
                     # Cleanup manifest: delete on success, preserve on failure for debugging
                     try:
@@ -1149,6 +1194,7 @@ def main(filepath=None):
             imported = nbp.add_book_to_library(filepath)
         else:
             print(f"[ingest-processor]: Cannot import {nbp.filepath}. {nbp.input_format} is not a known ebook format.", flush=True)
+            nbp.failure_reason = "%s is not a known ebook format" % (nbp.input_format or "file")
 
         source_outcome = "delete" if imported else "failed"
         if not imported:
@@ -1157,6 +1203,9 @@ def main(filepath=None):
 
     except Exception as e:
         print(f"[ingest-processor] Unexpected error during processing: {e}", flush=True)
+        if nbp is not None and not getattr(nbp, "failure_reason", ""):
+            detail = getattr(e, "stderr", None) or str(e)
+            nbp.failure_reason = _bounded_reason(detail)
         raise
     finally:
         # Ensure cleanup always happens, even if an exception occurred
@@ -1169,10 +1218,14 @@ def main(filepath=None):
             try:
                 if source_outcome == "keep":
                     print(f"[ingest-processor] Skipping delete for ignored/temporary file: {nbp.filename}", flush=True)
+                    _record_job(job_id, "skipped", "file kept in place (ignored or not ready)")
                 elif source_outcome == "delete":
+                    _record_job(job_id, "succeeded")
                     nbp.delete_current_file()
                 else:
-                    nbp.move_to_failed()
+                    _record_job(job_id, "failed",
+                                getattr(nbp, "failure_reason", "") or "Import failed; check logs")
+                    nbp.move_to_failed(job_id=job_id)
             except Exception as e:
                 print(f"[ingest-processor] Error handling source file during cleanup (left in place): {e}", flush=True)
 

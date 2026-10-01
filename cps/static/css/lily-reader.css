@@ -181,6 +181,9 @@ body.lily-reader {
 
 .lily-reader #divider { border-right-color: var(--line); box-shadow: none; opacity: 1; }
 
+.lily-reader dialog .separator,
+.lily-reader .horizontalToolbarSeparator { display: none; }
+
 .lily-reader .reader-error {
     margin: 24px;
     padding: 24px;
@@ -210,7 +213,7 @@ body.lily-reader {
     height: 52px;
     padding: 8px 10px;
     background: var(--paper);
-    border-bottom: 1px solid var(--line-soft);
+    border-bottom: 0;
     box-shadow: none;
 }
 
@@ -317,11 +320,10 @@ body.lily-reader {
 .lily-reader .reader-search-chapter {
     display: block;
     margin-bottom: 2px;
-    font-size: 11px;
+    font-family: var(--font-body);
+    font-size: var(--heading-size);
     font-weight: 600;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--muted);
+    color: var(--heading);
 }
 
 .lily-reader .reader-search-excerpt { font-family: var(--font-body); font-size: 14px; line-height: 1.45; }
@@ -358,7 +360,7 @@ body.lily-reader {
     background: transparent;
     color: var(--heading);
     font-family: var(--font-body);
-    font-size: 19px;
+    font-size: var(--title-size);
     font-weight: 600;
     text-align: left;
     opacity: 1;
@@ -377,7 +379,7 @@ body.lily-reader {
     gap: 8px;
     margin: 0;
     padding: 12px 24px;
-    border-top: 1px solid var(--line-soft);
+    border-top: 0;
 }
 
 .lily-reader .md-content > .reader-setting:last-of-type { padding-bottom: 22px; }
@@ -481,12 +483,10 @@ body.lily-reader {
 
 .lily-reader .md-content thead th {
     padding-bottom: 8px;
-    font-size: 11px;
+    font-size: var(--heading-size);
     font-weight: 600;
-    letter-spacing: .04em;
     text-align: left;
-    text-transform: uppercase;
-    color: var(--muted);
+    color: var(--heading);
 }
 
 .lily-reader .md-content tbody th { color: var(--ink); font-weight: 500; }
@@ -513,7 +513,7 @@ body.lily-reader {
     height: 52px;
     padding: 8px 12px;
     background: var(--paper);
-    border-bottom: 1px solid var(--line-soft);
+    border-bottom: 0;
     color: var(--ink);
 }
 
@@ -577,7 +577,7 @@ body.lily-reader {
 
 .lily-audio-title {
     margin: 0 0 6px;
-    font-size: 25px;
+    font-size: var(--title-size);
     line-height: 1.25;
     overflow-wrap: anywhere;
 }
@@ -665,7 +665,7 @@ body.lily-reader {
     justify-content: center;
     gap: 8px 12px;
     padding-top: 12px;
-    border-top: 1px solid var(--line-soft);
+    border-top: 0;
     font-size: 13px;
     color: var(--muted);
 }
@@ -699,12 +699,7 @@ body.lily-reader {
 
 .lily-audio-description h2 {
     margin: 0 0 8px;
-    font-family: var(--font-ui);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--muted);
+    font-size: var(--heading-size);
 }
 
 /* ------------------------------------------------------------------ */

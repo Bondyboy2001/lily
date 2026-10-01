@@ -2,11 +2,23 @@
 {% import "lily_form.html" as f with context %}
 {% block settings %}
 <div class="lp lily-settings">
-  <p class="lp-intro">{{ _('Books the ingest process could not import are kept in %(dir)s. Retry moves a file back into the ingest folder; Delete removes it for good.', dir=failed_dir) }}</p>
+  <p class="lp-intro">{{ _('Books the ingest process could not import are kept in %(dir)s. Retry moves a file back into the ingest folder; Delete removes it for good.', dir=failed_dir) }}
+    <a href="{{ url_for('logs.show_logs') }}">{{ _('View Logs') }}</a></p>
 
-  {% call f.group(_('Rejected files'), help=(_('Nothing has failed. Rejected files will show up here.') if not failed else None)) %}
+  {% call f.group(None, id='rejected-files', help=(_('Nothing has failed. Rejected files will show up here.') if not failed else None)) %}
     {% for item in failed %}
-    {% call f.row(item.original, help=item.mtime.strftime('%Y-%m-%d %H:%M') ~ ' · ' ~ item.size_text, wide=True) %}
+    {% set reason = item.reason or _('No failure details recorded') %}
+    {% set rlow = reason|lower %}
+    {% if 'not a known ebook format' in rlow or 'unknown' in rlow %}
+      {% set hint = _('Convert the file to a supported format (EPUB, PDF or audiobook) and try again.') %}
+    {% elif 'permission' in rlow or 'denied' in rlow %}
+      {% set hint = _('Check the ingest folder permissions so the importer can read and move the file.') %}
+    {% elif reason != _('No failure details recorded') %}
+      {% set hint = _('Check the file itself - it may be corrupt or protected. See Logs for details.') %}
+    {% else %}
+      {% set hint = None %}
+    {% endif %}
+    {% call f.row(item.original, help=item.mtime.strftime('%Y-%m-%d %H:%M') ~ ' · ' ~ item.size_text ~ ' · ' ~ reason ~ ((' · ' ~ hint) if hint else ''), wide=True) %}
       <form method="POST" class="lp-checks">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="names" value="{{ item.name }}">

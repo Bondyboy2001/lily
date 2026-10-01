@@ -9,6 +9,7 @@
 import os
 import json
 import math
+import re
 import importlib
 from datetime import datetime, timezone
 
@@ -155,15 +156,93 @@ WEB_PROGRESS_CFI_MAX_LEN = 4096
 WEB_PROGRESS_FINISHED_AT = 0.99
 
 
-def _web_progress_json(progress):
+def _library_uuid():
+    try:
+        row = calibre_db.session.query(db.Library_Id).first()
+        return row.uuid if row else ""
+    except Exception:
+        return ""
+
+
+def _web_progress_json(progress, fmt=None):
     if not progress:
-        return {"cfi": None, "percent": None, "updated": None}
+        return {"cfi": None, "percent": None, "updated": None, "format": fmt}
     updated = progress.last_modified
     if updated is not None and updated.tzinfo is None:
         updated = updated.replace(tzinfo=timezone.utc)
     return {"cfi": progress.cfi,
             "percent": progress.percent,
-            "updated": updated.isoformat() if updated else None}
+            "updated": updated.isoformat() if updated else None,
+            "format": fmt}
+
+
+def _progress_formats(book):
+    try:
+        stored = {str(d.format).lower() for d in book.data}
+    except Exception:
+        stored = set()
+    return stored
+
+
+def _valid_progress_format(book, fmt):
+    if not isinstance(fmt, str) or not fmt.strip():
+        return None
+    fmt = fmt.lower()
+    if fmt not in _progress_formats(book):
+        return None
+    if fmt in ("epub", "kepub", "pdf"):
+        return fmt
+    if fmt in constants.EXTENSIONS_AUDIO:
+        return fmt
+    return None
+
+
+def _progress_cfi_ok(fmt, cfi):
+    if fmt in ("epub", "kepub"):
+        return cfi.startswith("epubcfi(")
+    if fmt == "pdf":
+        m = re.fullmatch(r"page:(\d+)", cfi)
+        return bool(m) and int(m.group(1)) >= 1
+    m = re.fullmatch(r"time:(\d+(?:\.\d+)?)", cfi)
+    return bool(m) and math.isfinite(float(m.group(1)))
+
+
+def _legacy_positions_belong_here(library_uuid):
+    """True when legacy web_reader_progress rows may seed this library.
+
+    The rows carry no library scope, so the library that first reads them claims them
+    in reader_legacy_library; after a library switch the claim stays with the original.
+    """
+    if not library_uuid:
+        return False
+    row = ub.session.query(ub.ReaderLegacyLibrary).filter_by(id=1).first()
+    if row:
+        return row.library_uuid == library_uuid
+    try:
+        ub.session.add(ub.ReaderLegacyLibrary(id=1, library_uuid=library_uuid))
+        ub.session.commit()
+        return True
+    except IntegrityError:
+        ub.session.rollback()
+        row = ub.session.query(ub.ReaderLegacyLibrary).filter_by(id=1).first()
+        return bool(row and row.library_uuid == library_uuid)
+
+
+def _seeded_legacy_progress(legacy, book, fmt):
+    if legacy is None or not legacy.cfi or not _progress_cfi_ok(fmt, legacy.cfi):
+        return None
+    cfi = legacy.cfi
+    formats = _progress_formats(book)
+    if cfi.startswith("epubcfi("):
+        if fmt == "epub" or (fmt == "kepub" and "epub" not in formats):
+            return legacy
+        return None
+    if cfi.startswith("page:"):
+        return legacy if fmt == "pdf" else None
+    if cfi.startswith("time:"):
+        audio = [f for f in formats if f in constants.EXTENSIONS_AUDIO]
+        return legacy if audio == [fmt] else None
+    return None
 
 
 def _update_read_status_from_web_progress(user_id, book_id, percent):
@@ -189,32 +268,99 @@ def _update_read_status_from_web_progress(user_id, book_id, percent):
 def web_reader_progress(book_id):
     """Reading position of the built-in web reader, per user and book.
 
-    GET  -> {"cfi": str|null, "percent": float|null, "updated": iso8601|null}
-    POST <- {"cfi": str, "percent": float 0..1} (CSRF token in the X-CSRFToken header)
+    New clients pass ?format=<fmt> and positions are stored per user, library,
+    book and format in reader_position. The formatless request is the legacy path
+    backed by web_reader_progress.
+
+    GET  -> {"cfi": str|null, "percent": float|null, "updated": iso8601|null, "format": fmt|null}
+    POST <- {"cfi": str, "percent": float 0..1, "format": fmt} (CSRF token in the X-CSRFToken header)
     """
-    if not calibre_db.get_filtered_book(book_id, allow_show_archived=True):
+    book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+    if not book:
         return jsonify({"error": "Book not found"}), 404
     user_id = int(current_user.id)
-    progress = ub.session.query(ub.WebReaderProgress).filter(ub.WebReaderProgress.user_id == user_id,
-                                                             ub.WebReaderProgress.book_id == book_id).first()
-    if request.method == 'GET':
+
+    data = None
+    if request.method == 'POST':
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"error": "Expected a JSON object"}), 400
+    formats = request.args.getlist("format")
+    if any(not f.strip() for f in formats):
+        return jsonify({"error": "empty format parameter"}), 400
+    if len(set(f.lower() for f in formats)) > 1:
+        return jsonify({"error": "conflicting format parameters"}), 400
+    fmt_arg = formats[0] if formats else None
+    if fmt_arg is None and isinstance(data, dict) and "format" in data:
+        fmt_arg = data.get("format")
+    if request.method == 'POST' and formats \
+            and data.get("format") is not None \
+            and formats[0].lower() != str(data.get("format")).lower():
+        return jsonify({"error": "format in query and body disagree"}), 400
+
+    if fmt_arg is None:
+        progress = ub.session.query(ub.WebReaderProgress).filter(
+            ub.WebReaderProgress.user_id == user_id,
+            ub.WebReaderProgress.book_id == book_id).first()
+        if request.method == 'GET':
+            return jsonify(_web_progress_json(progress))
+        cfi = data.get("cfi")
+        percent = data.get("percent")
+        if not isinstance(cfi, str) or not cfi or len(cfi) > WEB_PROGRESS_CFI_MAX_LEN:
+            return jsonify({"error": "Invalid cfi"}), 400
+        if isinstance(percent, bool) or not isinstance(percent, (int, float)) \
+                or not math.isfinite(percent) or not 0 <= percent <= 1:
+            return jsonify({"error": "percent must be a number between 0 and 1"}), 400
+        percent = float(percent)
+        try:
+            if not progress:
+                progress = ub.WebReaderProgress(user_id=user_id, book_id=book_id)
+                ub.session.add(progress)
+            progress.cfi = cfi
+            progress.percent = percent
+            progress.last_modified = datetime.now(timezone.utc)
+            _update_read_status_from_web_progress(user_id, book_id, percent)
+            ub.session.commit()
+        except (OperationalError, InvalidRequestError, IntegrityError) as ex:
+            ub.session.rollback()
+            log.error("Could not save web reader progress for book %s: %s", book_id, ex)
+            return jsonify({"error": "Could not save progress"}), 500
         return jsonify(_web_progress_json(progress))
 
-    data = request.get_json(silent=True)
-    if not isinstance(data, dict):
-        return jsonify({"error": "Expected a JSON object"}), 400
+    fmt = _valid_progress_format(book, fmt_arg)
+    if fmt is None:
+        return jsonify({"error": "Unknown or unreadable format"}), 400
+    library_uuid = _library_uuid()
+    if not library_uuid:
+        return jsonify({"error": "Library identity unavailable; progress sync disabled"}), 503
+    progress = ub.session.query(ub.ReaderPosition).filter(
+        ub.ReaderPosition.user_id == user_id,
+        ub.ReaderPosition.library_uuid == library_uuid,
+        ub.ReaderPosition.book_id == book_id,
+        ub.ReaderPosition.format == fmt).first()
+
+    if request.method == 'GET':
+        if progress is None and _legacy_positions_belong_here(library_uuid):
+            legacy = ub.session.query(ub.WebReaderProgress).filter(
+                ub.WebReaderProgress.user_id == user_id,
+                ub.WebReaderProgress.book_id == book_id).first()
+            progress = _seeded_legacy_progress(legacy, book, fmt)
+        return jsonify(_web_progress_json(progress, fmt))
+
     cfi = data.get("cfi")
     percent = data.get("percent")
     if not isinstance(cfi, str) or not cfi or len(cfi) > WEB_PROGRESS_CFI_MAX_LEN:
         return jsonify({"error": "Invalid cfi"}), 400
+    if not _progress_cfi_ok(fmt, cfi):
+        return jsonify({"error": "cfi does not match the selected format"}), 400
     if isinstance(percent, bool) or not isinstance(percent, (int, float)) \
             or not math.isfinite(percent) or not 0 <= percent <= 1:
         return jsonify({"error": "percent must be a number between 0 and 1"}), 400
     percent = float(percent)
-
     try:
         if not progress:
-            progress = ub.WebReaderProgress(user_id=user_id, book_id=book_id)
+            progress = ub.ReaderPosition(user_id=user_id, library_uuid=library_uuid,
+                                         book_id=book_id, format=fmt)
             ub.session.add(progress)
         progress.cfi = cfi
         progress.percent = percent
@@ -223,9 +369,9 @@ def web_reader_progress(book_id):
         ub.session.commit()
     except (OperationalError, InvalidRequestError, IntegrityError) as ex:
         ub.session.rollback()
-        log.error("Could not save web reader progress for book %s: %s", book_id, ex)
+        log.error("Could not save reader position for book %s: %s", book_id, ex)
         return jsonify({"error": "Could not save progress"}), 500
-    return jsonify(_web_progress_json(progress))
+    return jsonify(_web_progress_json(progress, fmt))
 
 
 @web.route("/ajax/toggleread/<int:book_id>", methods=['POST'])
@@ -351,6 +497,8 @@ def render_books_list(data, sort_param, book_id, page):
         return render_read_books(page, False, order=order)
     elif data == "read":
         return render_read_books(page, True, order=order)
+    elif data == "inprogress":
+        return render_reading_books(page, order=order)
     elif data == "hot":
         return render_hot_books(page, order)
     elif data == "download":
@@ -408,38 +556,75 @@ def render_books_list(data, sort_param, book_id, page):
 CONTINUE_READING_LIMIT = 12
 
 
-def get_continue_reading_progress(session, user_id, limit=CONTINUE_READING_LIMIT):
-    """Return [(book_id, progress_percent or None), ...] for books the user is currently reading.
+def _latest_reader_positions(session, user_id, library_uuid, book_ids=None):
+    """{book_id: (percent, format, last_modified)} of each book's newest scoped position."""
+    positions = {}
+    if not library_uuid:
+        return positions
+    query = (session.query(ub.ReaderPosition.book_id, ub.ReaderPosition.format,
+                           ub.ReaderPosition.percent, ub.ReaderPosition.last_modified)
+             .filter(ub.ReaderPosition.user_id == user_id,
+                     ub.ReaderPosition.library_uuid == library_uuid))
+    if book_ids is not None:
+        if not book_ids:
+            return positions
+        query = query.filter(ub.ReaderPosition.book_id.in_(book_ids))
+    rows = query.order_by(ub.ReaderPosition.last_modified.desc(),
+                          ub.ReaderPosition.id.desc()).all()
+    for book_id, fmt, percent, modified in rows:
+        if book_id not in positions:
+            positions[book_id] = (percent, fmt, modified)
+    return positions
 
-    ReadBook.read_status == STATUS_IN_PROGRESS is the source of truth; the percentage is the web
-    reader's saved position. Most recently touched first.
-    """
-    last_touched = func.max(ub.ReadBook.last_modified,
-                            coalesce(ub.WebReaderProgress.last_modified, ub.ReadBook.last_modified))
-    rows = (session.query(ub.ReadBook.book_id, ub.WebReaderProgress.percent)
+
+def _continue_reading_rows(session, user_id, limit, library_uuid):
+    """[(book_id, percent, format)] for in-progress books, most recently touched first."""
+    rows = (session.query(ub.ReadBook.book_id, ub.ReadBook.last_modified,
+                          ub.WebReaderProgress.percent, ub.WebReaderProgress.last_modified)
             .outerjoin(ub.WebReaderProgress,
                        and_(ub.WebReaderProgress.user_id == ub.ReadBook.user_id,
                             ub.WebReaderProgress.book_id == ub.ReadBook.book_id))
             .filter(ub.ReadBook.user_id == user_id,
                     ub.ReadBook.read_status == ub.ReadBook.STATUS_IN_PROGRESS)
-            .order_by(last_touched.desc(), ub.ReadBook.id.desc())
-            # headroom for duplicate rows and books hidden by the visibility filters
-            .limit(limit * 3)
             .all())
-    result = []
+    positions = _latest_reader_positions(session, user_id, library_uuid,
+                                         book_ids={row[0] for row in rows})
+    ranked = []
     seen = set()
-    for book_id, web_percent in rows:
+    for book_id, rb_modified, web_percent, wrp_modified in rows:
         if book_id in seen:
             continue
         seen.add(book_id)
+        pos = positions.get(book_id)
+        stamps = [t for t in (rb_modified, wrp_modified,
+                              pos[2] if pos else None) if t is not None]
+        touched = max(stamps) if stamps else None
+        ranked.append((touched, book_id, web_percent, pos))
+    ranked.sort(key=lambda r: (r[0] is not None, r[0], r[1]), reverse=True)
+
+    result = []
+    for _touched, book_id, web_percent, pos in ranked[:limit * 3]:
         percent = None
-        if web_percent is not None:
+        raw = pos[0] if pos and pos[0] is not None else web_percent
+        if raw is not None:
             try:
-                percent = max(0.0, min(100.0, float(web_percent) * 100.0))
+                percent = max(0.0, min(100.0, float(raw) * 100.0))
             except (TypeError, ValueError):
                 percent = None
-        result.append((book_id, percent))
+        result.append((book_id, percent, pos[1] if pos else None))
     return result
+
+
+def get_continue_reading_progress(session, user_id, limit=CONTINUE_READING_LIMIT,
+                                  library_uuid=None):
+    """Return [(book_id, progress_percent or None), ...] for books the user is currently reading.
+
+    ReadBook.read_status == STATUS_IN_PROGRESS is the source of truth; the percentage is
+    the newest saved position. Scoped reader_position rows win; the legacy
+    web_reader_progress row is the fallback. Most recently touched first.
+    """
+    return [(book_id, percent) for book_id, percent, _fmt in
+            _continue_reading_rows(session, user_id, limit, library_uuid)]
 
 
 def get_continue_reading_entries(limit=CONTINUE_READING_LIMIT):
@@ -447,18 +632,20 @@ def get_continue_reading_entries(limit=CONTINUE_READING_LIMIT):
     if current_user.is_anonymous or not current_user.is_authenticated:
         return []
     try:
-        progress = get_continue_reading_progress(ub.session, int(current_user.id), limit)
-        if not progress:
+        library_uuid = _library_uuid()
+        rows = _continue_reading_rows(ub.session, int(current_user.id), limit, library_uuid)
+        if not rows:
             return []
-        rows = (calibre_db.generate_linked_query(config.config_read_column, db.Books)
-                .filter(calibre_db.common_filters())
-                .filter(db.Books.id.in_([book_id for book_id, __ in progress]))
-                .all())
-        by_id = {row.Books.id: row for row in rows}
+        books = (calibre_db.generate_linked_query(config.config_read_column, db.Books)
+                 .filter(calibre_db.common_filters())
+                 .filter(db.Books.id.in_([book_id for book_id, __, __ in rows]))
+                 .all())
+        by_id = {row.Books.id: row for row in books}
         entries = []
-        for book_id, percent in progress:
+        for book_id, percent, fmt in rows:
             if book_id in by_id:
-                entries.append({'entry': by_id[book_id], 'progress': percent})
+                entries.append({'entry': by_id[book_id], 'progress': percent,
+                                'format': fmt})
                 if len(entries) >= limit:
                     break
         return entries
@@ -554,7 +741,7 @@ def render_downloaded_books(page, order, user_id):
                                      entries=entries,
                                      pagination=pagination,
                                      id=user_id,
-                                     title=_("Downloaded books by %(user)s", user=user.name),
+                                     title=_("Downloaded Books by %(user)s", user=user.name),
                                      page="download",
                                      order=order[1])
     else:
@@ -671,7 +858,7 @@ def render_ratings_books(page, book_id, order):
                                                                     db.Books.ratings.any(db.Ratings.id == book_id),
                                                                     [order[0][0]],
                                                                     True, config.config_read_column, cards_only=True)
-            title = _("Rating: %(rating)s stars", rating=int(name.rating / 2))
+            title = _("Rating: %(rating)s Stars", rating=int(name.rating / 2))
         else:
             abort(404)
     return render_title_template('index.html', pagination=pagination, entries=entries, id=book_id,
@@ -702,7 +889,7 @@ def render_formats_books(page, book_id, order):
             abort(404)
 
     return render_title_template('index.html', pagination=pagination, entries=entries, id=book_id,
-                                 title=_("File format: %(format)s", format=name),
+                                 title=_("File Format: %(format)s", format=name),
                                  page="formats",
                                  order=order[1])
 
@@ -807,13 +994,27 @@ def render_read_books(page, are_read, as_xml=False, order=None):
         return entries, pagination
     else:
         if are_read:
-            name = _('Read Books') + ' (' + str(pagination.total_count) + ')'
+            name = _('Finished') + ' (' + str(pagination.total_count) + ')'
             page_name = "read"
         else:
             name = _('Unread Books') + ' (' + str(pagination.total_count) + ')'
             page_name = "unread"
         return render_title_template('index.html', entries=entries, pagination=pagination,
                                      title=name, page=page_name, order=order[1])
+
+
+def render_reading_books(page, order):
+    """Books the current user has started but not finished (ReadBook in progress, as the
+    "reading" list filter and Continue Reading use)."""
+    entries, pagination = calibre_db.fill_indexpage(page, 0, db.Books,
+                                                    list_filters.filter_expression({"status": "reading"}),
+                                                    order[0], True, config.config_read_column,
+                                                    db.books_series_link,
+                                                    db.Books.id == db.books_series_link.c.book,
+                                                    db.Series)
+    name = _('Reading') + ' (' + str(pagination.total_count) + ')'
+    return render_title_template('index.html', entries=entries, pagination=pagination,
+                                 title=name, page="inprogress", order=order[1])
 
 
 def render_archived_books(page, sort_param):
@@ -1053,14 +1254,29 @@ def read_book(book_id, book_format):
         except Exception as e:
             log.debug(f"Failed to log read activity: {e}")
 
+    fmt_lower = book_format.lower()
+    user_key = str(current_user.id) if current_user.is_authenticated else "anonymous"
+    progress_args = {}
+    progress_uuid = _library_uuid()
+    if progress_uuid and (fmt_lower in ("epub", "kepub", "pdf")
+                          or fmt_lower in constants.EXTENSIONS_AUDIO):
+        progress_args = {
+            "progress_key": "%s.%s.%s.%s" % (user_key, progress_uuid, book_id, fmt_lower),
+            "progress_format": fmt_lower,
+            "progress_url": url_for("web.web_reader_progress", book_id=book_id,
+                                    format=fmt_lower),
+        }
+
     if book_format.lower() in ("epub", "kepub"):
         log.debug("Start epub reader for %d (%s)", book_id, book_format.lower())
         return render_title_template('read.html', bookid=book_id, title=book.title,
                                      bookmark=bookmark,
-                                     book_format=book_format.lower())
+                                     book_format=book_format.lower(),
+                                     **progress_args)
     elif book_format.lower() == "pdf":
         log.debug("Start pdf reader for %d", book_id)
-        return render_title_template('readpdf.html', pdffile=book_id, title=book.title)
+        return render_title_template('readpdf.html', pdffile=book_id, title=book.title,
+                                     **progress_args)
     elif book_format.lower() in ["djvu", "djv"]:
         log.debug("Start djvu reader for %d", book_id)
         return render_title_template('readdjvu.html', djvufile=book_id, title=book.title,
@@ -1071,7 +1287,7 @@ def read_book(book_id, book_format):
                 entries = calibre_db.get_filtered_book(book_id)
                 log.debug("Start mp3 listening for %d", book_id)
                 return render_title_template('listenmp3.html', mp3file=book_id, audioformat=book_format.lower(),
-                                             entry=entries, bookmark=bookmark)
+                                             entry=entries, bookmark=bookmark, **progress_args)
         log.debug("Selected book is unavailable. File does not exist or is not accessible")
         flash(_("Oops! Selected book is unavailable. File does not exist or is not accessible"),
               category="error")

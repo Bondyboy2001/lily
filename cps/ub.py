@@ -264,13 +264,6 @@ class User(UserBase, Base):
     # password change before anything else can be used. Cleared whenever the password
     # is assigned (see _clear_force_password_change below).
     force_password_change = Column(Boolean, default=False)
-    # Optional TOTP second factor for the web login (see cps/totp.py). totp_last_step is
-    # the last accepted time step, so a code cannot be replayed.
-    totp_secret = Column(String, default=None)
-    totp_enabled = Column(Boolean, default=False)
-    totp_last_step = Column(Integer, default=0)
-    # SHA-256 of the user's personal API token (accepted by OPDS and as a Bearer token)
-    api_token_hash = Column(String, default=None)
 
 
 @event.listens_for(User.password, 'set')
@@ -297,8 +290,6 @@ class Anonymous(AnonymousUserMixin, UserBase):
         self.role = None
         self.name = None
         self.force_password_change = False
-        self.totp_enabled = False
-        self.api_token_hash = None
         self.loadSettings()
 
     def loadSettings(self):
@@ -468,6 +459,31 @@ class WebReaderProgress(Base):
                            onupdate=lambda: datetime.now(timezone.utc))
 
 
+# Reading position scoped to a user, library, book and format.
+class ReaderPosition(Base):
+    __tablename__ = 'reader_position'
+    __table_args__ = (UniqueConstraint('user_id', 'library_uuid', 'book_id', 'format',
+                                       name='uq_reader_position_scope'),)
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
+    library_uuid = Column(String, nullable=False)
+    book_id = Column(Integer, nullable=False)
+    format = Column(String, nullable=False)
+    cfi = Column(String)
+    percent = Column(Float)
+    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc))
+
+
+class ReaderLegacyLibrary(Base):
+    """Which library the unscoped legacy web_reader_progress rows belong to."""
+    __tablename__ = 'reader_legacy_library'
+
+    id = Column(Integer, primary_key=True)
+    library_uuid = Column(String, nullable=False)
+
+
 # Books a user has archived (hidden from their library views).
 class ArchivedBook(Base):
     __tablename__ = 'archived_book'
@@ -608,6 +624,10 @@ def add_missing_tables(engine, _session):
         OpdsShelfExposure.__table__.create(bind=engine, checkfirst=True)
     if not engine.dialect.has_table(engine.connect(), "web_reader_progress"):
         WebReaderProgress.__table__.create(bind=engine, checkfirst=True)
+    if not engine.dialect.has_table(engine.connect(), "reader_position"):
+        ReaderPosition.__table__.create(bind=engine, checkfirst=True)
+    if not engine.dialect.has_table(engine.connect(), "reader_legacy_library"):
+        ReaderLegacyLibrary.__table__.create(bind=engine, checkfirst=True)
     if not engine.dialect.has_table(engine.connect(), "metadata_suggestion"):
         MetadataSuggestion.__table__.create(bind=engine, checkfirst=True)
 
@@ -656,15 +676,6 @@ def migrate_user_table(engine, _session):
     except exc.OperationalError:
         _safe_session_rollback(_session, "user.force_password_change")
         _run_ddl_with_retry(engine, "ALTER TABLE user ADD column 'force_password_change' Boolean DEFAULT 0")
-
-    for column, ddl in (("totp_secret", "String"), ("totp_enabled", "Boolean DEFAULT 0"),
-                        ("totp_last_step", "Integer DEFAULT 0"), ("api_token_hash", "String")):
-        try:
-            _session.query(exists().where(getattr(User, column))).scalar()
-            _session.commit()
-        except exc.OperationalError:
-            _safe_session_rollback(_session, "user." + column)
-            _run_ddl_with_retry(engine, "ALTER TABLE user ADD column '%s' %s" % (column, ddl))
 
     # Migration to enable duplicates sidebar for existing admin users (one-time)
     try:

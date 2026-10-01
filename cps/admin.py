@@ -13,15 +13,13 @@ import json
 import operator
 import sys
 import string
-from datetime import datetime, timedelta
-from datetime import time as datetime_time
+from datetime import datetime
 from functools import wraps
 
-from flask import Blueprint, current_app, flash, redirect, url_for, abort, request, make_response, g, Response, jsonify
+from flask import Blueprint, flash, redirect, url_for, abort, request, make_response, g, Response, jsonify
 from markupsafe import Markup
 from .cw_login import current_user
 from flask_babel import gettext as _
-from flask_babel import format_time, format_timedelta
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.exc import IntegrityError, OperationalError, InvalidRequestError
 from sqlalchemy.sql.expression import func, or_, text
@@ -442,39 +440,11 @@ def update_thumbnails():
         })
 
 
-def cwa_get_package_versions() -> tuple[str, str]:
-    try:
-        with open("/app/CWA_RELEASE", "r") as f:
-            cwa_version = f.read()
-    except Exception:
-        cwa_version = "Unknown"
-
-    try:
-        with open("/CALIBRE_RELEASE", "r") as f:
-            calibre_version = f.read()
-    except Exception:
-        calibre_version = "Unknown"
-
-    return cwa_version, calibre_version
-
-
 @admi.route("/admin/view")
 @user_login_required
 @admin_required
 def admin():
-    cwa_version, calibre_version = cwa_get_package_versions()
-
-    all_user = ub.session.query(ub.User).all()
-    schedule_time = format_time(datetime_time(hour=config.schedule_start_time), format="short")
-    t = timedelta(hours=config.schedule_duration // 60, minutes=config.schedule_duration % 60)
-    schedule_duration = format_timedelta(t, threshold=.99)
-
-    return render_title_template("admin.html", allUser=all_user, config=config,
-                                 cwa_version=cwa_version,
-                                 calibre_version=calibre_version, feature_support=feature_support,
-                                 schedule_time=schedule_time, schedule_duration=schedule_duration,
-                                 is_proxied=current_app.wsgi_app.is_proxied,
-                                 title=_("Admin page"), page="admin")
+    return redirect(url_for('duplicates.show_duplicates'))
 
 
 @admi.route("/admin/dbconfig", methods=["GET", "POST"])
@@ -758,9 +728,6 @@ def load_dialogtexts(element_id):
                           'for the selected user(s)?')
     elif element_id == "db_submit":
         texts["main"] = _('Are you sure you want to change Calibre library location?')
-    elif element_id == "admin_refresh_cover_cache":
-        texts["main"] = _('Lily will search for updated Covers '
-                          'and update Cover Thumbnails, this may take a while?')
     return json.dumps(texts)
 
 
@@ -1526,7 +1493,7 @@ def _handle_new_user(to_save, content, languages, translations):
         return render_title_template("user_edit.html", new_user=1, content=content,
                                      config=config,
                                      translations=translations,
-                                     languages=languages, title=_("Add new user"), page="newuser",
+                                     languages=languages, title=_("Add New User"), page="newuser",
                                      opds_root_order_string=opds_context["opds_root_order_string"],
                                      opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
                                      opds_root_labels=opds_context["opds_root_labels"])

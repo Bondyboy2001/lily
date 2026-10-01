@@ -100,7 +100,7 @@ LILY_STYLESHEETS.append("lily-shell.css")
 KEPT_IDS = [
     "query", "query_submit", "advanced_search", "form-upload", "btn-upload", "btn-upload2",
     "refresh-library", "top_settings", "login",
-    "scnd-nav", "nav_createshelf", "duplicate-count-badge",
+    "scnd-nav", "nav_createshelf",
     "message_library_refresh", "library_refresh_message", "loader", "bookDetailsModal",
 ]
 
@@ -202,6 +202,7 @@ def test_layout_keeps_hooks_other_scripts_use():
     assert 'class="navbar lily-topbar"' in layout
     for element_id in KEPT_IDS:
         assert f'id="{element_id}"' in layout, element_id
+    assert 'id="duplicate-count-badge"' in read(TEMPLATES / "settings_layout.html")
 
 
 def test_settings_button_guards_anonymous_users():
@@ -296,14 +297,36 @@ def test_settings_button_opens_settings_with_tasks_and_logout_in_rail():
     for gone in ("glyphicon-user", "glyphicon-dashboard", "glyphicon-tasks"):
         assert gone not in bar, gone
     rail = read(TEMPLATES / "settings_layout.html")
-    assert "'tasks.get_tasks_status'" in rail and "id='logout'" in rail
+    assert "tasks.get_tasks_status" not in rail and "id='logout'" in rail
     assert 'extends "settings_layout.html"' in read(TEMPLATES / "tasks.html")
 
 
-def test_list_view_centres_the_read_check_on_a_larger_thumbnail():
+def test_sort_direction_is_one_toggle_button_not_a_dropdown():
+    image = read(TEMPLATES / "image.html")
+    sort_menu = image[image.index("macro sort_menu("):image.index("macro list_menu(")]
+    # Book lists: a link to the other order. Name lists: a button flipped in place by lily.js.
+    assert 'id="lily-sort-dir-toggle"' in sort_menu and "sorts[ns.field][1 if ns.desc else 2]" in sort_menu
+    assert "sort_item(_('Ascending')" not in sort_menu
+    list_menu = image[image.index("macro list_menu("):]
+    assert '<button type="button" class="btn lily-chip lily-sort-dir" id="lily-order-toggle"' in list_menu
+    assert 'id="asc"' not in list_menu and 'id="desc"' not in list_menu
+    assert "window.lilyToggleSortDir" in read(REPO_ROOT / "cps/static/js/lily.js")
+    for name in ("filter_list.js", "filter_grid.js"):
+        js = read(REPO_ROOT / "cps/static/js" / name)
+        assert "lily-order-toggle" in js and '"#asc"' not in js and '"#desc"' not in js, name
+
+
+def test_list_view_is_a_ledger_with_shared_columns_and_a_read_dot():
     css = read(CSS / "lily-library.css")
-    assert 'grid-template-columns: 56px minmax(0, 1fr) auto;' in css
-    badge = re.search(r'body\[data-book-view="list"\] \.lily-grid > \.lily-book \.cover \.badge\.read \{([^}]*)\}', css)
-    assert badge and "top: 50%" in badge.group(1) and "left: 50%" in badge.group(1)
-    assert "var(--success)" in badge.group(1)
+    # Rows and the column labels share one track list, so labels sit over their cells.
+    assert "--ledger-cols:" in css and css.count("grid-template-columns: var(--ledger-cols);") == 1
+    assert "body[data-book-view=\"list\"] .lily-list-head .lily-list-head-cols,\nbody[data-book-view=\"list\"] .lily-grid > .lily-book .meta {" in css
+    # Rows are told apart by alternate tints; read state is a green dot before the title.
+    assert ":nth-child(odd of .lily-book)" in css
+    dot = re.search(r'\.lily-book\.is-read \.meta > a::before \{([^}]*)\}', css)
+    assert dot and "var(--success)" in dot.group(1)
     assert ":has(.badge.read)" not in css
+    image = read(TEMPLATES / "image.html")
+    assert "macro list_head()" in image and 'class="lily-list-year"' in image
+    for name in ("index", "shelf", "author", "search"):
+        assert "image.list_head()" in read(TEMPLATES / f"{name}.html"), name

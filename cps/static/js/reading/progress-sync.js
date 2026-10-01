@@ -10,7 +10,7 @@
  * Usage:
  *   var sync = LilyProgress.create({url: "/ajax/progress/12", storageKey: "12.epub", enabled: true});
  *   sync.load().then(function (pos) { if (pos) { ...jump to pos.cfi / pos.percent... } });
- *   sync.save(cfi, percent);   // debounced POST, flushed on pagehide / tab hidden
+ *   sync.save(cfi, percent);   // queued POST, flushed on pagehide / tab hidden
  */
 (function (window) {
     "use strict";
@@ -18,6 +18,7 @@
     var LOCAL_PREFIX = "lily.progress.";
     var POST_DELAY = 4000;
     var LOAD_TIMEOUT = 2500;
+    var RETRY_MAX = 30000;
 
     function csrfToken() {
         var input = document.querySelector("input[name='csrf_token']");
@@ -62,7 +63,9 @@
         if (!cfi && percent === null) {
             return null;
         }
-        return {cfi: cfi, percent: percent, updated: toMillis(pos.updated)};
+        return {cfi: cfi, percent: percent, updated: toMillis(pos.updated),
+                format: typeof pos.format === "string" ? pos.format : null,
+                pending: pos.pending === true};
     }
 
     function readLocal(key) {
@@ -106,25 +109,64 @@
     function create(options) {
         var url = options.url;
         var key = options.storageKey || url;
+        var format = options.format || null;
+        var statusEl = options.statusEl || null;
+        var onStatus = typeof options.onStatus === "function" ? options.onStatus : null;
         var enabled = !!(options.enabled && url);
         var pending = null;
         var timer = null;
-        var lastSent = "";
+        var retryDelay = POST_DELAY;
+        var inflight = false;
+        var authFailed = false;
+
+        var stored = readLocal(key);
+        if (stored && stored.pending) {
+            pending = stored;
+        }
+
+        function status(text) {
+            if (onStatus) {
+                try { onStatus(text); } catch (e) { /* status callback must not break the reader */ }
+            }
+            if (!statusEl) {
+                return;
+            }
+            var pendingText = statusEl.getAttribute("data-pending-text") || "Saved on this device; waiting to sync";
+            var syncedText = statusEl.getAttribute("data-synced-text") || "Synced";
+            statusEl.textContent = text === "pending" ? pendingText : (text === "synced" ? syncedText : "");
+        }
+
+        function schedule(delay) {
+            if (timer || !pending || authFailed) {
+                return;
+            }
+            timer = setTimeout(function () {
+                timer = null;
+                if (document.visibilityState === "hidden") {
+                    return;
+                }
+                post(false);
+            }, delay);
+        }
+
+        function ackMatches(sent, acked) {
+            return !!(acked && acked.cfi === sent.cfi && acked.percent === sent.percent
+                      && (acked.format === undefined || acked.format === null || acked.format === format));
+        }
 
         function post(keepalive) {
+            if (!enabled || !pending || !window.fetch || inflight || authFailed) {
+                return;
+            }
             if (timer) {
                 clearTimeout(timer);
                 timer = null;
             }
-            if (!enabled || !pending || !window.fetch) {
-                return;
-            }
-            var body = JSON.stringify({cfi: pending.cfi, percent: pending.percent === null ? 0 : pending.percent});
-            pending = null;
-            if (body === lastSent) {
-                return;
-            }
-            lastSent = body;
+            inflight = true;
+            var sent = pending;
+            var body = JSON.stringify({cfi: sent.cfi,
+                                       percent: sent.percent === null ? 0 : sent.percent,
+                                       format: format});
             try {
                 window.fetch(url, {
                     method: "POST",
@@ -133,14 +175,41 @@
                     headers: {"Content-Type": "application/json", "X-CSRFToken": csrfToken()},
                     body: body
                 }).then(function (response) {
-                    if (!response.ok) {
-                        lastSent = "";
-                    }
+                    var type = response.headers.get("Content-Type") || "";
+                    var ok = response.ok && type.indexOf("json") !== -1;
+                    return (ok ? response.json().then(function (d) { return d; },
+                                                      function () { return undefined; }) :
+                                Promise.resolve(null)).then(function (data) {
+                        inflight = false;
+                        if (response.status === 401) {
+                            authFailed = true;
+                            return;
+                        }
+                        var acked = ok ? normalise(data) : null;
+                        if (!ok || !ackMatches(sent, acked)) {
+                            retryDelay = Math.min(retryDelay * 2, RETRY_MAX);
+                            schedule(retryDelay);
+                            return;
+                        }
+                        retryDelay = POST_DELAY;
+                        if (pending === sent) {
+                            pending = null;
+                            sent.updated = Math.max(sent.updated, acked.updated);
+                            sent.pending = false;
+                            writeLocal(key, sent);
+                            status("synced");
+                        } else {
+                            schedule(0);
+                        }
+                    });
                 }).catch(function () {
-                    lastSent = "";
+                    inflight = false;
+                    retryDelay = Math.min(retryDelay * 2, RETRY_MAX);
+                    schedule(retryDelay);
                 });
             } catch (e) {
-                lastSent = "";
+                inflight = false;
+                schedule(retryDelay);
             }
         }
 
@@ -151,35 +220,55 @@
         document.addEventListener("visibilitychange", function () {
             if (document.visibilityState === "hidden") {
                 flush();
+            } else if (pending) {
+                schedule(POST_DELAY);
             }
         });
         window.addEventListener("pagehide", flush);
+        window.addEventListener("online", function () {
+            authFailed = false;
+            retryDelay = POST_DELAY;
+            post(false);
+        });
 
         return {
             /** Resolves to the newest known position ({cfi, percent, updated}) or null. */
             load: function () {
-                var local = readLocal(key);
+                var local = readLocal(key) || pending;
                 if (!enabled) {
                     return Promise.resolve(local);
                 }
                 return fetchServer(url).then(function (server) {
                     if (server && (!local || server.updated >= local.updated)) {
+                        if (pending) {
+                            pending = null;
+                        }
+                        writeLocal(key, {cfi: server.cfi, percent: server.percent,
+                                         updated: server.updated,
+                                         format: server.format, pending: false});
                         return server;
+                    }
+                    if (local && local.pending) {
+                        schedule(POST_DELAY);
                     }
                     return local;
                 });
             },
             /** Records a position now and posts it to the server after a short pause. */
             save: function (cfi, percent) {
-                var pos = {cfi: cfi || "", percent: clampPercent(percent), updated: Date.now()};
+                var pos = {cfi: cfi || "", percent: clampPercent(percent),
+                           updated: Date.now(), pending: enabled};
                 writeLocal(key, pos);
-                pending = pos;
-                if (enabled && !timer) {
-                    timer = setTimeout(function () { post(false); }, POST_DELAY);
+                if (enabled) {
+                    pending = pos;
+                    status("pending");
+                    if (!inflight) {
+                        schedule(POST_DELAY);
+                    }
                 }
             },
             flush: flush,
-            readLocal: function () { return readLocal(key); }
+            readLocal: function () { return readLocal(key) || pending; }
         };
     }
 

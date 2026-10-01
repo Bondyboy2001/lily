@@ -218,6 +218,8 @@ RUN \
   echo "$CALIBRE_RELEASE" > /CALIBRE_RELEASE
 
 ENV CALIBRE_CONFIG_DIR=/config/.config/calibre
+ENV S6_LOGGING=1
+ENV S6_CATCHALL_USER=abc
 WORKDIR /config
 # The default port Lily listens on. Can be overridden with the CWA_PORT_OVERRIDE environment variable.
 EXPOSE 8083

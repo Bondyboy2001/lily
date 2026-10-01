@@ -9,7 +9,7 @@ var reader;
     EPUBJS.cssPath = calibre.cssPath;
 
     window.reader = reader = ePubReader(calibre.bookUrl, {
-        restore: true,
+        restore: false,
         bookmarks: calibre.bookmark ? [calibre.bookmark] : []
     });
 

@@ -37,6 +37,7 @@ ICONS = {
     "download-alt": "download-simple",
     "duplicate": "copy",
     "edit": "pencil-simple-line",
+    "education": "book-open-text",
     "eye-close": "eye-slash",
     "eye-open": "eye",
     "file": "file",

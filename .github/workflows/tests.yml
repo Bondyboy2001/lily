@@ -43,7 +43,6 @@ jobs:
       - name: Run mypy
         run: |
           pipx run mypy
-          pipx run mypy cps/totp.py
 
   # ============================================================================
   # Dependency audit: known-vulnerable pins in requirements.lock.

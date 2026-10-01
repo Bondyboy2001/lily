@@ -90,7 +90,7 @@ body.login .lily-topbar ~ .row-fluid {
 
 .lily-desk-title {
     margin: 0 0 22px;
-    font-size: 22px;
+    font-size: var(--title-size);
 }
 
 .lily-login-form { margin: 0; }
@@ -134,7 +134,7 @@ body.login .lily-topbar ~ .row-fluid {
     gap: 8px;
     margin-top: 22px;
     padding-top: 22px;
-    border-top: 1px solid var(--line);
+    border-top: 0;
 }
 
 .lily-login-links {
@@ -156,7 +156,7 @@ body.login .lily-topbar ~ .row-fluid {
         min-height: 0;
         padding: 14px;
         border-right: 0;
-        border-bottom: 1px solid var(--line);
+        border-bottom: 0;
     }
 
     .lily-plate-frame {

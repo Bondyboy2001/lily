@@ -68,10 +68,16 @@ def test_progress_sync_contract():
     assert "visibilitychange" in js and "pagehide" in js
     epub = read(JS / "reading/epub-progress.js")
     assert "LilyProgress.create" in epub
+    # The legacy unscoped per-book key must never be read: it shared positions
+    # between user accounts and libraries on the same browser.
+    assert 'localStorage.getItem("calibre.reader.progress' not in epub
+    assert "getItem('calibre.reader.progress" not in epub
+    # Vendor restore:false stays — progressSync alone picks the position.
+    assert "restore: false" in read(JS / "reading/epub.js")
     assert '"page:"' in read(TEMPLATES / "readpdf.html")
     assert '"time:"' in read(JS / "reading/audio-player.js")
     for name in ("read.html", "readpdf.html", "listenmp3.html"):
-        assert "ajax/progress/" in read(TEMPLATES / name), name
+        assert "{{ progress_url }}" in read(TEMPLATES / name), name
 
 
 def test_audio_player_has_speed_control_and_no_soundmanager():
@@ -114,9 +120,10 @@ def _register_remaining_blueprints(app):
     from cps.search_metadata import meta
     from cps.tasks_status import tasks
     from cps.duplicates import duplicates
+    from cps.logs import logs
     from cps.gdrive import gdrive
     for bp in (library_refresh, cwa_stats, cwa_check_status, cwa_settings, cwa_internal,
-               editbook, about, meta, tasks, duplicates, gdrive):
+               editbook, about, meta, tasks, duplicates, logs, gdrive):
         if bp.name not in app.blueprints:
             app.register_blueprint(bp)
 
@@ -149,7 +156,7 @@ def test_reader_pages_render(client, fmt, marker):
     if fmt != "pdf":
         assert f'href="/book/{book_id}"' in html
     if fmt in ("epub", "mp3", "pdf"):
-        assert f"/ajax/progress/{book_id}" in html
+        assert f"/ajax/progress/{book_id}?format={fmt}" in html
 
 
 @pytest.mark.unit
@@ -200,3 +207,24 @@ def test_advanced_search_renders(client):
     assert 'class="lp-row' in html
     assert 'name="include_tag"' in html and 'name="exclude_tag"' in html
     assert '<option class="tags_click" value="1">Fiction</option>' in html
+
+
+@pytest.mark.unit
+def test_reading_and_finished_lists_show_in_the_sidebar_and_filter_by_status(client):
+    env, c, _ = client
+    ub = env.ub
+    admin = env.admin()
+    admin.sidebar_view = 0  # every optional section off: these two still show
+    reading = env.add_book("Halfway Book")
+    finished = env.add_book("Done Book")
+    env.add_book("Untouched Book")
+    ub.session.add(ub.ReadBook(user_id=admin.id, book_id=reading, read_status=ub.ReadBook.STATUS_IN_PROGRESS))
+    ub.session.add(ub.ReadBook(user_id=admin.id, book_id=finished, read_status=ub.ReadBook.STATUS_FINISHED))
+    ub.session.commit()
+
+    html = c.get("/inprogress/stored/").get_data(as_text=True)
+    assert 'id="nav_inprogress"' in html and 'id="nav_read"' in html
+    assert "Halfway Book" in html and "Done Book" not in html and "Untouched Book" not in html
+
+    html = c.get("/read/stored/").get_data(as_text=True)
+    assert "Done Book" in html and "Halfway Book" not in html and "Untouched Book" not in html

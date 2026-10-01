@@ -11,18 +11,16 @@ from flask_babel import gettext as _
 from datetime import datetime
 from functools import wraps
 import os
-from shutil import copyfile
 
-from . import db, calibre_db, logger, ub, csrf, config, helper
+from . import calibre_db, logger, ub, csrf, config
 from .services.worker import WorkerThread, STAT_FINISH_SUCCESS, STAT_FAIL, STAT_ENDED, STAT_CANCELLED
 from .admin import admin_required
 from .usermanagement import login_required_if_no_ano
 from .internal_api import internal_only
 from .render_template import render_title_template
 from .cw_login import current_user
-from .duplicate_detection import (  # noqa: F401  (re-exported: other modules and tests import these from here)
-    filter_dismissed_groups, find_duplicate_books, find_duplicate_books_python, find_duplicate_books_sql,
-    find_duplicate_candidate_ids_sql, get_common_filters, get_unresolved_duplicate_count)
+from .duplicate_detection import (
+    filter_dismissed_groups, find_duplicate_books, get_unresolved_duplicate_count)
 from .duplicate_rules import (  # noqa: F401  (re-exported: other modules and tests import these from here)
     _AWARE_MAX, _AWARE_MIN, _normalize_timestamp, _timestamp_or_default,
     generate_group_hash, normalize_title_for_duplicates, select_book_to_keep, validate_resolution_strategy)
@@ -88,6 +86,7 @@ def show_duplicates():
         settings = cwa_db.cwa_settings
         duplicate_groups = []
         duplicate_index_needs_full_scan = True
+        duplicate_scan_auto_queued = False
 
         try:
             from cps.duplicate_index import (
@@ -102,7 +101,9 @@ def show_duplicates():
                 and not _duplicate_scan_transiently_pending()
             )
             if duplicate_index_needs_full_scan:
-                log.info("[cwa-duplicates] Duplicate index baseline missing; prompting for manual full scan")
+                # The page has no manual trigger: queue the baseline scan so the
+                # first visit after an upgrade builds the index by itself.
+                duplicate_scan_auto_queued = _queue_duplicate_index_baseline()
             else:
                 duplicate_groups = get_duplicate_groups_from_index(
                     settings,
@@ -112,17 +113,14 @@ def show_duplicates():
         except Exception as index_ex:
             log.warning("[cwa-duplicates] Could not load duplicate index state: %s", str(index_ex))
 
-        # Compute next scheduled scan run
-        next_scan_run = get_next_duplicate_scan_run(settings)
-
         print(f"[cwa-duplicates] Found {len(duplicate_groups)} duplicate groups total", flush=True)
         log.info("[cwa-duplicates] Found %s duplicate groups total", len(duplicate_groups))
 
         return render_title_template('duplicates.html',
                                      duplicate_groups=duplicate_groups,
                                      duplicate_index_needs_full_scan=duplicate_index_needs_full_scan,
-                                     next_scan_run=next_scan_run,
-                                     title=_("Duplicate Books"),
+                                     duplicate_scan_auto_queued=duplicate_scan_auto_queued,
+                                     title=_("Duplicates"),
                                      page="duplicates")
 
     except Exception as e:
@@ -132,30 +130,51 @@ def show_duplicates():
         return render_title_template('duplicates.html',
                                      duplicate_groups=[],
                                      duplicate_index_needs_full_scan=False,
-                                     next_scan_run=None,
-                                     title=_("Duplicate Books"),
+                                     duplicate_scan_auto_queued=False,
+                                     title=_("Duplicates"),
                                      page="duplicates")
 
 
-def get_next_duplicate_scan_run(settings):
-    """Compute next scheduled duplicate scan run time based on settings."""
+def _queue_full_duplicate_scan():
+    """Queue a full duplicate scan on the worker. Returns the task.
+
+    Raises if the worker queue is unavailable, so callers can decide between
+    falling back to a synchronous scan and reporting the failure.
+    """
+    from cps.tasks.duplicate_scan import TaskDuplicateScan
+    task = TaskDuplicateScan(
+        full_scan=True,
+        trigger_type='manual',
+        user_id=current_user.id if current_user else None,
+    )
+    WorkerThread.add(current_user.name, task, hidden=False)
+    return task
+
+
+def _queue_duplicate_index_baseline():
+    """Queue the one-time full scan that builds the duplicate index baseline.
+
+    Called when the Duplicates page finds no usable index. Idempotent in effect:
+    a scan that is already queued or running makes ``show_duplicates`` treat the
+    baseline as "not missing", so this only fires when nothing else is pending.
+    """
     try:
-        enabled = bool(settings.get('duplicate_scan_enabled', 0))
-        cron_expr = (settings.get('duplicate_scan_cron') or '').strip()
+        from cps.duplicate_index import ingest_batch_follow_up_pending
+        if ingest_batch_follow_up_pending():
+            log.info("[cwa-duplicates] Baseline scan deferred: ingest is active")
+            return False
+    except Exception as ex:
+        log.debug("[cwa-duplicates] Could not check ingest state before baseline scan: %s", str(ex))
 
-        if not enabled:
-            return None
+    try:
+        task = _queue_full_duplicate_scan()
+    except Exception as ex:
+        log.error("[cwa-duplicates] Failed to queue baseline duplicate scan: %s", str(ex))
+        return False
 
-        if not cron_expr:
-            return None
-
-        from apscheduler.triggers.cron import CronTrigger
-        now = datetime.now().astimezone()
-        trigger = CronTrigger.from_crontab(cron_expr, timezone=now.tzinfo)
-        next_run = trigger.get_next_fire_time(None, now)
-        return next_run.isoformat() if next_run else None
-    except Exception:
-        return None
+    log.info("[cwa-duplicates] Baseline duplicate scan queued automatically (task_id=%s)", task.id)
+    print(f"[cwa-duplicates] Baseline duplicate scan queued automatically, task_id={task.id}", flush=True)
+    return True
 
 
 @duplicates.route("/duplicates/status")
@@ -264,7 +283,7 @@ def get_duplicate_status():
         # Cache is missing - DO NOT trigger scan here!
         # This endpoint is called on every page load via duplicate-notifier.js
         # Scans should ONLY be triggered by:
-        # 1. Manual "Trigger Scan" button on /duplicates page (via /duplicates/trigger-scan)
+        # 1. The automatic baseline queue on /duplicates (or /duplicates/trigger-scan)
         # 2. After ingest operations (via cache invalidation + manual trigger)
         # 3. Scheduled background scans (Phase 2 - not yet implemented)
         log.debug("[cwa-duplicates] Cache invalid/pending in status check, returning empty (no auto-scan)")
@@ -454,9 +473,7 @@ def trigger_scan():
 
         # Queue background task
         try:
-            from cps.tasks.duplicate_scan import TaskDuplicateScan
-            task = TaskDuplicateScan(full_scan=True, trigger_type='manual', user_id=current_user.id)
-            WorkerThread.add(current_user.name, task, hidden=False)
+            task = _queue_full_duplicate_scan()
 
             log.info("[cwa-duplicates] Manual scan queued by user %s (task_id=%s)",
                     current_user.name, task.id)
@@ -828,6 +845,7 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
 
                 # Actual resolution mode
                 # Re-fetch books in the active session to avoid detached object issues
+                merge_recovery_ids = {}
                 book_to_keep_id = book_to_keep.id
                 books_to_delete_ids = [b.id for b in books_to_delete]
                 book_to_keep_ref = calibre_db.get_book(book_to_keep_id)
@@ -846,7 +864,7 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
 
                 if strategy == 'merge':
                     try:
-                        merge_duplicate_group(book_to_keep, books_to_delete)
+                        merge_recovery_ids = merge_duplicate_group(book_to_keep, books_to_delete)
                     except Exception as e:
                         log.error("[cwa-duplicates] Error merging books for group '%s': %s", group.get('title', 'unknown'), e)
                         result['errors'].append(f"Group '{group.get('title', 'unknown')}': merge failed: {str(e)}")
@@ -867,18 +885,10 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
 
                         print(f"[cwa-duplicates-auto] Deleting book {book.id} from library...", flush=True)
                         # Delete from Calibre library (bypass user permission check for automatic resolution)
-                        from cps import helper
-                        delete_result, delete_error = helper.delete_book(book, config.get_book_path(), book_format="")
+                        from cps.editbooks import delete_book_automatic
+                        # Clean up database references; recovery archive was captured at merge time
+                        delete_book_automatic(book, recovery_id=merge_recovery_ids.get(book.id))
 
-                        if not delete_result:
-                            raise Exception(f"Delete failed: {delete_error}")
-
-                        print(f"[cwa-duplicates-auto] Cleaning up database for book {book.id}...", flush=True)
-                        # Clean up database references
-                        from cps.editbooks import delete_whole_book
-                        delete_whole_book(book.id, book)
-
-                        calibre_db.session.commit()
                         deleted_ids.append(book.id)
                         log.info("[cwa-duplicates] Deleted duplicate book %s: %s", book.id, book.title)
 
@@ -970,36 +980,19 @@ def auto_resolve_duplicates(strategy='newest', dry_run=False, user_id=None, trig
 
 
 def merge_duplicate_group(book_to_keep, books_to_merge):
-    """Merge formats from duplicate books into the target book."""
+    """Merge formats from duplicate books into the target book via the shared
+    recovery-aware merge (preflight hash check, capture, staged copies).
+    Returns {source_book_id: recovery_id} for the captures already taken."""
     if not book_to_keep or not books_to_merge:
-        return
+        return {}
 
     to_book = calibre_db.get_book(book_to_keep.id)
     if not to_book:
         raise ValueError("Target book not found for merge")
 
-    existing_formats = [file.format for file in to_book.data] if to_book.data else []
-    author_name = "unknown"
-    if to_book.authors:
-        author_name = to_book.authors[0].name
-    to_name = helper.get_valid_filename(to_book.title, chars=96) + ' - ' + helper.get_valid_filename(author_name, chars=96)
-
-    for source in books_to_merge:
-        from_book = calibre_db.get_book(source.id)
-        if not from_book:
-            continue
-        for element in from_book.data:
-            if element.format not in existing_formats:
-                filepath_new = os.path.normpath(os.path.join(config.get_book_path(),
-                                                             to_book.path,
-                                                             to_name + "." + element.format.lower()))
-                filepath_old = os.path.normpath(os.path.join(config.get_book_path(),
-                                                             from_book.path,
-                                                             element.name + "." + element.format.lower()))
-                copyfile(filepath_old, filepath_new)
-                to_book.data.append(db.Data(to_book.id,
-                                            element.format,
-                                            element.uncompressed_size,
-                                            to_name))
-                existing_formats.append(element.format)
-    calibre_db.session.commit()
+    from_books = [b for b in (calibre_db.get_book(s.id) for s in books_to_merge) if b]
+    if not from_books:
+        return {}
+    from .editbooks import merge_books
+    _results, recovery_ids = merge_books(to_book, from_books, delete_sources=False)
+    return recovery_ids

@@ -12,7 +12,6 @@
 /* Page frame                                                           */
 /* ------------------------------------------------------------------ */
 .lily-admin {
-    max-width: 880px;
     padding-bottom: 24px;
     font-size: 15px;
     color: var(--ink);
@@ -20,34 +19,22 @@
 
 .lily-admin.lily-admin-wide { max-width: none; }
 
-/* Legacy headings inside admin pages: guide sizes, no decoration. */
+/* Headings inside admin pages are section headings: the page title is in the top bar. */
 .lily-admin h2,
+.lily-admin h3,
 .lily-admin-heading {
     margin: 0 0 14px;
     font-family: var(--font-body);
-    font-size: 19px;
+    font-size: var(--heading-size);
     font-weight: 600;
-    line-height: 1.3;
-    color: var(--heading);
-}
-
-.lily-admin h3 {
-    margin: 0 0 14px;
-    font-family: var(--font-body);
-    font-size: 19px;
+    line-height: 1.4;
     color: var(--heading);
 }
 
 .lily-admin h4,
-.lily-admin h5 {
-    margin: 0 0 8px;
-    font-family: var(--font-ui);
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--ink);
-}
+.lily-admin h5 { margin: 0 0 8px; }
 
-/* Section label (§3): 10 semibold uppercase, faint. */
+/* Section label: the same section heading. */
 .lily-admin .settings-section-header,
 .lily-admin .lily-section-label,
 .lily-admin h4.settings-section-header,
@@ -55,13 +42,13 @@
     display: block;
     margin: 0 0 14px;
     padding: 0;
-    font-family: var(--font-ui);
-    font-size: 11px;
+    font-family: var(--font-body);
+    font-size: var(--heading-size);
     font-weight: 600;
     line-height: 1.4;
-    letter-spacing: .8px;
-    text-transform: uppercase;
-    color: var(--faint);
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--heading);
 }
 
 /* A section label used as a field's label keeps the field's own look. */
@@ -100,7 +87,7 @@
 .lily-admin .settings-divider {
     margin: 22px 0;
     border: 0;
-    border-top: 1px solid var(--line-soft);
+    border-top: 0;
 }
 
 /* ------------------------------------------------------------------ */
@@ -303,14 +290,9 @@
 /* Primary last, on the right; a lone Cancel or Back sits to its left. */
 .lily-admin .lily-form-actions .lily-spacer { margin-right: auto; }
 
-/* ------------------------------------------------------------------ */
-/* Admin dashboard (admin.html)                                         */
-/* ------------------------------------------------------------------ */
-.lily-admin-dashboard { max-width: 1080px; }
-
 .lily-admin-section {
     padding: 22px 0;
-    border-top: 1px solid var(--line-soft);
+    border-top: 0;
 }
 
 .lily-admin-section:first-child {
@@ -318,58 +300,10 @@
     border-top: 0;
 }
 
-/* Label / value facts with tabular figures. */
-.lily-facts {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    column-gap: 24px;
-    margin: 0;
-}
-
-.lily-fact {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 14px;
-    min-width: 0;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--line-soft);
-}
-
-.lily-fact dt {
-    flex: none;
-    font-weight: 400;
-    color: var(--muted);
-}
-
-.lily-fact dd {
-    min-width: 0;
-    margin: 0;
-    overflow-wrap: anywhere;
-    text-align: right;
-    color: var(--ink);
-    font-variant-numeric: tabular-nums;
-}
-
-.lily-bool { top: 1px; font-size: 12px; }
-.lily-bool.is-on { color: var(--success); }
-.lily-bool.is-off { color: var(--faint); }
-
 .lily-mono {
     font-family: var(--font-mono);
     font-size: 14px;
 }
-
-.lily-fact-note {
-    color: var(--muted);
-    font-style: normal;
-}
-
-.lily-admin-table { margin: 0; border: 0; }
-.lily-admin-table .table { margin-bottom: 0; }
-.lily-admin-table .table > thead > tr > th { vertical-align: bottom; }
-.lily-admin-table .table > thead > tr > th,
-.lily-admin-table .table > tbody > tr > td { padding: 8px 10px 8px 0; vertical-align: middle; }
 
 /* ------------------------------------------------------------------ */
 /* Small helpers shared by admin templates                              */
@@ -381,7 +315,7 @@
 .lily-admin .lily-divided {
     margin-top: 14px;
     padding-top: 14px;
-    border-top: 1px solid var(--line-soft);
+    border-top: 0;
 }
 
 .lily-admin .lily-owner { color: var(--muted); }
@@ -403,7 +337,7 @@
 
 .lily-profile .profile-title-section h2 {
     margin: 0;
-    font-size: 25px;
+    font-size: var(--title-size);
     color: var(--heading);
 }
 
@@ -434,7 +368,7 @@
     transition: background-color .12s ease-out;
 }
 
-:is(.lily-admin, .lp) .opds-order-item + .opds-order-item { border-top: 1px solid var(--line-soft); }
+:is(.lily-admin, .lp) .opds-order-item + .opds-order-item { border-top: 0; }
 :is(.lily-admin, .lp) .opds-order-item:hover { background: var(--hover); }
 :is(.lily-admin, .lp) .opds-order-item.dragging { background: var(--selected); opacity: .8; }
 
@@ -566,22 +500,6 @@
 
 .lily-admin .bootstrap-table .progress { min-width: 80px; }
 
-/* Transient notice (tasks page): a Notice pinned top right. */
-.lily-toast {
-    position: fixed;
-    top: 64px;
-    right: 24px;
-    z-index: 1060;
-    max-width: min(480px, calc(100vw - 32px));
-    padding-right: 44px;
-}
-
-.lily-toast .close {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-}
-
 .lily-admin .lily-status-line {
     margin-top: 8px;
     font-size: 12px;
@@ -612,12 +530,7 @@
     opacity: .6;
 }
 
-.lily-admin h2.lily-empty-title {
-    margin: 0 0 8px;
-    font-family: var(--font-body);
-    font-size: 19px;
-    color: var(--muted);
-}
+.lily-admin h2.lily-empty-title { margin: 0 0 8px; }
 
 .lily-admin .lily-empty .lily-actions { justify-content: center; }
 
@@ -638,7 +551,7 @@
 .lily-review-book {
     margin: 0 0 14px;
     padding: 0 0 14px;
-    border-bottom: 1px solid var(--line-soft);
+    border-bottom: 0;
 }
 
 .lily-review-book h3 { margin: 0 0 4px; font-size: 19px; }
@@ -766,8 +679,6 @@
 @media (max-width: 767px) {
     .lily-admin .settings-container { padding: 14px; }
 
-    .lily-facts { grid-template-columns: minmax(0, 1fr); }
-
     .lily-admin .cwa-settings-tooltip,
     .lily-admin .cwa-settings-explanation,
     .lily-admin .settings-explanation { margin-left: 0; }
@@ -785,7 +696,7 @@
 /* ================================================================== */
 .lp-settings {
     display: grid;
-    grid-template-columns: 180px minmax(0, 680px);
+    grid-template-columns: 180px minmax(0, 1fr);
     column-gap: 40px;
     align-items: start;
 }
@@ -814,7 +725,22 @@
 
 .lp-rail-list > li { margin: 0; }
 
-.lp-rail-list > .lp-rail-sep { margin: 10px 10px; border-top: 1px solid var(--line-soft); }
+.lp-rail-list > .lp-rail-sep { margin: 10px 10px; border-top: 0; }
+
+.lp-rail-list > .lp-rail-signout-row { margin-top: 12px; padding-left: 10px; }
+
+.lp-rail-signout { white-space: nowrap; }
+
+/* Sign out is the one red button in the rail. --on-accent is white on the light theme's dark red
+   and near-black on the dark theme's pink-red, so the label keeps its contrast in both. */
+.lp-rail-signout.btn,
+.lp-rail-signout.btn:focus,
+.lp-rail-signout.btn:active {
+    background: var(--danger);
+    color: var(--on-accent);
+}
+
+.lp-rail-signout.btn:hover { background: var(--danger); color: var(--on-accent); filter: brightness(1.08); }
 
 .lp-rail-list > .lp-rail-head { margin: 0; padding: 14px 10px 4px; }
 .lp-rail-list > .lp-rail-head:first-child { padding-top: 0; }
@@ -845,15 +771,13 @@
 /* ---- Pane ---- */
 .lp-pane { min-width: 0; }
 .lp-pane.is-wide { grid-column: 2 / -1; }
-.lp-settings:has(> .lp-pane.is-wide) { grid-template-columns: 180px minmax(0, 1fr); }
 
 .lp-heading {
     margin: 0 0 14px;
     padding-top: 8px;
-    font-family: var(--font-ui);
-    font-size: 24px;
+    font-family: var(--font-body);
+    font-size: var(--title-size);
     font-weight: 600;
-    letter-spacing: -.02em;
     color: var(--heading);
 }
 
@@ -908,7 +832,7 @@
     gap: 4px 24px;
     min-height: 52px;
     padding: 11px 0;
-    border-top: 1px solid var(--line-soft);
+    border-top: 0;
 }
 
 .lp-list > .lp-row:first-child,
@@ -916,7 +840,7 @@
 .lp-sub > .lp-row:first-child { border-top: 0; }
 
 .lp-list > [data-related] > .lp-row:first-child,
-.lp-sub { border-top: 1px solid var(--line-soft); }
+.lp-sub { border-top: 0; }
 
 .lp-list > [data-related]:first-child > .lp-row:first-child,
 .lp-list > .lp-sub:first-child { border-top: 0; }
@@ -1074,7 +998,7 @@ input[type="checkbox"].lp-switch:focus-visible {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 2px 22px;
     padding: 11px 0;
-    border-top: 1px solid var(--line-soft);
+    border-top: 0;
 }
 
 .lp-list > .lp-checks:first-child { border-top: 0; }
@@ -1121,7 +1045,7 @@ input[type="checkbox"].lp-switch:focus-visible {
 
 .lp-more[open] > summary::after { transform: rotate(45deg); }
 .lp-more > summary:hover { color: var(--ink); }
-.lp-more-body { border-top: 1px solid var(--line-soft); }
+.lp-more-body { border-top: 0; }
 .lp-more-body > .lp-row:first-child { border-top: 0; }
 .lp-order { padding: 11px 0 8px; }
 .lp-order > .lp-help { margin: 0 4px 8px; }
@@ -1185,6 +1109,7 @@ input[type="checkbox"].lp-switch:focus-visible {
     }
     .lp-rail-list::-webkit-scrollbar { display: none; }
     .lp-rail-head { display: none; }
+    .lp-rail-list > .lp-rail-signout-row { margin-top: 0; padding-left: 0; }
     .lp-rail-item {
         height: 30px;
         padding: 0 14px;
@@ -1208,3 +1133,44 @@ input[type="checkbox"].lp-switch:focus-visible {
     .lp-sub > .lp-row { padding-left: 14px; }
 }
 .lp-group-head.is-echo { display: none; }
+
+.lily-logs .logs-intro { max-width: 62ch; margin: 0 0 16px; color: var(--muted); }
+
+.lily-logs .logs-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.lily-logs .logs-field { display: flex; flex-direction: column; gap: 4px; min-width: 180px; }
+.lily-logs .logs-field label { margin: 0; }
+/* The checks sit in a row as tall as the fields and the Refresh button (30px), so they centre on them. */
+.lily-logs .logs-checks { flex-direction: row; gap: 14px; align-items: center; height: 30px; min-width: 0; }
+.lily-logs .logs-check { display: inline-flex; gap: 6px; align-items: center; margin: 0; line-height: 1; font-weight: 400; }
+.lily-logs .logs-check input[type="checkbox"] { margin: 0; width: auto; height: auto; }
+
+.lily-logs .logs-status { min-height: 18px; margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+.lily-logs .logs-status.is-error { color: var(--danger); }
+
+.lily-logs .logs-output {
+    margin: 0;
+    padding: 12px 14px;
+    max-height: 65vh;
+    overflow: auto;
+    border: 1px solid var(--line);
+    border-radius: var(--control-radius);
+    background: var(--sunk);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+@media (max-width: 640px) {
+    .lily-logs .logs-controls { align-items: stretch; flex-direction: column; }
+    .lily-logs .logs-field { min-width: 0; }
+}
