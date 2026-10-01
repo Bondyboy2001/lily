@@ -1,52 +1,65 @@
-/* Lily – Modern Duplicates Notification System
- * Copyright (C) 2024-2025 Calibre-Web Automated contributors
+/* Lily – duplicate books notice
+ * Copyright (C) 2024-2026 Calibre-Web Automated contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * The sidebar badge is the everyday signal. layout.html embeds the current status
+ * (render_template.py), so a page load costs no request. /duplicates/status is polled only
+ * while a scan is pending, and stops as soon as it is done. The dialog opens only when the
+ * number of duplicate groups has grown since this browser last acknowledged it (a new scan
+ * found new groups), never on first sight and never during a snooze. "Remind me later"
+ * snoozes it for 7 days; closing it acknowledges the current count.
  */
 
 (function() {
     'use strict';
-    
-    const STORAGE_KEY = 'cwa_duplicates_notification_shown';
-    const LAST_COUNT_KEY = 'cwa_duplicates_last_count';
-    const POLL_INTERVAL_MS = 2500;
-    const POLL_MAX_ATTEMPTS = 60; // ~2.5 minutes
-    
+
+    const SEEN_KEY = 'lily-duplicates-seen-count';
+    const SNOOZE_KEY = 'lily-duplicates-snooze-until';
+    const SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
+    // While a scan is pending: after 5 s, then backing off to once a minute, for at most 12
+    // checks per page (~8 minutes); the next page load picks it up from there.
+    const POLL_FIRST_MS = 5000;
+    const POLL_MAX_MS = 60000;
+    const POLL_MAX_ATTEMPTS = 12;
+
     let currentDuplicateCount = 0;
+    let lastStatus = null;
     let pollAttempts = 0;
     let pollTimer = null;
-    let lastPreviewSignature = '';
-    
-    /**
-     * Check if notification was already shown in this session
-     */
-    function wasNotificationShown() {
-        return sessionStorage.getItem(STORAGE_KEY) === 'true';
-    }
-    
-    /**
-     * Mark notification as shown for this session
-     */
-    function markNotificationShown() {
-        sessionStorage.setItem(STORAGE_KEY, 'true');
+    let pollInFlight = false;
+
+    // localStorage can be missing or throw (private mode, blocked site data); the notice then
+    // simply stays a badge.
+    function readNumber(key) {
+        try {
+            const parsed = parseInt(localStorage.getItem(key), 10);
+            return Number.isFinite(parsed) ? parsed : null;
+        } catch (e) {
+            return null;
+        }
     }
 
-    function getLastNotifiedCount() {
-        const val = sessionStorage.getItem(LAST_COUNT_KEY);
-        const parsed = parseInt(val, 10);
-        return Number.isFinite(parsed) ? parsed : 0;
+    function writeNumber(key, value) {
+        try {
+            localStorage.setItem(key, String(value));
+        } catch (e) { /* storage unavailable */ }
     }
 
-    function setLastNotifiedCount(count) {
-        sessionStorage.setItem(LAST_COUNT_KEY, String(count || 0));
+    function isSnoozed() {
+        const until = readNumber(SNOOZE_KEY);
+        return until !== null && Date.now() < until;
     }
-    
+
+    function acknowledge(count) {
+        writeNumber(SEEN_KEY, count || 0);
+    }
+
     /**
-     * Update the duplicate count badge in sidebar
+     * Update the duplicate count badge in the sidebar
      */
     function updateBadge(count) {
         currentDuplicateCount = count;
         const badge = document.getElementById('duplicate-count-badge');
-        
         if (badge) {
             if (count > 0) {
                 badge.textContent = count > 99 ? '99+' : count;
@@ -56,49 +69,57 @@
             }
         }
     }
-    
-    /**
-     * Fetch duplicate status from API
-     */
+
     function fetchDuplicateStatus() {
         const basePath = (typeof getPath === 'function') ? getPath() : '';
-        const statusUrl = basePath + '/duplicates/status';
-        return fetch(statusUrl, {
+        return fetch(basePath + '/duplicates/status', {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Accept': 'application/json' },
             credentials: 'same-origin'
         })
         .then(response => response.json())
         .catch(error => {
-            console.error('[CWA Duplicates] Error fetching status:', error);
+            console.error('[Lily duplicates] Could not fetch status:', error);
             return { success: false, count: 0, preview: [], enabled: false };
         });
     }
 
-    function startStatusPolling() {
-        if (pollTimer) {
+    function scanPending(data) {
+        return !!(data.stale || data.needs_scan) && !data.needs_full_scan;
+    }
+
+    function scheduleNextPoll() {
+        if (pollTimer || pollInFlight || pollAttempts >= POLL_MAX_ATTEMPTS) {
             return;
         }
-        if (isModalActive()) {
-            return;
-        }
-        pollAttempts = 0;
-        pollTimer = setInterval(() => {
-            pollAttempts += 1;
-            fetchDuplicateStatus().then(handleStatusResponse);
-            if (pollAttempts >= POLL_MAX_ATTEMPTS) {
-                stopStatusPolling();
+        const wait = Math.min(POLL_FIRST_MS * Math.pow(2, pollAttempts), POLL_MAX_MS);
+        pollTimer = setTimeout(() => {
+            pollTimer = null;
+            if (document.hidden) {
+                scheduleNextPoll();  // check again later rather than spend a request on a hidden tab
+                return;
             }
-        }, POLL_INTERVAL_MS);
+            pollAttempts += 1;
+            pollInFlight = true;
+            fetchDuplicateStatus()
+                .then(data => {
+                    pollInFlight = false;
+                    handleStatusResponse(data);
+                })
+                .catch(() => { pollInFlight = false; });
+        }, wait);
+    }
+
+    function startStatusPolling() {
+        scheduleNextPoll();
     }
 
     function stopStatusPolling() {
         if (pollTimer) {
-            clearInterval(pollTimer);
+            clearTimeout(pollTimer);
             pollTimer = null;
         }
+        pollAttempts = POLL_MAX_ATTEMPTS;
     }
 
     function isModalActive() {
@@ -109,60 +130,50 @@
     function isDuplicatesPage() {
         return window.location.pathname.replace(/\/+$/, '').endsWith('/duplicates');
     }
-    
-    /**
-     * Show the notification modal
-     */
-    function showNotificationModal(data) {
-        const { count, preview } = data;
 
-        if (isModalActive()) {
+    /**
+     * Open the dialog when there are more groups than this browser has acknowledged.
+     */
+    function maybeShowModal(data) {
+        const count = Number(data.count || 0);
+        const seen = readNumber(SEEN_KEY);
+        if (seen === null || isDuplicatesPage() || count < seen) {
+            // First sight, on the duplicates page itself, or groups were resolved: just remember.
+            acknowledge(count);
             return;
         }
-        
-        const lastCount = getLastNotifiedCount();
-        if (wasNotificationShown() && count <= lastCount) {
+        if (!data.enabled || count === 0 || count === seen || isSnoozed() || isModalActive()) {
             return;
         }
-        
-        // Update count in modal
+        showNotificationModal(data);
+    }
+
+    function showNotificationModal(data) {
         const countBadge = document.getElementById('duplicate-notification-count');
         if (countBadge) {
-            countBadge.textContent = count;
+            countBadge.textContent = data.count;
         }
-        
-        // Update preview list
         const previewList = document.getElementById('duplicate-notification-preview');
-        if (previewList && preview && preview.length > 0) {
-            const signature = preview.map(item => `${item.title}|${item.author}|${item.count}`).join('||');
-            if (signature !== lastPreviewSignature) {
-                lastPreviewSignature = signature;
-                previewList.innerHTML = preview.map(item => `
-                    <li class="duplicate-preview-item">
-                        <strong>${escapeHtml(item.title)}</strong>
-                        <small>${escapeHtml(item.author)} - ${item.count} copies</small>
-                    </li>
-                `).join('');
-            }
+        if (previewList) {
+            previewList.textContent = '';
+            (data.preview || []).forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'duplicate-preview-item';
+                const title = document.createElement('strong');
+                title.textContent = item.title;
+                const detail = document.createElement('small');
+                detail.textContent = item.author + ' - ' + item.count + ' copies';
+                li.appendChild(title);
+                li.appendChild(detail);
+                previewList.appendChild(li);
+            });
         }
-        
-        // Show modal and backdrop
         const modal = document.getElementById('duplicate-notification-modal');
         const backdrop = document.getElementById('duplicate-notification-backdrop');
-        
         if (modal && backdrop) {
-            // Small delay for smooth animation
-            setTimeout(() => {
-                backdrop.classList.add('active');
-                modal.classList.add('active');
-
-                // Focus trap
-                modal.focus();
-
-                // Mark as shown and store count
-                markNotificationShown();
-                setLastNotifiedCount(count);
-            }, 500);
+            backdrop.classList.add('active');
+            modal.classList.add('active');
+            modal.focus();
         }
     }
 
@@ -170,102 +181,73 @@
         if (!data || !data.success) {
             return;
         }
-
+        lastStatus = data;
         if (!window.CWADuplicateScanActive) {
-            updateBadge(data.count);
+            updateBadge(Number(data.count || 0));
         }
         document.dispatchEvent(new CustomEvent('cwa:duplicates-status', { detail: data }));
 
-        if (isModalActive()) {
-            return;
-        }
-
-        if (data.count > 0 && data.enabled && !isDuplicatesPage()) {
-            showNotificationModal(data);
-            if (isModalActive()) {
-                return;
-            }
-        }
-
-        if ((data.needs_scan || data.stale) && !isModalActive()) {
+        if (scanPending(data)) {
             startStatusPolling();
             return;
         }
-
-        if (data.enabled) {
-            startStatusPolling();
+        stopStatusPolling();
+        if (!data.needs_full_scan) {
+            maybeShowModal(data);
         }
     }
-    
-    /**
-     * Hide the notification modal
-     */
+
     function hideNotificationModal() {
         const modal = document.getElementById('duplicate-notification-modal');
         const backdrop = document.getElementById('duplicate-notification-backdrop');
-        
         if (modal && backdrop) {
             modal.classList.remove('active');
             backdrop.classList.remove('active');
         }
     }
-    
-    /**
-     * Escape HTML to prevent XSS
-     */
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+
+    // Closing acknowledges what is there now; "Remind me later" only snoozes.
+    function dismissModal() {
+        if (!isModalActive()) {
+            return;
+        }
+        acknowledge(lastStatus ? Number(lastStatus.count || 0) : currentDuplicateCount);
+        hideNotificationModal();
     }
-    
-    /**
-     * Initialize event listeners
-     */
+
+    function snoozeModal() {
+        writeNumber(SNOOZE_KEY, Date.now() + SNOOZE_MS);
+        hideNotificationModal();
+    }
+
     function initializeEventListeners() {
-        // Close button
         const closeBtn = document.getElementById('duplicate-notification-close');
         if (closeBtn) {
-            closeBtn.addEventListener('click', hideNotificationModal);
+            closeBtn.addEventListener('click', dismissModal);
         }
-        
-        // Remind me later button
         const remindBtn = document.getElementById('duplicate-notification-remind');
         if (remindBtn) {
-            remindBtn.addEventListener('click', hideNotificationModal);
+            remindBtn.addEventListener('click', snoozeModal);
         }
-        
-        // Click outside to close
         const backdrop = document.getElementById('duplicate-notification-backdrop');
         if (backdrop) {
-            backdrop.addEventListener('click', hideNotificationModal);
+            backdrop.addEventListener('click', dismissModal);
         }
-        
-        // Escape key to close
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
-                hideNotificationModal();
+                dismissModal();
             }
         });
     }
-    
-    /**
-     * Main initialization function
-     */
+
     function init() {
-        // Check if user has permission (admin or edit)
-        const userHasPermission = document.getElementById('duplicate-notification-modal');
-        if (!userHasPermission) {
-            return; // Modal not rendered, user doesn't have permission
+        // The dialog is only rendered for admins and editors.
+        if (!document.getElementById('duplicate-notification-modal')) {
+            return;
         }
-        
-        // Initialize event listeners
         initializeEventListeners();
-        
-        // Fetch initial status once on page load
-        // No periodic updates - badge refreshes after ingest operations only
         const bootstrapData = window.cwaDuplicateBootstrap;
-        if (bootstrapData && typeof bootstrapData === 'object') {
+        if (bootstrapData && typeof bootstrapData === 'object' && Object.keys(bootstrapData).length) {
             handleStatusResponse({
                 success: true,
                 enabled: !!bootstrapData.enabled,
@@ -276,29 +258,18 @@
                 needs_scan: !!bootstrapData.stale
             });
         }
-
-        fetchDuplicateStatus().then(handleStatusResponse);
-        startStatusPolling();
-
-        document.addEventListener('visibilitychange', function() {
-            if (!document.hidden) {
-                fetchDuplicateStatus().then(handleStatusResponse);
-            }
-        });
     }
-    
-    // Expose functions globally for use by other scripts
+
+    // Used by duplicates.js (badge while a scan runs) and anything that wants a fresh status.
     window.CWADuplicates = {
         updateBadge: updateBadge,
         fetchStatus: fetchDuplicateStatus,
         hideModal: hideNotificationModal
     };
-    
-    // Initialize when DOM is ready
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
-    
 })();
