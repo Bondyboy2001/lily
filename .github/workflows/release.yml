@@ -2,6 +2,8 @@ name: Release
 
 # Pushing a tag like v1.2.3 builds the image for amd64 and arm64 and publishes it to
 # GHCR as :1.2.3, :1.2 and :latest. Nothing runs until a tag is pushed.
+# If the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN repository secrets exist, the same tags
+# are also pushed to Docker Hub as <username>/lily.
 on:
   push:
     tags: ['v*']
@@ -15,6 +17,8 @@ jobs:
     name: Build and push image
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -32,11 +36,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log in to Docker Hub
+        if: env.HAS_DOCKERHUB == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Image metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: |
+            ghcr.io/${{ github.repository }}
+            ${{ secrets.DOCKERHUB_TOKEN != '' && format('docker.io/{0}/lily', secrets.DOCKERHUB_USERNAME) || '' }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
