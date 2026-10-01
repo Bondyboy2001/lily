@@ -12,7 +12,7 @@ CSS = REPO_ROOT / "cps/static/css"
 JS = REPO_ROOT / "cps/static/js"
 TEMPLATES = REPO_ROOT / "cps/templates"
 
-READERS = ["read.html", "readcbr.html", "readtxt.html", "readdjvu.html", "listenmp3.html"]
+READERS = ["read.html", "listenmp3.html"]
 
 
 def read(path):
@@ -42,16 +42,14 @@ def test_every_reader_loads_the_lily_reader_css():
 
 
 def test_readers_toolbar_controls_are_labelled_buttons():
-    for name, ids in (("read.html", ["slider", "bookmark", "setting", "fullscreen"]),
-                      ("readcbr.html", ["slider", "setting", "fullscreen"])):
-        html = read(TEMPLATES / name)
-        for control in ids:
-            match = re.search(r'<(\w+)[^>]*\bid="%s"[^>]*>' % control, html)
-            assert match, (name, control)
-            tag = match.group(0)
-            assert match.group(1) == "button" and 'type="button"' in tag, (name, tag)
-            assert "aria-label=" in tag, (name, tag)
-        assert "css/reader.css" not in html
+    html = read(TEMPLATES / "read.html")
+    for control in ["slider", "bookmark", "setting", "fullscreen"]:
+        match = re.search(r'<(\w+)[^>]*\bid="%s"[^>]*>' % control, html)
+        assert match, control
+        tag = match.group(0)
+        assert match.group(1) == "button" and 'type="button"' in tag, tag
+        assert "aria-label=" in tag, tag
+    assert "css/reader.css" not in html
 
 
 def test_epub_reader_fixes():
@@ -70,10 +68,9 @@ def test_progress_sync_contract():
     assert "visibilitychange" in js and "pagehide" in js
     epub = read(JS / "reading/epub-progress.js")
     assert "LilyProgress.create" in epub
-    for name, tag in (("readcbr.html", '"page:"'), ("readpdf.html", '"page:"')):
-        assert tag in read(TEMPLATES / name), name
+    assert '"page:"' in read(TEMPLATES / "readpdf.html")
     assert '"time:"' in read(JS / "reading/audio-player.js")
-    for name in ("read.html", "readcbr.html", "readpdf.html", "listenmp3.html"):
+    for name in ("read.html", "readpdf.html", "listenmp3.html"):
         assert "ajax/progress/" in read(TEMPLATES / name), name
 
 
@@ -139,9 +136,6 @@ def client(tmp_path):
 @pytest.mark.unit
 @pytest.mark.parametrize("fmt, marker", [
     ("epub", 'id="searchView"'),
-    ("cbz", 'class="lily-reader lily-comic"'),
-    ("txt", 'class="lily-reader lily-txt"'),
-    ("djvu", 'class="lily-reader lily-djvu"'),
     ("mp3", 'id="audio-speed"'),
     ("pdf", "js/reading/progress-sync.js"),
 ])
@@ -153,8 +147,16 @@ def test_reader_pages_render(client, fmt, marker):
     assert marker in html
     if fmt != "pdf":
         assert f'href="/book/{book_id}"' in html
-    if fmt in ("epub", "cbz", "mp3", "pdf"):
+    if fmt in ("epub", "mp3", "pdf"):
         assert f"/ajax/progress/{book_id}" in html
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("fmt", ["cbz", "txt", "djvu"])
+def test_unsupported_formats_have_no_reader(client, fmt):
+    env, c, book_id = client
+    resp = c.get(f"/read/{book_id}/{fmt}")
+    assert resp.status_code == 302
 
 
 @pytest.mark.unit

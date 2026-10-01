@@ -312,16 +312,32 @@
     letter-spacing: 1px;
 }
 
-/* Quick actions: bare icon buttons under the text, shown on hover or keyboard focus. */
+/* Quick actions: an icon bar over the cover's foot with no backing, shown on hover or keyboard focus. */
 .lily-cover-actions {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
     display: flex;
-    gap: 2px;
-    margin: 4px 0 0 -7px;
+    justify-content: space-around;
+    padding: 8px;
+    pointer-events: none;
 }
+
+.lily-cover-actions .icon-btn {
+    pointer-events: auto;
+    color: white;
+    /* No backing box, so a dark halo keeps the glyphs legible on pale covers. */
+    text-shadow: 0 0 3px black, 0 1px 6px color-mix(in srgb, black 70%, transparent);
+}
+
+.lily-cover-actions .icon-btn:hover,
+.lily-cover-actions .icon-btn:focus { background: transparent; color: white; opacity: .75; }
 
 .lily-cover-actions .icon-btn .glyphicon { font-size: 15px; }
 
-.lily-cover-actions .icon-btn[aria-pressed="true"] { color: var(--success); }
+.lily-cover-actions .icon-btn[aria-pressed="true"] { background: transparent; color: color-mix(in srgb, var(--success) 40%, white); }
 
 .lily-cover-actions .icon-btn.is-busy { opacity: .4; pointer-events: none; }
 
@@ -335,22 +351,12 @@
     .lily-book:focus-within .lily-cover-actions { opacity: 1; }
 }
 
-/* Touch screens have no hover, so the actions stay visible in a compact row that
-   wraps on narrow cards. Hit areas grow into the gap without overlapping. */
+/* Touch screens have no hover, so the bar stays visible with larger hit areas. */
 @media (hover: none) {
-    .lily-cover-actions {
-        flex-wrap: wrap;
-        gap: 6px;
-        margin: 6px 0 0 -5px;
-    }
-
     .lily-cover-actions .icon-btn {
-        width: 32px;
-        height: 32px;
-        color: var(--faint);
+        width: 36px;
+        height: 36px;
     }
-
-    .lily-cover-actions .icon-btn::after { inset: -3px; }
 }
 
 /* List view (the top bar's List icon sets body[data-book-view]): one row per
@@ -403,11 +409,41 @@ body[data-book-view="list"] .lily-book .meta .rating {
     margin: 0;
 }
 
-body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
-    grid-column: 3;
-    grid-row: 1 / span 3;
-    margin: 0;
+/* The 44px list cover is too small for the bar: the actions leave it and sit at the row's end.
+   The cover stops being the positioning box, so the badge and hairline are re-anchored. */
+body[data-book-view="list"] .lily-book { position: relative; }
+
+body[data-book-view="list"] .lily-book .cover { position: static; }
+
+body[data-book-view="list"] .lily-book .cover::after { display: none; }
+
+body[data-book-view="list"] .lily-book .cover .img {
+    border-radius: 4px;
+    outline: 1px solid var(--line-soft);
+    outline-offset: -1px;
 }
+
+body[data-book-view="list"] .lily-book .cover .badge { top: 13px; left: 13px; }
+
+body[data-book-view="list"] .lily-book .lily-cover-actions {
+    left: auto;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    padding: 0;
+    background: none;
+    gap: 2px;
+}
+
+body[data-book-view="list"] .lily-book .lily-cover-actions .icon-btn { color: var(--faint); text-shadow: none; opacity: 1; }
+
+body[data-book-view="list"] .lily-book .lily-cover-actions .icon-btn:hover,
+body[data-book-view="list"] .lily-book .lily-cover-actions .icon-btn:focus {
+    background: var(--control-tint);
+    color: var(--ink);
+}
+
+body[data-book-view="list"] .lily-book .lily-cover-actions .icon-btn[aria-pressed="true"] { color: var(--success); }
 
 /* Series grid (grid.html): Isotope lays the items out, so they need a fixed width. */
 .row.lily-series-grid { margin: 0; }

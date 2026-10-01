@@ -6,17 +6,13 @@ docker-compose.yml
 .github/workflows
 .gitattributes
 **/*.po~
-build.sh
 README.md
 LICENSE
 Dockerfile
 .dockerignore
-build.sh
 .history
 docker-compose.yml.dev
-changelogs
 cwa-wiki
-wiki_images
 .devcontainer
 
 # Test infrastructure (not needed in production image)
@@ -41,7 +37,6 @@ docker-compose.local.yml
 # Docs, scratch data and caches never needed at runtime
 docs/
 private/
-kubernetes/
 *.db
 **/__pycache__/
 *.pyc

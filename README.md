@@ -32,7 +32,7 @@ in-browser reading, 20+ languages, content hiding — plus:
 
 | | |
 |---|---|
-| **Automatic ingest** | Imports new books in the format they arrive in. 28 file types. |
+| **Automatic ingest** | Imports new EPUB and PDF books as they arrive. |
 | **Cover & metadata enforcement** | Edits made in the web UI are written back to the book files, not just the database. |
 | **Library auto-detect** | No library? Lily creates one. Have one? Lily finds it and registers it. |
 | **Duplicate detection** | Hybrid SQL + fuzzy matching, with one-click merge and scheduled scans. |
@@ -152,7 +152,6 @@ same port Calibre-Web used.
 ## Development
 
 ```bash
-$EDITOR build.sh && ./build.sh            # build a local image
 $EDITOR docker-compose.yml.dev            # set image tag + bind paths
 docker compose -f docker-compose.yml.dev up -d
 ```

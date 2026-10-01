@@ -335,6 +335,17 @@ class ConfigSQL(object):
                 log.error('Database error: %s', e)
                 self._session.rollback()
 
+        # Only readable books (and audiobooks) are supported; drop any other format saved by an older install
+        allowed = [x for x in (self.config_upload_formats or '').split(',') if x in constants.EXTENSIONS_UPLOAD]
+        if ','.join(allowed) != self.config_upload_formats:
+            self.config_upload_formats = s.config_upload_formats = ','.join(allowed)
+            try:
+                self._session.merge(s)
+                self._session.commit()
+            except OperationalError as e:
+                log.error('Database error: %s', e)
+                self._session.rollback()
+
         have_metadata_db = bool(self.config_calibre_dir)
         if have_metadata_db:
             db_file = os.path.join(self.config_calibre_dir, 'metadata.db')

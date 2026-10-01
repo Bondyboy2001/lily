@@ -1061,13 +1061,6 @@ def read_book(book_id, book_format):
     elif book_format.lower() == "pdf":
         log.debug("Start pdf reader for %d", book_id)
         return render_title_template('readpdf.html', pdffile=book_id, title=book.title)
-    elif book_format.lower() == "txt":
-        log.debug("Start txt reader for %d", book_id)
-        return render_title_template('readtxt.html', txtfile=book_id, title=book.title)
-    elif book_format.lower() in ["djvu", "djv"]:
-        log.debug("Start djvu reader for %d", book_id)
-        return render_title_template('readdjvu.html', djvufile=book_id, title=book.title,
-                                     extension=book_format.lower())
     else:
         for fileExt in constants.EXTENSIONS_AUDIO:
             if book_format.lower() == fileExt:
@@ -1075,17 +1068,6 @@ def read_book(book_id, book_format):
                 log.debug("Start mp3 listening for %d", book_id)
                 return render_title_template('listenmp3.html', mp3file=book_id, audioformat=book_format.lower(),
                                              entry=entries, bookmark=bookmark)
-        for fileExt in ["cbr", "cbt", "cbz"]:
-            if book_format.lower() == fileExt:
-                all_name = str(book_id)
-                title = book.title
-                if len(book.series):
-                    title = title + " - " + book.series[0].name
-                    if book.series_index:
-                        title = title + " #" + '{0:.2f}'.format(book.series_index).rstrip('0').rstrip('.')
-                log.debug("Start comic reader for %d", book_id)
-                return render_title_template('readcbr.html', comicfile=all_name, title=title,
-                                             extension=fileExt, bookmark=bookmark)
         log.debug("Selected book is unavailable. File does not exist or is not accessible")
         flash(_("Oops! Selected book is unavailable. File does not exist or is not accessible"),
               category="error")

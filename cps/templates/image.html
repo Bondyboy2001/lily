@@ -129,7 +129,7 @@
     </div>
 {%- endmacro %}
 
-{# Quick actions under a grid cover: bare icon buttons, revealed on hover or focus (lily.js wires them). #}
+{# Quick actions on a grid cover: icon bar over the cover's foot, revealed on hover or focus (lily.js wires them). #}
 {% macro cover_actions(book, user, is_read=False) -%}
     {%- set formats = book.data|map(attribute='format')|map('lower')|list -%}
     <div class="lily-cover-actions" data-book-id="{{ book.id }}" data-book-formats="{{ formats|join(',') }}">
@@ -157,6 +157,7 @@
             {% if is_read %}<span class="badge read glyphicon glyphicon-ok" title="{{ _('Read') }}"></span>{% endif %}
           </span>
         </a>
+        {{ cover_actions(book, user, is_read) }}
       </div>
       <div class="meta">
         <a href="{{ url_for('web.show_book', book_id=book.id) }}">
@@ -194,7 +195,6 @@
           {% for number in range(5 - stars) %}<span class="glyphicon glyphicon-star-empty" aria-hidden="true"></span>{% endfor %}
         </div>
         {% endif %}
-        {{ cover_actions(book, user, is_read) }}
       </div>
     </div>
 {%- endmacro %}

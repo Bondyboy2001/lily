@@ -50,7 +50,7 @@ Scripts use **filesystem locks** to prevent concurrent execution (e.g., `ingest_
 ## Development Workflows
 
 ### Local Development Setup
-1. **Build custom image**: Edit and run `build.sh` (prompts for repo dir, Docker Hub username, version)
+1. **Build the image**: `docker compose up -d --build`
 2. **Development compose**: Use `docker-compose.yml.dev` with volume mounts for live-reload:
    ```yaml
    volumes:
@@ -188,8 +188,7 @@ Pluggable providers in `cps/metadata_provider/`:
 - **Build args**: `VERSION` and `BUILD_DATE` in Dockerfile
 
 ## Contributing Guidelines
-- Follow SPDX headers in all Python files (use `scripts/update_spdx_headers.py`)
+- Follow SPDX headers in all Python files
 - Update `CONTRIBUTORS` file for new contributors
-- Changelogs in `changelogs/` directory (semver naming)
 - Open an issue on Bondyboy2001/lily to discuss major changes first
 - Test with both local disk and network share deployments
