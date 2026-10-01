@@ -56,6 +56,15 @@ MAX_BUSY_ATTEMPTS=${CWA_INGEST_MAX_BUSY_ATTEMPTS:-5}
 [[ "$MAX_BUSY_ATTEMPTS" =~ ^[0-9]+$ ]] && [ "$MAX_BUSY_ATTEMPTS" -ge 1 ] || MAX_BUSY_ATTEMPTS=5
 # Per-file busy counts, "<count><TAB><path>" per line, kept beside the queue file
 ATTEMPTS_FILE="${QUEUE_FILE}.attempts"
+# Exit codes from ingest_processor.py (EXIT_BUSY / EXIT_NOT_READY there)
+EXIT_BUSY=2       # ingest lock held or Calibre database locked: retry later
+EXIT_NOT_READY=3  # file still being written, truncated or vanished: left in place
+# Seconds a not-ready file may sit unchanged (same size and mtime) before it is moved to
+# failed/. Any change restarts the clock, so a slow but progressing copy is never moved.
+NOT_READY_TIMEOUT=${CWA_INGEST_NOT_READY_TIMEOUT:-3600}
+[[ "$NOT_READY_TIMEOUT" =~ ^[0-9]+$ ]] && [ "$NOT_READY_TIMEOUT" -ge 1 ] || NOT_READY_TIMEOUT=3600
+# Not-ready bookkeeping, "<since epoch><TAB><size:mtime><TAB><path>" per line
+NOT_READY_FILE="${QUEUE_FILE}.notready"
 # How often (seconds) queued busy files are retried even if no new files arrive
 RETRY_QUEUE_INTERVAL=${CWA_INGEST_RETRY_INTERVAL:-30}
 [[ "$RETRY_QUEUE_INTERVAL" =~ ^[0-9]+$ ]] && [ "$RETRY_QUEUE_INTERVAL" -ge 1 ] || RETRY_QUEUE_INTERVAL=30
@@ -180,11 +189,83 @@ note_busy_attempt() {
         fi
         echo "[cwa-ingest-service] GIVING UP on $filepath: the processor reported busy (exit 2) $attempts times" \
                 "(limit $MAX_BUSY_ATTEMPTS, set CWA_INGEST_MAX_BUSY_ATTEMPTS to change). Another ingest may be stuck" \
-                "holding the lock; moving the file to failed/ instead of retrying forever. Drop it into the ingest folder again to retry."
+                "holding the lock, or the Calibre database stayed locked; moving the file to failed/ instead of" \
+                "retrying forever. Drop it into the ingest folder again to retry."
         move_to_failed "$filepath" "busy_retries_exhausted" || true
         clear_busy_attempts "$filepath"
         mark_recent_path "$filepath"
         return 1
+}
+
+clear_not_ready() {
+        [ -f "$NOT_READY_FILE" ] || return 0
+        local tmp
+        tmp=$(mktemp) || return 0
+        P="$1" awk -F'\t' '$3 != ENVIRON["P"]' "$NOT_READY_FILE" > "$tmp" 2>/dev/null
+        mv "$tmp" "$NOT_READY_FILE"
+}
+
+# Called on a not-ready (exit 3) result. Returns 0 if the file is kept and should be
+# (re)queued, 1 if there is nothing left to retry: it vanished, or it sat unchanged and
+# incomplete for NOT_READY_TIMEOUT seconds and was moved to failed/ (left in place if
+# that move fails). Never deletes the file.
+note_not_ready() {
+        local filepath="$1"
+        local now current since prev_stat
+        if [ ! -e "$filepath" ]; then
+                echo "[cwa-ingest-service] $filepath vanished before it could be imported; nothing to retry"
+                clear_not_ready "$filepath"
+                mark_recent_path "$filepath"
+                return 1
+        fi
+        now=$(date +%s)
+        current=$(marker_stat_for_path "$filepath")
+        since=$(P="$filepath" awk -F'\t' '$3 == ENVIRON["P"] { print $1; exit }' "$NOT_READY_FILE" 2>/dev/null)
+        prev_stat=$(P="$filepath" awk -F'\t' '$3 == ENVIRON["P"] { print $2; exit }' "$NOT_READY_FILE" 2>/dev/null)
+        if ! [[ "$since" =~ ^[0-9]+$ ]] || [ "$prev_stat" != "$current" ]; then
+                since=$now  # first time, or it changed since: still progressing
+        fi
+        clear_not_ready "$filepath"
+        if [ $((now - since)) -ge "$NOT_READY_TIMEOUT" ]; then
+                echo "[cwa-ingest-service] GIVING UP on $filepath: it has looked incomplete and unchanged for" \
+                        "$((now - since))s (limit ${NOT_READY_TIMEOUT}s, set CWA_INGEST_NOT_READY_TIMEOUT to change);" \
+                        "moving it to failed/. Drop it into the ingest folder again to retry."
+                move_to_failed "$filepath" "incomplete_timeout" || true
+                mark_recent_path "$filepath"
+                return 1
+        fi
+        printf '%s\t%s\t%s\n' "$since" "$current" "$filepath" >> "$NOT_READY_FILE"
+        mark_recent_path "$filepath"
+        echo "[cwa-ingest-service] Not ready yet, kept for retry: $filepath"
+        return 0
+}
+
+# Adds a file to the retry queue (once), dropping the oldest entries past MAX_QUEUE_SIZE
+enqueue_retry() {
+        local filepath="$1"
+        if ! grep -Fxq -- "$filepath" "$QUEUE_FILE" 2>/dev/null; then
+                echo "$filepath" >> "$QUEUE_FILE"
+        fi
+
+        local queue_size=$(wc -l < "$QUEUE_FILE" 2>/dev/null || echo 0)
+        if [ "$queue_size" -gt "$MAX_QUEUE_SIZE" ]; then
+                echo "[cwa-ingest-service] WARN: Queue size ($queue_size) exceeds maximum ($MAX_QUEUE_SIZE), dropping oldest entries from the retry queue"
+                local dropped
+                while IFS= read -r dropped; do
+                        echo "[cwa-ingest-service] WARN: Dropped from retry queue (file left untouched in ingest folder, will not be retried automatically): $dropped"
+                        clear_busy_attempts "$dropped"
+                        clear_not_ready "$dropped"
+                done < <(head -n "$((queue_size - MAX_QUEUE_SIZE))" "$QUEUE_FILE")
+                local temp_queue=$(mktemp)
+                tail -n "$MAX_QUEUE_SIZE" "$QUEUE_FILE" > "$temp_queue"
+                mv "$temp_queue" "$QUEUE_FILE"
+        fi
+}
+
+dequeue_retry() {
+        local temp_queue=$(mktemp)
+        grep -Fxv -- "$1" "$QUEUE_FILE" > "$temp_queue" 2>/dev/null
+        mv "$temp_queue" "$QUEUE_FILE"
 }
 
 LAST_RETRY_QUEUE_RUN=""
@@ -467,13 +548,19 @@ process_retry_queue() {
                                 local retry_exit=$?
                                 rm -f "$processing_marker" 2>/dev/null || true
 
-                                [ $retry_exit -eq 2 ] || clear_busy_attempts "$queued_file"
-                                if [ $retry_exit -eq 2 ]; then
+                                [ $retry_exit -eq $EXIT_BUSY ] || clear_busy_attempts "$queued_file"
+                                [ $retry_exit -eq $EXIT_NOT_READY ] || clear_not_ready "$queued_file"
+                                if [ $retry_exit -eq $EXIT_BUSY ]; then
                                         # Still busy: keep in queue until the attempt cap is hit
                                         if note_busy_attempt "$queued_file"; then
                                                 echo "$queued_file" >> "$temp_queue"
                                         fi
                                         still_busy=1
+                                elif [ $retry_exit -eq $EXIT_NOT_READY ]; then
+                                        # Not the processor's problem, so carry on with the rest of the queue
+                                        if note_not_ready "$queued_file"; then
+                                                echo "$queued_file" >> "$temp_queue"
+                                        fi
                                 elif [ $retry_exit -eq 124 ]; then
                                         # Timeout, move problematic file to failed backups (left in place if that fails)
                                         echo "[cwa-ingest-service] TIMEOUT on retry: $queued_file"
@@ -490,6 +577,7 @@ process_retry_queue() {
                         else
                                 echo "[cwa-ingest-service] Skipping vanished retry queue entry: $queued_file"
                                 clear_busy_attempts "$queued_file"
+                                clear_not_ready "$queued_file"
                                 mark_recent_path "$queued_file"
                         fi
                 done < "$QUEUE_FILE"
@@ -554,8 +642,9 @@ handle_event() {
         run_processor_with_timeout "$safety_timeout" "$filepath"
         local exit_code=$?
         rm -f "$processing_marker" 2>/dev/null || true
-        # Any non-busy outcome ends the file's busy streak
-        [ $exit_code -eq 2 ] || clear_busy_attempts "$filepath"
+        # Any non-busy outcome ends the file's busy streak (and likewise for not-ready)
+        [ $exit_code -eq $EXIT_BUSY ] || clear_busy_attempts "$filepath"
+        [ $exit_code -eq $EXIT_NOT_READY ] || clear_not_ready "$filepath"
 
         if [ $exit_code -eq 124 ]; then
                 echo "[cwa-ingest-service] SAFETY TIMEOUT: $filepath took longer than safety timeout of ${safety_timeout} seconds"
@@ -564,33 +653,20 @@ handle_event() {
                 # Move problematic file to failed backup with timestamp (left in place if that fails)
                 move_to_failed "$filepath" "safety_timeout" || true
                 mark_recent_path "$filepath"
-        elif [ $exit_code -eq 2 ] && ! note_busy_attempt "$filepath"; then
+        elif [ $exit_code -eq $EXIT_BUSY ] && ! note_busy_attempt "$filepath"; then
                 # Busy too many times: already moved to failed/, so drop any queue entry
-                local temp_queue=$(mktemp)
-                grep -Fxv -- "$filepath" "$QUEUE_FILE" > "$temp_queue" 2>/dev/null
-                mv "$temp_queue" "$QUEUE_FILE"
+                dequeue_retry "$filepath"
                 echo "busy_failed:$filename:$(date '+%Y-%m-%d %H:%M:%S')" > "$STATUS_FILE"
-        elif [ $exit_code -eq 2 ]; then
+        elif [ $exit_code -eq $EXIT_BUSY ]; then
                 echo "[cwa-ingest-service] Processor busy, adding to retry queue: $filepath"
                 echo "queued:$filename:$(date '+%Y-%m-%d %H:%M:%S')" > "$STATUS_FILE"
-
-                # Add to queue (once) with size management
-                if ! grep -Fxq -- "$filepath" "$QUEUE_FILE" 2>/dev/null; then
-                        echo "$filepath" >> "$QUEUE_FILE"
-                fi
-
-                # Check queue size and trim if necessary
-                local queue_size=$(wc -l < "$QUEUE_FILE" 2>/dev/null || echo 0)
-                if [ "$queue_size" -gt "$MAX_QUEUE_SIZE" ]; then
-                        echo "[cwa-ingest-service] WARN: Queue size ($queue_size) exceeds maximum ($MAX_QUEUE_SIZE), dropping oldest entries from the retry queue"
-                        local dropped
-                        while IFS= read -r dropped; do
-                                echo "[cwa-ingest-service] WARN: Dropped from retry queue (file left untouched in ingest folder, will not be retried automatically): $dropped"
-                                clear_busy_attempts "$dropped"
-                        done < <(head -n "$((queue_size - MAX_QUEUE_SIZE))" "$QUEUE_FILE")
-                        local temp_queue=$(mktemp)
-                        tail -n "$MAX_QUEUE_SIZE" "$QUEUE_FILE" > "$temp_queue"
-                        mv "$temp_queue" "$QUEUE_FILE"
+                enqueue_retry "$filepath"
+        elif [ $exit_code -eq $EXIT_NOT_READY ]; then
+                if note_not_ready "$filepath"; then
+                        echo "waiting:$filename:$(date '+%Y-%m-%d %H:%M:%S')" > "$STATUS_FILE"
+                        enqueue_retry "$filepath"
+                else
+                        dequeue_retry "$filepath"
                 fi
         elif [ $exit_code -ne 0 ]; then
                 echo "[cwa-ingest-service] Error processing $filepath (exit code: $exit_code)"

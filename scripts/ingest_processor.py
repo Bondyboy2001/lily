@@ -20,6 +20,8 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
+import book_integrity
+
 # ── Lazy-initialization sentinels ──────────────────────────────────────────
 # Heavy modules (GDrive sync, auto-send, metadata fetch, audiobook support,
 # EPUB fixing) are NOT imported at module level.  All globals below start as
@@ -305,6 +307,16 @@ def initialize_runtime() -> bool:
 
 DEFAULT_FAILED_DIR = "/config/processed_books/failed"
 
+# Exit codes understood by cwa-ingest-service/run
+EXIT_OK = 0
+EXIT_BUSY = 2       # another ingest holds the lock, or metadata.db is locked: retry later
+EXIT_NOT_READY = 3  # file still being written / incomplete / vanished: kept in place for retry
+
+
+def is_database_locked_error(output: str | None) -> bool:
+    """True if calibredb failed only because metadata.db was locked by another writer."""
+    return "database is locked" in (output or "").lower()
+
 
 def unique_failed_path(failed_dir: str, filename: str) -> str:
     """Return a path in failed_dir that doesn't exist yet: '<timestamp>_<name>', plus a counter on collision."""
@@ -529,6 +541,8 @@ class NewBookProcessor:
         # Track the last added Calibre book id(s) from calibredb output
         self.last_added_book_id: int | None = None
         self.last_added_book_ids: list[int] = []
+        # Set when calibredb gave up because metadata.db was locked (retryable, not a bad file)
+        self.db_locked = False
         self._title_sort_regex = self._get_title_sort_regex()
 
     @staticmethod
@@ -896,10 +910,15 @@ class NewBookProcessor:
                     print(f"[ingest-processor] WARN: Failed to adjust timestamps after overwrite import: {e}", flush=True)
 
         except subprocess.CalledProcessError as e:
-            print(f"[ingest-processor] {staged_path.stem} was not able to be added to the Calibre Library due to the following error:\nCALIBREDB EXIT/ERROR CODE: {e.returncode}\n{e.stderr}", flush=True)
-            # Keep the exact file calibredb rejected;
-            # the original ingest source is moved to failed/ separately by main()
-            self.backup(str(staged_path), backup_type="failed")
+            if is_database_locked_error(e.stderr) or is_database_locked_error(e.stdout):
+                # Not the file's fault: leave it in the ingest folder and let the service retry
+                self.db_locked = True
+                print(f"[ingest-processor] {staged_path.stem} could not be added because the Calibre database is locked; it will be retried", flush=True)
+            else:
+                print(f"[ingest-processor] {staged_path.stem} was not able to be added to the Calibre Library due to the following error:\nCALIBREDB EXIT/ERROR CODE: {e.returncode}\n{e.stderr}", flush=True)
+                # Keep the exact file calibredb rejected;
+                # the original ingest source is moved to failed/ separately by main()
+                self.backup(str(staged_path), backup_type="failed")
         except Exception as e:
             print(f"[ingest-processor] ingest-processor ran into the following error:\n{e}", flush=True)
         finally:
@@ -952,6 +971,10 @@ class NewBookProcessor:
             # Optional post-add-format GDrive sync
             gdrive_sync_if_enabled()
         except subprocess.CalledProcessError as e:
+            if is_database_locked_error(e.stderr) or is_database_locked_error(e.stdout):
+                self.db_locked = True
+                print(f"[ingest-processor] Could not add format for book id {book_id} because the Calibre database is locked; it will be retried", flush=True)
+                return False
             stderr_output = e.stderr if e.stderr else "No error details available"
             print(f"[ingest-processor] Failed to add format for book id {book_id}: {os.path.basename(str(staged_path))}\nCALIBREDB EXIT/ERROR CODE: {e.returncode}\nError details: {stderr_output}", flush=True)
         except Exception as e:
@@ -1067,7 +1090,7 @@ def main(filepath=None):
             return exit_code
 
         if not initialize_runtime():
-            return 2
+            return EXIT_BUSY
 
         nbp = NewBookProcessor(filepath)
 
@@ -1078,9 +1101,17 @@ def main(filepath=None):
             print(f"[ingest-processor] Checking if file is ready (timeout: {timeout_minutes} minutes): {nbp.filename}", flush=True)
             ready = nbp.is_file_in_use()
             if not ready:
-                print(f"[ingest-processor] WARN: File did not become ready in time or vanished (after {timeout_minutes} minutes): {nbp.filename}", flush=True)
+                state = "vanished" if not os.path.exists(nbp.filepath) else f"still being written after {timeout_minutes} minutes"
+                print(f"[ingest-processor] NOT READY ({state}), kept for retry: {nbp.filename}", flush=True)
                 source_outcome = "keep"
-                return 0
+                return EXIT_NOT_READY
+            # A copy that stalled (or a poll-mode watcher that fired early) leaves a truncated
+            # file that nothing holds open; don't import it, leave it for the service to retry
+            incomplete = book_integrity.incomplete_reason(nbp.filepath)
+            if incomplete:
+                print(f"[ingest-processor] NOT READY ({incomplete}), kept for retry: {nbp.filename}", flush=True)
+                source_outcome = "keep"
+                return EXIT_NOT_READY
 
         # Sidecar manifest handling for explicit actions (e.g., add_format)
         manifest_path = filepath + ".cwa.json"
@@ -1104,6 +1135,11 @@ def main(filepath=None):
                             print(f"[ingest-processor] ERROR: Book ID {book_id} not found in library for {os.path.basename(filepath)}", flush=True)
                     else:
                         print(f"[ingest-processor] ERROR: Invalid book_id in manifest for {os.path.basename(filepath)}", flush=True)
+
+                    if not success and nbp.db_locked:
+                        # Retryable: keep the file and its manifest exactly as they are
+                        source_outcome = "keep"
+                        return EXIT_BUSY
 
                     # Cleanup manifest: delete on success, preserve on failure for debugging
                     try:
@@ -1142,6 +1178,11 @@ def main(filepath=None):
         else:
             print(f"[ingest-processor]: Cannot import {nbp.filepath}. {nbp.input_format} is not a known ebook format.", flush=True)
 
+        if not imported and getattr(nbp, "db_locked", False):
+            print(f"[ingest-processor] {nbp.filename} kept in the ingest folder; the database was locked", flush=True)
+            source_outcome = "keep"
+            return EXIT_BUSY
+
         source_outcome = "delete" if imported else "failed"
         if not imported:
             print(f"[ingest-processor] {nbp.filename} was not imported; preserving it in failed backups", flush=True)
@@ -1160,7 +1201,7 @@ def main(filepath=None):
 
             try:
                 if source_outcome == "keep":
-                    print(f"[ingest-processor] Skipping delete for ignored/temporary file: {nbp.filename}", flush=True)
+                    print(f"[ingest-processor] Leaving {nbp.filename} in the ingest folder", flush=True)
                 elif source_outcome == "delete":
                     nbp.delete_current_file()
                 else:

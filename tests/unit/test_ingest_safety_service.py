@@ -37,6 +37,7 @@ def svc(tmp_path):
     stub.write_text(textwrap.dedent("""\
         #!/usr/bin/env bash
         printf '%s\\n' "$1" >> "$PROCESSOR_LOG"
+        [ -z "${PROCESSOR_DELETE:-}" ] || rm -f "$1"
         exit "${PROCESSOR_EXIT_CODE:-0}"
     """))
     stub.chmod(0o755)
@@ -189,3 +190,65 @@ def test_busy_count_resets_after_success(svc):
     attempts = Path(str(svc["queue"]) + ".attempts")
     assert not attempts.exists() or str(book) not in attempts.read_text()
     assert book.exists()  # the stub processor doesn't consume the file
+
+
+# ── Not ready (exit 3) ──────────────────────────────────────────────────────
+
+
+def test_not_ready_is_kept_for_retry_not_logged_as_success(svc):
+    book = svc["watch"] / "partial.epub"
+    book.write_text("half")
+    res = svc["run"](f'handle_event "{book}"', PROCESSOR_EXIT_CODE="3")
+    assert "kept for retry" in res.stdout
+    assert "Successfully processed" not in res.stdout
+    assert book.read_text() == "half"
+    assert svc["queue"].read_text().splitlines() == [str(book)]
+    assert list(svc["failed"].iterdir()) == []
+
+
+def test_not_ready_entries_do_not_block_the_rest_of_the_queue(svc):
+    paths = []
+    for i in range(3):
+        p = svc["watch"] / f"n{i}.epub"
+        p.write_text(str(i))
+        paths.append(str(p))
+    svc["queue"].write_text("\n".join(paths) + "\n")
+    res = svc["run"]("process_retry_queue", PROCESSOR_EXIT_CODE="3")
+    assert svc["invocations"]() == paths
+    assert svc["queue"].read_text().splitlines() == paths
+    assert res.stdout.count("kept for retry") == 3
+
+
+def test_not_ready_file_unchanged_past_timeout_moves_to_failed(svc):
+    book = svc["watch"] / "stalled.epub"
+    book.write_text("stalled copy")
+    res = svc["run"](
+        f'handle_event "{book}"; sleep 1.2; process_retry_queue',
+        PROCESSOR_EXIT_CODE="3", CWA_INGEST_NOT_READY_TIMEOUT="1",
+    )
+    assert "GIVING UP" in res.stdout and "incomplete and unchanged" in res.stdout
+    assert not book.exists()
+    (moved,) = svc["failed"].iterdir()
+    assert "_incomplete_timeout_stalled" in moved.name and moved.read_text() == "stalled copy"
+    assert svc["queue"].read_text() == ""
+
+
+def test_not_ready_file_that_keeps_changing_is_never_moved(svc):
+    book = svc["watch"] / "slow.epub"
+    book.write_text("a")
+    res = svc["run"](
+        f'handle_event "{book}"; sleep 1.2; printf more >> "{book}"; process_retry_queue',
+        PROCESSOR_EXIT_CODE="3", CWA_INGEST_NOT_READY_TIMEOUT="1",
+    )
+    assert "GIVING UP" not in res.stdout
+    assert book.exists() and list(svc["failed"].iterdir()) == []
+    assert svc["queue"].read_text().splitlines() == [str(book)]
+
+
+def test_not_ready_then_vanished_is_not_queued(svc):
+    book = svc["watch"] / "gone.epub"
+    book.write_text("x")
+    res = svc["run"](f'handle_event "{book}"', PROCESSOR_EXIT_CODE="3", PROCESSOR_DELETE="1")
+    assert "vanished before it could be imported" in res.stdout
+    assert "Successfully processed" not in res.stdout
+    assert svc["queue"].read_text() == ""
