@@ -1,6 +1,6 @@
 {% extends "settings_layout.html" %}
 {% import "lily_form.html" as f with context %}
-{% block heading %}{% if profile %}{{ _('Account') }}{% elif new_user %}{{ _('New User') }}{% else %}{{ content.name }}{% endif %}{% endblock %}
+{% block heading %}{% if profile %}{{ _('Profile') }}{% elif new_user %}{{ _('New User') }}{% else %}{{ content.name }}{% endif %}{% endblock %}
 {% block settings %}
 <div class="lp lp-profile" name="profile-page">
   <form role="form" method="POST" autocomplete="off">

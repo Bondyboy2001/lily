@@ -816,15 +816,8 @@
 
 .lp-rail-list > .lp-rail-sep { margin: 10px 10px; border-top: 1px solid var(--line-soft); }
 
-.lp-rail-list > .lp-rail-head {
-    margin: 0;
-    padding: 14px 10px 4px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--faint);
-}
+.lp-rail-list > .lp-rail-head { margin: 0; padding: 14px 10px 4px; }
+.lp-rail-list > .lp-rail-head:first-child { padding-top: 0; }
 
 .lp-rail-item {
     display: block;
@@ -903,7 +896,7 @@
     font-size: 24px;
     font-weight: 600;
     letter-spacing: -.02em;
-    color: var(--ink);
+    color: var(--heading);
 }
 
 .lp {
@@ -931,12 +924,6 @@
 .lp-label {
     flex: 1 1 auto;
     margin: 0;
-    font-family: var(--font-ui);
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 1.4;
-    letter-spacing: .04em;
-    text-transform: uppercase;
 }
 
 .lp-group-head .btn { flex: none; }
@@ -1221,7 +1208,7 @@ input[type="checkbox"].lp-switch:focus-visible {
 .lp-footnote .lp-mono { font-size: 12px; }
 
 /* Legacy wrappers still inside a settings pane. */
-.lily-admin .lp-label { margin: 0; font-family: var(--font-ui); font-size: 11px; }
+.lily-admin .lp-label { margin: 0; }
 .lp-pane > .lily-admin { max-width: none; }
 
 /* ---- Narrow: the rail becomes a strip of chips over the page ---- */

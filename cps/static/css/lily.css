@@ -121,8 +121,21 @@ h1, h2, h3,
 
 /* Every kind of title takes the heading colour from this one list. */
 .lp-label,
+.lp-heading,
+.lp-rail-head,
 .dup-notice-title,
 .dup-card-title { color: var(--heading); }
+
+/* Section labels: the settings rail's group headings and each page's section titles look identical. */
+.lp-label,
+.lp-rail-head {
+    font-family: var(--font-ui);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
 
 h1, .h1, h2, .h2 { font-size: 25px; line-height: 1.25; }
 h3, .h3 { font-size: 19px; line-height: 1.3; }

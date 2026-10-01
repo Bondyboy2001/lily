@@ -19,7 +19,8 @@
     </div>
     <ul class="lp-rail-list"{% if on_cwa %} role="tablist"{% endif %}>
       {% if not current_user.is_anonymous %}
-        {{ rail_item(_('Account'), url_for('web.profile'), ep == 'web.profile') }}
+        <li class="lp-rail-head" role="presentation">{{ _('Account') }}</li>
+        {{ rail_item(_('Profile'), url_for('web.profile'), ep == 'web.profile') }}
         {% if not current_user.role_anonymous() %}{{ rail_item(_('My Reading'), url_for('reading.reading_summary'), ep == 'reading.reading_summary') }}{% endif %}
         {% if not current_user.role_anonymous() %}{{ rail_item(_('Security'), url_for('account_security.security_page'), ep == 'account_security.security_page') }}{% endif %}
         {% if not simple %}
