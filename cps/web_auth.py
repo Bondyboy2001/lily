@@ -353,6 +353,8 @@ def change_password():
                 user.password = generate_password_hash(valid_password(new_pw))
                 user.force_password_change = False
                 ub.session_commit()
+                # Everywhere else that was signed in with the old password is signed out
+                ub.delete_other_user_sessions(user.id, flask_session.get('_random', ''))
                 log.info("User '%s' changed their password", user.name)
                 flash(_("Password changed"), category="success")
                 return redirect(url_for("web.index"))
@@ -368,10 +370,15 @@ def change_password():
 def change_profile(translations, languages):
     to_save = request.form.to_dict()
     current_user.random_books = 0
+    password_changed = False
     try:
         if current_user.role_passwd() or current_user.role_admin():
             if to_save.get("password", "") != "":
+                # A borrowed or stolen session must not be enough to take over the account
+                if not check_password_hash(str(current_user.password), to_save.get("current_password", "")):
+                    raise Exception(_("Current password is incorrect"))
                 current_user.password = generate_password_hash(valid_password(to_save.get("password")))
+                password_changed = True
         new_email = valid_email(to_save.get("email", current_user.email))
         if not new_email:
             raise Exception(_("Email can't be empty and has to be a valid Email"))
@@ -469,6 +476,8 @@ def change_profile(translations, languages):
 
     try:
         ub.session.commit()
+        if password_changed:
+            ub.delete_other_user_sessions(current_user.id, flask_session.get('_random', ''))
         flash(_("Success! Profile Updated"), category="success")
         log.debug("Profile updated")
         return redirect(url_for('web.profile'))

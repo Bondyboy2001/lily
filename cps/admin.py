@@ -18,6 +18,7 @@ from datetime import time as datetime_time
 from functools import wraps
 
 from flask import Blueprint, current_app, flash, redirect, url_for, abort, request, make_response, g, Response, jsonify
+from flask import session as flask_session
 from markupsafe import Markup
 from .cw_login import current_user
 from flask_babel import gettext as _
@@ -1891,6 +1892,10 @@ def _handle_edit_user(to_save, content, languages, translations):
                                      page="edituser")
     try:
         ub.session_commit()
+        if to_save.get("password", "") and not anonymous:
+            # A new password signs the user out everywhere (but not the admin doing this)
+            ub.delete_other_user_sessions(
+                content.id, flask_session.get('_random', '') if content.id == current_user.id else '')
         flash(_("User '%(nick)s' updated", nick=content.name), category="success")
     except IntegrityError as ex:
         ub.session.rollback()
