@@ -22,7 +22,7 @@ netifaces-plus>=0.12.0,<0.13.0
 urllib3>=2.5.0,<3.0
 Flask-Limiter>=2.3.0,<3.13.0
 regex>=2024.11.6
-bleach>=6.0.0,<6.3.0
+bleach>=6.0.0,<6.5.0
 python-magic>=0.4.27,<0.5.0
 python-magic-bin>=0.4.0,<0.5.0;sys_platform=='win32'
 flask-httpAuth>=4.4.0,<5.0.0
@@ -53,16 +53,8 @@ pyOpenSSL>=24.0.0,<25.0.0
 PyYAML>=3.12,<6.1
 rsa>=3.4.2,<4.10.0
 
-# fuzzy title matching (cps/utils/text_similarity.py)
-python-Levenshtein>=0.12.0,<0.28.0
-
-# metadata extraction
+# Comic archives (cps/comic.py, comicapi) and audio metadata
 rarfile>=3.2,<5.0
-markdown2>=2.0.0,<2.6.0
-html2text>=2020.1.16,<2025.2.26
-python-dateutil>=2.1,<2.10.0
-beautifulsoup4>=4.0.1,<4.14.0
-faust-cchardet>=2.1.18,<2.1.20
 py7zr>=0.15.0,<0.21.0
 mutagen>=1.40.0,<1.50.0
 
