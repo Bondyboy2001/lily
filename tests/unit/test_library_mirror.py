@@ -262,6 +262,34 @@ def test_task_reports_suspicious_files_as_failure(lib, monkeypatch):
     assert task.stat == STAT_FAIL and "1 suspicious" in task.error
 
 
+def test_same_device_handles_missing_paths(tmp_path, monkeypatch):
+    (tmp_path / "lib").mkdir()
+    assert mod.same_device(str(tmp_path / "lib"), str(tmp_path / "not" / "yet" / "created")) is True
+    assert mod.same_device(str(tmp_path / "lib"), "") is False
+    assert mod.device_of(str(tmp_path / "lib" / "file.txt" / "below")) == os.stat(tmp_path).st_dev
+    real_stat = os.stat
+
+    def fake_stat(path, *a, **kw):
+        if str(path).startswith(str(tmp_path / "other")):
+            return os.stat_result((0, 0, 999999, 0, 0, 0, 0, 0, 0, 0))
+        if str(path).startswith(str(tmp_path / "denied")):
+            raise PermissionError(path)
+        return real_stat(path, *a, **kw)
+
+    monkeypatch.setattr(mod.os, "stat", fake_stat)
+    assert mod.same_device(str(tmp_path / "lib"), str(tmp_path / "other" / "mirror")) is False
+    assert mod.device_of(str(tmp_path / "denied")) is None
+    assert mod.same_device(str(tmp_path / "denied"), str(tmp_path / "denied")) is False
+
+
+def test_device_of_gives_up_at_the_root(monkeypatch):
+    def missing(path, *a, **kw):
+        raise FileNotFoundError(path)
+
+    monkeypatch.setattr(mod.os, "stat", missing)
+    assert mod.device_of("/a/b") is None
+
+
 def test_task_version_days_setting(monkeypatch):
     from cps.tasks import library_mirror as task_mod
     monkeypatch.setattr(task_mod, "_setting", lambda name: "12" if name == "library_mirror_version_days" else "")

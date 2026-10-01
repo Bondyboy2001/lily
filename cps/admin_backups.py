@@ -114,16 +114,43 @@ def ingest_failure_action(action):
     return redirect(url_for("admin.ingest_failures"))
 
 
+def _format_time(value):
+    """A job_status time (aware UTC) or snapshot time (naive local) as local 'YYYY-MM-DD HH:MM'."""
+    if value is None:
+        return None
+    if value.tzinfo is not None:
+        value = value.astimezone().replace(tzinfo=None)
+    return value.strftime("%Y-%m-%d %H:%M")
+
+
+def _storage_warnings(library_dir, backup_root, mirror_dir):
+    """Plain-language warnings about where the copies live."""
+    from library_mirror import same_device
+    warnings = []
+    if not mirror_dir:
+        warnings.append(_("No library mirror folder is set, so book files are not backed up: the snapshots "
+                          "below only hold the databases. Set a mirror folder on a different disk."))
+    if library_dir and same_device(backup_root, library_dir):
+        warnings.append(_("The backup folder %(path)s is on the same disk as the library. If that disk fails, "
+                          "the backups are lost with it.", path=backup_root))
+    if library_dir and mirror_dir and same_device(mirror_dir, library_dir):
+        warnings.append(_("The mirror folder %(path)s is on the same disk as the library. If that disk fails, "
+                          "the mirror is lost with it.", path=mirror_dir))
+    return warnings
+
+
 @admi.route("/admin/db_backups", methods=["GET"])
 @user_login_required
 @admin_required
 def db_backups():
     """Lists the nightly database snapshots with a Restore action per snapshot."""
-    from .tasks.db_backup import get_backup_root, _configured_backup_dir, RESTORABLE_DBS
-    from .tasks.library_mirror import get_mirror_dir
+    from .tasks.db_backup import get_backup_root, _configured_backup_dir, get_retention, RESTORABLE_DBS
+    from .tasks.library_mirror import get_mirror_dir, get_version_days
+    from .services.job_status import last_success
     from db_backup import describe_snapshots
     from .tasks.processed_cleanup import get_retention_days
     backup_root = get_backup_root()
+    mirror_dir = get_mirror_dir()
     try:
         snapshots = describe_snapshots(backup_root)
     except OSError as e:
@@ -132,14 +159,31 @@ def db_backups():
     for snap in snapshots:
         snap["size_text"] = _format_size(snap["size"])
         snap["db_text"] = ", ".join("%s (%s)" % (name, _format_size(size)) for name, size in snap["databases"].items())
+    # Before the first recorded run (e.g. right after upgrading), fall back to the newest verified snapshot
+    last_backup = last_success("db_backup") or next(
+        (s["timestamp"] for s in snapshots if s["verified"] and not s["pre_restore"]), None)
     return render_title_template("db_backups.html", title=_("Database Backups"), page="db_backups",
                                  snapshots=snapshots, backup_root=backup_root,
                                  backup_dir_setting=_configured_backup_dir(),
                                  backup_dir_env=os.environ.get("DB_BACKUP_DIR", ""),
-                                 mirror_dir=get_mirror_dir(),
+                                 mirror_dir=mirror_dir,
+                                 retention=get_retention(),
+                                 version_days=get_version_days(),
                                  retention_days=get_retention_days(),
+                                 storage_warnings=_storage_warnings(config.config_calibre_dir, backup_root, mirror_dir),
+                                 last_backup=_format_time(last_backup),
+                                 last_mirror=_format_time(last_success("library_mirror")),
                                  restorable_dbs=RESTORABLE_DBS,
                                  restore_running=restore_in_progress())
+
+
+def _bounded_int(raw, low, high):
+    """int(raw) if it is a whole number in [low, high], else None."""
+    try:
+        value = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return None
+    return value if low <= value <= high else None
 
 
 @admi.route("/admin/db_backups/settings", methods=["POST"])
@@ -166,10 +210,26 @@ def db_backups_settings():
     if days < 0 or days > 3650:
         flash(_("Retention must be a whole number of days between 0 and 3650."), category="error")
         return redirect(url_for("admin.db_backups"))
+    settings = {"db_backup_dir": backup_dir, "library_mirror_dir": mirror_dir,
+                "processed_books_retention_days": str(days)}
+    # Retention fields: a missing field keeps the current value, an invalid one is refused
+    limits = {"db_backup_keep_count": (1, 365, _("Daily snapshots must be a whole number between 1 and 365.")),
+              "db_backup_keep_weekly": (0, 1000, _("Weekly snapshots must be a whole number between 0 and 1000.")),
+              "db_backup_keep_monthly": (0, 1000, _("Monthly snapshots must be a whole number between 0 and 1000.")),
+              "library_mirror_version_days": (0, 3650, _("Days to keep replaced mirror copies must be a whole "
+                                                         "number between 0 and 3650."))}
+    for name, (low, high, message) in limits.items():
+        raw = request.form.get(name)
+        if raw is None:
+            continue
+        value = _bounded_int(raw, low, high)
+        if value is None:
+            flash(message, category="error")
+            return redirect(url_for("admin.db_backups"))
+        settings[name] = value if name == "db_backup_keep_count" else str(value)
     try:
         with CWA_DB() as cwa_db:
-            cwa_db.update_cwa_settings({"db_backup_dir": backup_dir, "library_mirror_dir": mirror_dir,
-                                        "processed_books_retention_days": str(days)})
+            cwa_db.update_cwa_settings(settings)
     except Exception as e:
         log.error("Saving backup settings failed: %s", e)
         flash(_("Saving backup settings failed: %(err)s", err=str(e)), category="error")
@@ -213,6 +273,26 @@ def download_db_snapshot(name):
     buf.seek(0)
     return send_file(buf, mimetype="application/zip", as_attachment=True,
                      download_name="lily-db-%s.zip" % name)
+
+
+@admi.route("/admin/db_backups/accept", methods=["POST"])
+@user_login_required
+@admin_required
+def accept_db_snapshot():
+    """Clears a snapshot's suspicious mark: the admin confirms the drop in books was intended,
+    so it becomes the baseline for the next shrink check and old snapshots are pruned again."""
+    from .tasks.db_backup import get_backup_root
+    from db_backup import resolve_snapshot, accept_snapshot
+    name = request.form.get("snapshot", "")
+    try:
+        snap_dir = resolve_snapshot(get_backup_root(), name)
+    except (ValueError, FileNotFoundError):
+        abort(404)
+    if accept_snapshot(snap_dir):
+        log.info("Admin %s accepted suspicious snapshot %s", current_user.name, name)
+        flash(_("Snapshot %(name)s accepted. Old snapshots are pruned again from the next backup.", name=name),
+              category="success")
+    return redirect(url_for("admin.db_backups"))
 
 
 @admi.route("/admin/db_backups/restore", methods=["POST"])

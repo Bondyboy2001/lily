@@ -60,6 +60,31 @@ def validate_destination(src: str, dest: str) -> None:
         raise MirrorError("The mirror folder must not contain or sit inside the library folder.")
 
 
+def device_of(path: str) -> int | None:
+    """st_dev of path, or of its nearest existing parent when it doesn't exist yet
+    (a backup or mirror folder is created on first use). None if nothing can be stat'ed."""
+    path = os.path.abspath(path)
+    while True:
+        try:
+            return os.stat(path).st_dev
+        except (FileNotFoundError, NotADirectoryError):
+            parent = os.path.dirname(path)
+            if parent == path:
+                return None
+            path = parent
+        except OSError:
+            return None
+
+
+def same_device(a: str, b: str) -> bool:
+    """Whether two paths live on the same filesystem, so one disk failure loses both.
+    Docker bind mounts from one host volume report the same device."""
+    if not a or not b:
+        return False
+    dev_a, dev_b = device_of(a), device_of(b)
+    return dev_a is not None and dev_a == dev_b
+
+
 def _needs_copy(src_path: str, dest_path: str) -> bool:
     try:
         d = os.stat(dest_path)
