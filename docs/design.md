@@ -492,6 +492,12 @@ content (grid, panel, rows)
   always show. Series, publisher, published date, language and rating show only
   when the book has a value; the rest wait behind small "Add …" buttons at the
   end of Details, and Fetch Metadata reveals any field it fills.
+  The description box fits its text (no drag handle), padding 14/16 and
+  line-height 1.68 like the book page.
+- **Fetch Metadata results** are compact cards: a 128px cover column with
+  Apply under it, fields in 14px, a description clamped to six lines. The match
+  score is a bare 24px number ("21%") in the card's top right; an exact match
+  shows its pill under Apply instead.
 
 ### 6.5 Settings (`settings_layout.html`, `lily_form.html`)
 
@@ -700,6 +706,5 @@ delete the line. Don't copy any of these.
   library's `!important`).
 
 **Legacy**
-- `style.css` still holds live components (the Fetch Metadata
-  modal) and dead ones (`.cwa_stats_*`, old book card, `.stats_see_more_btn`).
-  Move the live ones, delete the dead ones.
+- `style.css` still holds dead rules (`.cwa_stats_*`, old book card,
+  `.stats_see_more_btn`). Delete them.

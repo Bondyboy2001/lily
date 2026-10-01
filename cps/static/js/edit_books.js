@@ -45,7 +45,13 @@
 
     load($box.val());
     $box.on("input", fit);
-    $(window).on("resize", fit);
+    // Refit once Literata loads (the first fit measured the fallback font) and
+    // whenever the box changes width
+    if (document.fonts) { document.fonts.ready.then(fit); }
+    var width = $box[0].clientWidth;
+    new ResizeObserver(function () {
+        if ($box[0].clientWidth !== width) { width = $box[0].clientWidth; fit(); }
+    }).observe($box[0]);
     $box.on("lily:set-html", function () {
         var html = $box.val();
         load(html);

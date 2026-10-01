@@ -337,7 +337,7 @@ PAGE_STYLESHEETS = ["lily-shell.css", "lily-library.css", "lily-admin.css", "lil
                     "lily-reader.css", "login.css"]
 # §4.5 breakpoints, then the §12 drift that is allowed until it is folded in.
 GUIDE_BREAKPOINTS = {600, 767, 768, 1099, 1100, 1400, 1499, 1700}
-DRIFT_BREAKPOINTS = {640, 860}
+DRIFT_BREAKPOINTS: set[int] = set()
 DRIFT_FONT_FAMILIES: set[tuple[str, str]] = set()
 
 

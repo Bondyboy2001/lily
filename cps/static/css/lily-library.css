@@ -1547,9 +1547,155 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 
 .editbook-form { min-width: 0; }
 
-/* Fetch Metadata: results found by the book's ISBN/DOI/arXiv id rather than its title.
-   A .label-success pill (§5.9); this only spaces it. */
-.meta-exact-match { margin-top: 4px; }
+/* Fetch Metadata: title and close on one row, full-width search below */
+#metaModal .modal-header { flex-wrap: wrap; row-gap: 14px; }
+#metaModal .modal-title { order: 1; margin: 0; padding: 0; }
+#metaModal .modal-header .close { order: 2; }
+#metaModal #meta-search { order: 3; flex: 1 0 100%; padding-bottom: 0; }
+#metaModal #keyword { height: 38px; }
+#metaModal #do-search { height: 38px; padding: 0 18px; }
+
+/* The dialog never outgrows the window: header and search stay put and only the
+   results scroll. min-width: 0 so the clamped description (a -webkit-box, whose
+   min-content is its whole unwrapped line) can't widen the dialog. */
+#metaModal .modal-dialog { margin-top: 24px; margin-bottom: 24px; }
+#metaModal .modal-content {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
+}
+#metaModal .modal-body { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+#meta-info { flex: 1 1 auto; min-height: 120px; overflow-y: auto; }
+
+/* A result: a compact card, small cover and Apply on the left, ticked fields on the
+   right in 14px so a whole card fits on screen */
+#meta-info #book-list { list-style: none; margin: 0; padding: 0 8px 0 0; }
+
+#meta-info #book-list .media {
+    position: relative;
+    display: flex;
+    margin: 0 0 8px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+/* Results found by the book's ISBN/DOI/arXiv id */
+#meta-info #book-list .media.meta-exact {
+    background: color-mix(in srgb, var(--success) 10%, var(--surface));
+}
+
+#meta-info #book-list .media .media-image {
+    flex: none;
+    width: 128px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted);
+    text-align: center;
+}
+
+#meta-info #book-list .media .media-image-wrapper { position: relative; width: 100%; }
+
+#meta-info #book-list .media .media-image img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+}
+
+#meta-info #book-list .media .media-image .image-dimensions {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 11px;
+}
+#meta-info #book-list .media .media-image .image-dimensions:empty { display: none; }
+#meta-info #book-list .media .media-image .image-dimensions.larger { background: var(--success); }
+#meta-info #book-list .media .media-image .image-dimensions.smaller { background: var(--danger); }
+
+#meta-info #book-list .media .media-image input {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 18px;
+    height: 18px;
+}
+
+/* Match score: a big number in the card's top right; the fields leave room for it */
+#meta-info #book-list .media .meta-score {
+    position: absolute;
+    top: 10px;
+    right: 16px;
+    font-family: var(--font-body);
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--ink-soft);
+}
+
+#meta-info #book-list .media .meta-score + .media-body { padding-right: 80px; }
+
+/* A .label-success pill (§5.9) */
+.meta-exact-match { font-size: 11px; }
+
+#meta-info #book-list .media .media-body {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 14px 16px 14px 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 6px 14px;
+    align-content: start;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+#meta-info #book-list .media .media-body dt { font-weight: 600; color: var(--ink-soft); }
+
+#meta-info #book-list .media .media-body dt label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+}
+
+#meta-info #book-list .media .media-body dt input { margin: 0; }
+
+#meta-info #book-list .media .media-body dd {
+    margin: 0;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+}
+
+/* Fields the form already has are dimmed */
+#meta-info #book-list .media .media-body dd.meta-same { color: var(--muted); }
+
+/* A description stops after six lines */
+#meta-info dd.meta-description .meta-value {
+    display: -webkit-box;
+    -webkit-line-clamp: 6;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+@media (max-width: 600px) {
+    #meta-info #book-list .media .media-image { width: 96px; padding: 10px; }
+}
 
 /* Row editor (Edit Metadata authors, tags, shelves): one input per value, × beside it. */
 .lily-edit-rows {
@@ -1641,11 +1787,13 @@ dl.book-metadata:not(:has(> div)) { display: none; }
     color: inherit;
 }
 
-/* Height follows the text (edit_books.js fit()) */
+/* Height follows the text (edit_books.js fit()); no drag handle. Reading text, so
+   roomier than a field: the book page's line-height and more padding */
 .editbook-form .lily-description {
     min-height: 80px;
-    line-height: 1.55;
-    resize: vertical;
+    padding: 14px 16px;
+    line-height: 1.68;
+    resize: none;
     overflow: hidden;
 }
 

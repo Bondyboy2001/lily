@@ -308,13 +308,14 @@
       <div><a class="meta_source" href="<%- safeUrl(book.url) || safeUrl(book.source.link) %>" target="_blank" rel="noopener"><%- book.source.description %></a></div>
       <% if (book.exact_match) { %>
       <div><span class="label label-success meta-exact-match">{{_("Exact match")}}</span></div>
-      <% } else if (book.score) { %>
-      <div class="meta-score">{{_("Match")}} <%- Math.round(book.score * 100) %>%</div>
       <% } %>
       <% if (book.format) { %>
       <div>{{_("Format")}}: <%- book.format %></div>
       <% } %>
     </div>
+    <% if (!book.exact_match && book.score) { %>
+    <div class="meta-score" title="{{_('How well this result matches the book')}}"><span class="sr-only">{{_("Match")}} </span><%- Math.round(book.score * 100) %>%</div>
+    <% } %>
     <dl class="media-body">
       <% fields.forEach(function (f) { %>
         <dt><label><input type="checkbox" data-meta-value="<%- f.key %>" checked> <%- f.label %></label></dt>

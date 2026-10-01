@@ -1,11 +1,3 @@
-/* Fetch Metadata: a result's description stops after 15 lines */
-#meta-info dd.meta-description .meta-value {
-    display: -webkit-box;
-    -webkit-line-clamp: 15;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
 /* Fix z-index issues with specific elements that show through modals */
 body.modal-open .book-meta > .author > a:first-of-type:before,
 body.modal-open div.tags > p > span.glyphicon.glyphicon-tags {
