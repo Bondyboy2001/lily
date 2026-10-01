@@ -1,0 +1,43 @@
+{% extends "settings_layout.html" %}
+{% import "lily_form.html" as f with context %}
+{% block settings %}
+<div class="lp lily-settings lily-reading">
+  {% if not summary %}
+  <p class="lp-intro">{{ _('Reading history is kept per account. Sign in to see yours.') }}</p>
+  {% else %}
+  <nav class="lily-reading-years" aria-label="{{ _('Year') }}">
+    {% for y in years %}<a class="lp-pill{{ '' if y == summary.year else ' is-muted' }}" href="{{ url_for('reading.reading_summary', year=y) }}"{% if y == summary.year %} aria-current="page"{% endif %}>{{ y }}</a> {% endfor %}
+  </nav>
+
+  {% call f.group(_('%(year)s in books', year=summary.year), help=(_('Nothing marked as read in %(year)s yet.', year=summary.year) if not summary.total else None)) %}
+    {% if summary.total %}
+    {% call f.row(_('Finished')) %}<strong id="reading-total">{{ summary.total }}</strong>{% endcall %}
+    {% call f.row(_('Busiest month')) %}{{ month_names[summary.busiest_month - 1] }} ({{ summary.months[summary.busiest_month - 1] }}){% endcall %}
+    {% call f.row(_('By month'), wide=True) %}
+      <div class="lily-bars" role="img" aria-label="{{ _('Books finished per month') }}">
+        {% for count in summary.months %}
+        <div class="lily-bar"><span class="lily-bar-fill" style="height: {{ (count * 100 // summary.max_month) if summary.max_month else 0 }}%"></span><span class="lily-bar-count">{{ count or '' }}</span><span class="lily-bar-label">{{ month_names[loop.index0] }}</span></div>
+        {% endfor %}
+      </div>
+    {% endcall %}
+    {% endif %}
+  {% endcall %}
+
+  {% if summary.total %}
+  {% call f.group(_('Most read')) %}
+    {% call f.row(_('Authors'), wide=True) %}{% for name, n in summary.top_authors %}<div>{{ name }} <span class="lp-pill is-muted">{{ n }}</span></div>{% endfor %}{% endcall %}
+    {% if summary.top_tags %}{% call f.row(_('Tags'), wide=True) %}{% for name, n in summary.top_tags %}<div>{{ name }} <span class="lp-pill is-muted">{{ n }}</span></div>{% endfor %}{% endcall %}{% endif %}
+    {% call f.row(_('Latest finished'), wide=True) %}{% for book_id, title in summary.recent_books %}<div>{% if book_id %}<a href="{{ url_for('web.show_book', book_id=book_id) }}">{{ title }}</a>{% else %}{{ title }}{% endif %}</div>{% endfor %}{% endcall %}
+  {% endcall %}
+  {% endif %}
+  <p class="lp-footnote">{{ _('A book counts when it is marked as read; the date it was marked is the finish date.') }}</p>
+  {% endif %}
+</div>
+<style>
+  .lily-reading-years { margin-bottom: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .lily-bars { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; align-items: end; height: 140px; max-width: 520px; }
+  .lily-bar { position: relative; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; text-align: center; font-size: 11px; color: var(--muted); }
+  .lily-bar-fill { display: block; width: 100%; min-height: 2px; background: var(--accent, currentColor); opacity: .75; border-radius: 3px 3px 0 0; }
+  .lily-bar-count { order: -1; min-height: 14px; }
+</style>
+{% endblock %}

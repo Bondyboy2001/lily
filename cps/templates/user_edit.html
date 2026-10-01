@@ -1,6 +1,6 @@
 {% extends "settings_layout.html" %}
 {% import "lily_form.html" as f with context %}
-{% block heading %}{% if profile %}{{ _('Account') }}{% elif new_user %}{{ _('New User') }}{% else %}{{ content.name }}{% endif %}{% endblock %}
+{% block heading %}{% if profile %}{{ _('Profile') }}{% elif new_user %}{{ _('New User') }}{% else %}{{ content.name }}{% endif %}{% endblock %}
 {% block settings %}
 <div class="lp lp-profile" name="profile-page">
   <form role="form" method="POST" autocomplete="off">
@@ -12,11 +12,15 @@
       {% if new_user or ( current_user and content.name != "Guest" and current_user.role_admin() ) %}
         {{ f.input('name', _('Username'), content.name) }}
       {% endif %}
-      {{ f.input('email', _('Email'), content.email, type='email') }}
       {% if ( current_user and current_user.role_passwd() or current_user.role_admin() ) and not content.role_anonymous() %}
         {% call f.row(_('Password'), for_id='password', help=_('Leave empty to keep the current password.') if not new_user else None) %}
           <input type="password" class="form-control" name="password" id="password" data-lang="{{ current_user.locale }}" data-verify="{{ config.config_password_policy }}" {% if config.config_password_policy %} data-min={{ config.config_password_min_length }} data-word={{ config.config_password_character }} data-special={{ config.config_password_special }} data-upper={{ config.config_password_upper }} data-lower={{ config.config_password_lower }} data-number={{ config.config_password_number }}{% endif %} value="" autocomplete="off">
         {% endcall %}
+        {% if profile %}
+        {% call f.row(_('Current Password'), for_id='current_password', help=_('Needed only when setting a new password.')) %}
+          <input type="password" class="form-control" name="current_password" id="current_password" value="" autocomplete="current-password">
+        {% endcall %}
+        {% endif %}
       {% endif %}
     {% endcall %}
 
@@ -52,7 +56,6 @@
         {% for element in sidebar %}
           {% if element['config_show'] %}{{ f.check('show_' ~ element['visibility'], element['show_text'], content.check_visibility(element['visibility'])) }}{% endif %}
         {% endfor %}
-        {{ f.check('Show_detail_random', _('Show Random Books in Detail View'), content.show_detail_random()) }}
       </div>
     {% endcall %}
 

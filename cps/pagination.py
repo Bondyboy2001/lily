@@ -40,34 +40,34 @@ class Pagination(object):
         pages = self.pages
         current = self.page
         shown = set()
-        
+
         # Always show first page
         yield 1
         shown.add(1)
-        
+
         # Show ellipsis if needed before previous page
         if current - 1 > 2:
             yield None
-        
+
         # Show previous page if it's not first or last
         if current - 1 > 1 and current - 1 < pages:
             yield current - 1
             shown.add(current - 1)
-        
+
         # Show current page if it's not first or last
         if current != 1 and current != pages:
             yield current
             shown.add(current)
-        
+
         # Show next page if it's not first or last
         if current + 1 < pages:
             yield current + 1
             shown.add(current + 1)
-        
+
         # Show ellipsis if needed after next page
         if current + 1 < pages - 1:
             yield None
-        
+
         # Always show last page if more than one page
         if pages > 1:
             yield pages

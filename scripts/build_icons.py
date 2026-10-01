@@ -1,108 +1,111 @@
+# Calibre-Web Automated – fork of Calibre-Web
+# Copyright (C) 2018-2026 Calibre-Web contributors
+# Copyright (C) 2024-2026 Calibre-Web Automated contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# See CONTRIBUTORS for full list of authors.
+
 """Builds cps/static/css/lily-icons.css, which draws every Glyphicon class the
-app uses as the matching Lucide icon (cps/static/icons/lucide, v1.48.0, ISC).
+app uses as the matching Phosphor icon (cps/static/icons/phosphor, Regular weight, MIT).
 
     python3 scripts/build_icons.py
 
 Templates keep their <span class="glyphicon glyphicon-..."> markup, so JS that
 swaps icon classes keeps working. A class missing from ICONS falls back to the
-Glyphicons font. To add one, drop the SVG from lucide-static into the icons
-folder, map it below and rerun.
+Glyphicons font. To add one, drop the SVG from @phosphor-icons/core (assets/regular) into the
+icons folder, map it below and rerun.
 """
 import re
 from pathlib import Path
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "cps/static/icons/lucide"
+SRC = ROOT / "cps/static/icons/phosphor"
 OUT = ROOT / "cps/static/css/lily-icons.css"
 
-# Glyphicon name -> Lucide name. Names ending in "+fill" are drawn filled.
+# Glyphicon name -> Phosphor name.
 ICONS = {
-    "ban-circle": "ban",
+    "ban-circle": "prohibit",
     "book": "book-open",
-    "bookmark": "bookmark",
-    "chevron-right": "chevron-right",
-    "collapse-down": "chevron-down",
-    "cog": "settings",
-    "collapse-up": "chevron-up",
+    "bookmark": "bookmark-simple",
+    "chevron-right": "caret-right",
+    "collapse-down": "caret-down",
+    "cog": "gear",
+    "collapse-up": "caret-up",
     "copy": "copy",
     "dashboard": "gauge",
-    "download": "download",
-    "download-alt": "download",
+    "download": "download-simple",
+    "download-alt": "download-simple",
     "duplicate": "copy",
-    "edit": "square-pen",
-    "eye-close": "eye-off",
+    "edit": "pencil-simple-line",
+    "eye-close": "eye-slash",
     "eye-open": "eye",
     "file": "file",
     "filter": "funnel",
     "fire": "flame",
     "flag": "flag",
-    "flash": "zap",
+    "flash": "lightning",
     "folder-close": "folder",
     "folder-open": "folder-open",
-    "font": "type",
-    "fullscreen": "maximize",
-    "inbox": "inbox",
-    "indent-left": "list-indent-decrease",
-    "indent-right": "list-indent-increase",
+    "font": "text-aa",
+    "fullscreen": "corners-out",
+    "inbox": "tray",
+    "indent-left": "text-outdent",
+    "indent-right": "text-indent",
     "info-sign": "info",
     "link": "link",
-    "list": "library",
+    "list": "books",
     "list-alt": "list",
     "lock": "lock",
-    "log-in": "log-in",
-    "menu-hamburger": "menu",
+    "log-in": "sign-in",
+    "menu-hamburger": "list",
     "minus": "minus",
-    "music": "music",
+    "music": "music-notes",
     "ok": "check",
-    "option-horizontal": "ellipsis",
-    "ok-circle": "circle-check",
-    "pencil": "pencil",
+    "option-horizontal": "dots-three",
+    "ok-circle": "check-circle",
+    "pencil": "pencil-simple",
     "picture": "image",
     "plus": "plus",
     "random": "shuffle",
-    "refresh": "refresh-cw",
+    "refresh": "arrows-clockwise",
     "remove": "x",
-    "remove-circle": "circle-x",
-    "search": "search",
-    "send": "send",
-    "share": "share-2",
-    "sort": "arrow-up-down",
-    "sort-by-alphabet": "arrow-down-a-z",
-    "sort-by-alphabet-alt": "arrow-down-z-a",
-    "sort-by-attributes": "arrow-up-narrow-wide",
-    "sort-by-attributes-alt": "arrow-down-wide-narrow",
-    "star": "star+fill",
+    "remove-circle": "x-circle",
+    "search": "magnifying-glass",
+    "send": "paper-plane-tilt",
+    "share": "share-network",
+    "sort": "arrows-down-up",
+    "sort-by-alphabet": "sort-ascending",
+    "sort-by-alphabet-alt": "sort-descending",
+    "sort-by-attributes": "sort-ascending",
+    "sort-by-attributes-alt": "sort-descending",
+    "star": "star-fill",
     "star-empty": "star",
-    "stats": "chart-column",
+    "stats": "chart-bar",
     "tag": "tag",
-    "tags": "tags",
+    "tags": "tag",
     "tasks": "list-checks",
-    "text-size": "type",
+    "text-size": "text-aa",
     # Not Glyphicons: the top bar's Light / Dark / System theme button (layout.html).
     "theme-dark": "moon",
     "theme-light": "sun",
-    "theme-system": "sun-moon",
-    "th": "grid-3x3",
-    "th-large": "layout-grid",
+    "theme-system": "circle-half",
+    "th": "grid-nine",
+    "th-large": "squares-four",
     "th-list": "list",
-    "trash": "trash-2",
-    "upload": "upload",
+    "trash": "trash",
+    "upload": "upload-simple",
     "user": "user",
-    "warning-sign": "triangle-alert",
+    "warning-sign": "warning",
 }
 
 
 def svg_data_uri(name):
-    filled = name.endswith("+fill")
-    svg = (SRC / (name.removesuffix("+fill") + ".svg")).read_text()
+    svg = (SRC / (name + ".svg")).read_text()
     svg = re.sub(r"<!--.*?-->", "", svg, flags=re.S)
     # Size comes from CSS: drop the root tag's own size (not the shapes').
     svg = re.sub(r"<svg[^>]*>", lambda m: re.sub(r'\s(class|width|height)="[^"]*"', "", m.group(0)), svg, count=1)
     # Used as a mask, so only the alpha counts: draw in solid black.
-    svg = svg.replace('stroke="currentColor"', 'stroke="#000"')
-    if filled:
-        svg = svg.replace('fill="none"', 'fill="#000"')
+    svg = svg.replace('fill="currentColor"', 'fill="#000"')
     svg = re.sub(r">\s+<", "><", " ".join(svg.split())).strip()
     svg = svg.replace('"', "'").replace(" />", "/>").replace(" >", ">")
     return "data:image/svg+xml," + quote(svg, safe=" =:/',.-")
@@ -113,18 +116,18 @@ def main():
     selectors = ",\n".join(f".glyphicon-{c}::before" for c in classes)
     lines = [
         "/* Generated by scripts/build_icons.py - edit that, not this file.",
-        "   Icons: Lucide (https://lucide.dev), ISC License, see",
-        "   cps/static/icons/lucide/LICENSE. */",
+        "   Icons: Phosphor (https://phosphoricons.com), MIT License, see",
+        "   cps/static/icons/phosphor/LICENSE. */",
         "",
-        "/* Lucide draws on a 24px grid with 2px of air, so the mask box is 1.2em",
+        "/* Phosphor draws on a 256px grid with about 6% of air, so the mask box is 1.1em",
         "   to match the optical size of the Glyphicon it replaces, with negative",
         "   margins so the span keeps its 1em footprint. */",
         f"{selectors} {{",
         '    content: "";',
         "    display: block;",
-        "    width: 1.2em;",
-        "    height: 1.2em;",
-        "    margin: -0.1em;",
+        "    width: 1.1em;",
+        "    height: 1.1em;",
+        "    margin: -0.05em;",
         "    background-color: currentColor;",
         "    -webkit-mask: var(--lily-icon) center / contain no-repeat;",
         "    mask: var(--lily-icon) center / contain no-repeat;",

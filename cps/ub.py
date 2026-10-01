@@ -5,7 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-import atexit
+"""The application database (app.db): users, shelves, read status, sessions, queues, and its schema migrations."""
+
 import os
 import sys
 import sqlite3
@@ -15,14 +16,14 @@ import itertools
 import uuid
 from flask import session as flask_session
 
-from .cw_login import AnonymousUserMixin, current_user
+from .cw_login import AnonymousUserMixin
 from .cw_login import user_logged_in
 
 from sqlalchemy import create_engine, exc, exists, event, text
 from sqlalchemy import Column, ForeignKey, Index, UniqueConstraint
 from sqlalchemy import String, Integer, SmallInteger, Boolean, DateTime, Float, JSON
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy.sql.expression import func
+from sqlalchemy.sql.expression import func, or_
 try:
     # Compatibility with sqlalchemy 2.0
     from sqlalchemy.orm import declarative_base
@@ -38,8 +39,11 @@ log = logger.create()
 
 session: Session | None = None
 app_DB_path = None
+# One engine (and connection pool) per app.db, shared by the web session and every
+# background-task session; see init_db() and get_new_session_instance().
+_app_db_engine = None
+_task_session_factory = None
 Base = declarative_base()
-searched_ids = {}
 
 logged_in = dict()
 
@@ -100,11 +104,28 @@ def store_user_session():
         log.error("No user id in session")
 
 
-def delete_user_session(user_id, session_key):
+def delete_user_session(user_id, session_key, random=""):
+    """Forget one login. The random value identifies it exactly (the session key is only a
+    hash of address and browser, and changes when a remember cookie restores the login)."""
     try:
         log.debug("Deleted session_key: " + session_key)
-        session.query(User_Sessions).filter(User_Sessions.user_id == user_id,
-                                            User_Sessions.session_key == session_key).delete()
+        match = User_Sessions.session_key == session_key
+        if random:
+            match = or_(match, User_Sessions.random == random)
+        session.query(User_Sessions).filter(User_Sessions.user_id == user_id, match).delete()
+        session.commit()
+    except (exc.OperationalError, exc.InvalidRequestError) as ex:
+        session.rollback()
+        log.exception(ex)
+
+
+def delete_other_user_sessions(user_id, keep_random=""):
+    """Sign a user out everywhere except the current login (after a password or 2FA change)."""
+    try:
+        query = session.query(User_Sessions).filter(User_Sessions.user_id == user_id)
+        if keep_random:
+            query = query.filter(User_Sessions.random != keep_random)
+        query.delete()
         session.commit()
     except (exc.OperationalError, exc.InvalidRequestError) as ex:
         session.rollback()
@@ -131,13 +152,6 @@ def check_user_session(user_id, session_key, random):
 
 
 user_logged_in.connect(signal_store_user_session)
-
-def store_combo_ids(result):
-    ids = list()
-    for element in result:
-        ids.append(element[0].id)
-    searched_ids[current_user.id] = ids
-
 
 class UserBase:
 
@@ -194,9 +208,6 @@ class UserBase:
             return True
         return constants.has_flag(self.sidebar_view, value)
 
-    def show_detail_random(self):
-        return self.check_visibility(constants.DETAIL_RANDOM)
-
     def list_denied_tags(self):
         mct = self.denied_tags or ""
         return [strip_whitespaces(t) for t in mct.split(",")]
@@ -244,7 +255,9 @@ class User(UserBase, Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(64), unique=True)
-    email = Column(String(120), unique=True, default="")
+    # Unused since e-mail was removed; kept so old app.db files still match. No default: new
+    # users store NULL, which UNIQUE allows any number of times ("" would collide).
+    email = Column(String(120), unique=True)
     role = Column(SmallInteger, default=constants.ROLE_USER)
     password = Column(String)
     shelf = relationship('Shelf', backref='user', lazy='dynamic', order_by='Shelf.name')
@@ -265,6 +278,17 @@ class User(UserBase, Base):
     # password change before anything else can be used. Cleared whenever the password
     # is assigned (see _clear_force_password_change below).
     force_password_change = Column(Boolean, default=False)
+    # Optional TOTP second factor for the web login (see cps/totp.py). totp_last_step is
+    # the last accepted time step, so a code cannot be replayed.
+    totp_secret = Column(String, default=None)
+    totp_enabled = Column(Boolean, default=False)
+    totp_last_step = Column(Integer, default=0)
+    # Wrong-code lockout state, kept here so a restart doesn't reset it (see web_auth)
+    totp_failures = Column(Integer, default=0)
+    totp_lockouts = Column(Integer, default=0)
+    totp_locked_until = Column(Float, default=0)
+    # SHA-256 of the user's personal API token (accepted by OPDS and as a Bearer token)
+    api_token_hash = Column(String, default=None)
 
 
 @event.listens_for(User.password, 'set')
@@ -291,6 +315,8 @@ class Anonymous(AnonymousUserMixin, UserBase):
         self.role = None
         self.name = None
         self.force_password_change = False
+        self.totp_enabled = False
+        self.api_token_hash = None
         self.loadSettings()
 
     def loadSettings(self):
@@ -494,6 +520,28 @@ class HardcoverMatchQueue(Base):
         return f'<HardcoverMatchQueue book_id={self.book_id} title="{self.book_title}" reviewed={bool(self.reviewed)}>'
 
 
+class MetadataSuggestion(Base):
+    """A provider record that would fill gaps (description, identifiers) in one book,
+    waiting for an admin to accept or reject it. See scripts/metadata_suggestions.py."""
+    __tablename__ = 'metadata_suggestion'
+    __table_args__ = (Index('ix_metadata_suggestion_status_book', 'status', 'book_id'),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    book_id = Column(Integer, nullable=False)
+    book_title = Column(String, nullable=False)
+    book_authors = Column(String, nullable=False)
+    provider = Column(String, nullable=False)          # provider id, e.g. 'openlibrary'
+    record_title = Column(String, nullable=False)
+    record_authors = Column(String, nullable=False)
+    record_url = Column(String, default="")
+    score = Column(Float, nullable=False)
+    fill = Column(String, nullable=False)              # JSON: {'description': str, 'identifiers': {type: value}}
+    status = Column(String, default='pending', nullable=False)  # pending / accepted / rejected
+    created_at = Column(String, nullable=False)
+    reviewed_at = Column(String, default=None)
+    reviewed_by = Column(String, default=None)
+
+
 @event.listens_for(Session, 'before_flush')
 def receive_before_flush(session, flush_context, instances):
     # Maintain the last_modified_bit for the Shelf table.
@@ -578,6 +626,8 @@ def add_missing_tables(engine, _session):
         OpdsShelfExposure.__table__.create(bind=engine, checkfirst=True)
     if not engine.dialect.has_table(engine.connect(), "web_reader_progress"):
         WebReaderProgress.__table__.create(bind=engine, checkfirst=True)
+    if not engine.dialect.has_table(engine.connect(), "metadata_suggestion"):
+        MetadataSuggestion.__table__.create(bind=engine, checkfirst=True)
 
 
 def migrate_user_session_table(engine, _session):
@@ -624,6 +674,17 @@ def migrate_user_table(engine, _session):
     except exc.OperationalError:
         _safe_session_rollback(_session, "user.force_password_change")
         _run_ddl_with_retry(engine, "ALTER TABLE user ADD column 'force_password_change' Boolean DEFAULT 0")
+
+    for column, ddl in (("totp_secret", "String"), ("totp_enabled", "Boolean DEFAULT 0"),
+                        ("totp_last_step", "Integer DEFAULT 0"), ("api_token_hash", "String"),
+                        ("totp_failures", "Integer DEFAULT 0"), ("totp_lockouts", "Integer DEFAULT 0"),
+                        ("totp_locked_until", "Float DEFAULT 0")):
+        try:
+            _session.query(exists().where(getattr(User, column))).scalar()
+            _session.commit()
+        except exc.OperationalError:
+            _safe_session_rollback(_session, "user." + column)
+            _run_ddl_with_retry(engine, "ALTER TABLE user ADD column '%s' %s" % (column, ddl))
 
     # Migration to enable duplicates sidebar for existing admin users (one-time)
     try:
@@ -832,13 +893,20 @@ def _create_app_db_engine(db_path):
     return engine
 
 
-def init_db_thread():
-    global app_DB_path
-    engine = _create_app_db_engine(app_DB_path)
+def _shared_session_factory():
+    """The sessionmaker bound to the shared app.db engine (created lazily if init_db
+    has not run in this process)."""
+    global _app_db_engine, _task_session_factory
+    if _task_session_factory is None:
+        if _app_db_engine is None:
+            _app_db_engine = _create_app_db_engine(app_DB_path)
+        _task_session_factory = sessionmaker(bind=_app_db_engine)
+    return _task_session_factory
 
-    Session = scoped_session(sessionmaker())
-    Session.configure(bind=engine)
-    return Session()
+
+def init_db_thread():
+    """A plain session on the shared app.db engine, for code running in another thread."""
+    return _shared_session_factory()()
 
 
 def init_db(app_db_path):
@@ -846,8 +914,11 @@ def init_db(app_db_path):
     global session
     global app_DB_path
 
+    global _app_db_engine, _task_session_factory
     app_DB_path = app_db_path
     engine = _create_app_db_engine(app_db_path)
+    _app_db_engine = engine
+    _task_session_factory = sessionmaker(bind=engine)
 
     Session = scoped_session(sessionmaker())
     Session.configure(bind=engine)
@@ -916,21 +987,27 @@ def password_change(user_credentials=None):
 
 
 def get_new_session_instance():
-    new_engine = create_engine('sqlite:///{0}'.format(app_DB_path), echo=False,
-                               connect_args={'timeout': 30})
-    new_session = scoped_session(sessionmaker())
-    new_session.configure(bind=new_engine)
+    """A thread-scoped session registry for a background task.
 
-    atexit.register(lambda: new_session.remove() if new_session else True)
-
-    return new_session
+    Every registry shares the one app.db engine and its connection pool; creating an
+    engine per call leaked one pool (and its open SQLite handles) per task run. Callers
+    end with ``.remove()``, which closes the thread's session and returns its connection.
+    """
+    return scoped_session(_shared_session_factory())
 
 
 def dispose():
-    global session
+    global session, _app_db_engine, _task_session_factory
 
     old_session = session
     session = None
+    _task_session_factory = None
+    if _app_db_engine is not None and (old_session is None or old_session.bind is not _app_db_engine):
+        try:
+            _app_db_engine.dispose()
+        except Exception:
+            pass
+    _app_db_engine = None
     if old_session:
         try:
             old_session.close()

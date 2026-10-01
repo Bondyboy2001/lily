@@ -816,15 +816,8 @@
 
 .lp-rail-list > .lp-rail-sep { margin: 10px 10px; border-top: 1px solid var(--line-soft); }
 
-.lp-rail-list > .lp-rail-head {
-    margin: 0;
-    padding: 14px 10px 4px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--faint);
-}
+.lp-rail-list > .lp-rail-head { margin: 0; padding: 14px 10px 4px; }
+.lp-rail-list > .lp-rail-head:first-child { padding-top: 0; }
 
 .lp-rail-item {
     display: block;
@@ -848,6 +841,10 @@
 }
 
 .lp-rail-item:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: -2px; }
+
+/* Logout is a POST form; its button looks like the rail links around it */
+.lp-rail-form { margin: 0; }
+.lp-rail-button { width: 100%; border: 0; background: none; text-align: left; font-family: inherit; cursor: pointer; }
 
 /* ---- Search: part of the rail, a faint tint and no edge until focused ---- */
 .lp-search { position: relative; }
@@ -903,7 +900,7 @@
     font-size: 24px;
     font-weight: 600;
     letter-spacing: -.02em;
-    color: var(--ink);
+    color: var(--heading);
 }
 
 .lp {
@@ -916,6 +913,37 @@
     margin: 0 0 22px;
     color: var(--muted);
 }
+
+/* ---- Tabs: the pages of one section, under its heading ---- */
+.lp-tabs {
+    display: flex;
+    gap: 2px;
+    margin: 0 0 20px;
+    padding: 0;
+    list-style: none;
+    border-bottom: 1px solid var(--line-soft);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.lp-tabs::-webkit-scrollbar { display: none; }
+.lp-tabs[hidden] { display: none; }
+.lp-tabs > li { margin: 0; flex: none; }
+.lp-tabs a {
+    display: block;
+    margin-bottom: -1px;
+    padding: 8px 12px;
+    border-bottom: 2px solid transparent;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--muted);
+    white-space: nowrap;
+    text-decoration: none;
+    transition: color .12s ease-out, border-color .12s ease-out;
+}
+.lp-tabs a:hover,
+.lp-tabs a:focus { color: var(--ink); text-decoration: none; }
+.lp-tabs > li.active > a { color: var(--ink); font-weight: 500; border-bottom-color: var(--accent); }
+.lp-tabs a:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent); outline-offset: -2px; border-radius: 4px; }
 
 /* ---- Groups: a title over one card ---- */
 .lp-group { margin: 0 0 22px; }
@@ -931,13 +959,6 @@
 .lp-label {
     flex: 1 1 auto;
     margin: 0;
-    font-family: var(--font-ui);
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 1.4;
-    letter-spacing: .04em;
-    text-transform: uppercase;
-    color: var(--muted);
 }
 
 .lp-group-head .btn { flex: none; }
@@ -1210,6 +1231,11 @@ input[type="checkbox"].lp-switch:focus-visible {
 }
 
 .lp-actions .btn { margin: 0; }
+/* A one-off action under a list (Empty Trash): in the flow, not pinned over the rows above it. */
+.lp-actions.lp-actions-inline { position: static; }
+
+/* A save bar that waits for a change: the shell arms it, and it shows once the form is edited. */
+.lp-actions.is-save.is-armed:not(.is-dirty) { display: none; }
 .lp-actions .lp-spacer { margin-right: auto; }
 .lp-actions [data-related] { display: inline-flex; gap: 8px; }
 
@@ -1222,7 +1248,7 @@ input[type="checkbox"].lp-switch:focus-visible {
 .lp-footnote .lp-mono { font-size: 12px; }
 
 /* Legacy wrappers still inside a settings pane. */
-.lily-admin .lp-label { margin: 0; font-family: var(--font-ui); font-size: 11px; color: var(--muted); }
+.lily-admin .lp-label { margin: 0; }
 .lp-pane > .lily-admin { max-width: none; }
 
 /* ---- Narrow: the rail becomes a strip of chips over the page ---- */
@@ -1251,6 +1277,7 @@ input[type="checkbox"].lp-switch:focus-visible {
     }
     .lp-rail-list > li.active > .lp-rail-item,
     .lp-rail-item[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+    .lp-rail-button { width: auto; }
 }
 
 @media (max-width: 640px) {

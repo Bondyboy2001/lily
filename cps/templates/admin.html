@@ -1,32 +1,8 @@
 {% extends "settings_layout.html" %}
 {% import "lily_form.html" as f with context %}
-{% block heading %}{{ _('Overview') }}{% endblock %}
 {% block settings %}
 <div class="lp lp-dashboard">
-  {% set user_actions %}
-    {% if not simple %}<a class="btn btn-default" id="admin_user_table" href="{{url_for('admin.edit_user_table')}}">{{_('Edit Users')}}</a>{% endif %}
-    <a class="btn btn-default" id="admin_new_user" href="{{url_for('admin.new_user')}}">{{_('Add New User')}}</a>
-  {% endset %}
-  {% call f.group(_('Users'), id='table_user', actions=user_actions) %}
-    {% for user in allUser[:10] %}
-      {% if not user.role_anonymous() or config.config_anonbrowse %}
-        {% set badge %}{% if user.role_admin() %}<span class="lp-pill">{{ _('Admin') }}</span>{% elif user.role_anonymous() %}<span class="lp-pill is-muted">{{ _('Guest') }}</span>{% endif %}{% endset %}
-        {{ f.link(url_for('admin.edit_user', user_id=user.id), user.name ~ ' ' ~ badge, help=user.email, cls='session') }}
-      {% endif %}
-    {% endfor %}
-    {% if allUser|length > 10 %}
-      {{ f.link(url_for('admin.edit_user_table'), _('All users'), value=allUser|length) }}
-    {% endif %}
-  {% endcall %}
-
-  {% call f.group(_('Tools')) %}
-    {{ f.link(url_for('cwa_stats.cwa_stats_show'), _('Lily Stats'), id='cwa_stats') }}
-    {{ f.link(url_for('cwa_check_status.cwa_flash_status'), _('Service Status'), help=_('Check that ingest and the other Lily services are running'), id='check_mon_srvs') }}
-    {{ f.link(url_for('duplicates.show_duplicates'), _('Duplicate Books'), id='admin_duplicates') }}
-    {{ f.link(url_for('admin.hardcover_review_matches'), _('Hardcover Matches'), help=_('Review matches that need a decision'), id='hardcover_review_matches') }}
-  {% endcall %}
-
-  {% call f.group(_('Maintenance')) %}
+  {% call f.group(_('Library')) %}
     {% call f.row(_('Hardcover Auto-Fetch'), help=_('Look up Hardcover IDs for books that have none')) %}
       <button type="button" class="btn btn-default" id="hardcover_auto_fetch" data-toggle="modal" data-target="#StatusDialog">{{_('Run')}}</button>
     {% endcall %}
@@ -43,17 +19,21 @@
       <button type="button" class="btn btn-default" id="metadata_backup" data-toggle="modal" data-target="#StatusDialog">{{_('Queue All Books')}}</button>
     {% endcall %}
     {% endif %}
+  {% endcall %}
+
+  {% call f.group(_('Server')) %}
+    {{ f.link(url_for('cwa_check_status.cwa_flash_status'), _('Service Status'), help=_('Check that ingest and the other Lily services are running'), id='check_mon_srvs') }}
     {% call f.row(_('Debug Package'), help=_('Logs and settings for a bug report')) %}
       <a class="btn btn-default" id="debug" href="{{url_for('admin.download_debug')}}">{{_('Download')}}</a>
     {% endcall %}
-    {% call f.row(_('Server')) %}
+    {% call f.row(_('Restart or shut down'), help=_('Restart applies changes that need a fresh start')) %}
       <button type="button" class="btn btn-default" id="admin_restart" data-toggle="modal" data-target="#RestartDialog">{{_('Restart')}}</button>
       <button type="button" class="btn btn-danger" id="admin_stop" data-toggle="modal" data-target="#ShutdownDialog">{{_('Shutdown')}}</button>
     {% endcall %}
   {% endcall %}
 
   <p class="lp-footnote">
-    Lily <span class="lp-mono">{{ cwa_version }}</span> · Calibre <span class="lp-mono">{{ calibre_version }}</span> · Kepubify <span class="lp-mono">{{ kepubify_version }}</span> ·
+    Lily <span class="lp-mono">{{ cwa_version }}</span> · Calibre <span class="lp-mono">{{ calibre_version }}</span> ·
     <a id="cwa_github_link" class="github" href="https://github.com/Bondyboy2001/lily/">GitHub</a>
   </p>
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

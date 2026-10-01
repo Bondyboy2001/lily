@@ -50,7 +50,7 @@ dependencies = [
     "urllib3>=2.5.0,<3.0",
     "Flask-Limiter>=2.3.0,<3.13.0",
     "regex>=2024.11.6",
-    "bleach>=6.0.0,<6.3.0",
+    "bleach>=6.0.0,<6.5.0",
     "python-magic>=0.4.27,<0.5.0",
     "python-magic-bin>=0.4.0,<0.5.0;sys_platform=='win32'",
     "flask-httpAuth>=4.4.0,<5.0.0",
@@ -88,22 +88,11 @@ gdrive = [
     "PyYAML>=3.12,<6.1",
     "rsa>=3.4.2,<4.10.0",
 ]
-similarity = [
-    "python-Levenshtein>=0.12.0,<0.28.0",
-]
 metadata = [
-    "rarfile>=3.2,<5.0",
-    "markdown2>=2.0.0,<2.6.0",
-    "html2text>=2020.1.16,<2025.2.26",
-    "python-dateutil>=2.1,<2.10.0",
-    "beautifulsoup4>=4.0.1,<4.14.0",
-    "faust-cchardet>=2.1.18,<2.1.20",
-    "py7zr>=0.15.0,<0.21.0",
     "mutagen>=1.40.0,<1.50.0",
 ]
-comics = [
+sorting = [
     "natsort>=2.2.0,<8.5.0",
-    "comicapi>=2.2.0,<3.3.0",
 ]
 
 [project.scripts]
@@ -125,9 +114,30 @@ extend-exclude = ["cps/static", "cps/translations"]
 # names, shadowed definitions, repeated dict keys, bad format calls).
 # F401/F841 were added once the existing unused imports and variables were cleared;
 # they now keep dead imports and dead locals from coming back.
-select = ["E9", "F63", "F7", "F82", "F401", "F811", "F601", "F523", "F841", "B020"]
+# W291/W293/W292 keep whitespace tidy (.editorconfig asks for it); F541 flags f-strings
+# with nothing to interpolate; E401 flags `import a, b`; UP034 flags redundant parentheses.
+select = ["E9", "F63", "F7", "F82", "F401", "F811", "F601", "F523", "F841", "B020",
+          "W291", "W293", "W292", "F541", "E401", "UP034"]
 
 [tool.ruff.lint.per-file-ignores]
 # Tests deliberately keep a few unused locals: they are leftovers from iterative
 # test writing, and removing the call could drop the behaviour under test.
 "tests/**" = ["F841"]
+# Generated data file; its generator decides the whitespace.
+"cps/iso_language_names.py" = ["W291", "W292"]
+
+# Type checking is introduced incrementally: run `mypy` (see requirements-dev.txt) on modules
+# as they are refactored. Unlisted modules are ignored so legacy code does not block CI.
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+follow_imports = "silent"
+files = ["scripts/book_integrity.py", "scripts/db_backup.py", "scripts/ingest_failures.py", "scripts/job_status.py", "scripts/library_mirror.py", "scripts/metadata_suggestions.py",
+         "cps/totp.py", "cps/duplicate_rules.py"]
+
+# cps/ modules reach scripts/cwa_db.py as top-level `cwa_db`, and cwa_db imports its sibling both
+# as `cwa_stats_queries` and `scripts.cwa_stats_queries`; following it makes mypy see one file under
+# two module names. It is untyped legacy code anyway, so don't follow it.
+[[tool.mypy.overrides]]
+module = ["cwa_db"]
+follow_imports = "skip"

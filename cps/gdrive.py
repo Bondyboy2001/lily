@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Google Drive endpoints: authentication, change-watch subscription and callbacks."""
+
 import os
 import hashlib
 import hmac
@@ -104,7 +106,7 @@ def google_drive_callback():
     return redirect(url_for('admin.db_configuration'))
 
 
-@gdrive.route("/watch/subscribe")
+@gdrive.route("/watch/subscribe", methods=["POST"])
 @user_login_required
 @admin_required
 def watch_gdrive():
@@ -130,7 +132,7 @@ def watch_gdrive():
     return redirect(url_for('admin.db_configuration'))
 
 
-@gdrive.route("/watch/revoke")
+@gdrive.route("/watch/revoke", methods=["POST"])
 @user_login_required
 @admin_required
 def revoke_watch_gdrive():

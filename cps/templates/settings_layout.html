@@ -1,67 +1,131 @@
 {% extends "layout.html" %}
-{#- The one frame every settings page sits in, laid out like Tulip's settings:
-    a rail of sections with a search field at its head, and beside it the
-    section's name over a column of cards. Pages fill {% block settings %}.
+{#- The one frame every settings page sits in: a rail of ten or so sections with
+    a search field at its head, and beside it the section's name, a strip of
+    tabs when the section has more than one page, and a column of cards.
+    Pages fill {% block settings %}.
+
+    Everything the rail and the tabs show comes from the `sections` table below,
+    so a page is added to settings in exactly one place. A tab either opens
+    another page or, on the Lily settings page (cwa_settings.html), switches
+    between that page's panes without leaving it (`pane`).
     On a narrow screen the rail becomes a strip of chips over the page. -#}
-{% macro rail_item(label, href, current=False, tab=None, on_cwa=False, id=None) -%}
-<li role="presentation"{% if current %} class="active"{% endif %}><a href="{{ href }}" class="lp-rail-item"{% if id %} id="{{ id }}"{% endif %}{% if current %} aria-current="page"{% endif %}{% if tab and on_cwa %} data-lily-tab="{{ tab }}" id="lily-tablink-{{ tab }}" role="tab" aria-controls="lily-tab-{{ tab }}"{% endif %}>{{ label }}</a></li>
-{%- endmacro %}
 {% block page_title %}{{ _('Settings') }}{% endblock %}
 {% block body %}
 {% set ep = request.endpoint %}
 {% set cwa_url = url_for('cwa_settings.set_cwa_settings') %}
 {% set on_cwa = ep == 'cwa_settings.set_cwa_settings' %}
+{% set is_admin = current_user.role_admin() %}
+{% set can_dup = current_user.role_admin() or current_user.role_edit() %}
+{% set signed_in = not current_user.is_anonymous %}
+{% set full_user = signed_in and not current_user.role_anonymous() %}
+
+{#- group, id, label, shown, eps (endpoints that mean "this section"), tabs.
+    A tab: label, href, eps, pane, shown. -#}
+{% set sections = [
+  {'id': 'profile', 'group': 'account', 'label': _('Profile'), 'shown': signed_in, 'tabs': [
+    {'label': _('Profile'), 'href': url_for('web.profile'), 'eps': ['web.profile'], 'shown': True}]},
+  {'id': 'reading', 'group': 'account', 'label': _('My Reading'), 'shown': full_user, 'tabs': [
+    {'label': _('My Reading'), 'href': url_for('reading.reading_summary'), 'eps': ['reading.reading_summary'], 'shown': True}]},
+  {'id': 'security', 'group': 'account', 'label': _('Security'), 'shown': full_user, 'tabs': [
+    {'label': _('Security'), 'href': url_for('account_security.security_page'), 'eps': ['account_security.security_page'], 'shown': True}]},
+  {'id': 'tasks', 'group': 'account', 'label': _('Tasks'), 'shown': signed_in and not is_admin and not simple, 'rail_id': 'top_tasks', 'tabs': [
+    {'label': _('Tasks'), 'href': url_for('tasks.get_tasks_status'), 'eps': ['tasks.get_tasks_status'], 'shown': True}]},
+
+  {'id': 'library', 'group': 'library', 'label': _('Library'), 'shown': is_admin, 'tabs': [
+    {'label': _('Database'), 'href': url_for('admin.db_configuration'), 'eps': ['admin.db_configuration'], 'shown': True},
+    {'label': _('Display'), 'href': url_for('admin.view_configuration'), 'eps': ['admin.view_configuration'], 'shown': True},
+    {'label': _('Interface'), 'href': cwa_url ~ '#interface', 'pane': 'interface', 'shown': True}]},
+  {'id': 'import', 'group': 'library', 'label': _('Import'), 'shown': is_admin, 'tabs': [
+    {'label': _('Settings'), 'href': cwa_url ~ '#ingest', 'pane': 'ingest', 'shown': True},
+    {'label': _('Failed imports'), 'href': url_for('admin.ingest_failures'), 'eps': ['admin.ingest_failures'], 'shown': True}]},
+  {'id': 'metadata', 'group': 'library', 'label': _('Metadata'), 'shown': is_admin, 'tabs': [
+    {'label': _('Providers'), 'href': cwa_url ~ '#metadata', 'pane': 'metadata', 'shown': True},
+    {'label': _('Hardcover'), 'href': cwa_url ~ '#hardcover', 'pane': 'hardcover', 'shown': True},
+    {'label': _('Matches'), 'href': url_for('admin.hardcover_review_matches'), 'eps': ['admin.hardcover_review_matches'], 'shown': True},
+    {'label': _('Suggestions'), 'href': url_for('suggestions.review_suggestions'), 'eps': ['suggestions.review_suggestions'], 'shown': True}]},
+  {'id': 'duplicates', 'group': 'library', 'label': _('Duplicates'), 'shown': can_dup, 'tabs': [
+    {'label': _('Review'), 'href': url_for('duplicates.show_duplicates'), 'eps': ['duplicates.show_duplicates'], 'shown': True},
+    {'label': _('Settings'), 'href': cwa_url ~ '#duplicates', 'pane': 'duplicates', 'shown': is_admin}]},
+  {'id': 'trash', 'group': 'library', 'label': _('Trash'), 'shown': is_admin, 'tabs': [
+    {'label': _('Trash'), 'href': url_for('trash.trash_page'), 'eps': ['trash.trash_page'], 'shown': True}]},
+
+  {'id': 'users', 'group': 'server', 'label': _('Users'), 'shown': is_admin, 'tabs': [
+    {'label': _('Users'), 'href': url_for('admin.edit_user_table'), 'eps': ['admin.edit_user_table', 'admin.edit_user', 'admin.new_user'], 'shown': True}]},
+  {'id': 'general', 'group': 'server', 'label': _('General'), 'shown': is_admin, 'tabs': [
+    {'label': _('General'), 'href': url_for('admin.configuration'), 'eps': ['admin.configuration'], 'shown': True}]},
+  {'id': 'schedules', 'group': 'server', 'label': _('Schedules & Backups'), 'shown': is_admin, 'tabs': [
+    {'label': _('Schedules'), 'href': url_for('admin.edit_scheduledtasks'), 'eps': ['admin.edit_scheduledtasks'], 'shown': True},
+    {'label': _('Backups'), 'href': url_for('admin.db_backups'), 'eps': ['admin.db_backups'], 'shown': True},
+    {'label': _('Retention'), 'href': cwa_url ~ '#maintenance', 'pane': 'maintenance', 'shown': True}]},
+  {'id': 'maintenance', 'group': 'server', 'label': _('Maintenance'), 'shown': is_admin, 'tabs': [
+    {'label': _('Tools'), 'href': url_for('admin.admin'), 'eps': ['admin.admin'], 'shown': True},
+    {'label': _('Tasks'), 'href': url_for('tasks.get_tasks_status'), 'eps': ['tasks.get_tasks_status'], 'shown': not simple}]},
+  {'id': 'stats', 'group': 'server', 'label': _('Stats'), 'shown': is_admin, 'tabs': [
+    {'label': _('Stats'), 'href': url_for('cwa_stats.cwa_stats_show'), 'eps': ['cwa_stats.cwa_stats_show'], 'shown': True}]},
+] %}
+{% set groups = [('account', _('Account')), ('library', _('Library')), ('server', _('Server'))] %}
+
+{#- The section this page belongs to (the Lily settings page is settled by the
+    browser from the tab in the URL, because the server cannot see the hash). -#}
+{% set cur = namespace(section=None) %}
+{% for s in sections if s.shown and not cur.section %}
+  {% for t in s.tabs if t.shown and t.eps and ep in t.eps and not cur.section %}{% set cur.section = s %}{% endfor %}
+{% endfor %}
+
 <div class="lp-settings">
   <nav class="lp-rail" aria-label="{{ _('Settings sections') }}">
     <div class="lp-search" role="search">
       <input type="search" class="form-control lp-search-field" id="lp-search" placeholder="{{ _('Search settings') }}" aria-label="{{ _('Search settings') }}" autocomplete="off" aria-controls="lp-suggest" aria-expanded="false">
       <div class="lp-suggest" id="lp-suggest" role="listbox" hidden data-empty="{{ _('No settings found') }}"></div>
     </div>
-    <ul class="lp-rail-list"{% if on_cwa %} role="tablist"{% endif %}>
-      {% if not current_user.is_anonymous %}
-        {{ rail_item(_('Account'), url_for('web.profile'), ep == 'web.profile') }}
-        {% if not simple %}
-        {{ rail_item(_('Tasks'), url_for('tasks.get_tasks_status'), ep == 'tasks.get_tasks_status', id='top_tasks') }}
+    <ul class="lp-rail-list">
+      {% for gid, glabel in groups %}
+        {% set visible = sections|selectattr('group', 'equalto', gid)|selectattr('shown')|list %}
+        {% if visible %}
+        <li class="lp-rail-head" role="presentation">{{ glabel }}</li>
+        {% for s in visible %}
+          {% set tab = (s.tabs|selectattr('shown')|list)[0] %}
+          {% set here = cur.section and cur.section.id == s.id %}
+          <li data-section="{{ s.id }}"{% if here %} class="active"{% endif %}><a href="{{ tab.href }}" class="lp-rail-item"{% if s.rail_id %} id="{{ s.rail_id }}"{% endif %}{% if here %} aria-current="page"{% endif %}>{{ s.label }}</a></li>
+        {% endfor %}
         {% endif %}
-      {% endif %}
-      {% if current_user.role_admin() or current_user.role_edit() %}
-        <li class="lp-rail-head" role="presentation">{{ _('Tools') }}</li>
-        {% if current_user.role_admin() %}
-        {{ rail_item(_('Stats'), url_for('cwa_stats.cwa_stats_show'), ep == 'cwa_stats.cwa_stats_show') }}
-        {% endif %}
-        {{ rail_item(_('Duplicate Books'), url_for('duplicates.show_duplicates'), ep == 'duplicates.show_duplicates') }}
-        {% if current_user.role_admin() %}
-        {{ rail_item(_('Hardcover Matches'), url_for('admin.hardcover_review_matches'), ep == 'admin.hardcover_review_matches') }}
-        {% endif %}
-      {% endif %}
-      {% if current_user.role_admin() %}
-        <li class="lp-rail-head" role="presentation">{{ _('Server') }}</li>
-        {{ rail_item(_('Overview'), url_for('admin.admin'), ep == 'admin.admin') }}
-        {{ rail_item(_('Users'), url_for('admin.edit_user_table'), ep in ('admin.edit_user_table', 'admin.edit_user', 'admin.new_user')) }}
-        {{ rail_item(_('General'), url_for('admin.configuration'), ep == 'admin.configuration') }}
-        {{ rail_item(_('Library View'), url_for('admin.view_configuration'), ep == 'admin.view_configuration') }}
-        {{ rail_item(_('Calibre Database'), url_for('admin.db_configuration'), ep == 'admin.db_configuration') }}
-        {{ rail_item(_('Scheduled Tasks'), url_for('admin.edit_scheduledtasks'), ep == 'admin.edit_scheduledtasks') }}
-        {{ rail_item(_('Database Backups'), url_for('admin.db_backups'), ep == 'admin.db_backups') }}
-        <li class="lp-rail-head" role="presentation">{{ _('Lily') }}</li>
-        {{ rail_item(_('Services'), cwa_url ~ '#services', tab='services', on_cwa=on_cwa) }}
-        {{ rail_item(_('Ingest'), cwa_url ~ '#ingest', tab='ingest', on_cwa=on_cwa) }}
-        {{ rail_item(_('Metadata'), cwa_url ~ '#metadata', tab='metadata', on_cwa=on_cwa) }}
-        {{ rail_item(_('Hardcover'), cwa_url ~ '#hardcover', tab='hardcover', on_cwa=on_cwa) }}
-        {{ rail_item(_('Duplicates'), cwa_url ~ '#duplicates', tab='duplicates', on_cwa=on_cwa) }}
-        {{ rail_item(_('Maintenance'), cwa_url ~ '#maintenance', tab='maintenance', on_cwa=on_cwa) }}
-        {{ rail_item(_('Interface'), cwa_url ~ '#interface', tab='interface', on_cwa=on_cwa) }}
-      {% endif %}
-      {% if not current_user.is_anonymous %}
+      {% endfor %}
+      {% if signed_in %}
         <li class="lp-rail-sep" role="separator"></li>
-        {{ rail_item(_('Logout'), url_for('web.logout'), id='logout') }}
+        <li><form method="post" action="{{ url_for('web.logout') }}" class="lp-rail-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="lp-rail-item lp-rail-button" id='logout'>{{ _('Logout') }}</button>
+        </form></li>
       {% endif %}
     </ul>
   </nav>
   <div class="lp-pane{% block pane_class %}{% endblock %}">
-    <h2 class="lp-heading" id="lp-heading">{% block heading %}{{ title }}{% endblock %}</h2>
+    <h2 class="lp-heading" id="lp-heading">{% block heading scoped %}{{ cur.section.label if cur.section else title }}{% endblock %}</h2>
+    {#- One strip per section that has several pages. Off the Lily settings page only
+        the current section's strip is drawn; on it every section that owns a pane
+        is drawn and the shell shows the one whose pane is open. -#}
+    {% for s in sections if s.shown %}
+      {% set tabs = s.tabs|selectattr('shown')|list %}
+      {% set owns_pane = tabs|selectattr('pane')|list|length > 0 %}
+      {% if tabs|length > 1 and ((cur.section and cur.section.id == s.id) or (on_cwa and owns_pane)) %}
+      <ul class="lp-tabs" data-section="{{ s.id }}" aria-label="{{ s.label }}"{% if on_cwa %} role="tablist" hidden{% endif %}>
+        {% for t in tabs %}
+          {% set current = t.eps and ep in t.eps %}
+          <li{% if current %} class="active"{% endif %}{% if on_cwa %} role="presentation"{% endif %}><a href="{{ t.href }}"{% if current %} aria-current="page"{% endif %}{% if t.pane and on_cwa %} data-lily-tab="{{ t.pane }}" id="lily-tablink-{{ t.pane }}" role="tab" aria-controls="lily-tab-{{ t.pane }}"{% endif %}>{{ t.label }}</a></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    {% endfor %}
     {% block settings %}{% endblock %}
   </div>
 </div>
+{#- What the search can open: every page a rail item or a tab leads to. -#}
+{% set nav = [] %}
+{% for s in sections if s.shown %}
+  {% for t in s.tabs if t.shown %}
+    {% set _ = nav.append({'section': s.label, 'label': t.label, 'href': t.href, 'pane': t.pane or ''}) %}
+  {% endfor %}
+{% endfor %}
+<script type="application/json" id="lp-nav">{{ nav|tojson }}</script>
 <script src="{{ url_for('static', filename='js/lily-settings-shell.js') }}" defer></script>
 {% endblock %}

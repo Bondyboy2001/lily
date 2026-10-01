@@ -73,3 +73,24 @@ def test_stabilize_window_is_respected(watch_fallback, tmp_path):
     assert scanner.scan(now=0.0) == []
     assert scanner.scan(now=1.0) == []  # stable once, but only observed for 1s
     assert scanner.scan(now=11.0) == [str(book)]
+
+
+def test_default_requires_thirty_seconds_unchanged(watch_fallback, tmp_path, monkeypatch):
+    monkeypatch.delenv("CWA_POLL_STABLE_SECONDS", raising=False)
+    args = watch_fallback.parse_args(["--path", str(tmp_path)])
+    assert args.stabilize == 30
+    scanner = watch_fallback.PollScanner(str(tmp_path), stabilize=args.stabilize)
+    book = tmp_path / "book.epub"
+    book.write_bytes(b"data")
+    fired = {t: scanner.scan(now=float(t)) for t in range(0, 40, 5)}
+    assert [t for t, ready in fired.items() if ready] == [30]
+
+
+def test_stable_seconds_configurable_by_env(watch_fallback, tmp_path, monkeypatch):
+    monkeypatch.setenv("CWA_POLL_STABLE_SECONDS", "90")
+    assert watch_fallback.parse_args(["--path", str(tmp_path)]).stabilize == 90
+    # An explicit flag still wins (the metadata change detector passes its own)
+    assert watch_fallback.parse_args(["--path", str(tmp_path), "--stabilize", "1.5"]).stabilize == 1.5
+    for junk in ("abc", "-5"):
+        monkeypatch.setenv("CWA_POLL_STABLE_SECONDS", junk)
+        assert watch_fallback.default_stable_seconds() == 30

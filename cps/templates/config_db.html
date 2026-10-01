@@ -5,7 +5,6 @@
     <div class="alert alert-info"><img id="img-spinner" src="{{ url_for('static', filename='css/libs/images/loading-icon.gif') }}" alt="{{_('Loading...')}}"/></div>
 </div>
 {% endblock %}
-{% block heading %}{{ _('Calibre Database') }}{% endblock %}
 {% block settings %}
 <div class="lp">
   <form role="form" method="POST" action="{{ url_for('admin.db_configuration') }}" autocomplete="off">
@@ -41,11 +40,11 @@
             {% if config.config_google_drive_watch_changes_response %}
               {% call f.row(_('Metadata Watch Channel ID'), for_id='config_google_drive_watch_changes_response') %}
                 <input type="text" class="form-control" name="config_google_drive_watch_changes_response" id="config_google_drive_watch_changes_response" value="{{ config.config_google_drive_watch_changes_response['id'] }} expires on {{ config.config_google_drive_watch_changes_response['expiration'] |  strftime }}" autocomplete="off" disabled="">
-                <a href="{{ url_for('gdrive.revoke_watch_gdrive') }}" id="watch_revoke" class="btn btn-danger">{{_('Revoke')}}</a>
+                <button type="submit" form="gdrive_watch_revoke" id="watch_revoke" class="btn btn-danger">{{_('Revoke')}}</button>
               {% endcall %}
             {% else %}
               {% call f.row(_('Metadata Watch')) %}
-                <a href="{{ url_for('gdrive.watch_gdrive') }}" id="enable_gdrive_watch" class="btn btn-default">Enable watch of metadata.db</a>
+                <button type="submit" form="gdrive_watch_enable" id="enable_gdrive_watch" class="btn btn-default">Enable watch of metadata.db</button>
               {% endcall %}
             {% endif %}
           {% endif %}
@@ -56,10 +55,19 @@
 
     <div class="lp-actions">
       <span class="lp-spacer"></span>
-      <a href="{{ url_for('admin.admin') }}" id="config_back" class="btn btn-default">{{_('Cancel')}}</a>
+      <a href="{{ request.path }}" id="config_back" class="btn btn-default">{{_('Cancel')}}</a>
       <div id="db_submit" name="submit" class="btn btn-primary" role="button" tabindex="0">{{_('Save')}}</div>
     </div>
   </form>
+  {% if feature_support['gdrive'] %}
+  {# The watch buttons above post these (forms can't nest); POST so a link can't trigger them #}
+  <form id="gdrive_watch_enable" method="post" action="{{ url_for('gdrive.watch_gdrive') }}" hidden>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  </form>
+  <form id="gdrive_watch_revoke" method="post" action="{{ url_for('gdrive.revoke_watch_gdrive') }}" hidden>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  </form>
+  {% endif %}
 
   {% call f.group(_('Troubleshooting')) %}
     <details class="lp-more">
@@ -85,8 +93,8 @@
   <form method="POST" action="{{ url_for('admin.restore_calibre_db') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% call f.group(_('Last Resort')) %}
-      {% call f.row(_('Restore Calibre Database (experimental)'), help=_('Rebuilds metadata.db from the OPF files in your library. Erases per-book data such as reading progress and shelf links; accounts and settings stay. Both databases are backed up to /config/backup first.')) %}
-        <button type="submit" class="btn btn-danger" data-confirm="{{ _('Are you sure? This cannot be undone.') }}" onclick="return confirm(this.dataset.confirm);">{{ _('Restore') }}</button>
+      {% call f.row(_('Restore Calibre Database (experimental)'), help=_('Rebuilds metadata.db from the OPF files in your library. Book ids are kept, so shelves and reading progress stay; only books without a metadata.opf are lost, along with their shelf links and progress. Both databases are backed up to /config/backup first.')) %}
+        <button type="submit" class="btn btn-danger" data-confirm="{{ _('Rebuild metadata.db from the OPF files? Changes not yet written to the OPF files, and books without one, will be missing afterwards. Both databases are backed up first.') }}" onclick="return confirm(this.dataset.confirm);">{{ _('Restore') }}</button>
       {% endcall %}
     {% endcall %}
   </form>

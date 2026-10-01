@@ -1,7 +1,7 @@
 /*
  * Lily settings page (cps/templates/cwa_settings.html)
  *
- * - Tabbed layout with the active tab remembered in the URL hash
+ * - Pane switching from the settings tab strips, the open pane remembered in the URL hash
  * - Sticky save bar with an "unsaved changes" hint
  * - Schedule selector toggles (archived cleanup / Hardcover auto-fetch)
  * - Metadata provider hierarchy + enable toggles
@@ -137,7 +137,11 @@
       if (name && name !== currentTab) { activateTab(name, false); }
     });
 
-    activateTab(tabFromHash() || (tabLinks[0] && tabLinks[0].getAttribute("data-lily-tab")), false);
+    // With no tab in the URL, open the pane the page marks active, else the first tab.
+    var markedPane = panes.filter(function (pane) { return pane.classList.contains("active"); })[0];
+    activateTab(tabFromHash() ||
+      (markedPane && markedPane.getAttribute("data-lily-pane")) ||
+      (tabLinks[0] && tabLinks[0].getAttribute("data-lily-tab")), false);
 
     // If the browser blocks submission because a field in a hidden tab is
     // invalid, switch to that tab so the validation bubble can be shown.
@@ -193,6 +197,23 @@
       select.addEventListener("change", update);
       update();
     });
+
+    /* ------------------------------------------------------------------ */
+    /* Automatic duplicate resolution needs Title among the criteria       */
+    /* ------------------------------------------------------------------ */
+    // The server refuses it too (duplicate_rules.auto_resolve_block_reason); this
+    // just keeps the switch from looking on when it can't be.
+    var autoResolve = document.querySelector("input[data-needs-title]");
+    var titleCriterion = document.getElementById("duplicate_detection_title");
+    if (autoResolve && titleCriterion) {
+      var lockedUntilPreview = autoResolve.disabled;
+      var syncAutoResolve = function () {
+        if (!titleCriterion.checked) { autoResolve.checked = false; }
+        autoResolve.disabled = lockedUntilPreview || !titleCriterion.checked;
+      };
+      titleCriterion.addEventListener("change", syncAutoResolve);
+      syncAutoResolve();
+    }
 
     /* ------------------------------------------------------------------ */
     /* Metadata provider hierarchy + global enable toggles                 */

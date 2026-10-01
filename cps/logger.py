@@ -47,13 +47,6 @@ class _Logger(logging.Logger):
             else:
                 self.error(message, *args, **kwargs)
 
-    def debug_no_auth(self, message, *args, **kwargs):
-        message = message.strip("\r\n")
-        if message.startswith("send: AUTH"):
-            self.debug(message[:16], *args, **kwargs)
-        else:
-            self.debug(message, *args, **kwargs)
-
 
 def get(name=None):
     return logging.getLogger(name)
@@ -71,10 +64,6 @@ def create():
 
 def is_debug_enabled():
     return logging.root.level <= logging.DEBUG
-
-
-def get_level_name(level):
-    return logging.getLevelName(level)
 
 
 def is_valid_logfile(file_path):

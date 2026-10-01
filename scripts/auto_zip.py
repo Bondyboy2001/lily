@@ -9,17 +9,18 @@ import sys
 from os.path import isfile, join
 from datetime import datetime
 import pathlib
-from zipfile import ZipFile 
+from zipfile import ZipFile
 
 from cwa_db import CWA_DB
 
 class AutoZipper:
     def __init__(self):
         self.archive_dirs_stem = "/config/processed_books/"
-        self.failed_dir = self.archive_dirs_stem + "failed/"
         self.imported_dir = self.archive_dirs_stem + "imported/"
 
-        self.archive_dirs = [self.failed_dir, self.imported_dir]
+        # failed/ is deliberately not zipped: the Failed Imports page (ingest_failures.py)
+        # lists, retries and deletes the individual files there.
+        self.archive_dirs = [self.imported_dir]
 
         self.current_date = datetime.today().strftime('%Y-%m-%d')
 
@@ -35,7 +36,7 @@ class AutoZipper:
 
     def last_mod_date(self, path_to_file) -> str:
         """ Returns the date a given file was last modified as a string """
-        
+
         stat = os.stat(path_to_file)
         return datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d') #%H:%M:%S
 
@@ -71,7 +72,7 @@ class AutoZipper:
         for dir in self.archive_dirs:
             dir_name = dir.split('/')[-2]
             for file in self.to_zip[dir_name]:
-                os.remove(file)     
+                os.remove(file)
 
 def main():
     try:
@@ -98,7 +99,7 @@ def main():
         sys.exit(2)
     try:
         zipper.remove_zipped_files()
-        print(f"[cwa-auto-zipper] All zipped files successfully removed!")
+        print("[cwa-auto-zipper] All zipped files successfully removed!")
     except Exception as e:
         print(f"[cwa-auto-zipper] The following error occurred when trying to remove the zipped files:\n{e}")
         sys.exit(3)

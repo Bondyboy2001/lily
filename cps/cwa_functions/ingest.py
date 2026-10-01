@@ -189,7 +189,7 @@ def cwa_internal_queue_duplicate_scan():
         return jsonify(result), 200
     except Exception as e:
         log.error("[cwa-duplicates] Failed to schedule debounced duplicate scan: %s", str(e))
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": 'Internal error; see server log for details'}), 500
 
 
 @csrf.exempt
@@ -227,7 +227,7 @@ def cwa_internal_run_duplicate_scan():
         }), 200
     except Exception as e:
         log.error("[cwa-duplicates] Failed to run synchronous duplicate scan: %s", str(e))
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": 'Internal error; see server log for details'}), 500
 
 
 @csrf.exempt
@@ -242,7 +242,7 @@ def cwa_internal_duplicate_scan_status():
         }), 200
     except Exception as e:
         log.error("[cwa-duplicates] Failed to read duplicate scan status: %s", str(e))
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": 'Internal error; see server log for details'}), 500
 
 
 def queue_debounced_duplicate_scan(delay_seconds=None, book_ids=None):
@@ -316,6 +316,6 @@ def cwa_internal_reconnect_db():
         task = TaskReconnectDatabase()
         WorkerThread.add(None, task, hidden=True)
         return jsonify({"status": "enqueued"}), 200
-    except Exception as e:
+    except Exception:
         log.exception("Internal reconnect-db failed")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": 'Internal error; see server log for details'}), 500

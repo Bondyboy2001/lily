@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Automatic metadata enforcement: writes a book's current metadata and cover back into its EPUB/AZW3 files."""
+
 import argparse
 import atexit
 import json
@@ -18,6 +20,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+import book_integrity
 from cwa_db import CWA_DB
 try:
     from cps.utils.filename_sanitizer import get_valid_filename_shared
@@ -71,22 +74,125 @@ change_logs_dir = "/app/calibre-web-automated/metadata_change_logs"
 metadata_temp_dir = "/app/calibre-web-automated/metadata_temp"
 
 
-# Creates a lock file unless one already exists meaning an instance of the script is
-# already running, then the script is closed, the user is notified and the program
-# exits with code 2
-try:
-    lock = open(tempfile.gettempdir() + '/cover_enforcer.lock', 'x')
-    lock.close()
-except FileExistsError:
-    print("[cover-metadata-enforcer]: CANCELLING... cover-metadata-enforcer was initiated but is already running")
-    sys.exit(2)
+LOCK_NAME = 'cover_enforcer.lock'
 
-# Defining function to delete the lock on script exit
+
+def acquire_lock() -> None:
+    """Creates the lock file, or exits with code 2 if one already exists (another instance
+    is running). The file's mere existence is the lock: cps/tasks/restore.py relies on that.
+    Taken in main() rather than at import so the module can be imported (e.g. by tests)."""
+    lock_path = os.path.join(tempfile.gettempdir(), LOCK_NAME)
+    try:
+        lock = open(lock_path, 'x')
+        lock.close()
+    except FileExistsError:
+        print("[cover-metadata-enforcer]: CANCELLING... cover-metadata-enforcer was initiated but is already running")
+        sys.exit(2)
+    # Removed again when the script exits
+    atexit.register(removeLock)
+
+
 def removeLock():
-    os.remove(tempfile.gettempdir() + '/cover_enforcer.lock')
+    try:
+        os.remove(os.path.join(tempfile.gettempdir(), LOCK_NAME))
+    except FileNotFoundError:
+        pass
 
-# Will automatically run when the script exits
-atexit.register(removeLock)
+
+# ── Rewriting book files safely ────────────────────────────────────────────
+# ebook-polish writes to a temp file next to the book (same filesystem, so the final
+# os.replace is atomic); the original is only replaced once the output looks sane.
+POLISH_TEMP_MARKER = '.lily-polish-'
+POLISH_BASE_TIMEOUT = 120        # seconds for any book...
+POLISH_SECONDS_PER_MB = 3        # ...plus this much per MB of book...
+POLISH_MAX_TIMEOUT = 1800        # ...capped here
+# Output smaller than this fraction of the original is treated as damaged. Replacing a
+# very large embedded cover can legitimately shrink a book, so this is deliberately loose.
+POLISH_MIN_SIZE_RATIO = 0.5
+
+
+def polish_timeout(size_bytes: int) -> int:
+    """Seconds ebook-polish may take for a book of the given size."""
+    mb = max(0, size_bytes) / (1024 * 1024)
+    return int(min(POLISH_MAX_TIMEOUT, POLISH_BASE_TIMEOUT + POLISH_SECONDS_PER_MB * mb))
+
+
+def upgrade_book_enabled() -> bool:
+    """ebook-polish -U (e.g. EPUB 2 -> EPUB 3) rewrites a book's internals, so it is opt-in."""
+    return os.environ.get('CWA_ENFORCER_UPGRADE_BOOK', '').strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def is_polish_temp(path: str) -> bool:
+    return POLISH_TEMP_MARKER in os.path.basename(path)
+
+
+def remove_stale_polish_temps(directory: str) -> None:
+    """Deletes temp files left by an enforcer run that was killed mid-polish.
+    Only one enforcer runs at a time (lock above), so any that exist are stale."""
+    try:
+        names = os.listdir(directory)
+    except OSError:
+        return
+    for name in names:
+        if POLISH_TEMP_MARKER in name:
+            try:
+                os.remove(os.path.join(directory, name))
+                print(f"[cover-metadata-enforcer] Removed leftover temp file {name}", flush=True)
+            except OSError:
+                pass
+
+
+def polish_in_place(file: str, metadata_path: str, cover_path: str | None = None,
+                    timeout: int | None = None) -> str | None:
+    """Embeds the metadata (and cover, if given) into `file` with ebook-polish.
+
+    Returns None once the book has been replaced, or the reason it was not. On any
+    failure, timeout or suspicious output the temp file is deleted and the original
+    is left exactly as it was."""
+    directory, name = os.path.split(file)
+    stem, ext = os.path.splitext(name)
+    try:
+        fd, tmp = tempfile.mkstemp(prefix=f".{stem[:40]}{POLISH_TEMP_MARKER}", suffix=ext, dir=directory)
+        os.close(fd)
+    except OSError as e:
+        return f"could not create a temp file next to the book: {e}"
+    replaced = False
+    try:
+        if timeout is None:
+            timeout = polish_timeout(os.path.getsize(file))
+        cmd = ['ebook-polish']
+        if cover_path:
+            cmd += ['-c', cover_path]
+        cmd += ['-o', metadata_path]
+        if upgrade_book_enabled():
+            cmd.append('-U')
+        cmd += [file, tmp]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
+        except subprocess.TimeoutExpired:
+            return f"ebook-polish timed out after {timeout}s"
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or '').strip()
+            last_line = detail.splitlines()[-1] if detail else 'no output'
+            return f"ebook-polish exited with code {result.returncode}: {last_line}"
+        problem = book_integrity.polished_output_problem(file, tmp, POLISH_MIN_SIZE_RATIO)
+        if problem:
+            return f"ebook-polish output rejected: {problem}"
+        try:
+            shutil.copymode(file, tmp)  # mkstemp creates 0600; keep the book's permissions
+        except OSError:
+            pass
+        os.replace(tmp, file)
+        replaced = True
+        return None
+    except OSError as e:
+        return f"error while polishing: {e}"
+    finally:
+        if not replaced:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
 
 
 # Split-library settings from app.db, read once per process (see Book.get_split_library)
@@ -125,6 +231,8 @@ class Book:
         self.new_metadata_path = new_metadata_path or self.get_new_metadata_path()
 
         self.log_info = None
+        # Why the file could not be rewritten (None once it has been)
+        self.enforce_error: str | None = None
 
 
     def get_split_library(self) -> dict[str, str] | None:
@@ -189,12 +297,12 @@ class Book:
                     # follow our own already-exited subprocesses, and "database is locked" is retried above.
                     _export_settle_done = True
                     time.sleep(0.5)
-                
+
                 result = subprocess.run(
                     ["calibredb", "export", "--with-library", self.calibre_library, "--to-dir", metadata_temp_dir, self.book_id],
                     env=self.calibre_env, check=False, capture_output=True, text=True, timeout=60
                 )
-                
+
                 if result.returncode == 0:
                     temp_files = [os.path.join(dirpath,f) for (dirpath, dirnames, filenames) in os.walk(metadata_temp_dir) for f in filenames]
                     opf_files = [f for f in temp_files if f.endswith('.opf')]
@@ -212,7 +320,7 @@ class Book:
                     continue
                 else:
                     raise
-        
+
         # If all retries failed
         raise RuntimeError(f"Failed to export metadata for book {self.book_id} after {max_retries} attempts")
 
@@ -301,7 +409,7 @@ class Enforcer:
             log_name = os.path.basename(log_path)
             book_id = (log_name.split('-')[1]).split('.')[0]
             timestamp_raw = log_name.split('-')[0]
-        
+
         try:
             timestamp = datetime.strptime(timestamp_raw, '%Y%m%d%H%M%S')
         except ValueError as e:
@@ -311,7 +419,7 @@ class Enforcer:
         # Retry logic to handle race conditions where file is detected but not yet fully written
         max_retries = 3
         retry_delay = 0.5  # seconds
-        
+
         for attempt in range(max_retries):
             try:
                 # Check if file exists first
@@ -323,15 +431,15 @@ class Enforcer:
                         print(f"[cover-metadata-enforcer] WARNING: Log file '{os.path.basename(file_path)}' not found after {max_retries} attempts. "
                               f"This may be due to a race condition or the file was already processed and deleted.", flush=True)
                         return None
-                
+
                 # Try to read the file
                 with open(file_path, 'r', encoding='utf-8') as f:
                     log_info = json.load(f)
-                
+
                 log_info['book_id'] = book_id
                 log_info['timestamp'] = timestamp.strftime('%Y-%m-%d %H:%M:%S')
                 return log_info
-                
+
             except FileNotFoundError:
                 if attempt < max_retries - 1:
                     time.sleep(retry_delay)
@@ -351,7 +459,7 @@ class Enforcer:
             except Exception as e:
                 print(f"[cover-metadata-enforcer] ERROR: Unexpected error reading log file '{os.path.basename(file_path)}': {e}", flush=True)
                 return None
-        
+
         return None
 
 
@@ -494,12 +602,14 @@ class Enforcer:
 
         supported_files = []
         for format in self.supported_formats:
-            supported_files += [f for f in library_files if f.lower().endswith(f'.{format}')]
+            supported_files += [f for f in library_files if f.lower().endswith(f'.{format}') and not is_polish_temp(f)]
 
         return supported_files
 
     def enforce_cover(self, book_dir: str) -> list:
-        """Will force the Cover & Metadata to update for the supported book files in the given directory"""
+        """Will force the Cover & Metadata to update for the supported book files in the given directory.
+        Returns one Book per file; check book.enforce_error to see whether it was rewritten."""
+        remove_stale_polish_temps(book_dir)
         supported_files = self.get_supported_files_from_dir(book_dir)
         if supported_files:
             if len(supported_files) > 1:
@@ -530,28 +640,13 @@ class Enforcer:
 
         # No settle delay needed here: the calibredb export and the metadata copy above have
         # already finished (subprocess exited, file closed), so nothing still holds the files.
-        try:
-            if Path(book.cover_path).exists():
-                result = subprocess.run(
-                    ['ebook-polish', '-c', book.cover_path, '-o', book.new_metadata_path, '-U', file, file],
-                    capture_output=True, text=True, timeout=120, check=False
-                )
-            else:
-                result = subprocess.run(
-                    ['ebook-polish', '-o', book.new_metadata_path, '-U', file, file],
-                    capture_output=True, text=True, timeout=120, check=False
-                )
-            
-            if result.returncode != 0:
-                print(f"[cover-metadata-enforcer] Warning: ebook-polish returned {result.returncode} for {file}", flush=True)
-                if result.stderr:
-                    print(f"[cover-metadata-enforcer] Error output: {result.stderr.strip()}", flush=True)
-        except subprocess.TimeoutExpired:
-            print(f"[cover-metadata-enforcer] Error: ebook-polish timed out for {file}", flush=True)
-        except Exception as e:
-            print(f"[cover-metadata-enforcer] Error running ebook-polish for {file}: {e}", flush=True)
-        
-        print(f"[cover-metadata-enforcer]: DONE: '{book.title_author}.{book.file_format}': Cover & Metadata updated", flush=True)
+        cover = book.cover_path if Path(book.cover_path).exists() else None
+        book.enforce_error = polish_in_place(file, book.new_metadata_path, cover)
+
+        if book.enforce_error is None:
+            print(f"[cover-metadata-enforcer]: DONE: '{book.title_author}.{book.file_format}': Cover & Metadata updated", flush=True)
+        else:
+            print(f"[cover-metadata-enforcer]: FAILED: '{book.title_author}.{book.file_format}' left unchanged: {book.enforce_error}", flush=True)
 
         return book
 
@@ -579,10 +674,8 @@ class Enforcer:
                 try:
                     book_objects = self.enforce_cover(book_dir)
                     if book_objects:
-                        book_dicts = []
-                        for book in book_objects:
-                            book_dicts.append(book.export_as_dict())
-                        self.db.enforce_add_entry_from_all(book_dicts)
+                        failed = self.record_book_results(book_objects, 'manual -all')
+                        successful_enforcements -= failed
                 except Exception as e:
                     print(f"[cover-metadata-enforcer]: ERROR: {book_dir}")
                     print(f"[cover-metadata-enforcer]: Skipping book due to following error: {e}")
@@ -654,13 +747,40 @@ class Enforcer:
         return latest_path
 
 
-    def record_failed_enforcement(self, log_info: dict, error: Exception | str) -> None:
+    def record_book_results(self, book_objects: list, trigger: str, log_info: dict | None = None) -> int:
+        """Records each rewritten file as an enforcement under `trigger` and each file that
+        could not be rewritten as '<trigger> (failed)'. Returns the number of failures."""
+        succeeded = [b for b in book_objects if b.enforce_error is None]
+        failed = [b for b in book_objects if b.enforce_error is not None]
+        if log_info is not None:
+            for book in succeeded:
+                book.log_info = {**log_info, 'file_path': book.file_path}
+                self.db.enforce_add_entry_from_log(book.log_info)
+            for book in failed:
+                book.log_info = {**log_info, 'file_path': book.file_path}
+                self.record_failed_enforcement(book.log_info, book.enforce_error)
+            return len(failed)
+        if succeeded:
+            book_dicts = [book.export_as_dict() for book in succeeded]
+            if trigger == 'manual -dir':
+                self.db.enforce_add_entry_from_dir(book_dicts)
+            else:
+                self.db.enforce_add_entry_from_all(book_dicts)
+        for book in failed:
+            info = {'timestamp': book.timestamp, 'book_id': book.book_id, 'title': book.book_title,
+                    'authors': book.author_name, 'file_path': book.file_path}
+            self.record_failed_enforcement(info, book.enforce_error, trigger_type=f'{trigger} (failed)')
+        return len(failed)
+
+
+    def record_failed_enforcement(self, log_info: dict, error: Exception | str,
+                                  trigger_type: str = "auto -log (failed)") -> None:
         """Record a failed enforcement attempt so admins can see it in stats."""
         try:
             # Ensure file_path exists for DB insert
             if not log_info.get('file_path'):
                 log_info['file_path'] = "unknown"
-            self.db.enforce_add_entry_from_log(log_info, trigger_type="auto -log (failed)")
+            self.db.enforce_add_entry_from_log(log_info, trigger_type=trigger_type)
         except Exception as e:
             print(f"[cover-metadata-enforcer] WARNING: Unable to record failed enforcement: {e}", flush=True)
 
@@ -683,8 +803,11 @@ class Enforcer:
                 continue
 
 
-    def check_for_other_logs(self, processed_book_ids: set | None = None):
+    def check_for_other_logs(self, processed_book_ids: set | None = None) -> int:
+        """Processes the change logs that queued up while this run was busy.
+        Returns the number of books/files that could not be enforced."""
         processed_book_ids = processed_book_ids or set()
+        failures = 0
         log_files = [os.path.join(dirpath, f)
                      for (dirpath, _, filenames) in os.walk(change_logs_dir)
                      for f in filenames if f.endswith('.json')]
@@ -722,27 +845,29 @@ class Enforcer:
                 try:
                     book_objects = self.enforce_cover(book_dir)
                     if book_objects:
-                        for book in book_objects:
-                            book.log_info = log_info
-                            book.log_info['file_path'] = book.file_path
-                            self.db.enforce_add_entry_from_log(book.log_info)
+                        failures += self.record_book_results(book_objects, 'auto -log', log_info=log_info)
                     else:
                         self.record_failed_enforcement(log_info, "No supported files or enforcement failed")
+                        failures += 1
                 except Exception as e:
                     self.record_failed_enforcement(log_info, e)
+                    failures += 1
                 finally:
                     processed_book_ids.add(book_id)
                     self.delete_log(auto=False, log_path=log_path)
+        return failures
 
 
 def main():
+    acquire_lock()
     parser = argparse.ArgumentParser(
         prog='cover-enforcer',
         description='Upon receiving a log, valid directory or an "-all" flag, this \
         script will enforce the covers and metadata of the corresponding books, making \
         sure that each are correctly stored in both the ebook files themselves as well as in the \
-        user\'s Calibre Library. Additionally, if an epub file happens to be in EPUB 2 \
-        format, it will also be automatically upgraded to EPUB 3.'
+        user\'s Calibre Library. A file is only replaced once the rewritten copy has been \
+        checked; on any failure the original is left untouched. Set \
+        CWA_ENFORCER_UPGRADE_BOOK=true to also upgrade books\' internals (e.g. EPUB 2 to EPUB 3).'
     )
 
     parser.add_argument('--log', action='store', dest='log', required=False, help='Will enforce the covers and metadata of the books in the given log file.', default=None)
@@ -774,7 +899,7 @@ def main():
         print('[cover-metadata-enforcer]: Enforcing metadata and covers for all books in library...')
         n_enforced, completion_time, n_supported_files = enforcer.enforce_all_covers()
         if n_enforced == False:
-            print(f"\n[cover-metadata-enforcer]: No supported ebook files found in library (only EPUB & AZW3 formats are currently supported)")
+            print("\n[cover-metadata-enforcer]: No supported ebook files found in library (only EPUB & AZW3 formats are currently supported)")
         elif n_enforced == n_supported_files:
             print(f"\n[cover-metadata-enforcer]: SUCCESS: All covers & metadata successfully updated for all {n_enforced} supported ebooks in the library in {completion_time:.2f} seconds!")
         elif n_enforced == 0:
@@ -787,20 +912,17 @@ def main():
             args.dir = args.dir[:-1]
         if os.path.isdir(args.dir):
             book_objects = enforcer.enforce_cover(args.dir)
-            if book_objects:
-                book_dicts = []
-                for book in book_objects:
-                    book_dicts.append(book.export_as_dict())
-                enforcer.db.enforce_add_entry_from_dir(book_dicts)
+            if book_objects and enforcer.record_book_results(book_objects, 'manual -dir'):
+                sys.exit(1)
         else:
             print(f"[cover-metadata-enforcer]: ERROR: '{args.dir}' is not a valid directory")
     elif args.log is not None and args.dir is None and args.all is False and args.list is False and args.history is False:
         ### log passed: (args.log), no dir
         log_info = enforcer.read_log()
-        
+
         # Handle case where log file doesn't exist (race condition)
         if log_info is None:
-            print(f"[cover-metadata-enforcer] Skipping processing due to missing or invalid log file. This is normal if the file was already processed.")
+            print("[cover-metadata-enforcer] Skipping processing due to missing or invalid log file. This is normal if the file was already processed.")
             sys.exit(0)
 
         # If multiple logs exist for the same book, prefer the newest one
@@ -811,9 +933,9 @@ def main():
             enforcer.delete_log(auto=False, log_path=current_log_path)
             log_info = enforcer.read_log(auto=False, log_path=latest_log_path)
             if log_info is None:
-                print(f"[cover-metadata-enforcer] Skipping processing due to missing or invalid log file. This is normal if the file was already processed.")
+                print("[cover-metadata-enforcer] Skipping processing due to missing or invalid log file. This is normal if the file was already processed.")
                 sys.exit(0)
-        
+
         book_dir = enforcer.get_book_dir_from_log(log_info)
         if enforcer.enforcer_on:
             try:
@@ -823,12 +945,11 @@ def main():
                     enforcer.record_failed_enforcement(log_info, "No supported files or enforcement failed")
                     enforcer.delete_log()
                     sys.exit(1)
-                for book in book_objects:
-                    book.log_info = log_info
-                    book.log_info['file_path'] = book.file_path
-                    enforcer.db.enforce_add_entry_from_log(book.log_info)
+                failures = enforcer.record_book_results(book_objects, 'auto -log', log_info=log_info)
                 enforcer.delete_log()
-                enforcer.check_for_other_logs(processed_book_ids={str(log_info.get('book_id', '')).strip()})
+                failures += enforcer.check_for_other_logs(processed_book_ids={str(log_info.get('book_id', '')).strip()})
+                if failures:
+                    sys.exit(1)
             except Exception as e:
                 enforcer.record_failed_enforcement(log_info, e)
                 enforcer.delete_log()

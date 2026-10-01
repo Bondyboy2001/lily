@@ -99,6 +99,10 @@ def _load_duplicate_index_module():
         },
     )
     cps.duplicates = duplicates
+    _install_stub("cps.duplicate_detection", {name: duplicates.__dict__[name] for name in (
+        "filter_dismissed_groups", "get_common_filters")})
+    _install_stub("cps.duplicate_rules", {name: duplicates.__dict__[name] for name in (
+        "_AWARE_MIN", "_timestamp_or_default", "generate_group_hash", "normalize_title_for_duplicates")})
 
     _install_stub("cwa_db", {"CWA_DB": object})
 
@@ -254,11 +258,13 @@ def duplicate_index(monkeypatch):
     module = _load_duplicate_index_module()
     _FakeCwaDB.reset()
     monkeypatch.setattr(module, "CWA_DB", _FakeCwaDB)
-    monkeypatch.setattr(module, "joinedload", lambda value: value)
+    monkeypatch.setattr(module, "selectinload", lambda value: value)
     yield module
     for name in (
         "cps.duplicate_index",
         "cps.duplicates",
+        "cps.duplicate_rules",
+        "cps.duplicate_detection",
         "cps.calibre_db",
         "cps.db",
         "cps.logger",
@@ -678,3 +684,44 @@ def test_schema_contains_duplicate_book_key_table():
 
     assert table == ("cwa_duplicate_book_keys",)
     assert index == ("idx_cwa_duplicate_book_keys_key",)
+
+
+def test_groups_load_with_one_batched_query_and_one_user_filter(duplicate_index, monkeypatch):
+    books = [_book(i, f"Title {i // 2}", "Writer") for i in range(1, 21)]
+    duplicate_index.calibre_db.session = _Session(books)
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    duplicate_index.upsert_book_keys({book.id for book in books}, settings)
+
+    loads, filters = [], []
+    real_load = duplicate_index._load_books_by_ids
+    monkeypatch.setattr(duplicate_index, "_load_books_by_ids",
+                        lambda ids=None, **kw: loads.append(list(ids)) or real_load(ids, **kw))
+    monkeypatch.setattr(duplicate_index, "get_common_filters", lambda user_id=None: filters.append(user_id) or True)
+
+    groups = duplicate_index.get_duplicate_groups_from_index(settings, include_dismissed=True, user_id=7)
+
+    assert len(groups) == 9  # titles 1..9 have two books each; 0 and 10 have one
+    assert len(loads) == 1 and filters == [7]
+    for group in groups:
+        ids = [book.id for book in group["books"]]
+        assert ids == sorted(ids, reverse=True)  # newest first
+
+
+def test_drop_books_from_duplicate_index_updates_cached_groups_without_a_rescan(duplicate_index):
+    books = [_book(i, title, "Writer") for i, title in
+             ((1, "Dune"), (2, "Dune"), (3, "Emma"), (4, "Emma"), (5, "Emma"), (6, "Odd"))]
+    duplicate_index.calibre_db.session = _Session(books)
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    duplicate_index.upsert_book_keys({book.id for book in books}, settings)
+    groups = duplicate_index.get_duplicate_groups_from_index(settings, include_dismissed=True)
+    _FakeCwaDB().update_duplicate_cache(groups, len(groups), 6)
+    duplicate_index.calibre_db.session = None  # must not touch metadata.db
+
+    assert duplicate_index.drop_books_from_duplicate_index([1, 5]) == 1
+
+    cache = _FakeCwaDB().get_duplicate_cache()
+    assert cache["total_count"] == 1 and cache["last_scanned_book_id"] == 6 and not cache["scan_pending"]
+    assert [(g["title"], g["book_ids"], g["count"]) for g in cache["duplicate_groups"]] == [("Emma", [4, 3], 2)]
+    keys = _FakeCwaDB().cur.execute("SELECT book_id FROM cwa_duplicate_book_keys ORDER BY book_id").fetchall()
+    assert keys == [(2,), (3,), (4,), (6,)]
+    assert duplicate_index.drop_books_from_duplicate_index([]) == 0

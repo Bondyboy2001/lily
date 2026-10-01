@@ -22,6 +22,7 @@ log = logger.create()
 class Google(Metadata):
     __name__ = "Google"
     __id__ = "google"
+    identifier_types = frozenset({"isbn"})
     DESCRIPTION = "Google Books"
     META_URL = "https://books.google.com/"
     BOOK_URL = "https://books.google.com/books?id="
@@ -121,13 +122,13 @@ class Google(Metadata):
     def _parse_cover(result: Dict, generic_cover: str) -> str:
         if result["volumeInfo"].get("imageLinks"):
             cover_url = result["volumeInfo"]["imageLinks"]["thumbnail"]
-            
+
             # strip curl in cover
             cover_url = cover_url.replace("&edge=curl", "")
-            
+
             # request 800x900 cover image (higher resolution)
             cover_url += "&fife=w800-h900"
-            
+
             return cover_url.replace("http://", "https://")
         return generic_cover
 

@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Admin pages: server and library configuration, users and their restrictions, scheduled tasks, Hardcover review."""
+
 import os
 import re
 import json
@@ -16,6 +18,7 @@ from datetime import time as datetime_time
 from functools import wraps
 
 from flask import Blueprint, current_app, flash, redirect, url_for, abort, request, make_response, g, Response, jsonify
+from flask import session as flask_session
 from markupsafe import Markup
 from .cw_login import current_user
 from flask_babel import gettext as _
@@ -23,17 +26,17 @@ from flask_babel import get_locale, format_time, format_timedelta
 from sqlalchemy import and_
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.exc import IntegrityError, OperationalError, InvalidRequestError
-from sqlalchemy.sql.expression import func, or_, text
+from sqlalchemy.sql.expression import func, text
 
 from . import constants, logger, helper, cli_param
 from . import db, calibre_db, ub, web_server, config, gdriveutils, schedule
 from werkzeug.security import generate_password_hash
-from .helper import check_email, valid_email, check_username
+from .helper import check_username
 from .embed_helper import get_calibre_binarypath
 from .gdriveutils import is_gdrive_ready, gdrive_support
 from .render_template import render_title_template, get_sidebar_config
 from .services.worker import WorkerThread
-from .usermanagement import user_login_required
+from .usermanagement import user_login_required, refuse_token_auth
 from .cw_babel import get_available_translations, get_available_locale, get_user_locale_language
 from . import debug_info
 from .string_helper import strip_whitespaces
@@ -45,13 +48,6 @@ feature_support = {
     'gdrive': gdrive_support
 }
 
-try:
-    import rarfile  # noqa: F401  # availability probe for feature_support['rar']
-
-    feature_support['rar'] = True
-except (ImportError, SyntaxError):
-    feature_support['rar'] = False
-
 admi = Blueprint('admin', __name__)
 
 
@@ -62,7 +58,8 @@ def admin_required(f):
 
     @wraps(f)
     def inner(*args, **kwargs):
-        if current_user.role_admin():
+        # An API token never counts as an admin login (see usermanagement.TOKEN_AUTH_ENDPOINTS)
+        if current_user.role_admin() and not refuse_token_auth():
             return f(*args, **kwargs)
         abort(403)
 
@@ -162,19 +159,19 @@ def queue_metadata_backup():
 def trigger_hardcover_auto_fetch():
     """Manually trigger Hardcover auto-fetch task"""
     show_text = {}
-    
+
     try:
         # Check if token is available
         from os import getenv
         token_available = bool(
-            getattr(config, "config_hardcover_token", None) or 
+            getattr(config, "config_hardcover_token", None) or
             getenv("HARDCOVER_TOKEN")
         )
-        
+
         if not token_available:
             show_text['text'] = _('Error: No Hardcover token available. Set HARDCOVER_TOKEN environment variable or configure in Basic Configuration.')
             return json.dumps(show_text), 400
-        
+
         # Get settings
         import sys as _sys
         if '/app/calibre-web-automated/scripts/' not in _sys.path:
@@ -182,27 +179,27 @@ def trigger_hardcover_auto_fetch():
         from cwa_db import CWA_DB
         from cps.tasks.auto_hardcover_id import TaskAutoHardcoverID
         from cps.services.worker import WorkerThread
-        
+
         cwa_db = CWA_DB()
         cwa_settings = cwa_db.get_cwa_settings()
-        
+
         min_confidence = float(cwa_settings.get('hardcover_auto_fetch_min_confidence', 0.85))
         batch_size = int(cwa_settings.get('hardcover_auto_fetch_batch_size', 50))
         rate_limit = float(cwa_settings.get('hardcover_auto_fetch_rate_limit', 5.0))
-        
+
         # Create and enqueue task
         task = TaskAutoHardcoverID(
             min_confidence=min_confidence,
             batch_size=batch_size,
             rate_limit_delay=rate_limit
         )
-        
+
         WorkerThread.add(current_user.name, task, hidden=False)
-        
+
         log.info(f"Hardcover auto-fetch task manually triggered by {current_user.name}")
         show_text['text'] = _('Success! Hardcover auto-fetch task started. Check Tasks panel for progress.')
         return json.dumps(show_text)
-        
+
     except Exception as e:
         log.error(f"Error triggering Hardcover auto-fetch: {e}")
         show_text['text'] = _('Error starting Hardcover auto-fetch task: %(error)s', error=str(e))
@@ -219,7 +216,7 @@ def hardcover_review_matches():
         pending_matches = ub.session.query(ub.HardcoverMatchQueue).filter(
             ub.HardcoverMatchQueue.reviewed == 0
         ).order_by(ub.HardcoverMatchQueue.created_at.desc()).all()
-        
+
         # Parse JSON data for each match
         matches_data = []
         for match in pending_matches:
@@ -227,7 +224,7 @@ def hardcover_review_matches():
             try:
                 results = json.loads(match.hardcover_results)
                 scores = json.loads(match.confidence_scores)
-                
+
                 matches_data.append({
                     'id': match.id,
                     'book_id': match.book_id,
@@ -241,14 +238,14 @@ def hardcover_review_matches():
             except Exception as e:
                 log.error(f"Error parsing match queue entry {match.id}: {e}")
                 continue
-        
+
         return render_title_template(
             "hardcover_review_matches.html",
             title=_("Review Hardcover Matches"),
             page="hardcover-review",
             matches=matches_data
         )
-        
+
     except Exception as e:
         log.error(f"Error loading Hardcover review queue: {e}")
         flash(_("Error loading review queue: %(error)s", error=str(e)), category="error")
@@ -276,31 +273,31 @@ def hardcover_review_action():
 
         action = data.get('action')  # 'accept', 'reject', 'skip'
         selected_result_id = data.get('selected_result_id')
-        
+
         # Get queue entry
         match = ub.session.query(ub.HardcoverMatchQueue).filter(
             ub.HardcoverMatchQueue.id == queue_id
         ).first()
-        
+
         if not match:
             return json.dumps({'success': False, 'error': 'Match not found'}), 404
-        
+
         if action == 'accept' and selected_result_id:
             # Apply the selected Hardcover ID to the book
             results = json.loads(match.hardcover_results)
             selected_result = next((r for r in results if str(r['id']) == str(selected_result_id)), None)
-            
+
             if not selected_result:
                 return json.dumps({'success': False, 'error': 'Selected result not found'}), 400
-            
+
             # Get the book
             book = calibre_db.session.query(db.Books).filter(
                 db.Books.id == match.book_id
             ).first()
-            
+
             if not book:
                 return json.dumps({'success': False, 'error': 'Book not found'}), 404
-            
+
             # Add identifiers
             try:
                 identifiers_to_add = selected_result.get('identifiers', {})
@@ -313,16 +310,16 @@ def hardcover_review_action():
                         db.Identifiers.book == match.book_id,
                         db.Identifiers.type == id_type
                     ).first()
-                    
+
                     if existing:
                         if existing.val != id_value_str:
                             existing.val = id_value_str
                     else:
                         new_identifier = db.Identifiers(id_value_str, id_type, match.book_id)
                         calibre_db.session.add(new_identifier)
-                
+
                 calibre_db.session.commit()
-                
+
                 # Mark as reviewed
                 match.reviewed = 1
                 match.selected_result_id = str(selected_result_id)
@@ -330,16 +327,16 @@ def hardcover_review_action():
                 match.reviewed_at = datetime.utcnow().isoformat()
                 match.reviewed_by = current_user.name
                 ub.session.commit()
-                
+
                 log.info(f"User {current_user.name} accepted Hardcover match for book {match.book_id}")
                 return json.dumps({'success': True, 'message': _('Hardcover ID applied successfully')})
-                
+
             except Exception as e:
                 calibre_db.session.rollback()
                 ub.session.rollback()
                 log.error(f"Error applying Hardcover ID: {e}")
-                return json.dumps({'success': False, 'error': str(e)}), 500
-        
+                return json.dumps({'success': False, 'error': 'Internal error; see server log for details'}), 500
+
         elif action in ['reject', 'skip']:
             # Mark as reviewed with appropriate action
             match.reviewed = 1
@@ -347,16 +344,16 @@ def hardcover_review_action():
             match.reviewed_at = datetime.utcnow().isoformat()
             match.reviewed_by = current_user.name
             ub.session.commit()
-            
+
             log.info(f"User {current_user.name} {action}ed Hardcover match for book {match.book_id}")
             return json.dumps({'success': True, 'message': _('Match %(action)s', action=action)})
-        
+
         else:
             return json.dumps({'success': False, 'error': 'Invalid action'}), 400
-            
+
     except Exception as e:
         log.error(f"Error processing review action: {e}")
-        return json.dumps({'success': False, 'error': str(e)}), 500
+        return json.dumps({'success': False, 'error': 'Internal error; see server log for details'}), 500
 
 
 @admi.route("/admin/hardcover/review-reject-all", methods=["POST"])
@@ -399,7 +396,7 @@ def hardcover_review_reject_all():
     except Exception as e:
         ub.session.rollback()
         log.error(f"Error rejecting all pending matches: {e}")
-        return json.dumps({'success': False, 'error': str(e)}), 500
+        return json.dumps({'success': False, 'error': 'Internal error; see server log for details'}), 500
 
 
 # method is available without login and not protected by CSRF to make it easy reachable, is per default switched off
@@ -426,8 +423,7 @@ def update_thumbnails():
         task_id = helper.update_thumbnail_cache()
 
         # Check if there are any books to process
-        books_with_covers = TaskGenerateCoverThumbnails.get_books_with_covers()
-        book_count = len(books_with_covers)
+        book_count = TaskGenerateCoverThumbnails.count_books_with_covers()
 
         if book_count > 0:
             message = _('Thumbnail cache refresh started for {} book(s). This may take a few minutes.').format(book_count)
@@ -448,7 +444,7 @@ def update_thumbnails():
         })
 
 
-def cwa_get_package_versions() -> tuple[str, str, str, str]:
+def cwa_get_package_versions() -> tuple[str, str]:
     try:
         with open("/app/CWA_RELEASE", "r") as f:
             cwa_version = f.read()
@@ -456,25 +452,19 @@ def cwa_get_package_versions() -> tuple[str, str, str, str]:
         cwa_version = "Unknown"
 
     try:
-        with open("/app/KEPUBIFY_RELEASE", "r") as f:
-            kepubify_version = f.read()
-    except Exception:
-        kepubify_version = "Unknown"
-
-    try:
         with open("/CALIBRE_RELEASE", "r") as f:
             calibre_version = f.read()
     except Exception:
         calibre_version = "Unknown"
 
-    return cwa_version, kepubify_version, calibre_version
+    return cwa_version, calibre_version
 
 
 @admi.route("/admin/view")
 @user_login_required
 @admin_required
 def admin():
-    cwa_version, kepubify_version, calibre_version = cwa_get_package_versions()
+    cwa_version, calibre_version = cwa_get_package_versions()
 
     all_user = ub.session.query(ub.User).all()
     schedule_time = format_time(datetime_time(hour=config.schedule_start_time), format="short")
@@ -482,7 +472,7 @@ def admin():
     schedule_duration = format_timedelta(t, threshold=.99)
 
     return render_title_template("admin.html", allUser=all_user, config=config,
-                                 cwa_version=cwa_version, kepubify_version=kepubify_version,
+                                 cwa_version=cwa_version,
                                  calibre_version=calibre_version, feature_support=feature_support,
                                  schedule_time=schedule_time, schedule_duration=schedule_duration,
                                  is_proxied=current_app.wsgi_app.is_proxied,
@@ -603,9 +593,12 @@ def list_users():
         if sort not in ub.User.__table__.columns.keys():
             sort = "id"
     order = request.args.get("order", "").lower()
+    if order not in ("asc", "desc"):
+        order = ""
 
     if sort != "state" and order:
-        order = text(sort + " " + order)
+        column = ub.User.__table__.columns[sort]
+        order = column.asc() if order == "asc" else column.desc()
     elif not state:
         order = ub.User.id.asc()
 
@@ -616,8 +609,7 @@ def list_users():
     total_count = filtered_count = all_user.count()
 
     if search:
-        all_user = all_user.filter(or_(func.lower(ub.User.name).ilike("%" + search + "%"),
-                                       func.lower(ub.User.email).ilike("%" + search + "%")))
+        all_user = all_user.filter(func.lower(ub.User.name).ilike("%" + search + "%"))
     if state:
         users = calibre_db.get_checkbox_sorted(all_user.all(), state, off, limit, request.args.get("order", "").lower())
     else:
@@ -732,8 +724,6 @@ def edit_list_user(param):
                     if user.name == "Guest":
                         raise Exception(_("Guest Name can't be changed"))
                     user.name = check_username(vals['value'])
-                elif param == 'email':
-                    user.email = check_email(vals['value'])
                 elif param.endswith('role'):
                     value = int(vals['field_index'])
                     if user.name == "Guest" and value in \
@@ -838,7 +828,6 @@ def update_view_configuration():
         return view_configuration()
     _config_int(to_save, "config_restricted_column")
 
-    _config_int(to_save, "config_random_books")
     _config_int(to_save, "config_books_per_page")
     _config_int(to_save, "config_authors_max")
     _config_string(to_save, "config_default_language")
@@ -848,8 +837,6 @@ def update_view_configuration():
     config.config_default_role &= ~constants.ROLE_ANONYMOUS
 
     config.config_default_show = sum(int(k[5:]) for k in to_save if k.startswith('show_'))
-    if "Show_detail_random" in to_save:
-        config.config_default_show |= constants.DETAIL_RANDOM
 
     config.save()
     flash(_("Lily configuration updated"), category="success")
@@ -1339,7 +1326,10 @@ def new_user():
     translations = get_available_locale()
     if request.method == "POST":
         to_save = request.form.to_dict()
-        _handle_new_user(to_save, content, languages, translations)
+        # A redirect on success or the re-rendered form on a validation error
+        response = _handle_new_user(to_save, content, languages, translations)
+        if response:
+            return response
     else:
         content.role = config.config_default_role
         content.sidebar_view = config.config_default_show
@@ -1604,7 +1594,6 @@ def _configuration_update_helper():
 
         _config_string(to_save, "config_calibre")
         _config_string(to_save, "config_binariesdir")
-        _config_string(to_save, "config_kepubifypath")
         arch_warning = None
         if "config_binariesdir" in to_save:
             calibre_status = helper.check_calibre(config.config_binariesdir)
@@ -1642,15 +1631,6 @@ def _configuration_update_helper():
         reboot_required |= _config_checkbox(to_save, "config_ratelimiter")
         reboot_required |= _config_string(to_save, "config_limiter_uri")
         reboot_required |= _config_string(to_save, "config_limiter_options")
-
-        # Rarfile Content configuration
-        _config_string(to_save, "config_rarfile_location")
-        unrar_warning = None
-        if "config_rarfile_location" in to_save:
-            unrar_status = helper.check_unrar(config.config_rarfile_location)
-            if unrar_status:
-                # Store warning but don't prevent saving other settings
-                unrar_warning = unrar_status
     except (OperationalError, InvalidRequestError) as e:
         ub.session.rollback()
         log.error_or_exception("Settings Database error: {}".format(e))
@@ -1660,7 +1640,7 @@ def _configuration_update_helper():
     if reboot_required:
         web_server.stop(True)
 
-    return _configuration_result(None, reboot_required, " ".join(filter(None, [unrar_warning, arch_warning])))
+    return _configuration_result(None, reboot_required, arch_warning or "")
 
 
 def _configuration_result(error_flash=None, reboot=False, warning_flash=None):
@@ -1713,16 +1693,13 @@ def _handle_new_user(to_save, content, languages, translations):
     content.locale = to_save.get("locale", content.locale)
 
     content.sidebar_view = sum(int(key[5:]) for key in to_save if key.startswith('show_'))
-    if "show_detail_random" in to_save:
-        content.sidebar_view |= constants.DETAIL_RANDOM
 
     content.role = constants.selected_roles(to_save)
     try:
-        if not to_save["name"] or not to_save["email"] or not to_save["password"]:
+        if not to_save["name"] or not to_save["password"]:
             log.info("Missing entries on new user")
             raise Exception(_("Oops! Please complete all fields."))
         content.password = generate_password_hash(helper.valid_password(to_save.get("password", "")))
-        content.email = check_email(to_save["email"])
         # Query username, if not existing, change
         content.name = check_username(to_save["name"])
     except Exception as ex:
@@ -1747,8 +1724,8 @@ def _handle_new_user(to_save, content, languages, translations):
         return redirect(url_for('admin.admin'))
     except IntegrityError:
         ub.session.rollback()
-        log.error("Found an existing account for {} or {}".format(content.name, content.email))
-        flash(_("Oops! An account already exists for this Email. or name."), category="error")
+        log.error("Found an existing account for {}".format(content.name))
+        flash(_("This username is already taken"), category="error")
     except OperationalError as e:
         ub.session.rollback()
         log.error_or_exception("Settings Database error: {}".format(e))
@@ -1802,11 +1779,6 @@ def _handle_edit_user(to_save, content, languages, translations):
         elif value not in val and content.check_visibility(value):
             content.sidebar_view &= ~value
 
-    if to_save.get("Show_detail_random"):
-        content.sidebar_view |= constants.DETAIL_RANDOM
-    else:
-        content.sidebar_view &= ~constants.DETAIL_RANDOM
-
     content.auto_metadata_fetch = to_save.get("auto_metadata_fetch") == "on"
 
     # OPDS root order
@@ -1857,11 +1829,6 @@ def _handle_edit_user(to_save, content, languages, translations):
             if to_save.get("password", ""):
                 content.password = generate_password_hash(helper.valid_password(to_save.get("password", "")))
 
-        new_email = valid_email(to_save.get("email", content.email))
-        if not new_email:
-            raise Exception(_("Email can't be empty and has to be a valid Email"))
-        if new_email != content.email:
-            content.email = check_email(new_email)
         # Query username, if not existing, change
         if to_save.get("name", content.name) != content.name:
             if to_save.get("name") == "Guest":
@@ -1885,6 +1852,10 @@ def _handle_edit_user(to_save, content, languages, translations):
                                      page="edituser")
     try:
         ub.session_commit()
+        if to_save.get("password", "") and not anonymous:
+            # A new password signs the user out everywhere (but not the admin doing this)
+            ub.delete_other_user_sessions(
+                content.id, flask_session.get('_random', '') if content.id == current_user.id else '')
         flash(_("User '%(nick)s' updated", nick=content.name), category="success")
     except IntegrityError as ex:
         ub.session.rollback()
@@ -1897,130 +1868,11 @@ def _handle_edit_user(to_save, content, languages, translations):
     return ""
 
 
-# --- Last Resort Calibre DB Restore / database snapshot restore ---
-# Both run as background tasks: calibredb restore_database can take ~20 minutes and a
-# blocking subprocess inside the request (gevent, no monkey-patching) froze the server.
-from .tasks.restore import _acquire_service_lock, restore_in_progress, mark_restore_queued  # noqa: E402,F401
-
-
 def _tasks_page_link():
     return Markup('<a href="%s">%s</a>') % (url_for("tasks.get_tasks_status"), _("Tasks"))
 
 
-@admi.route("/admin/restore_calibre_db", methods=["POST"])
-@user_login_required
-@admin_required
-def restore_calibre_db():
-    """Queue a restore of Calibre metadata.db from the library's OPF files (last resort recovery)."""
-    if not config.config_calibre_dir:
-        flash(_("Restore failed: Calibre library path is not configured."), category="error")
-        return redirect(url_for("admin.db_configuration"))
-    metadata_path = os.path.join(config.config_calibre_dir, "metadata.db")
-    if not os.path.exists(metadata_path):
-        flash(_("Restore failed: metadata.db not found at %(path)s", path=metadata_path), category="error")
-        return redirect(url_for("admin.db_configuration"))
-    if not mark_restore_queued():
-        flash(_("Restore already in progress."), category="error")
-        return redirect(url_for("admin.db_configuration"))
-
-    from .tasks.restore import TaskRestoreCalibreLibrary
-    WorkerThread.add(current_user.name, TaskRestoreCalibreLibrary())
-    flash(Markup(_("Restore started in the background. Follow its progress on the %(link)s page; "
-                   "databases are backed up to /config/backup first.", link=_tasks_page_link())),
-          category="success")
-    return redirect(url_for("admin.db_configuration"))
-
-
-def _format_size(num_bytes):
-    size = float(num_bytes or 0)
-    for unit in ("B", "KB", "MB", "GB"):
-        if size < 1024 or unit == "GB":
-            return ("%d %s" % (size, unit)) if unit == "B" else ("%.1f %s" % (size, unit))
-        size /= 1024
-
-
-@admi.route("/admin/db_backups", methods=["GET"])
-@user_login_required
-@admin_required
-def db_backups():
-    """Lists the nightly database snapshots with a Restore action per snapshot."""
-    from .tasks.db_backup import get_backup_root, _configured_backup_dir, RESTORABLE_DBS
-    from db_backup import describe_snapshots
-    from .tasks.processed_cleanup import get_retention_days
-    backup_root = get_backup_root()
-    try:
-        snapshots = describe_snapshots(backup_root)
-    except OSError as e:
-        log.error("Could not list database snapshots in %s: %s", backup_root, e)
-        snapshots = []
-    for snap in snapshots:
-        snap["size_text"] = _format_size(snap["size"])
-        snap["db_text"] = ", ".join("%s (%s)" % (name, _format_size(size)) for name, size in snap["databases"].items())
-    return render_title_template("db_backups.html", title=_("Database Backups"), page="db_backups",
-                                 snapshots=snapshots, backup_root=backup_root,
-                                 backup_dir_setting=_configured_backup_dir(),
-                                 backup_dir_env=os.environ.get("DB_BACKUP_DIR", ""),
-                                 retention_days=get_retention_days(),
-                                 restorable_dbs=RESTORABLE_DBS,
-                                 restore_running=restore_in_progress())
-
-
-@admi.route("/admin/db_backups/settings", methods=["POST"])
-@user_login_required
-@admin_required
-def db_backups_settings():
-    from .tasks.db_backup import get_backup_root  # noqa: F401 (puts scripts/ on sys.path)
-    from cwa_db import CWA_DB
-    from .tasks.processed_cleanup import normalize_retention_days
-    backup_dir = (request.form.get("db_backup_dir") or "").strip()
-    if backup_dir and not os.path.isabs(backup_dir):
-        flash(_("The backup folder must be an absolute path."), category="error")
-        return redirect(url_for("admin.db_backups"))
-    raw_days = (request.form.get("processed_books_retention_days") or "").strip()
-    days = normalize_retention_days(raw_days, default=-1)
-    if days < 0 or days > 3650:
-        flash(_("Retention must be a whole number of days between 0 and 3650."), category="error")
-        return redirect(url_for("admin.db_backups"))
-    try:
-        with CWA_DB() as cwa_db:
-            cwa_db.update_cwa_settings({"db_backup_dir": backup_dir,
-                                        "processed_books_retention_days": str(days)})
-    except Exception as e:
-        log.error("Saving backup settings failed: %s", e)
-        flash(_("Saving backup settings failed: %(err)s", err=str(e)), category="error")
-        return redirect(url_for("admin.db_backups"))
-    flash(_("Backup settings saved."), category="success")
-    return redirect(url_for("admin.db_backups"))
-
-
-@admi.route("/admin/db_backups/restore", methods=["POST"])
-@user_login_required
-@admin_required
-def restore_db_snapshot():
-    """Queue a restore of the selected databases from one snapshot."""
-    from .tasks.db_backup import get_backup_root, RESTORABLE_DBS, TaskRestoreDatabaseSnapshot
-    from db_backup import resolve_snapshot
-    name = request.form.get("snapshot", "")
-    databases = [d for d in request.form.getlist("databases") if d in RESTORABLE_DBS]
-    wants_json = request.accept_mimetypes.best == "application/json"
-
-    def _reply(ok, message, status=200):
-        if wants_json:
-            return jsonify({"success": ok, "message": str(message),
-                            "tasks_url": url_for("tasks.get_tasks_status")}), status
-        flash(message, category="success" if ok else "error")
-        return redirect(url_for("admin.db_backups"))
-
-    try:
-        resolve_snapshot(get_backup_root(), name)
-    except (ValueError, FileNotFoundError):
-        return _reply(False, _("Snapshot not found."), 404)
-    if not databases:
-        return _reply(False, _("Select at least one database to restore."), 400)
-    if not mark_restore_queued():
-        return _reply(False, _("Restore already in progress."), 409)
-
-    WorkerThread.add(current_user.name, TaskRestoreDatabaseSnapshot(name, databases))
-    return _reply(True, Markup(_("Restore of %(dbs)s from %(name)s started. A safety copy of the current "
-                                 "databases is taken first. Follow its progress on the %(link)s page.",
-                                 dbs=", ".join(databases), name=name, link=_tasks_page_link())))
+# Backup, restore, mirror and failed-import routes live in admin_backups.py; importing it
+# here attaches them to this blueprint (same endpoint names, e.g. admin.db_backups).
+# It must come after everything above is defined: admin_backups imports from this module.
+from . import admin_backups  # noqa: E402,F401

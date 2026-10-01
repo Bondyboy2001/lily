@@ -12,6 +12,7 @@ each (no N+1, and no re-running of the filtered/paginated Books query per relati
 
 import base64
 import re
+import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
@@ -95,7 +96,7 @@ def test_cards_only_page_skips_relationships_cards_do_not_render(tmp_path):
         with env.app.test_request_context("/"):
             login_user(env.admin())
             with _capture_sql() as statements:
-                entries, __, __ = calibre_db.fill_indexpage(1, 0, db.Books, True, [db.Books.timestamp.desc()],
+                entries, __ = calibre_db.fill_indexpage(1, 0, db.Books, True, [db.Books.timestamp.desc()],
                                                             True, 0, cards_only=True)
                 # what image.html's book_card reads must already be loaded
                 for entry in entries:
@@ -109,3 +110,42 @@ def test_cards_only_page_skips_relationships_cards_do_not_render(tmp_path):
         assert len(_relationship_loads(statements)) <= 8, statements
     finally:
         env_cm.__exit__(None, None, None)
+
+
+def _downloads_statements(tmp_path, n_books, path):
+    """Statement count for a page listing books by download (OPDS Hot, Downloaded books)."""
+    from cps import constants, ub
+    env_cm, env = _library(tmp_path, n_books)
+    try:
+        admin = env.admin()
+        admin.sidebar_view |= constants.SIDEBAR_HOT | constants.SIDEBAR_DOWNLOAD
+        con = sqlite3.connect(env.library_dir / "metadata.db")
+        book_ids = [row[0] for row in con.execute("SELECT id FROM books")]
+        con.close()
+        for book_id in book_ids:
+            ub.session.add(ub.Downloads(book_id=book_id, user_id=admin.id))
+        ub.session.commit()
+        client = env.app.test_client()
+        headers = {"Authorization": "Basic " + base64.b64encode(
+            f"{admin.name}:{ADMIN_PASSWORD}".encode()).decode()}
+        if not path.startswith("/opds"):
+            env.app.jinja_env.globals.setdefault("csrf_token", lambda: "test-token")
+            from tests.unit.test_lily_reader_static import _register_remaining_blueprints
+            _register_remaining_blueprints(env.app)
+            client.post("/login", data={"username": admin.name, "password": ADMIN_PASSWORD})
+            path = path.format(user_id=admin.id)
+        with _capture_sql() as statements:
+            resp = client.get(path, headers=headers)
+        assert resp.status_code == 200, resp.data[:300]
+        body = resp.get_data(as_text=True)
+        assert all(f"Book {i}<" in body for i in range(n_books)), re.findall(r"Book \d+", body)
+        return statements
+    finally:
+        env_cm.__exit__(None, None, None)
+
+
+@pytest.mark.parametrize("path", ["/opds/hot", "/download/stored/{user_id}"])
+def test_download_ordered_pages_load_the_page_in_one_query(tmp_path, path):
+    small = _downloads_statements(tmp_path / "small", 2, path)
+    large = _downloads_statements(tmp_path / "large", 8, path)
+    assert len(small) == len(large), "per-book queries (N+1)"

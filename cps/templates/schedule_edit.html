@@ -4,7 +4,6 @@
 <link href="{{ url_for('static', filename='css/libs/bootstrap-table.min.css') }}" rel="stylesheet">
 <link href="{{ url_for('static', filename='css/libs/bootstrap-editable.css') }}" rel="stylesheet">
 {% endblock %}
-{% block heading %}{{ _('Scheduled Tasks') }}{% endblock %}
 {% block settings %}
 <div class="lp">
   <form role="form" method="POST" autocomplete="off">
@@ -18,9 +17,9 @@
       {{ f.toggle('schedule_reconnect', _('Reconnect Calibre Database'), config.schedule_reconnect) }}
       {{ f.toggle('schedule_metadata_backup', _('Generate Metadata Backup Files'), config.schedule_metadata_backup) }}
     {% endcall %}
-    <div class="lp-actions">
+    <div class="lp-actions is-save">
       <span class="lp-spacer"></span>
-      <a href="{{ url_for('admin.admin') }}" id="email_back" class="btn btn-default">{{_('Cancel')}}</a>
+      <a href="{{ request.path }}" class="btn btn-default">{{_('Cancel')}}</a>
       <button type="submit" name="submit" value="submit" class="btn btn-primary">{{_('Save')}}</button>
     </div>
   </form>

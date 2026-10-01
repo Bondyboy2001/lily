@@ -109,10 +109,20 @@ def test_settings_pages_share_the_settings_frame(name):
 def test_settings_frame_has_rail_search_and_lily_tabs():
     html = read(TEMPLATES / "settings_layout.html")
     assert 'id="lp-search"' in html and "lily-settings-shell.js" in html
-    for tab in ("services", "ingest", "metadata", "hardcover", "duplicates", "maintenance", "interface"):
-        assert f"'#{tab}'" in html, tab
-    # The Lily settings page no longer draws its own chip row; the rail drives its tabs.
+    # Every pane of the Lily settings page is reachable from a tab; "services" was folded into metadata.
+    for pane in ("ingest", "metadata", "hardcover", "duplicates", "maintenance", "interface"):
+        assert f"'#{pane}'" in html and f"'pane': '{pane}'" in html, pane
+        assert f'data-lily-pane="{pane}"' in read(TEMPLATES / "cwa_settings.html"), pane
+    assert 'data-lily-pane="services"' not in read(TEMPLATES / "cwa_settings.html")
+    # The Lily settings page no longer draws its own chip row; the frame's strips drive its panes.
     assert "lily-settings-tabs" not in read(TEMPLATES / "cwa_settings.html")
+
+
+def test_settings_rail_is_one_item_per_section():
+    html = read(TEMPLATES / "settings_layout.html")
+    ids = re.findall(r"\{'id': '(\w+)', 'group'", html)
+    assert ids == ["profile", "reading", "security", "tasks", "library", "import", "metadata", "duplicates",
+                   "trash", "users", "general", "schedules", "maintenance", "stats"]
 
 
 @pytest.mark.parametrize("name", [n for n in SETTINGS_FORMS if n != "admin.html"])

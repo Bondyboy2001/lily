@@ -1,9 +1,23 @@
-{% macro book_cover(book, alt=None) -%}
+{#- Rendered widths of a cover, for the `sizes` of its srcset (`w` descriptors, see
+    jinjia.get_cover_srcset). Keep in step with lily-library.css: book grid columns are
+    minmax(190px, 1fr) (two per row on phones), list rows 44px, Continue Reading 140px
+    (112px on phones), the series grid 160px (two per row on phones). -#}
+{% set GRID_COVER_SIZES = '(max-width: 767px) 50vw, 220px' %}
+{% set LIST_COVER_SIZES = '44px' %}
+{% set CONTINUE_COVER_SIZES = '(max-width: 767px) 112px, 140px' %}
+{% set SERIES_COVER_SIZES = '(max-width: 767px) 50vw, 160px' %}
+
+{#- `sizes` defaults to a grid card. `list_sizes` (book grids the List view shrinks in
+    place) is what main.js swaps in when the view changes; `list_view` picks it up front. -#}
+{% macro book_cover(book, alt=None, sizes=None, list_sizes=None, list_view=False) -%}
     {%- set image_title = book.title if book.title else book.name -%}
     {%- set image_alt = alt if alt else image_title -%}
+    {%- set grid_sizes = sizes or GRID_COVER_SIZES -%}
     {% set srcset = book|get_cover_srcset %}
     <img
         srcset="{{ srcset }}"
+        sizes="{{ list_sizes if (list_sizes and list_view) else grid_sizes }}"
+        {%- if list_sizes %} data-sizes-grid="{{ grid_sizes }}" data-sizes-list="{{ list_sizes }}"{% endif %}
         src="{{ url_for('web.get_cover', book_id=book.id, resolution='og', c=book|last_modified) }}"
         alt="{{ image_alt }}"
         loading="lazy"
@@ -15,6 +29,7 @@
     {% set srcset = series|get_series_srcset %}
     <img
         srcset="{{ srcset }}"
+        sizes="{{ SERIES_COVER_SIZES }}"
         src="{{ url_for('web.get_series_cover', series_id=series.id, resolution='og', c='day'|cache_timestamp) }}"
         alt="{{ image_alt }}"
         loading="lazy"
@@ -78,8 +93,11 @@
 {# The same Sort / direction pair as sort_menu, for name lists (categories, authors, series…).
    filter_list.js / filter_grid.js sort and filter the rows in place, so the options are buttons
    keyed by id, not links. `chars` is the list of initials: the letter filter only appears when a
-   list is long enough to need it. #}
-{% macro list_menu(order, data, chars) -%}
+   list is long enough to need it. With `list_url` (authors, series) the server cuts the list by
+   letter instead: the letters are links to ?letter=X, `letter` is the current one, and "All" is
+   only offered when `show_all`; the direction buttons then reload the page. #}
+{% macro list_menu(order, data, chars, letter=None, list_url=None, show_all=True) -%}
+    {% if list_url %}{{ server_list_menu(order, data, chars, letter, list_url, show_all) }}{% else %}
     <div class="lily-sort-group filterheader" role="group" aria-label="{{ _('Sort and filter') }}">
       {% call list_dropdown('lily-field-toggle', 'glyphicon-sort', _('Sort'), _('Name')) %}
         <li class="active"><a role="button" aria-current="true">{{ _('Name') }}</a></li>
@@ -93,6 +111,30 @@
         <li class="active lily-letter-all"><a href="#" role="button" id="all">{{ _('All') }}</a></li>
         {% for char in chars %}
         <li><a href="#" role="button" class="char">{{ char }}</a></li>
+        {% endfor %}
+      {% endcall %}
+      {% endif %}
+    </div>
+    {% endif %}
+{%- endmacro %}
+
+{% macro server_list_menu(order, data, chars, letter, list_url, show_all) -%}
+    <div class="lily-sort-group filterheader" role="group" aria-label="{{ _('Sort and filter') }}" data-server-list="1">
+      {% call list_dropdown('lily-field-toggle', 'glyphicon-sort', _('Sort'), _('Name')) %}
+        <li class="active"><a role="button" aria-current="true">{{ _('Name') }}</a></li>
+      {% endcall %}
+      {% call list_dropdown('lily-order-toggle', 'glyphicon-sort-by-attributes' ~ ('-alt' if order == 0 else ''), None, _('Descending') if order == 0 else _('Ascending')) %}
+        <li{% if order != 0 %} class="active"{% endif %}><a href="#" role="button" id="asc" data-order="{{ order }}" data-id="{{ data }}" data-icon="glyphicon-sort-by-attributes">{{ _('Ascending') }}</a></li>
+        <li{% if order == 0 %} class="active"{% endif %}><a href="#" role="button" id="desc" data-id="{{ data }}" data-icon="glyphicon-sort-by-attributes-alt">{{ _('Descending') }}</a></li>
+      {% endcall %}
+      {% if chars|length > 1 %}
+      {% set letter_label = _('All') if letter == 'all' else (letter or _('Search')) %}
+      {% call list_dropdown('lily-filter-toggle', 'glyphicon-filter', _('Letter'), letter_label, 'lily-letter-menu') %}
+        {% if show_all %}
+        <li class="lily-letter-all{% if letter == 'all' %} active{% endif %}"><a href="{{ list_url }}?letter=all"{% if letter == 'all' %} aria-current="true"{% endif %}>{{ _('All') }}</a></li>
+        {% endif %}
+        {% for char in chars %}
+        <li{% if char == letter %} class="active"{% endif %}><a href="{{ list_url }}?letter={{ char|urlencode }}"{% if char == letter %} aria-current="true"{% endif %}>{{ char }}</a></li>
         {% endfor %}
       {% endcall %}
       {% endif %}
@@ -129,12 +171,37 @@
     </div>
 {%- endmacro %}
 
-{# Quick actions under a grid cover: bare icon buttons, revealed on hover or focus (lily.js wires them). #}
-{% macro cover_actions(book, user, is_read=False) -%}
-    {%- set formats = book.data|map(attribute='format')|map('lower')|list -%}
-    <div class="lily-cover-actions" data-book-id="{{ book.id }}" data-book-formats="{{ formats|join(',') }}">
+{# One-tap shelves: an icon button whose menu lists the user's shelves with a tick on the ones
+   holding the book. lily.js fills the menu from /shelf/book/<id> when it opens and toggles a
+   shelf on click; "Want to read" is always offered and created on first use. #}
+{% macro shelf_menu(book_id, menu_id, button_class='icon-btn') -%}
+    <span class="dropdown lily-shelf-menu">
+      <button type="button" id="{{ menu_id }}" class="{{ button_class }} dropdown-toggle lily-shelf-btn" data-toggle="dropdown"
+              data-book-id="{{ book_id }}" aria-haspopup="true" aria-expanded="false"
+              title="{{ _('Shelves') }}" aria-label="{{ _('Shelves') }}"><span class="glyphicon glyphicon-list" aria-hidden="true"></span></button>
+      <ul class="dropdown-menu lily-shelf-list" aria-labelledby="{{ menu_id }}"
+          data-label-loading="{{ _('Loading shelves…') }}" data-label-new="{{ _('New shelf…') }}"
+          data-new-url="{{ url_for('shelf.create_shelf') }}"
+          data-label-added="{{ _('Added to %(shelf)s', shelf='SHELF') }}"
+          data-label-removed="{{ _('Removed from %(shelf)s', shelf='SHELF') }}"
+          data-label-error="{{ _('Could not change the shelf. Try again.') }}">
+        <li class="disabled"><a role="menuitem" aria-disabled="true">{{ _('Loading shelves…') }}</a></li>
+      </ul>
+    </span>
+{%- endmacro %}
+
+{# Quick actions under a grid cover: bare icon buttons, revealed on hover or focus (lily.js wires them).
+   Read opens the best format a built-in reader handles (helper.check_read_formats), in this tab;
+   it is left out when no format opens in a reader. #}
+{% macro cover_actions(book, user, formats=None, is_read=False) -%}
+    {#- `formats` (all of the book's formats) is accepted for the card's call; Read uses only readable ones -#}
+    {%- set formats = book|reader_formats -%}
+    <div class="lily-cover-actions" data-book-id="{{ book.id }}">
       {% if formats and user.role_viewer() %}
-      <button type="button" class="icon-btn lily-read-now" title="{{ _('Read in Browser') }}" aria-label="{{ _('Read in Browser') }}"><span class="glyphicon glyphicon-book" aria-hidden="true"></span></button>
+      <a class="icon-btn lily-read-now" href="{{ url_for('web.read_book', book_id=book.id, book_format=formats[0]) }}" title="{{ _('Read in Browser') }}" aria-label="{{ _('Read in Browser') }}"><span class="glyphicon glyphicon-book" aria-hidden="true"></span></a>
+      {% endif %}
+      {% if not user.is_anonymous %}
+      {{ shelf_menu(book.id, 'shelf-menu-' ~ book.id) }}
       {% endif %}
       {% if not user.is_anonymous %}
       {% set read_label = _('Mark As Unread') if is_read else _('Mark As Read') %}
@@ -149,14 +216,21 @@
 
 {# One book in a cover grid (index, author, search, shelf). Cards are plain: cover, title, authors. #}
 {% macro book_card(book, user, is_read=False, authors_max=0, series_link=True, alt=None, extra_class='') -%}
+    {%- set formats = book.data|map(attribute='format')|map('lower')|list -%}
     <div class="book lily-book {{ extra_class }}">
       <div class="cover">
         <a href="{{ url_for('web.show_book', book_id=book.id) }}" class="book-cover-link" data-book-id="{{ book.id }}">
           <span class="img" title="{{ book.title }}">
-            {{ book_cover(book, alt=alt) }}
+            {{ book_cover(book, alt=alt, list_sizes=LIST_COVER_SIZES,
+                          list_view=(user.get_view_property('books', 'view') == 'list')) }}
             {% if is_read %}<span class="badge read glyphicon glyphicon-ok" title="{{ _('Read') }}"></span>{% endif %}
+            {% set marks = ['epub', 'pdf']|select('in', formats)|list %}
+            {% if marks %}
+            <span class="lily-cover-formats">{% for f in marks %}<span class="lily-format lily-format-{{ f }}" title="{{ f|upper }}"></span>{% endfor %}</span>
+            {% endif %}
           </span>
         </a>
+        {{ cover_actions(book, user, formats, is_read) }}
       </div>
       <div class="meta">
         <a href="{{ url_for('web.show_book', book_id=book.id) }}">
@@ -194,61 +268,8 @@
           {% for number in range(5 - stars) %}<span class="glyphicon glyphicon-star-empty" aria-hidden="true"></span>{% endfor %}
         </div>
         {% endif %}
-        {{ cover_actions(book, user, is_read) }}
       </div>
     </div>
-{%- endmacro %}
-
-{# Filter chips for book grids (web.py → list_filters.filter_context()). Read status and format are
-   toggles; tag and language are dropdowns. Every option is a link, so filters survive pagination
-   and sort, and work without JavaScript. #}
-{% macro filter_chips(lf) -%}
-  {%- if lf -%}
-    {%- set a = lf.active -%}
-    <div class="lily-filter-chips" role="group" aria-label="{{ _('Filter') }}">
-      {% if lf.show_status %}
-        {% for key in ['unread', 'reading', 'read'] %}
-        {% set on = a.get('status') == key %}
-        <a class="btn lily-chip{% if on %} active{% endif %}" href="{{ lf.url(status=(None if on else key)) }}"
-{% if on %} aria-current="true" title="{{ _('Remove filter') }}"{% endif %}>{{ lf.status_labels[key] }}</a>
-        {% endfor %}
-        {% if lf.formats %}<span class="lily-chips-gap" aria-hidden="true"></span>{% endif %}
-      {% endif %}
-      {% for fmt in lf.formats[:5] %}
-        {% set on = a.get('format') == fmt %}
-        <a class="btn lily-chip{% if on %} active{% endif %}" href="{{ lf.url(format=(None if on else fmt)) }}"
-{% if on %} aria-current="true" title="{{ _('Remove filter') }}"{% endif %}>{{ fmt }}</a>
-      {% endfor %}
-      {% if lf.formats|length > 5 %}
-        {% call list_dropdown('lily-filter-format', 'glyphicon-file', _('Format'),
-                              a.get('format') if a.get('format') and a.get('format') not in lf.formats[:5] else _('More')) %}
-          {% for fmt in lf.formats[5:] %}
-          {{ sort_item(fmt, lf.url(format=fmt), a.get('format') == fmt) }}
-          {% endfor %}
-        {% endcall %}
-      {% endif %}
-      {% if lf.languages|length > 1 or a.get('lang') %}
-        {% call list_dropdown('lily-filter-lang', 'glyphicon-font', _('Language'), lf.lang_name or _('Any')) %}
-          {{ sort_item(_('Any'), lf.url(lang=None), not a.get('lang')) }}
-          {% for code, name in lf.languages %}
-          {{ sort_item(name, lf.url(lang=code), a.get('lang') == code) }}
-          {% endfor %}
-        {% endcall %}
-      {% endif %}
-      {% if lf.tags %}
-        {% call list_dropdown('lily-filter-tag', 'glyphicon-tag', _('Tag'), lf.tag_name or _('Any'), 'lily-filter-menu') %}
-          {{ sort_item(_('Any'), lf.url(tag=None), not a.get('tag')) }}
-          {% for tag_id, name in lf.tags %}
-          {{ sort_item(name, lf.url(tag=tag_id), a.get('tag') == tag_id) }}
-          {% endfor %}
-        {% endcall %}
-      {% endif %}
-      {% if a %}
-        <a class="btn lily-chip lily-filter-clear" href="{{ lf.url(format=None, lang=None, status=None, tag=None) }}">
-          <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>{{ _('Clear filters') }}</a>
-      {% endif %}
-    </div>
-  {%- endif -%}
 {%- endmacro %}
 
 {# An empty list: what is missing, and the next step. `actions` is [(label, href, primary)]. #}

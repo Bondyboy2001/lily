@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Google Drive storage helpers and the gdrive.db settings database."""
+
 import os
 import json
 import shutil
@@ -25,11 +27,6 @@ except ImportError:
     from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.exc import OperationalError, InvalidRequestError, IntegrityError
 from sqlalchemy.orm.exc import StaleDataError
-
-try:
-    from httplib2 import __version__ as httplib2_version
-except ImportError:
-    httplib2_version = "not installed"
 
 try:
     from apiclient import errors

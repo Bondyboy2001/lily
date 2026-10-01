@@ -32,19 +32,19 @@
   <div class="continue-reading-row" role="list">
     {% for item in continue_reading %}
     {% set book = item.entry.Books %}
+    {# Straight back into the reader (best readable format, this tab); the book page if none opens. #}
+    {% set formats = book|reader_formats %}
+    {% set resume_url = url_for('web.read_book', book_id=book.id, book_format=formats[0]) if formats and current_user.role_viewer() else url_for('web.show_book', book_id=book.id) %}
     <div class="book continue-reading-item" role="listitem">
       <div class="cover">
-        <a href="{{ url_for('web.show_book', book_id=book.id) }}"
-           data-book-id="{{ book.id }}"
-           data-book-formats="{% for format in book.data %}{{ format.format.lower() }}{% if not loop.last %},{% endif %}{% endfor %}"
-           class="book-cover-link">
+        <a href="{{ resume_url }}" data-book-id="{{ book.id }}" class="book-cover-link">
           <span class="img" title="{{ book.title }}">
-            {{ image.book_cover(book) }}
+            {{ image.book_cover(book, sizes=image.CONTINUE_COVER_SIZES) }}
           </span>
         </a>
       </div>
       <div class="meta">
-        <a href="{{ url_for('web.show_book', book_id=book.id) }}">
+        <a href="{{ resume_url }}">
           <p title="{{ book.title }}" class="title">{{ book.title }}</p>
         </a>
         {% if book.authors %}
@@ -63,21 +63,34 @@
   </div>
 </section>
 {% endif %}
-{% if current_user.show_detail_random() and page != "discover" and not (list_filters and list_filters.active) and random is iterable and random|list|length %}
-<div class="discover random-books">
-  <h2 class="random-books">{{_('Discover (Random Books)')}}</h2>
-  <div class="row display-flex lily-grid">
-   {% for entry in random %}
-    {{ image.book_card(entry.Books, current_user, entry[2] == True, g.config_authors_max, extra_class='books_rand') }}
-   {% endfor %}
+{% if up_next and up_next.books %}
+{# The "Want to read" shelf (shelf.up_next_row), books not yet started, in shelf order. #}
+<section class="continue-reading up-next" aria-labelledby="up-next-heading">
+  <h2 id="up-next-heading"><a href="{{ url_for('shelf.show_shelf', shelf_id=up_next.shelf_id) }}">{{_('Up next')}}</a></h2>
+  <div class="continue-reading-row" role="list">
+    {% for book in up_next.books %}
+    <div class="book continue-reading-item" role="listitem">
+      <div class="cover">
+        <a href="{{ url_for('web.show_book', book_id=book.id) }}" data-book-id="{{ book.id }}" class="book-cover-link">
+          <span class="img" title="{{ book.title }}">
+            {{ image.book_cover(book) }}
+          </span>
+        </a>
+      </div>
+      <div class="meta">
+        <a href="{{ url_for('web.show_book', book_id=book.id) }}">
+          <p title="{{ book.title }}" class="title">{{ book.title }}</p>
+        </a>
+        {% if book.authors %}
+        <p class="author">{{ book.authors[0].name.replace('|',',')|shortentitle(30) }}</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
   </div>
-</div>
+</section>
 {% endif %}
 <div class="discover load-more">
-  {% if page == 'discover' and list_filters %}
-  <div class="lily-list-toolbar">{{ image.filter_chips(list_filters) }}</div>
-  {% endif %}
-  {% if page != 'discover' %}
   <div class="lily-list-toolbar">
     {# Grid/List icons, pinned to the toolbar's top right #}
     {{ self.view_switch() }}
@@ -85,9 +98,7 @@
     {% elif page == 'series' %}{% set sort_fields = ['added', 'title', 'author', 'published', 'series'] %}
     {% else %}{% set sort_fields = ['added', 'title', 'author', 'published'] %}{% endif %}
     {{ image.sort_menu(order, url_for('web.books_list', data=page, book_id=id, sort_param='SORT_PARAM', **(list_filters.args if list_filters else {})), sort_fields) }}
-    {{ image.filter_chips(list_filters) }}
   </div>
-  {% endif %}
 
   <div class="row display-flex lily-grid">
     {% for entry in entries if entry %}
@@ -110,7 +121,7 @@
     <p><a class="btn btn-default" href="{{ url_for('admin.configuration') }}">{{_('Turn on uploads')}}</a></p>
     {% endif %}
   </div>
-  {% elif not entries[0] and page not in ('discover', 'hot') %}
+  {% elif not entries[0] and page != 'hot' %}
   {{ image.empty_state('glyphicon-book', _('No books here yet'),
                        _('Books appear here once they match this list.'),
                        [(_('Browse all books'), url_for('web.index'), True)]) }}

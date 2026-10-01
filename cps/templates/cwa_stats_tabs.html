@@ -1,5 +1,4 @@
 {% extends "settings_layout.html" %}
-{% block heading %}{{ _('Stats') }}{% endblock %}
 {% block pane_class %} is-wide{% endblock %}
 {% block settings %}
 
@@ -15,7 +14,7 @@ window.lilyStatsTabInitDone = {};
     <p class="stats-intro">{{ _('How the library is used, how it has grown, and what the automations have done.') }}</p>
 
     <ul class="nav nav-pills stats-tabs" role="tablist" aria-label="{{ _('Stats sections') }}">
-        {% for key, label in [('activity', _('User activity')), ('library', _('Library')), ('api', _('API usage')), ('system', _('System'))] %}
+        {% for key, label in [('activity', _('Activity')), ('library', _('Library')), ('api', _('API usage')), ('system', _('System'))] %}
         <li role="presentation" class="{{ 'active' if active_tab == key else '' }}">
             <a href="?tab={{ key }}" role="tab" id="{{ key }}-tab-link" aria-controls="{{ key }}-tab"
                aria-selected="{{ 'true' if active_tab == key else 'false' }}" data-stats-tab="{{ key }}">{{ label }}</a>

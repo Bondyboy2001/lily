@@ -3,10 +3,11 @@
 
 <head>
     <meta charset="utf-8">
+    {% include 'lily_theme_head.html' %}
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <title>{{_('epub Reader')}} | {{title}}</title>
     <meta name="description" content="">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="mobile-web-app-capable" content="yes">
     {% if g.google_site_verification|length > 0 %}
     <meta name="google-site-verification" content="{{g.google_site_verification}}">
@@ -69,37 +70,52 @@
 	    <button type="button" id="prev" class="arrow" aria-label="{{_('Previous Page')}}">‹</button>
 	    <div id="viewer"></div>
 	    <button type="button" id="next" class="arrow" aria-label="{{_('Next Page')}}">›</button>
-	    <div id="progress" aria-live="off">0%</div>
+	    <div id="progress" aria-live="off"></div>
 	    <div id="loader"><img src="{{ url_for('static', filename='img/loader.gif') }}" alt="{{_('Loading...')}}"></div>
+	    {# End of book: shown by epub-finish.js on the last page / from 99%, when the server marks the book read. #}
+	    <section id="finish-card" class="reader-finish" aria-labelledby="finish-title" hidden>
+	        <button type="button" class="reader-finish-close reader-btn" aria-label="{{_('Close')}}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></button>
+	        <p id="finish-title" class="reader-finish-title">{{_('Finished:')}} <strong>{{ title }}</strong></p>
+	        {% if next_book %}
+	        {% set next_formats = next_book.data | map(attribute='format') | list %}
+	        {% if 'EPUB' in next_formats %}
+	        {% set next_url = url_for('web.read_book', book_id=next_book.id, book_format='epub') %}
+	        {% elif 'KEPUB' in next_formats %}
+	        {% set next_url = url_for('web.read_book', book_id=next_book.id, book_format='kepub') %}
+	        {% else %}
+	        {% set next_url = url_for('web.show_book', book_id=next_book.id) %}
+	        {% endif %}
+	        <a id="finish-next" class="reader-finish-next" href="{{ next_url }}"><span class="reader-finish-label">{{_('Read next in series:')}}</span> {{ next_book.title }}</a>
+	        {% endif %}
+	        <a id="finish-library" class="reader-finish-library" href="{{ url_for('web.index') }}">{{_('Back to library')}}</a>
+	    </section>
 	</div>
     <div class="modal md-effect-1" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <div class="md-content">
             <h3 id="settings-title">{{_('Settings')}}</h3>
             <div class="reader-setting themes" id="themes">
                 <span class="reader-setting-label">{{_('Theme')}}</span>
-                <!-- The tick is set from the saved theme by markSelectedTheme() below and again by selectTheme() on startup -->
-                <button type="button" id="lightTheme" class="lightTheme" onclick="selectTheme(this.id)"><span
+                {# epub-settings.js ticks the chosen theme; with none saved the page follows the app's light/dark theme. #}
+                <button type="button" id="lightTheme" class="lightTheme"><span
                         id="lightSelected"></span>{{_('Light')}}</button>
-                <button type="button" id="darkTheme" class="darkTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="darkTheme" class="darkTheme"><span
                         id="darkSelected"></span>{{_('Dark')}}</button>
-                <button type="button" id="sepiaTheme" class="sepiaTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="sepiaTheme" class="sepiaTheme"><span
                         id="sepiaSelected"></span>{{_('Sepia')}}</button>
-                <button type="button" id="blackTheme" class="blackTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="blackTheme" class="blackTheme"><span
                         id="blackSelected"></span>{{_('Black')}}</button>
             </div>
-            <div class="reader-setting fontSizeWrapper">
-                <label class="reader-setting-label" for="fontSizeFader">{{ _('Font Sizes') }}</label>
-                <input type="range" min="75" max="200" value="100" id="fontSizeFader" step="25">
+            <div class="reader-setting fontSizeWrapper" role="group" aria-labelledby="fontSizeLabel">
+                <span class="reader-setting-label" id="fontSizeLabel">{{ _('Text size') }}</span>
+                <button type="button" id="fontSmaller" class="reader-size-btn" aria-label="{{_('Smaller text')}}">A−</button>
+                <output id="fontSizeValue" class="reader-size-value" aria-live="polite">100%</output>
+                <button type="button" id="fontLarger" class="reader-size-btn reader-size-larger" aria-label="{{_('Larger text')}}">A+</button>
             </div>
             <div class="reader-setting font" id="font">
                 <span class="reader-setting-label">{{_('Font')}}</span>
-                <button type="button" id="default" onclick="selectFont(this.id)"><span>✓</span>{{_('Default')}}</button>
-                <button type="button" id="Yahei" onclick="selectFont(this.id)"><span></span>{{_('Yahei')}}</button>
-                <button type="button" id="SimSun" onclick="selectFont(this.id)"><span></span>{{_('SimSun')}}</button>
-                <button type="button" id="KaiTi" onclick="selectFont(this.id)"><span></span>{{_('KaiTi')}}</button>
-                <button type="button" id="Serif" onclick="selectFont(this.id)"><span></span>{{_('Serif')}}</button>
-                <button type="button" id="SansSerif" onclick="selectFont(this.id)"><span></span>{{_('Sans-serif')}}</button>
-                <button type="button" id="Arial" onclick="selectFont(this.id)"><span></span>{{_('Arial')}}</button>
+                <button type="button" id="default"><span>✓</span>{{_('Book default')}}</button>
+                <button type="button" id="Serif"><span></span>{{_('Serif')}}</button>
+                <button type="button" id="SansSerif"><span></span>{{_('Sans')}}</button>
             </div>
             <div class="reader-setting readerLayout" id="readerLayout">
                 <label class="reader-setting-label" for="lineHeightSelect">{{_('Line spacing')}}</label>
@@ -119,14 +135,15 @@
                   <option value="4">{{_('Large')}}</option>
                 </select>
             </div>
-            <div class="reader-setting layou" id="layout">
-                <span class="reader-setting-label">{{ _('Spread') }}</span>
-                <button type="button" id="spread" onclick="spread(this.id)"><span>✓</span>{{_('Two columns')}}</button>
-                <button type="button" id="nonespread" onclick="spread(this.id)"><span></span>{{_('One column')}}</button>
+            {# Wide screens only (hidden below 800px in lily-reader.css, where pages are always one column). #}
+            <div class="reader-setting reader-wide-only" id="layout">
+                <span class="reader-setting-label">{{ _('Columns') }}</span>
+                <button type="button" id="spread"><span>✓</span>{{_('Two on wide screens')}}</button>
+                <button type="button" id="nonespread"><span></span>{{_('One')}}</button>
             </div>
-            <div class="reader-setting">
+            <div class="reader-setting reader-wide-only">
                 <label class="reader-check" for="sidebarReflow"><input type="checkbox" id="sidebarReflow"
-                        name="sidebarReflow">{{_('Reflow text when sidebars are open.')}}</label>
+                        name="sidebarReflow">{{_('Narrow the page beside the contents panel instead of covering it')}}</label>
             </div>
             <button type="button" class="closer icon-cancel-circled" aria-label="{{_('Close')}}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></button>
         </div>
@@ -148,150 +165,56 @@
             // Reading position sync (GET/POST {cfi, percent}); only for signed-in users.
             progressUrl: "{{ url_for('web.index') }}ajax/progress/{{ bookid }}",
             progressKey: "{{ bookid }}.{{ book_format }}",
-            syncProgress: {{ current_user.is_authenticated | tojson }}
+            syncProgress: {{ current_user.is_authenticated | tojson }},
+            // Changes when the file is rewritten; keys the cached epub.js locations.
+            bookStamp: {{ book_stamp | default('') | tojson }}
         };
 
+        // Page themes. css_path styles the book (epub_themes.css); bgColor and title-color paint
+        // the reader around it; "dark" themes also switch the chrome (sidebar, settings) to dark.
+        // darkTheme is the app's Abyss palette (paper / ink).
         window.themes = {
-            "darkTheme": {
-                "bgColor": "#202124",
-                "css_path": "{{ url_for('static', filename='css/epub_themes.css') }}",
-                "title-color": "#fff"
-            },
             "lightTheme": {
-                "bgColor": "white",
+                "bgColor": "#FFFFFF",
                 "css_path": "{{ url_for('static', filename='css/epub_themes.css') }}",
-                "title-color": "#4f4f4f"
+                "title-color": "#4F4F4F"
+            },
+            "darkTheme": {
+                "bgColor": "#1A1B26",
+                "css_path": "{{ url_for('static', filename='css/epub_themes.css') }}",
+                "title-color": "#C8D1F5",
+                "dark": true
             },
             "sepiaTheme": {
-                "bgColor": "#ece1ca",
+                "bgColor": "#ECE1CA",
                 "css_path": "{{ url_for('static', filename='css/epub_themes.css') }}",
-                "title-color": "#4f4f4f"
+                "title-color": "#4F4F4F"
             },
             "blackTheme": {
-                "bgColor": "black",
+                "bgColor": "#000000",
                 "css_path": "{{ url_for('static', filename='css/epub_themes.css') }}",
-                "title-color": "#fff"
-            },
+                "title-color": "#D6D6D6",
+                "dark": true
+            }
         };
 
         // CSS font stacks for the font buttons (ids). "default" keeps the book's own font.
         // Only locally installed fonts are used - nothing is fetched from a CDN.
         window.readerFontStacks = {
-            "Serif": 'Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "Times New Roman", serif',
-            "SansSerif": 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif',
-            "Yahei": '"Microsoft YaHei", sans-serif',
-            "SimSun": 'SimSun, serif',
-            "KaiTi": 'KaiTi, serif',
-            "Arial": 'Arial, Helvetica, sans-serif'
+            "Serif": 'Charter, "Bitstream Charter", Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, "Times New Roman", serif',
+            "SansSerif": 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif'
         };
-
-        function markSelectedTheme (id) {
-            let themeButton = themes[id] ? document.getElementById(id) : null;
-            if (!themeButton) {
-              return false;
-            }
-            // Remove tick mark from all theme buttons
-            document.getElementById("themes").querySelectorAll("span").forEach(function (tickSpan) {
-              tickSpan.textContent = "";
-            });
-            // Add tick mark to the button corresponding to the currently selected theme
-            themeButton.querySelector("span").textContent = "✓";
-            return true;
-        }
-
-        function selectTheme (id) {
-            if (!markSelectedTheme(id)) {
-              id = "lightTheme";
-              markSelectedTheme(id);
-            }
-            // Saving theme to local storage
-            localStorage.setItem("calibre.reader.theme", id);
-            // Apply theme to epubjs iframe
-            reader.rendition.themes.select(id);
-            // Apply theme to rest of the page. 
-            document.getElementById("main").style.backgroundColor = themes[id]["bgColor"];
-            // The toolbar and page arrows follow the page colours.
-            document.getElementById("main").style.color = themes[id]["title-color"] || "#fff";
-            document.getElementById("titlebar").style.color = themes[id]["title-color"] || "#fff";
-          }
-
-        // Font size and font logic (wait for reader to be ready)
-        let defaultFont;
-        window.selectFont = function(id) {
-          if (!defaultFont) {
-            try {
-              defaultFont = reader.rendition.getContents()[0]?.css('font-family');
-            } catch (e) { defaultFont = null; }
-          }
-          let spans = document.getElementById("font").querySelectorAll("span");
-          for(var i = 0; i < spans.length; i++) {
-            spans[i].textContent = "";
-          }
-          let fontButton = document.getElementById(id);
-          if (!fontButton || (id !== 'default' && !readerFontStacks[id])) {
-            id = 'default';
-            fontButton = document.getElementById(id);
-          }
-          fontButton.querySelector("span").textContent = "✓";
-          localStorage.setItem("calibre.reader.font", id);
-          if (id == 'default') {
-            if (defaultFont) {
-              reader.rendition.themes.font(defaultFont);
-            }
-            return;
-          }
-          reader.rendition.themes.font(readerFontStacks[id]);
-        }
-
-        window.spread = function(id) {
-          let spans = document.getElementById("layout").querySelectorAll("span");
-          for(var i = 0; i < spans.length; i++) {
-            spans[i].textContent = "";
-          }
-          document.getElementById(id).querySelector("span").textContent = "✓";
-          localStorage.setItem("calibre.reader.spread", id);
-          reader.rendition.spread(id==='spread'?true:'none');
-        }
-
-        // Font size slider logic
-        document.addEventListener("DOMContentLoaded", function() {
-          let fontSizeFader = document.getElementById('fontSizeFader');
-          if (fontSizeFader) {
-            let savedFontSize = localStorage.getItem("calibre.reader.fontSize");
-            if (savedFontSize) {
-              fontSizeFader.value = savedFontSize;
-            }
-            fontSizeFader.addEventListener("change", function () {
-              reader.rendition.themes.fontSize(`${this.value}%`);
-              localStorage.setItem("calibre.reader.fontSize", this.value);
-            });
-          }
-        });
-
-        // Reflow logic
-        document.addEventListener("DOMContentLoaded", function() {
-          let reflowBox = document.getElementById('sidebarReflow');
-          if (reflowBox) {
-            let savedReflow = localStorage.getItem("calibre.reader.reflow");
-            if (savedReflow !== null) {
-              reflowBox.checked = savedReflow === 'true';
-            }
-            reflowBox.addEventListener("change", function() {
-              localStorage.setItem("calibre.reader.reflow", this.checked);
-            });
-          }
-        });
-
-        // Show the saved theme's tick straight away, before the reader has finished loading
-        document.addEventListener("DOMContentLoaded", function() {
-          markSelectedTheme(localStorage.getItem("calibre.reader.theme") || "lightTheme") || markSelectedTheme("lightTheme");
-        });
       </script>
       <script src="{{ url_for('static', filename='js/libs/screenfull.min.js') }}"></script>
       <script src="{{ url_for('static', filename='js/libs/reader.min.js') }}"></script>
-      <script src="{{ url_for('static', filename='js/reading/epub.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/progress-sync.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/reading/epub.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/reading/epub-settings.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/epub-progress.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/epub-search.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/reading/epub-finish.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/reading/reader-offline.js') }}"
+              data-sw="{{ url_for('web.reader_service_worker') }}" data-scope="{{ url_for('web.index') }}read/"
+              data-cache="{{ url_for('web.serve_book', book_id=bookid, book_format=book_format, anyname='file.epub') }} {{ url_for('static', filename='css/epub_themes.css') }}"></script>
     </body>
 </html>

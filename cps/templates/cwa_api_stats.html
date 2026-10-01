@@ -27,10 +27,8 @@
     </div>
 
     <div class="stats-actions">
-        <span class="label label-warning" id="api-demo-badge" hidden>{{ _('Demo data') }}</span>
         <button type="button" onclick="window.location.href='/cwa-stats-show?tab=api'" class="btn btn-default">{{ _('Reset') }}</button>
         <button type="button" onclick="exportApiCSV()" class="btn btn-default">{{ _('Export CSV') }}</button>
-        <button type="button" onclick="toggleApiDemoMode()" class="btn btn-default" id="api-demo-button" aria-pressed="false">{{ _('Show demo data') }}</button>
     </div>
 </div>
 
@@ -77,15 +75,11 @@
 
 <script>
 // Data from backend (with defaults to prevent undefined)
-const realApiData = {
+const currentApiData = {
     usageBreakdown: {{ (api_usage_breakdown or []) | tojson }},
     endpointFrequency: {{ (endpoint_frequency or []) | tojson }},
     apiTiming: {{ (api_timing or []) | tojson }}
 };
-
-// State management
-let apiDemoMode = false;
-let currentApiData = realApiData;
 
 // Initialize charts
 let apiUsageChart, apiTimingChart;
@@ -233,36 +227,6 @@ function updateEndpointTable() {
     }).join('');
 }
 
-// Demo data generator
-function generateApiDemoData() {
-    return {
-        usageBreakdown: [
-            ['OPDS Feed', 567 + Math.floor(Math.random() * 200)],
-            ['Web UI', 1234 + Math.floor(Math.random() * 300)]
-        ],
-        apiTiming: (() => {
-            const timing = [];
-            for (let day = 0; day < 7; day++) {
-                for (let hour = 0; hour < 24; hour++) {
-                    const count = Math.floor(Math.random() * 30);
-                    if (count > 0) timing.push([day, hour, count]);
-                }
-            }
-            return timing;
-        })(),
-        endpointFrequency: [
-            ['/opds', 'OPDS', 189, new Date().toISOString()],
-            ['/opds/new', 'OPDS', 156, new Date().toISOString()],
-            ['/opds/search', 'OPDS', 134, new Date().toISOString()],
-            ['/download/123/epub', 'Downloads', 98, new Date().toISOString()],
-            ['/read/789', 'Reading', 56, new Date().toISOString()],
-            ['SEARCH', 'Search', 234, new Date().toISOString()],
-            ['LOGIN', 'Authentication', 89, new Date().toISOString()],
-            ['/opds/books', 'OPDS', 45, new Date().toISOString()]
-        ]
-    };
-}
-
 // Time period filter functions
 function changeApiTimePeriod() {
     const select = document.getElementById('api-time-period');
@@ -286,24 +250,6 @@ function applyApiDateRange() {
     }
     
     window.location.href = `/cwa-stats-show?tab=api&start_date=${startDate}&end_date=${endDate}`;
-}
-
-function toggleApiDemoMode() {
-    apiDemoMode = !apiDemoMode;
-    const button = document.getElementById('api-demo-button');
-    const badge = document.getElementById('api-demo-badge');
-    
-    if (apiDemoMode) {
-        currentApiData = generateApiDemoData();
-        button.textContent = 'Show real data';
-    } else {
-        currentApiData = realApiData;
-        button.textContent = 'Show demo data';
-    }
-    button.setAttribute('aria-pressed', apiDemoMode ? 'true' : 'false');
-    badge.hidden = !apiDemoMode;
-
-    updateAllApiVisualizations();
 }
 
 function exportApiCSV() {

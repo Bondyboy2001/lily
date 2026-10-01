@@ -7,8 +7,6 @@
 
 import os
 import re
-import glob
-from shutil import copyfile
 from time import time
 from uuid import uuid4
 
@@ -18,17 +16,38 @@ from flask_babel import lazy_gettext as N_
 from cps.services.worker import CalibreTask
 from cps import db
 from cps import logger, config
-from cps.subproc_wrapper import process_open
+from cps.subproc_wrapper import process_open, ProcessTimeout, drain_in_background
 from flask_babel import gettext as _
 from cps.file_helper import get_temp_dir
 
-from cps import gdriveutils, helper
+from cps import gdriveutils
 from cps.constants import SUPPORTED_CALIBRE_BINARIES
 from cps.string_helper import strip_whitespaces
 
 log = logger.create()
 
 current_milli_time = lambda: int(round(time() * 1000))
+
+# A converter that hangs used to block the single worker thread forever. It is now killed
+# after a time that grows with the input size: 10 minutes plus 1 minute per MB, at most 4 hours.
+CONVERT_TIMEOUT_BASE = 10 * 60
+CONVERT_TIMEOUT_PER_MB = 60
+CONVERT_TIMEOUT_MAX = 4 * 3600
+# calibredb show_metadata only prints one OPF
+OPF_EXPORT_TIMEOUT = 5 * 60
+
+
+def convert_timeout(path):
+    """Seconds a conversion of the file at `path` may run before it is killed."""
+    try:
+        size = os.path.getsize(path)
+    except OSError:
+        size = 0
+    return min(CONVERT_TIMEOUT_MAX, CONVERT_TIMEOUT_BASE + CONVERT_TIMEOUT_PER_MB * size / 2**20)
+
+
+def _timeout_message(seconds):
+    return N_("Conversion took longer than %(minutes)d minutes and was stopped", minutes=round(seconds / 60))
 
 
 class TaskConvert(CalibreTask):
@@ -128,17 +147,12 @@ class TaskConvert(CalibreTask):
                      book_id,
                      format_new_ext)
 
-        if config.config_kepubifypath and format_old_ext == '.epub' and format_new_ext == '.kepub':
-            check, error_message = self._convert_kepubify(file_path,
-                                                          format_old_ext,
-                                                          format_new_ext)
-        else:
-            # check if calibre converter-executable is existing
-            if not os.path.exists(config.config_converterpath):
-                self._handleError(N_("Calibre ebook-convert %(tool)s not found", tool=config.config_converterpath))
-                return
-            has_cover = local_db.get_book(book_id).has_cover
-            check, error_message = self._convert_calibre(file_path, format_old_ext, format_new_ext, has_cover)
+        # check if calibre converter-executable is existing
+        if not os.path.exists(config.config_converterpath):
+            self._handleError(N_("Calibre ebook-convert %(tool)s not found", tool=config.config_converterpath))
+            return
+        has_cover = local_db.get_book(book_id).has_cover
+        check, error_message = self._convert_calibre(file_path, format_old_ext, format_new_ext, has_cover)
 
         if check == 0:
             cur_book = local_db.get_book(book_id)
@@ -175,54 +189,6 @@ class TaskConvert(CalibreTask):
         self._handleError(error_message)
         return
 
-    def _convert_kepubify(self, file_path, format_old_ext, format_new_ext):
-        if config.config_embed_metadata and config.config_binariesdir:
-            tmp_dir, temp_file_name = helper.do_calibre_export(self.book_id, format_old_ext[1:])
-            filename = os.path.join(tmp_dir, temp_file_name + format_old_ext)
-            temp_file_path = tmp_dir
-        else:
-            filename = file_path + format_old_ext
-            temp_file_path = os.path.dirname(file_path)
-        quotes = [1, 3]
-        command = [config.config_kepubifypath, filename, '-o', temp_file_path, '-i']
-        try:
-            p = process_open(command, quotes)
-        except OSError as e:
-            return 1, N_("Kepubify-converter failed: %(error)s", error=e)
-        self.progress = 0.01
-        while True:
-            nextline = p.stdout.readlines()
-            nextline = [x.strip('\n') for x in nextline if x != '\n']
-            for line in nextline:
-                log.debug(line)
-            if p.poll() is not None:
-                break
-
-        # process returncode
-        check = p.returncode
-
-        # move file
-        if check == 0:
-            converted_file = glob.glob(glob.escape(os.path.splitext(filename)[0]) + "*.kepub.epub")
-            if len(converted_file) == 1:
-                copyfile(converted_file[0], (file_path + format_new_ext))
-                os.unlink(converted_file[0])
-            else:
-                if config.config_embed_metadata and config.config_binariesdir and os.path.isfile(filename):
-                    try:
-                        os.remove(filename)
-                    except OSError:
-                        pass
-                return 1, N_("Converted file not found or more than one file in folder %(folder)s",
-                             folder=os.path.dirname(file_path))
-
-        if config.config_embed_metadata and config.config_binariesdir and os.path.isfile(filename):
-            try:
-                os.remove(filename)
-            except OSError:
-                pass
-        return check, None
-
     def _convert_calibre(self, file_path, format_old_ext, format_new_ext, has_cover):
         path_tmp_opf = None
         try:
@@ -239,12 +205,21 @@ class TaskConvert(CalibreTask):
 
                 opf_command = [calibredb_binarypath, 'show_metadata', '--as-opf', str(self.book_id),
                                '--with-library', library_path]
-                p = process_open(opf_command, quotes, my_env, newlines=False)
+                p = process_open(opf_command, quotes, my_env, newlines=False, new_session=True)
                 lines = list()
-                while p.poll() is None:
-                    lines.append(p.stdout.readline())
+                stderr_thread, calibre_traceback = drain_in_background(p.stderr)
+                with ProcessTimeout(p, OPF_EXPORT_TIMEOUT, kill_group=True) as watchdog:
+                    while p.poll() is None:
+                        lines.append(p.stdout.readline())
+                    lines.extend(p.stdout.readlines())  # whatever was left after the last poll
+                stderr_thread.join(timeout=10)
+                if watchdog.timed_out:
+                    log.error("calibredb show_metadata for book %s was killed after %d s",
+                              self.book_id, watchdog.seconds)
+                    return 1, _timeout_message(watchdog.seconds)
                 check = p.returncode
-                calibre_traceback = p.stderr.readlines()
+                calibre_traceback = [ele.decode('utf-8', errors="ignore") if isinstance(ele, bytes) else ele
+                                     for ele in calibre_traceback]
                 if check == 0:
                     path_tmp_opf = os.path.join(tmp_dir, "metadata_" + str(uuid4()) + ".opf")
                     with open(path_tmp_opf, 'wb') as fd:
@@ -279,26 +254,32 @@ class TaskConvert(CalibreTask):
                             command.append(parsed)
                             quotes.append(quotes_index)
                             quotes_index += 1
-            p = process_open(command, quotes, newlines=False)
+            p = process_open(command, quotes, newlines=False, new_session=True)
         except OSError as e:
             return 1, N_("Ebook-converter failed: %(error)s", error=e)
 
-        while p.poll() is None:
-            nextline = p.stdout.readline()
-            if isinstance(nextline, bytes):
-                nextline = nextline.decode('utf-8', errors="ignore").strip('\r\n')
-            if nextline:
-                log.debug(nextline)
-            # parse progress string from calibre-converter
-            progress = re.search(r"(\d+)%\s.*", nextline)
-            if progress:
-                self.progress = int(progress.group(1)) / 100
-                if config.config_use_google_drive:
-                    self.progress *= 0.9
+        # stderr is drained in the background: unread, a full pipe would block ebook-convert
+        stderr_thread, calibre_traceback = drain_in_background(p.stderr)
+        with ProcessTimeout(p, convert_timeout(file_path + format_old_ext), kill_group=True) as watchdog:
+            while p.poll() is None:
+                nextline = p.stdout.readline()
+                if isinstance(nextline, bytes):
+                    nextline = nextline.decode('utf-8', errors="ignore").strip('\r\n')
+                if nextline:
+                    log.debug(nextline)
+                # parse progress string from calibre-converter
+                progress = re.search(r"(\d+)%\s.*", nextline)
+                if progress:
+                    self.progress = int(progress.group(1)) / 100
+                    if config.config_use_google_drive:
+                        self.progress *= 0.9
+        stderr_thread.join(timeout=10)
+        if watchdog.timed_out:
+            log.error("ebook-convert of book %s was killed after %d s", self.book_id, watchdog.seconds)
+            return 1, _timeout_message(watchdog.seconds)
 
         # process returncode
         check = p.returncode
-        calibre_traceback = p.stderr.readlines()
         error_message = ""
         for ele in calibre_traceback:
             ele = ele.decode('utf-8', errors="ignore").strip('\n')

@@ -1,22 +1,22 @@
 {#- Colour theme, included at the top of <head> so the page never flashes the wrong scheme.
-    The preference ("light" | "dark" | "system") is per browser in localStorage["lily-theme"].
-    "system" leaves data-theme unset and lily.css follows prefers-color-scheme; the top bar's
-    theme button (lily.js) changes it. -#}
+    The preference ("light" | "dark") is per browser in localStorage["lily-theme"]. Until the top
+    bar's theme button (lily.js) sets one, the browser's prefers-color-scheme picks the starting theme. -#}
     <meta name="color-scheme" content="light dark">
     <meta name="theme-color" content="#FDFCFA" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#1B1719" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#1A1B26" media="(prefers-color-scheme: dark)">
     <script>
       (function () {
-        var pref = "system";
-        try { pref = window.localStorage.getItem("lily-theme") || "system"; } catch (e) {}
-        if (pref !== "light" && pref !== "dark") { pref = "system"; }
+        var pref = null;
+        try { pref = window.localStorage.getItem("lily-theme"); } catch (e) {}
+        if (pref !== "light" && pref !== "dark") {
+          pref = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
         var root = document.documentElement;
         root.setAttribute("data-theme-pref", pref);
-        if (pref === "system") { return; }
         root.setAttribute("data-theme", pref);
         var metas = document.querySelectorAll('meta[name="theme-color"]');
         for (var i = 0; i < metas.length; i++) {
-          metas[i].setAttribute("content", pref === "dark" ? "#1B1719" : "#FDFCFA");
+          metas[i].setAttribute("content", pref === "dark" ? "#1A1B26" : "#FDFCFA");
         }
       })();
     </script>

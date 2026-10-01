@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""The Calibre library (metadata.db): SQLAlchemy models, the CalibreDB session wrapper, filters and typeahead queries."""
+
 import os
 import re
 import json
@@ -630,14 +632,14 @@ class CalibreDB:
         """
         if self.session is not None:
             return  # Fast path - session already exists
-        
+
         # Session is None - need to recreate it
         # Acquire lock to ensure atomic recreation (no interruption by dispose)
         with self._reconnect_lock:
             # Double-check after acquiring lock (another thread may have recreated it)
             if self.session is not None:
                 return
-            
+
             # Try to recreate session from factory
             if self.session_factory is not None:
                 try:
@@ -645,7 +647,7 @@ class CalibreDB:
                     return  # Success
                 except Exception as ex:
                     log.error(f"Failed to init session from factory: {ex}")
-            
+
             # Factory is None or init failed - try to rebuild entire database setup
             if self.config and getattr(self.config, 'config_calibre_dir', None):
                 try:
@@ -671,7 +673,7 @@ class CalibreDB:
                             return
                 except Exception as ex:
                     log.error(f"Failed to init session from app.db in ensure_session: {ex}")
-            
+
             # If we still don't have a session, log warning
             # Don't raise exception - let caller handle AttributeError if they try to use None session
             if self.session is None:
@@ -775,8 +777,8 @@ class CalibreDB:
                     else:
                         reason = "NETWORK_SHARE_MODE=true" if nsm else "metadata.db not writable"
                         log.warning("WAL mode disabled for calibre/app_settings (%s)", reason)
-                except Exception:
-                    pass
+                except Exception as e:
+                    log.warning("Could not configure WAL mode for app_settings: %s", e)
                 local_session = scoped_session(sessionmaker())
                 local_session.configure(bind=connection)
                 database_uuid = local_session().query(Library_Id).one_or_none()
@@ -790,6 +792,22 @@ class CalibreDB:
     @classmethod
     def update_config(cls, config):
         cls.config = config
+
+    # Indexes Lily adds to metadata.db for its own sort orders ("newest", "published").
+    # Calibre ignores indexes it doesn't know; the lily_ prefix marks them as ours.
+    LILY_INDEXES = (
+        ("lily_books_timestamp_idx", "books (timestamp)"),
+        ("lily_books_pubdate_idx", "books (pubdate)"),
+    )
+
+    @classmethod
+    def _ensure_lily_indexes(cls):
+        for name, target in cls.LILY_INDEXES:
+            try:
+                with cls.engine.begin() as connection:
+                    connection.execute(text("CREATE INDEX IF NOT EXISTS calibre.{} ON {}".format(name, target)))
+            except Exception as e:
+                log.warning("Could not create index %s on metadata.db: %s", name, e)
 
     @classmethod
     def setup_db(cls, config_calibre_dir, app_db_path):
@@ -834,8 +852,11 @@ class CalibreDB:
                         else:
                             reason = "NETWORK_SHARE_MODE=true" if nsm else "metadata.db not writable"
                             log.warning("WAL mode disabled for calibre/app_settings (%s)", reason)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        log.warning("Could not configure WAL mode for app_settings: %s", e)
+
+                if db_writable:
+                    cls._ensure_lily_indexes()
 
                 conn = cls.engine.connect()
                 # conn.text_factory = lambda b: b.decode(errors = 'ignore') possible fix for #1302
@@ -925,10 +946,6 @@ class CalibreDB:
                                             int(current_user.id) == ub.ArchivedBook.user_id), isouter=True)
                 .filter(self.common_filters(allow_show_archived)).first())
 
-    def get_book_by_uuid(self, book_uuid):
-        self.ensure_session()
-        return self.session.query(Books).filter(Books.uuid == book_uuid).first()
-
     def get_book_format(self, book_id, file_format):
         self.ensure_session()
         return self.session.query(Data).filter(Data.book == book_id).filter(Data.format == file_format).first()
@@ -984,7 +1001,7 @@ class CalibreDB:
         negtags_list = current_user.list_denied_tags()
         postags_list = current_user.list_allowed_tags()
         neg_content_tags_filter = false() if negtags_list == [''] else Books.tags.any(Tags.name.in_(negtags_list))
-        
+
         # Issue #906: When viewing a specific tag category, include that tag in allowed tags
         if viewing_tag_id is not None and postags_list != ['']:
             # Get the tag name for the viewing_tag_id
@@ -992,7 +1009,7 @@ class CalibreDB:
             if viewing_tag and viewing_tag.name not in postags_list:
                 # Temporarily add the viewed tag to the allowed list for this query
                 postags_list = postags_list + [viewing_tag.name]
-        
+
         pos_content_tags_filter = true() if postags_list == [''] else Books.tags.any(Tags.name.in_(postags_list))
         if self.config.config_restricted_column:
             try:
@@ -1071,23 +1088,11 @@ class CalibreDB:
         self.ensure_session()
         viewing_tag_id = kwargs.get('viewing_tag_id')
         pagesize = pagesize or self.config.config_books_per_page
-        if current_user.show_detail_random():
-            random_query = self.generate_linked_query(config_read_column, database)
-            # Eagerly load template relationships to prevent detached lazy-load
-            # failures if another request tears down the shared scoped session.
-            # The Discover row only renders book cards, so skip everything else.
-            if database == Books:
-                random_query = random_query.options(*_card_load_options(skip_others=True))
-            randm = (random_query.filter(self.common_filters(allow_show_archived, viewing_tag_id=viewing_tag_id))
-                     .order_by(func.random())
-                     .limit(self.config.config_random_books).all())
-        else:
-            randm = false()
         if join_archive_read:
             query = self.generate_linked_query(config_read_column, database)
         else:
             query = self.session.query(database)
-        
+
         # Eagerly load template relationships to prevent DetachedInstanceError
         # during rendering under concurrent status/notification requests.
         # The same helper feeds OPDS (comments, tags, languages, publishers) and the
@@ -1096,7 +1101,7 @@ class CalibreDB:
         # Callers that only render book cards pass cards_only=True to skip them.
         if database == Books:
             query = query.options(*_card_load_options(skip_others=bool(kwargs.get('cards_only'))))
-        
+
         off = int(int(pagesize) * (page - 1))
 
         indx = len(join)
@@ -1129,7 +1134,7 @@ class CalibreDB:
             log.error_or_exception(ex)
         # display authors in right order
         entries = self.order_authors(entries, True, join_archive_read)
-        return entries, randm, pagination
+        return entries, pagination
 
     # Orders all Authors in the list according to authors sort
     def order_authors(self, entries, list_return=False, combined=False):
@@ -1194,14 +1199,50 @@ class CalibreDB:
         json_dumps = json.dumps([dict(name=r.name.replace(*replace)) for r in entries])
         return json_dumps
 
-    def search_query(self, term, config, *join):
+    def search_filter(self, term, config):
+        """The simple-search condition: term in the title, or in the name of a tag, series,
+        author, publisher or (text) custom column value.
+
+        Each name match is a ``books.id IN (SELECT book FROM link WHERE x IN (SELECT id FROM
+        dim WHERE lower(name) LIKE ?))``, so the accent-folding ``lower`` (see lcase) runs
+        once per tag/author/... row instead of once per book and linked row as a correlated
+        EXISTS did. The pattern is folded the same way in Python, so matching is unchanged:
+        accent- and case-insensitive on both sides.
+        """
         self.ensure_session()
-        strip_whitespaces(term).lower()
         self.create_functions()
-        q = list()
-        author_terms = re.split("[, ]+", term)
-        for author_term in author_terms:
-            q.append(Books.authors.any(func.lower(Authors.name).ilike("%" + author_term + "%")))
+        pattern = "%" + lcase(term) + "%"
+
+        def linked(link_table, link_column, dim_id, match):
+            return Books.id.in_(select(link_table.c.book).where(link_column.in_(select(dim_id).where(match))))
+
+        # every word of the term must match one of the book's authors (not necessarily the same one)
+        author_match = and_(*[linked(books_authors_link, books_authors_link.c.author, Authors.id,
+                                     func.lower(Authors.name).like("%" + lcase(author_term) + "%"))
+                              for author_term in re.split("[, ]+", term)])
+        filter_expression = [
+            linked(books_tags_link, books_tags_link.c.tag, Tags.id, func.lower(Tags.name).like(pattern)),
+            linked(books_series_link, books_series_link.c.series, Series.id, func.lower(Series.name).like(pattern)),
+            author_match,
+            linked(books_publishers_link, books_publishers_link.c.publisher, Publishers.id,
+                   func.lower(Publishers.name).like(pattern)),
+            func.lower(Books.title).like(pattern)]
+        for c in self.get_cc_columns(config, filter_config_custom_read=True):
+            if c.datatype in ["datetime", "rating", "bool", "int", "float"]:
+                continue
+            cc_class = cc_classes[c.id]
+            match = func.lower(cc_class.value).like(pattern)
+            link = Base.metadata.tables.get('books_custom_column_{}_link'.format(c.id))
+            if link is not None:
+                filter_expression.append(linked(link, link.c.value, cc_class.id, match))
+            else:
+                filter_expression.append(Books.id.in_(select(cc_class.book).where(match)))
+        return and_(self.common_filters(True), or_(*filter_expression))
+
+    def search_query(self, term, config, *join, search_filter=None):
+        self.ensure_session()
+        if search_filter is None:
+            search_filter = self.search_filter(term, config)
         query = self.generate_linked_query(config.config_read_column, Books)
         if len(join) == 6:
             query = query.outerjoin(join[0], join[1]).outerjoin(join[2]).outerjoin(join[3], join[4]).outerjoin(join[5])
@@ -1211,22 +1252,9 @@ class CalibreDB:
             query = query.outerjoin(join[0], join[1])
         elif len(join) == 1:
             query = query.outerjoin(join[0])
-
-        cc = self.get_cc_columns(config, filter_config_custom_read=True)
-        filter_expression = [Books.tags.any(func.lower(Tags.name).ilike("%" + term + "%")),
-                             Books.series.any(func.lower(Series.name).ilike("%" + term + "%")),
-                             Books.authors.any(and_(*q)),
-                             Books.publishers.any(func.lower(Publishers.name).ilike("%" + term + "%")),
-                             func.lower(Books.title).ilike("%" + term + "%")]
-        for c in cc:
-            if c.datatype not in ["datetime", "rating", "bool", "int", "float"]:
-                filter_expression.append(
-                    getattr(Books,
-                            'custom_column_' + str(c.id)).any(
-                        func.lower(cc_classes[c.id].value).ilike("%" + term + "%")))
         # Eagerly load the data relationship to prevent session errors
-        query = query.options(joinedload(Books.data))
-        return query.filter(self.common_filters(True)).filter(or_(*filter_expression))
+        query = query.options(selectinload(Books.data))
+        return query.filter(search_filter)
 
     def get_cc_columns(self, config, filter_config_custom_read=False):
         self.ensure_session()
@@ -1246,23 +1274,26 @@ class CalibreDB:
         return cc
 
     # read search results from calibre-database and return it (function is used for feed and simple search
-    def get_search_results(self, term, config, offset=None, order=None, limit=None, *join):
+    def get_search_results(self, term, config, offset=None, order=None, limit=None, *join, cards_only=False):
+        """One page of simple-search results: counted and paged in SQL, never all matches.
+
+        Without offset/limit every match is returned (the books table's checkbox sort).
+        cards_only skips the relationships a book card never renders.
+        """
         self.ensure_session()
         order = order[0] if order else [Books.sort]
         pagination = None
-        result = self.search_query(term, config, *join).order_by(*order).all()
-        result_count = len(result)
+        search_filter = self.search_filter(term, config)
+        query = self.search_query(term, config, *join, search_filter=search_filter)
+        query = query.options(*_card_load_options(skip_others=cards_only))
+        result_count = self.session.query(Books.id).filter(search_filter).count()
         if offset is not None and limit is not None:
             offset = int(offset)
-            limit_all = offset + int(limit)
             pagination = Pagination((offset / (int(limit)) + 1), limit, result_count)
+            query = query.order_by(*order).offset(offset).limit(int(limit))
         else:
-            offset = 0
-            limit_all = result_count
-
-        ub.store_combo_ids(result)
-        entries = self.order_authors(result[offset:limit_all], list_return=True, combined=True)
-
+            query = query.order_by(*order)
+        entries = self.order_authors(query.all(), list_return=True, combined=True)
         return entries, result_count, pagination
 
     # Creates for all stored languages a translated speaking name in the array for the UI
@@ -1305,7 +1336,7 @@ class CalibreDB:
         if self.session is None:
             log.error("create_functions: Cannot create functions because session is None")
             return
-        
+
         # user defined sort function for calibre databases (Series, etc.)
         if config:
             def _title_sort(title):

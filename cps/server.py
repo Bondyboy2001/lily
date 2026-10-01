@@ -35,6 +35,12 @@ from . import logger, constants
 
 log = logger.create()
 
+# The gevent hub isn't monkey-patched, so background threads (worker tasks, scheduler) and the
+# hub share the GIL. Python's default 5 ms switch interval let a busy task thread hold the hub
+# off for long stretches (843 ms worst-case request stall measured during a thumbnail run);
+# 0.5 ms brought it to 189 ms.
+SWITCH_INTERVAL = 0.0005
+
 
 def _readable_listen_address(address, port):
     if ':' in address:
@@ -268,6 +274,7 @@ class WebServer(object):
     def start(self):
         try:
             if _GEVENT:
+                sys.setswitchinterval(SWITCH_INTERVAL)
                 # leave subprocess out to allow forking for fetchers and processors
                 self._start_gevent()
             else:

@@ -5,12 +5,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Editing a book's metadata and files, deleting books, and the helpers the bulk and upload modules share."""
+
 import os
 import sys
 import time
 from datetime import datetime, timezone
 import json
-from shutil import copyfile
 
 from markupsafe import escape, Markup  # dependency of flask
 from functools import wraps
@@ -34,11 +35,8 @@ from .helper import change_archived_books
 from .redirect import get_redirect_location
 from .shelf import check_shelf_edit_permissions
 from .file_helper import validate_mime_type
-from .cwa_functions import get_ingest_dir
 from .usermanagement import user_login_required, login_required_if_no_ano
 from .string_helper import strip_whitespaces
-from werkzeug.utils import secure_filename
-import uuid
 
 editbook = Blueprint('edit-book', __name__)
 log = logger.create()
@@ -89,103 +87,6 @@ def show_edit_book(book_id):
 @edit_required
 def edit_book(book_id):
     return do_edit_book(book_id)
-
-
-@editbook.route("/upload", methods=["POST"])
-@login_required_if_no_ano
-@upload_required
-def upload():
-    try:
-        log.info(
-            "Upload request received: user_agent=%s content_length=%s file_fields=%s",
-            request.headers.get("User-Agent", ""),
-            request.content_length,
-            list(request.files.keys())
-        )
-    except Exception as e:
-        log.debug("Failed to log upload request details: %s", e)
-    # Upload a new format to an existing book via ingest sidecar manifest
-    if len(request.files.getlist("btn-upload-format")):
-        try:
-            _ensure_ingest_dir_writable(allow_create=True, check_write=False)
-        except PermissionError as e:
-            log.error_or_exception("Ingest directory not writable: %s", e)
-            flash(_("Ingest folder is not writable. Check your /cwa-book-ingest volume permissions."),
-                  category="error")
-            return Response(json.dumps({"location": url_for("web.index")}), mimetype='application/json')
-        raw_book_id = request.form.get('book_id', -1)
-        try:
-            book_id = int(raw_book_id)
-        except Exception:
-            book_id = -1
-        if book_id == -1:
-            flash(_("Missing or invalid book id for format upload"), category="error")
-            return Response(json.dumps({"location": url_for("web.index")}), mimetype='application/json')
-
-        # Validate that the book exists before creating manifest
-        book = calibre_db.get_book(book_id)
-        if not book:
-            flash(_("Cannot upload format: Book no longer exists in library"), category="error")
-            return Response(json.dumps({"location": url_for("web.index")}), mimetype='application/json')
-
-        for requested_file in request.files.getlist("btn-upload-format"):
-            if not _validate_uploaded_file(requested_file):
-                return Response(json.dumps({"location": url_for('edit-book.show_edit_book', book_id=book_id)}), mimetype='application/json')
-
-            try:
-                final_path = _get_ingest_path(requested_file, prefix_parts=["format", book_id])
-                tmp_path, final_path = _save_to_ingest_atomic_rename(requested_file, final_path)
-
-                # Write sidecar manifest instructing ingest to add this file as a new format
-                manifest = {
-                    "action": "add_format",
-                    "book_id": book_id,
-                    "original_filename": requested_file.filename,
-                }
-                manifest_path = final_path + ".cwa.json"
-                with open(manifest_path, 'w', encoding='utf-8') as mf:
-                    json.dump(manifest, mf, ensure_ascii=False)
-
-                # Now that manifest is written, perform the atomic rename to trigger ingest
-                os.replace(tmp_path, final_path)
-
-                # Queue a task entry for UX feedback
-                upload_text = N_("Upload done, processing, please wait...")
-                WorkerThread.add(current_user.name, TaskUpload(upload_text, escape(requested_file.filename)))
-
-            except Exception as e:
-                log.error_or_exception("Failed to queue format upload for ingest: {}".format(e))
-                flash(_("Failed to queue upload for processing"), category="error")
-                return Response(json.dumps({"location": url_for('edit-book.show_edit_book', book_id=book_id)}), mimetype='application/json')
-
-        # Redirect back to the book edit page
-        return Response(json.dumps({"location": url_for('edit-book.show_edit_book', book_id=book_id)}), mimetype='application/json')
-
-    # New book uploads: queue files to ingest atomically
-    elif len(request.files.getlist("btn-upload")):
-        try:
-            _ensure_ingest_dir_writable(allow_create=True, check_write=False)
-        except PermissionError as e:
-            log.error_or_exception("Ingest directory not writable: %s", e)
-            flash(_("Ingest folder is not writable. Check your /cwa-book-ingest volume permissions."),
-                  category="error")
-            return Response(json.dumps({"location": url_for("web.index")}), mimetype='application/json')
-        for requested_file in request.files.getlist("btn-upload"):
-            if not _validate_uploaded_file(requested_file):
-                return Response(json.dumps({"location": url_for('web.index')}), mimetype='application/json')
-            try:
-                final_path = _get_ingest_path(requested_file, prefix_parts=["new", current_user.id])
-                tmp_path, final_path = _save_to_ingest_atomic_rename(requested_file, final_path)
-                os.replace(tmp_path, final_path) # No manifest needed, just rename
-                upload_text = N_("Upload done, processing, please wait...")
-                WorkerThread.add(current_user.name, TaskUpload(upload_text, escape(requested_file.filename)))
-            except Exception as e:
-                log.error_or_exception("Failed to queue upload for ingest: {}".format(e))
-                flash(_("Failed to queue upload for processing"), category="error")
-                return Response(json.dumps({"location": url_for('tasks.get_tasks_status')}), mimetype='application/json')
-
-        return Response(json.dumps({"location": url_for('tasks.get_tasks_status')}), mimetype='application/json')
-    abort(400)
 
 
 @editbook.route("/ajax/getcustomenum/<int:c_id>")
@@ -333,99 +234,6 @@ def edit_selected_books():
 
         return json.dumps({'success': True})
     return ""
-
-# Helper to validate upload according to server settings
-def _validate_uploaded_file(uploaded_file):
-    allowed_extensions = config.config_upload_formats.split(',')
-    if uploaded_file:
-        if config.config_check_extensions and allowed_extensions != ['']:
-            if not validate_mime_type(uploaded_file, allowed_extensions):
-                flash(_("File type isn't allowed to be uploaded to this server"), category="error")
-                return False
-    if '.' in uploaded_file.filename:
-        file_ext = uploaded_file.filename.rsplit('.', 1)[-1].lower()
-        if file_ext not in allowed_extensions and '' not in allowed_extensions:
-            flash(_("File extension '%(ext)s' is not allowed to be uploaded to this server",
-                    ext=file_ext), category="error")
-            return False
-    else:
-        flash(_('File to be uploaded must have an extension'), category="error")
-        return False
-    return True
-
-# Helper to get a unique, prefixed path in the ingest directory
-def _get_ingest_path(uploaded_file, prefix_parts=None):
-    ingest_dir = get_ingest_dir()
-    try:
-        os.makedirs(ingest_dir, exist_ok=True)
-    except Exception as e:
-        log.error_or_exception("Failed to create ingest directory %s: %s", ingest_dir, e)
-        raise
-    # Ensure proper ownership of ingest directory (fix for issue #603)
-    try:
-        nsm = os.getenv("NETWORK_SHARE_MODE", "false").strip().lower() in ("1", "true", "yes", "on")
-        if not (nsm and ingest_dir == "/cwa-book-ingest"):
-            # Set ownership to abc:abc (uid=1000, gid=1000)
-            os.chown(ingest_dir, 1000, 1000)
-    except (OSError, PermissionError) as e:
-        # Log warning but don't crash the upload process
-        log.warning('Failed to set ownership of ingest directory %s: %s', ingest_dir, e)
-        log.warning("If you're using a network share, consider setting NETWORK_SHARE_MODE=true in your environment variables to skip this step.")
-    except Exception as e:
-        # Silently ignore any other permission-related errors but log for debugging
-        log.debug('Other permission error setting ingest directory ownership: %s', e)
-
-    _ensure_ingest_dir_writable(ingest_dir)
-
-    base_name = secure_filename(uploaded_file.filename)
-    # CWA change: use timestamp for more predictable sorting vs uuid
-    unique = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
-    prefix = "_".join([str(p) for p in (prefix_parts or []) if p])
-    final_name = f"{prefix + '_' if prefix else ''}{unique}_{base_name}"
-    final_path = os.path.join(ingest_dir, final_name)
-    return final_path
-
-# Helper to save file to a temporary path, then atomically rename to final path
-def _save_to_ingest_atomic_rename(uploaded_file, final_path):
-    tmp_path = final_path + ".uploading"
-    try:
-        # Stream directly into ingest dir, then atomically rename
-        uploaded_file.save(tmp_path)
-        return tmp_path, final_path
-    except Exception as e:
-        # Ensure partial uploads are cleaned up on error
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-        raise e
-
-
-def _ensure_ingest_dir_writable(ingest_dir=None, allow_create=False, check_write=True):
-    ingest_dir = ingest_dir or get_ingest_dir()
-    if not ingest_dir:
-        raise PermissionError("Ingest directory not configured")
-    if allow_create and not os.path.isdir(ingest_dir):
-        try:
-            os.makedirs(ingest_dir, exist_ok=True)
-        except Exception as e:
-            raise PermissionError("Ingest directory missing and could not be created: {} ({})".format(ingest_dir, e))
-    if not os.path.isdir(ingest_dir):
-        raise PermissionError("Ingest directory missing: {}".format(ingest_dir))
-    if check_write:
-        if not os.access(ingest_dir, os.W_OK | os.X_OK):
-            raise PermissionError("Ingest directory not writable: {}".format(ingest_dir))
-        # Verify write by touching a temp file (covers ACL/mount oddities)
-        test_path = os.path.join(ingest_dir, ".cwa_write_test_{}".format(uuid.uuid4().hex))
-        try:
-            with open(test_path, "w", encoding="utf-8") as handle:
-                handle.write("ok")
-        except Exception as e:
-            raise PermissionError("Ingest directory not writable: {} ({})".format(ingest_dir, e))
-        finally:
-            try:
-                if os.path.exists(test_path):
-                    os.remove(test_path)
-            except Exception:
-                pass
 
 # Separated from /editbooks so that /editselectedbooks can also use this
 #
@@ -607,142 +415,6 @@ def edit_book_param(param, vals):
     return ret
 
 
-@editbook.route("/ajax/sort_value/<field>/<int:bookid>")
-@user_login_required
-def get_sorted_entry(field, bookid):
-    if field in ['title', 'authors', 'sort', 'author_sort']:
-        book = calibre_db.get_filtered_book(bookid)
-        if book:
-            if field == 'title':
-                return json.dumps({'sort': book.sort})
-            elif field == 'authors':
-                return json.dumps({'author_sort': book.author_sort})
-            if field == 'sort':
-                return json.dumps({'sort': book.title})
-            if field == 'author_sort':
-                return json.dumps({'authors': " & ".join([a.name for a in calibre_db.order_authors([book])])})
-    return ""
-
-
-@editbook.route("/ajax/simulatemerge", methods=['POST'])
-@user_login_required
-@edit_required
-def simulate_merge_list_book():
-    vals = request.get_json().get('Merge_books')
-    if vals:
-        to_book = calibre_db.get_book(vals[0]).title
-        vals.pop(0)
-        if to_book:
-            from_book = []
-            for book_id in vals:
-                from_book.append(calibre_db.get_book(book_id).title)
-            return json.dumps({'to': to_book, 'from': from_book})
-    return ""
-
-
-@editbook.route("/ajax/displayselectedbooks", methods=['POST'])
-@user_login_required
-@edit_required
-def display_selected_books():
-    vals = request.get_json().get('selections')
-    books = []
-    if vals:
-        for book_id in vals:
-            books.append(calibre_db.get_book(book_id).title)
-        return json.dumps({'books': books})
-    return ""
-
-@editbook.route("/ajax/archiveselectedbooks", methods=['POST'])
-@login_required_if_no_ano
-@edit_required
-def archive_selected_books():
-    vals = request.get_json().get('selections')
-    state = request.get_json().get('archive')
-    if vals:
-        for book_id in vals:
-            change_archived_books(book_id, state,
-                                  message="Book {} archive bit set to: {}".format(book_id, state))
-        return json.dumps({'success': True})
-    return ""
-
-@editbook.route("/ajax/deleteselectedbooks", methods=['POST'])
-@user_login_required
-@edit_required
-def delete_selected_books():
-    vals = request.get_json().get('selections')
-    if vals:
-        for book_id in vals:
-            delete_book_from_table(book_id, "", True)
-        _queue_duplicate_scan_after_change(vals)
-        return json.dumps({'success': True})
-    return ""
-
-@editbook.route("/ajax/readselectedbooks", methods=['POST'])
-@user_login_required
-@edit_required
-def read_selected_books():
-    vals = request.get_json().get('selections')
-    markAsRead = request.get_json().get('markAsRead')
-    if vals:
-        try:
-            for book_id in vals:
-                ret = helper.edit_book_read_status(book_id, markAsRead)
-                # edit_book_read_status returns an error message (truthy) or "" on success
-                if ret:
-                    return json.dumps({'success': False, 'msg': ret})
-
-        except (OperationalError, IntegrityError, StaleDataError) as e:
-            calibre_db.session.rollback()
-            log.error_or_exception("Database error: {}".format(e))
-            return Response(json.dumps({'success': False,
-                    'msg': 'Database error: {}'.format(e.orig if hasattr(e, "orig") else e)}),
-                    mimetype='application/json')
-
-        return json.dumps({'success': True})
-    return ""
-
-
-@editbook.route("/ajax/mergebooks", methods=['POST'])
-@user_login_required
-@edit_required
-def merge_list_book():
-    vals = request.get_json().get('Merge_books')
-    to_file = list()
-    if vals:
-        # load all formats from target book
-        to_book = calibre_db.get_book(vals[0])
-        vals.pop(0)
-        if to_book:
-            for file in to_book.data:
-                to_file.append(file.format)
-            to_name = helper.get_valid_filename(to_book.title,
-                                                chars=96) + ' - ' + helper.get_valid_filename(to_book.authors[0].name,
-                                                                                              chars=96)
-            for book_id in vals:
-                from_book = calibre_db.get_book(book_id)
-                if from_book:
-                    for element in from_book.data:
-                        if element.format not in to_file:
-                            # create new data entry with: book_id, book_format, uncompressed_size, name
-                            filepath_new = os.path.normpath(os.path.join(config.get_book_path(),
-                                                                         to_book.path,
-                                                                         to_name + "." + element.format.lower()))
-                            filepath_old = os.path.normpath(os.path.join(config.get_book_path(),
-                                                                         from_book.path,
-                                                                         element.name + "." + element.format.lower()))
-                            copyfile(filepath_old, filepath_new)
-                            to_book.data.append(db.Data(to_book.id,
-                                                        element.format,
-                                                        element.uncompressed_size,
-                                                        to_name))
-                            to_file.append(element.format)
-                    delete_book_from_table(from_book.id, "", True)
-            calibre_db.session.commit()
-            _queue_duplicate_scan_after_change([to_book.id] + vals)
-            return json.dumps({'success': True})
-    return ""
-
-
 def _queue_duplicate_scan_after_change(book_ids=None):
     """Queue a debounced duplicate scan after manual changes."""
     try:
@@ -758,60 +430,6 @@ def _queue_duplicate_scan_after_change(book_ids=None):
             log.debug("Duplicate scan scheduling skipped after change: %s", result.get("reason"))
     except Exception as e:
         log.error("Failed to queue duplicate scan after change: %s", str(e))
-
-
-@editbook.route("/ajax/xchange", methods=['POST'])
-@user_login_required
-@edit_required
-def table_xchange_author_title():
-    vals = request.get_json().get('xchange')
-    edited_books_id = False
-    if vals:
-        for val in vals:
-            modify_date = False
-            book = calibre_db.get_book(val)
-            authors = book.title
-            book.authors = calibre_db.order_authors([book])
-            author_names = []
-            for authr in book.authors:
-                author_names.append(authr.name.replace('|', ','))
-
-            title_change = handle_title_on_edit(book, " ".join(author_names))
-            input_authors, author_change = handle_author_on_edit(book, authors)
-            if author_change or title_change:
-                edited_books_id = book.id
-                modify_date = True
-
-            if config.config_use_google_drive:
-                gdriveutils.updateGdriveCalibreFromLocal()
-
-            dir_error = None
-            if edited_books_id:
-                # Returns False on success, or an error message when the move failed.
-                dir_error = helper.update_dir_structure(
-                    edited_books_id, config.get_book_path(), input_authors[0])
-                if dir_error:
-                    log.error("Directory structure update failed for book {}: {}",
-                              edited_books_id, dir_error)
-            if modify_date:
-                book.last_modified = datetime.now(timezone.utc)
-                calibre_db.set_metadata_dirty(book.id)
-            try:
-                calibre_db.session.commit()
-            except (OperationalError, IntegrityError, StaleDataError) as e:
-                calibre_db.session.rollback()
-                log.error_or_exception("Database error: {}".format(e))
-                return json.dumps({'success': False})
-
-            if config.config_use_google_drive:
-                gdriveutils.updateGdriveCalibreFromLocal()
-
-            if dir_error:
-                # The metadata edit is saved, but the files were not moved, so the book
-                # path no longer matches the database. Report it instead of claiming success.
-                return json.dumps({'success': False, 'msg': str(dir_error)})
-        return json.dumps({'success': True})
-    return ""
 
 
 PAPERS_SHELF = "Papers"
@@ -1200,10 +818,13 @@ def prepare_authors(authr, calibre_path, gdrive=False):
 
 
 def delete_whole_book(book_id, book):
-    # delete book from shelves, Downloads, Read list
+    # delete book from shelves, Downloads, Read list, bookmarks and reader progress
+    # (helper.delete_book saved them in the Trash entry first)
     ub.session.query(ub.BookShelf).filter(ub.BookShelf.book_id == book_id).delete()
     ub.session.query(ub.ReadBook).filter(ub.ReadBook.book_id == book_id).delete()
     ub.session.query(ub.ArchivedBook).filter(ub.ArchivedBook.book_id == book_id).delete()
+    ub.session.query(ub.Bookmark).filter(ub.Bookmark.book_id == book_id).delete()
+    ub.session.query(ub.WebReaderProgress).filter(ub.WebReaderProgress.book_id == book_id).delete()
     ub.delete_download(book_id)
     ub.session_commit()
 
@@ -1252,28 +873,31 @@ def render_delete_book_result(book_format, json_response, warning, book_id, loca
             return json.dumps([warning, {"location": url_for("edit-book.show_edit_book", book_id=book_id),
                                          "type": "success",
                                          "format": book_format,
-                                         "message": _('Book Format Successfully Deleted')}])
+                                         "message": _('Format moved to the Trash')}])
         else:
-            flash(_('Book Format Successfully Deleted'), category="success")
+            flash(_('Format moved to the Trash'), category="success")
             return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
     else:
         if json_response:
             return json.dumps([warning, {"location": get_redirect_location(location, "web.index"),
                                          "type": "success",
                                          "format": book_format,
-                                         "message": _('Book Successfully Deleted')}])
+                                         "message": _('Book moved to the Trash')}])
         else:
-            flash(_('Book Successfully Deleted'), category="success")
+            flash(_('Book moved to the Trash'), category="success")
             return redirect(get_redirect_location(location, "web.index"))
 
 
-def delete_book_from_table(book_id, book_format, json_response, location=""):
+def delete_book_from_table(book_id, book_format, json_response, location="", reason="delete"):
     warning = {}
     if current_user.role_delete_books():
         book = calibre_db.get_book(book_id)
         if book:
+            files_moved = False
             try:
-                result, error = helper.delete_book(book, config.get_book_path(), book_format=book_format.upper())
+                result, error = helper.delete_book(book, config.get_book_path(), book_format=book_format.upper(),
+                                                   reason=reason)
+                files_moved = bool(result) and not book_format
                 if not result:
                     if json_response:
                         return json.dumps([{"location": url_for("edit-book.show_edit_book", book_id=book_id),
@@ -1301,22 +925,14 @@ def delete_book_from_table(book_id, book_format, json_response, location=""):
                 refreshed_duplicate_cache = False
                 if not book_format:
                     try:
-                        from cps.duplicate_index import (
-                            _current_max_book_id,
-                            delete_book_keys,
-                            get_duplicate_groups_from_index,
-                        )
-                        sys.path.insert(1, '/app/calibre-web-automated/scripts/')
-                        from cwa_db import CWA_DB
+                        from cps.duplicate_index import drop_books_from_duplicate_index
 
-                        delete_book_keys([book_id])
-                        cwa_db = CWA_DB()
-                        duplicate_groups = get_duplicate_groups_from_index(cwa_db.cwa_settings, include_dismissed=True)
-                        cwa_db.update_duplicate_cache(duplicate_groups, len(duplicate_groups), _current_max_book_id())
+                        # Take the book out of the cached groups; a full rebuild here froze the server
+                        drop_books_from_duplicate_index([book_id])
                         refreshed_duplicate_cache = True
                     except Exception as e:
                         log.warning("Failed to refresh duplicate index/cache after deleting book %s: %s", book_id, str(e))
-                
+
                 # Format-only deletions and refresh failures need a later cache refresh.
                 if not refreshed_duplicate_cache:
                     try:
@@ -1326,15 +942,22 @@ def delete_book_from_table(book_id, book_format, json_response, location=""):
                         cwa_db.invalidate_duplicate_cache()
                     except Exception as e:
                         log.error("Failed to invalidate duplicate cache after deletion: %s", str(e))
-                
+
             except Exception as ex:
                 log.error_or_exception(ex)
                 calibre_db.session.rollback()
+                if files_moved and calibre_db.get_book(book_id):
+                    # The rows are still there: put the folder back so the book isn't left without files.
+                    try:
+                        from . import trash
+                        trash.undo_trash_book(config.get_book_path(), book_id)
+                    except Exception as undo_ex:
+                        log.error("Could not undo the Trash move of book %s: %s", book_id, undo_ex)
                 if json_response:
                     return json.dumps([{"location": url_for("edit-book.show_edit_book", book_id=book_id),
                                         "type": "danger",
                                         "format": "",
-                                        "message": ex}])
+                                        "message": str(ex)}])
                 else:
                     flash(str(ex), category="error")
                     return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
@@ -1682,7 +1305,6 @@ def upload_book_formats(requested_files, book, book_id, no_cover=True):
             meta = uploader.process(
                 saved_filename,
                 *os.path.splitext(current_filename),
-                rar_executable=config.config_rarfile_location,
                 no_cover=no_cover)
             merge_metadata(book, meta, to_save)
     return to_save, error
@@ -1801,7 +1423,7 @@ def add_objects(db_book_object, db_object, db_session, db_type, add_elements):
     for add_element in add_elements:
         # check if an element with that name exists
         changed = True
-        db_element = db_session.query(db_object).filter((func.lower(db_filter).ilike(add_element))).all()
+        db_element = db_session.query(db_object).filter(func.lower(db_filter).ilike(add_element)).all()
         # if no element is found add it
         if not db_element:
             if db_type == 'author':
@@ -1921,3 +1543,8 @@ def modify_identifiers(input_identifiers, db_identifiers, db_session):
             db_session.add(identifier)
             changed = True
     return changed, error
+
+from . import editbooks_upload  # noqa: E402,F401  (attaches its routes to this blueprint)
+from .editbooks_upload import _ensure_ingest_dir_writable, _get_ingest_path, _save_to_ingest_atomic_rename, _validate_uploaded_file  # noqa: E402,F401
+
+from . import editbooks_bulk  # noqa: E402,F401  (attaches its routes to this blueprint)

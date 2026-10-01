@@ -25,6 +25,7 @@ SEARCH_FIELDS = "key,title,subtitle,author_name,first_publish_year,cover_i,subje
 class OpenLibrary(Metadata):
     __name__ = "Open Library"
     __id__ = "openlibrary"
+    identifier_types = frozenset({"isbn"})
     BASE_URL = "https://openlibrary.org"
     COVER_URL = "https://covers.openlibrary.org/b/id/{}-L.jpg"
     HEADERS = {"User-Agent": "Lily/1.0 (metadata lookup)"}

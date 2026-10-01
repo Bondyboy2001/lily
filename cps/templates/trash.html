@@ -1,0 +1,68 @@
+{% extends "settings_layout.html" %}
+{% import "lily_form.html" as f with context %}
+{% block heading %}{{ _('Trash') }}{% endblock %}
+{% block settings %}
+<div class="lp lily-settings">
+  <p class="lp-intro">{{ _('Deleted books, formats and duplicates are moved here with their metadata, shelves and reading progress. Restore puts a book back exactly as it was; Delete now removes it for good.') }}</p>
+
+  <form method="POST" action="{{ url_for('trash.trash_settings') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% call f.group(_('Settings')) %}
+      {% call f.row(_('Keep deleted books for'), for_id='trash_retention_days',
+         help=_('Items older than this are deleted for good each night. 0 keeps them until you delete them here.')) %}
+        <input type="number" class="form-control" name="trash_retention_days" id="trash_retention_days" value="{{ retention_days }}" min="0" max="3650" step="1">
+        <span class="lp-unit">{{ _('days') }}</span>
+      {% endcall %}
+    {% endcall %}
+    <div class="lp-actions">
+      <button type="submit" class="btn btn-default">{{ _('Save') }}</button>
+    </div>
+  </form>
+
+  {% if orphans %}
+  <form method="POST" action="{{ url_for('trash.trash_unreferenced') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% call f.group(_('Book folders not in the library'),
+       help=_('These folders hold books that the restored database does not list (%(source)s), usually books added after that snapshot. Import sends their files through the import folder as new books and moves the folders here.', source=(orphan_source or _('database restore')))) %}
+      {% for path in orphans %}
+      {% call f.row(path, wide=True) %}
+        {{ f.check('folders', _('Select'), True, id='orphan-' ~ loop.index, attrs='value="' ~ path|e ~ '"') }}
+      {% endcall %}
+      {% endfor %}
+    {% endcall %}
+    <div class="lp-actions">
+      <button type="submit" name="action" value="reimport" class="btn btn-default">{{ _('Import selected') }}</button>
+      <button type="submit" name="action" value="dismiss" class="btn btn-default">{{ _('Dismiss list') }}</button>
+    </div>
+  </form>
+  {% endif %}
+
+  {% set head_help = (_('The Trash is empty.') if not entries else _('%(n)d item(s), %(size)s.', n=entries|length, size=total_size)) %}
+  {% call f.group(_('Deleted items'), help=head_help) %}
+    {% for entry in entries %}
+    {% set what = {'book': _('Book'), 'format': _('Format'), 'orphan': _('Folder')}.get(entry.kind, entry.kind) %}
+    {% set left = (_('kept until you delete it') if entry.days_left is none else (_('deleted for good in %(n)d day(s)', n=entry.days_left))) %}
+    {% set detail = what ~ (' · ' ~ entry.formats|join(', ') if entry.formats else '') ~ ' · ' ~ entry.trashed_at.strftime('%Y-%m-%d %H:%M')
+                    ~ (' · ' ~ entry.trashed_by if entry.trashed_by else '') ~ ' · ' ~ entry.size_text ~ ' · ' ~ left %}
+    {% call f.row(entry.title ~ ((' — ' ~ entry.authors|join(' & ')) if entry.authors else ''), help=detail, wide=True) %}
+      <form method="POST" class="lp-checks">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if entry.has_manifest %}
+        <button type="submit" class="btn btn-default" formaction="{{ url_for('trash.trash_restore', entry_id=entry.id) }}">{{ _('Restore') }}</button>
+        {% endif %}
+        <button type="submit" class="btn btn-danger" formaction="{{ url_for('trash.trash_delete', entry_id=entry.id) }}"
+                data-confirm="{{ _('Delete this for good? It cannot be restored afterwards.') }}"
+                onclick="return confirm(this.dataset.confirm);">{{ _('Delete now') }}</button>
+      </form>
+    {% endcall %}
+    {% endfor %}
+  {% endcall %}
+  {% if entries %}
+  <form method="POST" action="{{ url_for('trash.trash_empty') }}" class="lp-actions lp-actions-inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-danger" data-confirm="{{ _('Delete everything in the Trash for good?') }}"
+            onclick="return confirm(this.dataset.confirm);">{{ _('Empty Trash') }}</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

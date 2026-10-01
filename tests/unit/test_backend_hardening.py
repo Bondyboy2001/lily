@@ -7,8 +7,6 @@
 """Backend hardening: forced default-password change, content restrictions on reading /
 sending, stats SQL parameter binding, missing User-Agent headers and web reader progress."""
 
-import ast
-import json
 import re
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -108,8 +106,10 @@ class TestForcedPasswordChangeFlow:
     def forced(self, env, monkeypatch):
         # lily_env registers only some blueprints, so full pages (layout.html) can't be built here
         import cps.web
-        monkeypatch.setattr(cps.web, "render_title_template",
-                            lambda template, **kw: f"{template} forced={kw.get('forced')}")
+        import cps.web_auth
+        for module in (cps.web, cps.web_auth):
+            monkeypatch.setattr(module, "render_title_template",
+                                lambda template, **kw: f"{template} forced={kw.get('forced')}")
         admin = env.admin()
         admin.force_password_change = True
         env.ub.session.commit()
@@ -128,11 +128,11 @@ class TestForcedPasswordChangeFlow:
         assert resp.status_code == 200
         assert resp.get_data(as_text=True) == "change_password.html forced=True"
         assert client.get("/health").status_code in (200, 503)
-        # OPDS uses HTTP basic auth and must keep working for e-readers
+        # OPDS is not redirected, but it refuses the publicly known default password
         import base64
         creds = base64.b64encode(f"{forced.admin().name}:{ADMIN_PASSWORD}".encode()).decode()
         resp = forced.app.test_client().get("/opds", headers={"Authorization": f"Basic {creds}"})
-        assert resp.status_code == 200
+        assert resp.status_code == 401
 
     def test_wrong_current_password_keeps_the_flag(self, forced):
         client = _login(forced)
@@ -162,7 +162,7 @@ class TestForcedPasswordChangeFlow:
         admin = forced.admin()
         assert admin.force_password_change is False
         assert check_password_hash(admin.password, "N3w-passw0rd!")
-        assert client.get("/ajax/emailstat").status_code == 200
+        assert client.get("/ajax/taskstatus").status_code == 200
 
 
 @pytest.mark.unit
@@ -203,9 +203,6 @@ def _stats_queries(tmp_path):
     class Queries(CWAStatsQueries):
         def _build_user_filter(self, user_id):
             return f" AND user_id = {int(user_id)}" if user_id is not None else ""
-
-        def _has_user_filter(self, user_id):
-            return user_id is not None
 
     con = sqlite3.connect(tmp_path / "cwa.db")
     con.execute("CREATE TABLE cwa_user_activity (id INTEGER PRIMARY KEY, user_id INTEGER, user_name TEXT, "

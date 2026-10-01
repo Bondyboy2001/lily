@@ -20,7 +20,6 @@
 #         https://ghcr.io/v2/linuxserver/<repo>/manifests/<tag> | grep -i docker-content-digest
 #   (or: docker buildx imagetools inspect ghcr.io/linuxserver/<repo>:<tag>)
 ARG BASE_IMAGE=ghcr.io/linuxserver/baseimage-ubuntu:noble@sha256:e3c0ef35fa0beae613f5571236325b147c7fff647da0e7ccd5aa1af7c46ca093
-ARG UNRAR_IMAGE=ghcr.io/linuxserver/unrar:latest@sha256:48c0ce2609bb3c35764956bbd9395e95b177421e3c74b3628c3676029f24f2e0
 
 # Calibre. Bump: SHA-512s are published at https://calibre-ebook.com/signatures/calibre-<ver>-<arch>.txz.sha512
 # (cross-check the download against those), then record: sha256sum calibre-<ver>-{x86_64,arm64}.txz
@@ -28,19 +27,13 @@ ARG CALIBRE_RELEASE=9.1.0
 ARG CALIBRE_SHA256_X86_64=93a2d3104933366a50b03f8a2ff3889dc16b9c1d739ad22055e95ea35b03c1df
 ARG CALIBRE_SHA256_ARM64=ca1261b71030390d6316fe6e3f722247f05670eec845bcefb62d8c0b1d1478cb
 
-# kepubify (upstream publishes no checksums). Bump: download
-# https://github.com/pgaskin/kepubify/releases/download/<ver>/kepubify-linux-{64bit,arm64} and sha256sum them.
-ARG KEPUBIFY_RELEASE=v4.0.4
-ARG KEPUBIFY_SHA256_X86_64=37d7628d26c5c906f607f24b36f781f306075e7073a6fe7820a751bb60431fc5
-ARG KEPUBIFY_SHA256_ARM64=5a15b8f6f6a96216c69330601bca29638cfee50f7bf48712795cff88ae2d03a3
-
 # lsof release tarball. Bump: GitHub publishes the digest on the release asset:
 # curl -s https://api.github.com/repos/lsof-org/lsof/releases/tags/<ver> | jq -r '.assets[] | select(.name|endswith(".tar.gz")) | .digest'
 ARG LSOF_VERSION=4.99.5
 ARG LSOF_SHA256=4682c2491ec8b3d62f84e135afc1d9ead1bad5f034b50716f0c3826a4ee7d229
 
 # The build is split into small stages so BuildKit can run them in parallel
-# (Calibre download, kepubify, lsof compile and pip install all overlap), and
+# (Calibre download, lsof compile and pip install all overlap), and
 # apt / pip use cache mounts so a cold rebuild doesn't re-download everything.
 
 # --------------------------------------------------------------------------
@@ -122,7 +115,7 @@ FROM build-base AS python-deps
 # Copy only requirements files so code changes don't invalidate the pip layer.
 # requirements.txt holds the allowed ranges; requirements.lock pins every package
 # (transitive deps included) so rebuilding the same commit gives the same image.
-COPY requirements.txt optional-requirements.txt requirements.lock /tmp/requirements/
+COPY requirements.txt requirements.lock /tmp/requirements/
 
 # Packages come from linuxserver's Ubuntu wheel index first: precompiled wheels for
 # the popular C/C++ packages on x86_64, armv7l and aarch64 (https://realpython.com/python-wheels/).
@@ -132,8 +125,7 @@ RUN \
   python3.13 -m venv /lsiopy && \
   /lsiopy/bin/pip install -U pip wheel && \
   /lsiopy/bin/pip install -U --find-links https://wheel-index.linuxserver.io/ubuntu/ \
-  -r /tmp/requirements/requirements.txt -r /tmp/requirements/optional-requirements.txt \
-  -c /tmp/requirements/requirements.lock
+  -r /tmp/requirements/requirements.txt -c /tmp/requirements/requirements.lock
 
 # --------------------------------------------------------------------------
 # lsof: built from source to fix the hanging issue with 4.95 (issue #654)
@@ -155,31 +147,6 @@ RUN \
   ./configure --disable-shared && \
   make lsof && \
   install -m 755 lsof /usr/bin/lsof
-
-# --------------------------------------------------------------------------
-# kepubify
-# --------------------------------------------------------------------------
-FROM ${BASE_IMAGE} AS kepubify
-
-ARG KEPUBIFY_RELEASE
-ARG KEPUBIFY_SHA256_X86_64
-ARG KEPUBIFY_SHA256_ARM64
-
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
-RUN \
-  echo "**** install kepubify ${KEPUBIFY_RELEASE} ****" && \
-  if [ "$(uname -m)" == "x86_64" ]; then \
-  KEPUBIFY_ASSET="kepubify-linux-64bit"; KEPUBIFY_SHA256="${KEPUBIFY_SHA256_X86_64}"; \
-  elif [ "$(uname -m)" == "aarch64" ]; then \
-  KEPUBIFY_ASSET="kepubify-linux-arm64"; KEPUBIFY_SHA256="${KEPUBIFY_SHA256_ARM64}"; \
-  else \
-  echo "Unsupported architecture: $(uname -m)" >&2; exit 1; \
-  fi && \
-  curl -fsSL -o /usr/bin/kepubify \
-  "https://github.com/pgaskin/kepubify/releases/download/${KEPUBIFY_RELEASE}/${KEPUBIFY_ASSET}" && \
-  echo "${KEPUBIFY_SHA256}  /usr/bin/kepubify" | sha256sum -c - && \
-  chmod +x /usr/bin/kepubify
 
 # --------------------------------------------------------------------------
 # calibre: download and unpack into /app/calibre
@@ -215,8 +182,6 @@ RUN \
 # (No libQt6* ABI-tag strip: it broke Calibre's Qt6 features and was dropped in V3.1.4;
 #  the cwa-init service does a kernel check instead.)
 
-FROM ${UNRAR_IMAGE} AS unrar
-
 # ============================================================================
 # Final runtime image
 # ============================================================================
@@ -225,7 +190,6 @@ FROM runtime-base
 ARG BUILD_DATE
 ARG VERSION
 ARG CALIBRE_RELEASE
-ARG KEPUBIFY_RELEASE
 
 LABEL build_version="Version:- ${VERSION}" \
   build_date="${BUILD_DATE}" \
@@ -233,14 +197,14 @@ LABEL build_version="Version:- ${VERSION}" \
 
 # --link copies are independent layers: they don't get redone when an earlier layer changes
 COPY --link --from=calibre /app/calibre /app/calibre
-COPY --link --from=kepubify /usr/bin/kepubify /usr/bin/kepubify
 COPY --link --from=lsof /usr/bin/lsof /usr/bin/lsof
-COPY --link --from=unrar /usr/bin/unrar-ubuntu /usr/bin/unrar
 # Python 3.13 itself comes from the deadsnakes package in runtime-base; /lsiopy's venv links to it
 COPY --link --from=python-deps /lsiopy /lsiopy
 
-# Application code changes most often, so it goes last
-COPY --chown=abc:abc . /app/calibre-web-automated/
+# Application code changes most often, so it goes last. Owned by root and not writable by
+# abc (the user the services run as), so a compromised web process can't rewrite the code
+# or the s6 scripts that run as root; setup-cwa.sh hands abc only the directories it writes.
+COPY . /app/calibre-web-automated/
 
 WORKDIR /app/calibre-web-automated
 
@@ -252,7 +216,6 @@ RUN \
   bash scripts/setup-cwa.sh && \
   # Versions shown on the About/Admin pages and read by the init scripts
   echo "$VERSION" > /app/CWA_RELEASE && \
-  echo "$KEPUBIFY_RELEASE" > /app/KEPUBIFY_RELEASE && \
   echo "$CALIBRE_RELEASE" > /CALIBRE_RELEASE
 
 ENV CALIBRE_CONFIG_DIR=/config/.config/calibre

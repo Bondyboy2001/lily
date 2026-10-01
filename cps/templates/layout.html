@@ -24,7 +24,7 @@
     {% block header %}{% endblock %}
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" media="screen">
     <link href="{{ url_for('static', filename='css/upload.css') }}" rel="stylesheet" media="screen">
-    <link href="{{ url_for('static', filename='css/cwa.css') }}" rel="stylesheet" media="screen">
+    <link href="{{ url_for('static', filename='css/lily-fixes.css') }}" rel="stylesheet" media="screen">
     <link href="{{ url_for('static', filename='css/lily.css') }}" rel="stylesheet" media="screen">
     <link href="{{ url_for('static', filename='css/lily-shell.css') }}" rel="stylesheet" media="screen">
     <link href="{{ url_for('static', filename='css/lily-library.css') }}" rel="stylesheet" media="screen">
@@ -65,6 +65,14 @@
               </li>
               {% endif %}
             {% endfor %}
+            {% if not current_user.is_anonymous %}
+              <li id="nav_reading"{% if page == 'reading' %} class="active"{% endif %}>
+                <a href="{{url_for('reading.reading_summary')}}"{% if page == 'reading' %} aria-current="page"{% endif %}>
+                  <span class="glyphicon glyphicon-stats" aria-hidden="true"></span>
+                  <span class="nav-name">{{_('My Reading')}}</span>
+                </a>
+              </li>
+            {% endif %}
             <li class="nav-head">{{_('Shelves')}}</li>
             {% for shelf in g.shelves_access %}
               {% set book_count = (g.shelf_book_counts or {}).get(shelf.id, 0) %}
@@ -91,7 +99,7 @@
           <form class="lily-search" role="search" action="{{url_for('search.simple_search')}}" method="GET">
             <label for="query" class="sr-only">{{_('Search')}}</label>
             <input type="search" class="form-control" id="query" name="query" placeholder="{{_('Search Library')}}" value="{{searchterm}}"
-                   autocomplete="off" data-suggest-url="{{url_for('web.get_book_titles_json')}}">
+                   autocomplete="off" data-suggest-url="{{url_for('web.get_book_titles_json')}}" data-label-authors="{{_('Authors')}}">
             <button type="submit" id="query_submit" class="sr-only">{{_('Search')}}</button>
           </form>
           <a href="{{url_for('search.advanced_search')}}" id="advanced_search" class="icon-btn" title="{{_('Advanced Search')}}" aria-label="{{_('Advanced Search')}}"><span class="glyphicon glyphicon-filter" aria-hidden="true"></span></a>
@@ -107,11 +115,10 @@
             {% if current_user.role_admin() %}
             <a id="refresh-library" class="icon-btn" href="#" role="button" title="{{_('Refresh Library')}}" aria-label="{{_('Refresh Library')}}" onclick="refreshLibrary(); return false;"><span class="glyphicon glyphicon-refresh" aria-hidden="true"></span></a>
             {% endif %}
-            {# Light / Dark / System: lily.js cycles it; lily_theme_head.html applies it before first paint #}
+            {# Light / Dark: lily.js flips it; lily_theme_head.html applies it before first paint #}
             <button type="button" id="lily-theme-toggle" class="icon-btn lily-theme-toggle"
-                    data-label-system="{{_('Theme: System')}}" data-label-light="{{_('Theme: Light')}}" data-label-dark="{{_('Theme: Dark')}}"
-                    title="{{_('Theme: System')}}" aria-label="{{_('Theme: System')}}">
-              <span class="glyphicon glyphicon-theme-system" aria-hidden="true"></span>
+                    data-label-light="{{_('Theme: Light')}}" data-label-dark="{{_('Theme: Dark')}}"
+                    title="{{_('Theme: Light')}}" aria-label="{{_('Theme: Light')}}">
               <span class="glyphicon glyphicon-theme-light" aria-hidden="true"></span>
               <span class="glyphicon glyphicon-theme-dark" aria-hidden="true"></span>
             </button>
@@ -125,7 +132,7 @@
           {% endif %}
         </header>
     
-    {# Library refresh status: a temporary toast in the top right (lily.js shows and hides it) #}
+    {# Library refresh status: a temporary toast in the bottom right (lily.js shows and hides it) #}
     <div id="message_library_refresh" class="lily-refresh-toast" role="status" aria-live="polite" hidden
          data-error-message="{{ _('Library refresh failed. Please try again or check the logs.') }}">
       <span class="glyphicon glyphicon-refresh lily-refresh-toast-icon" aria-hidden="true"></span>
@@ -138,6 +145,28 @@
     {# One live region for every notice: layout-rendered ones and those lily.js adds later.
        Errors also carry role=alert so they interrupt. #}
     <div id="messageContainer" class="lily-flashes" role="status" aria-live="polite">
+    {# Admins only: background jobs (backups, mirror, ...) that failed or stopped succeeding #}
+    {% if job_problems %}
+      <div class="row-fluid">
+        <div id="job_status_warning" class="alert alert-warning lily-job-warning" role="alert">
+          <button type="button" class="close" data-dismiss="alert" aria-label="{{_('Close')}}"><span aria-hidden="true">&times;</span></button>
+          <strong>{{ _('A background job needs attention.') }}</strong>
+          {% for p in job_problems %}
+          <div>
+            {%- if p.state == 'failed' -%}
+              {{ _('%(job)s failed at %(time)s', job=_(p.label), time=p.last_error_at.astimezone().strftime('%Y-%m-%d %H:%M')) }}{% if p.last_error %}: {{ p.last_error|truncate(200) }}{% endif %}
+            {%- elif p.last_success -%}
+              {{ _('%(job)s has not succeeded since %(time)s', job=_(p.label), time=p.last_success.astimezone().strftime('%Y-%m-%d %H:%M')) }}
+            {%- else -%}
+              {{ _('%(job)s has never succeeded', job=_(p.label)) }}
+            {%- endif -%}
+          </div>
+          {% endfor %}
+          <a href="{{ url_for('admin.db_backups') }}">{{ _('Database Backups') }}</a> ·
+          <a href="{{ url_for('tasks.get_tasks_status') }}">{{ _('Tasks') }}</a>
+        </div>
+      </div>
+    {% endif %}
     {% for category, text in get_flashed_messages(with_categories=True) %}
       {% if category == "error" %}
       <div class="row-fluid">
@@ -282,7 +311,7 @@
     <div id="duplicate-notification-backdrop" class="duplicate-notification-backdrop"></div>
     <div id="duplicate-notification-modal" class="duplicate-notification-modal" tabindex="-1" role="dialog" aria-labelledby="duplicate-notification-title">
       <div class="duplicate-notification-header">
-        <button id="duplicate-notification-close" class="duplicate-notification-close" aria-label="{{_('Close')}}">&times;</button>
+        <button type="button" id="duplicate-notification-close" class="duplicate-notification-close" aria-label="{{_('Close')}}">&times;</button>
         <h2 id="duplicate-notification-title">{{_('Duplicate Books Detected')}}</h2>
         <p>{{_('You have unresolved duplicate books in your library')}}</p>
       </div>
@@ -296,8 +325,9 @@
         </ul>
       </div>
       <div class="duplicate-notification-footer">
-        <button id="duplicate-notification-remind" class="duplicate-notification-btn duplicate-notification-btn-secondary">
-          {{_('Remind Me Later')}}
+        <button type="button" id="duplicate-notification-remind" class="duplicate-notification-btn duplicate-notification-btn-secondary"
+                title="{{_('Hide this for 7 days; the sidebar count stays')}}">
+          {{_('Remind me in a week')}}
         </button>
         <a href="{{ url_for('duplicates.show_duplicates') }}" class="duplicate-notification-btn duplicate-notification-btn-primary">
           {{_('View & Resolve Duplicates')}}

@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Tasks that generate and clean up cover thumbnails."""
+
 import os
 from urllib.request import urlopen
 from io import BytesIO
@@ -37,7 +39,7 @@ def get_resize_height(resolution):
 def get_resize_width(resolution, original_width, original_height):
     height = get_resize_height(resolution)
     percent = (height / float(original_height))
-    width = int((float(original_width) * float(percent)))
+    width = int(float(original_width) * float(percent))
     return width if width % 2 == 0 else width + 1
 
 
@@ -59,10 +61,33 @@ def get_best_fit(width, height, image_width, image_height):
     return {'width': resize_width, 'height': resize_height}
 
 
+# A scheduled run with more books than this to (re)generate is a first backfill (new
+# library, cleared cache): it continues as an unscheduled task so the nightly window end
+# doesn't stop it after a few hundred books, night after night.
+BACKFILL_HANDOFF_THRESHOLD = 500
+COVER_THUMBNAIL_FORMAT = 'webp'
+
+
+@dataclass(frozen=True)
+class ThumbnailRow:
+    id: int
+    resolution: int
+    format: str
+    filename: str
+    generated_at: datetime
+
+
+def cover_thumbnail_filename(book_id, resolution):
+    """Same name ub.Thumbnail's column default gives a cover thumbnail."""
+    return f"book_{book_id}_r{resolution}.{COVER_THUMBNAIL_FORMAT}"
+
+
 class TaskGenerateCoverThumbnails(CalibreTask):
     def __init__(self, book_id=-1, task_message='', book_path=None, last_modified=None):
         super(TaskGenerateCoverThumbnails, self).__init__(task_message)
         self.log = logger.create()
+        # Only library-wide runs are tracked in job_status, not the per-book ones after an edit
+        self.job_name = "thumbnails" if book_id == -1 else None
         self.book_id = book_id
         self.book_path = book_path
         self.last_modified = last_modified
@@ -79,13 +104,25 @@ class TaskGenerateCoverThumbnails(CalibreTask):
             if use_IM and self.stat != STAT_CANCELLED and self.stat != STAT_ENDED:
                 self.message = 'Scanning Books'
                 books_with_covers = self.get_cover_sources()
-                count = len(books_with_covers)
+                rows_by_book = self.get_cover_thumbnail_rows(None if self.book_id == -1 else self.book_id)
+                todo = []
+                for book in books_with_covers:
+                    plan = self.plan_book_cover_thumbnails(book, rows_by_book.get(book.id, []))
+                    if plan[0] or plan[1]:
+                        todo.append((book, plan))
+                del rows_by_book
 
+                if self.scheduled and self.book_id == -1 and len(todo) > BACKFILL_HANDOFF_THRESHOLD:
+                    self.hand_off_backfill(len(todo))
+                    self._handleSuccess()
+                    return
+
+                count = len(todo)
                 total_generated = 0
-                for i, book in enumerate(books_with_covers):
+                for i, (book, plan) in enumerate(todo):
 
                     # Generate new thumbnails for missing covers
-                    generated = self.create_book_cover_thumbnails(book)
+                    generated = self.apply_book_cover_plan(book, *plan)
 
                     # Increment the progress
                     self.progress = (1.0 / count) * i
@@ -96,11 +133,11 @@ class TaskGenerateCoverThumbnails(CalibreTask):
 
                     # Check if job has been cancelled or ended
                     if self.stat == STAT_CANCELLED:
-                        self.log.info(f'GenerateCoverThumbnails task has been cancelled.')
+                        self.log.info('GenerateCoverThumbnails task has been cancelled.')
                         return
 
                     if self.stat == STAT_ENDED:
-                        self.log.info(f'GenerateCoverThumbnails task has been ended.')
+                        self.log.info('GenerateCoverThumbnails task has been ended.')
                         return
 
                 if total_generated == 0:
@@ -116,17 +153,34 @@ class TaskGenerateCoverThumbnails(CalibreTask):
                     helper._pending_thumbnail_books.discard(self.book_id)
                 except Exception:
                     pass  # Silently fail if helper module not available
-            
+
             # Always clean up database session
             self.app_db_session.remove()
 
+    def hand_off_backfill(self, pending):
+        """Queue the rest as an unscheduled task, which the schedule's end time doesn't stop."""
+        from ..services.worker import WorkerThread
+        self.log.info('%s books need cover thumbnails; continuing as an unscheduled task', pending)
+        self.message = N_('Generating thumbnails for %(count)s books in a separate task', count=pending)
+        WorkerThread.add(None, TaskGenerateCoverThumbnails(task_message=N_('Cover thumbnail backfill')))
+
     @staticmethod
     def get_books_with_covers(book_id=-1):
+        """The id, path and last_modified of every book with a cover (not full Books rows)."""
         filter_exp = (db.Books.id == book_id) if book_id != -1 else True
         calibre_db = db.CalibreDB(expire_on_commit=False, init=True)
-        books_cover = calibre_db.session.query(db.Books).filter(db.Books.has_cover == 1).filter(filter_exp).all()
+        rows = (calibre_db.session.query(db.Books.id, db.Books.path, db.Books.last_modified)
+                .filter(db.Books.has_cover == 1).filter(filter_exp).all())
         calibre_db.session.close()
-        return books_cover
+        return [BookCoverSource(id=row.id, path=row.path, last_modified=row.last_modified) for row in rows]
+
+    @staticmethod
+    def count_books_with_covers():
+        calibre_db = db.CalibreDB(expire_on_commit=False, init=True)
+        try:
+            return calibre_db.session.query(func.count(db.Books.id)).filter(db.Books.has_cover == 1).scalar() or 0
+        finally:
+            calibre_db.session.close()
 
     def get_cover_sources(self):
         if self.book_id != -1 and self.book_path:
@@ -139,142 +193,131 @@ class TaskGenerateCoverThumbnails(CalibreTask):
             ]
         return self.get_books_with_covers(self.book_id)
 
-    def get_book_cover_thumbnails(self, book_id):
-        return self.app_db_session \
-            .query(ub.Thumbnail) \
-            .filter(ub.Thumbnail.type == constants.THUMBNAIL_TYPE_COVER) \
-            .filter(ub.Thumbnail.entity_id == book_id) \
-            .filter(or_(ub.Thumbnail.expiration.is_(None), ub.Thumbnail.expiration > datetime.now(timezone.utc))) \
-            .all()
+    def get_cover_thumbnail_rows(self, book_id=None):
+        """Current cover thumbnail rows as plain tuples, grouped by book id (one query)."""
+        query = (self.app_db_session
+                 .query(ub.Thumbnail.id, ub.Thumbnail.entity_id, ub.Thumbnail.resolution, ub.Thumbnail.format,
+                        ub.Thumbnail.filename, ub.Thumbnail.generated_at)
+                 .filter(ub.Thumbnail.type == constants.THUMBNAIL_TYPE_COVER)
+                 .filter(or_(ub.Thumbnail.expiration.is_(None), ub.Thumbnail.expiration > datetime.now(timezone.utc))))
+        if book_id is not None:
+            query = query.filter(ub.Thumbnail.entity_id == book_id)
+        rows_by_book = {}
+        for row_id, entity_id, resolution, fmt, filename, generated_at in query.all():
+            rows_by_book.setdefault(entity_id, []).append(
+                ThumbnailRow(row_id, resolution, (fmt or '').lower(), filename or '', generated_at))
+        return rows_by_book
+
+    def plan_book_cover_thumbnails(self, book, rows):
+        """What a book needs: ({resolution: row to refresh, or None to add}, [rows to delete]).
+
+        Only WebP thumbnails are kept (browsers and the OPDS cover route are served WebP);
+        JPEG and legacy uuid-named rows are deleted with their files.
+        """
+        to_generate = {}
+        to_delete = []
+        current = {}
+        for row in rows:
+            legacy_naming = not (row.filename.startswith('book_') or row.filename.startswith('series_'))
+            if legacy_naming or row.format != COVER_THUMBNAIL_FORMAT:
+                to_delete.append(row)
+            else:
+                current.setdefault(row.resolution, row)
+        source_modified = book.last_modified.replace(tzinfo=None) if book.last_modified else None
+        for resolution in self.resolutions:
+            row = current.get(resolution)
+            if row is None:
+                to_generate[resolution] = None
+            elif (source_modified and row.generated_at and source_modified > row.generated_at.replace(tzinfo=None)) \
+                    or not self.cache.get_cache_file_exists(row.filename, constants.CACHE_TYPE_THUMBNAILS):
+                to_generate[resolution] = row
+        return to_generate, to_delete
 
     def create_book_cover_thumbnails(self, book):
-        generated = 0
-        book_cover_thumbnails = self.get_book_cover_thumbnails(book.id)
+        rows = self.get_cover_thumbnail_rows(book.id).get(book.id, [])
+        return self.apply_book_cover_plan(book, *self.plan_book_cover_thumbnails(book, rows))
 
-        # Build a map: (resolution, format) -> thumbnail
-        thumb_map = {}
-        for t in book_cover_thumbnails:
-            thumb_map[(t.resolution, t.format.lower())] = t
-
-        # For each resolution and format, check if thumbnail exists and file is present
-        formats = ['webp', 'jpg']
-        for resolution in self.resolutions:
-            for fmt in formats:
-                thumb = thumb_map.get((resolution, fmt))
-                file_missing = True
-                if thumb:
-                    file_missing = not self.cache.get_cache_file_exists(thumb.filename, constants.CACHE_TYPE_THUMBNAILS)
-                if not thumb or file_missing:
-                    generated += 1
-                    self.create_book_cover_single_thumbnail_format(book, resolution, fmt)
-
-        # Replace outdated, legacy, or format-mismatch thumbnails
-        for thumbnail in book_cover_thumbnails:
+    def apply_book_cover_plan(self, book, to_generate, to_delete):
+        """Write the planned thumbnails, then record them (and the deletions) in one commit."""
+        written = []
+        if to_generate:
             try:
-                legacy_naming = not (thumbnail.filename.startswith('book_') or thumbnail.filename.startswith('series_'))
-                wrong_format = thumbnail.format.lower() not in formats
-                source_newer = book.last_modified.replace(tzinfo=None) > thumbnail.generated_at
-
-                # If any legacy condition matched, migrate: delete old file & regenerate with deterministic name
-                if legacy_naming or wrong_format:
-                    old_filename = thumbnail.filename
-                    self.app_db_session.delete(thumbnail)
-                    self.app_db_session.commit()
-                    # Regenerate both formats for this resolution
-                    for fmt in formats:
-                        self.create_book_cover_single_thumbnail_format(book, thumbnail.resolution, fmt)
-                    # remove old file if still present
-                    try:
-                        self.cache.delete_cache_file(old_filename, constants.CACHE_TYPE_THUMBNAILS)
-                    except Exception:
-                        pass
-                    generated += 1
-                    continue
-
-                if source_newer:
-                    generated += 1
-                    self.update_book_cover_thumbnail(book, thumbnail)
+                written = self.generate_book_thumbnails(book, sorted(to_generate, reverse=True))
             except Exception as ex:
-                self.log.debug(f"Thumbnail migration/update issue for book {book.id}: {ex}")
-        return generated
-
-    def create_book_cover_single_thumbnail_format(self, book, resolution, fmt):
-        thumbnail = ub.Thumbnail()
-        thumbnail.type = constants.THUMBNAIL_TYPE_COVER
-        thumbnail.entity_id = book.id
-        thumbnail.format = fmt
-        thumbnail.resolution = resolution
-
-        self.app_db_session.add(thumbnail)
+                self.log.warning('Error creating cover thumbnails for book %s: %s', book.id, ex)
+        if not written and not to_delete:
+            return 0
+        now = datetime.now(timezone.utc)
         try:
+            for row in to_delete:
+                self.app_db_session.query(ub.Thumbnail).filter(ub.Thumbnail.id == row.id).delete()
+            for resolution in written:
+                row = to_generate[resolution]
+                if row is not None:
+                    self.app_db_session.query(ub.Thumbnail).filter(ub.Thumbnail.id == row.id) \
+                        .update({ub.Thumbnail.generated_at: now})
+                else:
+                    thumbnail = ub.Thumbnail()
+                    thumbnail.type = constants.THUMBNAIL_TYPE_COVER
+                    thumbnail.entity_id = book.id
+                    thumbnail.format = COVER_THUMBNAIL_FORMAT
+                    thumbnail.resolution = resolution
+                    thumbnail.filename = cover_thumbnail_filename(book.id, resolution)
+                    thumbnail.generated_at = now
+                    self.app_db_session.add(thumbnail)
             self.app_db_session.commit()
-            self.generate_book_thumbnail(book, thumbnail)
         except Exception as ex:
-            self.log.debug(f'Error creating {fmt.upper()} book thumbnail: ' + str(ex))
-            self._handleError(f'Error creating {fmt.upper()} book thumbnail: ' + str(ex))
+            self.log.warning('Error saving cover thumbnails for book %s: %s', book.id, ex)
             self.app_db_session.rollback()
+            return 0
+        for row in to_delete:
+            try:
+                self.cache.delete_cache_file(row.filename, constants.CACHE_TYPE_THUMBNAILS)
+            except Exception:
+                pass
+        return len(written)
 
-    def update_book_cover_thumbnail(self, book, thumbnail):
-        thumbnail.generated_at = datetime.now(timezone.utc)
+    def generate_book_thumbnails(self, book, resolutions):
+        """Decode the cover once and write each resolution, largest first, resizing the
+        same image down step by step. Returns the resolutions written."""
+        written = []
+        with self.open_cover(book, get_resize_height(max(resolutions))) as img:
+            img.format = COVER_THUMBNAIL_FORMAT
+            try:
+                img.compression_quality = 82
+            except Exception:
+                pass
+            for resolution in resolutions:
+                height = get_resize_height(resolution)
+                if img.height > height:
+                    width = get_resize_width(resolution, img.width, img.height)
+                    img.resize(width=width, height=height, filter='lanczos')
+                img.save(filename=self.cache.get_cache_file_path(cover_thumbnail_filename(book.id, resolution),
+                                                                 constants.CACHE_TYPE_THUMBNAILS))
+                written.append(resolution)
+        return written
 
+    @staticmethod
+    def open_cover(book, max_height):
+        if config.config_use_google_drive:
+            if not gdriveutils.is_gdrive_ready():
+                raise Exception('Google Drive is configured but not ready')
+            content = gdriveutils.get_cover_via_gdrive(book.path)
+            if not content:
+                raise Exception('Google Drive cover url not found')
+            return Image(file=BytesIO(content))
+        book_cover_filepath = os.path.join(config.get_book_path(), book.path, 'cover.jpg')
+        if not os.path.isfile(book_cover_filepath):
+            raise Exception('Book cover file not found')
+        img = Image()
         try:
-            self.app_db_session.commit()
-            self.cache.delete_cache_file(thumbnail.filename, constants.CACHE_TYPE_THUMBNAILS)
-            self.generate_book_thumbnail(book, thumbnail)
-        except Exception as ex:
-            self.log.debug('Error updating book thumbnail: ' + str(ex))
-            self._handleError('Error updating book thumbnail: ' + str(ex))
-            self.app_db_session.rollback()
-
-    def generate_book_thumbnail(self, book, thumbnail):
-        if book and thumbnail:
-            if config.config_use_google_drive:
-                if not gdriveutils.is_gdrive_ready():
-                    raise Exception('Google Drive is configured but not ready')
-
-                content = gdriveutils.get_cover_via_gdrive(book.path)
-                if not content:
-                    raise Exception('Google Drive cover url not found')
-                try:
-                    stream = BytesIO(content)
-                    with Image(file=stream) as img:
-                        filename = self.cache.get_cache_file_path(thumbnail.filename,
-                                                                  constants.CACHE_TYPE_THUMBNAILS)
-                        height = get_resize_height(thumbnail.resolution)
-                        if img.height > height:
-                            width = get_resize_width(thumbnail.resolution, img.width, img.height)
-                            img.resize(width=width, height=height, filter='lanczos')
-                        # Set format for thumbnail
-                        img.format = thumbnail.format
-                        try:
-                            img.compression_quality = 82
-                        except Exception:
-                            pass
-                        img.save(filename=filename)
-                except Exception as ex:
-                    self.log.debug('Error generating thumbnail file: ' + str(ex))
-                    raise ex
-                finally:
-                    if stream is not None:
-                        stream.close()
-            else:
-                book_cover_filepath = os.path.join(config.get_book_path(), book.path, 'cover.jpg')
-                if not os.path.isfile(book_cover_filepath):
-                    raise Exception('Book cover file not found')
-
-                with Image(filename=book_cover_filepath) as img:
-                    height = get_resize_height(thumbnail.resolution)
-                    filename = self.cache.get_cache_file_path(thumbnail.filename, constants.CACHE_TYPE_THUMBNAILS)
-                    if img.height > height:
-                        width = get_resize_width(thumbnail.resolution, img.width, img.height)
-                        img.resize(width=width, height=height, filter='lanczos')
-                    # Set format for thumbnail
-                    img.format = thumbnail.format
-                    try:
-                        img.compression_quality = 82
-                    except Exception:
-                        pass
-                    img.save(filename=filename)
+            # let libjpeg decode at a reduced scale that is still >= the largest thumbnail
+            img.options['jpeg:size'] = '1x{}'.format(max_height)
+            img.read(filename=book_cover_filepath)
+        except Exception:
+            img.close()
+            raise
+        return img
 
     @property
     def name(self):
@@ -304,6 +347,12 @@ class TaskGenerateSeriesThumbnails(CalibreTask):
         ]
 
     def run(self, worker_thread):
+        try:
+            self.generate_series_thumbnails()
+        finally:
+            self.app_db_session.remove()
+
+    def generate_series_thumbnails(self):
         if self.calibre_db.session and use_IM and self.stat != STAT_CANCELLED and self.stat != STAT_ENDED:
             self.message = 'Scanning Series'
             all_series = self.get_series_with_four_plus_books()
@@ -341,18 +390,17 @@ class TaskGenerateSeriesThumbnails(CalibreTask):
 
                 # Check if job has been cancelled or ended
                 if self.stat == STAT_CANCELLED:
-                    self.log.info(f'GenerateSeriesThumbnails task has been cancelled.')
+                    self.log.info('GenerateSeriesThumbnails task has been cancelled.')
                     return
 
                 if self.stat == STAT_ENDED:
-                    self.log.info(f'GenerateSeriesThumbnails task has been ended.')
+                    self.log.info('GenerateSeriesThumbnails task has been ended.')
                     return
 
             if total_generated == 0:
                 self.self_cleanup = True
 
         self._handleSuccess()
-        self.app_db_session.remove()
 
     def get_series_with_four_plus_books(self):
         return self.calibre_db.session \

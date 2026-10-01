@@ -1,12 +1,11 @@
 /*
- * Lily chrome for the in-browser readers (epub, comic, txt, djvu) and the audio player.
+ * Lily chrome for the in-browser readers (epub, pdf, djvu) and the audio player.
  *
- * Loaded after lily.css (tokens) and lily-icons.css. The epub and comic readers still
- * load the vendor layout (main.css, kthoom.css): epub.js and kthoom size their views
- * from it. This file only restyles the chrome on top (toolbar, sidebar, settings sheet,
- * arrows) and uses tokens only, so a dark palette applies here too. The book's own page
- * colours (the epub Light/Dark/Sepia/Black themes, kthoom's dark theme) are content, not
- * chrome, and stay as they are.
+ * Loaded after lily.css (tokens) and lily-icons.css. The epub reader still loads the
+ * vendor layout (main.css): epub.js sizes its view from it. This file only restyles the
+ * chrome on top (toolbar, sidebar, settings sheet, arrows) and uses tokens only, so a
+ * dark palette applies here too. The book's own page colours (the epub
+ * Light/Dark/Sepia/Black themes) are content, not chrome, and stay as they are.
  */
 
 /* The readers size everything in % of the window; lily.css' wide-screen zoom would
@@ -96,7 +95,7 @@ body.lily-reader {
 .lily-reader #slider.icon-right { background: color-mix(in srgb, currentColor 10%, transparent); opacity: 1; }
 
 /* ------------------------------------------------------------------ */
-/* Title bar (epub and comic)                                           */
+/* Title bar (epub)                                                     */
 /* ------------------------------------------------------------------ */
 .lily-reader #titlebar {
     display: flex;
@@ -172,13 +171,65 @@ body.lily-reader {
     outline-offset: -8px;
 }
 
+/* Full opacity: the page theme's title colour keeps ≥4.5:1 on its page colour. */
 .lily-reader #progress:not([role]) {
     right: 24px;
     bottom: 16px;
     font-size: 12px;
     font-variant-numeric: tabular-nums;
-    opacity: .6;
+    opacity: 1;
 }
+
+/* End-of-book card (epub-finish.js). */
+.lily-reader .reader-finish {
+    position: fixed;
+    left: 50%;
+    bottom: calc(44px + env(safe-area-inset-bottom, 0px));
+    z-index: 20;
+    box-sizing: border-box;
+    width: min(380px, calc(100% - 32px));
+    padding: 16px 48px 16px 18px;
+    transform: translateX(-50%);
+    border: 1px solid var(--line-soft);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: var(--menu-shadow);
+    color: var(--ink);
+}
+
+.lily-reader .reader-finish[hidden] { display: none; }
+
+.lily-reader .reader-finish-title {
+    margin: 0 0 10px;
+    font-size: 15px;
+    line-height: 1.35;
+}
+
+.lily-reader .reader-finish-title strong { font-family: var(--font-body); font-weight: 600; }
+
+.lily-reader .reader-finish-next,
+.lily-reader .reader-finish-library {
+    display: block;
+    padding: 8px 0;
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.lily-reader .reader-finish-next:hover,
+.lily-reader .reader-finish-library:hover { text-decoration: underline; }
+
+.lily-reader .reader-finish-label { color: var(--muted); font-weight: 400; }
+
+.lily-reader .reader-finish-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    color: var(--muted);
+}
+
+.lily-reader .reader-finish-close .glyphicon { font-size: 14px; }
 
 .lily-reader #divider { border-right-color: var(--line); box-shadow: none; opacity: 1; }
 
@@ -194,7 +245,7 @@ body.lily-reader {
 }
 
 /* ------------------------------------------------------------------ */
-/* Sidebar: contents, bookmarks, search (epub), thumbnails (comic)      */
+/* Sidebar: contents, bookmarks, search (epub)                          */
 /* ------------------------------------------------------------------ */
 .lily-reader #sidebar {
     background: var(--surface);
@@ -456,6 +507,32 @@ body.lily-reader {
     accent-color: var(--accent);
 }
 
+/* Text size: A− 100% A+ */
+.lily-reader .md-content button.reader-size-btn {
+    justify-content: center;
+    min-width: 44px;
+    height: 36px;
+    font-family: var(--font-body);
+    font-size: 15px;
+}
+
+.lily-reader .md-content button.reader-size-larger { font-size: 19px; }
+
+.lily-reader .md-content button.reader-size-btn:disabled { opacity: .45; cursor: default; }
+
+.lily-reader .reader-size-value {
+    min-width: 52px;
+    color: var(--ink);
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+/* Two-column spread and sidebar reflow mean nothing on a narrow screen (one column there). */
+@media (max-width: 799px) {
+    .lily-reader .md-content > .reader-wide-only { display: none; }
+}
+
 .lily-reader .md-content > .closer,
 .lily-reader .md-content > button.closer {
     display: inline-flex;
@@ -499,35 +576,7 @@ body.lily-reader {
 .lily-reader .inputs input { accent-color: var(--accent); }
 
 /* ------------------------------------------------------------------ */
-/* Comic reader (kthoom)                                                */
-/* ------------------------------------------------------------------ */
-.lily-reader.lily-comic #titlebar {
-    height: auto;
-    background: color-mix(in srgb, var(--paper) 94%, transparent);
-    border-bottom: 1px solid var(--line-soft);
-    color: var(--ink);
-}
-
-.lily-reader.lily-comic #main { background: var(--sunk); }
-
-.lily-reader.lily-comic #sidebar a:hover,
-.lily-reader.lily-comic #sidebar a:focus { box-shadow: 0 0 0 2px var(--line); }
-
-.lily-reader.lily-comic #sidebar a.active { background: var(--accent); }
-
-.lily-reader.lily-comic #sidebar a.active img + span { background: var(--accent); color: var(--surface); }
-
-.lily-reader.lily-comic #sidebar li img + span { background: var(--ink-soft); color: var(--surface); font-size: 12px; }
-
-.lily-reader.lily-comic #progress .bar-load { background: var(--line-soft); color: var(--ink); }
-
-.lily-reader.lily-comic #progress .bar-read,
-.lily-reader.lily-comic.dark-theme #progress .bar-read { background: var(--accent); color: var(--surface); }
-
-.lily-reader.lily-comic .view { padding-top: 12px; }
-
-/* ------------------------------------------------------------------ */
-/* Plain-text reader                                                    */
+/* Audiobook title bar                                                  */
 /* ------------------------------------------------------------------ */
 .lily-reader-bar {
     display: flex;
@@ -563,35 +612,6 @@ body.lily-reader {
 
 /* Keeps the title centred against the back button. */
 .lily-reader-bar .reader-bar-spacer { flex: none; width: 76px; }
-
-.lily-reader.lily-txt { background: var(--paper); overflow: hidden; }
-
-.lily-reader.lily-txt #readmain {
-    top: 52px;
-    bottom: 0;
-    height: auto;
-}
-
-.lily-reader.lily-txt #content {
-    margin: 0;
-    color: var(--ink);
-    font-family: var(--font-body);
-    font-size: 17px;
-    line-height: 1.6;
-    column-gap: 48px;
-}
-
-.lily-reader.lily-txt .arrow {
-    position: absolute;
-    top: 50%;
-    margin-top: -48px;
-    padding: 20px 8px;
-    cursor: pointer;
-    user-select: none;
-}
-
-.lily-reader.lily-txt #left { left: 12px; }
-.lily-reader.lily-txt #right { right: 12px; }
 
 /* ------------------------------------------------------------------ */
 /* DjVu reader                                                          */
@@ -783,6 +803,37 @@ body.lily-reader {
     .lily-reader #chapter-title,
     .lily-reader #title-seperator { display: none; }
 
+    /* epub: a fixed 52px title bar under the notch; main.css sizes the page from it
+       (--reader-top, --reader-bottom). */
+    .lily-reader.lily-epub #titlebar {
+        height: var(--reader-top);
+        min-height: 0;
+        padding: calc(6px + env(safe-area-inset-top, 0px)) calc(4px + env(safe-area-inset-right, 0px))
+            6px calc(4px + env(safe-area-inset-left, 0px));
+    }
+
+    /* The page-turn buttons become invisible tap zones over the outer fifth of the page,
+       between the title bar and the progress line. */
+    .lily-reader.lily-epub #prev,
+    .lily-reader.lily-epub #next {
+        top: var(--reader-top);
+        bottom: var(--reader-bottom);
+        z-index: 3;
+        width: 22%;
+        height: auto;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        text-indent: -10000px;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .lily-reader.lily-epub #progress:not([role]) {
+        right: calc(16px + env(safe-area-inset-right, 0px));
+        bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+        line-height: 16px;
+    }
+
     .lily-reader .md-content > .reader-setting { padding: 12px 16px; }
 
     .lily-reader .md-content h3 { padding-left: 16px; }
@@ -791,10 +842,6 @@ body.lily-reader {
     .lily-reader .md-content .item { flex-basis: 100%; }
 
     .lily-reader-bar .reader-bar-spacer { width: 40px; }
-
-    .lily-reader.lily-txt .arrow { display: none; }
-
-    .lily-reader.lily-txt #content { column-count: 1; }
 
     .lily-audio-page { padding-top: 72px; }
 

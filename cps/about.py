@@ -29,7 +29,7 @@ modules['Jinja2'] = importlib.metadata.version("jinja2")
 if sys.version_info < (3, 12):
     modules['pySqlite'] = sqlite3.version
 modules['SQLite'] = sqlite3.sqlite_version
-sorted_modules = OrderedDict((sorted(modules.items(), key=lambda x: x[0].casefold())))
+sorted_modules = OrderedDict(sorted(modules.items(), key=lambda x: x[0].casefold()))
 
 
 def collect_stats():
@@ -44,9 +44,7 @@ def collect_stats():
         Python=sys.version,
         Platform='{0[0]} {0[2]} {0[3]} {0[4]} {0[5]}'.format(platform.uname()),
     ))
-    _VERSIONS['Unrar'] = converter.get_unrar_version()
     _VERSIONS['Ebook converter'] = converter.get_calibre_version()
-    _VERSIONS['Kepubify'] = converter.get_kepubify_version()
     _VERSIONS.update(uploader.get_magick_version())
     _VERSIONS.update(sorted_modules)
     return _VERSIONS

@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Registers the nightly and scheduled background tasks (backups, mirror, cleanup, scans)."""
+
 import datetime
 
 from . import config, constants
@@ -74,6 +76,8 @@ def register_scheduled_tasks(reconnect=True):
         _schedule_archived_book_cleanup(scheduler, timezone_info)
         _schedule_db_backup(scheduler, start, timezone_info)
         _schedule_processed_books_cleanup(scheduler, start, timezone_info)
+        _schedule_library_mirror(scheduler, start, timezone_info)
+        _schedule_trash_purge(scheduler, start, timezone_info)
 
         # Kick-off tasks, if they should currently be running
         if should_task_be_running(start, duration):
@@ -156,14 +160,14 @@ def _schedule_hardcover_auto_fetch(scheduler, timezone_info):
 
         db = CWA_DB()
         cwa_settings = db.get_cwa_settings()
-        
+
         # Check if enabled and token available
         enabled = bool(cwa_settings.get('hardcover_auto_fetch_enabled', False))
         token_available = bool(
-            getattr(config, "config_hardcover_token", None) or 
+            getattr(config, "config_hardcover_token", None) or
             getenv("HARDCOVER_TOKEN")
         )
-        
+
         if not enabled or not token_available:
             return
 
@@ -173,24 +177,24 @@ def _schedule_hardcover_auto_fetch(scheduler, timezone_info):
         min_confidence = float(cwa_settings.get('hardcover_auto_fetch_min_confidence', 0.85))
         batch_size = int(cwa_settings.get('hardcover_auto_fetch_batch_size', 50))
         rate_limit = float(cwa_settings.get('hardcover_auto_fetch_rate_limit', 5.0))
-        
+
         # Create lambda that returns task instance with configured settings
         task_lambda = lambda: TaskAutoHardcoverID(
             min_confidence=min_confidence,
             batch_size=batch_size,
             rate_limit_delay=rate_limit
         )
-        
+
         # Map day names to APScheduler format
         day_map = {
             'monday': 'mon', 'tuesday': 'tue', 'wednesday': 'wed',
             'thursday': 'thu', 'friday': 'fri', 'saturday': 'sat', 'sunday': 'sun'
         }
-        
+
         # Determine trigger based on schedule type
         trigger = None
         name = "hardcover auto-fetch"
-        
+
         if schedule_type == '15min':
             trigger = IntervalTrigger(minutes=15, timezone=timezone_info)
         elif schedule_type == '30min':
@@ -218,7 +222,7 @@ def _schedule_hardcover_auto_fetch(scheduler, timezone_info):
             except (ValueError, TypeError):
                 day_of_month = 1
             trigger = CronTrigger(day=day_of_month, hour=schedule_hour, minute=0, timezone=timezone_info)
-        
+
         if trigger:
             scheduler.schedule_task(task_lambda, user='System', trigger=trigger, name=name, hidden=False)
     except Exception:
@@ -302,6 +306,30 @@ def _schedule_db_backup(scheduler, start_hour, timezone_info):
         pass
 
 
+def queue_scheduled_library_mirror():
+    """Queues a visible mirror run when a mirror folder is set; does nothing otherwise, so
+    an unconfigured mirror doesn't add an empty task to the list every night."""
+    from .tasks.library_mirror import TaskMirrorLibrary, get_mirror_dir
+    if not get_mirror_dir():
+        return False
+    task = TaskMirrorLibrary()
+    task.scheduled = True
+    WorkerThread.add('System', task, hidden=False)
+    return True
+
+
+def _schedule_library_mirror(scheduler, start_hour, timezone_info):
+    """Nightly copy of new/changed book files to cwa_settings.library_mirror_dir. Always
+    scheduled; the folder setting is checked when the job fires."""
+    try:
+        scheduler.schedule(func=queue_scheduled_library_mirror,
+                           trigger=CronTrigger(hour=start_hour, minute=45, timezone=timezone_info),
+                           name='mirror library files')
+    except Exception:
+        # Scheduling is best-effort; never block startup
+        pass
+
+
 def _schedule_processed_books_cleanup(scheduler, start_hour, timezone_info):
     """Nightly retention cleanup of /config/processed_books/{imported,failed}
     (cwa_settings.processed_books_retention_days, default 30, 0 = keep forever)."""
@@ -310,6 +338,18 @@ def _schedule_processed_books_cleanup(scheduler, start_hour, timezone_info):
         scheduler.schedule_task(lambda: TaskCleanProcessedBooks(), user='System',
                                 trigger=CronTrigger(hour=start_hour, minute=30, timezone=timezone_info),
                                 name='clean processed books', hidden=True)
+    except Exception:
+        # Scheduling is best-effort; never block startup
+        pass
+
+
+def _schedule_trash_purge(scheduler, start_hour, timezone_info):
+    """Nightly purge of Trash entries older than cwa_settings.trash_retention_days."""
+    try:
+        from .tasks.trash_purge import TaskPurgeTrash
+        scheduler.schedule_task(lambda: TaskPurgeTrash(), user='System',
+                                trigger=CronTrigger(hour=start_hour, minute=50, timezone=timezone_info),
+                                name='purge trash', hidden=True)
     except Exception:
         # Scheduling is best-effort; never block startup
         pass

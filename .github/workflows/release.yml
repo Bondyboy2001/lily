@@ -1,0 +1,290 @@
+name: Release
+
+# Pushing a tag like v1.2.3 builds the image for amd64 and arm64 and publishes it to
+# GHCR as :1.2.3, :1.2 and :latest. Nothing runs until a tag is pushed.
+# If the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN repository secrets exist, the same tags
+# are also pushed to Docker Hub as <username>/lily.
+#
+# Each platform builds natively on its own runner (no QEMU), in parallel, and pushes
+# by digest; the merge job then ties the two digests together under the release tags.
+# Emulated arm64 used to take ~17 minutes of a ~20 minute release.
+#
+# Nothing is pushed unless the tagged commit is on main, the lint/type/unit checks pass
+# and an amd64 build of the same commit starts and answers /health with the tag's version.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  on-main:
+    name: Tagged commit is on main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code (full history)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check the tag points at a commit on origin/main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::${GITHUB_REF_NAME} ($GITHUB_SHA) is not on origin/main. Merge first, then tag main."
+            exit 1
+          fi
+
+  checks:
+    name: Lint, type check and unit tests
+    runs-on: ubuntu-latest
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Run ruff
+        run: pipx run ruff==0.16.9 check cps scripts tests
+
+      - name: Run mypy
+        run: pipx run mypy==2.3.1
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements.lock
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev
+          python -m pip install --upgrade pip
+          # Same pins as the image (requirements.lock)
+          pip install -r requirements.txt -c requirements.lock
+          pip install -r requirements-dev.txt -c requirements.lock
+          pip check
+
+      - name: Create test environment structure
+        run: |
+          sudo mkdir -p /config /books/import /books/ingest /config/processed_books
+          sudo chmod -R 777 /config /books
+          touch /config/cwa.db
+
+      - name: Run smoke and unit tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/scripts
+        run: pytest -m "smoke or unit" -n auto --tb=short
+
+  image-smoke:
+    name: Build image and check /health
+    runs-on: ubuntu-latest
+    needs: [on-main]
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Build date
+        id: date
+        run: echo "value=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build amd64 image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: lily:release-smoke
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            BUILD_DATE=${{ steps.date.outputs.value }}
+          cache-from: type=gha,scope=lily-image
+          cache-to: type=gha,scope=lily-image,mode=max
+
+      - name: Smoke test (container starts, /health returns 200 and the tag's version)
+        env:
+          EXPECTED: Lily/${{ github.ref_name }}
+        run: |
+          mkdir -p smoke/config smoke/ingest smoke/library
+          chmod -R 777 smoke
+          docker run -d --name lily-smoke -e PUID="$(id -u)" -e PGID="$(id -g)" \
+            -v "$PWD/smoke/config:/config" -v "$PWD/smoke/ingest:/cwa-book-ingest" \
+            -v "$PWD/smoke/library:/calibre-library" -p 8083:8083 \
+            lily:release-smoke
+          for i in $(seq 1 60); do
+            if body=$(curl -fs http://localhost:8083/health); then
+              echo "healthy after ~$((i * 5))s: $body"
+              version=$(echo "$body" | jq -r .version)
+              if [ "$version" != "$EXPECTED" ]; then
+                echo "::error::/health reports '$version', expected '$EXPECTED'"
+                exit 1
+              fi
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::/health never returned 200"
+          docker logs lily-smoke
+          exit 1
+
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    needs: [on-main, checks, image-smoke]
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          # amd64 keeps the "lily-image" cache scope it shares with the amd64 builds in
+          # tests.yml. arm64 gets a scope of its own: a single-platform cache-to replaces
+          # the scope's whole index, so sharing it let every test build evict arm64.
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            cache_scope: lily-image
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            cache_scope: lily-image-arm64
+    env:
+      HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Build date
+        id: date
+        run: echo "value=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
+
+      - name: Image names
+        run: |
+          platform='${{ matrix.platform }}'
+          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+          names="ghcr.io/${GITHUB_REPOSITORY,,}"
+          if [ "$HAS_DOCKERHUB" = true ]; then
+            names="$names,docker.io/${{ secrets.DOCKERHUB_USERNAME }}/lily"
+          fi
+          echo "IMAGE_NAMES=$names" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: env.HAS_DOCKERHUB == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # VERSION ends up in /app/CWA_RELEASE (About, admin page, /health) and the image label
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            BUILD_DATE=${{ steps.date.outputs.value }}
+          outputs: type=image,"name=${{ env.IMAGE_NAMES }}",push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.cache_scope }}
+          cache-to: type=gha,scope=${{ matrix.cache_scope }},mode=max
+
+      - name: Export digest
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          digest='${{ steps.build.outputs.digest }}'
+          touch "$RUNNER_TEMP/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish multi-arch tags
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    env:
+      HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: env.HAS_DOCKERHUB == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository }}
+            ${{ env.HAS_DOCKERHUB == 'true' && format('docker.io/{0}/lily', secrets.DOCKERHUB_USERNAME) || '' }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Create manifest lists and push
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          # Both registries got the same per-platform digests in the build job,
+          # so GHCR's copies are the source for every tag.
+          mapfile -t tags < <(jq -r '.tags[] | "-t", .' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          sources=()
+          for digest in *; do sources+=("ghcr.io/${GITHUB_REPOSITORY,,}@sha256:$digest"); done
+          docker buildx imagetools create "${tags[@]}" "${sources[@]}"
+
+      - name: Inspect image
+        run: docker buildx imagetools inspect "ghcr.io/${GITHUB_REPOSITORY,,}:${{ steps.meta.outputs.version }}"

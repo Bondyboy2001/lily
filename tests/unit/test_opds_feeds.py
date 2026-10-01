@@ -70,6 +70,29 @@ class TestOpdsAuth:
         resp = env.app.test_client().get("/opds", headers=_auth(env.admin().name, "nope"))
         assert resp.status_code == 401
 
+    def test_password_hash_is_checked_once_and_a_password_change_invalidates_it(self, env, monkeypatch):
+        from werkzeug.security import generate_password_hash
+        from cps import ub, usermanagement
+        monkeypatch.setattr(usermanagement, "_password_checks", {})
+        checks = []
+        real_check = usermanagement.check_password_hash
+        monkeypatch.setattr(usermanagement, "check_password_hash",
+                            lambda stored, pw: checks.append(pw) or real_check(stored, pw))
+        user = env.add_user("reader", password="old-pw")
+        client = env.app.test_client()
+
+        for _ in range(3):
+            assert client.get("/opds", headers=_auth("reader", "old-pw")).status_code == 200
+        assert checks == ["old-pw"]
+        for _ in range(2):
+            assert client.get("/opds", headers=_auth("reader", "wrong")).status_code == 401
+        assert checks == ["old-pw", "wrong", "wrong"]  # failures are never cached
+
+        user.password = generate_password_hash("new-pw")
+        ub.session.commit()
+        assert client.get("/opds", headers=_auth("reader", "old-pw")).status_code == 401
+        assert client.get("/opds", headers=_auth("reader", "new-pw")).status_code == 200
+
     def test_anonymous_browse_allows_guest(self, env):
         from cps import config
         config.config_anonbrowse = 1
@@ -184,6 +207,18 @@ class TestSearch:
         env.add_book("Dune")
         assert _titles(_get_feed(env, "/opds/search?query=nomatch", _admin_headers(env))) == []
         assert _titles(_get_feed(env, "/opds/search?query=", _admin_headers(env))) == []
+
+    def test_search_is_paginated_and_next_link_keeps_the_query(self, env):
+        for title in ("Diary One", "Diary Two", "Diary Three"):
+            env.add_book(title)
+        env.add_book("Unrelated")
+        root = _get_feed(env, "/opds/search?query=diary", _admin_headers(env))
+        assert len(_titles(root)) == 2  # config_books_per_page=2
+        next_href = _link(root, "next")
+        assert "offset=2" in next_href and "query=diary" in next_href
+        rest = _get_feed(env, next_href, _admin_headers(env))
+        assert sorted(_titles(root) + _titles(rest)) == ["Diary One", "Diary Three", "Diary Two"]
+        assert _link(rest, "next") is None
 
     def test_search_respects_denied_tags(self, env):
         env.add_book("Secret Diary", tags=["Secret"])

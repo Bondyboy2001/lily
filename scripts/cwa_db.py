@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""cwa.db: Lily's settings and statistics database, its schema sync and migrations."""
+
 import sqlite3
 import os
 import threading
@@ -130,6 +132,19 @@ def parse_schema_columns(tables: list[str]) -> dict[str, dict[str, str]]:
 #   MIGRATIONS = [(2, "rename cwa_import.foo to bar", _m2_rename_foo)]
 MIGRATIONS: list = []
 SCHEMA_MIGRATIONS_TABLE = "cwa_schema_migrations"
+
+# Statistics older than this are pruned (CWA_DB.prune_old_stats, run by the nightly clean-up).
+STATS_RETENTION_DAYS = 365
+STATS_RETENTION_TABLES = ("cwa_user_activity", "cwa_enforcement", "cwa_import")
+STATS_PRUNE_BATCH = 1000  # rows per transaction; keeps each write lock short (~70 ms on a dev machine)
+
+
+def stats_retention_days() -> int:
+    """Retention for statistics, from LILY_STATS_RETENTION_DAYS (0 = keep forever)."""
+    try:
+        return max(0, int(os.environ.get("LILY_STATS_RETENTION_DAYS", STATS_RETENTION_DAYS)))
+    except ValueError:
+        return STATS_RETENTION_DAYS
 
 
 class CWA_DB(CWAStatsQueries):
@@ -279,11 +294,6 @@ class CWA_DB(CWAStatsQueries):
             return []
 
 
-    def _has_user_filter(self, user_id) -> bool:
-        """Return True when a valid user filter is provided."""
-        return len(self._normalize_user_ids(user_id)) > 0
-
-
     def _build_user_filter(self, user_id) -> str:
         """Builds SQL filter for a single user ID or list of user IDs."""
         user_ids = self._normalize_user_ids(user_id)
@@ -318,13 +328,13 @@ class CWA_DB(CWAStatsQueries):
             # Format: setting_name TYPE DEFAULT value [NOT NULL]
             if ' DEFAULT ' not in line:
                 continue
-                
+
             setting_name = line.split()[0]
-            
+
             # Extract everything after DEFAULT
             default_start = line.index(' DEFAULT ') + len(' DEFAULT ')
             remainder = line[default_start:].strip()
-            
+
             # Handle different value types
             if remainder.startswith("'") or remainder.startswith('"'):
                 # String value with quotes - could be '', "value", or JSON
@@ -366,15 +376,15 @@ class CWA_DB(CWAStatsQueries):
                 if success:
                     print(f"[cwa-db] Setting '{setting}' successfully added to cwa.db!")
                     newly_added_settings.append(setting)
-        
+
         # Sync newly added settings with schema defaults
         # This handles cases where schema default was updated after column was added
         if newly_added_settings:
             self.sync_new_settings_with_defaults(newly_added_settings)
-        
+
         # Fix for issue #903: Repair incorrectly parsed default values from older versions
         self.fix_malformed_setting_values()
-        
+
         # Settings in the db but not in the schema file are left in place. They may
         # belong to a newer version (downgrade) or a renamed setting whose value a
         # migration still needs; dropping them silently deleted user config.
@@ -382,12 +392,12 @@ class CWA_DB(CWAStatsQueries):
         if unknown_settings:
             print(f"[cwa-db] Keeping {len(unknown_settings)} cwa_settings column(s) not in the current schema "
                   f"(from another version?): {', '.join(unknown_settings)}", flush=True)
-    
-    
+
+
     def sync_new_settings_with_defaults(self, newly_added_settings) -> None:
         """Sync newly added settings to match schema defaults
-        
-        This ensures that if a column was added with one default value, then the schema 
+
+        This ensures that if a column was added with one default value, then the schema
         was updated with a different default, existing databases get the new default.
         """
         try:
@@ -395,18 +405,18 @@ class CWA_DB(CWAStatsQueries):
             self.cur.execute("SELECT * FROM cwa_settings")
             headers = [header[0] for header in self.cur.description]
             current_values = dict(zip(headers, self.cur.fetchone()))
-            
+
             # Update any newly added settings that don't match schema defaults
             updates_made = []
             for setting in newly_added_settings:
                 current_val = current_values.get(setting)
                 expected_val = self.cwa_default_settings.get(setting)
-                
+
                 # Compare with type handling (int vs string)
                 if str(current_val) != str(expected_val):
                     self.cur.execute(f"UPDATE cwa_settings SET {setting}=?", (expected_val,))
                     updates_made.append(f"{setting}: {current_val} -> {expected_val}")
-            
+
             if updates_made:
                 self.con.commit()
                 print(f"[cwa-db] Synced {len(updates_made)} new setting(s) with schema defaults:")
@@ -418,7 +428,7 @@ class CWA_DB(CWAStatsQueries):
 
     def fix_malformed_setting_values(self) -> None:
         """Fix settings that may have been incorrectly parsed in older versions.
-        
+
         Issue #903: Old parser would save '' as literal two-quote string and truncate JSON.
         This migration fixes existing databases with malformed values.
         """
@@ -450,12 +460,12 @@ class CWA_DB(CWAStatsQueries):
                 cleaned = [(_strip_quotes(p) or "").strip().lower() for p in parts]
                 cleaned = [p for p in cleaned if p]
                 return ",".join(cleaned)
-            
+
             # Fix duplicate_scan_cron if it's the literal string "''"
             if cron_value == "''":
                 self.cur.execute("UPDATE cwa_settings SET duplicate_scan_cron = ''")
                 fixes_made.append("duplicate_scan_cron: removed literal quotes")
-            
+
             # Fix duplicate_format_priority if it's malformed (not valid JSON or missing formats)
             if format_priority:
                 try:
@@ -525,7 +535,7 @@ class CWA_DB(CWAStatsQueries):
                             fixes_made.append(f"{column_name}: stripped quotes/normalized")
             except Exception as e:
                 print(f"[cwa-db] Warning: Generic settings normalization failed: {e}")
-            
+
             if fixes_made:
                 self.con.commit()
                 print(f"[cwa-db] Fixed {len(fixes_made)} malformed setting value(s) from previous version:")
@@ -606,7 +616,7 @@ class CWA_DB(CWAStatsQueries):
             self.cur.execute("SELECT * FROM cwa_settings")
             setting_names = [header[0] for header in self.cur.description]
             current_settings = [dict(zip(setting_names,row)) for row in self.cur.fetchall()][0]
-    
+
         except IndexError:
             print("[cwa-db]: No existing CWA settings detected, applying default CWA settings...")
             for setting in self.cwa_default_settings:
@@ -664,18 +674,18 @@ class CWA_DB(CWAStatsQueries):
             'cover_download_max_mb': 15,
             'db_backup_keep_count': 7
         }
-        
+
         # Apply defaults for missing keys
         for key, default_value in schema_defaults.items():
             if key not in cwa_settings:
                 cwa_settings[key] = default_value
 
         # Define which settings should remain as integers (not converted to boolean)
-        integer_settings = ['ingest_timeout_minutes', 'ingest_stale_temp_minutes', 'ingest_stale_temp_interval', 'auto_send_delay_minutes', 'hardcover_auto_fetch_batch_size', 'hardcover_auto_fetch_schedule_hour', 'duplicate_scan_hour', 'duplicate_scan_chunk_size', 'duplicate_scan_debounce_seconds', 'duplicate_auto_resolve_cooldown_minutes', 'archived_cleanup_schedule_hour', 'cover_download_max_mb', 'db_backup_keep_count']
-        
+        integer_settings = ['ingest_timeout_minutes', 'ingest_stale_temp_minutes', 'ingest_stale_temp_interval', 'hardcover_auto_fetch_batch_size', 'hardcover_auto_fetch_schedule_hour', 'duplicate_scan_hour', 'duplicate_scan_chunk_size', 'duplicate_scan_debounce_seconds', 'duplicate_auto_resolve_cooldown_minutes', 'archived_cleanup_schedule_hour', 'cover_download_max_mb', 'db_backup_keep_count']
+
         # Define which settings should remain as floats (not converted to boolean)
         float_settings = ['hardcover_auto_fetch_min_confidence', 'hardcover_auto_fetch_rate_limit']
-        
+
         # Define which settings should remain as JSON strings (not split by comma)
         json_settings = ['metadata_provider_hierarchy', 'metadata_providers_enabled', 'duplicate_format_priority']
 
@@ -734,49 +744,55 @@ class CWA_DB(CWAStatsQueries):
 
 
     def enforce_show(self, paths: bool, verbose: bool, web_ui=False):
-        results_no_path = self.cur.execute("SELECT timestamp, book_id, book_title, author, trigger_type FROM cwa_enforcement ORDER BY timestamp DESC;").fetchall()
-        results_with_path = self.cur.execute("SELECT timestamp, book_id, file_path FROM cwa_enforcement ORDER BY timestamp DESC;").fetchall()
         if paths:
-            results = results_with_path
+            columns = "timestamp, book_id, file_path"
             headers = ["Timestamp", "Book ID", "Book Title", "Book Author", "Trigger Type"]
         else:
-            results = results_no_path
+            columns = "timestamp, book_id, book_title, author, trigger_type"
             headers = ["Timestamp","Book ID", "Filepath"]
-
-        if verbose:
-            results.reverse()
-            if web_ui:
-                return results
-            else:
-                print(f"\n{tabulate(results, headers=headers, tablefmt='rounded_grid')}\n")
-        else:
-            newest_ten = []
-            x = 0
-            for result in results:
-                newest_ten.insert(0, result)
-                x += 1
-                if x == 10:
-                    break
-            if web_ui:
-                return newest_ten
-            else:
-                print(f"\n{tabulate(newest_ten, headers=headers, tablefmt='rounded_grid')}\n")
+        # Oldest first; without verbose only the newest ten rows are read.
+        limit = "" if verbose else " LIMIT 10"
+        results = self.cur.execute(f"SELECT {columns} FROM cwa_enforcement ORDER BY timestamp DESC{limit};").fetchall()
+        results.reverse()
+        if web_ui:
+            return results
+        print(f"\n{tabulate(results, headers=headers, tablefmt='rounded_grid')}\n")
 
 
     def get_import_history(self, verbose: bool):
-        results = self.cur.execute("SELECT timestamp, filename, original_backed_up FROM cwa_import ORDER BY timestamp DESC;").fetchall()
-        if verbose:
-            results.reverse()
-            return results
-        else:
-            newest_ten = []
-            x = 0
-            for result in results:
-                newest_ten.insert(0, result)
-                x += 1
-                if x == 10:
-                    break
-            return newest_ten
+        # Oldest first; without verbose only the newest ten rows are read.
+        limit = "" if verbose else " LIMIT 10"
+        results = self.cur.execute(
+            f"SELECT timestamp, filename, original_backed_up FROM cwa_import ORDER BY timestamp DESC{limit};").fetchall()
+        results.reverse()
+        return results
+
+
+    def prune_old_stats(self, days: int | None = None) -> dict[str, int]:
+        """Deletes statistics rows older than ``days`` (default STATS_RETENTION_DAYS, env
+        LILY_STATS_RETENTION_DAYS; 0 keeps everything) from the activity, enforcement and
+        import logs, then lets SQLite refresh its query-planner statistics."""
+        if days is None:
+            days = stats_retention_days()
+        deleted = {}
+        if days > 0:
+            cutoff = f"-{int(days)} days"
+            for table in STATS_RETENTION_TABLES:
+                deleted[table] = 0
+                # Small transactions: the web app writes activity rows while this runs.
+                while True:
+                    self.cur.execute(
+                        f"DELETE FROM {table} WHERE id IN (SELECT id FROM {table} "
+                        f"WHERE timestamp < datetime('now', ?) LIMIT ?)", (cutoff, STATS_PRUNE_BATCH))
+                    self.con.commit()
+                    deleted[table] += self.cur.rowcount
+                    if self.cur.rowcount < STATS_PRUNE_BATCH:
+                        break
+        try:
+            self.cur.execute("PRAGMA optimize")
+        except sqlError as e:
+            print(f"[cwa-db] PRAGMA optimize failed: {e}", flush=True)
+        return deleted
 
 
     def import_add_entry(self, filename, original_backed_up):
@@ -787,7 +803,7 @@ class CWA_DB(CWAStatsQueries):
 
     def get_stat_totals(self) -> dict[str,int]:
         totals = {"cwa_enforcement":0}
-        
+
         for table in totals:
             try:
                 totals[table] = self.cur.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
@@ -804,7 +820,7 @@ class CWA_DB(CWAStatsQueries):
         """Logs a user activity event to the database with device detection."""
         try:
             import json
-            
+
             # Parse extra_data if it's a string
             if isinstance(extra_data, str):
                 try:
@@ -816,12 +832,12 @@ class CWA_DB(CWAStatsQueries):
                 extra_data_dict = extra_data
             else:
                 extra_data_dict = {}
-            
+
             # Add device type detection using User-Agent
             try:
                 from flask import request
                 user_agent = request.headers.get('User-Agent', '').lower()
-                
+
                 # Simple device type detection
                 if 'mobile' in user_agent or 'android' in user_agent or 'iphone' in user_agent:
                     device_type = 'mobile'
@@ -829,15 +845,15 @@ class CWA_DB(CWAStatsQueries):
                     device_type = 'tablet'
                 else:
                     device_type = 'desktop'
-                
+
                 extra_data_dict['device_type'] = device_type
             except:
                 # If flask context not available, skip device detection
                 pass
-            
+
             # Convert back to JSON string
             extra_data_json = json.dumps(extra_data_dict) if extra_data_dict else None
-            
+
             self.cur.execute("""
                 INSERT INTO cwa_user_activity (user_id, user_name, event_type, item_id, item_title, extra_data)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -850,8 +866,8 @@ class CWA_DB(CWAStatsQueries):
         """Mark duplicate cache as needing refresh"""
         try:
             self.cur.execute("""
-                UPDATE cwa_duplicate_cache 
-                SET scan_pending = 1 
+                UPDATE cwa_duplicate_cache
+                SET scan_pending = 1
                 WHERE id = 1
             """)
             self.con.commit()
@@ -866,7 +882,7 @@ class CWA_DB(CWAStatsQueries):
         try:
             self.cur.execute("""
                 SELECT scan_timestamp, duplicate_groups_json, total_count, scan_pending, last_scanned_book_id
-                FROM cwa_duplicate_cache 
+                FROM cwa_duplicate_cache
                 WHERE id = 1
             """)
             row = self.cur.fetchone()
@@ -885,7 +901,7 @@ class CWA_DB(CWAStatsQueries):
 
     def update_duplicate_cache(self, duplicate_groups, total_count, max_book_id=None):
         """Update duplicate cache with fresh scan results
-        
+
         Args:
             duplicate_groups: List of duplicate group dictionaries
             total_count: Total number of duplicate groups found
@@ -905,26 +921,26 @@ class CWA_DB(CWAStatsQueries):
                     'book_ids': [book.id for book in group.get('books', [])]
                 }
                 serializable_groups.append(serializable_group)
-            
+
             groups_json = json.dumps(serializable_groups)
-            
+
             # Update cache with optional max_book_id for incremental scanning
             if max_book_id is not None:
                 self.cur.execute("""
-                    UPDATE cwa_duplicate_cache 
-                    SET scan_timestamp = ?, 
-                        duplicate_groups_json = ?, 
-                        total_count = ?, 
+                    UPDATE cwa_duplicate_cache
+                    SET scan_timestamp = ?,
+                        duplicate_groups_json = ?,
+                        total_count = ?,
                         scan_pending = 0,
                         last_scanned_book_id = ?
                     WHERE id = 1
                 """, (datetime.now().isoformat(), groups_json, total_count, max_book_id))
             else:
                 self.cur.execute("""
-                    UPDATE cwa_duplicate_cache 
-                    SET scan_timestamp = ?, 
-                        duplicate_groups_json = ?, 
-                        total_count = ?, 
+                    UPDATE cwa_duplicate_cache
+                    SET scan_timestamp = ?,
+                        duplicate_groups_json = ?,
+                        total_count = ?,
                         scan_pending = 0
                     WHERE id = 1
                 """, (datetime.now().isoformat(), groups_json, total_count))

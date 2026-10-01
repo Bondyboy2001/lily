@@ -1,0 +1,29 @@
+{% extends "settings_layout.html" %}
+{% import "lily_form.html" as f with context %}
+{% block settings %}
+<div class="lp lily-settings">
+  <p class="lp-intro">{{ _('Books the ingest process could not import are kept in %(dir)s. Retry moves a file back into the ingest folder; Delete removes it for good.', dir=failed_dir) }}</p>
+
+  {% call f.group(_('Rejected files'), help=(_('Nothing has failed. Rejected files will show up here.') if not failed else None)) %}
+    {% for item in failed %}
+    {% call f.row(item.original, help=item.mtime.strftime('%Y-%m-%d %H:%M') ~ ' · ' ~ item.size_text, wide=True) %}
+      <form method="POST" class="lp-checks">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="names" value="{{ item.name }}">
+        <button type="submit" class="btn btn-default" formaction="{{ url_for('admin.ingest_failure_action', action='retry') }}">{{ _('Retry') }}</button>
+        <button type="submit" class="btn btn-danger" formaction="{{ url_for('admin.ingest_failure_action', action='delete') }}"
+                data-confirm="{{ _('Permanently delete this file?') }}"
+                onclick="return confirm(this.dataset.confirm);">{{ _('Delete') }}</button>
+      </form>
+    {% endcall %}
+    {% endfor %}
+  {% endcall %}
+  {% if failed|length > 1 %}
+  <form method="POST" action="{{ url_for('admin.ingest_failure_action', action='retry') }}" class="lp-actions">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for item in failed %}<input type="hidden" name="names" value="{{ item.name }}">{% endfor %}
+    <button type="submit" class="btn btn-default">{{ _('Retry all') }}</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

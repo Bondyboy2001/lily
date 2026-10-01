@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Application start-up: registers every blueprint, then starts the web server."""
+
 import sys
 
 from . import create_app, limiter
@@ -32,6 +34,10 @@ def main():
     from .tasks_status import tasks
     from .error_handler import init_errorhandler
     from .duplicates import duplicates
+    from .account_security import account_security
+    from .reading_stats import reading
+    from .metadata_queue import suggestions
+    from .trash import trash
 
     from . import web_server
     init_errorhandler()
@@ -58,5 +64,9 @@ def main():
     app.register_blueprint(gdrive)
     app.register_blueprint(editbook)
     app.register_blueprint(duplicates)
+    app.register_blueprint(account_security)
+    app.register_blueprint(reading)
+    app.register_blueprint(suggestions)
+    app.register_blueprint(trash)
     success = web_server.start()
     sys.exit(0 if success else 1)

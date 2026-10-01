@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
+# Calibre-Web Automated – fork of Calibre-Web
+# Copyright (C) 2018-2026 Calibre-Web contributors
+# Copyright (C) 2024-2026 Calibre-Web Automated contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Filter chips for the library book grids (format, language, read status, tag).
+# See CONTRIBUTORS for full list of authors.
+
+"""Query-string filters for the library book grids (format, language, read status, tag).
 
 Filters arrive as query parameters (?format=EPUB&lang=eng&status=unread&tag=12), so they survive
 pagination (url_for_other_page copies request.args) and are carried into the sort links. They are
@@ -8,19 +13,16 @@ AND-ed into the page's own db_filter; calibre_db.fill_indexpage still applies co
 user tag/language/custom-column restrictions keep working.
 """
 from flask import request, url_for
-from flask_babel import gettext as _
-from flask_babel import get_locale
-from sqlalchemy import select, distinct
-from sqlalchemy.sql.expression import func, true, and_
+from sqlalchemy import select
+from sqlalchemy.sql.expression import true, and_
 
-from . import calibre_db, config, db, isoLanguages, logger, ub
+from . import config, db, logger, ub
 from .cw_login import current_user
 
 log = logger.create()
 
 FILTER_PARAMS = ("format", "lang", "status", "tag")
 STATUS_CHOICES = ("unread", "reading", "read")
-TAG_OPTION_LIMIT = 40
 
 
 def _read_status_subquery(status):
@@ -97,59 +99,7 @@ def filter_url(**changes):
     return url_for(request.endpoint, **args)
 
 
-def _format_options():
-    rows = (calibre_db.session.query(db.Data.format, func.count(distinct(db.Data.book)))
-            .join(db.Books, db.Books.id == db.Data.book)
-            .filter(calibre_db.common_filters())
-            .group_by(db.Data.format)
-            .order_by(func.count(distinct(db.Data.book)).desc())
-            .all())
-    return [fmt for fmt, _count in rows if fmt]
-
-
-def _tag_options():
-    count = func.count(distinct(db.books_tags_link.c.book))
-    rows = (calibre_db.session.query(db.Tags.id, db.Tags.name, count)
-            .join(db.books_tags_link, db.books_tags_link.c.tag == db.Tags.id)
-            .join(db.Books, db.Books.id == db.books_tags_link.c.book)
-            .filter(calibre_db.common_filters())
-            .group_by(db.Tags.id)
-            .order_by(count.desc())
-            .limit(TAG_OPTION_LIMIT)
-            .all())
-    return sorted(((str(tag_id), name) for tag_id, name, _count in rows), key=lambda t: t[1].lower())
-
-
-def _language_options():
-    if current_user.filter_language() != "all":
-        return []
-    languages = calibre_db.speaking_language()
-    return [(lang.lang_code, lang.name) for lang in languages]
-
-
 def filter_context():
-    """Everything the chip row in image.html needs. Failures degrade to no chips, never a 500."""
+    """What the book grids need from the active filters: the filters, their query args and a URL builder."""
     active = active_filters()
-    context = {"active": active, "args": dict(active), "url": filter_url,
-               "formats": [], "languages": [], "tags": [],
-               "show_status": not current_user.is_anonymous,
-               "status_labels": {"unread": _("Unread"), "reading": _("In progress"), "read": _("Read")}}
-    try:
-        context["formats"] = _format_options()
-        context["languages"] = _language_options()
-        context["tags"] = _tag_options()
-    except Exception as ex:  # a broken option query must not take the library page down
-        log.debug("Could not load filter options: %s", ex)
-    if "tag" in active and not any(t[0] == active["tag"] for t in context["tags"]):
-        tag = calibre_db.session.query(db.Tags).filter(db.Tags.id == int(active["tag"])).first()
-        if tag:
-            context["tags"].append((active["tag"], tag.name))
-    if "lang" in active and not any(l[0] == active["lang"] for l in context["languages"]):
-        try:
-            name = isoLanguages.get_language_name(get_locale(), active["lang"])
-        except Exception:
-            name = active["lang"]
-        context["languages"].append((active["lang"], name))
-    context["tag_name"] = dict(context["tags"]).get(active.get("tag"))
-    context["lang_name"] = dict(context["languages"]).get(active.get("lang"))
-    return context
+    return {"active": active, "args": dict(active), "url": filter_url}

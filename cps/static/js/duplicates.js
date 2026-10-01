@@ -470,7 +470,7 @@ $(document).ready(function() {
         $('#duplicate_index_setup_notice').hide();
         $('#duplicate_results_content').hide();
         $('#no_duplicate_books_message').hide();
-        $('#duplicate_scan_results_status').show();
+        $('#duplicate_scan_results_status').addClass('is-active');
         $('#duplicate_scan_task_title').text('Duplicate scan is running.');
         $('#duplicate_scan_task_message').text(message);
         $('#duplicate_scan_task_progress_container').show();
@@ -489,7 +489,7 @@ $(document).ready(function() {
         $('#duplicate_index_setup_notice').hide();
         $('#duplicate_results_content').hide();
         $('#no_duplicate_books_message').hide();
-        $('#duplicate_scan_results_status').show();
+        $('#duplicate_scan_results_status').addClass('is-active');
         $('#duplicate_scan_task_title').text('Duplicate scan is running.');
         $('#duplicate_scan_task_message').text('Duplicate scan finished. Updating results...');
         $('#duplicate_scan_task_progress_container').show();
@@ -513,7 +513,7 @@ $(document).ready(function() {
         if (!$('#no_duplicate_books_message').length) {
             return;
         }
-        if ($('#duplicate_scan_results_status').is(':visible')) {
+        if ($('#duplicate_scan_results_status').hasClass('is-active')) {
             if ($('#duplicate_scan_task_title').text() === 'Duplicate Books Found') {
                 $('#duplicate_scan_task_message').text(
                     'Found ' + count + ' duplicate ' + (count === 1 ? 'group' : 'groups') + '. Refresh the page to review them.'
@@ -523,7 +523,7 @@ $(document).ready(function() {
         }
         $('#duplicate_results_content').hide();
         $('#no_duplicate_books_message').hide();
-        $('#duplicate_scan_results_status').show();
+        $('#duplicate_scan_results_status').addClass('is-active');
         $('#duplicate_scan_task_title').text('Duplicate Books Found');
         $('#duplicate_scan_task_message').text(
             'Found ' + count + ' duplicate ' + (count === 1 ? 'group' : 'groups') + '. Refresh the page to review them.'
@@ -541,7 +541,7 @@ $(document).ready(function() {
             return;
         }
         duplicateScanPollInFlight = true;
-        $.getJSON(duplicateScanEndpoint('/ajax/emailstat'), function(tasks) {
+        $.getJSON(duplicateScanEndpoint('/ajax/taskstatus'), function(tasks) {
             var runningTask = null;
             $.each(tasks || [], function(index, task) {
                 if (isRunningDuplicateScanTask(task)) {

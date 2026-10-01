@@ -24,18 +24,13 @@ from .server import WebServer
 from .dep_check import dependency_check
 from . import config_sql
 from . import cache_buster
+from . import compression
 from . import ub, db
 
-try:
-    from flask_limiter import Limiter
-    limiter_present = True
-except ImportError:
-    limiter_present = False
-try:
-    from flask_wtf.csrf import CSRFProtect
-    wtf_present = True
-except ImportError:
-    wtf_present = False
+# CSRF protection and rate limiting are security controls: a missing dependency must stop
+# startup rather than silently disable them (both are in requirements.txt).
+from flask_limiter import Limiter
+from flask_wtf.csrf import CSRFProtect
 
 
 mimetypes.init()
@@ -111,24 +106,17 @@ cli_param = CliParameter()
 
 config = config_sql.ConfigSQL()
 
-if wtf_present:
-    csrf = CSRFProtect()
-else:
-    csrf = None
+csrf = CSRFProtect()
 
 calibre_db = db.CalibreDB()
 
 web_server = WebServer()
 
-if limiter_present:
-    limiter = Limiter(key_func=True, headers_enabled=True, auto_check=False, swallow_errors=False)
-else:
-    limiter = None
+limiter = Limiter(key_func=True, headers_enabled=True, auto_check=False, swallow_errors=False)
 
 
 def create_app():
-    if csrf:
-        csrf.init_app(app)
+    csrf.init_app(app)
 
     cli_param.init()
 
@@ -178,9 +166,10 @@ def create_app():
                  .format(res['name'],
                          res['target'],
                          res['found']))
-    app.wsgi_app = ReverseProxied(app.wsgi_app)
+    app.wsgi_app = ReverseProxied(app.wsgi_app, trusted=num_proxies > 0)
 
     cache_buster.init_cache_busting(app)
+    compression.init_compression(app)
     log.info('Starting Calibre Web...')
     Principal(app)
     lm.init_app(app)

@@ -481,7 +481,7 @@ $(function() {
             pollInFlight = true;
             $.ajax({
                 method: "get",
-                url: getPath() + "/ajax/emailstat",
+                url: getPath() + "/ajax/taskstatus",
                 dataType: "json",
                 success: function(tasks) {
                     var thumbnailTask = tasks.find(function(task) {
@@ -816,6 +816,10 @@ $(function() {
         var settings = kind === "series" ? {series: {series_view: view}} : {books: {view: view}};
         if (kind !== "series") {
             document.body.setAttribute("data-book-view", view);
+            // cover srcsets: 44px list covers need a different `sizes` than grid cards
+            $("img[data-sizes-" + view + "]").each(function() {
+                this.sizes = this.getAttribute("data-sizes-" + view);
+            });
             $btn.siblings("[data-view]").addBack().each(function() {
                 $(this).attr("aria-pressed", $(this).data("view") === view ? "true" : "false");
             });

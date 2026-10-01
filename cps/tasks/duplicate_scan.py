@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Task that rebuilds the duplicate index and, if enabled, auto-resolves duplicates."""
+
 import sys
 from datetime import datetime
 from sqlalchemy import func
@@ -32,6 +34,8 @@ log = logger.create()
 
 
 class TaskDuplicateScan(CalibreTask):
+    job_name = "duplicate_scan"
+
     def __init__(self, full_scan=True, task_message=None, trigger_type='manual', user_id=None, book_ids=None):
         super(TaskDuplicateScan, self).__init__(task_message or N_('Duplicate scan'))
         self.full_scan = full_scan
@@ -189,8 +193,8 @@ class TaskDuplicateScan(CalibreTask):
                             "(last_scanned_book_id=%s)",
                             max_book_id,
                         )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        log.warning("[cwa-duplicates] Could not update incremental scan cache: %s", e)
                     self.result_count = 0
                 else:
                     try:
@@ -286,7 +290,12 @@ class TaskDuplicateScan(CalibreTask):
                             duplicate_groups=groups_to_pass
                         )
 
-                        if result['success']:
+                        if result.get('aborted'):
+                            # Guardrail refusal (no Title criterion, no preview yet, too many deletions)
+                            log.warning("[cwa-duplicates] Auto-resolution refused: %s", result.get('message'))
+                            self.message = N_('Duplicate scan completed: %(count)s groups; automatic resolution '
+                                              'refused: %(why)s', count=self.result_count, why=result.get('message'))
+                        elif result['success']:
                             log.info("[cwa-duplicates] Auto-resolution completed: resolved=%s, kept=%s, deleted=%s",
                                     result['resolved_count'], result['kept_count'], result['deleted_count'])
 

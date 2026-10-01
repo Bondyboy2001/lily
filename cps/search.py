@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Simple and advanced search over the library."""
+
 import json
 from datetime import datetime
 
@@ -41,7 +43,7 @@ def simple_search():
                     user_id=int(current_user.id),
                     user_name=current_user.name,
                     event_type='SEARCH',
-                    extra_data=term[:100]  # Limit search term length
+                    extra_data={'query': term.strip()[:100]}  # Limit search term length
                 )
             except Exception as e:
                 log.debug(f"Failed to log search activity: {e}")
@@ -369,11 +371,6 @@ def render_adv_search_results(term, offset=None, order=None, limit=None):
         pagination = Pagination(page=1, per_page=limit, total_count=result_count)
         results = q.all()
 
-    # Note: store_combo_ids will now only contain the IDs of the currently visible page.
-    # This improves performance drastically for large search results, but affects
-    # functionality that relies on having all search result IDs (e.g., "download all").
-    ub.store_combo_ids(results)
-
     entries = calibre_db.order_authors(results, list_return=True, combined=True)
     return render_title_template('search.html',
                                  adv_searchterm=search_term,
@@ -423,7 +420,8 @@ def render_search_results(term, offset=None, order=None, limit=None):
                                                                           offset,
                                                                           order,
                                                                           limit,
-                                                                          *join)
+                                                                          *join,
+                                                                          cards_only=True)
     else:
         entries = list()
         order = [None, None]

@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Shared helpers: cover and file paths, downloads, validation, thumbnails and archive handling."""
+
 import os
 import io
 import mimetypes
@@ -17,7 +19,6 @@ import platform
 from datetime import datetime, timezone
 import requests
 import unidecode
-from uuid import uuid4
 
 from flask import send_from_directory, make_response, abort, url_for, Response
 from flask_babel import gettext as _
@@ -58,18 +59,10 @@ from .services.worker import WorkerThread, STAT_FINISH_SUCCESS
 from .tasks.thumbnail import TaskClearCoverThumbnailCache, TaskGenerateCoverThumbnails
 from .tasks.metadata_backup import TaskBackupMetadata
 from .file_helper import get_temp_dir
-from .epub_helper import get_content_opf, create_new_metadata_backup, updateEpub, replace_metadata
-from .embed_helper import do_calibre_export
+from .embed_helper import do_calibre_export, download_needs_calibre_export
 
 log = logger.create()
 
-
-def _directory_contains_only_nfs_placeholders(path):
-    try:
-        entries = os.listdir(path)
-    except OSError:
-        return False
-    return bool(entries) and all(entry.startswith(".nfs") for entry in entries)
 
 try:
     from wand.image import Image
@@ -134,16 +127,24 @@ def change_archived_books(book_id, state=None, message=None):
     return archived_book.is_archived
 
 
-# Check if a reader is existing for any of the book formats, if not, return empty list, otherwise return
-# list with supported formats
+# Formats the in-browser readers open (they fetch the file from /show/); audio opens the player instead
+EXTENSIONS_READER = frozenset({'PDF', 'EPUB', 'KEPUB', 'DJVU', 'DJV'})
+
+# Formats the built-in readers open, best first: the first one present is what "Read" opens.
+# Audio comes last because it opens the player rather than a reader.
+READER_FORMAT_ORDER = ('epub', 'kepub', 'pdf', 'djvu', 'djv',
+                       'm4b', 'mp3', 'm4a', 'mp4', 'ogg', 'opus', 'flac', 'wav')
+
+
+def readable_formats(formats):
+    """The formats in `formats` (any case) that a built-in reader opens, lower case, best first."""
+    present = {str(fmt).lower() for fmt in formats}
+    return [fmt for fmt in READER_FORMAT_ORDER if fmt in present]
+
+
+# Formats the built-in readers open for this book, best first; an empty list when none of them can.
 def check_read_formats(entry):
-    extensions_reader = {'TXT', 'PDF', 'EPUB', 'KEPUB', 'CBZ', 'CBT', 'CBR', 'DJVU', 'DJV'}
-    book_formats = list()
-    if len(entry.data):
-        for ele in iter(entry.data):
-            if ele.format.upper() in extensions_reader:
-                book_formats.append(ele.format.lower())
-    return book_formats
+    return readable_formats(ele.format for ele in entry.data)
 
 
 def get_valid_filename(value, replace_whitespace=True, chars=128):
@@ -157,7 +158,8 @@ def get_valid_filename(value, replace_whitespace=True, chars=128):
     except ModuleNotFoundError:
         # Attempt path adjustment (similar to scripts/cover_enforcer)
         try:  # pragma: no cover
-            import sys as _sys, os as _os
+            import sys as _sys
+            import os as _os
             project_root = _os.path.abspath(_os.path.join(_os.path.dirname(__file__), '..'))
             if project_root not in _sys.path:
                 _sys.path.insert(0, project_root)
@@ -288,46 +290,35 @@ def edit_book_read_status(book_id, read_status=None):
     return ""
 
 
-# Deletes a book from the local filestorage, returns True if deleting is successful, otherwise false
-def delete_book_file(book, calibrepath, book_format=None):
-    # check that path is 2 elements deep, check that target path has no sub folders
-    if book.path.count('/') == 1:
-        path = os.path.join(calibrepath, book.path)
-        if book_format:
-            for file in os.listdir(path):
-                if file.upper().endswith("."+book_format):
-                    os.remove(os.path.join(path, file))
-            return True, None
-        else:
-            if os.path.isdir(path):
-                try:
-                    for root, folders, files in os.walk(path):
-                        for f in files:
-                            os.unlink(os.path.join(root, f))
-                        if len(folders):
-                            log.warning("Deleting book {} failed, path {} has subfolders: {}".format(book.id,
-                                        book.path, folders))
-                            return True, _("Deleting bookfolder for book %(id)s failed, path has subfolders: %(path)s",
-                                           id=book.id,
-                                           path=book.path)
-                    shutil.rmtree(path)
-                except (IOError, OSError) as ex:
-                    if _directory_contains_only_nfs_placeholders(path):
-                        log.warning(
-                            "Deleting book %s left NFS placeholder files in %s; continuing database cleanup",
-                            book.id, path,
-                        )
-                        return True, None
-                    log.error("Deleting book %s failed: %s", book.id, ex)
-                    return False, _("Deleting book %(id)s failed: %(message)s", id=book.id, message=ex)
-                authorpath = os.path.join(calibrepath, os.path.split(book.path)[0])
-                if not os.listdir(authorpath):
-                    try:
-                        shutil.rmtree(authorpath)
-                    except (IOError, OSError) as ex:
-                        log.error("Deleting authorpath for book %s failed: %s", book.id, ex)
-                return True, None
+def delete_book_file(book, calibrepath, book_format=None, reason="delete"):
+    """Moves a book's folder (or one format's file) into <library>/.lily-trash together
+    with its database rows, so it can be restored from the Trash page (cps/trash.py).
 
+    The move is a rename on the same filesystem, so open files and NFS '.nfsXXXX'
+    placeholders move with the folder; across filesystems (mergerfs/unionfs branches)
+    it copies, then deletes and tolerates leftover placeholders. When the move fails
+    nothing is deleted and (False, error) is returned. Returns (True, None) on success,
+    or (True, warning) when the book had no usable folder (its rows are still saved).
+    """
+    from . import trash
+    if book_format:
+        if book.path.count('/') != 1:
+            return True, None
+        try:
+            trash.trash_format(book, calibrepath, book_format, reason=reason)
+        except (OSError, trash.store.TrashError) as ex:
+            log.error("Moving %s of book %s to the Trash failed: %s", book_format, book.id, ex)
+            return False, _("Deleting book %(id)s failed: %(message)s", id=book.id, message=ex)
+        return True, None
+    path_valid = book.path.count('/') == 1
+    folder_exists = path_valid and os.path.isdir(os.path.join(calibrepath, book.path))
+    try:
+        trash.trash_book(book, calibrepath, reason=reason)
+    except Exception as ex:
+        log.error("Moving book %s to the Trash failed: %s", book.id, ex)
+        return False, _("Deleting book %(id)s failed: %(message)s", id=book.id, message=ex)
+    if folder_exists:
+        return True, None
     log.error("Deleting book %s from database only, book path in database not valid: %s",
               book.id, book.path)
     return True, _("Deleting book %(id)s from database only, book path in database not valid: %(path)s",
@@ -339,15 +330,15 @@ def rename_all_files_on_change(one_book, new_path, old_path, all_new_name, gdriv
         if not gdrive:
             if not os.path.exists(new_path):
                 os.makedirs(new_path)
-            
+
             old_file = os.path.join(old_path, file_format.name + '.' + file_format.format.lower())
             new_file = os.path.join(new_path, all_new_name + '.' + file_format.format.lower())
-            
+
             # Skip if source and destination are the same
             if old_file == new_file:
                 log.debug("Skipping file rename - source and destination are identical: %s", old_file)
                 continue
-            
+
             # Check if source file exists
             if not os.path.exists(old_file):
                 log.warning("Source file not found for rename: %s", old_file)
@@ -359,7 +350,7 @@ def rename_all_files_on_change(one_book, new_path, old_path, all_new_name, gdriv
                 else:
                     log.error("Neither old nor new file exists - cannot rename %s to %s", old_file, new_file)
                     continue
-            
+
             # Check if destination already exists
             if os.path.exists(new_file) and old_file != new_file:
                 log.warning("Destination file already exists, will overwrite: %s", new_file)
@@ -367,7 +358,7 @@ def rename_all_files_on_change(one_book, new_path, old_path, all_new_name, gdriv
                     os.remove(new_file)
                 except OSError as ex:
                     log.error("Could not remove existing destination file %s: %s", new_file, ex)
-            
+
             # Attempt to rename the file
             try:
                 shutil.move(old_file, new_file)
@@ -535,11 +526,11 @@ def move_files_on_change(calibre_path, new_author_dir, new_titledir, localbook, 
                         src_file = os.path.join(dir_name, file)
                         dest_dir = new_path + dir_name[len(path):]
                         dest_file = os.path.join(dest_dir, file)
-                        
+
                         # Create destination directory if it doesn't exist
                         if not os.path.exists(dest_dir):
                             os.makedirs(dest_dir)
-                        
+
                         try:
                             shutil.move(src_file, dest_file)
                         except OSError as ex:
@@ -551,14 +542,14 @@ def move_files_on_change(calibre_path, new_author_dir, new_titledir, localbook, 
                                 log.error("Copy+delete fallback failed for %s: %s", src_file, fallback_ex)
                                 # Continue with other files even if one fails
                                 continue
-            
+
             # Try to remove old author directory if empty
             if os.path.exists(os.path.split(path)[0]) and not os.listdir(os.path.split(path)[0]):
                 try:
                     shutil.rmtree(os.path.split(path)[0])
                 except (IOError, OSError) as ex:
                     log.error("Deleting authorpath for book %s failed: %s", localbook.id, ex)
-        
+
         # change location in database to new author/title path
         localbook.path = os.path.join(new_author_dir, new_titledir).replace('\\', '/')
     except OSError as ex:
@@ -596,35 +587,12 @@ def uniq(inpt):
     return output
 
 
-def check_email(email):
-    email = valid_email(email)
-    if ub.session.query(ub.User).filter(func.lower(ub.User.email) == email.lower()).first():
-        log.error("Found an existing account for this Email address")
-        raise Exception(_("Found an existing account for this Email address"))
-    return email
-
-
 def check_username(username):
     username = strip_whitespaces(username)
     if ub.session.query(ub.User).filter(func.lower(ub.User.name) == username.lower()).scalar():
         log.error("This username is already taken")
         raise Exception(_("This username is already taken"))
     return username
-
-
-def valid_email(emails):
-    valid_emails = []
-    for email in emails.split(','):
-        email = strip_whitespaces(email)
-        # if email is not deleted
-        if email:
-            # Regex according to https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/email#validation
-            if not re.search(r"^[\w.!#$%&'*+\\/=?^_`{|}~-]+@[\w](?:[\w-]{0,61}[\w])?(?:\.[\w](?:[\w-]{0,61}[\w])?)*$",
-                             email):
-                log.error("Invalid Email address format for {}".format(email))
-                raise Exception(_("Invalid Email address format"))
-            valid_emails.append(email)
-    return ",".join(valid_emails)
 
 
 def valid_password(check_password):
@@ -664,14 +632,19 @@ def update_dir_structure(book_id,
                                          db_filename)
 
 
-def delete_book(book, calibrepath, book_format):
-    if not book_format:
-        clear_cover_thumbnail_cache(book.id)  # here it breaks
-        calibre_db.delete_dirty_metadata(book.id)
+def delete_book(book, calibrepath, book_format, reason="delete"):
+    """Local libraries: moves the book (or format) to the Trash. Google Drive: moves the
+    file to the Drive trash, as before (no Lily Trash entry)."""
     if config.config_use_google_drive:
+        if not book_format:
+            clear_cover_thumbnail_cache(book.id)
+            calibre_db.delete_dirty_metadata(book.id)
         return delete_book_gdrive(book, book_format)
-    else:
-        return delete_book_file(book, calibrepath, book_format)
+    result = delete_book_file(book, calibrepath, book_format, reason=reason)
+    if result[0] and not book_format:
+        clear_cover_thumbnail_cache(book.id)
+        calibre_db.delete_dirty_metadata(book.id)
+    return result
 
 
 def get_cover_on_failure():
@@ -731,13 +704,14 @@ def get_book_cover_internal(book, resolution=None):
             webp_exists = webp_thumb and cache.get_cache_file_exists(webp_thumb.filename, CACHE_TYPE_THUMBNAILS)
             jpg_exists = jpg_thumb and cache.get_cache_file_exists(jpg_thumb.filename, CACHE_TYPE_THUMBNAILS)
 
-            # Generate missing thumbnails on-demand
-            if not webp_exists or not jpg_exists:
+            # Generate missing thumbnails on-demand (only WebP is generated; an old JPEG is
+            # still served while it exists, but its absence must not re-queue generation)
+            if not webp_exists:
                 try:
                     if use_IM:
                         from .tasks.thumbnail import TaskGenerateCoverThumbnails
                         from .services.worker import WorkerThread
-                        
+
                         # Queue thumbnail generation task if not already pending (prevents duplicate tasks)
                         if book.id not in _pending_thumbnail_books:
                             thumbnail_task = TaskGenerateCoverThumbnails(book_id=book.id)
@@ -749,7 +723,7 @@ def get_book_cover_internal(book, resolution=None):
                             except Exception as queue_ex:
                                 # If queueing fails, don't add to pending set
                                 log.error(f'Failed to queue thumbnail task for book {book.id}: {queue_ex}')
-                        
+
                         # Note: Thumbnails will be generated in background
                         # Current request will fall back to serving original cover.jpg
                 except Exception as ex:
@@ -1023,23 +997,13 @@ def do_download_file(book, book_format, client, data, headers):
     if config.config_use_google_drive:
         df = gd.getFileFromEbooksFolder(book.path, data.name + "." + book_format)
         if df:
-            if config.config_embed_metadata and (
-                 (book_format == "kepub" and config.config_kepubifypath) or
-                 (book_format != "kepub" and config.config_binariesdir)):
+            if config.config_embed_metadata and book_format != "kepub" and config.config_binariesdir:
                 output_path = os.path.join(config.config_calibre_dir, book.path)
                 if not os.path.exists(output_path):
                     os.makedirs(output_path)
                 output = os.path.join(config.config_calibre_dir, book.path, book_name + "." + book_format)
                 gd.downloadFile(book.path, book_name + "." + book_format, output)
-                if book_format == "kepub" and config.config_kepubifypath:
-                    try:
-                        filename, download_name = do_kepubify_metadata_replace(book, output)
-                    except Exception as e:
-                        log.error_or_exception(f"Failed to kepubify metadata for book {book.id}: {e}")
-                        filename = os.path.dirname(output)
-                        download_name = os.path.splitext(os.path.basename(output))[0]
-                elif book_format != "kepub" and config.config_binariesdir:
-                    filename, download_name = do_calibre_export(book.id, book_format)
+                filename, download_name = do_calibre_export(book.id, book_format)
             else:
                 return gd.do_gdrive_download(df, headers)
         else:
@@ -1050,18 +1014,8 @@ def do_download_file(book, book_format, client, data, headers):
             # ToDo: improve error handling
             log.error('File not found: %s', os.path.join(filename, book_name + "." + book_format))
 
-        if client == "kobo" and book_format == "kepub":
-            headers["Content-Disposition"] = headers["Content-Disposition"].replace(".kepub", ".kepub.epub")
-
-        if book_format == "kepub" and config.config_kepubifypath and config.config_embed_metadata:
-            try:
-                filename, download_name = do_kepubify_metadata_replace(book, os.path.join(filename,
-                                                                                          book_name + "." + book_format))
-            except Exception as e:
-                log.error_or_exception(f"Failed to kepubify metadata for book {book.id}: {e}")
-                filename = os.path.join(config.get_book_path(), book.path)
-                download_name = book_name
-        elif book_format != "kepub" and config.config_binariesdir and config.config_embed_metadata:
+        if book_format != "kepub" and config.config_binariesdir and config.config_embed_metadata \
+                and download_needs_calibre_export(book_format):
             filename, download_name = do_calibre_export(book.id, book_format)
 
             # Rename the exported file to match the expected download name (from Content-Disposition)
@@ -1090,42 +1044,7 @@ def do_download_file(book, book_format, client, data, headers):
     return response
 
 
-def do_kepubify_metadata_replace(book, file_path):
-    custom_columns = (calibre_db.session.query(db.CustomColumns)
-                      .filter(db.CustomColumns.mark_for_delete == 0)
-                      .filter(db.CustomColumns.datatype.notin_(db.cc_exceptions))
-                      .order_by(db.CustomColumns.label).all())
-
-    tree, cf_name = get_content_opf(file_path)
-    package = create_new_metadata_backup(book, custom_columns, current_user.locale, _("Cover"), lang_type=2)
-    content = replace_metadata(tree, package)
-    tmp_dir = get_temp_dir()
-    temp_file_name = str(uuid4())
-    # open zipfile and replace metadata block in content.opf
-    updateEpub(file_path, os.path.join(tmp_dir, temp_file_name + ".kepub"), cf_name, content)
-    return tmp_dir, temp_file_name
-
-
 ##################################
-
-
-def check_unrar(unrar_location):
-    if not unrar_location:
-        return
-
-    if not os.path.exists(unrar_location):
-        return _('UnRar binary file not found')
-
-    try:
-        unrar_location = [unrar_location]
-        value = process_wait(unrar_location, pattern='UNRAR (.*) freeware')
-        if value:
-            version = value.group(1)
-            log.debug("UnRar version %s", version)
-
-    except (OSError, UnicodeDecodeError) as err:
-        log.error_or_exception(err)
-        return _('Error executing UnRar')
 
 
 def check_architecture():
@@ -1199,16 +1118,6 @@ def get_download_link(book_id, book_format, client):
         abort(404)
 
     data1 = calibre_db.get_book_format(book.id, book_format.upper())
-    if not data1 and book_format == "kepub" and config.config_kepubifypath:
-        data1 = calibre_db.get_book_format(book.id, "EPUB")
-        if data1:
-            log.info("KEPUB not found for book %d; converting on demand", book.id)
-            err = convert_book_format(book.id, config.get_book_path(), 'EPUB', 'KEPUB', None, blocking=True)
-            if not err:
-                data1 = calibre_db.get_book_format(book.id, "KEPUB")
-            else:
-                log.error("On-demand KEPUB conversion failed for book %d: %s", book.id, err)
-                book_format = "epub"
     if not data1:
         log.error("Requested format %s for book id %s not found in database", book_format.upper(), book_id)
         abort(404)
@@ -1220,7 +1129,7 @@ def get_download_link(book_id, book_format, client):
         try:
             import json
             from flask import request
-            
+
             # Detect source of download
             source = request.args.get('from', 'direct')
             referer = request.headers.get('Referer', '')
@@ -1237,7 +1146,7 @@ def get_download_link(book_id, book_format, client):
                     source = 'book_detail'
                 elif '/shelf' in referer:
                     source = 'shelf'
-            
+
             cwa_db = CWA_DB()
             cwa_db.log_activity(
                 user_id=current_user.id,
@@ -1316,14 +1225,14 @@ def get_internal_api_url(path):
     port = os.getenv('CWA_PORT_OVERRIDE', '8083').strip()
     if not port.isdigit():
         port = '8083'
-    
+
     protocol = "http"
     certfile = config.get_config_certfile()
     keyfile = config.get_config_keyfile()
     if certfile and keyfile and os.path.isfile(certfile) and os.path.isfile(keyfile):
         protocol = "https"
-        
+
     if not path.startswith("/"):
         path = "/" + path
-        
+
     return f"{protocol}://127.0.0.1:{port}{path}"

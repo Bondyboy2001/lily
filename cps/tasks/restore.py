@@ -40,11 +40,19 @@ SERVICE_LOCKS = (
     ("cover enforcer", "cover_enforcer.lock", True),
 )
 
-# app.db tables that reference Calibre book ids (wiped after the ids are regenerated)
+# app.db tables that reference Calibre book ids through a `book_id` column. Tables
+# left over from removed features (Kobo) are cleaned too when they still exist.
+#
+# `calibredb restore_database` keeps every book's id: it reads it from the
+# "Title (id)" folder name and recreates the row with force_id. So after a rebuild
+# these rows still point at the right books, and only the rows of books that did not
+# come back (no folder or no metadata.opf) are removed. The same rule is applied after
+# a snapshot restore, where ids of books added after the snapshot will be handed out
+# again to new imports and must not inherit someone's shelves or reading progress.
 BOOK_LINKED_APP_TABLES = (
-    "book_shelf_link", "book_read_link", "bookmark", "archived_book", "kobo_synced_books",
-    "kobo_reading_state", "kobo_bookmark", "kobo_statistics", "kobo_annotation_sync",
-    "hardcover_book_blacklist", "hardcover_match_queue", "downloads",
+    "book_shelf_link", "book_read_link", "bookmark", "web_reader_progress", "archived_book",
+    "downloads", "hardcover_match_queue", "metadata_suggestion", "hardcover_book_blacklist",
+    "kobo_synced_books", "kobo_reading_state", "kobo_statistics", "kobo_annotation_sync",
 )
 
 
@@ -176,9 +184,71 @@ class RestoreTask(CalibreTask):
         return False
 
 
+def remove_orphan_book_rows(app_db_path, metadata_db_path):
+    """Deletes rows of BOOK_LINKED_APP_TABLES whose book_id is not a book in metadata.db,
+    in one transaction. Returns {table: rows removed}. Does nothing when metadata.db has
+    no books (an empty rebuild must not take everyone's shelves and progress with it)."""
+    con = sqlite3.connect(app_db_path, timeout=30)
+    try:
+        con.execute("ATTACH DATABASE ? AS lib", (metadata_db_path,))
+        try:
+            if not con.execute("SELECT COUNT(*) FROM lib.books").fetchone()[0]:
+                return {}
+        except sqlite3.DatabaseError:
+            return {}
+        existing = {r[0] for r in con.execute("SELECT name FROM main.sqlite_master WHERE type='table'")}
+        removed = {}
+        with con:
+            for table in BOOK_LINKED_APP_TABLES:
+                if table not in existing:
+                    continue
+                columns = {r[1] for r in con.execute('PRAGMA main.table_info("%s")' % table)}
+                if "book_id" not in columns:
+                    continue
+                cur = con.execute('DELETE FROM main."%s" WHERE book_id NOT IN (SELECT id FROM lib.books)' % table)
+                if cur.rowcount:
+                    removed[table] = cur.rowcount
+        return removed
+    finally:
+        con.close()
+
+
+def reconcile_after_restore(restored, app_db_path, metadata_db_path, books_dir, config_dir, source):
+    """After a snapshot restore: drops app.db rows of books the library no longer has and
+    lists book folders the restored metadata.db doesn't reference (the Trash page shows
+    them and can import them again). books_dir None means the configured library's.
+    Returns a short note for the task message, or ''. Never raises."""
+    log = logger.create()
+    if books_dir is None:
+        try:
+            books_dir = config.get_book_path()
+        except Exception:
+            books_dir = getattr(config, "config_calibre_dir", None)
+    if ("metadata.db" in restored or "app.db" in restored) and metadata_db_path and os.path.exists(app_db_path):
+        try:
+            removed = remove_orphan_book_rows(app_db_path, metadata_db_path)
+            if removed:
+                log.info("Removed app.db rows of books not in the restored library: %s", removed)
+        except Exception as e:
+            log.error("Could not clean up app.db rows after the restore: %s", e)
+    if "metadata.db" not in restored or not metadata_db_path:
+        return ""
+    try:
+        from cps.library_orphans import record_after_restore
+        folders = record_after_restore(books_dir, metadata_db_path, config_dir, source)
+    except Exception as e:
+        log.error("Could not look for book folders missing from the restored library: %s", e)
+        return ""
+    if not folders:
+        return ""
+    log.warning("%d book folder(s) are not in the restored metadata.db: %s", len(folders), ", ".join(folders))
+    return N_("%(n)d book folder(s) are not in the restored library; import them again from the Trash page",
+              n=len(folders))
+
+
 class TaskRestoreCalibreLibrary(RestoreTask):
     """Last-resort rebuild of metadata.db from the library's OPF files via
-    `calibredb restore_database`, then wipes book-linked app.db tables."""
+    `calibredb restore_database`, then drops app.db rows of books that did not come back."""
 
     def __init__(self, task_message=N_('Restoring Calibre library database')):
         super(TaskRestoreCalibreLibrary, self).__init__(task_message)
@@ -250,11 +320,13 @@ class TaskRestoreCalibreLibrary(RestoreTask):
                 return
             self.progress = 0.8
 
-            # 4. Wipe all book-linked tables in app.db (ids were regenerated)
+            # 4. Drop app.db rows of books that did not come back (ids are kept, see above)
             try:
-                self.wipe_book_linked_tables(app_db_path)
+                removed = remove_orphan_book_rows(app_db_path, metadata_path)
+                if removed:
+                    self.log.info("Removed app.db rows of books missing after the restore: %s", removed)
             except Exception as e:
-                self.log.error("Failed to wipe book-linked tables: %s", e)
+                self.log.error("Failed to clean up book-linked app.db rows: %s", e)
                 self._handleError("Restore completed but app.db cleanup failed: %s (backups in %s)" % (e, backup_dir))
                 return
 
@@ -271,16 +343,3 @@ class TaskRestoreCalibreLibrary(RestoreTask):
         self.log.info("Library restore complete; backups and restore log in %s", backup_dir)
         self.message = N_('Restored Calibre library database. Backups and log: %(dir)s', dir=backup_dir)
         self._handleSuccess()
-
-    @staticmethod
-    def wipe_book_linked_tables(app_db_path):
-        """Deletes all rows of BOOK_LINKED_APP_TABLES in one transaction (missing tables skipped)."""
-        con = sqlite3.connect(app_db_path, timeout=30)
-        try:
-            existing = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-            with con:
-                for table in BOOK_LINKED_APP_TABLES:
-                    if table in existing:
-                        con.execute('DELETE FROM "%s"' % table)
-        finally:
-            con.close()

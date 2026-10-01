@@ -38,24 +38,24 @@ def _monthly_schedule_day(submitted_values, current_value):
 def parse_metadata_providers_enabled(raw_value):
     """
     Parse the metadata_providers_enabled setting from various formats into a dict.
-    
+
     Args:
         raw_value: The raw value from database/settings (str, dict, bytes, or None)
-        
+
     Returns:
         dict: Provider ID to enabled status mapping. Empty dict on error.
     """
     import json
-    
+
     try:
         # Handle None/null values
         if raw_value is None:
             return {}
-            
+
         # Handle bytes (from some database drivers)
         if isinstance(raw_value, bytes):
             raw_value = raw_value.decode('utf-8', errors='ignore')
-        
+
         # Handle string (most common case)
         if isinstance(raw_value, str):
             s = raw_value.strip()
@@ -70,44 +70,44 @@ def parse_metadata_providers_enabled(raw_value):
                 return {}
             data = json.loads(s)
             return data if isinstance(data, dict) else {}
-        
+
         # Handle dict (already parsed)
         elif isinstance(raw_value, dict):
             return raw_value
-        
+
         # Unknown type, return empty dict
         else:
             return {}
-            
+
     except (json.JSONDecodeError, ValueError, TypeError, AttributeError):
         return {}
 
 def validate_and_cleanup_provider_enabled_map(enabled_map, available_provider_ids):
     """
     Validate and cleanup the provider enabled map.
-    
+
     Args:
         enabled_map (dict): Current provider enabled map
         available_provider_ids (list): List of valid provider IDs
-        
+
     Returns:
         dict: Cleaned up enabled map with only valid providers
     """
     if not isinstance(enabled_map, dict):
         return {}
-    
+
     if not isinstance(available_provider_ids, (list, tuple, set)):
         return {}
-    
+
     # Keep only valid provider IDs and boolean values
     cleaned_map = {}
     for provider_id, enabled in enabled_map.items():
-        if (isinstance(provider_id, str) and 
+        if (isinstance(provider_id, str) and
             provider_id.strip() and  # Non-empty string
             provider_id in available_provider_ids):
             # Convert to boolean, handling various truthy/falsy values
             cleaned_map[provider_id] = bool(enabled)
-    
+
     return cleaned_map
 
 ##————————————————————————————————————————————————————————————————————————————##
@@ -124,14 +124,7 @@ def set_cwa_settings():
     cwa_default_settings = cwa_db.cwa_default_settings
     cwa_settings = cwa_db.cwa_settings
 
-    ignorable_formats = ['acsm', 'azw', 'azw3', 'azw4', 'cbz',
-                        'cbr', 'cb7', 'cbc', 'chm',
-                        'djvu', 'docx', 'epub', 'fb2',
-                        'fbz', 'html', 'htmlz', 'kepub', 'lit',
-                        'lrf', 'mobi', 'odt', 'pdf',
-                        'prc', 'pdb', 'pml', 'rb',
-                        'rtf', 'snb', 'tcr', 'txt', 'txtz',
-                        'kfx', 'kfx-zip']
+    ignorable_formats = ['djvu', 'epub', 'pdf']
     automerge_options = ['ignore', 'overwrite', 'new_record']
     autoingest_options = ['ignore', 'overwrite', 'new_record']
 
@@ -141,9 +134,9 @@ def set_cwa_settings():
     integer_settings = ['ingest_timeout_minutes', 'ingest_stale_temp_minutes', 'ingest_stale_temp_interval', 'hardcover_auto_fetch_batch_size', 'hardcover_auto_fetch_schedule_hour', 'duplicate_scan_hour', 'duplicate_scan_chunk_size', 'duplicate_scan_debounce_seconds', 'duplicate_auto_resolve_cooldown_minutes', 'archived_cleanup_schedule_hour', 'cover_download_max_mb', 'db_backup_keep_count']  # Special handling for integer settings
     float_settings = ['hardcover_auto_fetch_min_confidence', 'hardcover_auto_fetch_rate_limit']  # Special handling for float settings
     json_settings = ['metadata_provider_hierarchy', 'metadata_providers_enabled', 'duplicate_format_priority']  # Special handling for JSON settings
-    # Handled through individual format checkboxes, or left over from removed features
-    skip_settings = ['auto_ingest_ignored_formats', 'auto_send_delay_minutes', 'koreader_sync_enabled']
-    
+    # Handled through individual format checkboxes
+    skip_settings = ['auto_ingest_ignored_formats']
+
     for setting in cwa_default_settings:
         if setting in integer_settings or setting in float_settings or setting in json_settings or setting in skip_settings:
             continue  # Handle separately
@@ -196,7 +189,7 @@ def set_cwa_settings():
                     day_setting = f"{schedule_setting}_day"
                     result[day_setting] = _monthly_schedule_day(request.form.getlist(day_setting),
                                                                 cwa_settings.get(day_setting))
-            
+
             # Handle integer settings
             for setting in integer_settings:
                 value = request.form.get(setting)
@@ -346,7 +339,14 @@ def set_cwa_settings():
                     cron_invalid = True
                     flash(_("Invalid cron expression for duplicate scans. Changes were not saved."), category="error")
 
-            # DEBUGGING
+            # Automatic duplicate resolution deletes books: refuse to turn it on without Title
+            # among the match criteria, or before a preview was run (see duplicate_rules.py)
+            if result.get('duplicate_auto_resolve_enabled'):
+                from ..duplicate_rules import auto_resolve_block_reason
+                refusal = auto_resolve_block_reason({**cwa_settings, **result})
+                if refusal:
+                    result['duplicate_auto_resolve_enabled'] = 0
+                    flash(refusal + " " + _("Automatic resolution was left off."), category="error")
 
             duplicate_criteria_changed = False
             try:
@@ -405,7 +405,7 @@ def set_cwa_settings():
     # Check if Hardcover token is available
     from os import getenv
     hardcover_token_available = bool(
-        getattr(config, "config_hardcover_token", None) or 
+        getattr(config, "config_hardcover_token", None) or
         getenv("HARDCOVER_TOKEN")
     )
 

@@ -186,8 +186,8 @@
     width: 100%;
     height: 100%;
     max-height: none;
-    /* The whole cover stays visible: a wider page than the box letterboxes instead of cropping. */
-    object-fit: contain;
+    /* Fill the box so Letter and A4 pages tile at the same size; the trim lands in page margins. */
+    object-fit: cover;
     border: 0;
     box-shadow: none;
 }
@@ -237,7 +237,28 @@
     font-size: 11px;
 }
 
+.lily-cover-formats {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 1;
+    display: flex;
+    gap: 4px;
+}
+
+/* Coloured file-type marks (Material Icon Theme), so they keep their colours in both themes. */
+.lily-format {
+    width: 24px;
+    height: 24px;
+    background: center / contain no-repeat;
+}
+
+.lily-format-pdf { background-image: url("../icons/formats/pdf.svg"); }
+.lily-format-epub { background-image: url("../icons/formats/epub.svg"); }
+
 .lily-book .cover .lily-cover-count { left: auto; right: 6px; }
+.lily-book .cover .lily-cover-count,
+.container-fluid .lily-book .cover .lily-cover-count { left: auto; right: 6px; }
 
 .container-fluid .lily-book .meta,
 .lily-book .meta {
@@ -312,16 +333,43 @@
     letter-spacing: 1px;
 }
 
-/* Quick actions: bare icon buttons under the text, shown on hover or keyboard focus. */
+/* Quick actions: a bar of round icon buttons over the cover's foot, shown on hover or keyboard focus.
+   The buttons are skinned through the --btn-* variables, which list view overrides. */
 .lily-cover-actions {
+    --btn-size: 32px;
+    --btn-bg: var(--surface);
+    --btn-hover-bg: var(--surface);
+    --btn-border: var(--line-soft);
+    --btn-radius: 50%;
+    --btn-ink: var(--ink);
+    --btn-hover-ink: var(--accent);
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
     display: flex;
-    gap: 2px;
-    margin: 4px 0 0 -7px;
+    justify-content: space-around;
+    padding: 8px;
+    pointer-events: none;
 }
+
+.lily-cover-actions .icon-btn {
+    pointer-events: auto;
+    width: var(--btn-size);
+    height: var(--btn-size);
+    border: 1px solid var(--btn-border);
+    border-radius: var(--btn-radius);
+    background: var(--btn-bg);
+    color: var(--btn-ink);
+}
+
+.lily-cover-actions .icon-btn:hover,
+.lily-cover-actions .icon-btn:focus { background: var(--btn-hover-bg); color: var(--btn-hover-ink); }
 
 .lily-cover-actions .icon-btn .glyphicon { font-size: 15px; }
 
-.lily-cover-actions .icon-btn[aria-pressed="true"] { color: var(--success); }
+.lily-cover-actions .icon-btn[aria-pressed="true"] { background: var(--btn-bg); color: var(--success); }
 
 .lily-cover-actions .icon-btn.is-busy { opacity: .4; pointer-events: none; }
 
@@ -335,23 +383,13 @@
     .lily-book:focus-within .lily-cover-actions { opacity: 1; }
 }
 
-/* Touch screens have no hover, so the actions stay visible in a compact row that
-   wraps on narrow cards. Hit areas grow into the gap without overlapping. */
+/* Touch screens have no hover, so the bar stays visible with larger hit areas. */
 @media (hover: none) {
-    .lily-cover-actions {
-        flex-wrap: wrap;
-        gap: 6px;
-        margin: 6px 0 0 -5px;
-    }
-
-    .lily-cover-actions .icon-btn {
-        width: 32px;
-        height: 32px;
-        color: var(--faint);
-    }
-
-    .lily-cover-actions .icon-btn::after { inset: -3px; }
+    .lily-cover-actions { --btn-size: 36px; }
 }
+
+/* Grid cards show the title only; list rows keep the authors. */
+body:not([data-book-view="list"]) .lily-book .meta .author { display: none; }
 
 /* List view (the top bar's List icon sets body[data-book-view]): one row per
    book, a small cover, the text in a column, rating and actions at the end. */
@@ -366,7 +404,6 @@ body[data-book-view="list"] .lily-book {
     column-gap: 14px;
     align-items: center;
     padding: 10px 0;
-    border-bottom: 1px solid var(--line-soft);
 }
 
 body[data-book-view="list"] .lily-book .cover {
@@ -404,37 +441,64 @@ body[data-book-view="list"] .lily-book .meta .rating {
     margin: 0;
 }
 
-body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
-    grid-column: 3;
-    grid-row: 1 / span 3;
+/* The 44px list cover is too small for the bar: the actions leave it and sit at the row's end.
+   The cover stops being the positioning box, so the badge and hairline are re-anchored. */
+body[data-book-view="list"] .lily-book { position: relative; }
+
+body[data-book-view="list"] .lily-book .cover { position: static; }
+
+body[data-book-view="list"] .lily-book .cover::after { display: none; }
+
+body[data-book-view="list"] .lily-book .cover .img {
+    border-radius: 4px;
+    outline: 1px solid var(--line-soft);
+    outline-offset: -1px;
+}
+
+body[data-book-view="list"] .lily-book .cover .badge { top: 13px; left: 13px; }
+
+body[data-book-view="list"] .lily-cover-formats { display: none; }
+
+body[data-book-view="list"] .lily-book .lily-cover-actions {
+    --btn-size: 30px;
+    --btn-bg: transparent;
+    --btn-hover-bg: var(--control-tint);
+    --btn-border: transparent;
+    --btn-radius: var(--control-radius);
+    --btn-ink: var(--faint);
+    --btn-hover-ink: var(--ink);
+    left: auto;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    padding: 0;
+    gap: 2px;
+}
+
+/* Series grid (grid.html): a CSS grid of one letter's series. */
+.lily-series-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 22px;
     margin: 0;
 }
 
-/* Series grid (grid.html): Isotope lays the items out, so they need a fixed width. */
-.row.lily-series-grid { margin: 0; }
-
 .lily-series-grid > .book,
 .container-fluid .lily-series-grid > .book {
-    width: 160px;
+    width: auto;
     max-width: none;
-    margin: 0 22px 22px 0;
+    min-width: 0;
+    margin: 0;
     padding: 0;
-    float: left;
+    float: none;
 }
 
 @media (max-width: 767px) {
-    .row.lily-grid {
+    .row.lily-grid,
+    .lily-series-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 22px 14px;
     }
-
-    .lily-series-grid > .book,
-    .container-fluid .lily-series-grid > .book {
-        width: calc(50% - 7px);
-        margin-right: 14px;
-    }
-
-    .lily-series-grid > .book:nth-child(2n) { margin-right: 0; }
 }
 
 /* ------------------------------------------------------------------ */
@@ -495,7 +559,7 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
 
 .library-empty-state p { color: var(--muted); }
 
-/* The Lucide mask is a fixed-width block; centre it like the text. */
+/* The icon mask is a fixed-width block; centre it like the text. */
 .library-empty-state .library-empty-icon::before { margin: -0.1em auto; }
 
 .library-empty-state .library-empty-actions {
@@ -573,21 +637,6 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
 .lily-setup-item > a:hover .lily-setup-label { color: var(--accent); text-decoration: underline; }
 .lily-setup-item.is-done .lily-setup-label { color: var(--muted); }
 .lily-setup-hint { color: var(--muted); font-size: 13px; }
-
-/* ------------------------------------------------------------------ */
-/* Filter chips on book grids (image.filter_chips)                      */
-/* ------------------------------------------------------------------ */
-/* Wraps instead of scrolling: the tag and language menus must not be clipped by a scroller. */
-.lily-filter-chips {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px;
-}
-
-.lily-filter-chips > .btn.lily-chip { margin: 0; }
-.lily-filter-chips .dropdown-menu.lily-filter-menu { max-height: 320px; overflow-y: auto; }
-.lily-filter-clear .glyphicon { top: 1px; margin-right: 4px; font-size: 12px; }
 
 /* ------------------------------------------------------------------ */
 /* Category / series / publisher lists (list.html)                     */
@@ -710,15 +759,30 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
 /* ------------------------------------------------------------------ */
 .lily-book-detail { max-width: 1400px; }
 
+/* Cover on the left; the title block (with Read) above the facts on the right. On a phone the
+   title block moves above a smaller cover, so Read is on the first screen. */
 .book-detail-main {
     display: grid;
     grid-template-columns: 340px minmax(0, 1fr);
-    gap: 28px 40px;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+        "cover head"
+        "cover meta";
+    gap: 12px 40px;
     align-items: start;
+}
+
+.book-detail-head {
+    grid-area: head;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
 }
 
 .container-fluid .book-detail-cover.cover,
 .book-detail-cover {
+    grid-area: cover;
     height: auto;
     margin: 0;
 }
@@ -772,13 +836,14 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
 }
 
 .book-detail-meta {
+    grid-area: meta;
     display: flex;
     flex-direction: column;
     gap: 12px;
     min-width: 0;
 }
 
-.book-detail-meta h2#title {
+.book-detail-head h2#title {
     margin: 0;
     font-family: var(--font-body);
     font-size: 30px;
@@ -788,11 +853,44 @@ body[data-book-view="list"] .lily-book .meta .lily-cover-actions {
     overflow-wrap: break-word;
 }
 
-.book-detail-meta .author,
-.book-detail-meta #book_of {
+.book-detail-head .author,
+.book-detail-head #book_of {
     margin: 0;
     color: var(--muted);
     font-size: 17px;
+}
+
+/* Read / Continue · 42%: the page's one Primary, with "Convert to EPUB" beside it when offered. */
+.book-detail-primary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.book-detail-primary .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 20px;
+    font-size: 16px;
+}
+
+.book-detail-primary .btn .glyphicon { top: 0; }
+
+.book-detail-convert { margin: 0; }
+
+.book-detail-unreadable {
+    margin: 0;
+    color: var(--muted);
+    font-size: 15px;
+}
+
+.book-detail-next {
+    margin: 0;
+    font-size: 15px;
 }
 
 .book-detail-meta #detail-rating-block {
@@ -915,15 +1013,22 @@ dl.book-metadata {
 
 @media (max-width: 767px) {
     .book-detail-main {
-        grid-template-columns: 1fr;
-        gap: 22px;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto;
+        grid-template-areas:
+            "head"
+            "cover"
+            "meta";
+        gap: 18px;
     }
 
     .book-detail-cover {
-        width: min(100%, 320px);
+        width: min(60%, 220px);
     }
 
-    .book-detail-meta h2#title { font-size: 29px; }
+    .book-detail-head h2#title { font-size: 26px; }
+
+    .book-detail-primary .btn { flex: 1 1 auto; justify-content: center; }
 
     dl.book-metadata { gap: 4px 14px; }
 }
@@ -1477,3 +1582,76 @@ body.book_table .pagination {
     opacity: .4;
     pointer-events: none;
 }
+
+/* ------------------------------------------------------------------ */
+/* One-tap shelves (image.html shelf_menu) and the Up next row           */
+/* ------------------------------------------------------------------ */
+.lily-shelf-menu { position: relative; display: inline-block; }
+
+.lily-shelf-list { min-width: 220px; max-height: 60vh; overflow-y: auto; }
+
+.lily-shelf-list > li > .lily-shelf-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: normal;
+}
+
+/* The tick keeps its space when hidden, so names line up whether or not they are ticked. */
+.lily-shelf-item .glyphicon-ok {
+    flex: none;
+    width: 16px;
+    color: var(--accent);
+    visibility: hidden;
+}
+
+.lily-shelf-item[aria-checked="true"] .glyphicon-ok { visibility: visible; }
+
+.lily-shelf-item[aria-checked="true"] { color: var(--ink); }
+
+.up-next > h2 > a { color: inherit; text-decoration: none; }
+
+.up-next > h2 > a:hover { color: var(--accent); }
+
+/* Top bar suggestions: the Authors group under the books (lily.js). */
+.lily-topbar .tt-header {
+    margin-top: 6px;
+    padding: 8px 12px 4px;
+    border-top: 1px solid var(--line-soft);
+    color: var(--faint);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.lily-topbar .tt-dataset:first-child .tt-header,
+.lily-topbar .tt-dataset-books:empty + .tt-dataset .tt-header { margin-top: 0; border-top: 0; }
+
+.lily-topbar .tt-author-item .tt-icon {
+    flex: none;
+    width: 36px;
+    color: var(--muted);
+    text-align: center;
+}
+
+/* Long name lists (authors, series): the filter box under the toolbar (list.html). */
+.lily-list-search {
+    max-width: 480px;
+    margin: 0 0 16px;
+}
+
+.lily-list-search-hint {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.lily-list > .row.lily-list-row[hidden] { display: none; }
+
+/* A card whose shelf menu is open sits above the next row of covers, and keeps its actions
+   showing while the pointer is in the menu. */
+.lily-book:has(.lily-shelf-menu.open) {
+    position: relative;
+    z-index: 5;
+}
+
+.lily-cover-actions:has(.lily-shelf-menu.open) { opacity: 1; }

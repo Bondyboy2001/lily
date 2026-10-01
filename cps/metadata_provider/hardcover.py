@@ -111,6 +111,7 @@ log = logger.create()
 class Hardcover(Metadata):
     __name__ = "Hardcover"
     __id__ = "hardcover"
+    identifier_types = frozenset({"hardcover-id"})
     DESCRIPTION = "Hardcover"
     META_URL = "https://hardcover.app/"
     BASE_URL = "https://api.hardcover.app/v1/graphql"
@@ -144,13 +145,53 @@ class Hardcover(Metadata):
         "} }"
     )
 
+    def search_identifiers(
+        self, identifiers: Dict[str, str], generic_cover: str = "", locale: str = "en"
+    ) -> List[MetaRecord]:
+        """A Hardcover book id: that book's editions."""
+        book_id = str(identifiers.get("hardcover-id", "")).strip()
+        if not self.active or not book_id.isdigit():
+            return []
+        data = self._query(Hardcover.EDITION_QUERY, int(book_id))
+        try:
+            books = self._safe_get(data, "data", "books", default=[]) if data else []
+            return self._parse_edition_results(result=books[0], generic_cover=generic_cover,
+                                               locale=locale) if books else []
+        except Exception as e:
+            log.warning(f"Error processing results: {e}")
+            return []
+
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
     ) -> Optional[List[MetaRecord]]:
-        val: List[MetaRecord] = []
         if not self.active:
-            return val
+            return []
+        data = self._query(Hardcover.SEARCH_QUERY, query)
+        if not data:
+            return []
+        val: List[MetaRecord] = []
+        try:
+            raw_results = self._safe_get(data, "data", "search", "results", default=[])
+            if isinstance(raw_results, str):
+                import json as _json
+                try:
+                    parsed = _json.loads(raw_results)
+                except Exception:
+                    parsed = []
+            else:
+                parsed = raw_results
 
+            for hit in self._safe_get(parsed, "hits", default=[]):
+                match = self._parse_title_result(result=hit, generic_cover=generic_cover, locale=locale)
+                if match:
+                    val.append(match)
+        except Exception as e:
+            log.warning(f"Error processing results: {e}")
+            return []
+        return val
+
+    def _query(self, gql: str, variable) -> Optional[Dict]:
+        """Runs a GraphQL query with the user's or the global token. None on any failure."""
         token = (
             getattr(current_user, "hardcover_token", None)
             or getattr(config, "config_hardcover_token", None)
@@ -158,65 +199,33 @@ class Hardcover(Metadata):
         )
         if not token:
             log.warning("Hardcover token missing; set a user token or global token to enable results.")
-            return []
-
+            return None
         try:
-            edition_search = query.split(":")[0] == "hardcover-id"
             Hardcover.HEADERS["Authorization"] = "Bearer %s" % token.replace("Bearer ", "")
             resp = requests.post(
                 Hardcover.BASE_URL,
-                json={
-                    "query": Hardcover.EDITION_QUERY if edition_search else Hardcover.SEARCH_QUERY,
-                    "variables": {"query": int(query.split(":")[1]) if edition_search else query},
-                },
+                json={"query": gql, "variables": {"query": variable}},
                 headers=Hardcover.HEADERS,
                 timeout=15,
             )
             resp.raise_for_status()
             response_data = resp.json()
-
-            if "errors" in response_data:
-                log.error(f"GraphQL errors: {response_data['errors']}")
-                return []
-            if "data" not in response_data:
-                log.warning("Invalid response structure: missing 'data' field")
-                return []
         except requests.exceptions.RequestException as e:
             log.warning(f"HTTP request failed: {e}")
-            return []
+            return None
         except ValueError as e:
             log.warning(f"JSON parsing failed: {e}")
-            return []
+            return None
         except Exception as e:
             log.warning(f"Unexpected error: {e}")
-            return []
-
-        try:
-            if edition_search:
-                books_data = self._safe_get(response_data, "data", "books", default=[])
-                if books_data:
-                    book = books_data[0]
-                    val = self._parse_edition_results(result=book, generic_cover=generic_cover, locale=locale)
-            else:
-                raw_results = self._safe_get(response_data, "data", "search", "results", default=[])
-                if isinstance(raw_results, str):
-                    import json as _json
-                    try:
-                        parsed = _json.loads(raw_results)
-                    except Exception:
-                        parsed = []
-                else:
-                    parsed = raw_results
-
-                for hit in self._safe_get(parsed, "hits", default=[]):
-                    match = self._parse_title_result(result=hit, generic_cover=generic_cover, locale=locale)
-                    if match:
-                        val.append(match)
-        except Exception as e:
-            log.warning(f"Error processing results: {e}")
-            return []
-
-        return val
+            return None
+        if "errors" in response_data:
+            log.error(f"GraphQL errors: {response_data['errors']}")
+            return None
+        if "data" not in response_data:
+            log.warning("Invalid response structure: missing 'data' field")
+            return None
+        return response_data
 
     def _parse_title_result(
         self, result: Dict, generic_cover: str, locale: str
@@ -405,7 +414,7 @@ class Hardcover(Metadata):
     ) -> tuple[float, str]:
         """
         Calculate confidence score for a metadata match.
-        
+
         Args:
             result: The MetaRecord from Hardcover search
             query_title: Title to match against
@@ -415,7 +424,7 @@ class Hardcover(Metadata):
             query_series_index: Series position to match against
             query_publisher: Publisher to match against
             query_year: Publication year to match against
-            
+
         Returns:
             tuple: (confidence_score, match_reason)
                 - confidence_score: 0.0 to 1.0
@@ -423,14 +432,14 @@ class Hardcover(Metadata):
         """
         score = 0.0
         reasons = []
-        
+
         # ISBN match (if available) - highest confidence
         if query_isbn and result.identifiers.get('isbn'):
             result_isbn = str(result.identifiers.get('isbn', '')).replace('-', '').replace(' ', '')
             query_isbn_clean = query_isbn.replace('-', '').replace(' ', '')
             if result_isbn == query_isbn_clean:
                 return (1.0, "ISBN exact match")
-        
+
         # Title similarity (base score: 0.5-0.95)
         if query_title and result.title:
             title_similarity = normalized_levenshtein_similarity(query_title, result.title)
@@ -441,7 +450,7 @@ class Hardcover(Metadata):
                 reasons.append(f"title close match ({title_similarity:.2f})")
             else:
                 reasons.append(f"title partial match ({title_similarity:.2f})")
-        
+
         # Author similarity (base score: 0.0-0.45)
         if query_authors and result.authors:
             author_similarity, is_and_match = author_list_similarity(query_authors, result.authors)
@@ -452,7 +461,7 @@ class Hardcover(Metadata):
             else:
                 score += author_similarity * 0.35  # Lower weight for partial matches
                 reasons.append(f"some authors match ({author_similarity:.2f})")
-        
+
         # Series matching (bonus: +0.0 to +0.15)
         if query_series and result.series:
             series_similarity = normalized_levenshtein_similarity(query_series, result.series)
@@ -460,7 +469,7 @@ class Hardcover(Metadata):
                 bonus = 0.1 * series_similarity
                 score += bonus
                 reasons.append(f"series match ({series_similarity:.2f})")
-                
+
                 # Series index exact match (additional bonus: +0.05)
                 if query_series_index is not None and result.series_index:
                     try:
@@ -471,24 +480,24 @@ class Hardcover(Metadata):
                             reasons.append(f"series position {query_idx} matches")
                     except (ValueError, TypeError):
                         pass
-        
+
         # Publisher match (bonus: +0.1)
         if query_publisher and result.publisher:
             publisher_similarity = normalized_levenshtein_similarity(query_publisher, result.publisher)
             if publisher_similarity >= 0.8:
                 score += 0.1
                 reasons.append("publisher match")
-        
+
         # Publication year match (bonus: +0.05 for exact, +0.025 for ±1 year)
         if query_year and result.publishedDate:
             year_similarity = calculate_year_similarity(query_year, result.publishedDate)
             score += year_similarity * 0.05
             if year_similarity > 0:
                 reasons.append(f"year match ({year_similarity:.2f})")
-        
+
         # Cap score at 1.0
         score = min(score, 1.0)
-        
+
         # Generate match reason string
         if score >= 0.95:
             reason = "Excellent match: " + ", ".join(reasons)
@@ -500,7 +509,7 @@ class Hardcover(Metadata):
             reason = "Possible match: " + ", ".join(reasons)
         else:
             reason = "Low confidence: " + ", ".join(reasons)
-        
+
         return (score, reason)
 
 
@@ -537,7 +546,12 @@ if __name__ == "__main__":
         pass
 
     provider = Hardcover()
-    results = provider.search(args.query, generic_cover=args.generic_cover, locale=args.locale) or []
+    from cps.services.identifiers import parse_identifier
+    typed = parse_identifier(args.query)
+    if "hardcover-id" in typed:
+        results = provider.search_identifiers(typed, generic_cover=args.generic_cover, locale=args.locale)
+    else:
+        results = provider.search(args.query, generic_cover=args.generic_cover, locale=args.locale) or []
 
     def _to_dict(obj):
         try:

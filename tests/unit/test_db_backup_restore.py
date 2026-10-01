@@ -183,3 +183,23 @@ def test_prune_processed_books(tmp_path):
     assert normalize_retention_days("0") == 0
     assert normalize_retention_days("-3") == 30
     assert normalize_retention_days("junk") == 30
+
+
+def test_verify_snapshot_restores_to_scratch(tmp_path):
+    from db_backup import verify_snapshot
+    src = tmp_path / "metadata.db"
+    _db(str(src), "x")
+    snap, done, errors = backup_databases({"metadata.db": str(src)}, str(tmp_path / "bk"))
+    assert not errors
+    assert verify_snapshot(snap) == {"metadata.db": 1}
+
+
+def test_verify_snapshot_rejects_corrupt_and_empty(tmp_path):
+    from db_backup import verify_snapshot
+    snap = tmp_path / "20260101_000000"
+    snap.mkdir()
+    with pytest.raises(FileNotFoundError):
+        verify_snapshot(str(snap))
+    (snap / "app.db").write_bytes(b"not a database" * 100)
+    with pytest.raises(Exception):
+        verify_snapshot(str(snap))

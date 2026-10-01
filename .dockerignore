@@ -6,17 +6,12 @@ docker-compose.yml
 .github/workflows
 .gitattributes
 **/*.po~
-build.sh
 README.md
 LICENSE
 Dockerfile
 .dockerignore
-build.sh
 .history
-docker-compose.yml.dev
-changelogs
 cwa-wiki
-wiki_images
 .devcontainer
 
 # Test infrastructure (not needed in production image)
@@ -32,8 +27,23 @@ venv/
 **/__pycache__/
 **/*.pyc
 .ruff_cache/
-docs/
+.mypy_cache/
 .playwright-mcp/
 .superpowers/
 .claude/
+.commandcode/
+**/.DS_Store
 docker-compose.local.yml
+
+# State a local run leaves in the checkout: encryption key, migration markers
+**/.key
+.cwa_migrations/
+.lily_sidebar_trimmed
+
+# Docs, scratch data and caches never needed at runtime
+docs/
+private/
+*.db
+messages.pot
+# Compiled translations are rebuilt in the image (scripts/setup-cwa.sh)
+**/messages.mo

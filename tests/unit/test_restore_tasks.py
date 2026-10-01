@@ -155,28 +155,106 @@ def test_library_restore_handles_timeout(env, monkeypatch, tmp_path):
 
 
 @pytest.mark.unit
-def test_wipe_book_linked_tables_skips_missing(tmp_path):
+def test_restore_cleanup_removes_only_rows_of_missing_books(tmp_path):
+    """calibredb restore_database keeps book ids, so only rows of books that are gone go."""
+    meta = str(tmp_path / "metadata.db")
+    con = sqlite3.connect(meta)
+    con.execute("CREATE TABLE books (id INTEGER PRIMARY KEY)")
+    con.executemany("INSERT INTO books VALUES (?)", [(1,), (2,)])
+    con.commit()
+    con.close()
     path = str(tmp_path / "app.db")
     con = sqlite3.connect(path)
-    con.execute("CREATE TABLE downloads (id INTEGER)")
+    con.execute("CREATE TABLE downloads (id INTEGER PRIMARY KEY, book_id INTEGER, user_id INTEGER)")
+    con.execute("CREATE TABLE book_shelf_link (id INTEGER PRIMARY KEY, book_id INTEGER, shelf INTEGER)")
+    con.execute("CREATE TABLE web_reader_progress (id INTEGER PRIMARY KEY, user_id INTEGER, book_id INTEGER, percent REAL)")
     con.execute("CREATE TABLE user (id INTEGER)")
-    con.execute("INSERT INTO downloads VALUES (1)")
+    con.executemany("INSERT INTO downloads (book_id, user_id) VALUES (?, 1)", [(1,), (3,)])
+    con.executemany("INSERT INTO book_shelf_link (book_id, shelf) VALUES (?, 1)", [(2,), (9,)])
+    con.executemany("INSERT INTO web_reader_progress (user_id, book_id, percent) VALUES (1, ?, 0.5)", [(1,), (7,)])
     con.execute("INSERT INTO user VALUES (1)")
     con.commit()
     con.close()
-    restore_mod.TaskRestoreCalibreLibrary.wipe_book_linked_tables(path)
+
+    removed = restore_mod.remove_orphan_book_rows(path, meta)
+    assert removed == {"downloads": 1, "book_shelf_link": 1, "web_reader_progress": 1}
     con = sqlite3.connect(path)
     try:
-        assert con.execute("SELECT COUNT(*) FROM downloads").fetchone()[0] == 0
+        assert [r[0] for r in con.execute("SELECT book_id FROM downloads")] == [1]
+        assert [r[0] for r in con.execute("SELECT book_id FROM book_shelf_link")] == [2]
+        assert [r[0] for r in con.execute("SELECT book_id FROM web_reader_progress")] == [1]
         assert con.execute("SELECT COUNT(*) FROM user").fetchone()[0] == 1
     finally:
         con.close()
 
 
 @pytest.mark.unit
+def test_restore_cleanup_leaves_everything_when_the_library_came_back_empty(tmp_path):
+    meta = str(tmp_path / "metadata.db")
+    con = sqlite3.connect(meta)
+    con.execute("CREATE TABLE books (id INTEGER PRIMARY KEY)")
+    con.close()
+    path = str(tmp_path / "app.db")
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE book_read_link (id INTEGER PRIMARY KEY, book_id INTEGER)")
+    con.execute("INSERT INTO book_read_link (book_id) VALUES (5)")
+    con.commit()
+    con.close()
+    assert restore_mod.remove_orphan_book_rows(path, meta) == {}
+    con = sqlite3.connect(path)
+    try:
+        assert con.execute("SELECT COUNT(*) FROM book_read_link").fetchone()[0] == 1
+    finally:
+        con.close()
+
+
+@pytest.mark.unit
+def test_snapshot_restore_lists_book_folders_the_restored_db_does_not_know(tmp_path):
+    from cps import library_orphans
+    lib = tmp_path / "lib"
+    for rel in ("A/Old (1)", "A/New (2)", "B/Empty (3)", ".lily-trash/20260101T000000_4"):
+        (lib / rel).mkdir(parents=True)
+    (lib / "A" / "Old (1)" / "old.epub").write_text("x")
+    (lib / "A" / "New (2)" / "new.epub").write_text("x")
+    (lib / "A" / "New (2)" / "cover.jpg").write_text("x")
+    (lib / ".lily-trash" / "20260101T000000_4" / "t.epub").write_text("x")
+    meta = lib / "metadata.db"
+    con = sqlite3.connect(meta)
+    con.execute("CREATE TABLE books (id INTEGER PRIMARY KEY, path TEXT)")
+    con.execute("INSERT INTO books VALUES (1, 'A/Old (1)')")
+    con.commit()
+    con.close()
+    app_db = tmp_path / "app.db"
+    con = sqlite3.connect(app_db)
+    con.execute("CREATE TABLE book_read_link (id INTEGER PRIMARY KEY, book_id INTEGER)")
+    con.executemany("INSERT INTO book_read_link (book_id) VALUES (?)", [(1,), (2,)])
+    con.commit()
+    con.close()
+    cfg = tmp_path / "cfg"
+    cfg.mkdir()
+
+    note = restore_mod.reconcile_after_restore(["metadata.db"], str(app_db), str(meta), str(lib), str(cfg),
+                                               "snapshot 20260101_030000")
+    assert "1 book folder" in str(note)
+    report = library_orphans.load_report(str(cfg))
+    assert report["folders"] == ["A/New (2)"] and report["source"] == "snapshot 20260101_030000"
+    assert library_orphans.book_files(str(lib / "A" / "New (2)")) == ["new.epub"]
+    con = sqlite3.connect(app_db)
+    try:
+        assert [r[0] for r in con.execute("SELECT book_id FROM book_read_link")] == [1]
+    finally:
+        con.close()
+    # Nothing out of step: no note, and the old report is cleared
+    (lib / "A" / "New (2)" / "new.epub").unlink()
+    (lib / "A" / "New (2)" / "cover.jpg").unlink()
+    assert restore_mod.reconcile_after_restore(["metadata.db"], str(app_db), str(meta), str(lib), str(cfg), "") == ""
+    assert library_orphans.load_report(str(cfg)) == {}
+
+
+@pytest.mark.unit
 def test_restore_routes_do_not_block_on_subprocess():
     """The request handlers only queue tasks; no subprocess call runs in the request."""
-    tree = ast.parse((REPO / "cps" / "admin.py").read_text())
+    tree = ast.parse((REPO / "cps" / "admin_backups.py").read_text())
     for fn in (n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
                and n.name in ("restore_calibre_db", "restore_db_snapshot", "db_backups")):
         for node in ast.walk(fn):
@@ -218,6 +296,19 @@ def test_backups_page_lists_snapshots(admin_client):
 
 
 @pytest.mark.unit
+def test_snapshot_download_returns_zip_and_rejects_bad_names(admin_client):
+    import io
+    import zipfile
+    c, _ = admin_client
+    resp = c.get("/admin/db_backups/download/20260101_030000")
+    assert resp.status_code == 200
+    assert resp.mimetype == "application/zip"
+    assert zipfile.ZipFile(io.BytesIO(resp.data)).namelist() == ["cwa.db"]
+    assert c.get("/admin/db_backups/download/20990101_000000").status_code == 404
+    assert c.get("/admin/db_backups/download/..%2Fetc").status_code == 404
+
+
+@pytest.mark.unit
 def test_restore_routes_queue_tasks_and_return_immediately(admin_client):
     c, queued = admin_client
     resp = c.post("/admin/db_backups/restore", data={"snapshot": "20260101_030000", "databases": ["cwa.db"]},
@@ -249,3 +340,123 @@ def test_backup_settings_saved(admin_client, tmp_path):
     resp = c.post("/admin/db_backups/settings", data={"db_backup_dir": "relative", "processed_books_retention_days": "14"})
     with CWA_DB() as db:
         assert db.cwa_settings["db_backup_dir"] == "/mnt/backups"
+
+
+@pytest.mark.unit
+def test_mirror_settings_validated_and_run_now_queues_task(admin_client, tmp_path, monkeypatch):
+    from cps import config
+    from cps.tasks import library_mirror as mirror_task
+    c, queued = admin_client
+    lib_dir = tmp_path / "lib"
+    lib_dir.mkdir()
+    monkeypatch.setattr(config, "config_calibre_dir", str(lib_dir), raising=False)
+
+    html = c.post("/admin/db_backups/settings", follow_redirects=True,
+                  data={"library_mirror_dir": str(lib_dir / "inside"), "processed_books_retention_days": "14"}).get_data(as_text=True)
+    assert "must not contain or sit inside" in html
+    html = c.post("/admin/db_backups/settings", follow_redirects=True,
+                  data={"library_mirror_dir": "relative", "processed_books_retention_days": "14"}).get_data(as_text=True)
+    assert "absolute path" in html
+
+    assert c.post("/admin/db_backups/settings", follow_redirects=True,
+                  data={"library_mirror_dir": "/mnt/mirror", "processed_books_retention_days": "14"}).status_code == 200
+    assert mirror_task.get_mirror_dir() == "/mnt/mirror"
+    assert 'name="library_mirror_dir"' in c.get("/admin/db_backups").get_data(as_text=True)
+
+    c.post("/admin/db_backups/mirror")
+    assert any(isinstance(t, mirror_task.TaskMirrorLibrary) for t in queued)
+
+
+@pytest.mark.unit
+def test_backups_page_warns_about_unset_mirror_and_same_disk(admin_client, monkeypatch):
+    import library_mirror
+    from cps.services import job_status as svc
+    c, _ = admin_client
+    svc.invalidate_cache()
+    html = c.get("/admin/db_backups").get_data(as_text=True)
+    # tmp_path holds both the library and the backups: one disk
+    assert "No library mirror folder is set" in html
+    assert "is on the same disk as the library. If that disk fails, the backups" in html
+    assert 'id="last-backup">None yet' in html
+
+    c.post("/admin/db_backups/settings", data={"library_mirror_dir": "/mnt/mirror",
+                                               "processed_books_retention_days": "14"})
+    html = c.get("/admin/db_backups").get_data(as_text=True)
+    assert "No library mirror folder is set" not in html
+
+    monkeypatch.setattr(library_mirror, "same_device", lambda a, b: False)
+    assert 'id="backup-storage-warnings"' not in c.get("/admin/db_backups").get_data(as_text=True)
+    monkeypatch.setattr(library_mirror, "same_device", lambda a, b: True)
+    assert "the mirror is lost with it" in c.get("/admin/db_backups").get_data(as_text=True)
+
+
+@pytest.mark.unit
+def test_backups_page_shows_last_successful_runs(admin_client):
+    from datetime import datetime, timezone
+    from cwa_db import CWA_DB
+    import job_status
+    from cps.services import job_status as svc
+    c, _ = admin_client
+    with CWA_DB() as db:
+        job_status.record_success(db.con, "db_backup", datetime(2026, 9, 30, 1, 0, tzinfo=timezone.utc))
+        job_status.record_success(db.con, "library_mirror", datetime(2026, 9, 30, 1, 45, tzinfo=timezone.utc))
+    svc.invalidate_cache()
+    html = c.get("/admin/db_backups").get_data(as_text=True)
+    local = datetime(2026, 9, 30, 1, 0, tzinfo=timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M")
+    assert f'id="last-backup">{local}' in html
+    assert 'id="last-mirror">None yet' not in html
+
+
+@pytest.mark.unit
+def test_retention_settings_saved_and_validated(admin_client):
+    from cwa_db import CWA_DB
+    c, _ = admin_client
+    base = {"processed_books_retention_days": "14"}
+    c.post("/admin/db_backups/settings", data={**base, "db_backup_keep_count": "10", "db_backup_keep_weekly": "0",
+                                               "db_backup_keep_monthly": "12", "library_mirror_version_days": "60"})
+    with CWA_DB() as db:
+        s = db.cwa_settings
+        assert (s["db_backup_keep_count"], s["db_backup_keep_weekly"], s["db_backup_keep_monthly"],
+                s["library_mirror_version_days"]) == (10, "0", "12", "60")
+    assert task_mod.get_retention() == task_mod.Retention(10, 0, 12)
+    html = c.get("/admin/db_backups").get_data(as_text=True)
+    assert 'id="db_backup_keep_monthly" value="12"' in html and 'id="library_mirror_version_days" value="60"' in html
+
+    for field, bad in (("db_backup_keep_count", "0"), ("db_backup_keep_weekly", "-1"),
+                       ("db_backup_keep_monthly", "lots"), ("library_mirror_version_days", "99999")):
+        html = c.post("/admin/db_backups/settings", data={**base, field: bad},
+                      follow_redirects=True).get_data(as_text=True)
+        assert "must be a whole number" in html
+    with CWA_DB() as db:
+        assert db.cwa_settings["db_backup_keep_count"] == 10
+    # Fields left out of the form keep their values
+    c.post("/admin/db_backups/settings", data=base)
+    assert task_mod.get_retention() == task_mod.Retention(10, 0, 12)
+
+
+@pytest.mark.unit
+def test_back_up_now_queues_one_backup(admin_client, monkeypatch):
+    from cps.services.worker import WorkerThread
+    c, queued = admin_client
+    monkeypatch.setattr(WorkerThread, "has_active_task_of_type", lambda self, name, extra_check=None: False)
+    c.post("/admin/db_backups/backup")
+    assert isinstance(queued[-1], task_mod.TaskBackupDatabases)
+    monkeypatch.setattr(WorkerThread, "has_active_task_of_type",
+                        lambda self, name, extra_check=None: name == "TaskBackupDatabases")
+    html = c.post("/admin/db_backups/backup", follow_redirects=True).get_data(as_text=True)
+    assert "already queued or running" in html and len(queued) == 1
+
+
+@pytest.mark.unit
+def test_suspicious_snapshot_can_be_accepted(admin_client, tmp_path):
+    import db_backup
+    c, _ = admin_client
+    snap = tmp_path / "backups" / "20260101_030000"
+    db_backup.mark_verified(str(snap), {"cwa.db": 1})
+    db_backup.mark_suspicious(str(snap), "metadata.db has 5 books, down from 100")
+    html = c.get("/admin/db_backups").get_data(as_text=True)
+    assert "Suspicious" in html and "down from 100" in html and "Verified" in html
+    resp = c.post("/admin/db_backups/accept", data={"snapshot": "20260101_030000"}, follow_redirects=True)
+    assert "accepted" in resp.get_data(as_text=True)
+    assert db_backup.suspicious_reason(str(snap)) is None
+    assert c.post("/admin/db_backups/accept", data={"snapshot": "../etc"}).status_code == 404

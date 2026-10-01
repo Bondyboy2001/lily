@@ -60,12 +60,17 @@ class ReverseProxied(object):
         }
     """
 
-    def __init__(self, application):
+    def __init__(self, application, trusted=False):
         self.app = application
         self.proxied = False
+        # Only with TRUSTED_PROXY_COUNT > 0. Otherwise any client could set the host, scheme
+        # and path prefix that url_for (and the CSRF referrer check) build on.
+        self.trusted = trusted
 
     def __call__(self, environ, start_response):
         self.proxied = False
+        if not self.trusted:
+            return self.app(environ, start_response)
         script_name = environ.get('HTTP_X_SCRIPT_NAME', '')
         if script_name:
             self.proxied = True

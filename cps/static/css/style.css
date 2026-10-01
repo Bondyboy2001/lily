@@ -293,8 +293,6 @@ input.pill:not(:checked) + label .glyphicon {
   padding-bottom: 0;
 }
 
-#metadata_provider > div { flex: 1 0 100%; }
-
 /* The dialog never outgrows the window: header, search and providers stay put
    and only the results scroll. */
 #metaModal .modal-dialog { margin-top: 24px; margin-bottom: 24px; }
@@ -333,6 +331,11 @@ input.pill:not(:checked) + label .glyphicon {
   overflow: hidden;
 }
 
+/* Results found by the book's ISBN/DOI/arXiv id */
+#meta-info #book-list .media.meta-exact {
+  border: 2px solid var(--success);
+}
+
 #meta-info #book-list .media .media-image {
   width: 200px;
   padding: 20px;
@@ -363,6 +366,7 @@ input.pill:not(:checked) + label .glyphicon {
   border-radius: 5px;
   font-size: 12px;
 }
+#meta-info #book-list .media .media-image .image-dimensions:empty { display: none; }
 #meta-info #book-list .media .media-image .image-dimensions.larger {
   background-color: var(--success);
 }
@@ -405,15 +409,61 @@ input.pill:not(:checked) + label .glyphicon {
   align-items: center;
 }
 
+#meta-info #book-list .media .media-body dt label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-weight: inherit;
+  cursor: pointer;
+}
+
 #meta-info #book-list .media .media-body dt input {
-  margin-right: 5px;
-  margin-top: 0px;
+  margin: 0;
 }
 
 #meta-info #book-list .media .media-body dd {
   margin: 0;
-  color: var(--muted);
+  color: var(--ink);
+  overflow-wrap: anywhere;
 }
+
+/* Fields the form already has are dimmed; changed ones show the form's value below */
+#meta-info #book-list .media .media-body dd.meta-same { color: var(--muted); }
+
+#meta-info #book-list .media .media-body .meta-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+#meta-info #book-list .media .media-body div.meta-note { margin-top: 2px; }
+
+#meta-info #book-list .media .media-body .meta-toggle-row {
+  grid-column: 1 / -1;
+  margin: -8px 0 -4px;
+  text-align: right;
+}
+
+#meta-info #book-list .media .media-image .meta-fill {
+  margin-top: 6px;
+}
+
+#meta-info #book-list .media .media-image .meta-score {
+  font-weight: 600;
+}
+
+/* Shown once a result has filled the form */
+#meta_save[hidden] { display: none; }
+
+/* Provider chips: results found, still searching, or failed */
+#metadata_provider .meta-provider-status {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+#metadata_provider .meta-provider-status.is-loading { font-style: italic; font-weight: 400; }
+#metadata_provider .meta-provider-status.is-failed { color: var(--danger); opacity: 1; }
 
 #meta-import-alert.meta-import-alert {
   position: fixed;

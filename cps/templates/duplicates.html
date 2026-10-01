@@ -1,6 +1,5 @@
 {% extends "settings_layout.html" %}
 {% import "lily_form.html" as f with context %}
-{% block heading %}{{ _('Duplicates') }}{% endblock %}
 {% block pane_class %} is-wide{% endblock %}
 {% block settings %}
 <div class="lp dup-page">
@@ -84,7 +83,7 @@
           <span class="glyphicon glyphicon-warning-sign dup-notice-icon" aria-hidden="true"></span>
           <div>
             <strong>{{_('Warning:')}}</strong>
-            {{_('This will permanently delete books. Original files will be backed up to')}}
+            {{_('Removed copies are moved to the Trash, where an admin can restore them. A second copy is kept in')}}
             <code class="dup-path">/config/processed_books/duplicate_resolutions/</code>
           </div>
         </div>
@@ -186,9 +185,9 @@
         <h4 class="modal-title" id="executeResolutionLabel">{{_('Execute Auto-Resolution')}}</h4>
       </div>
       <div class="modal-body">
-        <p>{{_('Lily will resolve duplicate groups using the selected strategy and permanently delete duplicate books.')}}</p>
+        <p>{{_('Lily will resolve duplicate groups using the selected strategy and move the other copies to the Trash. Copies someone is reading, has shelved or marked read are kept in preference to the others.')}}</p>
         <p class="strategy-summary">{{_('Selected strategy:')}} <strong id="execute_resolution_strategy_name"></strong></p>
-        <p class="danger-note">{{_('This action cannot be undone!')}}</p>
+        <p class="danger-note">{{_('Restore mistakes from Settings, Trash.')}}</p>
       </div>
       <div class="modal-footer">
         <button id="execute_resolution_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
@@ -206,9 +205,9 @@
         <h4 class="modal-title" id="deleteSelectedLabel">{{_('Are you really sure?')}}</h4>
       </div>
       <div class="modal-body">
-        <p>{{_('The following books will be permanently deleted:')}}</p>
+        <p>{{_('The following books will be moved to the Trash:')}}</p>
         <div id="display-delete-selected-books" class="dup-modal-list"></div>
-        <p class="danger-note">{{_('This action cannot be undone!')}}</p>
+        <p class="danger-note">{{_('Restore mistakes from Settings, Trash.')}}</p>
       </div>
       <div class="modal-footer">
         <button id="delete_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>

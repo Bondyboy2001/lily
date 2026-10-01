@@ -25,7 +25,6 @@ CREATE TABLE IF NOT EXISTS cwa_settings(
     ingest_stale_temp_minutes INTEGER DEFAULT 120 NOT NULL,
     ingest_stale_temp_interval INTEGER DEFAULT 600 NOT NULL,
     auto_metadata_enforcement SMALLINT DEFAULT 1 NOT NULL,
-    koreader_sync_enabled SMALLINT DEFAULT 0 NOT NULL,
     archived_cleanup_enabled SMALLINT DEFAULT 1 NOT NULL,
     archived_cleanup_schedule TEXT DEFAULT 'daily' NOT NULL,
     archived_cleanup_schedule_day TEXT DEFAULT 'sunday' NOT NULL,
@@ -46,7 +45,6 @@ CREATE TABLE IF NOT EXISTS cwa_settings(
     cover_download_max_mb INTEGER DEFAULT 15 NOT NULL,
     metadata_provider_hierarchy TEXT DEFAULT '["google","openlibrary","hardcover","googlescholar"]' NOT NULL,
     metadata_providers_enabled TEXT DEFAULT '{}' NOT NULL,
-    auto_send_delay_minutes INTEGER DEFAULT 5 NOT NULL,
     duplicate_detection_title SMALLINT DEFAULT 1 NOT NULL,
     duplicate_detection_author SMALLINT DEFAULT 1 NOT NULL,
     duplicate_detection_language SMALLINT DEFAULT 1 NOT NULL,
@@ -68,6 +66,8 @@ CREATE TABLE IF NOT EXISTS cwa_settings(
     -- Days to keep files in /config/processed_books/{imported,failed}, pruned nightly. '0' = keep forever.
     -- Stored as TEXT so the generic settings form doesn't treat it as a checkbox.
     processed_books_retention_days TEXT DEFAULT '30' NOT NULL,
+    -- Optional second folder that nightly receives a copy of new/changed book files. '' = off.
+    library_mirror_dir TEXT DEFAULT '' NOT NULL,
     -- Duplicate notification and auto-resolution settings
     duplicate_detection_enabled SMALLINT DEFAULT 1 NOT NULL,
     duplicate_notifications_enabled SMALLINT DEFAULT 1 NOT NULL,
@@ -83,7 +83,22 @@ CREATE TABLE IF NOT EXISTS cwa_settings(
     duplicate_scan_cron TEXT DEFAULT '' NOT NULL,
     duplicate_scan_hour INTEGER DEFAULT 3 NOT NULL,
     duplicate_scan_chunk_size INTEGER DEFAULT 5000 NOT NULL,
-    duplicate_scan_debounce_seconds INTEGER DEFAULT 60 NOT NULL
+    duplicate_scan_debounce_seconds INTEGER DEFAULT 60 NOT NULL,
+    -- Grandfather-father-son retention on top of db_backup_keep_count (the daily tier):
+    -- the newest snapshot of each of the last N weeks / months. '0' turns a tier off.
+    -- TEXT so the generic settings form doesn't treat them as checkboxes.
+    db_backup_keep_weekly TEXT DEFAULT '4' NOT NULL,
+    db_backup_keep_monthly TEXT DEFAULT '6' NOT NULL,
+    -- Days to keep replaced mirror copies in <mirror>/.versions/. '0' = keep forever.
+    library_mirror_version_days TEXT DEFAULT '30' NOT NULL,
+    -- Days a deleted book stays in <library>/.lily-trash before the nightly purge. '0' = keep until emptied.
+    -- TEXT so the generic settings form does not treat it as a checkbox.
+    trash_retention_days TEXT DEFAULT '30' NOT NULL,
+    -- When the duplicate auto-resolution preview last ran (ISO time). Auto-resolve cannot be enabled before one.
+    -- TEXT with an empty default so the generic settings form leaves it alone.
+    duplicate_auto_resolve_previewed_at TEXT DEFAULT '' NOT NULL,
+    -- Why auto-resolution last refused to run, shown on the Duplicates settings tab. Empty = no problem.
+    duplicate_auto_resolve_last_abort TEXT DEFAULT '' NOT NULL
 );
 
 -- Persisted scheduled jobs (initial focus: auto-send). Rows remain until dispatched or manually cleared.
@@ -196,3 +211,15 @@ CREATE TABLE IF NOT EXISTS cwa_duplicate_resolutions (
 
 CREATE INDEX IF NOT EXISTS idx_duplicate_resolutions_timestamp ON cwa_duplicate_resolutions(timestamp);
 CREATE INDEX IF NOT EXISTS idx_duplicate_resolutions_group_hash ON cwa_duplicate_resolutions(group_hash);
+
+-- Last run of each recurring background job (scripts/job_status.py). Timestamps are UTC ISO 8601.
+CREATE TABLE IF NOT EXISTS job_status (
+    job TEXT PRIMARY KEY NOT NULL,      -- 'db_backup', 'library_mirror', 'processed_cleanup', ...
+    last_started TEXT,
+    last_success TEXT,
+    last_error_at TEXT,
+    last_error TEXT DEFAULT ''
+);
+
+-- Search-success stats look up a user's downloads/reads right after each search
+CREATE INDEX IF NOT EXISTS idx_activity_user_event_time ON cwa_user_activity(user_id, event_type, timestamp);

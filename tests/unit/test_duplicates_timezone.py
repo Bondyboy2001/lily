@@ -58,7 +58,7 @@ def _load_duplicates_module():
     )
 
     _install_stub("cps.admin", {"admin_required": lambda f: f})
-    _install_stub("cps.usermanagement", {"login_required_if_no_ano": lambda f: f})
+    _install_stub("cps.usermanagement", {"login_required_if_no_ano": lambda f: f, "refuse_token_auth": lambda: False})
     _install_stub("cps.internal_api", {"internal_only": lambda f: f})
     _install_stub("cps.render_template", {"render_title_template": lambda *args, **kwargs: ""})
 
@@ -102,6 +102,9 @@ def _load_duplicates_module():
             self.cwa_settings = {}
 
     _install_stub("cwa_db", {"CWA_DB": _CWA_DB})
+
+    from tests.unit.duplicate_loader import load_duplicate_rules
+    load_duplicate_rules()
 
     duplicates_path = pathlib.Path(__file__).resolve().parents[2] / "cps" / "duplicates.py"
     spec = importlib.util.spec_from_file_location("cps.duplicates", duplicates_path)

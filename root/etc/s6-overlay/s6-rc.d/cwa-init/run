@@ -47,20 +47,22 @@ if [[ ! -f /config/client_secrets.json ]]; then
     echo "{}" > /config/client_secrets.json
 fi
 
-# check if kepubify is present and if so make executable
-if [[ -f /usr/bin/kepubify ]] && [[ ! -x /usr/bin/kepubify ]]; then
-    chmod +x /usr/bin/kepubify
-fi
-
 # Pre-stage some files & directories for permissions purposes
 mkdir -p /app/calibre-web-automated/cps/cache
+
+# Give everything under the given paths to abc:abc, changing only what isn't already.
+# A recursive chown rewrote the owner (and ctime) of every file in the library, thumbnails and
+# backups on every boot; this only reads the tree, and a steady-state boot writes nothing.
+chown_abc() {
+  find "$@" \( ! -user abc -o ! -group abc \) -exec chown -h abc:abc {} +
+}
 
 # permissions (skip chown on network shares for bind mounts, but still fix /app)
 if [ "${NETWORK_SHARE_MODE,,}" = "true" ] || [ "${NETWORK_SHARE_MODE}" = "1" ] || [ "${NETWORK_SHARE_MODE,,}" = "yes" ] || [ "${NETWORK_SHARE_MODE,,}" = "on" ]; then
   echo "[cwa-init] NETWORK_SHARE_MODE=true detected; skipping initial chown of /config"
-  chown -R abc:abc /app/calibre-web-automated/cps/cache
+  chown_abc /app/calibre-web-automated/cps/cache
 else
-  chown -R abc:abc \
+  chown_abc \
     /config \
     /app/calibre-web-automated/cps/cache
 fi
@@ -70,17 +72,6 @@ export CALIBRE_DBPATH=/config
 if [[ ! -f /config/app.db ]]; then
   echo "First time run, creating app.db..."
   cd /app/calibre-web-automated && s6-setuidgid abc python3 /app/calibre-web-automated/cps.py -d > /dev/null 2>&1
-  # handle app.db updates for kepubify and ext binary path
-  # borrowed from crocodilestick because it's a better solution than what i was doing
-  sqlite3 /config/app.db <<EOS
-    update settings set config_kepubifypath='/usr/bin/kepubify' where config_kepubifypath is NULL or LENGTH(config_kepubifypath)=0;
-EOS
-
-  if [[ $? == 0 ]]; then
-    echo "Successfully set kepubify paths in '/config/app.db'!"
-  elif [[ $? > 0 ]]; then
-    echo "Could not set binary paths for '/config/app.db' (see errors above)."
-  fi
 fi
 
 #------------------------------------------------------------------------------------------------------------------------
@@ -111,10 +102,10 @@ if [ -n "$INGEST_DIR" ]; then
     if [ "$INGEST_DIR" = "/cwa-book-ingest" ]; then
       echo "[cwa-init] NETWORK_SHARE_MODE=true detected; skipping chown of $INGEST_DIR"
     else
-      chown -R abc:abc "$INGEST_DIR" 2>/dev/null || true
+      chown_abc "$INGEST_DIR" 2>/dev/null || true
     fi
   else
-    chown -R abc:abc "$INGEST_DIR" 2>/dev/null || true
+    chown_abc "$INGEST_DIR" 2>/dev/null || true
   fi
 fi
 
@@ -170,7 +161,7 @@ fi
 echo "[cwa-init] Setting binary paths in '/config/app.db' to the correct ones..."
 
 sqlite3 /config/app.db <<EOS
-    update settings set config_kepubifypath='/usr/bin/kepubify', config_converterpath='/usr/bin/ebook-convert', config_binariesdir='/usr/bin';
+    update settings set config_converterpath='/usr/bin/ebook-convert', config_binariesdir='/usr/bin';
 EOS
 
 if [[ $? == 0 ]]
@@ -229,8 +220,13 @@ echo "[cwa-init] CWA-init complete! Service exiting now..."
 #  Set required permissions
 #------------------------------------------------------------------------------------------------------------------------
 
-# In addition to /config and /app/calibre-web-automated, parse required dirs from dirs.json
-declare -a requiredDirs=("/config" "/app/calibre-web-automated" "/calibre-library")
+# In addition to /config and the few app dirs abc writes, parse required dirs from dirs.json.
+# The rest of /app/calibre-web-automated stays root-owned and read-only for abc (see
+# scripts/setup-cwa.sh, which lists the same writable dirs).
+declare -a requiredDirs=("/config" "/calibre-library"
+  "/app/calibre-web-automated/metadata_change_logs"
+  "/app/calibre-web-automated/metadata_temp"
+  "/app/calibre-web-automated/cps/cache")
 if [ -f /app/calibre-web-automated/dirs.json ]; then
   while IFS= read -r dir; do
     [ -n "$dir" ] && requiredDirs+=("$dir")
@@ -264,7 +260,7 @@ for d in "${requiredDirs[@]}"; do
         ;;
     esac
   fi
-  chown -R abc:abc "$d"
+  chown_abc "$d"
   if [[ $? == 0 ]]; then
     echo "[cwa-init] Successfully set permissions for '$d'!"
   elif [[ $? > 0 ]]; then

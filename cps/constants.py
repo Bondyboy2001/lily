@@ -21,7 +21,6 @@ BASE_DIR            = os.path.abspath(os.path.join(os.path.dirname(os.path.abspa
 # if executable file the files should be placed in the parent dir (parallel to the exe file)
 
 STATIC_DIR          = os.path.join(BASE_DIR, 'cps', 'static')
-TEMPLATES_DIR       = os.path.join(BASE_DIR, 'cps', 'templates')
 TRANSLATIONS_DIR    = os.path.join(BASE_DIR, 'cps', 'translations')
 
 # Cache dir - use CACHE_DIR environment variable, otherwise use the default directory: cps/cache
@@ -126,9 +125,8 @@ if env_CWA_PORT_OVERRIDE:
 
 
 EXTENSIONS_AUDIO = {'mp3', 'mp4', 'ogg', 'opus', 'wav', 'flac', 'm4a', 'm4b'}
-EXTENSIONS_UPLOAD = {'txt', 'pdf', 'epub', 'kepub', 'mobi', 'azw', 'azw3', 'cbr', 'cbz', 'cbt', 'cb7', 'djvu', 'djv',
-                     'prc', 'doc', 'docx', 'fb2', 'html', 'rtf', 'lit', 'odt', 'mp3', 'mp4', 'ogg',
-                     'opus', 'wav', 'flac', 'm4a', 'm4b', 'acsm', 'kfx', 'kfx-zip'}
+EXTENSIONS_BOOK = {'epub', 'pdf', 'djvu', 'djv'}
+EXTENSIONS_UPLOAD = EXTENSIONS_BOOK | EXTENSIONS_AUDIO
 
 _extension = ""
 if sys.platform == "win32":

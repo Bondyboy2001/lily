@@ -3,6 +3,7 @@
 
 <head>
   <meta charset="utf-8">
+  {% include 'lily_theme_head.html' %}
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
   <title>{{ entry.title }}</title>
   <meta name="description" content="">
@@ -81,7 +82,7 @@
     {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
     <section class="lily-audio-description">
       <h2>{{_('Description:')}}</h2>
-      {{ entry.comments[0].text|safe }}
+      {{ entry.comments[0].text|flatten_breaks }}
     </section>
     {% endif %}
   </main>

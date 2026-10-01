@@ -4,16 +4,14 @@
 <link href="{{ url_for('static', filename='css/libs/bootstrap-table.min.css') }}" rel="stylesheet">
 <link href="{{ url_for('static', filename='css/libs/bootstrap-editable.css') }}" rel="stylesheet">
 {% endblock %}
-{% block heading %}{{ _('Library View') }}{% endblock %}
 {% block settings %}
 <div class="lp">
   <form role="form" method="POST" autocomplete="off">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-    {% call f.group(_('Library View')) %}
+    {% call f.group(_('Browsing')) %}
       {{ f.input('config_calibre_web_title', _('Title'), conf.config_calibre_web_title, help=_('Shown in the browser tab and the sidebar.'), attrs='required') }}
       {{ f.input('config_books_per_page', _('Books per Page'), conf.config_books_per_page, type='number', attrs='min="1" max="200"') }}
-      {{ f.input('config_random_books', _('Random Books on Home'), conf.config_random_books, type='number', attrs='min="1" max="30"') }}
       {{ f.input('config_authors_max', _('Authors Shown Before Hiding'), conf.config_authors_max, type='number', help=_('0 shows them all.'), attrs='min="0" max="999"') }}
       {{ f.input('config_title_regex', _('Title Sorting Pattern'), conf.config_title_regex, help=_('Regex for leading words to ignore when sorting, like "The".')) }}
     {% endcall %}
@@ -38,7 +36,7 @@
       {% endcall %}
     {% endcall %}
 
-    {% call f.group(_('New Users'), help=_('Applied to accounts created from now on.')) %}
+    {% call f.group(_('New Users: Defaults'), help=_('Applied to accounts created from now on.')) %}
       {% call f.row(_('Interface Language'), for_id='config_default_locale') %}
         <select name="config_default_locale" id="config_default_locale" class="form-control">
           {% for translation in translations %}
@@ -54,6 +52,9 @@
           {% endfor %}
         </select>
       {% endcall %}
+    {% endcall %}
+
+    {% call f.group(_('New Users: Permissions')) %}
       <div class="lp-checks">
         {{ f.check('admin_role', _('Admin User'), conf.role_admin()) }}
         {{ f.check('download_role', _('Allow Downloads'), conf.role_download()) }}
@@ -72,13 +73,12 @@
         {% for element in sidebar %}
           {% if element['config_show'] %}{{ f.check('show_' ~ element['visibility'], element['show_text'], conf.show_element_new_user(element['visibility'])) }}{% endif %}
         {% endfor %}
-        {{ f.check('Show_detail_random', _('Show Random Books in Detail View'), conf.show_detail_random()) }}
       </div>
     {% endcall %}
 
-    <div class="lp-actions">
+    <div class="lp-actions is-save">
       <span class="lp-spacer"></span>
-      <a href="{{ url_for('admin.admin') }}" class="btn btn-default">{{_('Cancel')}}</a>
+      <a href="{{ request.path }}" class="btn btn-default">{{_('Cancel')}}</a>
       <button type="submit" name="submit" class="btn btn-primary">{{_('Save')}}</button>
     </div>
   </form>

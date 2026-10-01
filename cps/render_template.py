@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""render_title_template: wraps Flask templates with the sidebar, notifications and per-user settings."""
+
 from flask import render_template, g, abort, request, flash
 from flask import after_this_request, has_app_context, has_request_context
 from flask_babel import gettext as _
@@ -129,9 +131,6 @@ def get_sidebar_config(kwargs=None):
         {"glyph": "glyphicon-eye-close", "text": _('Unread Books'), "link": 'web.books_list', "id": "unread",
          "visibility": constants.SIDEBAR_READ_AND_UNREAD, 'public': (not current_user.is_anonymous), "page": "unread",
          "show_text": _('Show unread'), "config_show": False})
-    sidebar.append({"glyph": "glyphicon-random", "text": _('Discover'), "link": 'web.books_list', "id": "rand",
-                    "visibility": constants.SIDEBAR_RANDOM, 'public': True, "page": "discover",
-                    "show_text": _('Show Random Books'), "config_show": True})
     sidebar.append({"glyph": "glyphicon-inbox", "text": _('Categories'), "link": 'web.category_list', "id": "cat",
                     "visibility": constants.SIDEBAR_CATEGORY, 'public': True, "page": "category",
                     "show_text": _('Show Category Section'), "config_show": True})
@@ -235,6 +234,19 @@ def cwa_update_notification() -> None:
             f.write(current_date)
     _update_notice_done_date = current_date
 
+def _admin_job_problems():
+    """Background jobs that failed or stopped succeeding, for the admin banner in layout.html.
+    One small cwa.db read, cached for a minute (cps/services/job_status.py)."""
+    if not current_user.is_authenticated or not current_user.role_admin():
+        return []
+    try:
+        from .services.job_status import job_problems
+        return job_problems()
+    except Exception as e:
+        log.debug("Could not check background job status: %s", e)
+        return []
+
+
 # Returns the template for rendering and includes the instance name
 def render_title_template(*args, **kwargs):
     sidebar, simple = get_sidebar_config(kwargs)
@@ -287,8 +299,8 @@ def render_title_template(*args, **kwargs):
                                 group for group in duplicate_groups
                                 if group.get('group_hash') not in dismissed_hashes
                             ]
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        log.debug("Could not filter dismissed duplicate groups: %s", e)
 
                     preview = []
                     for group in duplicate_groups[:3]:
@@ -320,6 +332,7 @@ def render_title_template(*args, **kwargs):
         return render_template(instance=config.config_calibre_web_title, sidebar=sidebar, simple=simple,
                        accept=config.config_upload_formats.split(','),
                        duplicate_notification=duplicate_notification,
+                       job_problems=_admin_job_problems(),
                        *args, **kwargs)
     except PermissionError:
         log.error("No permission to access {} file.".format(args[0]))
