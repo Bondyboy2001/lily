@@ -11,7 +11,7 @@
     {% for user in allUser[:10] %}
       {% if not user.role_anonymous() or config.config_anonbrowse %}
         {% set badge %}{% if user.role_admin() %}<span class="lp-pill">{{ _('Admin') }}</span>{% elif user.role_anonymous() %}<span class="lp-pill is-muted">{{ _('Guest') }}</span>{% endif %}{% endset %}
-        {{ f.link(url_for('admin.edit_user', user_id=user.id), user.name ~ ' ' ~ badge, help=user.email, cls='session') }}
+        {{ f.link(url_for('admin.edit_user', user_id=user.id), user.name ~ ' ' ~ badge, cls='session') }}
       {% endif %}
     {% endfor %}
     {% if allUser|length > 10 %}

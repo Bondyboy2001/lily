@@ -599,35 +599,12 @@ def uniq(inpt):
     return output
 
 
-def check_email(email):
-    email = valid_email(email)
-    if ub.session.query(ub.User).filter(func.lower(ub.User.email) == email.lower()).first():
-        log.error("Found an existing account for this Email address")
-        raise Exception(_("Found an existing account for this Email address"))
-    return email
-
-
 def check_username(username):
     username = strip_whitespaces(username)
     if ub.session.query(ub.User).filter(func.lower(ub.User.name) == username.lower()).scalar():
         log.error("This username is already taken")
         raise Exception(_("This username is already taken"))
     return username
-
-
-def valid_email(emails):
-    valid_emails = []
-    for email in emails.split(','):
-        email = strip_whitespaces(email)
-        # if email is not deleted
-        if email:
-            # Regex according to https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/email#validation
-            if not re.search(r"^[\w.!#$%&'*+\\/=?^_`{|}~-]+@[\w](?:[\w-]{0,61}[\w])?(?:\.[\w](?:[\w-]{0,61}[\w])?)*$",
-                             email):
-                log.error("Invalid Email address format for {}".format(email))
-                raise Exception(_("Invalid Email address format"))
-            valid_emails.append(email)
-    return ",".join(valid_emails)
 
 
 def valid_password(check_password):

@@ -246,7 +246,9 @@ class User(UserBase, Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(64), unique=True)
-    email = Column(String(120), unique=True, default="")
+    # Unused since e-mail was removed; kept so old app.db files still match. No default: new
+    # users store NULL, which UNIQUE allows any number of times ("" would collide).
+    email = Column(String(120), unique=True)
     role = Column(SmallInteger, default=constants.ROLE_USER)
     password = Column(String)
     shelf = relationship('Shelf', backref='user', lazy='dynamic', order_by='Shelf.name')
