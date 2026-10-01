@@ -41,11 +41,11 @@
             {% if config.config_google_drive_watch_changes_response %}
               {% call f.row(_('Metadata Watch Channel ID'), for_id='config_google_drive_watch_changes_response') %}
                 <input type="text" class="form-control" name="config_google_drive_watch_changes_response" id="config_google_drive_watch_changes_response" value="{{ config.config_google_drive_watch_changes_response['id'] }} expires on {{ config.config_google_drive_watch_changes_response['expiration'] |  strftime }}" autocomplete="off" disabled="">
-                <a href="{{ url_for('gdrive.revoke_watch_gdrive') }}" id="watch_revoke" class="btn btn-danger">{{_('Revoke')}}</a>
+                <button type="submit" form="gdrive_watch_revoke" id="watch_revoke" class="btn btn-danger">{{_('Revoke')}}</button>
               {% endcall %}
             {% else %}
               {% call f.row(_('Metadata Watch')) %}
-                <a href="{{ url_for('gdrive.watch_gdrive') }}" id="enable_gdrive_watch" class="btn btn-default">Enable watch of metadata.db</a>
+                <button type="submit" form="gdrive_watch_enable" id="enable_gdrive_watch" class="btn btn-default">Enable watch of metadata.db</button>
               {% endcall %}
             {% endif %}
           {% endif %}
@@ -60,6 +60,15 @@
       <div id="db_submit" name="submit" class="btn btn-primary" role="button" tabindex="0">{{_('Save')}}</div>
     </div>
   </form>
+  {% if feature_support['gdrive'] %}
+  {# The watch buttons above post these (forms can't nest); POST so a link can't trigger them #}
+  <form id="gdrive_watch_enable" method="post" action="{{ url_for('gdrive.watch_gdrive') }}" hidden>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  </form>
+  <form id="gdrive_watch_revoke" method="post" action="{{ url_for('gdrive.revoke_watch_gdrive') }}" hidden>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  </form>
+  {% endif %}
 
   {% call f.group(_('Troubleshooting')) %}
     <details class="lp-more">
