@@ -39,7 +39,7 @@
       <div class="cover">
         <a href="{{ resume_url }}" data-book-id="{{ book.id }}" class="book-cover-link">
           <span class="img" title="{{ book.title }}">
-            {{ image.book_cover(book) }}
+            {{ image.book_cover(book, sizes=image.CONTINUE_COVER_SIZES) }}
           </span>
         </a>
       </div>

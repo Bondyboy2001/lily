@@ -7,6 +7,10 @@
 
 """Authentication helpers: Basic auth for OPDS, API-token and Bearer lookup, login-required decorators."""
 
+import hashlib
+import hmac
+import os
+import time
 from functools import wraps
 
 from sqlalchemy.sql.expression import func
@@ -52,6 +56,35 @@ def _bearer_token(req):
     return header[7:].strip()
 
 
+# OPDS clients send Basic auth on every request (each cover too), and the password hash
+# (scrypt) costs ~70 ms of CPU on the hub per check. Successful checks are remembered for
+# a while, keyed by user id and an HMAC of the password under a per-process random key,
+# and tied to the stored hash, so a password change invalidates them at once.
+_PASSWORD_CHECK_TTL = 600
+_PASSWORD_CHECK_MAX_ENTRIES = 256
+_password_check_key = os.urandom(32)
+_password_checks = {}
+
+
+def _check_password_cached(user, password):
+    stored_hash = str(user.password)
+    key = (user.id, hmac.new(_password_check_key, password.encode('utf-8'), hashlib.sha256).digest())
+    now = time.monotonic()
+    cached = _password_checks.get(key)
+    if cached and cached[0] == stored_hash and cached[1] > now:
+        return True
+    if not check_password_hash(stored_hash, password):
+        _password_checks.pop(key, None)
+        return False
+    if len(_password_checks) >= _PASSWORD_CHECK_MAX_ENTRIES:
+        for stale in [k for k, (_h, expires) in _password_checks.items() if expires <= now]:
+            del _password_checks[stale]
+        if len(_password_checks) >= _PASSWORD_CHECK_MAX_ENTRIES:
+            _password_checks.clear()
+    _password_checks[key] = (stored_hash, now + _PASSWORD_CHECK_TTL)
+    return True
+
+
 def user_for_api_token(token):
     """The user owning this personal API token, or None."""
     if not totp.looks_like_api_token(token):
@@ -80,7 +113,7 @@ def verify_password(username, password):
             if user.force_password_change:
                 log.warning('OPDS login refused for user "%s": the password must be changed first', username)
                 return None
-            if not user.totp_enabled and check_password_hash(str(user.password), password):
+            if not user.totp_enabled and _check_password_cached(user, password):
                 [limiter.limiter.storage.clear(k.key) for k in limiter.current_limits]
                 return user
 

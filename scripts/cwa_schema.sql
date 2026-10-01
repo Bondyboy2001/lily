@@ -220,3 +220,6 @@ CREATE TABLE IF NOT EXISTS job_status (
     last_error_at TEXT,
     last_error TEXT DEFAULT ''
 );
+
+-- Search-success stats look up a user's downloads/reads right after each search
+CREATE INDEX IF NOT EXISTS idx_activity_user_event_time ON cwa_user_activity(user_id, event_type, timestamp);

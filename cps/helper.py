@@ -61,7 +61,7 @@ from .tasks.thumbnail import TaskClearCoverThumbnailCache, TaskGenerateCoverThum
 from .tasks.metadata_backup import TaskBackupMetadata
 from .file_helper import get_temp_dir
 from .epub_helper import get_content_opf, create_new_metadata_backup, updateEpub, replace_metadata
-from .embed_helper import do_calibre_export
+from .embed_helper import do_calibre_export, download_needs_calibre_export
 
 log = logger.create()
 
@@ -706,8 +706,9 @@ def get_book_cover_internal(book, resolution=None):
             webp_exists = webp_thumb and cache.get_cache_file_exists(webp_thumb.filename, CACHE_TYPE_THUMBNAILS)
             jpg_exists = jpg_thumb and cache.get_cache_file_exists(jpg_thumb.filename, CACHE_TYPE_THUMBNAILS)
 
-            # Generate missing thumbnails on-demand
-            if not webp_exists or not jpg_exists:
+            # Generate missing thumbnails on-demand (only WebP is generated; an old JPEG is
+            # still served while it exists, but its absence must not re-queue generation)
+            if not webp_exists:
                 try:
                     if use_IM:
                         from .tasks.thumbnail import TaskGenerateCoverThumbnails
@@ -1036,7 +1037,8 @@ def do_download_file(book, book_format, client, data, headers):
                 log.error_or_exception(f"Failed to kepubify metadata for book {book.id}: {e}")
                 filename = os.path.join(config.get_book_path(), book.path)
                 download_name = book_name
-        elif book_format != "kepub" and config.config_binariesdir and config.config_embed_metadata:
+        elif book_format != "kepub" and config.config_binariesdir and config.config_embed_metadata \
+                and download_needs_calibre_export(book_format):
             filename, download_name = do_calibre_export(book.id, book_format)
 
             # Rename the exported file to match the expected download name (from Content-Disposition)
