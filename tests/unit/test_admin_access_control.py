@@ -61,6 +61,7 @@ def test_admin_actions_are_closed_to_users_and_visitors(clients, path):
 PUBLIC_ENDPOINTS = {
     "web.login", "web.login_post",                 # the sign-in page
     "web.health_check",                            # container health check
+    "web.reader_service_worker",                   # static service-worker script; caches only signed-in responses
     "gdrive.on_received_watch_confirmation",       # Google's push callback; checks its own channel token
     "admin.reconnect",                             # 404 unless started with -r (calibre-web's reconnect hook)
 }

@@ -116,7 +116,8 @@ class FailureTracker:
         now = time.time() if now is None else now
         if not self.locked(key, now):
             return 0
-        return int(self._state.get(key)["until"] - now) + 1
+        entry = self._state.get(key) or {}
+        return int(entry.get("until", 0) - now) + 1
 
     def success(self, key) -> None:
         self._state.pop(key, None)
