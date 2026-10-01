@@ -966,7 +966,7 @@ class NewBookProcessor:
                 "calibredb", "add_format", str(book_id), str(staged_path), f"--library-path={self.library_dir}"
             ], env=self.calibre_env, check=True, capture_output=True, text=True)
             added = True
-            self.format_book_ids.append(int(book_id))
+            self.format_book_ids = [*getattr(self, "format_book_ids", []), int(book_id)]
             print(f"[ingest-processor] Added new format for book id {book_id}: {os.path.basename(str(staged_path))}", flush=True)
             mark_ingest_batch_dirty()
             if self.cwa_settings['auto_backup_imports']:
@@ -1181,7 +1181,7 @@ def main(filepath=None):
                     else:
                         print(f"[ingest-processor] ERROR: Invalid book_id in manifest for {os.path.basename(filepath)}", flush=True)
 
-                    if not success and nbp.db_locked:
+                    if not success and getattr(nbp, "db_locked", False):
                         # Retryable: keep the file and its manifest exactly as they are
                         source_outcome = "keep"
                         return EXIT_BUSY
