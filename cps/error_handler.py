@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""HTML and JSON error pages for HTTP errors."""
+
 import secrets
 import traceback
 

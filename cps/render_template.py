@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""render_title_template: wraps Flask templates with the sidebar, notifications and per-user settings."""
+
 from flask import render_template, g, abort, request, flash
 from flask import after_this_request, has_app_context, has_request_context
 from flask_babel import gettext as _

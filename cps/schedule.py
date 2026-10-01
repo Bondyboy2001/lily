@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Registers the nightly and scheduled background tasks (backups, mirror, cleanup, scans)."""
+
 import datetime
 
 from . import config, constants

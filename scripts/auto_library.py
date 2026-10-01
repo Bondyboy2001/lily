@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""First-start library setup: finds the existing Calibre library or creates an empty one, then records its location."""
+
 import json
 import os
 import shutil

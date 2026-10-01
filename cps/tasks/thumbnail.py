@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Tasks that generate and clean up cover thumbnails."""
+
 import os
 from urllib.request import urlopen
 from io import BytesIO

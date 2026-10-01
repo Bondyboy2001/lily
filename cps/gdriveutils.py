@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Google Drive storage helpers and the gdrive.db settings database."""
+
 import os
 import json
 import shutil

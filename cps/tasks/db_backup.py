@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Tasks that snapshot app.db, cwa.db and metadata.db, and restore them from a snapshot."""
+
 import os
 import sys
 

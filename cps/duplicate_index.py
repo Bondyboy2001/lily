@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""The duplicate-key index: per-book keys, group queries and cache merging, so scans don't re-read the whole library."""
+
 import hashlib
 import json
 import os

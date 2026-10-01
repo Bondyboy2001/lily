@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Simple and advanced search over the library."""
+
 import json
 from datetime import datetime
 

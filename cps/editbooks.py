@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Editing a book's metadata and files, deleting books, and the helpers the bulk and upload modules share."""
+
 import os
 import sys
 import time

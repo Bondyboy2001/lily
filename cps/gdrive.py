@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Google Drive endpoints: authentication, change-watch subscription and callbacks."""
+
 import os
 import hashlib
 import hmac

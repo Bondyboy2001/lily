@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Admin pages: server and library configuration, users and their restrictions, scheduled tasks, Hardcover review."""
+
 import os
 import re
 import json

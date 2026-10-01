@@ -38,7 +38,11 @@ in-browser reading, 20+ languages, content hiding — plus:
 | **Duplicate detection** | Hybrid SQL + fuzzy matching, with one-click merge and scheduled scans. |
 | **Automatic metadata fetch** | Optional on ingest, with provider fallback and fill-missing-only mode. |
 | **Deep stats & analytics** | Activity, library and API usage, with CSV export. |
-| **Nightly backups** | Snapshots of all three databases, retention configurable. |
+| **Nightly backups** | Snapshots of all three databases, downloadable as a zip, retention configurable. Optionally mirrors new and changed book files to a second folder. |
+| **Failed imports** | See what the ingest pipeline rejected, retry it or delete it. |
+| **Metadata suggestions** | Looks up books with no description and queues gap-filling suggestions for you to accept or reject. Never overwrites what a book already has. |
+| **Two-factor login & API tokens** | Optional authenticator-app codes at sign-in; a personal token for OPDS apps and scripts. |
+| **My Reading** | A yearly summary of the books you finished, by month, author and tag. |
 | **Batch edit & delete** | Select many books, act once. |
 | **Update notifications** | In-app notice when a new release is available. |
 | **Manual library refresh** | Re-process anything stranded in the ingest folder. |
@@ -154,7 +158,8 @@ docker compose -f docker-compose.yml.dev up -d
 ```
 
 `docker-compose.yml.dev` documents live-edit mounts for auto-reload on code changes.
-See [pytest.ini](pytest.ini) and [`run_tests.sh`](run_tests.sh) for the test suite.
+See [pytest.ini](pytest.ini) and [`run_tests.sh`](run_tests.sh) for the test suite, and
+[docs/architecture.md](docs/architecture.md) for how the code is laid out.
 
 ## Affiliated projects
 

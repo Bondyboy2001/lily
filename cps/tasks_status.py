@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""The Tasks page and its JSON status endpoints."""
+
 from markupsafe import escape
 
 from flask import Blueprint, jsonify

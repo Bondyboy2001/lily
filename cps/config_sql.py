@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Persistent server configuration stored in app.db, including the encrypted-settings key file."""
+
 import os
 import sys
 import json

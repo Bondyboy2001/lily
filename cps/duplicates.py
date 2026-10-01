@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Duplicate Books page and its endpoints: status, dismiss, scan trigger, preview and run resolution."""
+
 from flask import Blueprint, jsonify, abort
 from flask_babel import gettext as _
 from datetime import datetime

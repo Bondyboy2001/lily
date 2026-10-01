@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Shared helpers: cover and file paths, downloads, validation, thumbnails and archive handling."""
+
 import os
 import io
 import mimetypes

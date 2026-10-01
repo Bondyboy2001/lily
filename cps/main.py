@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Application start-up: registers every blueprint, then starts the web server."""
+
 import sys
 
 from . import create_app, limiter

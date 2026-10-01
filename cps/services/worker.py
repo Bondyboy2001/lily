@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""The background task queue: CalibreTask base class and the WorkerThread that runs tasks."""
+
 import threading
 import abc
 import uuid

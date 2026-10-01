@@ -1,6 +1,8 @@
 # Calibre-Web Automated – fork of Calibre-Web
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+"""Task that mirrors new and changed book files to the configured second folder."""
+
 import sys
 
 from flask_babel import lazy_gettext as N_

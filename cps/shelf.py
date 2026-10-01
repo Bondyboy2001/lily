@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Shelves: create, edit, delete, order and add books."""
+
 from datetime import datetime, timezone
 
 from flask import Blueprint, flash, redirect, request, url_for, abort, jsonify

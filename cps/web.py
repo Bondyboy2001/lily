@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Library browsing: the home page, book grids, details, the reader entry points and the blueprint the web_* modules attach to."""
+
 import os
 import json
 import math

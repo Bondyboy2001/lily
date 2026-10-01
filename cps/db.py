@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""The Calibre library (metadata.db): SQLAlchemy models, the CalibreDB session wrapper, filters and typeahead queries."""
+
 import os
 import re
 import json

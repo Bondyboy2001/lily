@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Authentication helpers: Basic auth for OPDS, API-token and Bearer lookup, login-required decorators."""
+
 from functools import wraps
 
 from sqlalchemy.sql.expression import func

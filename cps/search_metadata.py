@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Loads the metadata providers and serves the metadata search used when editing a book."""
+
 import concurrent.futures
 import importlib
 import inspect

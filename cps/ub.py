@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""The application database (app.db): users, shelves, read status, sessions, queues, and its schema migrations."""
+
 import atexit
 import os
 import sys

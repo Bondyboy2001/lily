@@ -1,6 +1,8 @@
 # Calibre-Web Automated – fork of Calibre-Web
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+"""Task that looks up books without a description and queues metadata suggestions for review."""
+
 import json
 import sys
 import time

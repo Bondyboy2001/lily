@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Task that rebuilds the duplicate index and, if enabled, auto-resolves duplicates."""
+
 import sys
 from datetime import datetime
 from sqlalchemy import func

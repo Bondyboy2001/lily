@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""The ingest process: converts, imports and backs up files dropped in the ingest folder."""
+
 import atexit
 import json
 import os

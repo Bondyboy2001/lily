@@ -5,6 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""OPDS catalog feeds for e-reader and reading apps (Basic auth, or a personal API token)."""
+
 import datetime
 import json
 from urllib.parse import unquote_plus

@@ -186,8 +186,8 @@
     width: 100%;
     height: 100%;
     max-height: none;
-    /* The whole cover stays visible: a wider page than the box letterboxes instead of cropping. */
-    object-fit: contain;
+    /* Fill the box so Letter and A4 pages tile at the same size; the trim lands in page margins. */
+    object-fit: cover;
     border: 0;
     box-shadow: none;
 }

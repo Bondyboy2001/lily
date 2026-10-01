@@ -4,6 +4,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+"""Automatic metadata enforcement: writes a book's current metadata and cover back into its EPUB/AZW3 files."""
+
 import argparse
 import atexit
 import json
