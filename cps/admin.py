@@ -5,19 +5,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Admin pages: server and library configuration, users and their restrictions, scheduled tasks, Hardcover review."""
+"""Admin pages: users and their restrictions, plus the admin-only maintenance endpoints."""
 
 import os
-import re
 import json
-import operator
-import sys
-import string
-from datetime import datetime
 from functools import wraps
 
 from flask import Blueprint, flash, redirect, url_for, abort, request, make_response, g, Response, jsonify
-from markupsafe import Markup
 from .cw_login import current_user
 from flask_babel import gettext as _
 from sqlalchemy.orm.attributes import flag_modified
@@ -25,11 +19,9 @@ from sqlalchemy.exc import IntegrityError, OperationalError, InvalidRequestError
 from sqlalchemy.sql.expression import func, or_, text
 
 from . import constants, logger, helper, cli_param
-from . import db, calibre_db, ub, web_server, config, gdriveutils, schedule
+from . import db, calibre_db, ub, web_server, config
 from werkzeug.security import generate_password_hash
 from .helper import check_email, valid_email, check_username
-from .embed_helper import get_calibre_binarypath
-from .gdriveutils import is_gdrive_ready, gdrive_support
 from .render_template import render_title_template, get_sidebar_config
 from .services.worker import WorkerThread
 from .usermanagement import user_login_required
@@ -38,11 +30,6 @@ from . import debug_info
 from .string_helper import strip_whitespaces
 
 log = logger.create()
-
-feature_support = {
-    'scheduler': schedule.use_APScheduler,
-    'gdrive': gdrive_support
-}
 
 admi = Blueprint('admin', __name__)
 
@@ -88,24 +75,19 @@ def before_request():
         except Exception as e:
             log.error("ensure_session failed in before_request: %s", e)
         if calibre_db.session is None:
-            log.error("Calibre DB session unavailable; redirecting to DB configuration")
+            log.error("Calibre DB session unavailable")
             config.db_configured = False
-            flash(_("Calibre database unavailable. Please reconfigure the library path."), category="error")
     g.constants = constants
     g.google_site_verification = os.getenv('GOOGLE_SITE_VERIFICATION', '')
     g.allow_anonymous = config.config_anonbrowse
     g.allow_upload = config.config_uploading
     g.config_authors_max = config.config_authors_max
+    # The library lives at /calibre-library (autoconfigured above); there is no page to point
+    # Lily elsewhere, so without a usable metadata.db every page but login says so.
     if '/static/' not in request.path and not config.db_configured and \
-        request.endpoint not in ('admin.ajax_db_config',
-                                 'admin.simulatedbchange',
-                                 'admin.db_configuration',
-                                 'web.login',
-                                 'web.login_post',
-                                 'web.logout',
-                                 'admin.load_dialogtexts',
-                                 'admin.ajax_pathchooser'):
-        return redirect(url_for('admin.db_configuration'))
+            request.endpoint not in ('web.login', 'web.login_post', 'web.logout'):
+        abort(503, description=_("No Calibre library found at /calibre-library. Mount a library "
+                                 "folder containing metadata.db there and restart Lily."))
 
 
 @admi.route("/shutdown", methods=["POST"])
@@ -201,199 +183,6 @@ def trigger_hardcover_auto_fetch():
         return json.dumps(show_text), 500
 
 
-@admi.route("/admin/hardcover/review-matches")
-@user_login_required
-@admin_required
-def hardcover_review_matches():
-    """Display queue of Hardcover matches needing manual review"""
-    try:
-        # Get pending matches from database
-        pending_matches = ub.session.query(ub.HardcoverMatchQueue).filter(
-            ub.HardcoverMatchQueue.reviewed == 0
-        ).order_by(ub.HardcoverMatchQueue.created_at.desc()).all()
-
-        # Parse JSON data for each match
-        matches_data = []
-        for match in pending_matches:
-            import json
-            try:
-                results = json.loads(match.hardcover_results)
-                scores = json.loads(match.confidence_scores)
-
-                matches_data.append({
-                    'id': match.id,
-                    'book_id': match.book_id,
-                    'book_title': match.book_title,
-                    'book_authors': match.book_authors,
-                    'search_query': match.search_query,
-                    'results': results,
-                    'scores': scores,
-                    'created_at': match.created_at
-                })
-            except Exception as e:
-                log.error(f"Error parsing match queue entry {match.id}: {e}")
-                continue
-
-        return render_title_template(
-            "hardcover_review_matches.html",
-            title=_("Review Hardcover Matches"),
-            page="hardcover-review",
-            matches=matches_data
-        )
-
-    except Exception as e:
-        log.error(f"Error loading Hardcover review queue: {e}")
-        flash(_("Error loading review queue: %(error)s", error=str(e)), category="error")
-        return redirect(url_for('admin.admin'))
-
-
-@admi.route("/admin/hardcover/review-action", methods=["POST"])
-@user_login_required
-@admin_required
-def hardcover_review_action():
-    """Process review action (accept/reject/skip) for a queued match"""
-    try:
-        data = request.get_json(silent=True) or request.form
-        if not data:
-            return json.dumps({'success': False, 'error': 'Missing request data'}), 400
-
-        queue_id_value = data.get('queue_id')
-        if queue_id_value is None:
-            return json.dumps({'success': False, 'error': 'Missing queue_id'}), 400
-
-        try:
-            queue_id = int(queue_id_value)
-        except (TypeError, ValueError):
-            return json.dumps({'success': False, 'error': 'Invalid queue_id'}), 400
-
-        action = data.get('action')  # 'accept', 'reject', 'skip'
-        selected_result_id = data.get('selected_result_id')
-
-        # Get queue entry
-        match = ub.session.query(ub.HardcoverMatchQueue).filter(
-            ub.HardcoverMatchQueue.id == queue_id
-        ).first()
-
-        if not match:
-            return json.dumps({'success': False, 'error': 'Match not found'}), 404
-
-        if action == 'accept' and selected_result_id:
-            # Apply the selected Hardcover ID to the book
-            results = json.loads(match.hardcover_results)
-            selected_result = next((r for r in results if str(r['id']) == str(selected_result_id)), None)
-
-            if not selected_result:
-                return json.dumps({'success': False, 'error': 'Selected result not found'}), 400
-
-            # Get the book
-            book = calibre_db.session.query(db.Books).filter(
-                db.Books.id == match.book_id
-            ).first()
-
-            if not book:
-                return json.dumps({'success': False, 'error': 'Book not found'}), 404
-
-            # Add identifiers
-            try:
-                identifiers_to_add = selected_result.get('identifiers', {})
-                for id_type, id_value in identifiers_to_add.items():
-                    id_value_str = str(id_value).strip() if id_value is not None else ""
-                    if not id_type or not id_value_str:
-                        continue
-                    # Check if identifier already exists
-                    existing = calibre_db.session.query(db.Identifiers).filter(
-                        db.Identifiers.book == match.book_id,
-                        db.Identifiers.type == id_type
-                    ).first()
-
-                    if existing:
-                        if existing.val != id_value_str:
-                            existing.val = id_value_str
-                    else:
-                        new_identifier = db.Identifiers(id_value_str, id_type, match.book_id)
-                        calibre_db.session.add(new_identifier)
-
-                calibre_db.session.commit()
-
-                # Mark as reviewed
-                match.reviewed = 1
-                match.selected_result_id = str(selected_result_id)
-                match.review_action = 'accept'
-                match.reviewed_at = datetime.utcnow().isoformat()
-                match.reviewed_by = current_user.name
-                ub.session.commit()
-
-                log.info(f"User {current_user.name} accepted Hardcover match for book {match.book_id}")
-                return json.dumps({'success': True, 'message': _('Hardcover ID applied successfully')})
-
-            except Exception as e:
-                calibre_db.session.rollback()
-                ub.session.rollback()
-                log.error(f"Error applying Hardcover ID: {e}")
-                return json.dumps({'success': False, 'error': 'Internal error; see server log for details'}), 500
-
-        elif action in ['reject', 'skip']:
-            # Mark as reviewed with appropriate action
-            match.reviewed = 1
-            match.review_action = action
-            match.reviewed_at = datetime.utcnow().isoformat()
-            match.reviewed_by = current_user.name
-            ub.session.commit()
-
-            log.info(f"User {current_user.name} {action}ed Hardcover match for book {match.book_id}")
-            return json.dumps({'success': True, 'message': _('Match %(action)s', action=action)})
-
-        else:
-            return json.dumps({'success': False, 'error': 'Invalid action'}), 400
-
-    except Exception as e:
-        log.error(f"Error processing review action: {e}")
-        return json.dumps({'success': False, 'error': 'Internal error; see server log for details'}), 500
-
-
-@admi.route("/admin/hardcover/review-reject-all", methods=["POST"])
-@user_login_required
-@admin_required
-def hardcover_review_reject_all():
-    """Reject all pending Hardcover matches"""
-    try:
-        reviewed_at = datetime.utcnow().isoformat()
-        updated_count = ub.session.query(ub.HardcoverMatchQueue).filter(
-            ub.HardcoverMatchQueue.reviewed == 0
-        ).update(
-            {
-                ub.HardcoverMatchQueue.reviewed: 1,
-                ub.HardcoverMatchQueue.review_action: 'reject',
-                ub.HardcoverMatchQueue.reviewed_at: reviewed_at,
-                ub.HardcoverMatchQueue.reviewed_by: current_user.name
-            },
-            synchronize_session=False
-        )
-        ub.session.commit()
-
-        log.info(
-            f"User {current_user.name} rejected all pending Hardcover matches "
-            f"({updated_count})"
-        )
-
-        if updated_count == 0:
-            return json.dumps({
-                'success': True,
-                'message': _('No pending matches to reject'),
-                'count': 0
-            })
-
-        return json.dumps({
-            'success': True,
-            'message': _('Rejected %(count)s match(es)', count=updated_count),
-            'count': updated_count
-        })
-    except Exception as e:
-        ub.session.rollback()
-        log.error(f"Error rejecting all pending matches: {e}")
-        return json.dumps({'success': False, 'error': 'Internal error; see server log for details'}), 500
-
-
 # method is available without login and not protected by CSRF to make it easy reachable, is per default switched off
 # needed for docker applications, as changes on metadata.db from host are not visible to application
 @admi.route("/reconnect", methods=['GET'])
@@ -438,59 +227,6 @@ def update_thumbnails():
             'success': False,
             'message': _('Failed to start thumbnail refresh: {}').format(str(e))
         })
-
-
-@admi.route("/admin/view")
-@user_login_required
-@admin_required
-def admin():
-    return redirect(url_for('duplicates.show_duplicates'))
-
-
-@admi.route("/admin/dbconfig", methods=["GET", "POST"])
-@user_login_required
-@admin_required
-def db_configuration():
-    if request.method == "POST":
-        return _db_configuration_update_helper()
-    return _db_configuration_result()
-
-
-@admi.route("/admin/config", methods=["GET"])
-@user_login_required
-@admin_required
-def configuration():
-    # The old General page; its options that are left live on Import & Metadata.
-    return redirect(url_for('cwa_settings.set_cwa_settings'))
-
-
-@admi.route("/admin/ajaxconfig", methods=["POST"])
-@user_login_required
-@admin_required
-def ajax_config():
-    return _configuration_update_helper()
-
-
-@admi.route("/admin/ajaxdbconfig", methods=["POST"])
-@user_login_required
-@admin_required
-def ajax_db_config():
-    return _db_configuration_update_helper()
-
-
-@admi.route("/admin/alive", methods=["GET"])
-@user_login_required
-@admin_required
-def calibreweb_alive():
-    return "", 200
-
-
-@admi.route("/admin/viewconfig")
-@user_login_required
-@admin_required
-def view_configuration():
-    # The old Display page was folded away; keep the URL working.
-    return redirect(url_for('admin.db_configuration'))
 
 
 @admi.route("/admin/usertable")
@@ -946,13 +682,6 @@ def list_restriction(res_type, user_id):
     return response
 
 
-@admi.route("/ajax/pathchooser/")
-@user_login_required
-@admin_required
-def ajax_pathchooser():
-    return pathchooser()
-
-
 def restriction_addition(element, list_func):
     elementlist = list_func()
     if elementlist == ['']:
@@ -995,170 +724,6 @@ def prepare_tags(user, action, tags_name, id_list):
     return ",".join(saved_tags_list)
 
 
-def get_drives(current):
-    drive_letters = []
-    for d in string.ascii_uppercase:
-        if os.path.exists('{}:'.format(d)) and current[0].lower() != d.lower():
-            drive = "{}:\\".format(d)
-            data = {"name": drive, "fullpath": drive, "type": "dir", "size": "", "sort": "_" + drive.lower()}
-            drive_letters.append(data)
-    return drive_letters
-
-
-def pathchooser():
-    browse_for = "folder"
-    folder_only = request.args.get('folder', False) == "true"
-    file_filter = request.args.get('filter', "")
-    path = os.path.normpath(request.args.get('path', ""))
-
-    if os.path.isfile(path):
-        old_file = path
-        path = os.path.dirname(path)
-    else:
-        old_file = ""
-
-    absolute = False
-
-    if os.path.isdir(path):
-        cwd = os.path.realpath(path)
-        absolute = True
-    else:
-        cwd = os.getcwd()
-
-    cwd = os.path.normpath(os.path.realpath(cwd))
-    parent_dir = os.path.dirname(cwd)
-    if not absolute:
-        if os.path.realpath(cwd) == os.path.realpath("/"):
-            cwd = os.path.relpath(cwd)
-        else:
-            cwd = os.path.relpath(cwd) + os.path.sep
-        parent_dir = os.path.relpath(parent_dir) + os.path.sep
-
-    files = []
-    if os.path.realpath(cwd) == os.path.realpath("/") \
-            or (sys.platform == "win32" and os.path.realpath(cwd)[1:] == os.path.realpath("/")[1:]):
-        # we are in root
-        parent_dir = ""
-        if sys.platform == "win32":
-            files = get_drives(cwd)
-
-    try:
-        folders = os.listdir(cwd)
-    except Exception:
-        folders = []
-
-    for f in folders:
-        try:
-            sanitized_f = str(Markup.escape(f))
-            data = {"name": sanitized_f, "fullpath": os.path.join(cwd, sanitized_f)}
-            data["sort"] = data["fullpath"].lower()
-        except Exception:
-            continue
-
-        if os.path.isfile(os.path.join(cwd, f)):
-            if folder_only:
-                continue
-            if file_filter != "" and file_filter != f:
-                continue
-            data["type"] = "file"
-            data["size"] = os.path.getsize(os.path.join(cwd, f))
-
-            power = 0
-            while (data["size"] >> 10) > 0.3:
-                power += 1
-                data["size"] >>= 10
-            units = ("", "K", "M", "G", "T")
-            data["size"] = str(data["size"]) + " " + units[power] + "Byte"
-        else:
-            data["type"] = "dir"
-            data["size"] = ""
-
-        files.append(data)
-
-    files = sorted(files, key=operator.itemgetter("type", "sort"))
-
-    context = {
-        "cwd": cwd,
-        "files": files,
-        "parentdir": parent_dir,
-        "type": browse_for,
-        "oldfile": old_file,
-        "absolute": absolute,
-    }
-    return json.dumps(context)
-
-
-def _config_int(to_save, x, func=int):
-    return config.set_from_dictionary(to_save, x, func)
-
-
-def _config_checkbox(to_save, x):
-    return config.set_from_dictionary(to_save, x, lambda y: y == "on", False)
-
-
-def _config_checkbox_int(to_save, x):
-    return config.set_from_dictionary(to_save, x, lambda y: 1 if (y == "on") else 0, 0)
-
-
-def _config_string(to_save, x):
-    return config.set_from_dictionary(to_save, x, lambda y: strip_whitespaces(y) if y else y)
-
-
-def _configuration_gdrive_helper(to_save):
-    gdrive_error = None
-    if to_save.get("config_use_google_drive"):
-        gdrive_secrets = {}
-
-        if not os.path.isfile(gdriveutils.SETTINGS_YAML):
-            config.config_use_google_drive = False
-
-        if gdrive_support:
-            gdrive_error = gdriveutils.get_error_text(gdrive_secrets)
-        if "config_use_google_drive" in to_save and not config.config_use_google_drive and not gdrive_error:
-            with open(gdriveutils.CLIENT_SECRETS, 'r') as settings:
-                gdrive_secrets = json.load(settings)['web']
-            if not gdrive_secrets:
-                return _configuration_result(_('client_secrets.json Is Not Configured For Web Application'))
-            gdriveutils.update_settings(
-                gdrive_secrets['client_id'],
-                gdrive_secrets['client_secret'],
-                gdrive_secrets['redirect_uris'][0]
-            )
-
-    # always show Google Drive settings, but in case of error deny support
-    new_gdrive_value = (not gdrive_error) and ("config_use_google_drive" in to_save)
-    if config.config_use_google_drive and not new_gdrive_value:
-        config.config_google_drive_watch_changes_response = {}
-    config.config_use_google_drive = new_gdrive_value
-    if _config_string(to_save, "config_google_drive_folder"):
-        gdriveutils.deleteDatabaseOnChange()
-    return gdrive_error
-
-
-def _configuration_logfile_helper(to_save):
-    reboot_required = False
-    reboot_required |= _config_int(to_save, "config_log_level")
-    reboot_required |= _config_string(to_save, "config_logfile")
-    if not logger.is_valid_logfile(config.config_logfile):
-        return reboot_required, \
-               _configuration_result(_('Logfile Location is not Valid, Please Enter Correct Path'))
-
-    reboot_required |= _config_checkbox_int(to_save, "config_access_log")
-    reboot_required |= _config_string(to_save, "config_access_logfile")
-    if not logger.is_valid_logfile(config.config_access_logfile):
-        return reboot_required, \
-               _configuration_result(_('Access Logfile Location is not Valid, Please Enter Correct Path'))
-    return reboot_required, None
-
-
-@admi.route("/ajax/simulatedbchange", methods=['POST'])
-@user_login_required
-@admin_required
-def simulatedbchange():
-    db_change, db_valid = _db_simulate_change()
-    return Response(json.dumps({"change": db_change, "valid": db_valid}), mimetype='application/json')
-
-
 @admi.route("/admin/user/new", methods=["GET", "POST"])
 @user_login_required
 @admin_required
@@ -1181,14 +746,6 @@ def new_user():
                                  opds_root_order_string=opds_context["opds_root_order_string"],
                                  opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
                                  opds_root_labels=opds_context["opds_root_labels"])
-
-
-@admi.route("/admin/scheduledtasks")
-@user_login_required
-@admin_required
-def edit_scheduledtasks():
-    # Scheduled tasks run on their defaults; the old page is gone.
-    return redirect(url_for('admin.admin'))
 
 
 def _build_opds_context(user):
@@ -1262,213 +819,6 @@ def cancel_task():
     worker = WorkerThread.get_instance()
     worker.end_task(task_id)
     return ""
-
-
-def _db_simulate_change():
-    param = request.form.to_dict()
-    to_save = dict()
-    incoming = param.get('config_calibre_dir', config.config_calibre_dir or '')
-    incoming = strip_whitespaces(re.sub(r'[\\/]metadata\.db$', '', incoming, flags=re.IGNORECASE))
-    # Fallback: if nothing provided and default metadata exists, assume /calibre-library
-    if not incoming and os.path.isfile('/calibre-library/metadata.db'):
-        incoming = '/calibre-library'
-    to_save['config_calibre_dir'] = incoming
-    db_valid, db_change = calibre_db.check_valid_db(to_save["config_calibre_dir"],
-                                                    ub.app_DB_path,
-                                                    config.config_calibre_uuid)
-    db_change = bool(db_change and config.config_calibre_dir)
-    return db_change, db_valid
-
-
-def _db_configuration_update_helper():
-    db_change = False
-    to_save = request.form.to_dict()
-    gdrive_error = None
-
-    incoming = to_save.get('config_calibre_dir')
-    if incoming is None:
-        log.warning("DB config update missing config_calibre_dir; using current config value")
-        incoming = config.config_calibre_dir or ''
-    incoming = re.sub(r'[\\/]metadata\.db$', '', incoming, flags=re.IGNORECASE)
-    if not incoming and os.path.isfile('/calibre-library/metadata.db'):
-        incoming = '/calibre-library'
-    to_save['config_calibre_dir'] = incoming
-    db_valid = False
-    try:
-        db_change, db_valid = _db_simulate_change()
-
-        # gdrive_error drive setup
-        gdrive_error = _configuration_gdrive_helper(to_save)
-    except (OperationalError, InvalidRequestError) as e:
-        ub.session.rollback()
-        log.error_or_exception("Settings Database error: {}".format(e))
-        _db_configuration_result(_("Oops! Database Error: %(error)s.", error=e.orig), gdrive_error)
-    try:
-        metadata_db = os.path.join(to_save.get('config_calibre_dir', ''), "metadata.db")
-        if config.config_use_google_drive and is_gdrive_ready() and not os.path.exists(metadata_db):
-            gdriveutils.downloadFile(None, "metadata.db", metadata_db)
-            db_change = True
-    except Exception as ex:
-        return _db_configuration_result('{}'.format(ex), gdrive_error)
-    config.config_calibre_split = to_save.get('config_calibre_split', 0) == "on"
-    if config.config_calibre_split:
-        split_dir = to_save.get("config_calibre_split_dir") or ""
-        if not split_dir or not os.path.exists(split_dir):
-            return _db_configuration_result(_("Books path not valid"), gdrive_error)
-        else:
-            _config_string(to_save, "config_calibre_split_dir")
-
-    if db_change or not db_valid or not config.db_configured \
-      or config.config_calibre_dir != to_save["config_calibre_dir"]:
-        if not os.path.exists(metadata_db) or not to_save['config_calibre_dir']:
-            return _db_configuration_result(_('DB Location is not Valid, Please Enter Correct Path'), gdrive_error)
-        else:
-            calibre_db.setup_db(to_save['config_calibre_dir'], ub.app_DB_path)
-        config.store_calibre_uuid(calibre_db, db.Library_Id)
-        # if db changed -> delete shelfs, delete download books, delete read books...
-        if db_change:
-            log.info("Calibre Database changed, all Lily info related to old Database gets deleted")
-            ub.session.query(ub.Downloads).delete()
-            ub.session.query(ub.ArchivedBook).delete()
-            ub.session.query(ub.ReadBook).delete()
-            ub.session.query(ub.BookShelf).delete()
-            ub.session.query(ub.Bookmark).delete()
-            helper.delete_thumbnail_cache()
-            ub.session_commit()
-            # deleted visibilities based on custom column and tags
-            config.config_restricted_column = 0
-            config.config_denied_tags = ""
-            config.config_allowed_tags = ""
-            config.config_columns_to_ignore = ""
-            config.config_denied_column_value = ""
-            config.config_allowed_column_value = ""
-            config.config_read_column = 0
-        _config_string(to_save, "config_calibre_dir")
-        calibre_db.update_config(config)
-        if not os.access(os.path.join(config.config_calibre_dir, "metadata.db"), os.W_OK):
-            flash(_("DB is not Writeable"), category="warning")
-    calibre_db.update_config(config)
-    config.save()
-    return _db_configuration_result(None, gdrive_error)
-
-
-def _configuration_update_helper():
-    reboot_required = False
-    to_save = request.form.to_dict()
-    try:
-        reboot_required |= _config_string(to_save, "config_trustedhosts")
-        reboot_required |= _config_string(to_save, "config_keyfile")
-        if config.config_keyfile and not os.path.isfile(config.config_keyfile):
-            return _configuration_result(_('Keyfile Location is not Valid, Please Enter Correct Path'))
-
-        reboot_required |= _config_string(to_save, "config_certfile")
-        if config.config_certfile and not os.path.isfile(config.config_certfile):
-            return _configuration_result(_('Certfile Location is not Valid, Please Enter Correct Path'))
-
-        _config_checkbox_int(to_save, "config_uploading")
-        _config_checkbox_int(to_save, "config_unicode_filename")
-        _config_checkbox_int(to_save, "config_embed_metadata")
-        _config_checkbox_int(to_save, "config_anonbrowse")
-
-        if "config_upload_formats" in to_save:
-            to_save["config_upload_formats"] = ','.join(
-                helper.uniq([x.strip().lower() for x in to_save["config_upload_formats"].split(',')]))
-            _config_string(to_save, "config_upload_formats")
-
-        _config_string(to_save, "config_calibre")
-        _config_string(to_save, "config_binariesdir")
-        arch_warning = None
-        if "config_binariesdir" in to_save:
-            calibre_status = helper.check_calibre(config.config_binariesdir)
-            arch_warning = helper.check_architecture()
-            if calibre_status:
-                if arch_warning:
-                    calibre_status += " " + arch_warning
-                return _configuration_result(calibre_status)
-            to_save["config_converterpath"] = get_calibre_binarypath("ebook-convert")
-            _config_string(to_save, "config_converterpath")
-
-        # Metadata provider keys
-        _config_string(to_save, "config_hardcover_token")
-        _config_string(to_save, "config_google_books_api_key")
-
-        # logfile configuration
-        reboot, message = _configuration_logfile_helper(to_save)
-        if message:
-            return message
-        reboot_required |= reboot
-
-        # security configuration
-        _config_checkbox(to_save, "config_check_extensions")
-        _config_checkbox(to_save, "config_password_policy")
-        _config_checkbox(to_save, "config_password_number")
-        _config_checkbox(to_save, "config_password_lower")
-        _config_checkbox(to_save, "config_password_upper")
-        _config_checkbox(to_save, "config_password_character")
-        _config_checkbox(to_save, "config_password_special")
-        if 0 < int(to_save.get("config_password_min_length", "0")) < 41:
-            _config_int(to_save, "config_password_min_length")
-        else:
-            return _configuration_result(_('Password length has to be between 1 and 40'))
-        reboot_required |= _config_int(to_save, "config_session")
-        reboot_required |= _config_checkbox(to_save, "config_ratelimiter")
-        reboot_required |= _config_string(to_save, "config_limiter_uri")
-        reboot_required |= _config_string(to_save, "config_limiter_options")
-    except (OperationalError, InvalidRequestError) as e:
-        ub.session.rollback()
-        log.error_or_exception("Settings Database error: {}".format(e))
-        _configuration_result(_("Oops! Database Error: %(error)s.", error=e.orig))
-
-    config.save()
-    if reboot_required:
-        web_server.stop(True)
-
-    return _configuration_result(None, reboot_required, arch_warning or "")
-
-
-def _configuration_result(error_flash=None, reboot=False, warning_flash=None):
-    resp = {}
-    if error_flash:
-        log.error(error_flash)
-        config.load()
-        resp['result'] = [{'type': "danger", 'message': error_flash}]
-    else:
-        resp['result'] = [{'type': "success", 'message': _("Lily configuration updated")}]
-        # Add warning message if present (configuration was saved, but with a warning)
-        if warning_flash:
-            log.warning(warning_flash)
-            resp['result'].append({'type': "warning", 'message': warning_flash})
-    resp['reboot'] = reboot
-    resp['config_upload'] = config.config_upload_formats
-    return Response(json.dumps(resp), mimetype='application/json')
-
-
-def _db_configuration_result(error_flash=None, gdrive_error=None):
-    gdrive_authenticate = not is_gdrive_ready()
-    gdrivefolders = []
-    if not gdrive_error and config.config_use_google_drive:
-        gdrive_error = gdriveutils.get_error_text()
-    if gdrive_error and gdrive_support:
-        log.error(gdrive_error)
-        gdrive_error = _(gdrive_error)
-        flash(gdrive_error, category="error")
-    else:
-        if not gdrive_authenticate and gdrive_support:
-            gdrivefolders = gdriveutils.listRootFolders()
-    if error_flash:
-        log.error(error_flash)
-        config.load()
-        flash(error_flash, category="error")
-    elif request.method == "POST" and not gdrive_error:
-        flash(_("Database Settings updated"), category="success")
-
-    return render_title_template("config_db.html",
-                                 config=config,
-                                 show_authenticate_google_drive=gdrive_authenticate,
-                                 gdriveError=gdrive_error,
-                                 gdrivefolders=gdrivefolders,
-                                 feature_support=feature_support,
-                                 title=_("Database Configuration"), page="dbconfig")
 
 
 def _handle_new_user(to_save, content, languages, translations):
@@ -1659,13 +1009,3 @@ def _handle_edit_user(to_save, content, languages, translations):
         log.error_or_exception("Settings Database error: {}".format(e))
         flash(_("Oops! Database Error: %(error)s.", error=e.orig), category="error")
     return ""
-
-
-def _tasks_page_link():
-    return Markup('<a href="%s">%s</a>') % (url_for("tasks.get_tasks_status"), _("Tasks"))
-
-
-# Backup, restore, mirror and failed-import routes live in admin_backups.py; importing it
-# here attaches them to this blueprint (same endpoint names, e.g. admin.db_backups).
-# It must come after everything above is defined: admin_backups imports from this module.
-from . import admin_backups  # noqa: E402,F401

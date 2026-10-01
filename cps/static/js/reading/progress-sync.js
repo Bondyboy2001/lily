@@ -19,6 +19,7 @@
     var POST_DELAY = 4000;
     var LOAD_TIMEOUT = 2500;
     var RETRY_MAX = 30000;
+    var STATUS_CLEAR = 2500;
 
     function csrfToken() {
         var input = document.querySelector("input[name='csrf_token']");
@@ -124,6 +125,11 @@
             pending = stored;
         }
 
+        // The visible line stays empty while saves go through; it only appears once a
+        // save has failed, and clears itself shortly after the retry succeeds.
+        var shownPending = false;
+        var clearTimer = null;
+
         function status(text) {
             if (onStatus) {
                 try { onStatus(text); } catch (e) { /* status callback must not break the reader */ }
@@ -131,9 +137,20 @@
             if (!statusEl) {
                 return;
             }
-            var pendingText = statusEl.getAttribute("data-pending-text") || "Saved on this device; waiting to sync";
-            var syncedText = statusEl.getAttribute("data-synced-text") || "Synced";
-            statusEl.textContent = text === "pending" ? pendingText : (text === "synced" ? syncedText : "");
+            if (clearTimer) {
+                clearTimeout(clearTimer);
+                clearTimer = null;
+            }
+            if (text === "failed") {
+                shownPending = true;
+                statusEl.textContent = statusEl.getAttribute("data-pending-text") || "Saved on this device; waiting to sync";
+            } else if (text === "synced" && shownPending) {
+                shownPending = false;
+                statusEl.textContent = statusEl.getAttribute("data-synced-text") || "Synced";
+                clearTimer = setTimeout(function () { statusEl.textContent = ""; }, STATUS_CLEAR);
+            } else if (text === "synced") {
+                statusEl.textContent = "";
+            }
         }
 
         function schedule(delay) {
@@ -187,6 +204,7 @@
                         }
                         var acked = ok ? normalise(data) : null;
                         if (!ok || !ackMatches(sent, acked)) {
+                            status("failed");
                             retryDelay = Math.min(retryDelay * 2, RETRY_MAX);
                             schedule(retryDelay);
                             return;
@@ -204,6 +222,7 @@
                     });
                 }).catch(function () {
                     inflight = false;
+                    status("failed");
                     retryDelay = Math.min(retryDelay * 2, RETRY_MAX);
                     schedule(retryDelay);
                 });

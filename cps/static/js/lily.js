@@ -58,7 +58,7 @@
 
   var root = window.scriptRoot || "";
 
-  // Quiet motion: no Bootstrap fade/slide transitions (DESIGN.md §1).
+  // Quiet motion: no Bootstrap fade/slide transitions (docs/design.md §1).
   $.support.transition = false;
 
   function csrfToken() {

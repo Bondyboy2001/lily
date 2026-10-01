@@ -127,24 +127,21 @@ def _build_app():
         babel.init_app(app, locale_selector=get_locale)
     cps.limiter.init_app(app)
 
-    from cps.cwa_functions import library_refresh, cwa_stats, cwa_check_status, cwa_settings, cwa_internal
+    from cps.cwa_functions import library_refresh, cwa_check_status, cwa_settings, cwa_internal
     from cps.jinjia import jinjia
     from cps.web import web
     from cps.opds import opds
     from cps.shelf import shelf
     from cps.search import search
     from cps.admin import admi
-    from cps.metadata_queue import suggestions
     from cps.editbooks import editbook
     from cps.search_metadata import meta
-    from cps.tasks_status import tasks
-    from cps.about import about
     from cps.duplicates import duplicates
     from cps.logs import logs
     from cps.gdrive import gdrive
-    for bp in (library_refresh, cwa_stats, cwa_check_status, cwa_settings, cwa_internal,
-               admi, jinjia, web, opds, shelf, search, tasks, about, meta, gdrive, editbook,
-               duplicates, logs, suggestions):
+    for bp in (library_refresh, cwa_check_status, cwa_settings, cwa_internal,
+               admi, jinjia, web, opds, shelf, search, meta, gdrive, editbook,
+               duplicates, logs):
         app.register_blueprint(bp)
 
     @app.teardown_appcontext

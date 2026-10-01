@@ -49,20 +49,10 @@ def test_python_services_drop_root(service):
 
 # --------------------------------------------------------------------------- stored XSS
 @pytest.mark.unit
-@pytest.mark.parametrize("template", ["cwa_stats_full.html", "cwa_stats_system.html"])
-def test_stats_and_log_templates_do_not_mark_content_safe(template):
+@pytest.mark.parametrize("template", ["logs.html"])
+def test_log_templates_do_not_mark_content_safe(template):
     text = (REPO / "cps/templates" / template).read_text()
     assert not re.search(r"\|\s*safe\b", text)
-
-
-@pytest.mark.unit
-def test_log_content_is_escaped_when_rendered():
-    from jinja2 import Environment
-    env = Environment(autoescape=True)
-    src = (REPO / "cps/templates/cwa_stats_full.html").read_text()
-    row_tpl = re.search(r"<div class=\"stats-cell\">\{\{ cell \}\}</div>", src).group(0)
-    out = env.from_string(row_tpl).render(cell="<script>alert(1)</script>\nnext")
-    assert "<script>" not in out and "&lt;script&gt;" in out
 
 
 # --------------------------------------------------------------------------- CSRF / GET state changes

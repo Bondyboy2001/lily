@@ -21,17 +21,6 @@
          help=_('Optional. Raises the Google Books rate limit.')) }}
     {% endcall %}
 
-    {% call f.group(_('Tools')) %}
-      {{ f.link(url_for('admin.configuration'), _('Configuration'), help=_('Basic server settings')) }}
-      {{ f.link(url_for('admin.db_configuration'), _('Library'), help=_('Calibre database location')) }}
-      {{ f.link(url_for('admin.db_backups'), _('Backups'), help=_('Snapshots, mirror and recovery settings')) }}
-      {{ f.link(url_for('admin.book_recovery_page'), _('Book Recovery'), help=_('Restore recently deleted books')) }}
-      {{ f.link(url_for('cwa_stats.cwa_stats_show'), _('Statistics'), help=_('Library activity')) }}
-      {{ f.link(url_for('admin.ingest_failures'), _('Failed Imports'), help=_('Files that did not import')) }}
-      {{ f.link(url_for('suggestions.review_suggestions'), _('Metadata Suggestions'), help=_('Review pending metadata changes')) }}
-      {{ f.link(url_for('tasks.get_tasks_status'), _('Tasks'), help=_('Background job status')) }}
-    {% endcall %}
-
     <div class="lp-actions is-save">
       <span class="lp-spacer"></span>
       <button type="submit" class="btn btn-primary">{{ _('Save') }}</button>

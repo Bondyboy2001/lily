@@ -43,12 +43,6 @@ class TestSettingsRail:
                      "configuration", "library", "backups", "recovery", "statistics"):
             assert f'data-section="{gone}"' not in html, gone
 
-    def test_security_page_works_without_rail_item(self, env):
-        resp = _login(env, env.admin().name, ADMIN_PASSWORD).get("/account/security")
-        assert resp.status_code == 200
-        html = resp.get_data(as_text=True)
-        assert 'data-section="security"' not in html and 'class="active"' not in html
-
     def test_guest_session_has_no_security_link(self, env):
         html = env.app.test_client().get("/login").get_data(as_text=True)
         assert "/account/security" not in html
@@ -61,25 +55,17 @@ class TestPageReachability:
         assert 'href="/account/security"' not in html
         assert 'href="/reading"' not in html
 
-    def test_import_settings_tools_group_reaches_admin_pages(self, env):
+    def test_import_settings_has_no_tools_group(self, env):
         html = _login(env, env.admin().name, ADMIN_PASSWORD).get("/cwa-settings").get_data(as_text=True)
         for href in ("/admin/config", "/admin/dbconfig", "/admin/db_backups",
                      "/admin/book-recovery", "/cwa-stats-show",
                      "/admin/ingest_failures", "/admin/metadata/suggestions",
                      "/tasks"):
-            assert f'href="{href}"' in html, href
+            assert f'href="{href}"' not in html, href
 
     def test_import_settings_has_no_automation_summary(self, env):
         html = _login(env, env.admin().name, ADMIN_PASSWORD).get("/cwa-settings").get_data(as_text=True)
         assert "Latest database snapshot" not in html and "Running jobs" not in html
-
-    def test_linked_admin_pages_load(self, env):
-        client = _login(env, env.admin().name, ADMIN_PASSWORD)
-        for path in ("/admin/config", "/admin/dbconfig", "/admin/db_backups",
-                     "/admin/book-recovery", "/admin/ingest_failures",
-                     "/admin/metadata/suggestions", "/tasks", "/cwa-stats-show"):
-            resp = client.get(path, follow_redirects=True)
-            assert resp.status_code == 200, (path, resp.status_code)
 
     def test_import_settings_denied_to_reader(self, env):
         env.add_user("reader", password="pw")
@@ -90,7 +76,7 @@ class TestPageReachability:
 @pytest.mark.unit
 class TestSettingsUtilityLinks:
     def test_admin_sees_duplicates_and_logs_in_rail(self, env):
-        html = _login(env, env.admin().name, ADMIN_PASSWORD).get("/admin/db_backups").get_data(as_text=True)
+        html = _login(env, env.admin().name, ADMIN_PASSWORD).get("/me").get_data(as_text=True)
         assert 'data-section="duplicates"' in html and 'href="/duplicates"' in html
         assert 'data-section="logs"' in html and 'href="/logs"' in html
         assert 'id="duplicate-count-badge"' in html
@@ -130,11 +116,9 @@ class TestMyReadingSidebar:
         assert 'id="nav_reading"' not in html and 'href="/reading"' not in html
         assert 'id="nav_createshelf"' in html
 
-    def test_reading_page_still_accessible_directly(self, env):
+    def test_my_reading_page_is_gone(self, env):
         resp = _login(env, env.admin().name, ADMIN_PASSWORD).get("/reading")
-        assert resp.status_code == 200
-        html = resp.get_data(as_text=True)
-        assert 'id="nav_reading"' not in html
+        assert resp.status_code == 404
 
 
 @pytest.mark.unit

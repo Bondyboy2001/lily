@@ -62,12 +62,9 @@ def setup_checklist():
         else:
             password_href = url_for("admin.edit_user", user_id=default_pw_user.id)
         items = [
-            {"id": "library", "label": _("Library found"),
-             "hint": _("Point Lily at a folder containing metadata.db."),
-             "done": bool(config.db_configured), "href": url_for("admin.db_configuration")},
             {"id": "uploads", "label": _("Uploads enabled"),
              "hint": _("Off by default. Until it is on, the Upload button stays hidden."),
-             "done": bool(config.config_uploading), "href": url_for("admin.configuration")},
+             "done": bool(config.config_uploading), "href": url_for("cwa_settings.set_cwa_settings")},
             {"id": "password", "label": _("Default admin password changed"),
              "hint": _("The admin account still accepts the default password."),
              "done": default_pw_user is None, "href": password_href},

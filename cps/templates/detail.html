@@ -147,6 +147,12 @@
                     <dd>{% for language in entry.languages %}{{ language.language_name }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>
                 </div>
             {% endif %}
+            {% if entry.tags|length > 0 %}
+                <div class="tags">
+                    <dt>{{ _('Tags') }}</dt>
+                    <dd>{% for tag in entry.tags|sort(attribute='name') %}<a href="{{ url_for('web.books_list', data='category', sort_param='stored', book_id=tag.id) }}">{{ tag.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</dd>
+                </div>
+            {% endif %}
             {% set ids = namespace(linked=false) %}
             {% for identifier in entry.identifiers if identifier.__repr__() != identifier.val %}{% set ids.linked = true %}{% endfor %}
             {% if ids.linked %}
@@ -206,19 +212,14 @@
                 </section>
             {% endif %}
 
-            {# Read-only here; shelves and tags are changed on the edit page. Every shelf and every
-               tag shares one look per kind: shelves are filled accent chips with the shelf glyph
-               from the sidebar, tags are outlined pills with a tag glyph. #}
+            {# Read-only here; shelves are changed on the edit page. Every shelf is a filled accent
+               chip with the shelf glyph from the sidebar. Tags live in the facts panel. #}
             {% set shelves = (g.shelves_access|selectattr('id', 'in', books_shelfs)|list) if (current_user.is_authenticated and books_shelfs) else [] %}
-            {% if shelves or entry.tags|length > 0 %}
+            {% if shelves %}
             <div class="book-detail-taxonomy">
                 {% for shelf in shelves %}
                     <a class="btn lily-chip is-shelf" href="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}"
                        aria-label="{{ _('Shelves') }}: {{ shelf.name }}{% if shelf.is_public == 1 %} {{ _('(Public)') }}{% endif %}"><span class="glyphicon glyphicon-list" aria-hidden="true"></span><span class="chip-label">{{ shelf.name }}{% if shelf.is_public == 1 %} {{ _('(Public)') }}{% endif %}</span></a>
-                {% endfor %}
-                {% for tag in entry.tags|sort(attribute='name') %}
-                    <a class="btn lily-chip is-tag" href="{{ url_for('web.books_list', data='category', sort_param='stored', book_id=tag.id) }}"
-                       aria-label="{{ _('Tags') }}: {{ tag.name }}"><span class="glyphicon glyphicon-tag" aria-hidden="true"></span><span class="chip-label">{{ tag.name }}</span></a>
                 {% endfor %}
             </div>
             {% endif %}

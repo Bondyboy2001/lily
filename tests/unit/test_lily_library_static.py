@@ -1,4 +1,4 @@
-"""Static checks for the library pages' restyle onto ~/projects/DESIGN.md (phase 2)."""
+"""Static checks for the library pages' restyle onto docs/design.md (phase 2)."""
 import re
 from pathlib import Path
 
@@ -83,6 +83,21 @@ def test_detail_description_has_no_heading_and_shows_in_full():
     for selector, body in css_rules(read(CSS / "lily-library.css")):
         if ".book-detail-description" in selector:
             assert "line-clamp" not in body, selector
+
+
+def test_detail_tags_are_plain_links_in_the_facts_panel():
+    html = read(TEMPLATES / "detail.html")
+    panel = re.search(r'<dl class="book-metadata">(.*?)</dl>', html, flags=re.S).group(0)
+    tags = re.search(r'<div class="tags">(.*?)</div>', panel, flags=re.S).group(0)
+    assert "data='category'" in tags and "glyphicon" not in tags and "lily-chip" not in tags
+    assert "is-tag" not in html and "is-tag" not in read(CSS / "lily-library.css")
+
+
+def test_continue_reading_progress_sits_on_the_cover():
+    html = read(TEMPLATES / "index.html")
+    cover = re.search(r'<div class="cover">(.*?)\n      </div>', html, flags=re.S).group(1)
+    meta = re.search(r'<div class="meta">(.*?)\n      </div>', html, flags=re.S).group(1)
+    assert "continue-reading-progress" in cover and "progress" not in meta
 
 
 def test_detail_toolbar_buttons_are_labelled():

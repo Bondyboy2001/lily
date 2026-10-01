@@ -1,6 +1,6 @@
 /*
  * Lily design language: library pages (book grids, lists, book detail, author, shelves, search).
- * Tokens and base components live in lily.css (~/projects/DESIGN.md). Nothing here sets a colour
+ * Tokens and base components live in lily.css (docs/design.md). Nothing here sets a colour
  * by value; every colour is a token.
  */
 
@@ -353,19 +353,20 @@ body:not([data-book-view="list"]) .lily-book .cover .badge.read { display: none;
 
 /* A read book's cover is edged in green (lily.js toggles .is-read with the eye button). */
 .lily-book.is-read .cover::after {
+    z-index: 3;
     outline: 3px solid var(--success);
     outline-offset: -3px;
 }
 
-/* Quick actions: a bar of round icon buttons over the cover's foot, shown on hover or keyboard focus.
-   The buttons are skinned through the --btn-* variables, which list view overrides. */
+/* Quick actions: a frosted box across the cover's foot, shown on hover or keyboard focus. The
+   buttons split it evenly and are skinned through the --btn-* variables, which list view overrides. */
 .lily-cover-actions {
-    --btn-size: 32px;
-    --btn-bg: var(--surface);
-    --btn-hover-bg: var(--surface);
-    --btn-border: var(--line-soft);
-    --btn-radius: 50%;
-    --btn-ink: var(--ink);
+    --btn-size: 38px;
+    --btn-bg: transparent;
+    --btn-hover-bg: var(--hover);
+    --btn-border: transparent;
+    --btn-radius: 0;
+    --btn-ink: var(--ink-soft);
     --btn-hover-ink: var(--accent);
     position: absolute;
     left: 0;
@@ -373,13 +374,15 @@ body:not([data-book-view="list"]) .lily-book .cover .badge.read { display: none;
     bottom: 0;
     z-index: 2;
     display: flex;
-    justify-content: space-around;
-    padding: 8px;
-    pointer-events: none;
+    padding: 0;
+    background: color-mix(in srgb, var(--surface) 90%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 -4px 14px color-mix(in srgb, var(--ink) 8%, transparent);
 }
 
 .lily-cover-actions .icon-btn {
-    pointer-events: auto;
+    flex: 1 1 0;
     width: var(--btn-size);
     height: var(--btn-size);
     border: 1px solid var(--btn-border);
@@ -393,18 +396,12 @@ body:not([data-book-view="list"]) .lily-book .cover .badge.read { display: none;
 
 .lily-cover-actions .icon-btn .glyphicon { font-size: 15px; }
 
-/* Read: the eye button fills green, and the cover gets a green edge (below). The solid disc is
-   drawn 4px smaller (the margin keeps its slot), since edge to edge it reads bigger than the
-   pale outlined buttons beside it. */
+/* Read: the eye's slot in the box tints green, and the cover gets a green edge. */
 .lily-cover-actions .icon-btn[aria-pressed="true"],
 .lily-cover-actions .icon-btn[aria-pressed="true"]:hover,
 .lily-cover-actions .icon-btn[aria-pressed="true"]:focus {
-    width: calc(var(--btn-size) - 4px);
-    height: calc(var(--btn-size) - 4px);
-    margin: 2px;
-    border-color: var(--success);
-    background: var(--success);
-    color: var(--surface);
+    background: color-mix(in srgb, var(--success) 16%, transparent);
+    color: var(--success);
 }
 
 .lily-cover-actions .icon-btn.is-busy { opacity: .4; pointer-events: none; }
@@ -420,7 +417,7 @@ body:not([data-book-view="list"]) .lily-book .cover .badge.read { display: none;
 }
 
 /* Motion: covers fade in one after another on load (lily.js sets --i), lift on hover, and
-   the action buttons rise in a beat apart. Skipped entirely under reduced motion. */
+   the action box slides up from the cover's foot. Skipped entirely under reduced motion. */
 @media (prefers-reduced-motion: no-preference) {
     .lily-grid > .lily-book {
         animation: lily-card-in .6s cubic-bezier(.25, .46, .45, .94) both;
@@ -436,16 +433,17 @@ body:not([data-book-view="list"]) .lily-book .cover .badge.read { display: none;
 
     .lily-book:hover .meta .title { color: var(--accent); }
 
-    .lily-cover-actions .icon-btn {
-        transform: translateY(8px);
-        transition: transform .3s cubic-bezier(.25, .46, .45, .94), background-color .12s, color .12s;
+    @media (hover: hover) {
+        body:not([data-book-view="list"]) .lily-cover-actions {
+            transform: translateY(100%);
+            transition: transform .25s cubic-bezier(.25, .46, .45, .94), opacity .12s ease-out;
+        }
+
+        body:not([data-book-view="list"]) .lily-book:hover .lily-cover-actions,
+        body:not([data-book-view="list"]) .lily-book:focus-within .lily-cover-actions { transform: none; }
     }
 
-    .lily-book:hover .lily-cover-actions .icon-btn,
-    .lily-book:focus-within .lily-cover-actions .icon-btn { transform: none; }
-
-    .lily-cover-actions .icon-btn:nth-child(2) { transition-delay: .04s, 0s, 0s; }
-    .lily-cover-actions .icon-btn:nth-child(3) { transition-delay: .08s, 0s, 0s; }
+    .lily-cover-actions .icon-btn { transition: background-color .12s, color .12s; }
 }
 
 /* Refresh spins once while the pointer is on it; a new read mark is drawn left to right. */
@@ -466,7 +464,7 @@ body:not([data-book-view="list"]) .lily-book .cover .badge.read { display: none;
 
 /* Touch screens have no hover, so the bar stays visible with larger hit areas. */
 @media (hover: none) {
-    .lily-cover-actions { --btn-size: 36px; }
+    .lily-cover-actions { --btn-size: 40px; }
 }
 
 /* Grid cards show the title only; list rows keep the authors. */
@@ -652,7 +650,13 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
     justify-content: end;
     padding: 0;
     gap: 2px;
+    background: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
 }
+
+body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .icon-btn { flex: none; }
 
 /* The read eye keeps its green disc even in list rows, where the other
    quick actions go square and flat. */
@@ -663,7 +667,13 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read[aria-pressed="true"],
 body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read[aria-pressed="true"]:hover,
 body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read[aria-pressed="true"]:focus {
+    width: calc(var(--btn-size) - 4px);
+    height: calc(var(--btn-size) - 4px);
+    margin: 2px;
     border-radius: 50%;
+    border-color: var(--success);
+    background: var(--success);
+    color: var(--surface);
 }
 
 /* Grid cards only: the list rows have columns for these. */
@@ -753,7 +763,25 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 .continue-reading-item .meta .title { -webkit-line-clamp: 1; }
 .continue-reading-item .meta .author { -webkit-line-clamp: 1; }
 
-.continue-reading-progress { margin: 6px 0 0; }
+/* Progress sits on the cover as a bar along its bottom edge. It takes no clicks, so the
+   cover stays a link. */
+.continue-reading-item .cover .continue-reading-progress {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1;
+    height: 5px;
+    margin: 0;
+    border-radius: 0;
+    background: color-mix(in srgb, var(--ink) 22%, transparent);
+    pointer-events: none;
+}
+
+.continue-reading-item .cover .continue-reading-progress .progress-bar {
+    height: 100%;
+    border-radius: 0 999px 999px 0;
+}
 
 @media (max-width: 767px) {
     .continue-reading-row {
@@ -1086,24 +1114,10 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     color: var(--accent);
 }
 
-.book-detail-taxonomy .btn.lily-chip.is-tag {
-    border-radius: 999px;
-    border-color: var(--line);
-    background: transparent;
-    color: var(--ink-soft);
-}
-
 .book-detail-taxonomy .btn.lily-chip.is-shelf:hover,
 .book-detail-taxonomy .btn.lily-chip.is-shelf:focus {
     background: var(--selected);
     color: var(--accent);
-}
-
-.book-detail-taxonomy .btn.lily-chip.is-tag:hover,
-.book-detail-taxonomy .btn.lily-chip.is-tag:focus {
-    border-color: var(--line-strong);
-    background: var(--row-hover);
-    color: var(--ink);
 }
 
 .book-detail-meta {
@@ -1152,7 +1166,8 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 .book-detail-meta #book_of a { font-weight: 500; }
 
 .book-detail-meta .author {
-    margin: 0;
+    /* Extra room under the large title so the names don't crowd its last line. */
+    margin: 8px 0 0;
     font-size: 19px;
 }
 
@@ -1310,7 +1325,7 @@ dl.book-metadata:not(:has(> div)) { display: none; }
     dl.book-metadata { grid-row: 4; grid-column: 1 / -1; padding: 14px 16px; }
 
     .book-detail-meta h2#title { font-size: 23px; }
-    .book-detail-meta .author { font-size: 16px; }
+    .book-detail-meta .author { margin-top: 2px; font-size: 16px; }
 
     /* Read takes the whole first line; the rest share the line below. */
     .book-action-bar > .btn-primary { flex: 1 0 100%; justify-content: center; }

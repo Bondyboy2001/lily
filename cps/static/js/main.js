@@ -286,51 +286,6 @@ $(function() {
         });
     });
 
-    function fillFileTable(path, type, folder, filt) {
-        var request_path = "/ajax/pathchooser/";
-        $.ajax({
-            dataType: "json",
-            data: {
-                path: path,
-                folder: folder,
-                filter: filt
-            },
-            url: getPath() + request_path,
-            success: function success(data) {
-                if ($("#element_selected").text() ==="") {
-                    $("#element_selected").text(data.cwd);
-                }
-                $("#file_table > tbody > tr").each(function () {
-                    if ($(this).attr("id") !== "parent") {
-                        $(this).closest("tr").remove();
-                    } else {
-                        if(data.absolute && data.parentdir !== "") {
-                           $(this)[0].attributes['data-path'].value  = data.parentdir;
-                        } else {
-                            $(this)[0].attributes['data-path'].value  = "..";
-                        }
-                    }
-                });
-                if (data.parentdir !== "") {
-                    $("#parent").removeClass('hidden')
-                } else {
-                    $("#parent").addClass('hidden')
-                }
-                data.files.forEach(function(entry) {
-                    if(entry.type === "dir") {
-                        var type = "<span class=\"glyphicon glyphicon-folder-close\"></span>";
-                } else {
-                    var type = "";
-                }
-                    $("<tr class=\"tr-clickable\" data-type=\"" + entry.type + "\" data-path=\"" +
-                        entry.fullpath + "\"><td>" + type + "</td><td>" + entry.name + "</td><td>" +
-                        entry.size + "</td></tr>").appendTo($("#file_table"));
-                });
-            },
-            timeout: 2000
-        });
-    }
-
     let selectedLayoutMode;
 
     if ($("body").hasClass("blur")) {
@@ -412,86 +367,10 @@ $(function() {
         this.closest("form").submit();
     });
 
-    function handle_response(data) {
-        if (!jQuery.isEmptyObject(data)) {
-            data.forEach(function (item) {
-                $(".navbar").after('<div class="row-fluid text-center">' +
-                    '<div id="flash_' + item.type + '" class="alert alert-' + item.type + '">' + item.message + '</div>' +
-                    '</div>');
-            });
-        }
-    }
-
     $('.collapse').on('shown.bs.collapse', function(){
         $(this).parent().find(".glyphicon-plus").removeClass("glyphicon-plus").addClass("glyphicon-minus");
     }).on('hidden.bs.collapse', function(){
     $(this).parent().find(".glyphicon-minus").removeClass("glyphicon-minus").addClass("glyphicon-plus");
-    });
-
-    function changeDbSettings() {
-        $("#db_submit").closest('form').submit();
-    }
-
-    $("#db_submit").click(function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.blur();
-        $.ajax({
-            method:"post",
-            dataType: "json",
-            url: getPath() + "/ajax/simulatedbchange",
-            data: {config_calibre_dir: $("#config_calibre_dir").val(), csrf_token: $("input[name='csrf_token']").val()},
-            success: function success(data) {
-                if ( data.change ) {
-                    if ( data.valid ) {
-                        confirmDialog(
-                            "db_submit",
-                            "GeneralChangeModal",
-                            0,
-                            changeDbSettings
-                        );
-                    }
-                    else {
-                        $("#InvalidDialog").modal('show');
-                    }
-                } else {
-                    changeDbSettings();
-                }
-            }
-        });
-    });
-
-    $("#config_submit").click(function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        this.blur();
-        window.scrollTo({top: 0, behavior: 'smooth'});
-        var request_path = "/admin/ajaxconfig";
-        $("#flash_success").remove();
-        $("#flash_danger").remove();
-        $.post(getPath() + request_path, $(this).closest("form").serialize(), function(data) {
-            $('#config_upload_formats').val(data.config_upload);
-            if(data.reboot) {
-                $("#spinning_success").show();
-                var rebootInterval = setInterval(function(){
-                    $.get({
-                        url:getPath() + "/admin/alive",
-                        success: function (d, statusText, xhr) {
-                            if (xhr.status < 400) {
-                                $("#spinning_success").hide();
-                                clearInterval(rebootInterval);
-                                if (data.result) {
-                                    handle_response(data.result);
-                                    data.result = "";
-                                }
-                            }
-                        },
-                    });
-                }, 1000);
-            } else {
-                handle_response(data.result);
-            }
-        });
     });
 
     $("#delete_shelf").click(function(event) {
@@ -504,34 +383,6 @@ $(function() {
             }
         );
 
-    });
-
-    $("#fileModal").on("show.bs.modal", function(e) {
-        var target = $(e.relatedTarget);
-        var path = $("#" + target.data("link"))[0].value;
-        var folder = target.data("folderonly");
-        var filter = target.data("filefilter");
-        $("#element_selected").text(path);
-        $("#file_confirm").data("link", target.data("link"));
-        $("#file_confirm").data("folderonly", (typeof folder === 'undefined') ? false : true);
-        $("#file_confirm").data("filefilter", (typeof filter === 'undefined') ? "" : filter);
-        $("#file_confirm").data("newfile", target.data("newfile"));
-        fillFileTable(path,"dir", folder, filter);
-    });
-
-    $("#file_confirm").click(function() {
-        $("#" + $(this).data("link"))[0].value = $("#element_selected").text()
-    });
-
-    $(document).on("click", ".tr-clickable", function() {
-        var path = this.attributes["data-path"].value;
-        var type = this.attributes["data-type"].value;
-        var folder = $(file_confirm).data("folderonly");
-        var filter = $(file_confirm).data("filefilter");
-        $("#element_selected").text(path);
-        if(type === "dir") {
-            fillFileTable(path, type, folder, filter);
-        }
     });
 
     var isotopeResizeTimer = null;

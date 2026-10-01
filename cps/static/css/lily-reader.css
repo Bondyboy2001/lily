@@ -179,7 +179,16 @@ body.lily-reader {
     opacity: .6;
 }
 
-.lily-reader #divider { border-right-color: var(--line); box-shadow: none; opacity: 1; }
+.lily-reader .lily-progress-status {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.lily-reader.lily-epub .lily-progress-status {
+    position: absolute;
+    left: 24px;
+    bottom: 16px;
+}
 
 .lily-reader dialog .separator,
 .lily-reader .horizontalToolbarSeparator { display: none; }
@@ -196,6 +205,95 @@ body.lily-reader {
 }
 
 /* ------------------------------------------------------------------ */
+/* Epub page geometry                                                   */
+/* ------------------------------------------------------------------ */
+/* One fluid layout for every screen: the toolbar on top, the page in the middle
+   with room for the arrows, and the progress line underneath. epub.js sizes its
+   iframe from #viewer, so only #viewer needs a size. */
+.lily-reader.lily-epub #main,
+.lily-reader.lily-epub #main.closed,
+.lily-reader.lily-epub #main.single {
+    position: fixed;
+    inset: 0;
+    width: auto;
+    height: auto;
+    transform: none;
+    transition: none;
+}
+
+.lily-reader.lily-epub #titlebar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 56px;
+}
+
+.lily-reader.lily-epub #viewer {
+    position: absolute;
+    top: 64px;
+    right: 88px;
+    bottom: 44px;
+    left: 88px;
+    width: auto;
+    max-width: 1180px;
+    height: auto;
+    margin: 0 auto;
+}
+
+.lily-reader.lily-epub .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 64px;
+    bottom: 44px;
+    width: 88px;
+    margin: 0;
+    padding: 0;
+}
+
+.lily-reader.lily-epub #prev,
+.lily-reader.lily-epub #next { padding: 0; }
+
+.lily-reader.lily-epub #prev { left: 0; }
+.lily-reader.lily-epub #next { right: 0; }
+
+/* Two-page spreads get no rule between the pages. */
+.lily-reader.lily-epub #divider,
+.lily-reader.lily-epub #divider.show { display: none; }
+
+.lily-reader.lily-epub #progress:not([role]) { right: 24px; bottom: 14px; }
+
+.lily-reader.lily-epub .lily-progress-status { bottom: 14px; }
+
+@media (max-width: 900px) {
+    .lily-reader.lily-epub #viewer { right: 56px; left: 56px; }
+
+    .lily-reader.lily-epub .arrow { width: 56px; font-size: 44px; }
+}
+
+/* Phones: the page runs nearly edge to edge and the arrows become invisible tap
+   strips along each side, as in most reading apps. */
+@media (max-width: 550px) {
+    .lily-reader.lily-epub #viewer { top: 56px; right: 18px; bottom: 36px; left: 18px; }
+
+    .lily-reader.lily-epub .arrow {
+        top: 56px;
+        bottom: 0;
+        width: 18%;
+        color: transparent;
+        text-indent: 0;
+        opacity: 0;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .lily-reader.lily-epub #progress:not([role]) { right: 16px; bottom: 10px; }
+
+    .lily-reader.lily-epub .lily-progress-status { left: 16px; bottom: 10px; }
+}
+
+/* ------------------------------------------------------------------ */
 /* Sidebar: contents, bookmarks, search (epub)                          */
 /* ------------------------------------------------------------------ */
 .lily-reader #sidebar {
@@ -203,6 +301,52 @@ body.lily-reader {
     border-right: 1px solid var(--line-soft);
     color: var(--ink);
     box-sizing: border-box;
+}
+
+/* The epub sidebar slides over the page instead of pushing it aside, so the page
+   keeps its size and nothing is cut off at the right edge. */
+.lily-reader.lily-epub #sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 30;
+    width: min(340px, 88vw);
+    min-width: 0;
+    height: auto;
+    border-right: 0;
+    box-shadow: var(--menu-shadow);
+    visibility: hidden;
+    transform: translateX(-100%);
+    transition: transform .22s ease-out, visibility 0s linear .22s;
+}
+
+.lily-reader.lily-epub #sidebar.open {
+    visibility: visible;
+    transform: none;
+    transition: transform .22s ease-out;
+}
+
+.lily-reader.lily-epub #sidebar .view,
+.lily-reader.lily-epub #tocView,
+.lily-reader.lily-epub #bookmarksView {
+    width: 100%;
+    min-width: 0;
+}
+
+.lily-reader.lily-epub #sidebar-scrim {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 29;
+    background: color-mix(in srgb, var(--ink) 25%, transparent);
+}
+
+.lily-reader.lily-epub #sidebar.open + #sidebar-scrim { display: block; }
+
+@media (prefers-reduced-motion: reduce) {
+    .lily-reader.lily-epub #sidebar,
+    .lily-reader.lily-epub #sidebar.open { transition: none; }
 }
 
 .lily-reader #panels {
@@ -422,8 +566,7 @@ body.lily-reader {
 /* Theme buttons preview the page colours; main.css paints them. */
 .lily-reader .md-content .themes button.lightTheme { background: var(--surface); color: var(--ink); }
 
-.lily-reader .md-content select,
-.lily-reader .readerLayout select {
+.lily-reader .md-content select {
     height: 30px;
     padding: 0 8px;
     border: 1px solid var(--line);
@@ -432,24 +575,6 @@ body.lily-reader {
     color: var(--ink);
     font: 14px var(--font-ui);
 }
-
-.lily-reader .readerLayout {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 12px;
-}
-
-.lily-reader .reader-check {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--ink);
-    font-size: 14px;
-    cursor: pointer;
-}
-
-.lily-reader .reader-check input { margin: 0; accent-color: var(--accent); }
 
 .lily-reader input[type="range"] {
     flex: 1 1 160px;

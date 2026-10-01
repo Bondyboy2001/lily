@@ -35,21 +35,23 @@ settings are columns in `cwa_schema.sql`, which is synced on start.
 
 `main.py` registers every blueprint. A few modules are deliberately split into several
 files that attach their routes to **one** blueprint, so endpoint names (`web.login`,
-`admin.db_backups`, `edit-book.upload`) stay stable:
+`admin.edit_user`, `edit-book.upload`) stay stable:
 
 | Blueprint | Files |
 |---|---|
-| `web` | `web.py` (browsing, details, reader entry), `web_auth.py` (sign-in, 2FA, password, profile), `web_lists.py` (author/series/... lists), `web_files.py` (covers, serving, downloads), `web_typeahead.py` |
-| `admin` | `admin.py` (config, users, tasks), `admin_backups.py` (backups, restore, mirror, failed imports) |
+| `web` | `web.py` (browsing, details, reader entry), `web_auth.py` (sign-in, password, profile), `web_lists.py` (author/series/... lists), `web_files.py` (covers, serving, downloads), `web_typeahead.py` |
+| `admin` | `admin.py` (users and their restrictions, maintenance endpoints) |
 | `edit-book` | `editbooks.py` (editing, deletion), `editbooks_upload.py`, `editbooks_bulk.py` |
 
 The main file imports its siblings **at the bottom**, after everything they import from
 it is defined. Keep it that way.
 
-Other blueprints: `opds`, `shelf`, `search`, `metadata` (provider search), `tasks`,
-`duplicates`, `gdrive`, `about`, `account_security` (2FA, API token), `reading`
-(My Reading), `suggestions` (metadata suggestion review), and the `cwa_functions/`
-package (Lily settings, stats, logs, ingest endpoints).
+Other blueprints: `opds`, `shelf`, `search`, `metadata` (provider search), `duplicates`,
+`logs`, `gdrive`, and the `cwa_functions/` package (Import & Metadata settings, service
+status, ingest endpoints). There are no settings pages for the library location, backups,
+book recovery, failed imports, statistics or tasks: the library is found at
+`/calibre-library`, and backups, delete recovery and failed-import handling run on their
+defaults without a UI.
 
 ### Duplicates
 
@@ -60,13 +62,13 @@ package (Lily settings, stats, logs, ingest endpoints).
 ### Background tasks
 
 `services/worker.py` runs `CalibreTask` subclasses from `tasks/` (backups, restore, library
-mirror, thumbnails, duplicate scan, Hardcover and metadata suggestions, ...).
+mirror, thumbnails, duplicate scan, Hardcover, ...).
 `schedule.py` registers the recurring ones.
 
 ### Pure modules
 
 Logic that needs no Flask or database lives in Flask-free modules so it can be tested
-alone: `cps/totp.py`, `scripts/db_backup.py`, `scripts/library_mirror.py`,
+alone: `scripts/db_backup.py`, `scripts/library_mirror.py`,
 `scripts/ingest_failures.py`, `scripts/metadata_suggestions.py`, `cps/duplicate_rules.py`.
 The ones under `scripts/` are importable from both the web app and the ingest process;
 the type-checked set is listed in `pyproject.toml` (`[tool.mypy]`).
@@ -74,8 +76,6 @@ the type-checked set is listed in `pyproject.toml` (`[tool.mypy]`).
 ## Security model
 
 - Sessions: HttpOnly cookies, `SameSite` set, `Secure` when `SESSION_COOKIE_SECURE=true`.
-- Optional TOTP second factor (`totp.py`, `web_auth.py`); with it on, OPDS uses a personal
-  API token instead of the password. Wrong-code lockout is in memory, per process.
 - CSP: `'unsafe-eval'` only on the book edit page and the readers (`web.py`,
   `_EVAL_ENDPOINTS`).
 - Admin routes use `@admin_required`; `tests/unit/test_admin_access_control.py` checks them.

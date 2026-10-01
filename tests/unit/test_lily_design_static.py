@@ -289,7 +289,7 @@ def test_library_refresh_notice_is_a_temporary_toast():
     assert "box.style.top" not in js
 
 
-def test_settings_button_opens_settings_with_tasks_and_logout_in_rail():
+def test_settings_button_opens_settings_with_logout_in_rail():
     layout = read(TEMPLATES / "layout.html")
     bar = layout[layout.index('class="navbar lily-topbar"'):layout.index("</header>")]
     assert 'id="top_settings"' in bar and "glyphicon-cog" in bar
@@ -298,7 +298,6 @@ def test_settings_button_opens_settings_with_tasks_and_logout_in_rail():
         assert gone not in bar, gone
     rail = read(TEMPLATES / "settings_layout.html")
     assert "tasks.get_tasks_status" not in rail and "id='logout'" in rail
-    assert 'extends "settings_layout.html"' in read(TEMPLATES / "tasks.html")
 
 
 def test_sort_direction_is_one_toggle_button_not_a_dropdown():
@@ -330,3 +329,78 @@ def test_list_view_is_a_ledger_with_shared_columns_and_a_read_dot():
     assert "macro list_head()" in image and 'class="lily-list-year"' in image
     for name in ("index", "shelf", "author", "search"):
         assert "image.list_head()" in read(TEMPLATES / f"{name}.html"), name
+
+
+# docs/design.md is the design guide. These tests keep it and the stylesheets in step.
+GUIDE = REPO_ROOT / "docs/design.md"
+PAGE_STYLESHEETS = ["lily-shell.css", "lily-library.css", "lily-admin.css", "lily-stats.css",
+                    "lily-reader.css", "login.css"]
+# §4.5 breakpoints, then the §12 drift that is allowed until it is folded in.
+GUIDE_BREAKPOINTS = {600, 767, 768, 1099, 1100, 1400, 1499, 1700}
+DRIFT_BREAKPOINTS = {550, 640, 860, 900}
+DRIFT_FONT_FAMILIES = {('lily-library.css', '"Glyphicons Halflings"')}
+
+
+def guide_palette():
+    rows = re.findall(r"^\| `--([\w-]+)` \| `(#[0-9A-Fa-f]{6})` \| `(#[0-9A-Fa-f]{6})` \|", read(GUIDE), re.M)
+    return {name: (light.upper(), dark.upper()) for name, light, dark in rows}
+
+
+def test_guide_palette_matches_lily_css():
+    guide = guide_palette()
+    light, dark = root_tokens(), dark_tokens(DARK_PALETTE_BLOCK)
+    css_hex = {n for n, v in light.items() if v.startswith("#")}
+    assert set(guide) == css_hex, set(guide) ^ css_hex
+    for name, (light_value, dark_value) in guide.items():
+        assert light[name].upper() == light_value, name
+        assert dark[name].upper() == dark_value, name
+
+
+def test_guide_lists_every_derived_state_and_type_token():
+    guide, tokens = read(GUIDE), root_tokens()
+    for name in ("hover", "selected", "accent-soft", "control-tint", "control-tint-strong", "row-hover",
+                 "row-active", "control-radius", "font-ui", "font-body", "font-mono", "title-size", "heading-size"):
+        assert f"`--{name}`" in guide, name
+    assert f"**{tokens['control-radius'].removesuffix('px')}** (`--control-radius`)" in guide
+    assert f"| `--title-size` | {tokens['title-size']}" in guide
+    assert f"| `--heading-size` | {tokens['heading-size']}" in guide
+
+
+def declarations(name):
+    """Rule bodies of a stylesheet with comments and url(...) payloads removed."""
+    css = re.sub(r"url\([^)]*\)", "url()", read(CSS / name))
+    return [body for _, body in css_rules(css)]
+
+
+def test_page_stylesheets_write_no_colour_values():
+    for name in PAGE_STYLESHEETS:
+        for body in declarations(name):
+            assert not re.search(r"#[0-9a-fA-F]{3,8}\b|\b(rgba?|hsla?)\(", body), (name, body.strip()[:80])
+
+
+def test_fonts_come_from_tokens():
+    for name in LILY_STYLESHEETS + PAGE_STYLESHEETS:
+        for selector, body in css_rules(read(CSS / name)):
+            if selector.startswith("@font-face"):
+                continue
+            for value in re.findall(r"font-family\s*:\s*([^;]+)", body):
+                value = value.strip()
+                assert value.startswith("var(--font-") or (name, value) in DRIFT_FONT_FAMILIES, (name, selector, value)
+
+
+def test_no_uppercase_text():
+    for name in set(LILY_STYLESHEETS + PAGE_STYLESHEETS):
+        assert not re.search(r"text-transform\s*:\s*uppercase", read(CSS / name)), name
+
+
+def test_breakpoints_are_on_the_guide_scale():
+    for name in set(LILY_STYLESHEETS + PAGE_STYLESHEETS):
+        for query in re.findall(r"@media[^{]*", read(CSS / name)):
+            for width in re.findall(r"(?:max|min)-width\s*:\s*(\d+)px", query):
+                assert int(width) in GUIDE_BREAKPOINTS | DRIFT_BREAKPOINTS, (name, query.strip())
+
+
+def test_guide_documents_drift_breakpoints():
+    drift = read(GUIDE).split("## 12. Known drift")[1]
+    for width in DRIFT_BREAKPOINTS:
+        assert str(width) in drift, width

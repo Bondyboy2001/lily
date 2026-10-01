@@ -483,9 +483,7 @@ $(document).ready(function() {
         $('#duplicate_scan_task_title').text('Duplicate Scan Running');
         $('#duplicate_scan_task_message').text(message);
         $('#duplicate_scan_task_progress_container').show();
-        $('#duplicate_scan_task_link')
-            .attr('href', duplicateScanEndpoint('/tasks'))
-            .text('View Background Tasks');
+        $('#duplicate_scan_task_link').hide();
         $('#duplicate_scan_task_progress')
             .addClass('active')
             .css('width', progress + '%')
@@ -502,9 +500,7 @@ $(document).ready(function() {
         $('#duplicate_scan_task_title').text('Duplicate Scan Running');
         $('#duplicate_scan_task_message').text('Duplicate scan finished. Updating results...');
         $('#duplicate_scan_task_progress_container').show();
-        $('#duplicate_scan_task_link')
-            .attr('href', duplicateScanEndpoint('/tasks'))
-            .text('View Background Tasks');
+        $('#duplicate_scan_task_link').hide();
         $('#duplicate_scan_task_progress')
             .removeClass('active')
             .css('width', '100%')
@@ -540,7 +536,8 @@ $(document).ready(function() {
         $('#duplicate_scan_task_progress_container').hide();
         $('#duplicate_scan_task_link')
             .attr('href', window.location.href)
-            .text('Refresh Page');
+            .text('Refresh Page')
+            .show();
     }
 
     // A scan queued by the page render (the one-time index baseline) may finish

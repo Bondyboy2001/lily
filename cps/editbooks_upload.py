@@ -220,7 +220,7 @@ def upload():
             except Exception as e:
                 log.error_or_exception("Failed to queue upload for ingest: {}".format(e))
                 flash(_("Failed to queue upload for processing"), category="error")
-                return Response(json.dumps({"location": url_for('tasks.get_tasks_status')}), mimetype='application/json')
+                return Response(json.dumps({"location": url_for('web.index')}), mimetype='application/json')
 
-        return Response(json.dumps({"location": url_for('tasks.get_tasks_status')}), mimetype='application/json')
+        return Response(json.dumps({"location": url_for('web.index')}), mimetype='application/json')
     abort(400)

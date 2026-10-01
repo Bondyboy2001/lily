@@ -1,4 +1,4 @@
-"""Static checks that the admin, configuration and settings pages follow ~/projects/DESIGN.md."""
+"""Static checks that the admin, configuration and settings pages follow docs/design.md."""
 import re
 from pathlib import Path
 
@@ -9,10 +9,7 @@ CSS = REPO_ROOT / "cps/static/css"
 TEMPLATES = REPO_ROOT / "cps/templates"
 
 ADMIN_TEMPLATES = [
-    "config_db.html", "cwa_settings.html", "db_backups.html", "user_edit.html",
-    "user_table.html", "hardcover_review_matches.html",
-    "tasks.html", "http_error.html",
-    "lily_form.html",
+    "cwa_settings.html", "user_edit.html", "user_table.html", "http_error.html", "lily_form.html",
 ]
 ADMIN_STYLESHEETS = ["lily-admin.css"]
 HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
@@ -70,15 +67,7 @@ def test_admin_headings_carry_no_emoji(name):
             assert "emoji_heading(" in line, (name, line)
 
 
-def test_folder_pickers_are_labelled_icon_buttons():
-    for name in ("config_db.html", "lily_form.html"):
-        html = read(TEMPLATES / name)
-        for button in re.findall(r"<button[^>]*>\s*<span class=\"glyphicon glyphicon-folder-open", html):
-            assert 'class="icon-btn"' in button, (name, button)
-            assert "aria-label=" in button and "title=" in button, (name, button)
-
-
-SETTINGS_FORMS = ["config_db.html", "user_edit.html", "cwa_settings.html", "db_backups.html"]
+SETTINGS_FORMS = ["user_edit.html", "cwa_settings.html"]
 
 
 @pytest.mark.parametrize("name", SETTINGS_FORMS)
@@ -136,12 +125,6 @@ def test_settings_rail_lists_only_the_essential_pages():
     assert "maintenance" not in html and "admin.admin" not in html
 
 
-def test_admin_view_redirects_to_duplicates():
-    source = read(REPO_ROOT / "cps/admin.py")
-    assert re.search(r"def admin\(\):\s*\n\s*return redirect\(url_for\('duplicates\.show_duplicates'\)\)",
-                     source)
-
-
 @pytest.mark.parametrize("name", ["duplicates.html", "logs.html"])
 def test_utility_pages_share_the_settings_frame(name):
     html = read(TEMPLATES / name)
@@ -165,13 +148,11 @@ def test_sidebar_has_no_utility_links():
 
 
 def test_removed_settings_pages_are_gone():
-    for name in ("config_edit.html", "config_view_edit.html", "schedule_edit.html"):
+    for name in ("config_edit.html", "config_view_edit.html", "schedule_edit.html", "config_db.html",
+                 "db_backups.html", "book_recovery.html", "ingest_failures.html", "metadata_suggestions.html",
+                 "tasks.html", "hardcover_review_matches.html", "account_security.html", "reading_stats.html",
+                 "cwa_stats_tabs.html"):
         assert not (TEMPLATES / name).exists(), name
-
-
-def test_library_page_keeps_google_drive():
-    html = read(TEMPLATES / "config_db.html")
-    assert "config_use_google_drive" in html and "gdrive.authenticate_google_drive" in html
 
 
 @pytest.mark.parametrize("name", SETTINGS_FORMS)

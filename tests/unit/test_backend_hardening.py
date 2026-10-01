@@ -277,12 +277,6 @@ class TestStatsQueryBinding:
         src = (REPO / "scripts/cwa_stats_queries.py").read_text()
         assert not re.search(r"\{(start_date|end_date|prev_start|prev_end|days|limit)\b", src)
 
-    def test_csv_export_validates_dates(self):
-        from cps.cwa_functions.stats import parse_stats_date_range
-        assert parse_stats_date_range("2026-01-01", "2026-02-01") == ("2026-01-01", "2026-02-01")
-        assert parse_stats_date_range(self.INJECTION, "2026-02-01") == (None, None)
-        assert parse_stats_date_range("2026-01-01", None) == (None, None)
-
 
 # --------------------------------------------------------------------------- 7. missing User-Agent
 @pytest.mark.unit

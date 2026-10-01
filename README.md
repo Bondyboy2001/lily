@@ -37,18 +37,13 @@ in-browser reading, 20+ languages, content hiding — plus:
 | **Library auto-detect** | No library? Lily creates one. Have one? Lily finds it and registers it. |
 | **Duplicate detection** | Hybrid SQL + fuzzy matching, with one-click merge and scheduled scans. |
 | **Automatic metadata fetch** | Optional on ingest, with provider fallback and fill-missing-only mode. |
-| **Deep stats & analytics** | Activity, library and API usage, with CSV export. |
-| **Nightly backups** | Snapshots of all three databases, downloadable as a zip, retention configurable. Optionally mirrors new and changed book files to a second folder. |
-| **Failed imports** | See what the ingest pipeline rejected, retry it or delete it. |
-| **Metadata suggestions** | Looks up books with no description and queues gap-filling suggestions for you to accept or reject. Never overwrites what a book already has. |
-| **Two-factor login & API tokens** | Optional authenticator-app codes at sign-in; a personal token for OPDS apps and scripts. |
-| **My Reading** | A yearly summary of the books you finished, by month, author and tag. |
+| **Nightly backups** | Snapshots of all three databases in `/config/backup`, and a copy of every deleted book kept for a while in case you need it back. |
 | **Batch edit & delete** | Select many books, act once. |
 | **Update notifications** | In-app notice when a new release is available. |
 | **Manual library refresh** | Re-process anything stranded in the ingest folder. |
 | **Extra metadata providers** | Hardcover, Open Library, Google Scholar. |
 
-Most of these are toggleable in the Lily Settings panel.
+Most of these are toggleable under Settings → Import & Metadata.
 
 ## Install
 
@@ -121,14 +116,14 @@ Keep these as separate directories — nesting binds inside each other causes er
 
 1. Log in with the default credentials below. Lily sends you straight to a
    *Change Password* page and won't open anything else until you pick a new password.
-2. **Admin → Configuration**: enable uploads under *Basic Configuration → Feature
-   Configuration*. The [Calibre-Web wiki](https://github.com/crocodilestick/Calibre-Web-Automated/wiki)
-   documents individual settings.
-3. **Lily Settings**: toggle features and choose which formats to ignore.
+2. **Settings → Import & Metadata**: turn on *Uploads from the browser* and choose the
+   import and metadata options.
+3. Make sure your library is mounted at `/calibre-library`; Lily finds it there (there is no
+   page to point it elsewhere).
 4. Drop a book in the ingest folder to confirm it works.
 
 > **Default login** — username `harry`, password `harry10`. The password must be changed at
-> first login; OPDS and API tokens stay blocked until it is.
+> first login; OPDS stays blocked until it is.
 
 ### Environment variables
 

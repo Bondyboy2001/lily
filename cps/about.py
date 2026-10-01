@@ -11,14 +11,7 @@ import sqlite3
 import importlib
 from collections import OrderedDict
 
-import flask
-from flask import redirect, url_for
-
 from . import converter, uploader, dep_check
-from .usermanagement import user_login_required
-
-
-about = flask.Blueprint('about', __name__)
 
 modules = dict()
 req = dep_check.load_dependencies(False)
@@ -48,9 +41,3 @@ def collect_stats():
     _VERSIONS.update(uploader.get_magick_version())
     _VERSIONS.update(sorted_modules)
     return _VERSIONS
-
-
-@about.route("/stats")
-@user_login_required
-def stats():
-    return redirect(url_for('cwa_stats.cwa_stats_show'), code=301)

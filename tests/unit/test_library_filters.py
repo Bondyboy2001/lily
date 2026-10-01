@@ -16,11 +16,9 @@ def env(tmp_path):
         e.app.jinja_env.globals.setdefault("csrf_token", lambda: "")
         # layout.html links to every section, so register the blueprints lily_env leaves out.
         from cps.editbooks import editbook
-        from cps.tasks_status import tasks
         from cps.duplicates import duplicates
-        from cps.about import about
-        from cps.cwa_functions import library_refresh, cwa_stats, cwa_settings
-        for bp in (editbook, tasks, duplicates, about, library_refresh, cwa_stats, cwa_settings):
+        from cps.cwa_functions import library_refresh, cwa_settings
+        for bp in (editbook, duplicates, library_refresh, cwa_settings):
             if bp.name not in e.app.blueprints:
                 e.app.register_blueprint(bp)
         yield e

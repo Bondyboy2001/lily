@@ -78,8 +78,6 @@ def add_security_headers(resp):
     if request.endpoint == "web.read_book":
         csp += " blob: "
     csp += "; img-src 'self'"
-    if request.endpoint == "admin.hardcover_review_matches":
-        csp += " https:"
     csp += " data:"
     if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
         csp += " *"

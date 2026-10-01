@@ -43,6 +43,12 @@
             {{ image.book_cover(book) }}
           </span>
         </a>
+        {% if item.progress is not none %}
+        <div class="progress continue-reading-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+             aria-valuenow="{{ item.progress|round|int }}" aria-label="{{_('Reading progress')}}">
+          <div class="progress-bar" style="width: {{ item.progress|round(1) }}%;"></div>
+        </div>
+        {% endif %}
       </div>
       <div class="meta">
         <a href="{{ url_for('web.show_book', book_id=book.id) }}">
@@ -50,13 +56,6 @@
         </a>
         {% if book.authors %}
         <p class="author">{{ book.authors[0].name.replace('|',',')|shortentitle(30) }}</p>
-        {% endif %}
-        {% if item.progress is not none %}
-        <div class="progress continue-reading-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
-             aria-valuenow="{{ item.progress|round|int }}" aria-label="{{_('Reading progress')}}"
-             title="{{ item.progress|round|int }}%">
-          <div class="progress-bar" style="width: {{ item.progress|round(1) }}%;"></div>
-        </div>
         {% endif %}
       </div>
     </div>
@@ -93,7 +92,7 @@
     {# Opens the same file picker as the top bar's Upload button #}
     <p><label for="btn-upload" class="btn btn-primary lily-upload-btn"><span class="glyphicon glyphicon-upload" aria-hidden="true"></span>{{_('Upload books')}}</label></p>
     {% elif current_user.role_admin() and not g.allow_upload %}
-    <p><a class="btn btn-default" href="{{ url_for('admin.configuration') }}">{{_('Turn on uploads')}}</a></p>
+    <p><a class="btn btn-default" href="{{ url_for('cwa_settings.set_cwa_settings') }}">{{_('Turn on uploads')}}</a></p>
     {% endif %}
   </div>
   {% elif not entries[0] and page == 'inprogress' %}

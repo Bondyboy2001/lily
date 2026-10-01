@@ -46,6 +46,7 @@
             <ul id="bookmarks"></ul>
         </div>
     </div>
+    <div id="sidebar-scrim" aria-hidden="true"></div>
     <div id="main">
 
         <div id="titlebar">
@@ -69,7 +70,7 @@
 	    <button type="button" id="prev" class="arrow" aria-label="{{_('Previous Page')}}">‹</button>
 	    <div id="viewer"></div>
 	    <button type="button" id="next" class="arrow" aria-label="{{_('Next Page')}}">›</button>
-	    <div id="progress" aria-live="off">0%</div>
+	    <div id="progress" aria-live="off"></div>
 	    <div id="progress-sync-status" role="status" aria-live="polite" class="lily-progress-status"
          data-pending-text="{{ _('Saved on this device; waiting to sync') }}"
 	         data-synced-text="{{ _('Synced') }}"></div>
@@ -91,20 +92,16 @@
                         id="blackSelected"></span>{{_('Black')}}</button>
             </div>
             <div class="reader-setting fontSizeWrapper">
-                <label class="reader-setting-label" for="fontSizeFader">{{ _('Font Sizes') }}</label>
+                <label class="reader-setting-label" for="fontSizeFader">{{ _('Text size') }}</label>
                 <input type="range" min="75" max="200" value="100" id="fontSizeFader" step="25">
             </div>
             <div class="reader-setting font" id="font">
                 <span class="reader-setting-label">{{_('Font')}}</span>
-                <button type="button" id="default" onclick="selectFont(this.id)"><span>✓</span>{{_('Default')}}</button>
-                <button type="button" id="Yahei" onclick="selectFont(this.id)"><span></span>{{_('Yahei')}}</button>
-                <button type="button" id="SimSun" onclick="selectFont(this.id)"><span></span>{{_('SimSun')}}</button>
-                <button type="button" id="KaiTi" onclick="selectFont(this.id)"><span></span>{{_('KaiTi')}}</button>
+                <button type="button" id="default" onclick="selectFont(this.id)"><span>✓</span>{{_('Book default')}}</button>
                 <button type="button" id="Serif" onclick="selectFont(this.id)"><span></span>{{_('Serif')}}</button>
                 <button type="button" id="SansSerif" onclick="selectFont(this.id)"><span></span>{{_('Sans-serif')}}</button>
-                <button type="button" id="Arial" onclick="selectFont(this.id)"><span></span>{{_('Arial')}}</button>
             </div>
-            <div class="reader-setting readerLayout" id="readerLayout">
+            <div class="reader-setting">
                 <label class="reader-setting-label" for="lineHeightSelect">{{_('Line spacing')}}</label>
                 <select id="lineHeightSelect">
                   <option value="default">{{_('Default')}}</option>
@@ -114,6 +111,8 @@
                   <option value="1.8">1.8</option>
                   <option value="2.0">2.0</option>
                 </select>
+            </div>
+            <div class="reader-setting">
                 <label class="reader-setting-label" for="marginSelect">{{_('Margins')}}</label>
                 <select id="marginSelect">
                   <option value="0">{{_('Default')}}</option>
@@ -122,14 +121,10 @@
                   <option value="4">{{_('Large')}}</option>
                 </select>
             </div>
-            <div class="reader-setting layou" id="layout">
-                <span class="reader-setting-label">{{ _('Spread') }}</span>
-                <button type="button" id="spread" onclick="spread(this.id)"><span>✓</span>{{_('Two columns')}}</button>
-                <button type="button" id="nonespread" onclick="spread(this.id)"><span></span>{{_('One column')}}</button>
-            </div>
-            <div class="reader-setting">
-                <label class="reader-check" for="sidebarReflow"><input type="checkbox" id="sidebarReflow"
-                        name="sidebarReflow">{{_('Reflow text when sidebars are open.')}}</label>
+            <div class="reader-setting" id="layout">
+                <span class="reader-setting-label">{{ _('Pages') }}</span>
+                <button type="button" id="spread" onclick="spread(this.id)"><span>✓</span>{{_('Side by side')}}</button>
+                <button type="button" id="nonespread" onclick="spread(this.id)"><span></span>{{_('One at a time')}}</button>
             </div>
             <button type="button" class="closer icon-cancel-circled" aria-label="{{_('Close')}}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></button>
         </div>
@@ -182,11 +177,7 @@
         // Only locally installed fonts are used - nothing is fetched from a CDN.
         window.readerFontStacks = {
             "Serif": 'Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", "Times New Roman", serif',
-            "SansSerif": 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif',
-            "Yahei": '"Microsoft YaHei", sans-serif',
-            "SimSun": 'SimSun, serif',
-            "KaiTi": 'KaiTi, serif',
-            "Arial": 'Arial, Helvetica, sans-serif'
+            "SansSerif": 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif'
         };
 
         function markSelectedTheme (id) {
@@ -195,7 +186,7 @@
               return false;
             }
             // Remove tick mark from all theme buttons
-            document.getElementById("themes").querySelectorAll("span").forEach(function (tickSpan) {
+            document.getElementById("themes").querySelectorAll("button > span").forEach(function (tickSpan) {
               tickSpan.textContent = "";
             });
             // Add tick mark to the button corresponding to the currently selected theme
@@ -227,7 +218,7 @@
               defaultFont = reader.rendition.getContents()[0]?.css('font-family');
             } catch (e) { defaultFont = null; }
           }
-          let spans = document.getElementById("font").querySelectorAll("span");
+          let spans = document.getElementById("font").querySelectorAll("button > span");
           for(var i = 0; i < spans.length; i++) {
             spans[i].textContent = "";
           }
@@ -248,7 +239,7 @@
         }
 
         window.spread = function(id) {
-          let spans = document.getElementById("layout").querySelectorAll("span");
+          let spans = document.getElementById("layout").querySelectorAll("button > span");
           for(var i = 0; i < spans.length; i++) {
             spans[i].textContent = "";
           }
@@ -268,20 +259,6 @@
             fontSizeFader.addEventListener("change", function () {
               reader.rendition.themes.fontSize(`${this.value}%`);
               localStorage.setItem("calibre.reader.fontSize", this.value);
-            });
-          }
-        });
-
-        // Reflow logic
-        document.addEventListener("DOMContentLoaded", function() {
-          let reflowBox = document.getElementById('sidebarReflow');
-          if (reflowBox) {
-            let savedReflow = localStorage.getItem("calibre.reader.reflow");
-            if (savedReflow !== null) {
-              reflowBox.checked = savedReflow === 'true';
-            }
-            reflowBox.addEventListener("change", function() {
-              localStorage.setItem("calibre.reader.reflow", this.checked);
             });
           }
         });

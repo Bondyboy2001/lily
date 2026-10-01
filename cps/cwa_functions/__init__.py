@@ -8,7 +8,6 @@
 
     common        blueprints, logger, shared paths
     settings      /cwa-settings page + metadata-provider settings helpers
-    stats         stats pages, CSV export, scheduled job list/cancel
     logs          service status check, log archive routes + helpers
     ingest        library refresh, ingest helpers, internal endpoints used by the
                   ingest process (auto-send, debounced duplicate scans, DB reconnect)
@@ -18,13 +17,11 @@ Module-level state (e.g. the duplicate-scan debounce timer and lock) lives only 
 its owning submodule; patch it there (``cps.cwa_functions.ingest``), not here.
 """
 
-from .common import (library_refresh, cwa_stats,
+from .common import (library_refresh,
                      cwa_check_status, cwa_settings, cwa_internal,
                      log, DIRS_JSON)
 # Import order mirrors the old single module (web, scheduler, worker, tasks) to keep
 # circular-import behaviour the same.
-from .stats import (get_cwa_stats, headers, cwa_stats_show, export_stats_csv,
-                    show_full_enforcement, show_full_enforcement_path, show_full_imports)
 from .ingest import (_duplicate_full_scan_running, get_ingest_dir, get_ingest_status, _coerce_book_ids,
                      get_ingest_queue_size, refresh_library, cwa_library_refresh,
                      get_library_refresh_messages,
@@ -39,12 +36,8 @@ from .settings import (parse_metadata_providers_enabled, validate_and_cleanup_pr
 # listed so linters treat them as intentional re-exports.
 __all__ = [
     # common
-    "library_refresh", "cwa_stats", "cwa_check_status", "cwa_settings",
+    "library_refresh", "cwa_check_status", "cwa_settings",
     "cwa_internal", "log", "DIRS_JSON",
-    # stats
-    "get_cwa_stats", "headers", "cwa_stats_show",
-    "export_stats_csv", "show_full_enforcement",
-    "show_full_enforcement_path", "show_full_imports",
     # ingest
     "_duplicate_full_scan_running", "get_ingest_dir", "get_ingest_status",
     "_coerce_book_ids", "get_ingest_queue_size", "refresh_library",

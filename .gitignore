@@ -24,6 +24,7 @@ cwa-wiki/
 docs/*
 !docs/deployment.md
 !docs/architecture.md
+!docs/design.md
 .venv-activate.sh
 test_venv
 cwa.code-workspace

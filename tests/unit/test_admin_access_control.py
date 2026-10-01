@@ -6,12 +6,13 @@ from tests.unit.lily_env import lily_env, ADMIN_PASSWORD
 
 pytestmark = pytest.mark.unit
 
-ADMIN_GETS = ["/admin/ingest_failures", "/admin/db_backups", "/admin/db_backups/download/20260101_030000",
-              "/admin/view", "/admin/user/new", "/admin/metadata/suggestions"]
-ADMIN_POSTS = ["/admin/ingest_failures/delete", "/admin/ingest_failures/retry", "/admin/db_backups/restore",
-               "/admin/db_backups/settings", "/account/security/unlock/1",
-               "/admin/metadata/suggestions/run", "/admin/metadata/suggestions/bulk/accept_high",
-               "/admin/metadata/suggestions/1/accept", "/admin/db_backups/mirror"]
+ADMIN_GETS = ["/admin/user/new", "/admin/usertable", "/logs"]
+ADMIN_POSTS = ["/admin/user/new", "/ajax/deleteuser", "/shutdown", "/metadata_backup"]
+# Settings pages that were deleted outright: not hidden, not redirected, gone.
+REMOVED = ["/admin/view", "/admin/config", "/admin/dbconfig", "/admin/viewconfig", "/admin/scheduledtasks",
+           "/admin/db_backups", "/admin/ingest_failures", "/admin/book-recovery", "/admin/metadata/suggestions",
+           "/admin/hardcover/review-matches", "/cwa-stats-show", "/stats", "/tasks", "/account/security",
+           "/reading", "/ajax/pathchooser/"]
 
 
 @pytest.fixture
@@ -40,12 +41,7 @@ def test_admin_pages_are_closed_to_users_and_visitors(clients, path):
     visitor, user, admin = clients
     assert _blocked(visitor.get(path), path), "visitor reached " + path
     assert _blocked(user.get(path), path), "regular user reached " + path
-    resp = admin.get(path)
-    if path == "/admin/view":
-        assert resp.status_code == 302 and resp.headers["Location"].endswith("/duplicates")
-    else:
-        # 404 is fine for the snapshot download: the admin got past the gate, the snapshot just doesn't exist here
-        assert resp.status_code in (200, 404)
+    assert admin.get(path).status_code == 200
 
 
 @pytest.mark.parametrize("path", ADMIN_POSTS)
@@ -54,3 +50,22 @@ def test_admin_actions_are_closed_to_users_and_visitors(clients, path):
     for c in (visitor, user):
         resp = c.post(path, data={"names": "x", "snapshot": "20260101_030000"})
         assert _blocked(resp, path), "%s reached %s" % (path, resp.status_code)
+
+
+@pytest.mark.parametrize("path", REMOVED)
+def test_removed_settings_pages_have_no_route(clients, path):
+    """Nothing serves these paths any more. Two-segment ones such as /admin/view fall through
+    to the generic /<list>/<sort> book list, which is not the old page."""
+    from flask import current_app
+    from werkzeug.exceptions import NotFound
+    from werkzeug.routing import RequestRedirect
+    visitor, _, _ = clients
+    with visitor.application.app_context():
+        adapter = current_app.url_map.bind("localhost")
+        try:
+            endpoint, _args = adapter.match(path, method="GET")
+        except NotFound:
+            return
+        except RequestRedirect as redirect:
+            endpoint, _args = adapter.match(redirect.new_url.split("localhost", 1)[1], method="GET")
+        assert endpoint == "web.books_list", (path, endpoint)

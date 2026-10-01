@@ -21,7 +21,7 @@
     />
 {%- endmacro %}
 
-{# A sort or filter chip (DESIGN.md §5 Chips). `active` marks the chosen one. #}
+{# A sort or filter chip (docs/design.md §5 Chips). `active` marks the chosen one. #}
 {% macro chip(id, label, tip, href, active=False, disabled=False) -%}
     <a id="{{ id }}" class="btn lily-chip{% if active %} active{% endif %}{% if disabled %} disabled{% endif %}" href="{{ href }}"
        title="{{ tip }}"{% if active %} aria-current="true"{% endif %}>{{ label }}</a>

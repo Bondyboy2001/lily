@@ -1,6 +1,6 @@
 /*
  * Lily design language: stats and duplicates pages.
- * Tokens and base components live in lily.css (~/projects/DESIGN.md). Nothing here sets a colour
+ * Tokens and base components live in lily.css (docs/design.md). Nothing here sets a colour
  * that is not a token, and nothing sets a button's box (lily.css owns .btn, .nav-pills chips, fields).
  * Charts read the same tokens at runtime through static/js/lily-charts.js.
  */

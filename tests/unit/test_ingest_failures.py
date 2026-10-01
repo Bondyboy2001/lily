@@ -63,37 +63,3 @@ def test_unsafe_names_are_refused(dirs, bad):
         mod.delete_failed(str(failed), bad)
     with pytest.raises(ValueError):
         mod.retry_failed(str(failed), str(ingest), bad)
-
-
-@pytest.fixture
-def admin_client(dirs, monkeypatch, tmp_path):
-    from .lily_env import lily_env, ADMIN_PASSWORD
-    from .test_lily_reader_static import _register_remaining_blueprints
-    failed, ingest = dirs
-    monkeypatch.setattr(mod, "FAILED_DIR", str(failed))
-    monkeypatch.setattr("cps.admin_backups._ingest_failure_dirs", lambda: (str(failed), str(ingest)))
-    with lily_env(tmp_path) as env:
-        env.app.jinja_env.globals.setdefault("csrf_token", lambda: "test-token")
-        _register_remaining_blueprints(env.app)
-        c = env.app.test_client()
-        c.post("/login", data={"username": env.admin().name, "password": ADMIN_PASSWORD})
-        yield c, failed, ingest
-
-
-@pytest.mark.unit
-def test_page_lists_and_retry_route_moves_file(admin_client):
-    c, failed, ingest = admin_client
-    html = c.get("/admin/ingest_failures").get_data(as_text=True)
-    assert "Book.epub" in html and "Retry" in html
-    resp = c.post("/admin/ingest_failures/retry", data={"names": "20260101_030000_Book.epub"})
-    assert resp.status_code == 302
-    assert (ingest / "Book.epub").exists() and not any(failed.iterdir())
-
-
-@pytest.mark.unit
-def test_action_route_rejects_bad_input(admin_client):
-    c, failed, _ = admin_client
-    assert c.post("/admin/ingest_failures/explode", data={"names": "x"}).status_code == 400
-    assert c.post("/admin/ingest_failures/delete", data={}).status_code == 400
-    c.post("/admin/ingest_failures/delete", data={"names": "../../etc/passwd"})
-    assert (failed / "20260101_030000_Book.epub").exists()

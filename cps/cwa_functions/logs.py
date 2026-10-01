@@ -42,4 +42,4 @@ def cwa_flash_status():
         case _:
             flash(_("An Error has occurred"), category="cwa_refresh")
 
-    return redirect(url_for('admin.admin'))
+    return redirect(url_for('logs.show_logs'))

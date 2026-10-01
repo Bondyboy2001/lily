@@ -1,6 +1,6 @@
 /*
  * Lily design language: admin, configuration and settings pages.
- * Source of truth: ~/projects/DESIGN.md. Tokens and base components (buttons, fields, chips, notices,
+ * Source of truth: docs/design.md. Tokens and base components (buttons, fields, chips, notices,
  * sheets) live in lily.css; this file only lays out the admin pages and restyles their legacy classes
  * (settings-container, settings-section-header, cwa-settings-*) on those tokens.
  * Every rule is scoped to .lily-admin, the wrapper each admin template puts round its body, so the

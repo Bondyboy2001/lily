@@ -2,7 +2,7 @@
  * Copyright (C) 2024-2025 Calibre-Web Automated contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * DESIGN.md §5 Sheets and dialogs: paper, radius 10, 24 padding, 22 Charter title, one sentence,
+ * docs/design.md §5 Sheets and dialogs: paper, radius 10, 24 padding, 22 Charter title, one sentence,
  * Quiet on the left and the one Primary on the right. Colours are tokens from lily.css only.
  * The sidebar count pill is styled in lily-shell.css (.lily-nav .duplicate-badge).
  */

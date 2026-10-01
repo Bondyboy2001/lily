@@ -1,7 +1,7 @@
 /*
  * Lily app frame: sidebar, top bar, content column, phone drawer.
  * Markup: templates/layout.html (.lily-app). Tokens: lily.css.
- * DESIGN.md §5 Sidebars, Navigation rows, Icon buttons; §4 spacing.
+ * docs/design.md §5 Sidebars, Navigation rows, Icon buttons; §4 spacing.
  */
 
 :root {

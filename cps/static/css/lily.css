@@ -1,7 +1,7 @@
 /*
  * Lily design language — tokens and base components.
  *
- * Palette: Mauve (dusty orchid on warm stone, plum-tinted dark). Type: Literata. A new guide will replace DESIGN.md.
+ * Palette: Mauve (dusty orchid on warm stone, plum-tinted dark). Type: Literata. Guide: docs/design.md.
  * The light tokens live directly on :root; the dark theme redefines the same tokens below under
  * data-theme="dark", which the head script in layout.html sets from the saved choice or prefers-color-scheme. Bootstrap 3 classes are restyled here
  * into the guide's components, so existing markup picks them up without template changes:
@@ -71,13 +71,6 @@
     --row-hover: color-mix(in srgb, var(--ink) 5%, transparent);
     --row-active: color-mix(in srgb, var(--ink) 9%, transparent);
     --control-radius: 6px;
-    /* Categorical chart series, validated for contrast and colour-blind separation on paper and surface.
-       Not in DESIGN.md yet; move them there if another app charts. */
-    --series-1: #854A73;
-    --series-2: #2A78C6;
-    --series-3: #B07A0C;
-    --series-4: #2E8B6A;
-    --series-5: #7A52B8;
     --menu-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 6%, transparent), 0 8px 24px color-mix(in srgb, var(--ink) 10%, transparent);
 
     --font-ui: Literata, Charter, "Iowan Old Style", Georgia, serif;
@@ -89,7 +82,7 @@
     --heading-size: 15px;
 }
 
-/* Dark theme: DESIGN.md "Abyss", the same tokens redefined. lily_theme_head.html resolves "system" to a
+/* Dark theme (docs/design.md §2.1): the same tokens redefined. lily_theme_head.html resolves "system" to a
    concrete data-theme before first paint, so this one block is the whole dark theme. Every text token keeps
    >=4.5:1 on paper, surface and sunk; --line-strong keeps >=3:1. */
 :root[data-theme="dark"] {
@@ -111,11 +104,6 @@
     --danger: #F7768E;
     --on-accent: #1A1517;
     --check-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%231A1517' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    --series-1: #D49BC2;
-    --series-2: #E88AAA;
-    --series-3: #E0AF68;
-    --series-4: #73DACA;
-    --series-5: #BB9AF7;
     --menu-shadow: 0 1px 2px color-mix(in srgb, #000 30%, transparent), 0 8px 24px color-mix(in srgb, #000 45%, transparent);
 }
 

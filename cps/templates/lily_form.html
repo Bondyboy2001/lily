@@ -33,14 +33,13 @@
 </div>
 {%- endmacro %}
 
-{#- A single-line field. `value` None renders empty. `picker` adds the folder-picker icon button. -#}
-{% macro input(name, label, value, help=None, type='text', id=None, placeholder=None, wide=False, picker=False, attrs='') -%}
+{#- A single-line field. `value` None renders empty. -#}
+{% macro input(name, label, value, help=None, type='text', id=None, placeholder=None, wide=False, attrs='') -%}
 {% set fid = id or name %}
 <div class="lp-row{% if wide %} is-wide{% endif %}">
   <div class="lp-text"><label for="{{ fid }}">{{ label }}</label>{% if help %}<p class="lp-help">{{ help }}</p>{% endif %}</div>
   <div class="lp-control">
     <input type="{{ type }}" class="form-control" id="{{ fid }}" name="{{ name }}" value="{% if value != None %}{{ value }}{% endif %}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %} autocomplete="off" {{ attrs|safe }}>
-    {% if picker %}<button type="button" data-toggle="modal" data-link="{{ fid }}" data-target="#fileModal" id="{{ picker }}" class="icon-btn" title="{{ _('Choose a path') }}" aria-label="{{ _('Choose a path') }}"><span class="glyphicon glyphicon-folder-open" aria-hidden="true"></span></button>{% endif %}
   </div>
 </div>
 {%- endmacro %}

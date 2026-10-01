@@ -166,8 +166,11 @@ def _form_identifiers(raw_json):
 
 def _scorer(form):
     """How well a record matches the book being edited (title and authors from the
-    edit form), using the same rules as the metadata suggestion queue."""
-    from .tasks.suggest_metadata import match_score
+    edit form), scored by scripts/metadata_suggestions.py."""
+    import sys
+    if '/app/calibre-web-automated/scripts/' not in sys.path:
+        sys.path.insert(1, '/app/calibre-web-automated/scripts/')
+    from metadata_suggestions import match_score
     title = form.get("title") or ""
     authors = [a.strip() for a in (form.get("authors") or "").split("&") if a.strip()]
 

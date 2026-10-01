@@ -62,6 +62,24 @@ def test_epub_reader_fixes():
     assert html.index("js/reading/progress-sync.js") < html.index("js/reading/epub-progress.js")
 
 
+def test_epub_reader_layout_and_loading():
+    html = read(TEMPLATES / "read.html")
+    epub = read(JS / "reading/epub.js")
+    progress = read(JS / "reading/epub-progress.js")
+    # One download: progress uses the reader's own book instead of a second ePub().
+    assert "ePub(calibre" not in progress and "var epub=reader.book" in progress
+    # The sidebar slides over the page and closes from a scrim, Escape or a picked entry.
+    assert 'id="sidebar-scrim"' in html and "sidebarReflow" not in html
+    assert "closeSidebar" in epub and '"Escape"' in epub
+    # Fixed device-sized viewers (300x480 on phones, fixed iPad frames) stay gone.
+    assert "max-device-width" not in read(CSS / "main.css")
+    assert "#sidebar-scrim" in read(CSS / "lily-reader.css")
+    # Only fonts that suit an English UI; the row labels survive the tick reset.
+    for font in ("Yahei", "SimSun", "KaiTi"):
+        assert font not in html
+    assert html.count('querySelectorAll("button > span")') == 3
+
+
 def test_progress_sync_contract():
     js = read(JS / "reading/progress-sync.js")
     assert "X-CSRFToken" in js and "keepalive" in js
@@ -113,17 +131,15 @@ def test_advanced_search_uses_lily_form_rows():
 
 def _register_remaining_blueprints(app):
     """layout.html links to every blueprint; add the ones the shared test app lacks."""
-    from cps.cwa_functions import (library_refresh, cwa_stats, cwa_check_status, cwa_settings,
+    from cps.cwa_functions import (library_refresh, cwa_check_status, cwa_settings,
                                    cwa_internal)
     from cps.editbooks import editbook
-    from cps.about import about
     from cps.search_metadata import meta
-    from cps.tasks_status import tasks
     from cps.duplicates import duplicates
     from cps.logs import logs
     from cps.gdrive import gdrive
-    for bp in (library_refresh, cwa_stats, cwa_check_status, cwa_settings, cwa_internal,
-               editbook, about, meta, tasks, duplicates, logs, gdrive):
+    for bp in (library_refresh, cwa_check_status, cwa_settings, cwa_internal,
+               editbook, meta, duplicates, logs, gdrive):
         if bp.name not in app.blueprints:
             app.register_blueprint(bp)
 

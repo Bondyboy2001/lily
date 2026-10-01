@@ -1,4 +1,4 @@
-/* global reader, ePub, calibre, LilyProgress */
+/* global reader, calibre, LilyProgress */
 
 /**
  * waits until queue is finished, meaning the book is done loading
@@ -78,22 +78,22 @@ function saveProgress(){
     progressSync.save(start.cfi, fraction);
 }
 
-window.addEventListener('locationchange',()=>{
-    let newPos=calculateProgress();
+function showProgress(){
+    // Blank until the locations exist, rather than a misleading 0%.
     if (progressDiv) {
-        progressDiv.textContent=newPos+"%";
+        progressDiv.textContent=currentFraction()===null ? "" : calculateProgress()+"%";
     }
+}
+
+window.addEventListener('locationchange',()=>{
+    showProgress();
     saveProgress();
 });
 
-var epub=ePub(calibre.bookUrl)
+// The reader's own book: a second ePub() here would download and parse the file again.
+var epub=reader.book;
 
 let progressDiv=document.getElementById("progress");
-
-/** Pre-sync builds kept an integer percentage under this key; read it once as a fallback. */
-function legacyLocalPercent(){
-    return null;
-}
 
 function displayPosition(pos){
     if (!pos) {
@@ -119,13 +119,7 @@ qFinished(()=>{
     }
     Promise.all([epub.locations.generate(), progressSync.load()]).then(([, saved])=> {
         if (reader && reader.rendition) {
-            let restored = displayPosition(saved);
-            if (!restored) {
-                let legacy = legacyLocalPercent();
-                if (legacy !== null) {
-                    restored = displayPosition({cfi: "", percent: legacy});
-                }
-            }
+            displayPosition(saved);
         }
         progressRestored = true;
         window.dispatchEvent(new Event('locationchange'))
@@ -136,5 +130,8 @@ qFinished(()=>{
 
 if (reader && reader.rendition && typeof reader.rendition.on === "function") {
     // History pushes are skipped when the hash already matches, so listen here as well.
-    reader.rendition.on("relocated", saveProgress);
+    reader.rendition.on("relocated", ()=>{
+        showProgress();
+        saveProgress();
+    });
 }

@@ -61,41 +61,6 @@
 </div>
 {% endif %}
 {% endmacro %}
-{% macro filechooser_modal() %}
-<div class="modal fade" id="fileModal" role="dialog" aria-labelledby="metafileLabel">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-          <h4 class="modal-title" id="metafileLabel">{{_('Choose File Location')}}</h4>
-      </div>
-        <div class="modal-body">
-         <table id="file_table" class="table table-striped">
-            <thead>
-              <tr>
-                  <th>{{_('Type')}}</th>
-                  <th>{{_('Name')}}</th>
-                  <th>{{_('Size')}}</th>
-              </tr>
-            </thead>
-            <tbody id="tbody">
-              <tr class="tr-clickable hidden" id="parent" data-type="dir" data-path="..">
-                <td><span class="glyphicon glyphicon-folder-close"></span></td>
-                <td title="{{_('Parent Directory')}}"><span class="parentdir">..</span></td>
-                <td></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      <div class="modal-footer">
-        <div class="text-left" id="element_selected"></div>
-        <button type="button" id="file_abort" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
-        <input type="button" class="btn btn-primary" data-path="" data-link=""  data-folderonly="" data-filefilter="" data-newfile="" value="{{_('Select')}}" name="file_confirm" id="file_confirm" data-dismiss="modal">
-      </div>
-    </div>
-  </div>
-</div>
-{% endmacro %}
-
 {% macro delete_confirm_modal() %}
 <div id="GeneralDeleteModal" class="modal fade" role="dialog" aria-modal="true" aria-labelledby="header-GeneralDeleteModal" aria-describedby="text-GeneralDeleteModal">
   <div class="modal-dialog modal-sm">

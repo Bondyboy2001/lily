@@ -1,4 +1,4 @@
-"""Static checks that the stats and duplicates pages follow ~/projects/DESIGN.md.
+"""Static checks that the stats and duplicates pages follow docs/design.md.
 
 Colours live in lily.css only; these pages and their stylesheet use tokens, and charts read the tokens at
 runtime through static/js/lily-charts.js.
@@ -13,12 +13,9 @@ CSS = REPO_ROOT / "cps/static/css"
 JS = REPO_ROOT / "cps/static/js"
 TEMPLATES = REPO_ROOT / "cps/templates"
 
-STATS_TEMPLATES = [
-    "cwa_stats_full.html", "cwa_stats_system.html", "cwa_stats_tabs.html",
-    "cwa_user_activity.html", "cwa_library_stats.html", "cwa_api_stats.html", "duplicates.html",
-]
+STATS_TEMPLATES = ["duplicates.html"]
 STATS_STYLESHEETS = ["lily-stats.css", "duplicates-notifications.css"]
-STATS_SCRIPTS = ["lily-charts.js", "duplicates.js", "duplicate-notifier.js"]
+STATS_SCRIPTS = ["duplicates.js", "duplicate-notifier.js"]
 
 HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
 # HTML character references (&#039;) look like hex colours to the regex above.
@@ -72,24 +69,9 @@ def test_stats_scripts_inject_no_colours(name):
     assert "gradient" not in text.lower(), f"{name}: gradient in script"
 
 
-@pytest.mark.parametrize("name", ["cwa_stats_tabs.html", "cwa_user_activity.html", "cwa_library_stats.html",
-                                  "cwa_api_stats.html", "cwa_stats_system.html", "duplicates.html"])
+@pytest.mark.parametrize("name", STATS_TEMPLATES)
 def test_stats_labels_have_no_emoji(name):
     assert not EMOJI.findall(read(TEMPLATES / name)), f"{name}: emoji in labels"
-
-
-def test_stats_tabs_are_chips():
-    html = read(TEMPLATES / "cwa_stats_tabs.html")
-    assert "nav nav-pills stats-tabs" in html
-    assert 'role="tablist"' in html
-
-
-def test_stats_charts_use_the_lily_theme():
-    for name in ("cwa_user_activity.html", "cwa_library_stats.html", "cwa_api_stats.html"):
-        html = read(TEMPLATES / name)
-        assert "echarts.init(" not in html, f"{name}: create charts with LilyCharts.init so tokens apply"
-        assert "LilyCharts.init(" in html
-    assert "js/lily-charts.js" in read(TEMPLATES / "cwa_stats_tabs.html")
 
 
 def test_stats_views_have_at_most_one_primary_button():
