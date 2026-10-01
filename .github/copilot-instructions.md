@@ -154,11 +154,9 @@ Pluggable providers in `cps/metadata_provider/`:
 - **Hardcover**: Set `HARDCOVER_TOKEN` env var for API access
 
 ## File Format Support
-**Import formats** (27 total): epub, mobi, azw, azw3, azw4, pdf, txt, cbz, cbr, cb7, cbc, fb2, fbz, docx, html, htmlz, lit, lrf, odt, prc, pdb, pml, rb, snb, tcr, txtz, kepub, acsm
+**Import formats**: epub, pdf and djvu (plus audiobooks)
 
 **Special handling**:
-- **KEPUB**: Uses `/usr/bin/kepubify` for Kobo-specific format
-- **ACSM**: Requires DeDRM Calibre plugin (user-provided)
 - **Audiobooks**: M4B/M4A support in `scripts/audiobook.py` (experimental)
 
 ## Environment Variables

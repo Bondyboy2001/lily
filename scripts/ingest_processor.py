@@ -487,7 +487,7 @@ class NewBookProcessor:
 
 
         # Formats
-        self.supported_book_formats = {'epub', 'pdf'}
+        self.supported_book_formats = {'epub', 'pdf', 'djvu'}
         self.supported_audiobook_formats = {'m4b', 'm4a', 'mp4'}
 
         # Directories

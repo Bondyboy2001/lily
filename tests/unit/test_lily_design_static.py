@@ -273,7 +273,7 @@ def test_hidden_sidebar_links_leave_the_tab_order():
 
 
 def test_library_refresh_notice_is_a_temporary_toast():
-    # The refresh result pops up in the top right and goes away on its own, rather than
+    # The refresh result pops up in the bottom right and goes away on its own, rather than
     # sitting as a full-width banner above the page.
     layout = read(TEMPLATES / "layout.html")
     assert re.search(r'<div id="message_library_refresh" class="lily-refresh-toast"[^>]*\shidden', layout)
@@ -281,6 +281,7 @@ def test_library_refresh_notice_is_a_temporary_toast():
     rules = css_rules(read(CSS / "lily-shell.css"))
     toast = [b for s, b in rules if s == ".lily-refresh-toast"]
     assert toast and "position: fixed" in toast[0] and re.search(r"right\s*:", toast[0])
+    assert re.search(r"bottom\s*:", toast[0]) and not re.search(r"\btop\s*:", toast[0])
     assert "TOAST_MS" in read(REPO_ROOT / "cps/static/js/lily.js")
 
 

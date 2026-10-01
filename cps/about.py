@@ -44,9 +44,7 @@ def collect_stats():
         Python=sys.version,
         Platform='{0[0]} {0[2]} {0[3]} {0[4]} {0[5]}'.format(platform.uname()),
     ))
-    _VERSIONS['Unrar'] = converter.get_unrar_version()
     _VERSIONS['Ebook converter'] = converter.get_calibre_version()
-    _VERSIONS['Kepubify'] = converter.get_kepubify_version()
     _VERSIONS.update(uploader.get_magick_version())
     _VERSIONS.update(sorted_modules)
     return _VERSIONS

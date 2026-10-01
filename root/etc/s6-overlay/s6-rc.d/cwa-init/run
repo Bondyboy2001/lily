@@ -47,11 +47,6 @@ if [[ ! -f /config/client_secrets.json ]]; then
     echo "{}" > /config/client_secrets.json
 fi
 
-# check if kepubify is present and if so make executable
-if [[ -f /usr/bin/kepubify ]] && [[ ! -x /usr/bin/kepubify ]]; then
-    chmod +x /usr/bin/kepubify
-fi
-
 # Pre-stage some files & directories for permissions purposes
 mkdir -p /app/calibre-web-automated/cps/cache
 
@@ -70,17 +65,6 @@ export CALIBRE_DBPATH=/config
 if [[ ! -f /config/app.db ]]; then
   echo "First time run, creating app.db..."
   cd /app/calibre-web-automated && s6-setuidgid abc python3 /app/calibre-web-automated/cps.py -d > /dev/null 2>&1
-  # handle app.db updates for kepubify and ext binary path
-  # borrowed from crocodilestick because it's a better solution than what i was doing
-  sqlite3 /config/app.db <<EOS
-    update settings set config_kepubifypath='/usr/bin/kepubify' where config_kepubifypath is NULL or LENGTH(config_kepubifypath)=0;
-EOS
-
-  if [[ $? == 0 ]]; then
-    echo "Successfully set kepubify paths in '/config/app.db'!"
-  elif [[ $? > 0 ]]; then
-    echo "Could not set binary paths for '/config/app.db' (see errors above)."
-  fi
 fi
 
 #------------------------------------------------------------------------------------------------------------------------
@@ -170,7 +154,7 @@ fi
 echo "[cwa-init] Setting binary paths in '/config/app.db' to the correct ones..."
 
 sqlite3 /config/app.db <<EOS
-    update settings set config_kepubifypath='/usr/bin/kepubify', config_converterpath='/usr/bin/ebook-convert', config_binariesdir='/usr/bin';
+    update settings set config_converterpath='/usr/bin/ebook-convert', config_binariesdir='/usr/bin';
 EOS
 
 if [[ $? == 0 ]]

@@ -19,7 +19,6 @@ import platform
 from datetime import datetime, timezone
 import requests
 import unidecode
-from uuid import uuid4
 
 from flask import send_from_directory, make_response, abort, url_for, Response
 from flask_babel import gettext as _
@@ -60,7 +59,6 @@ from .services.worker import WorkerThread, STAT_FINISH_SUCCESS
 from .tasks.thumbnail import TaskClearCoverThumbnailCache, TaskGenerateCoverThumbnails
 from .tasks.metadata_backup import TaskBackupMetadata
 from .file_helper import get_temp_dir
-from .epub_helper import get_content_opf, create_new_metadata_backup, updateEpub, replace_metadata
 from .embed_helper import do_calibre_export
 
 log = logger.create()
@@ -1026,23 +1024,13 @@ def do_download_file(book, book_format, client, data, headers):
     if config.config_use_google_drive:
         df = gd.getFileFromEbooksFolder(book.path, data.name + "." + book_format)
         if df:
-            if config.config_embed_metadata and (
-                 (book_format == "kepub" and config.config_kepubifypath) or
-                 (book_format != "kepub" and config.config_binariesdir)):
+            if config.config_embed_metadata and book_format != "kepub" and config.config_binariesdir:
                 output_path = os.path.join(config.config_calibre_dir, book.path)
                 if not os.path.exists(output_path):
                     os.makedirs(output_path)
                 output = os.path.join(config.config_calibre_dir, book.path, book_name + "." + book_format)
                 gd.downloadFile(book.path, book_name + "." + book_format, output)
-                if book_format == "kepub" and config.config_kepubifypath:
-                    try:
-                        filename, download_name = do_kepubify_metadata_replace(book, output)
-                    except Exception as e:
-                        log.error_or_exception(f"Failed to kepubify metadata for book {book.id}: {e}")
-                        filename = os.path.dirname(output)
-                        download_name = os.path.splitext(os.path.basename(output))[0]
-                elif book_format != "kepub" and config.config_binariesdir:
-                    filename, download_name = do_calibre_export(book.id, book_format)
+                filename, download_name = do_calibre_export(book.id, book_format)
             else:
                 return gd.do_gdrive_download(df, headers)
         else:
@@ -1053,18 +1041,7 @@ def do_download_file(book, book_format, client, data, headers):
             # ToDo: improve error handling
             log.error('File not found: %s', os.path.join(filename, book_name + "." + book_format))
 
-        if client == "kobo" and book_format == "kepub":
-            headers["Content-Disposition"] = headers["Content-Disposition"].replace(".kepub", ".kepub.epub")
-
-        if book_format == "kepub" and config.config_kepubifypath and config.config_embed_metadata:
-            try:
-                filename, download_name = do_kepubify_metadata_replace(book, os.path.join(filename,
-                                                                                          book_name + "." + book_format))
-            except Exception as e:
-                log.error_or_exception(f"Failed to kepubify metadata for book {book.id}: {e}")
-                filename = os.path.join(config.get_book_path(), book.path)
-                download_name = book_name
-        elif book_format != "kepub" and config.config_binariesdir and config.config_embed_metadata:
+        if book_format != "kepub" and config.config_binariesdir and config.config_embed_metadata:
             filename, download_name = do_calibre_export(book.id, book_format)
 
             # Rename the exported file to match the expected download name (from Content-Disposition)
@@ -1093,42 +1070,7 @@ def do_download_file(book, book_format, client, data, headers):
     return response
 
 
-def do_kepubify_metadata_replace(book, file_path):
-    custom_columns = (calibre_db.session.query(db.CustomColumns)
-                      .filter(db.CustomColumns.mark_for_delete == 0)
-                      .filter(db.CustomColumns.datatype.notin_(db.cc_exceptions))
-                      .order_by(db.CustomColumns.label).all())
-
-    tree, cf_name = get_content_opf(file_path)
-    package = create_new_metadata_backup(book, custom_columns, current_user.locale, _("Cover"), lang_type=2)
-    content = replace_metadata(tree, package)
-    tmp_dir = get_temp_dir()
-    temp_file_name = str(uuid4())
-    # open zipfile and replace metadata block in content.opf
-    updateEpub(file_path, os.path.join(tmp_dir, temp_file_name + ".kepub"), cf_name, content)
-    return tmp_dir, temp_file_name
-
-
 ##################################
-
-
-def check_unrar(unrar_location):
-    if not unrar_location:
-        return
-
-    if not os.path.exists(unrar_location):
-        return _('UnRar binary file not found')
-
-    try:
-        unrar_location = [unrar_location]
-        value = process_wait(unrar_location, pattern='UNRAR (.*) freeware')
-        if value:
-            version = value.group(1)
-            log.debug("UnRar version %s", version)
-
-    except (OSError, UnicodeDecodeError) as err:
-        log.error_or_exception(err)
-        return _('Error executing UnRar')
 
 
 def check_architecture():
@@ -1202,16 +1144,6 @@ def get_download_link(book_id, book_format, client):
         abort(404)
 
     data1 = calibre_db.get_book_format(book.id, book_format.upper())
-    if not data1 and book_format == "kepub" and config.config_kepubifypath:
-        data1 = calibre_db.get_book_format(book.id, "EPUB")
-        if data1:
-            log.info("KEPUB not found for book %d; converting on demand", book.id)
-            err = convert_book_format(book.id, config.get_book_path(), 'EPUB', 'KEPUB', None, blocking=True)
-            if not err:
-                data1 = calibre_db.get_book_format(book.id, "KEPUB")
-            else:
-                log.error("On-demand KEPUB conversion failed for book %d: %s", book.id, err)
-                book_format = "epub"
     if not data1:
         log.error("Requested format %s for book id %s not found in database", book_format.upper(), book_id)
         abort(404)

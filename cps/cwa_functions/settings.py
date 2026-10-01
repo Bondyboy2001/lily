@@ -124,7 +124,7 @@ def set_cwa_settings():
     cwa_default_settings = cwa_db.cwa_default_settings
     cwa_settings = cwa_db.cwa_settings
 
-    ignorable_formats = ['epub', 'pdf']
+    ignorable_formats = ['djvu', 'epub', 'pdf']
     automerge_options = ['ignore', 'overwrite', 'new_record']
     autoingest_options = ['ignore', 'overwrite', 'new_record']
 

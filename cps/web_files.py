@@ -46,7 +46,7 @@ sqlalchemy_version2 = ([int(x) for x in sql_version.split('.')] >= [2, 0, 0])
 _start_time = time.time()
 
 # Pages whose scripts build functions from strings (underscore templates in the metadata
-# search, the djvu and unrar reader engines). Everything else runs without 'unsafe-eval'.
+# search, the in-browser readers). Everything else runs without 'unsafe-eval'.
 _EVAL_ENDPOINTS = frozenset({"web.read_book", "edit-book.show_edit_book"})
 
 

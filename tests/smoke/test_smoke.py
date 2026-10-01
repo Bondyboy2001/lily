@@ -96,12 +96,6 @@ class TestCalibreTools:
         meta_path = shutil.which('ebook-meta')
         assert meta_path is not None, "ebook-meta not found in PATH"
 
-    def test_kepubify_exists(self):
-        """Verify kepubify binary is installed."""
-        import shutil
-        kepubify_path = shutil.which('kepubify')
-        assert kepubify_path is not None, "kepubify not found in PATH"
-
     def test_calibre_version(self):
         """Verify Calibre version can be queried."""
         import subprocess

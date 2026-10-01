@@ -32,7 +32,7 @@ in-browser reading, 20+ languages, content hiding — plus:
 
 | | |
 |---|---|
-| **Automatic ingest** | Imports new EPUB and PDF books as they arrive. |
+| **Automatic ingest** | Imports new EPUB, PDF and DjVu books as they arrive. |
 | **Cover & metadata enforcement** | Edits made in the web UI are written back to the book files, not just the database. |
 | **Library auto-detect** | No library? Lily creates one. Have one? Lily finds it and registers it. |
 | **Duplicate detection** | Hybrid SQL + fuzzy matching, with one-click merge and scheduled scans. |

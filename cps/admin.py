@@ -47,13 +47,6 @@ feature_support = {
     'gdrive': gdrive_support
 }
 
-try:
-    import rarfile  # noqa: F401  # availability probe for feature_support['rar']
-
-    feature_support['rar'] = True
-except (ImportError, SyntaxError):
-    feature_support['rar'] = False
-
 admi = Blueprint('admin', __name__)
 
 
@@ -450,7 +443,7 @@ def update_thumbnails():
         })
 
 
-def cwa_get_package_versions() -> tuple[str, str, str, str]:
+def cwa_get_package_versions() -> tuple[str, str]:
     try:
         with open("/app/CWA_RELEASE", "r") as f:
             cwa_version = f.read()
@@ -458,25 +451,19 @@ def cwa_get_package_versions() -> tuple[str, str, str, str]:
         cwa_version = "Unknown"
 
     try:
-        with open("/app/KEPUBIFY_RELEASE", "r") as f:
-            kepubify_version = f.read()
-    except Exception:
-        kepubify_version = "Unknown"
-
-    try:
         with open("/CALIBRE_RELEASE", "r") as f:
             calibre_version = f.read()
     except Exception:
         calibre_version = "Unknown"
 
-    return cwa_version, kepubify_version, calibre_version
+    return cwa_version, calibre_version
 
 
 @admi.route("/admin/view")
 @user_login_required
 @admin_required
 def admin():
-    cwa_version, kepubify_version, calibre_version = cwa_get_package_versions()
+    cwa_version, calibre_version = cwa_get_package_versions()
 
     all_user = ub.session.query(ub.User).all()
     schedule_time = format_time(datetime_time(hour=config.schedule_start_time), format="short")
@@ -484,7 +471,7 @@ def admin():
     schedule_duration = format_timedelta(t, threshold=.99)
 
     return render_title_template("admin.html", allUser=all_user, config=config,
-                                 cwa_version=cwa_version, kepubify_version=kepubify_version,
+                                 cwa_version=cwa_version,
                                  calibre_version=calibre_version, feature_support=feature_support,
                                  schedule_time=schedule_time, schedule_duration=schedule_duration,
                                  is_proxied=current_app.wsgi_app.is_proxied,
@@ -1603,7 +1590,6 @@ def _configuration_update_helper():
 
         _config_string(to_save, "config_calibre")
         _config_string(to_save, "config_binariesdir")
-        _config_string(to_save, "config_kepubifypath")
         arch_warning = None
         if "config_binariesdir" in to_save:
             calibre_status = helper.check_calibre(config.config_binariesdir)
@@ -1641,15 +1627,6 @@ def _configuration_update_helper():
         reboot_required |= _config_checkbox(to_save, "config_ratelimiter")
         reboot_required |= _config_string(to_save, "config_limiter_uri")
         reboot_required |= _config_string(to_save, "config_limiter_options")
-
-        # Rarfile Content configuration
-        _config_string(to_save, "config_rarfile_location")
-        unrar_warning = None
-        if "config_rarfile_location" in to_save:
-            unrar_status = helper.check_unrar(config.config_rarfile_location)
-            if unrar_status:
-                # Store warning but don't prevent saving other settings
-                unrar_warning = unrar_status
     except (OperationalError, InvalidRequestError) as e:
         ub.session.rollback()
         log.error_or_exception("Settings Database error: {}".format(e))
@@ -1659,7 +1636,7 @@ def _configuration_update_helper():
     if reboot_required:
         web_server.stop(True)
 
-    return _configuration_result(None, reboot_required, " ".join(filter(None, [unrar_warning, arch_warning])))
+    return _configuration_result(None, reboot_required, arch_warning or "")
 
 
 def _configuration_result(error_flash=None, reboot=False, warning_flash=None):
