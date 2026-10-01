@@ -1214,6 +1214,8 @@ input[type="checkbox"].lp-switch:focus-visible {
 }
 
 .lp-actions .btn { margin: 0; }
+/* A one-off action under a list (Empty Trash): in the flow, not pinned over the rows above it. */
+.lp-actions.lp-actions-inline { position: static; }
 .lp-actions .lp-spacer { margin-right: auto; }
 .lp-actions [data-related] { display: inline-flex; gap: 8px; }
 
