@@ -51,7 +51,7 @@
           {{ f.check('databases', db_name, True, id=sid ~ '-' ~ loop.index, attrs='value="' ~ db_name ~ '"') }}
         {% endfor %}
         <button type="submit" class="btn btn-danger"{% if restore_running %} disabled{% endif %}
-                data-confirm="{{ _('Replace the selected live databases with this snapshot? A safety copy of the current ones is taken first.') }}"
+                data-confirm="{{ _('Replace the selected live databases with this snapshot? A safety copy of the current ones is taken first. Books added or changed after this snapshot will not be in the restored library: their folders stay on disk and are listed on the Trash page for importing again, and their shelves and reading progress are dropped.') }}"
                 onclick="return confirm(this.dataset.confirm);">{{ _('Restore') }}</button>
       </form>
     {% endcall %}

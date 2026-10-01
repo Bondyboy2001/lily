@@ -156,7 +156,7 @@ def test_purge_removes_only_entries_older_than_n_days(tmp_path):
     root = tmp_path / store.TRASH_DIRNAME
     now = time.time()
     _entry(root, "20260101T000000_1", 31, now)
-    _entry(root, "20260201T000000_2", 29, now)
+    _entry(root, "20260201T000000_2", 29.5, now)
     assert store.purge(str(root), 0, now=now) == []  # 0 keeps everything
     assert store.purge(str(root), 30, now=now) == ["20260101T000000_1"]
     assert sorted(os.listdir(root)) == ["20260201T000000_2", "20260201T000000_2.json"]
@@ -393,3 +393,35 @@ def test_failed_row_delete_puts_the_folder_back(env, monkeypatch):
     admin.post(f"/ajax/delete/{book_id}")
     assert folder.is_dir() and _book_exists(env, book_id)
     assert _entries(env) == []
+
+
+def test_unreferenced_folders_can_be_sent_back_through_ingest(env, tmp_path, monkeypatch):
+    from cps import library_orphans
+    from cps.cwa_functions import ingest
+    ingest_dir = tmp_path / "ingest"
+    ingest_dir.mkdir()
+    monkeypatch.setattr(ingest, "get_ingest_dir", lambda: str(ingest_dir))
+    folder = env.library_dir / "Lost Author" / "Lost Book (99)"
+    folder.mkdir(parents=True)
+    (folder / "Lost Book - Lost Author.epub").write_text("epub")
+    (folder / "cover.jpg").write_text("jpg")
+    (folder / "metadata.opf").write_text("<package/>")
+    library_orphans.save_report(str(tmp_path / "cfg"), ["Lost Author/Lost Book (99)", "../../etc"], "snapshot x")
+    admin = _admin(env)
+    html = admin.get("/admin/trash").get_data(as_text=True)
+    assert "Lost Author/Lost Book (99)" in html and "snapshot x" in html
+
+    admin.post("/admin/trash/unreferenced", data={"action": "reimport", "folders": ["Lost Author/Lost Book (99)"]})
+    assert os.listdir(ingest_dir) == ["Lost Book - Lost Author.epub"]
+    assert not folder.exists()
+    [entry] = _entries(env)
+    assert entry["kind"] == "orphan"
+    assert library_orphans.load_report(str(tmp_path / "cfg"))["folders"] == ["../../etc"]
+
+    admin.post(f"/admin/trash/restore/{entry['id']}")
+    assert sorted(os.listdir(folder)) == ["Lost Book - Lost Author.epub", "cover.jpg", "metadata.opf"]
+
+    admin.post("/admin/trash/unreferenced", data={"action": "reimport", "folders": ["../../etc"]})
+    assert os.listdir(ingest_dir) == ["Lost Book - Lost Author.epub"]  # path outside the library refused
+    admin.post("/admin/trash/unreferenced", data={"action": "dismiss"})
+    assert library_orphans.load_report(str(tmp_path / "cfg")) == {}
