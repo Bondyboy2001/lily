@@ -84,9 +84,9 @@ def test_detail_rare_actions_are_icon_buttons_not_a_menu():
         btn = re.search(r'<button[^>]*' + re.escape(needle) + r'[^>]*>', html, flags=re.S)
         assert btn, needle
         assert "aria-label=\"{{ _('" + label + "') }}\"" in btn.group(0)
-    archive = re.search(r'<button[^>]*id="toggle-archive-btn"[^>]*>(.*?)</button>', html, flags=re.S)
-    assert archive and 'class="btn is-icon' in archive.group(0)
-    assert 'class="book-action-label sr-only"' in archive.group(1)
+    # No archive, Keep offline or Shelves button: shelves are changed on the edit page
+    for gone in ("toggle-archive-btn", "keep-offline-btn", "book-shelves-btn"):
+        assert gone not in html
 
 
 def test_detail_description_has_no_heading_and_shows_in_full():
@@ -262,6 +262,10 @@ def test_detail_rows_keep_metadata_in_a_side_panel():
         assert declaration in metadata
     # One column of facts at every width
     assert "grid-template-columns: minmax(0, 1fr)" in metadata
+    # Every tag and shelf is shown: those rows wrap instead of ending in an ellipsis
+    wrapping = next(body for selector, body in css_rules(css)
+                    if ".book-metadata > .tags > dd" in selector and ".book-metadata > .shelves > dd" in selector)
+    assert "white-space: normal" in wrapping and "overflow: visible" in wrapping
     assert not any("book-metadata" in selector and "repeat(" in body for selector, body in css_rules(css))
     html = read(TEMPLATES / "detail.html")
     # The panel is its own grid item, not tucked under the description.
@@ -422,16 +426,16 @@ def test_grid_quick_actions_name_their_book():
     assert "Read in browser" not in actions and "_('Edit metadata')" not in actions
 
 
-def test_read_and_archive_toggles_flip_their_label_without_aria_pressed():
+def test_read_toggles_flip_their_label_without_aria_pressed():
     # docs/design.md §5.1: a label that names the next action and aria-pressed contradict each
     # other ("Mark as unread, pressed"), so these toggles show their state with .is-on.
     html = read(TEMPLATES / "detail.html")
-    for btn_id, state in (("toggle-read-btn", "entry.read_status"), ("toggle-archive-btn", "entry.is_archived")):
+    for btn_id, state in (("toggle-read-btn", "entry.read_status"),):
         tag = re.search(r'<button[^>]*id="%s"[^>]*>' % btn_id, html, flags=re.S).group(0)
         assert "aria-pressed" not in tag, btn_id
         assert "class=\"btn is-icon{{ ' is-on' if %s }}\"" % state in tag, btn_id
     assert '"aria-pressed"' not in html
-    assert '$btn.toggleClass("is-on", isRead)' in html and '$btn.toggleClass("is-on", isArchived)' in html
+    assert '$btn.toggleClass("is-on", isRead)' in html
     image = read(TEMPLATES / "image.html")
     toggle = re.search(r'<button[^>]*lily-toggle-read[^>]*>', image, flags=re.S).group(0)
     assert "aria-pressed" not in toggle and "is-on" in toggle
@@ -439,8 +443,7 @@ def test_read_and_archive_toggles_flip_their_label_without_aria_pressed():
     handler = js[js.index('".lily-cover-actions .lily-toggle-read"'):]
     handler = handler[:handler.index("}).fail(")]
     assert "aria-pressed" not in handler and '$btn.toggleClass("is-on", nowRead)' in handler
-    # The read look (success disc on the cover, success tint on the book page) and the archive
-    # look (chosen chip) hang off .is-on now.
+    # The read look (success disc on the cover, success tint on the book page) hangs off .is-on.
     library = read(CSS / "lily-library.css")
     assert "toggle-read-btn[aria-pressed" not in library and "lily-toggle-read[aria-pressed" not in library
     assert ".lily-cover-actions .icon-btn[aria-pressed" not in library

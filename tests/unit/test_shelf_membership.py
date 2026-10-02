@@ -71,22 +71,19 @@ class TestSetBookOnShelf:
         signed_out = env.app.test_client()
         assert signed_out.post(f"/shelf/{shelf}/book/{book}", json={"on": True}).status_code in (302, 401)
 
-    def test_book_page_menu_and_live_shelves_row(self, env):
+    def test_book_page_lists_its_shelves_without_a_shelves_menu(self, env):
+        # Shelves are changed on the edit page; the book page only names them
         from cps import ub
         book = env.add_book("Shelvable")
         on, off = _shelf(env, "Reading Group"), _shelf(env, "Holiday")
         ub.session.get(ub.Shelf, on).books.append(ub.BookShelf(book_id=book, order=1))
         ub.session.commit()
         html = _login(env).get(f"/book/{book}").get_data(as_text=True)
-        menu = html[html.index('class="dropdown book-shelves-menu"'):]
-        menu = menu[:menu.index("</ul>")]
-        items = re.findall(r'role="menuitemcheckbox"\s+aria-checked="(true|false)" data-shelf-id="(\d+)"', menu)
-        assert ("true", str(on)) in items and ("false", str(off)) in items
-        assert "/shelf/create" in menu and "js/shelves.js" in html
+        assert "book-shelves-menu" not in html and "menuitemcheckbox" not in html
         row = html[html.index('id="book-shelves-row"'):]
         row = row[:row.index("</div>")]
         assert re.search(r'data-shelf-id="%d">Reading Group' % on, row)
-        assert re.search(r'data-shelf-id="%d" hidden>Holiday' % off, row)
+        assert "Holiday" not in row
 
     def test_shelf_page_cards_offer_removal(self, env):
         from cps import ub

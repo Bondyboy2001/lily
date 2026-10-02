@@ -141,7 +141,7 @@ def _repair_epub_container_if_needed(book_id, original_path):
 def serve_book(book_id, book_format, anyname):
     book_format = book_format.split(".")[0]
     # Respect the user's tag / language / custom column restrictions
-    book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+    book = calibre_db.get_filtered_book(book_id)
     if not book:
         log.debug("Book %s is not accessible for user %s", book_id, current_user.name)
         abort(404)

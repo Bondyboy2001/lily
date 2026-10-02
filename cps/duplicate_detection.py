@@ -658,15 +658,14 @@ def find_duplicate_books_python(use_title, use_author, use_language, use_series,
     return duplicate_groups
 
 
-def get_common_filters(user_id=None, allow_show_archived=False, return_all_languages=False):
+def get_common_filters(user_id=None, return_all_languages=False):
     """Build common filters using either current_user or a specific user_id.
 
     Falls back to no-op filters if user context is unavailable.
     """
     try:
         if user_id is None:
-            return calibre_db.common_filters(allow_show_archived=allow_show_archived,
-                                             return_all_languages=return_all_languages)
+            return calibre_db.common_filters(return_all_languages=return_all_languages)
     except Exception:
         # No request context; fall back to permissive filter
         return true()
@@ -675,16 +674,6 @@ def get_common_filters(user_id=None, allow_show_archived=False, return_all_langu
         user = ub.session.query(ub.User).filter(ub.User.id == int(user_id)).first()
         if not user:
             return true()
-
-        if not allow_show_archived:
-            archived_books = (ub.session.query(ub.ArchivedBook)
-                              .filter(ub.ArchivedBook.user_id == int(user.id))
-                              .filter(ub.ArchivedBook.is_archived == True)
-                              .all())
-            archived_book_ids = [archived_book.book_id for archived_book in archived_books]
-            archived_filter = db.Books.id.notin_(archived_book_ids)
-        else:
-            archived_filter = true()
 
         if user.filter_language() == "all" or return_all_languages:
             lang_filter = true()
@@ -714,6 +703,6 @@ def get_common_filters(user_id=None, allow_show_archived=False, return_all_langu
             neg_content_cc_filter = false()
 
         return and_(lang_filter, pos_content_tags_filter, ~neg_content_tags_filter,
-                    pos_content_cc_filter, ~neg_content_cc_filter, archived_filter)
+                    pos_content_cc_filter, ~neg_content_cc_filter)
     except Exception:
         return true()

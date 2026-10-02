@@ -328,7 +328,6 @@ def _delete_user(content):
             ub.session.query(ub.Shelf).filter(content.id == ub.Shelf.user_id).delete()
             ub.session.query(ub.Bookmark).filter(content.id == ub.Bookmark.user_id).delete()
             ub.session.query(ub.User).filter(ub.User.id == content.id).delete()
-            ub.session.query(ub.ArchivedBook).filter(ub.ArchivedBook.user_id == content.id).delete()
             ub.session.query(ub.User_Sessions).filter(ub.User_Sessions.user_id == content.id).delete()
             ub.session_commit()
             log.info("User {} deleted".format(content.name))

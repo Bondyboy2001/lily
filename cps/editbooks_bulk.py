@@ -21,8 +21,7 @@ from . import helper
 from . import config, calibre_db, ub, book_recovery
 from .book_recovery import RecoveryError
 from .cw_login import current_user
-from .helper import change_archived_books
-from .usermanagement import user_login_required, login_required_if_no_ano
+from .usermanagement import user_login_required
 
 from datetime import datetime, timezone
 
@@ -119,36 +118,6 @@ def display_selected_books():
         return json.dumps({'books': books})
     return ""
 
-@editbook.route("/ajax/archiveselectedbooks", methods=['POST'])
-@login_required_if_no_ano
-@edit_required
-def archive_selected_books():
-    d = request.get_json(silent=True)
-    if not isinstance(d, dict):
-        return batch_response([], status=400)
-    ids, error = parse_batch_ids(d.get('selections'))
-    if error is not None:
-        return error
-    if 'archive' not in d or not isinstance(d['archive'], bool):
-        return batch_response([], status=400)
-    state = d['archive']
-    results = []
-    for book_id in ids:
-        entry = {"book_id": book_id, "status": "failed", "message": ""}
-        try:
-            if not calibre_db.get_filtered_book(book_id, allow_show_archived=True):
-                entry["message"] = str(_("Book not found"))
-            else:
-                change_archived_books(book_id, state,
-                                      message="Book {} archive bit set to: {}".format(book_id, state))
-                entry["status"] = "succeeded"
-        except Exception as e:
-            calibre_db.session.rollback()
-            ub.session.rollback()
-            entry["message"] = str(e)
-        results.append(entry)
-    return batch_response(results)
-
 @editbook.route("/ajax/deleteselectedbooks", methods=['POST'])
 @user_login_required
 @edit_required
@@ -183,7 +152,7 @@ def read_selected_books():
     for book_id in ids:
         entry = {"book_id": book_id, "status": "failed", "message": ""}
         try:
-            if not calibre_db.get_filtered_book(book_id, allow_show_archived=True):
+            if not calibre_db.get_filtered_book(book_id):
                 entry["message"] = str(_("Book not found"))
             else:
                 ret = helper.edit_book_read_status(book_id, markAsRead)

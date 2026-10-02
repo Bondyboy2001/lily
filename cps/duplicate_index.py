@@ -173,8 +173,7 @@ def _book_query(book_ids=None):
 def _load_books_by_ids(book_ids=None, user_id=None):
     query = _book_query(book_ids)
     if user_id is not None:
-        # Archiving only hides a book from the user's shelf; the file is still a duplicate.
-        query = query.filter(get_common_filters(user_id=user_id, allow_show_archived=True))
+        query = query.filter(get_common_filters(user_id=user_id))
     return query.order_by(db.Books.title, db.Books.timestamp.desc()).all()
 
 

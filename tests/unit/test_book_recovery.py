@@ -519,10 +519,6 @@ class TestBatchTruthfulness:
         bid = env.add_book("Strict", author="Batch Author", fmt="EPUB")
         _write_files(env, bid, {"Strict.epub": b"e"})
         client = _login(env)
-        assert client.post("/ajax/archiveselectedbooks",
-                           json={"selections": [bid]}).status_code == 400
-        assert client.post("/ajax/archiveselectedbooks",
-                           json={"selections": [bid], "archive": "yes"}).status_code == 400
         assert client.post("/ajax/readselectedbooks",
                            json={"selections": [bid]}).status_code == 400
         assert client.post("/ajax/readselectedbooks",

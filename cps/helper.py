@@ -73,20 +73,6 @@ except (ImportError, RuntimeError) as e:
     MissingDelegateError = BaseException
 
 
-def change_archived_books(book_id, state=None, message=None):
-    archived_book = ub.session.query(ub.ArchivedBook).filter(and_(ub.ArchivedBook.user_id == int(current_user.id),
-                                                                  ub.ArchivedBook.book_id == book_id)).first()
-    if not archived_book:
-        archived_book = ub.ArchivedBook(user_id=current_user.id, book_id=book_id)
-
-    archived_book.is_archived = state if state else not archived_book.is_archived
-    archived_book.last_modified = datetime.now(timezone.utc)
-
-    ub.session.merge(archived_book)
-    ub.session_commit(message)
-    return archived_book.is_archived
-
-
 # Check if a reader is existing for any of the book formats, if not, return empty list, otherwise return
 # list with supported formats
 READER_PREFERENCE = ('epub', 'kepub', 'pdf', 'djvu', 'djv')
@@ -569,7 +555,7 @@ def get_cover_on_failure():
 def get_book_cover(book_id, resolution=None):
     # Only id/has_cover/path are needed to serve a cover; avoid building a full
     # Books row with all its eager-loaded relationships. Same permission filter.
-    book = calibre_db.get_filtered_book_cover_info(book_id, allow_show_archived=True)
+    book = calibre_db.get_filtered_book_cover_info(book_id)
     return get_book_cover_internal(book, resolution=resolution)
 
 
@@ -932,7 +918,7 @@ def tags_filters():
 def get_download_link(book_id, book_format):
     book_format = book_format.split(".")[0]
     # Try filtered view first to respect user restrictions
-    book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+    book = calibre_db.get_filtered_book(book_id)
 
     # If not found but user is admin, fall back to unfiltered direct lookup
     if not book and getattr(current_user, 'role_admin', lambda: False)():

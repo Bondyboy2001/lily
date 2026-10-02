@@ -474,10 +474,10 @@ class ReaderLegacyLibrary(Base):
     library_uuid = Column(String, nullable=False)
 
 
-# Books a user has archived (hidden from their library views).
 class ArchivedBook(Base):
+    """Books a user once archived. Nothing writes or reads it any more; the model keeps
+    the table in existing app.db files mapped."""
     __tablename__ = 'archived_book'
-    __table_args__ = (Index('ix_archived_book_user_book', 'user_id', 'book_id'),)
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('user.id'))
@@ -608,8 +608,6 @@ class Thumbnail(Base):
 
 # Add missing tables during migration of database
 def add_missing_tables(engine, _session):
-    if not engine.dialect.has_table(engine.connect(), "archived_book"):
-        ArchivedBook.__table__.create(bind=engine, checkfirst=True)
     if not engine.dialect.has_table(engine.connect(), "thumbnail"):
         Thumbnail.__table__.create(bind=engine, checkfirst=True)
     if not engine.dialect.has_table(engine.connect(), "opds_shelf_exposure"):
@@ -718,7 +716,6 @@ def migrate_user_table(engine, _session):
 # indexes to tables that already exist, so existing app.db files get them here.
 _PERFORMANCE_INDEXES = (
     ('ix_book_read_link_user_book', 'book_read_link', ('user_id', 'book_id')),
-    ('ix_archived_book_user_book', 'archived_book', ('user_id', 'book_id')),
     ('ix_thumbnail_type_entity_resolution', 'thumbnail', ('type', 'entity_id', 'resolution')),
     ('ix_user_session_random_session_key', 'user_session', ('random', 'session_key')),
     ('ix_book_shelf_link_shelf', 'book_shelf_link', ('shelf',)),

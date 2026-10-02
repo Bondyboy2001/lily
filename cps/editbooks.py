@@ -34,7 +34,6 @@ from . import config, ub, db, calibre_db
 from .services.worker import WorkerThread
 from .tasks.upload import TaskUpload
 from .render_template import render_title_template
-from .helper import change_archived_books
 from .redirect import get_redirect_location
 from .shelf import check_shelf_edit_permissions
 from .file_helper import validate_mime_type
@@ -146,7 +145,7 @@ def edit_selected_books():
             "value": None,
             "checkA": checkA,
         }
-        book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+        book = calibre_db.get_filtered_book(book_id)
         if not book:
             results.append({"book_id": book_id, "status": "failed",
                             "message": _("Book not found")})
@@ -390,10 +389,6 @@ def edit_book_param(param, vals):
             metadata_changed = rating_changed
             log_key = 'rating'
             log_value = vals.get('value', '')
-        elif param == 'is_archived':
-            change_archived_books(book.id, vals['value'] == "True",
-                                  message="Book {} archive bit set to: {}".format(book.id, vals['value']))
-            return ""
         elif param == 'read_status':
             ret = helper.edit_book_read_status(book.id, vals['value'] == "True")
             if ret:
@@ -558,7 +553,7 @@ def do_edit_book(book_id, upload_formats=None):
     # create the function for sorting...
     calibre_db.create_functions(config)
 
-    book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+    book = calibre_db.get_filtered_book(book_id)
     # Book not found
     if not book:
         flash(_("That book isn't in your library any more, or its file can't be read."),
@@ -930,7 +925,7 @@ def perform_delete(book_id, book_format=""):
     if not current_user.role_delete_books():
         result["message"] = str(_("You are missing permissions to delete books"))
         return result
-    book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+    book = calibre_db.get_filtered_book(book_id)
     if not book:
         result["message"] = str(_("Book not found"))
         return result
@@ -1045,7 +1040,7 @@ def merge_books(to_book, from_books, delete_sources=True):
 def delete_book_from_table(book_id, book_format, json_response, location=""):
     warning = {}
     if current_user.role_delete_books():
-        book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+        book = calibre_db.get_filtered_book(book_id)
         if book:
             try:
                 warning_msg, _recovery_id = _perform_book_deletion(book, book_format)
@@ -1094,7 +1089,7 @@ def delete_book_from_table(book_id, book_format, json_response, location=""):
 
 def render_edit_book(book_id):
     cc = calibre_db.session.query(db.CustomColumns).filter(db.CustomColumns.datatype.notin_(db.cc_exceptions)).all()
-    book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+    book = calibre_db.get_filtered_book(book_id)
     if not book:
         flash(_("That book isn't in your library any more, or its file can't be read."),
               category="error")

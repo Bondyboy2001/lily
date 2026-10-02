@@ -47,7 +47,6 @@
             <div class="book-action-bar" role="toolbar" aria-label="{{ _('Book actions') }}">
                 {% set can_read = entry.reader_list and current_user.role_viewer() %}
                 {% set can_download = current_user.role_download() and entry.data|length %}
-                {% set can_archive = not current_user.is_anonymous and current_user.check_visibility(32768) %}
                 {% set can_delete = current_user.role_edit() and current_user.role_delete_books() %}
                 {% if can_read %}
                     {# A book in progress is named "Continue · 33%" and opens the format it was last read in, in a new tab. #}
@@ -81,17 +80,6 @@
                         </span>
                     {% endif %}
                 {% endif %}
-                {% if offline_book %}
-                    {# Keep offline: a two-state button (aria-pressed, §5.1). offline.js reveals it only
-                       where the browser runs Lily's service worker (HTTPS), and the worker does the saving. #}
-                    <button type="button" class="btn is-icon" id="keep-offline-btn" aria-pressed="false" hidden
-                            title="{{ _('Keep offline') }}" data-book="{{ offline_book|tojson|forceescape }}"
-                            data-label-keep="{{ _('Keep offline') }}" data-label-kept="{{ _('Kept offline on this device') }}"
-                            data-keep-failed="{{ _('Couldn’t save this book for offline reading. Check your connection and the space on this device, then try again.') }}"
-                            data-drop-failed="{{ _('Couldn’t remove this book from the device. Try again.') }}">
-                        <span class="glyphicon glyphicon-cloud-download" aria-hidden="true"></span><span class="book-action-label sr-only">{{ _('Keep offline') }}</span>
-                    </button>
-                {% endif %}
                 {% if not current_user.is_anonymous %}
                     {# A tick in a circle, green once read (styled off .is-on); the hidden label is the button's name.
                        The label names the action and flips, so there is no aria-pressed (design §5.1). #}
@@ -105,41 +93,6 @@
                        title="{{ _('Edit metadata') }}" aria-label="{{ _('Edit metadata') }}">
                         <span class="glyphicon glyphicon-pencil" aria-hidden="true"></span>
                     </a>
-                {% endif %}
-                {# Shelves: a menu of the shelves this user may change, each a checkbox item that puts
-                   the book on or takes it off at once (§5.6), and a way to start a new shelf. #}
-                {% if not current_user.is_anonymous %}
-                    {% set ns_shelves = namespace(editable=[]) %}
-                    {% for shelf in g.shelves_access %}
-                        {% if (shelf.is_public and current_user.role_edit_shelfs()) or (not shelf.is_public and shelf.user_id == current_user.id) %}
-                            {% set ns_shelves.editable = ns_shelves.editable + [shelf] %}
-                        {% endif %}
-                    {% endfor %}
-                    <div class="dropdown book-shelves-menu">
-                        <button type="button" class="btn is-icon dropdown-toggle" id="book-shelves-btn" data-toggle="dropdown"
-                                aria-haspopup="true" aria-expanded="false" title="{{ _('Shelves') }}" aria-label="{{ _('Shelves') }}">
-                            <span class="glyphicon glyphicon-list" aria-hidden="true"></span>
-                        </button>
-                        <ul class="dropdown-menu" aria-labelledby="book-shelves-btn"
-                            data-book-id="{{ entry.id }}" data-failed="{{ _('Couldn’t change the shelf. Try again.') }}">
-                            <li class="dropdown-header">{{ _('Shelves') }}</li>
-                            {% for shelf in ns_shelves.editable %}
-                            {% set on = shelf.id in books_shelfs %}
-                            <li><button type="button" class="book-shelf-toggle" role="menuitemcheckbox"
-                                        aria-checked="{{ 'true' if on else 'false' }}" data-shelf-id="{{ shelf.id }}"
-                                        data-url="{{ url_for('shelf.set_book_on_shelf', shelf_id=shelf.id, book_id=entry.id) }}"
-                                        data-shelf-url="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}">
-                                <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>{{ shelf.name }}</button></li>
-                            {% endfor %}
-                            <li><a href="{{ url_for('shelf.create_shelf') }}"><span class="glyphicon glyphicon-plus" aria-hidden="true"></span>{{ _('New shelf') }}</a></li>
-                        </ul>
-                    </div>
-                {% endif %}
-                {% if can_archive %}
-                    {% set archive_label = entry.is_archived and _('Restore from archive') or _('Add to archive') %}
-                    <button type="button" class="btn is-icon{{ ' is-on' if entry.is_archived }}" id="toggle-archive-btn" title="{{ archive_label }}">
-                        <span id="archive-icon" class="glyphicon {{ entry.is_archived and 'glyphicon-folder-open' or 'glyphicon-folder-close' }}" aria-hidden="true"></span><span class="book-action-label sr-only">{{ archive_label }}</span>
-                    </button>
                 {% endif %}
                 {% if can_delete %}
                     <button type="button" class="btn is-icon is-danger" id="delete" title="{{ _('Delete book') }}" aria-label="{{ _('Delete book') }}"
@@ -193,13 +146,12 @@
                     <dd>{% for tag in entry.tags|sort(attribute='name') %}<a href="{{ url_for('web.books_list', data='category', sort_param='stored', book_id=tag.id) }}">{{ tag.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</dd>
                 </div>
             {% endif %}
-            {# Same look as tags. Every visible shelf is rendered and those the book isn't on are hidden,
-               so the Shelves menu above can show and hide them without a reload (book-shelves.js). #}
-            {% set shelves = g.shelves_access if current_user.is_authenticated else [] %}
+            {# Same look as tags; the book's shelves are changed on its edit page #}
+            {% set shelves = (g.shelves_access if current_user.is_authenticated else [])|selectattr('id', 'in', books_shelfs)|list %}
             {% if shelves %}
-                <div class="shelves" id="book-shelves-row"{% if not books_shelfs %} hidden{% endif %}>
+                <div class="shelves" id="book-shelves-row">
                     <dt>{{ _('Shelves') }}</dt>
-                    <dd>{% for shelf in shelves %}<a href="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}" data-shelf-id="{{ shelf.id }}"{% if shelf.id not in books_shelfs %} hidden{% endif %}>{{ shelf.name }}</a>{% endfor %}</dd>
+                    <dd>{% for shelf in shelves %}<a href="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}" data-shelf-id="{{ shelf.id }}">{{ shelf.name }}</a>{% endfor %}</dd>
                 </div>
             {% endif %}
             {# An arXiv paper shows its id, linked to the abstract page #}
@@ -298,14 +250,6 @@
                                data-unchecked="{{ _('Mark as read') }}" type="checkbox"
                                {% if entry.read_status %}checked{% endif %}>
                     </form>
-                    {% if current_user.check_visibility(32768) %}
-                        <form id="archived_form" action="{{ url_for('web.toggle_archived', book_id=entry.id) }}" method="POST">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <input id="archived_cb" data-checked="{{ _('Restore from archive') }}"
-                                   data-unchecked="{{ _('Add to archive') }}" type="checkbox"
-                                   {% if entry.is_archived %}checked{% endif %}>
-                        </form>
-                    {% endif %}
                 </div>
             {% endif %}
         </div>
@@ -316,7 +260,6 @@
 
 {% block js %}
 <script src="{{ url_for('static', filename='js/details.js') }}"></script>
-<script src="{{ url_for('static', filename='js/shelves.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fullscreen.js') }}"></script>
 <script type="text/javascript">
     $(function () {
@@ -351,37 +294,6 @@
                     var $btn = $("#toggle-read-btn");
                     var label = isRead ? $cb.data("checked") : $cb.data("unchecked");
                     $btn.toggleClass("is-on", isRead).attr("title", label)
-                        .find(".book-action-label").text(label);
-                },
-                error: function () {
-                    $cb.prop("checked", !nextChecked);
-                }
-            });
-        });
-
-        $("#toggle-archive-btn").on("click", function () {
-            var $cb = $("#archived_cb");
-            var $form = $("#archived_form");
-            if (!$cb.length || !$form.length) {
-                return;
-            }
-            var nextChecked = !$cb.prop("checked");
-            $cb.prop("checked", nextChecked);
-            $.ajax({
-                url: $form[0].action,
-                method: "post",
-                data: $form.serialize(),
-                success: function (data) {
-                    if (typeof handleResponse === "function") {
-                        handleResponse(data);
-                    }
-                    var $icon = $("#archive-icon");
-                    var isArchived = $cb.prop("checked");
-                    $icon.toggleClass("glyphicon-folder-open", isArchived)
-                        .toggleClass("glyphicon-folder-close", !isArchived);
-                    var $btn = $("#toggle-archive-btn");
-                    var label = isArchived ? $cb.data("checked") : $cb.data("unchecked");
-                    $btn.toggleClass("is-on", isArchived).attr("title", label)
                         .find(".book-action-label").text(label);
                 },
                 error: function () {

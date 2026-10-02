@@ -3,8 +3,7 @@
 
 The worker is rendered rather than served from /static so it can sit at the app root (its scope
 is the whole app) and carry this deploy's cache-busted asset URLs. Books are only kept on a
-device the reader chose (the book page's "Keep offline") or that has them in Continue Reading;
-offline.js on the page tells the worker which. Browsers only run service workers on HTTPS (or
+device that has them in Continue Reading; offline.js on the library page tells the worker which. Browsers only run service workers on HTTPS (or
 localhost), so on plain http://host:port none of this switches on.
 """
 

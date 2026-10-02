@@ -35,8 +35,6 @@
     <div class="lily-actions lily-table-actions">
       <button type="button" class="btn btn-default disabled" id="merge_books" aria-disabled="true">{{_('Merge')}}</button>
       <button type="button" class="btn btn-default disabled" id="edit_selected_books" aria-disabled="true">{{_('Edit')}}</button>
-      <button type="button" class="btn btn-default disabled" id="archive_selected_books" aria-disabled="true">{{_('Archive')}}</button>
-      <button type="button" class="btn btn-default disabled" id="unarchive_selected_books" aria-disabled="true">{{_('Unarchive')}}</button>
       <button type="button" class="btn btn-default disabled" id="read_selected_books" aria-disabled="true">{{_('Mark as read')}}</button>
       <button type="button" class="btn btn-default disabled" id="unread_selected_books" aria-disabled="true">{{_('Mark as unread')}}</button>
       <button type="button" class="btn btn-default disabled" id="delete_selected_books" aria-disabled="true">{{_('Delete')}}</button>
@@ -81,9 +79,6 @@
               <!--th data-field="pubdate" data-type="date" data-visible="{{visiblility.get('pubdate')}}" data-viewformat="dd.mm.yyyy" id="pubdate" data-sortable="true">{{_('Publishing Date')}}</th-->
               {{ text_table_row('publishers', _('Enter Publishers'),_('Publishers'), false, true) }}
               <th data-field="comments" id="comments" data-escape="true" data-editable-mode="popup"  data-visible="{{visiblility.get('comments')}}" data-sortable="false" {% if current_user.role_edit() %} data-editable-type="wysihtml5" data-editable-url="{{ url_for('edit-book.edit_list_book', param='comments')}}" data-edit="true" data-editable-title="{{_('Enter comments')}}"{% endif %}>{{_('Comments')}}</th>
-              {% if current_user.check_visibility(32768) %}
-                {{ book_checkbox_row('is_archived', _('Archived?'), false)}}
-              {%  endif %}
               {{ book_checkbox_row('read_status', _('Read?'), false)}}
               {% for c in cc %}
                 {% if c.datatype == "int" %}
@@ -155,42 +150,6 @@
       <div class="modal-footer">
         <button id="delete_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
         <input id="delete_selected_confirm" type="button" class="btn btn-danger" value="{{_('Delete books')}}" name="delete_selected_confirm" data-dismiss="modal">
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal fade" id="archive_selected_modal" tabindex="-1" role="dialog" aria-labelledby="archive_selected_modalLabel">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h4 class="modal-title" id="archive_selected_modalLabel">{{_('Archive Books')}}</h4>
-      </div>
-      <div class="modal-body">
-        <p>{{_('These books will be archived:')}}</p>
-        <div id="display-archive-selected-books"></div>
-      </div>
-      <div class="modal-footer">
-        <button id="archive_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
-        <input id="archive_selected_confirm" type="button" class="btn btn-primary" value="{{_('Archive books')}}" name="archive_selected_confirm" data-dismiss="modal">
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="modal fade" id="unarchive_selected_modal" tabindex="-1" role="dialog" aria-labelledby="unarchive_selected_modalLabel">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h4 class="modal-title" id="unarchive_selected_modalLabel">{{_('Unarchive Books')}}</h4>
-      </div>
-      <div class="modal-body">
-        <p>{{_('These books will be unarchived:')}}</p>
-        <div id="display-unarchive-selected-books"></div>
-      </div>
-      <div class="modal-footer">
-        <button id="unarchive_selected_abort" type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
-        <input id="unarchive_selected_confirm" type="button" class="btn btn-primary" value="{{_('Unarchive books')}}" name="unarchive_selected_confirm" data-dismiss="modal">
       </div>
     </div>
   </div>

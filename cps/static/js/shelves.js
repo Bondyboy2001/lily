@@ -1,9 +1,7 @@
 /*
- * Changing a book's shelves without leaving the page (shelf.set_book_on_shelf).
- * - Book page (detail.html): the Shelves menu's checkbox items put the book on a shelf or take
- *   it off at once; the facts panel's Shelves row and the sidebar counts follow.
- * - Shelf page (shelf.html): a cover's remove button takes the book off this shelf and the card goes.
- * Failures go to the page's message region (window.lilyFlash) and leave everything as it was.
+ * Shelf page (shelf.html): a cover's remove button takes the book off this shelf
+ * (shelf.set_book_on_shelf) and the card goes; the sidebar count follows. A failure goes to the
+ * page's message region (window.lilyFlash) and leaves the card where it was.
  */
 $(function () {
   "use strict";
@@ -35,28 +33,6 @@ $(function () {
       badge.remove();
     }
   }
-
-  // Book page: Shelves menu.
-  $(document).on("click", ".book-shelves-menu .book-shelf-toggle", function (event) {
-    event.preventDefault();
-    event.stopPropagation(); // keep the menu open so several shelves can be ticked in a row
-    var $item = $(this);
-    if ($item.attr("aria-disabled") === "true") { return; }
-    var on = $item.attr("aria-checked") !== "true";
-    var $menu = $item.closest(".dropdown-menu");
-    $item.attr("aria-disabled", "true");
-    setOnShelf($item.data("url"), on).done(function (data) {
-      $item.attr("aria-checked", data.on ? "true" : "false");
-      var $row = $("#book-shelves-row");
-      $row.find("a[data-shelf-id='" + $item.data("shelf-id") + "']").prop("hidden", !data.on);
-      $row.prop("hidden", !$row.find("a[data-shelf-id]:not([hidden])").length);
-      updateSidebarCount($item.data("shelf-url"), data.count);
-    }).fail(function (xhr) {
-      failed(xhr, $menu.data("failed"));
-    }).always(function () {
-      $item.removeAttr("aria-disabled");
-    });
-  });
 
   // Shelf page: remove a book from this shelf.
   $(document).on("click", ".lily-cover-actions .lily-shelf-remove", function () {

@@ -255,11 +255,6 @@ async function list() {
     .sort((a, b) => b.savedAt - a.savedAt);
 }
 
-async function status(id) {
-  const entry = (await readIndex())[id];
-  return entry && !entry.excluded ? summary(entry) : null;
-}
-
 // A kept page loaded online: save the new copy (and any new asset versions) in the background.
 async function refreshKept(url) {
   const index = await readIndex();
@@ -309,12 +304,10 @@ self.addEventListener("message", (event) => {
   const msg = event.data || {};
   const work = (async () => {
     switch (msg.type) {
-      case "keep": return serial(() => keepBook(msg.book, { picked: true, refreshFiles: true }));
       case "drop": return serial(async () => {
         const entry = (await readIndex())[msg.id];
         return dropBook(msg.id, !!(entry && entry.auto));
       });
-      case "status": return status(msg.id);
       case "list": return list();
       case "sync": return serial(() => syncAuto(msg.books || []));
       default: throw new Error("Unknown message " + msg.type);

@@ -94,7 +94,7 @@ def _load_duplicate_index_module():
                 group for group in groups if group.get("group_hash") != "dismissed"
             ],
             "generate_group_hash": _group_hash,
-            "get_common_filters": lambda user_id=None, allow_show_archived=False: True,
+            "get_common_filters": lambda user_id=None: True,
             "normalize_title_for_duplicates": _normalize_title,
         },
     )
@@ -387,32 +387,18 @@ def test_grouped_index_queries_and_dismissed_filtering(duplicate_index):
     assert duplicate_index.get_duplicate_groups_from_index(settings, include_dismissed=False, user_id=7) == []
 
 
-def _visibility_filters(hidden_ids, archived_ids):
-    """Stub get_common_filters: hides `hidden_ids` always and `archived_ids` unless archived books are allowed."""
-    def get_common_filters(user_id=None, allow_show_archived=False):
-        excluded = set(hidden_ids) | (set() if allow_show_archived else set(archived_ids))
-        return ("exclude_ids", frozenset(excluded))
+def _visibility_filters(hidden_ids):
+    """Stub get_common_filters: hides `hidden_ids`."""
+    def get_common_filters(user_id=None):
+        return ("exclude_ids", frozenset(hidden_ids))
     return get_common_filters
-
-
-def test_archived_copy_still_forms_a_group_for_its_user(duplicate_index, monkeypatch):
-    # Archiving hides a book from the shelf; it is still a duplicate file in the library.
-    books = [_book(1, "Limits", "Unknown"), _book(2, "Limits", "Unknown")]
-    duplicate_index.calibre_db.session = _Session(books)
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
-    duplicate_index.upsert_book_keys({1, 2}, settings)
-    monkeypatch.setattr(duplicate_index, "get_common_filters", _visibility_filters(hidden_ids=(), archived_ids={2}))
-
-    groups = duplicate_index.get_duplicate_groups_from_index(settings, include_dismissed=False, user_id=1)
-
-    assert [sorted(book.id for book in group["books"]) for group in groups] == [[1, 2]]
 
 
 def test_visible_cached_groups_drop_groups_the_user_cannot_see_two_copies_of(duplicate_index, monkeypatch):
     books = [_book(1, "Dune", "Frank Herbert"), _book(2, "Dune", "Frank Herbert"),
              _book(3, "Emma", "Jane Austen"), _book(4, "Emma", "Jane Austen")]
     duplicate_index.calibre_db.session = _Session(books)
-    monkeypatch.setattr(duplicate_index, "get_common_filters", _visibility_filters(hidden_ids={4}, archived_ids={2}))
+    monkeypatch.setattr(duplicate_index, "get_common_filters", _visibility_filters(hidden_ids={4}))
     cached = [{"title": "Dune", "group_hash": "a", "book_ids": [1, 2]},
               {"title": "Emma", "group_hash": "b", "book_ids": [3, 4]}]
 

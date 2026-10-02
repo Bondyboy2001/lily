@@ -34,7 +34,6 @@ from .usermanagement import login_required_if_no_ano
 from .render_template import render_title_template
 from . import list_filters
 from .setup_checklist import setup_checklist
-from .helper import change_archived_books
 from .services.worker import WorkerThread
 from .services.citations import citation_count, paper_ids
 from .tasks_status import render_task_status
@@ -188,7 +187,7 @@ def _bookmark_format(book_id, book_format):
     fmt = (book_format or "").lower()
     if fmt not in BOOKMARK_FORMATS:
         return None
-    book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+    book = calibre_db.get_filtered_book(book_id)
     if not book or fmt not in _progress_formats(book):
         return None
     return fmt.upper()
@@ -371,7 +370,7 @@ def _update_read_status_from_web_progress(user_id, book_id, percent):
 @login_required_if_no_ano
 def get_citation_count(book_id):
     """{"count": int, "url": str} for a paper with a DOI or arXiv id, else {}."""
-    book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+    book = calibre_db.get_filtered_book(book_id)
     if not book:
         abort(404)
     return jsonify(citation_count(book.identifiers) or {})
@@ -389,7 +388,7 @@ def web_reader_progress(book_id):
     GET  -> {"cfi": str|null, "percent": float|null, "updated": iso8601|null, "format": fmt|null}
     POST <- {"cfi": str, "percent": float 0..1, "format": fmt} (CSRF token in the X-CSRFToken header)
     """
-    book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+    book = calibre_db.get_filtered_book(book_id)
     if not book:
         return jsonify({"error": "Book not found"}), 404
     user_id = int(current_user.id)
@@ -496,13 +495,6 @@ def toggle_read(book_id):
         return message, 400
     else:
         return message
-
-
-@web.route("/ajax/togglearchived/<int:book_id>", methods=['POST'])
-@user_login_required
-def toggle_archived(book_id):
-    change_archived_books(book_id, message="Book {} archive bit toggled".format(book_id))
-    return ""
 
 
 @web.route("/ajax/view", methods=["POST"])
@@ -635,8 +627,6 @@ def render_books_list(data, sort_param, book_id, page):
         return render_category_books(page, book_id, order)
     elif data == "language":
         return render_language_books(page, book_id, order)
-    elif data == "archived":
-        return render_archived_books(page, order)
     elif data == "search":
         term = request.args.get('query', None)
         offset = int(int(config.config_books_per_page) * (page - 1))
@@ -1186,30 +1176,6 @@ def render_reading_books(page, order):
                                  title=name, page="inprogress", order=order[1])
 
 
-def render_archived_books(page, sort_param):
-    order = sort_param[0] or []
-    archived_books = (ub.session.query(ub.ArchivedBook)
-                      .filter(ub.ArchivedBook.user_id == int(current_user.id))
-                      .filter(ub.ArchivedBook.is_archived == True)
-                      .all())
-    archived_book_ids = [archived_book.book_id for archived_book in archived_books]
-
-    archived_filter = db.Books.id.in_(archived_book_ids)
-
-    entries, pagination = calibre_db.fill_indexpage_with_archived_books(page, db.Books,
-                                                                                0,
-                                                                                archived_filter,
-                                                                                order,
-                                                                                True,
-                                                                                True, config.config_read_column,
-                                                                                cards_only=True)
-
-    name = _('Archived Books') + ' (' + str(len(archived_book_ids)) + ')'
-    page_name = "archived"
-    return render_title_template('index.html', entries=entries, pagination=pagination,
-                                 title=name, page=page_name, order=sort_param[1])
-
-
 # ################################### Health Check ##################################################################
 
 @web.route("/health")
@@ -1308,14 +1274,14 @@ def list_books():
         order = [db.Books.timestamp.desc()]
 
     total_count = filtered_count = calibre_db.session.query(db.Books).filter(
-        calibre_db.common_filters(allow_show_archived=True)).count()
+        calibre_db.common_filters()).count()
     if state is not None:
         if search_param:
             books = calibre_db.search_query(search_param, config).all()
             filtered_count = len(books)
         else:
             query = calibre_db.generate_linked_query(config.config_read_column, db.Books)
-            books = query.filter(calibre_db.common_filters(allow_show_archived=True)).all()
+            books = query.filter(calibre_db.common_filters()).all()
         entries = calibre_db.get_checkbox_sorted(books, state, off, limit, order, True)
     elif search_param:
         entries, filtered_count, __ = calibre_db.get_search_results(search_param,
@@ -1325,21 +1291,19 @@ def list_books():
                                                                     limit,
                                                                     *join)
     else:
-        entries, __ = calibre_db.fill_indexpage_with_archived_books((int(off) / (int(limit)) + 1),
-                                                                        db.Books,
-                                                                        limit,
-                                                                        True,
-                                                                        order,
-                                                                        True,
-                                                                        True,
-                                                                        config.config_read_column,
-                                                                        *join)
+        entries, __ = calibre_db.fill_indexpage((int(off) / (int(limit)) + 1),
+                                                limit,
+                                                db.Books,
+                                                True,
+                                                order,
+                                                True,
+                                                config.config_read_column,
+                                                *join)
 
     result = list()
     for entry in entries:
         val = entry[0]
-        val.is_archived = entry[1] is True
-        val.read_status = entry[2] == ub.ReadBook.STATUS_FINISHED
+        val.read_status = entry[1] == ub.ReadBook.STATUS_FINISHED
         for lang_index in range(0, len(val.languages)):
             val.languages[lang_index].language_name = isoLanguages.get_language_name(get_locale(), val.languages[
                 lang_index].lang_code)
@@ -1487,13 +1451,10 @@ def show_book(book_id):
         log.error(f"Invalid book_id passed to show_book: {book_id}")
         flash(_("Invalid book ID."), category="error")
         return redirect(url_for("web.index"))
-    entries = calibre_db.get_book_read_archived(book_id, config.config_read_column, allow_show_archived=True)
+    entries = calibre_db.get_book_read_status(book_id, config.config_read_column)
     if entries:
-        read_book = entries[1]
-        archived_book = entries[2]
-        entry = entries[0]
+        entry, read_book = entries
         entry.read_status = read_book == ub.ReadBook.STATUS_FINISHED
-        entry.is_archived = archived_book
         for lang_index in range(0, len(entry.languages)):
             entry.languages[lang_index].language_name = isoLanguages.get_language_name(get_locale(), entry.languages[
                 lang_index].lang_code)
@@ -1535,10 +1496,6 @@ def show_book(book_id):
         cwa_db = CWA_DB()
         cwa_settings = cwa_db.cwa_settings
 
-        offline_book = None
-        if current_user.is_authenticated and entry.reader_list:
-            offline_book = offline_book_spec(entry, (resume and resume['format']) or entry.reader_list[0])
-
         try:
             related = _related_books(entry)
         except Exception as e:
@@ -1548,7 +1505,6 @@ def show_book(book_id):
         return render_title_template('detail.html',
                                      entry=entry,
                                      related=related,
-                                     offline_book=offline_book,
                                      resume=resume,
                                      cc=cc,
                                      is_xhr=request.headers.get('X-Requested-With') == 'XMLHttpRequest',

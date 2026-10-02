@@ -50,13 +50,6 @@ log = logger.create()
 cc_exceptions = ['composite', 'series']
 cc_classes = {}
 
-# Lightweight handle on app.db's archived_book table, reachable from the calibre
-# connection because app.db is ATTACHed there as schema "app_settings" (see setup_db).
-_app_archived_book = sql_table('archived_book',
-                               sql_column('book_id', Integer),
-                               sql_column('user_id', Integer),
-                               sql_column('is_archived', Boolean),
-                               schema='app_settings')
 # Read status rows (app.db), touched on every reader save and read toggle: the "Last read" sort.
 _app_read_book = sql_table('book_read_link',
                            sql_column('book_id', Integer),
@@ -872,7 +865,7 @@ class CalibreDB:
         self.ensure_session()
         return self.session.query(Books).filter(Books.id == book_id).first()
 
-    def get_filtered_book(self, book_id, allow_show_archived=False):
+    def get_filtered_book(self, book_id):
         self.ensure_session()
         # Eagerly load all relationships to prevent detached instance errors during editing.
         # selectinload, not joinedload: joining nine collections multiplied the rows
@@ -880,10 +873,10 @@ class CalibreDB:
         return (self.session.query(Books)
                 .options(*[selectinload(rel) for rel in _all_book_relationships()])
                 .filter(Books.id == book_id)
-                .filter(self.common_filters(allow_show_archived))
+                .filter(self.common_filters())
                 .first())
 
-    def get_filtered_book_cover_info(self, book_id, allow_show_archived=False):
+    def get_filtered_book_cover_info(self, book_id):
         """Lightweight variant of get_filtered_book for cover serving.
 
         Returns a row exposing only ``id``, ``has_cover`` and ``path`` (or None),
@@ -892,31 +885,29 @@ class CalibreDB:
         self.ensure_session()
         return (self.session.query(Books.id, Books.has_cover, Books.path)
                 .filter(Books.id == book_id)
-                .filter(self.common_filters(allow_show_archived))
+                .filter(self.common_filters())
                 .first())
 
-    def get_book_read_archived(self, book_id, read_column, allow_show_archived=False):
+    def get_book_read_status(self, book_id, read_column):
+        """(book, the current user's read status) for a book they may see, or None."""
         self.ensure_session()
         if not read_column:
-            bd = (self.session.query(Books, ub.ReadBook.read_status, ub.ArchivedBook.is_archived).select_from(Books)
+            bd = (self.session.query(Books, ub.ReadBook.read_status).select_from(Books)
                   .join(ub.ReadBook, and_(ub.ReadBook.user_id == int(current_user.id), ub.ReadBook.book_id == book_id),
                   isouter=True))
         else:
             try:
                 read_column = cc_classes[read_column]
-                bd = (self.session.query(Books, read_column.value, ub.ArchivedBook.is_archived).select_from(Books)
+                bd = (self.session.query(Books, read_column.value).select_from(Books)
                       .join(read_column, read_column.book == book_id,
                       isouter=True))
             except (KeyError, AttributeError, IndexError):
                 log.error("Custom Column No.{} does not exist in calibre database".format(read_column))
                 # Skip linking read column and return None instead of read status
-                bd = self.session.query(Books, None, ub.ArchivedBook.is_archived)
+                bd = self.session.query(Books, None)
         # Eagerly load the data relationship to prevent session errors
         bd = bd.options(joinedload(Books.data))
-        return (bd.filter(Books.id == book_id)
-                .join(ub.ArchivedBook, and_(Books.id == ub.ArchivedBook.book_id,
-                                            int(current_user.id) == ub.ArchivedBook.user_id), isouter=True)
-                .filter(self.common_filters(allow_show_archived)).first())
+        return bd.filter(Books.id == book_id).filter(self.common_filters()).first()
 
     def get_book_format(self, book_id, file_format):
         self.ensure_session()
@@ -953,19 +944,7 @@ class CalibreDB:
             log.error("Database error: {}".format(e))
 
     # Language and content filters for displaying in the UI
-    def common_filters(self, allow_show_archived=False, return_all_languages=False, viewing_tag_id=None):
-        if not allow_show_archived:
-            # app.db is ATTACHed as "app_settings" on the calibre connection (see setup_db),
-            # so filter with a subquery instead of loading ArchivedBook rows through ub.session
-            # and inlining a (potentially huge) NOT IN literal list.
-            archived_book_ids = (select(_app_archived_book.c.book_id)
-                                 .where(_app_archived_book.c.user_id == int(current_user.id))
-                                 .where(_app_archived_book.c.is_archived == True)
-                                 .where(_app_archived_book.c.book_id.isnot(None)))
-            archived_filter = Books.id.notin_(archived_book_ids)
-        else:
-            archived_filter = true()
-
+    def common_filters(self, return_all_languages=False, viewing_tag_id=None):
         if current_user.filter_language() == "all" or return_all_languages:
             lang_filter = true()
         else:
@@ -1006,28 +985,27 @@ class CalibreDB:
             pos_content_cc_filter = true()
             neg_content_cc_filter = false()
         return and_(lang_filter, pos_content_tags_filter, ~neg_content_tags_filter,
-                    pos_content_cc_filter, ~neg_content_cc_filter, archived_filter)
+                    pos_content_cc_filter, ~neg_content_cc_filter)
 
     def generate_linked_query(self, config_read_column, database):
         # Safety: session can be briefly None during DB reconnects
         self.ensure_session()
         if not config_read_column:
-            query = (self.session.query(database, ub.ArchivedBook.is_archived, ub.ReadBook.read_status)
+            query = (self.session.query(database, ub.ReadBook.read_status)
                      .select_from(Books)
                      .outerjoin(ub.ReadBook,
                                 and_(ub.ReadBook.user_id == int(current_user.id), ub.ReadBook.book_id == Books.id)))
         else:
             try:
                 read_column = cc_classes[config_read_column]
-                query = (self.session.query(database, ub.ArchivedBook.is_archived, read_column.value)
+                query = (self.session.query(database, read_column.value)
                          .select_from(Books)
                          .outerjoin(read_column, read_column.book == Books.id))
             except (KeyError, AttributeError, IndexError):
                 log.error("Custom Column No.{} does not exist in calibre database".format(config_read_column))
                 # Skip linking read column and return None instead of read status
-                query = self.session.query(database, None, ub.ArchivedBook.is_archived)
-        return query.outerjoin(ub.ArchivedBook, and_(Books.id == ub.ArchivedBook.book_id,
-                                                     int(current_user.id) == ub.ArchivedBook.user_id))
+                query = self.session.query(database, None)
+        return query
 
     @staticmethod
     def get_checkbox_sorted(inputlist, state, offset, limit, order, combo=False):
@@ -1050,17 +1028,12 @@ class CalibreDB:
 
     # Fill indexpage with all requested data from database
     def fill_indexpage(self, page, pagesize, database, db_filter, order,
-                       join_archive_read=False, config_read_column=0, *join, **kwargs):
-        self.ensure_session()
-        return self.fill_indexpage_with_archived_books(page, database, pagesize, db_filter, order, False,
-                                                       join_archive_read, config_read_column, *join, **kwargs)
-
-    def fill_indexpage_with_archived_books(self, page, database, pagesize, db_filter, order, allow_show_archived,
-                                           join_archive_read, config_read_column, *join, **kwargs):
+                       join_read_status=False, config_read_column=0, *join, **kwargs):
+        """A page of rows; with join_read_status, each is (book, the user's read status)."""
         self.ensure_session()
         viewing_tag_id = kwargs.get('viewing_tag_id')
         pagesize = pagesize or self.config.config_books_per_page
-        if join_archive_read:
+        if join_read_status:
             query = self.generate_linked_query(config_read_column, database)
         else:
             query = self.session.query(database)
@@ -1092,7 +1065,7 @@ class CalibreDB:
                 indx -= 1
                 element += 1
         query = query.filter(db_filter)\
-            .filter(self.common_filters(allow_show_archived, viewing_tag_id=viewing_tag_id))
+            .filter(self.common_filters(viewing_tag_id=viewing_tag_id))
         entries = list()
         pagination = list()
         try:
@@ -1109,14 +1082,14 @@ class CalibreDB:
                 page_ids = [book_id for book_id, in ordered.with_entities(Books.id)]
                 rows = {}
                 for row in (query.filter(Books.id.in_(page_ids)).all() if page_ids else []):
-                    rows.setdefault((row[0] if join_archive_read else row).id, row)
+                    rows.setdefault((row[0] if join_read_status else row).id, row)
                 entries = [rows[book_id] for book_id in page_ids if book_id in rows]
             else:
                 entries = ordered.all()
         except Exception as ex:
             log.error_or_exception(ex)
         # display authors in right order
-        entries = self.order_authors(entries, True, join_archive_read)
+        entries = self.order_authors(entries, True, join_read_status)
         return entries, pagination
 
     # Orders all Authors in the list according to authors sort
@@ -1224,7 +1197,7 @@ class CalibreDB:
         # Eagerly load the data relationship to prevent session errors. selectinload, so a
         # paginated search isn't wrapped in a subquery (which breaks text ORDER BY clauses)
         query = query.options(selectinload(Books.data))
-        return query.filter(self.common_filters(True)).filter(or_(*filter_expression))
+        return query.filter(self.common_filters()).filter(or_(*filter_expression))
 
     def get_cc_columns(self, config, filter_config_custom_read=False):
         self.ensure_session()

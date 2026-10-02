@@ -1261,7 +1261,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 
 .book-action-bar #toggle-read-btn.is-on .glyphicon { color: var(--success); }
 
-/* Archived reads as a chosen chip like any pressed toggle; delete takes the accent, red on hover. */
+/* Delete takes the accent, red on hover. */
 .book-action-bar > .btn.is-danger:not(:hover):not(:focus-visible) { color: var(--accent); }
 
 /* The book's facts as a compact surface side panel: the files as tiles on top, then one
@@ -1320,6 +1320,9 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 /* Files lead the panel as tiles; the tiles say what they are, so the label is sr-only. */
 .book-metadata > .formats { display: block; grid-column: 1 / -1; margin-bottom: 6px; }
 .book-metadata > .formats > dd { text-align: left; white-space: normal; overflow: visible; }
+/* Tags and shelves are all shown: their names wrap onto more lines rather than end in an ellipsis */
+.book-metadata > .tags > dd,
+.book-metadata > .shelves > dd { white-space: normal; overflow: visible; text-overflow: clip; }
 
 .book-detail-description { align-self: stretch; }
 
@@ -2126,14 +2129,5 @@ body.book_table .pagination {
     pointer-events: none;
 }
 
-/* Book page Shelves row: every shelf is rendered and those the book isn't on are hidden (the
-   Shelves menu toggles them), so the commas come from CSS, between visible names only. */
-#book-shelves-row dd a:not([hidden]) ~ a:not([hidden])::before { content: ", "; color: var(--ink-soft); }
-
-/* Book page Shelves menu: a tick before shelves the book is on (§5.6 checkbox items). */
-.book-shelves-menu { display: inline-block; }
-.book-shelves-menu .dropdown-menu .book-shelf-toggle { display: flex; align-items: center; gap: 8px; }
-.book-shelves-menu .book-shelf-toggle .glyphicon-ok { visibility: hidden; color: var(--accent); }
-.book-shelves-menu .book-shelf-toggle[aria-checked="true"] .glyphicon-ok { visibility: visible; }
-.book-shelves-menu .book-shelf-toggle[aria-disabled="true"] { opacity: .4; }
-.book-shelves-menu .dropdown-menu a { display: flex; align-items: center; gap: 8px; }
+/* Book page Shelves row: the commas come from CSS, as the names are links with no text between */
+#book-shelves-row dd a ~ a::before { content: ", "; color: var(--ink-soft); }

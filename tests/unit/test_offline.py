@@ -72,20 +72,11 @@ class TestRoutes:
 
 @pytest.mark.unit
 class TestBookSpecs:
-    def test_book_page_offers_keep_offline_for_a_readable_book(self, env):
+    def test_the_book_page_has_no_keep_offline_button(self, env):
+        # Books are kept offline from Continue Reading only
         book = env.add_book("Offline Epub", fmt="EPUB")
         html = _login(env).get(f"/book/{book}").get_data(as_text=True)
-        tag = re.search(r'<button type="button" class="btn is-icon" id="keep-offline-btn"[^>]*>', html, flags=re.S).group(0)
-        assert 'aria-pressed="false"' in tag and " hidden" in tag  # offline.js shows it where it works
-        spec = json.loads(re.search(r'data-book="([^"]+)"', tag).group(1).replace("&#34;", '"'))
-        assert spec["id"] == book and spec["format"] == "epub" and spec["title"] == "Offline Epub"
-        assert spec["reader"] == f"/read/{book}/epub" and spec["page"] == f"/book/{book}"
-        assert spec["cover"].startswith(f"/cover/{book}/md?c=")
-
-    def test_audio_books_stay_online_only(self, env):
-        book = env.add_book("Audio Only", fmt="MP3")
-        html = _login(env).get(f"/book/{book}").get_data(as_text=True)
-        assert 'id="keep-offline-btn"' not in html
+        assert 'keep-offline-btn' not in html
 
     def test_library_hands_over_continue_reading(self, env):
         from cps import ub

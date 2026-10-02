@@ -518,13 +518,13 @@ content (grid, panel, rows)
 - Description: `--font-body` 18px, line-height 1.68, `--ink-soft`, no measure
   cap: it fills the width it is given.
 - The facts are always one column, at every width: never split into two.
-- Every fact is one line; a long value ends in an ellipsis, never wraps.
+- Every fact is one line; a long value ends in an ellipsis, never wraps. Tags and
+  shelves are the exception: every name is shown, wrapping onto more lines.
 - Shelves and tags are plain rows in the facts panel: names as comma-separated
   `--accent` links, no chip or icon.
-- Shelves are changed in place: the action bar's Shelves icon opens a menu of the
-  shelves you may change, each a checkbox item (`role=menuitemcheckbox`, a tick when
-  on) that puts the book on or takes it off at once, plus "New shelf". The facts row
-  and sidebar counts follow without a reload. On a shelf page each cover gets a
+- The action bar is Read, Download, Mark as read, Edit metadata and Delete. A book's
+  shelves are changed on its edit page (the Shelves rows), never from the book page.
+  There is no archive and no Keep offline button. On a shelf page each cover gets a
   quiet `.icon-btn.is-danger` remove action (`shelves.js`).
 - Papers: an arXiv row shows the id itself, linked to the abstract page; its
   DOI isn't shown. Other identifiers (a non-arXiv paper's DOI included) stay as
@@ -626,15 +626,13 @@ request says so in one quiet line at the foot of the page (`#bookmark-status`,
 ### 6.8 Offline reading (`offline.py`, `templates/sw.js`, `offline.js`)
 
 - Only where the browser runs a service worker: HTTPS or localhost. Over plain
-  `http://host:port` the controls stay hidden and nothing changes.
-- **Keep offline** is an icon button in the book page's action bar
-  (`glyphicon-cloud-download`, a two-state button with `aria-pressed`, `.is-busy`
-  while saving). Books in Continue Reading are kept automatically and let go when
-  they leave it, unless they were picked; un-keeping one in progress sticks.
+  `http://host:port` nothing changes.
+- Books in Continue Reading are kept automatically and let go when they leave it;
+  there is no button to keep a book. Taking one in progress off the device sticks.
 - With no network, a page that was kept opens from the device; anything else opens
   the **Offline** page (`/offline`, a `.lily-standalone` page): the kept books as
   rows (44px cover, title, author · format · size, a quiet Read, a trash
-  `.icon-btn.is-danger`), or an empty state that says how to keep one.
+  `.icon-btn.is-danger`), or an empty state that says how books get there.
 - Reading positions save on the device and sync when the connection is back
   (`progress-sync.js`); CSRF tokens last the session so a cached reader can still save.
 

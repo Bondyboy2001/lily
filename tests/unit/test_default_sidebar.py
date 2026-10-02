@@ -53,7 +53,7 @@ def test_default_sidebar_is_the_core_views():
     from cps import constants
 
     for flag in (constants.SIDEBAR_RECENT, constants.SIDEBAR_AUTHOR, constants.SIDEBAR_SERIES,
-                 constants.SIDEBAR_CATEGORY, constants.SIDEBAR_READ_AND_UNREAD, constants.SIDEBAR_ARCHIVED):
+                 constants.SIDEBAR_CATEGORY, constants.SIDEBAR_READ_AND_UNREAD):
         assert constants.DEFAULT_SIDEBAR & flag
     for flag in (constants.SIDEBAR_HOT, constants.SIDEBAR_DOWNLOAD, constants.SIDEBAR_BEST_RATED,
                  constants.SIDEBAR_RANDOM, constants.SIDEBAR_PUBLISHER, constants.SIDEBAR_LANGUAGE,

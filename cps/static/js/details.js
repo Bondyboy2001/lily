@@ -81,13 +81,6 @@ $("#have_read_cb").on("change", function() {
     });
 });
 
-$(function() {
-    $("#archived_form").ajaxForm();
-});
-
-$("#archived_cb").on("change", function() {
-    $(this).closest("form").submit();
-});
 // Tooltips for the icon-only toolbar buttons on the book page; labelled buttons don't need one
 $(function () {
     var $toolbarButtons = $(".book-action-bar .action-icon-btn, .book-action-bar .dropdown-toggle");

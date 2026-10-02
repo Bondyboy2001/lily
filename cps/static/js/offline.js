@@ -1,10 +1,9 @@
 /*
  * Offline reading, the page side (the worker is templates/sw.js, served at /sw.js).
  * - Registers the worker, where the browser allows one (HTTPS or localhost).
- * - Book page: the "Keep offline" button (#keep-offline-btn) keeps or lets go of the book.
  * - Library: hands the worker the Continue Reading books (#lily-offline-auto) to keep.
  * - Offline page: lists the books kept on this device.
- * Where there is no worker, the button stays hidden and nothing else happens.
+ * Where there is no worker, nothing happens.
  */
 (function () {
   "use strict";
@@ -37,41 +36,6 @@
 
   function flash(message) {
     if (window.lilyFlash) { window.lilyFlash(message, "danger"); }
-  }
-
-  // ------------------------------------------------------------ book page
-  function bookButton() {
-    var btn = document.getElementById("keep-offline-btn");
-    if (!btn) { return; }
-    var book = JSON.parse(btn.getAttribute("data-book"));
-    var label = btn.querySelector(".book-action-label");
-    function show(kept) {
-      btn.setAttribute("aria-pressed", kept ? "true" : "false");
-      var text = btn.getAttribute(kept ? "data-label-kept" : "data-label-keep");
-      btn.title = text;
-      if (label) { label.textContent = text; }
-    }
-    ask({ type: "status", id: book.id }).then(function (entry) {
-      show(!!entry);
-      btn.hidden = false;
-    }).catch(function () {});
-    btn.addEventListener("click", function () {
-      if (btn.classList.contains("is-busy")) { return; }
-      var keep = btn.getAttribute("aria-pressed") !== "true";
-      btn.classList.add("is-busy");
-      btn.setAttribute("aria-busy", "true");
-      if (keep && navigator.storage && navigator.storage.persist) {
-        navigator.storage.persist().catch(function () {});
-      }
-      ask(keep ? { type: "keep", book: book } : { type: "drop", id: book.id }).then(function () {
-        show(keep);
-      }).catch(function () {
-        flash(btn.getAttribute(keep ? "data-keep-failed" : "data-drop-failed"));
-      }).then(function () {
-        btn.classList.remove("is-busy");
-        btn.removeAttribute("aria-busy");
-      });
-    });
   }
 
   // ------------------------------------------------------------ library
@@ -146,7 +110,6 @@
   }
 
   function start() {
-    bookButton();
     syncContinueReading();
     offlinePage();
   }

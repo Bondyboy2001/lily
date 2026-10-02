@@ -75,7 +75,6 @@ SIDEBAR_SORTED          = 1 << 10
 SIDEBAR_PUBLISHER       = 1 << 12
 SIDEBAR_RATING          = 1 << 13
 SIDEBAR_FORMAT          = 1 << 14
-SIDEBAR_ARCHIVED        = 1 << 15
 SIDEBAR_DOWNLOAD        = 1 << 16
 SIDEBAR_LIST            = 1 << 17
 SIDEBAR_DUPLICATES      = 1 << 18
@@ -94,7 +93,6 @@ sidebar_settings = {
                 "sidebar_publisher": SIDEBAR_PUBLISHER,
                 "sidebar_rating": SIDEBAR_RATING,
                 "sidebar_format": SIDEBAR_FORMAT,
-                "sidebar_archived": SIDEBAR_ARCHIVED,
                 "sidebar_download": SIDEBAR_DOWNLOAD,
                 "sidebar_list": SIDEBAR_LIST,
                 "sidebar_duplicates": SIDEBAR_DUPLICATES,
@@ -105,7 +103,7 @@ ADMIN_USER_ROLES        = sum(r for r in ALL_ROLES.values()) & ~ROLE_ANONYMOUS
 # Lily's default sidebar: the core browse views only. The other entries stay available
 # to switch on per user in the profile's sidebar settings.
 DEFAULT_SIDEBAR         = (SIDEBAR_RECENT | SIDEBAR_CATEGORY | SIDEBAR_SERIES | SIDEBAR_AUTHOR
-                           | SIDEBAR_READ_AND_UNREAD | SIDEBAR_ARCHIVED)
+                           | SIDEBAR_READ_AND_UNREAD)
 ADMIN_USER_SIDEBAR      = DEFAULT_SIDEBAR
 
 DEFAULT_ADMIN_NAME  = "harry"
