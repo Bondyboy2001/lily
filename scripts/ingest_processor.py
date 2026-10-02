@@ -177,9 +177,15 @@ def get_app_db_path() -> str:
 
 
 def _load_cps_settings_from_app_db() -> None:
-    """Load the minimal CPS settings needed for internal HTTPS handling."""
+    """Load the CPS settings this process uses: the internal HTTPS certificates, and the library
+    paths and file naming that metadata lookups need (config.get_book_path() reads the split
+    library settings; moving a renamed book's folder reads config_unicode_filename)."""
     if not _cps_config:
         return
+    # The web app loads these from app.db at start; this process only has a bare ConfigSQL
+    _cps_config.config_calibre_split = False
+    _cps_config.config_calibre_split_dir = None
+    _cps_config.config_unicode_filename = False
     try:
         app_db_path = get_app_db_path()
         with sqlite3.connect(app_db_path, timeout=30) as con:
@@ -197,6 +203,12 @@ def _load_cps_settings_from_app_db() -> None:
                 _cps_config.config_certfile = row[1]
             if row[2]:
                 _cps_config.config_keyfile = row[2]
+            columns = {r[1] for r in cur.execute("PRAGMA table_info(settings)")}
+            for name in ("config_calibre_split", "config_calibre_split_dir", "config_unicode_filename"):
+                if name in columns:
+                    value = cur.execute(f"SELECT {name} FROM settings LIMIT 1").fetchone()[0]
+                    if value is not None:
+                        setattr(_cps_config, name, value)
     except Exception as e:
         print(f"[ingest-processor] WARN: Could not read CPS settings from app.db ({app_db_path}): {e}", flush=True)
 

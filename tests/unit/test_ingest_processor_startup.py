@@ -108,3 +108,26 @@ def test_optional_cps_modules_retry_after_partial_load(monkeypatch, tmp_path):
     source = inspect.getsource(ingest_processor._load_optional_cps_modules)
 
     assert "if _CPS_AVAILABLE:" in source
+
+
+def test_import_process_config_knows_the_library_paths(tmp_path, monkeypatch):
+    # The import process has a bare ConfigSQL: metadata lookups on import read
+    # config.get_book_path() and, to move a renamed book's folder, config_unicode_filename
+    import sqlite3
+    import ingest_processor
+    from cps.config_sql import ConfigSQL
+    app_db = tmp_path / "app.db"
+    con = sqlite3.connect(app_db)
+    con.execute("CREATE TABLE settings (config_calibre_dir TEXT, config_certfile TEXT, config_keyfile TEXT, "
+                "config_calibre_split BOOLEAN, config_calibre_split_dir TEXT, config_unicode_filename BOOLEAN)")
+    con.execute("INSERT INTO settings VALUES ('/calibre-library', NULL, NULL, 0, NULL, 1)")
+    con.commit()
+    con.close()
+    bare = ConfigSQL()
+    with pytest.raises(AttributeError):
+        bare.get_book_path()
+    monkeypatch.setattr(ingest_processor, "_cps_config", bare)
+    monkeypatch.setattr(ingest_processor, "get_app_db_path", lambda: str(app_db))
+    ingest_processor._load_cps_settings_from_app_db()
+    assert bare.get_book_path() == "/calibre-library"
+    assert bare.config_unicode_filename == 1
