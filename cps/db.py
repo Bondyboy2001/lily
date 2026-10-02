@@ -1003,25 +1003,6 @@ class CalibreDB:
                 query = self.session.query(database, None)
         return query
 
-    @staticmethod
-    def get_checkbox_sorted(inputlist, state, offset, limit, order, combo=False):
-        outcome = list()
-        if combo:
-            elementlist = {ele[0].id: ele for ele in inputlist}
-        else:
-            elementlist = {ele.id: ele for ele in inputlist}
-        for entry in state:
-            try:
-                outcome.append(elementlist[entry])
-            except KeyError:
-                pass
-            del elementlist[entry]
-        for entry in elementlist:
-            outcome.append(elementlist[entry])
-        if order == "asc":
-            outcome.reverse()
-        return outcome[offset:offset + limit]
-
     # Fill indexpage with all requested data from database
     def fill_indexpage(self, page, pagesize, database, db_filter, order,
                        join_read_status=False, config_read_column=0, *join, **kwargs):
@@ -1036,8 +1017,8 @@ class CalibreDB:
 
         # Eagerly load template relationships to prevent DetachedInstanceError
         # during rendering under concurrent status/notification requests.
-        # The same helper feeds OPDS (comments, tags, languages, publishers) and the
-        # books table JSON (every column), so by default the other relationships keep
+        # The same helper feeds OPDS (comments, tags, languages, publishers), so by
+        # default the other relationships keep
         # their model-level selectin loading: one IN query each, never per book.
         # Callers that only render book cards pass cards_only=True to skip them.
         if database == Books:
