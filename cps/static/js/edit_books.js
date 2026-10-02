@@ -153,7 +153,6 @@ var authors = new Bloodhound({
    rows stay on screen marked invalid and are left out of the field. Values that arrive through
    the field are always kept.
    opts.sort keeps the saved value alphabetical always, and the rows once focus leaves the list.
-   opts.minRows is how many rows to show when there are no values (0 or 1).
    opts.fixed is for values that are not added by hand (tags): there is no Add button, and
    Enter and the split key add no row; the rows there are can be corrected or removed. */
 function lilyRowEditor(opts) {
@@ -162,7 +161,6 @@ function lilyRowEditor(opts) {
     var placeholder = $rows.data("placeholder") || "";
     var removeLabel = $rows.data("remove-label") || "Remove";
     var invalidLabel = $rows.data("invalid-label") || "";
-    var minRows = opts.minRows || 0;
     // typeahead copies the input's classes onto its .tt-hint overlay; skip that copy
     var INPUT = "input.lily-edit-input:not(.tt-hint)";
     var fromField = [];
@@ -223,8 +221,7 @@ function lilyRowEditor(opts) {
         $rows.empty();
         var values = sortValues(opts.read($field.val()));
         fromField = values.slice();
-        var shown = values.length ? values : new Array(minRows).fill("");
-        shown.forEach(function (value) { $rows.append(makeRow(value)); });
+        values.forEach(function (value) { $rows.append(makeRow(value)); });
     }
 
     function addAfter($row, value) {
@@ -253,7 +250,7 @@ function lilyRowEditor(opts) {
         if (e.key === "Enter" || (opts.splitKey && e.key === opts.splitKey)) {
             e.preventDefault();
             if (!opts.fixed) { addAfter($(this).closest(".lily-edit-row"), ""); }
-        } else if (e.key === "Backspace" && !$(this).val() && inputs().length > minRows) {
+        } else if (e.key === "Backspace" && !$(this).val()) {
             e.preventDefault();
             removeRow($(this).closest(".lily-edit-row"));
         }
@@ -272,13 +269,7 @@ function lilyRowEditor(opts) {
     });
 
     $rows.on("click", ".lily-edit-remove", function () {
-        var $row = $(this).closest(".lily-edit-row");
-        if (inputs().length > minRows) {
-            removeRow($row);
-        } else {
-            $row.find(INPUT).typeahead("val", "").removeClass("is-invalid").removeAttr("aria-invalid title");
-            sync();
-        }
+        removeRow($(this).closest(".lily-edit-row"));
     });
 
     // Keep focus in the input when pressing ×, so the tidy-up below can't swallow the click
@@ -294,7 +285,7 @@ function lilyRowEditor(opts) {
                 return;
             }
             inputs().each(function () {
-                if (!$(this).typeahead("val").trim() && inputs().length > minRows) {
+                if (!$(this).typeahead("val").trim()) {
                     $(this).closest(".lily-edit-row").remove();
                 }
             });
@@ -310,7 +301,7 @@ function lilyRowEditor(opts) {
 lilyRowEditor({
     field: $("#authors"), rows: $("#author-rows"), add: $("#author-add"),
     name: "authors", display: "name", source: authors, minLength: 1,
-    sort: true, minRows: 1,
+    sort: true,
     split: function (raw) {
         return raw.split("&").map(function (a) { return a.trim(); })
             .filter(function (a) { return a.length > 0; });
