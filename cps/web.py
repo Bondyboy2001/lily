@@ -27,6 +27,7 @@ from sqlalchemy.sql.functions import coalesce
 from . import constants, logger, isoLanguages, helper
 from . import db, ub, config, app
 from . import calibre_db
+from .recent_imports import added_summary, books_added_after, newest_book_id
 from .search import render_search_results, render_adv_search_results
 from .helper import check_read_formats, edit_book_read_status
 from .pagination import Pagination
@@ -485,6 +486,20 @@ def web_reader_progress(book_id):
         log.error("Could not save reader position for book %s: %s", book_id, ex)
         return jsonify({"error": "Could not save progress"}), 500
     return jsonify(_web_progress_json(progress, fmt))
+
+
+@web.route("/ajax/recent-imports")
+@user_login_required
+def recent_imports():
+    """Books added after `after` (the `last` of the previous answer), for the toast that says
+    a book dropped in the ingest folder has arrived. The first call only gives `last`."""
+    answer = {"last": newest_book_id()}
+    after = request.args.get("after", type=int)
+    if after is not None:
+        books = books_added_after(after)
+        if books:
+            answer.update(added_summary(books))
+    return jsonify(answer)
 
 
 @web.route("/ajax/toggleread/<int:book_id>", methods=['POST'])

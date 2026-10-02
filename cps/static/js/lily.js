@@ -352,11 +352,21 @@
     }, delay);
   }
 
+  // Where the books a refresh or import added can be seen: the one book, or the newest first
+  function addedLink(count, bookId) {
+    var box = toast();
+    if (!box || !count) { return null; }
+    return count === 1 && bookId
+      ? [box.dataset.bookUrl.replace(/0$/, String(bookId)), box.dataset.bookLabel]
+      : [box.dataset.libraryUrl, box.dataset.libraryLabel];
+  }
+
   function finishJob(job, state) {
     activeStatusUrl = null;
     forgetJob();
     setButtonBusy(false);
-    showMessage(job && job.message ? job.message : "", state);
+    showMessage(job && job.message ? job.message : "", state,
+                job && state === "done" ? addedLink(job.count, job.book_id) : null);
   }
 
   function pollJob() {
@@ -542,6 +552,40 @@
     document.addEventListener("DOMContentLoaded", watchUploads);
   } else {
     watchUploads();
+  }
+
+  /*
+   * Books dropped in the ingest folder come with no upload to follow. While the page is open,
+   * ask now and then whether any arrived since the last answer, and say so in the toast.
+   * A refresh or an upload in this tab reports its own books, so the count starts afresh after.
+   */
+  var IMPORTS_MS = 20000;
+  var importsAfter = null;
+
+  function checkImports() {
+    if (document.hidden || activeStatusUrl || pendingUploads()) {
+      importsAfter = null;
+      setTimeout(checkImports, IMPORTS_MS);
+      return;
+    }
+    var url = root + "/ajax/recent-imports" + (importsAfter !== null ? "?after=" + importsAfter : "");
+    fetch(url, { credentials: "same-origin", headers: { "Accept": "application/json" } })
+      .then(function (response) { return response.ok ? response.json() : null; })
+      .then(function (data) {
+        if (!data) { return; }
+        var box = toast();
+        if (importsAfter !== null && data.count && box && (box.hidden || !box.classList.contains("is-busy"))) {
+          showMessage(data.message, "done", addedLink(data.count, data.book_id));
+        }
+        importsAfter = data.last;
+      })
+      .catch(function () { /* offline or signed out: try again later */ })
+      .finally(function () { setTimeout(checkImports, IMPORTS_MS); });
+  }
+
+  var signedIn = document.body && document.body.dataset && document.body.dataset.userId;
+  if (signedIn && signedIn !== "anonymous" && toast() && typeof fetch === "function") {
+    checkImports();
   }
 
   window.dismissLibraryRefreshMessage = function () {

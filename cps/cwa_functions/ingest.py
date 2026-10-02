@@ -28,6 +28,7 @@ from cwa_db import CWA_DB
 from ..services.worker import WorkerThread
 from ..tasks.database import TaskReconnectDatabase
 from ..internal_api import internal_only
+from ..recent_imports import added_summary, books_added_after, newest_book_id
 
 # Debounced duplicate scan timer (web process)
 _duplicate_scan_timer = None
@@ -170,6 +171,8 @@ def cwa_library_refresh():
             from automation_jobs import claim_job, finish_job
         job_id, created = claim_job("refresh", user_id=int(current_user.id))
         if created:
+            # The newest book now, so the result can say what this refresh added
+            app.config.setdefault("library_refresh_start_ids", {})[job_id] = newest_book_id()
             library_refresh_thread = Thread(target=refresh_library, args=(app, job_id))
             try:
                 library_refresh_thread.start()
@@ -185,7 +188,7 @@ def cwa_library_refresh():
         return jsonify({"error": _("Refresh status storage is unavailable; refresh not started")}), 503
 
     status_url = url_for("library_refresh.library_refresh_job", job_id=job_id)
-    return jsonify({"message": _("Library Refresh 🔄 Checking for any books that may have been missed, please wait..."),
+    return jsonify({"message": _("Checking the ingest folder for new books…"),
                     "state": "running", "job_id": job_id, "status_url": status_url}), 200
 
 
@@ -200,10 +203,17 @@ def library_refresh_job(job_id):
     if job is None or job["kind"] != "refresh":
         return jsonify({"error": "Unknown job"}), 404
     message = job["error"] or ""
+    added = {}
     if job["state"] == "running":
         message = message or _("Checking the library for new books, please wait...")
     elif job["state"] == "succeeded":
-        message = _("Library refreshed & ingest process complete!")
+        # What the refresh brought in, not that it ran: "Added 3 books…" or "No new books found"
+        start_id = current_app.config.get("library_refresh_start_ids", {}).get(job["id"])
+        if start_id is None:
+            message = _("Library refreshed")
+        else:
+            added = added_summary(books_added_after(start_id))
+            message = added["message"]
     elif job["state"] == "skipped":
         message = _("The ingest service is already running; nothing was queued twice.")
     elif job["state"] in ("failed", "interrupted"):
@@ -211,7 +221,8 @@ def library_refresh_job(job_id):
     return jsonify({"job_id": job["id"], "state": job["state"], "message": message,
                     "kind": job["kind"], "filename": job["filename"] or "",
                     "started_utc": job["started_utc"],
-                    "finished_utc": job["finished_utc"]})
+                    "finished_utc": job["finished_utc"],
+                    "count": added.get("count"), "book_id": added.get("book_id")})
 
 
 ##————————————————————————————————————————————————————————————————————————————##
