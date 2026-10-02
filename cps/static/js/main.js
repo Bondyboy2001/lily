@@ -248,6 +248,12 @@ $("#deleteModal").on("show.bs.modal", function(e) {
     //get data-id attribute of the clicked element and store in button
     var bookId = $(e.relatedTarget).data("delete-id");
     var bookfomat = $(e.relatedTarget).data("delete-format");
+    // Name what is about to go: "“Quiet Machines”", or "this book" when the opener doesn't say.
+    var title = $(e.relatedTarget).data("delete-title");
+    $(e.currentTarget).find("#book_complete .delete-title").text(title ? "“" + title + "”" : "This book");
+    $(e.currentTarget).find("#book_format .delete-title").text(title ? "“" + title + "”" : "this book");
+    $(e.currentTarget).find(".delete-format").text(bookfomat || "");
+    $(e.currentTarget).find("#metaDeleteLabel").text(bookfomat ? "Delete " + bookfomat + " File?" : "Delete Book?");
     if (bookfomat) {
         $("#book_format").removeClass('hidden');
         $("#book_complete").addClass('hidden');

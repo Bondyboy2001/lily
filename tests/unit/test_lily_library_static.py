@@ -359,3 +359,15 @@ def test_editor_hides_empty_optional_fields_until_added_or_fetched():
     edit_js = read(JS / "edit_books.js")
     assert '$form.on("lily:reveal-filled", function () {' in edit_js
     assert '$("#book_edit_frm").trigger("lily:reveal-filled");' in read(JS / "get_meta.js")
+
+
+def test_delete_dialog_names_the_book_and_promises_no_restore():
+    dialogs = read(TEMPLATES / "modal_dialogs.html")
+    assert "administrator to restore" not in dialogs and "Are You Sure?" not in dialogs
+    assert 'class="delete-title"' in dialogs and "can’t be undone in Lily" in dialogs
+    for name in ("detail.html", "book_edit.html"):
+        html = read(TEMPLATES / name)
+        for opener in re.findall(r'<button[^>]*data-target="#deleteModal"[^>]*>', html):
+            assert "data-delete-title=" in opener, (name, opener)
+    js = read(REPO_ROOT / "cps/static/js/main.js")
+    assert 'data("delete-title")' in js

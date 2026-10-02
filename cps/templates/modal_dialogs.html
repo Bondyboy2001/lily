@@ -4,12 +4,13 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-          <h4 class="modal-title" id="metaDeleteLabel">{{_('Are You Sure?')}}</h4>
+          <h4 class="modal-title" id="metaDeleteLabel">{{_('Delete Book?')}}</h4>
       </div>
         <div class="modal-body">
+          {# main.js fills in the book's title and the format from the button that opened the dialog #}
           <p>
-            <span class="hidden" id="book_format">{{_('This book format will be deleted. A recovery copy is kept for an administrator to restore.')}}</span>
-            <span class="hidden" id="book_complete">{{_('This book will be deleted. A recovery copy is kept for an administrator to restore.')}}</span>
+            <span class="hidden" id="book_format">{{_('The %(format)s file of %(title)s will be deleted. The book and its other formats stay.', format='<span class="delete-format"></span>', title='<span class="delete-title"></span>')|safe }}</span>
+            <span class="hidden" id="book_complete">{{_('%(title)s will be deleted from the library, with its files, shelves and reading progress. This can’t be undone in Lily.', title='<span class="delete-title"></span>')|safe }}</span>
           </p>
         </div>
 

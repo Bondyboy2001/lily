@@ -12,11 +12,11 @@
     <div class="editbook-cover-tools">
       <a href="#" id="get_meta" class="btn btn-default btn-block editbook-fetch" data-toggle="modal" data-target="#metaModal"><span class="glyphicon glyphicon-search" aria-hidden="true"></span> {{_('Fetch metadata')}}</a>
       {% if current_user.role_delete_books() %}
-      <button type="button" class="btn btn-default btn-block editbook-delete is-danger" id="delete" data-toggle="modal" data-delete-id="{{ book.id }}" data-target="#deleteModal"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span> {{_("Delete book")}}</button>
+      <button type="button" class="btn btn-default btn-block editbook-delete is-danger" id="delete" data-toggle="modal" data-delete-id="{{ book.id }}" data-delete-title="{{ book.title }}" data-target="#deleteModal"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span> {{_("Delete book")}}</button>
       {# Per-format deletes, shown only when the book has more than one file #}
       {% if book.data|length > 1 %}
       {% for file in book.data %}
-      <button type="button" class="btn btn-default btn-block is-danger editbook-delete-format" id="delete_format_{{ file.format|lower }}" data-toggle="modal" data-delete-id="{{ book.id }}" data-delete-format="{{ file.format }}" data-target="#deleteModal">{{_('Delete %(format)s', format=file.format)}}</button>
+      <button type="button" class="btn btn-default btn-block is-danger editbook-delete-format" id="delete_format_{{ file.format|lower }}" data-toggle="modal" data-delete-id="{{ book.id }}" data-delete-format="{{ file.format }}" data-delete-title="{{ book.title }}" data-target="#deleteModal">{{_('Delete %(format)s', format=file.format)}}</button>
       {% endfor %}
       {% endif %}
       {% endif %}

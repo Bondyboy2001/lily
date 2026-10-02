@@ -98,7 +98,7 @@
                 {% endif %}
                 {% if can_delete %}
                     <button type="button" class="btn is-icon is-danger" id="delete" title="{{ _('Delete book') }}" aria-label="{{ _('Delete book') }}"
-                            data-toggle="modal" data-delete-id="{{ entry.id }}" data-target="#deleteModal">
+                            data-toggle="modal" data-delete-id="{{ entry.id }}" data-delete-title="{{ entry.title }}" data-target="#deleteModal">
                         <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
                     </button>
                 {% endif %}
