@@ -4,9 +4,10 @@
 
 """Task that looks every book up again with the metadata providers (Import & Metadata → Rebuild).
 
-It first clears tags that are not subjects (ISBNs, publisher lines, shop listing scraps), and
-after each lookup gives a PDF with no cover its first page, or centres a page-render cover on
-what is printed (cps/pdf_cover.py).
+It first makes each author the people it names (cps/author_cleanup.py) and clears tags that are
+not subjects (ISBNs, publisher lines, shop listing scraps), and after each lookup gives a PDF
+with no cover its first page, or centres a page-render cover on what is printed
+(cps/pdf_cover.py).
 
 A book that gets new details is kept in step like an edit is (metadata_helper does it): its folder
 follows a new title or first author, and with "Write edits into book files" on, the change is
@@ -24,6 +25,7 @@ from flask_babel import lazy_gettext as N_
 from cps import config, db, helper, logger, pdf_cover
 from cps.services.worker import (CalibreTask, STAT_FAIL, STAT_FINISH_SUCCESS, STAT_STARTED, STAT_STOPPING,
                                  STAT_WAITING)
+from cps.author_cleanup import tidy_authors
 from cps.tag_cleanup import tidy_library_tags
 from cps.ub import init_db_thread
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
@@ -61,6 +63,8 @@ class TaskRebuildMetadata(CalibreTask):
         self._store = None
         # The first book not yet handed out; with the books under way, where a later run carries on
         self._unsubmitted = None
+        # Books whose authors the tidy before the lookups changed
+        self.authors_tidied = 0
 
     @property
     def name(self):
@@ -111,6 +115,7 @@ class TaskRebuildMetadata(CalibreTask):
             progress = self._store.get_rebuild_progress() if self.resume and self._store else None
             with library_lock:
                 if not progress:
+                    self._tidy_authors(cdb)
                     self._tidy_tags(cdb)
                 book_ids = [row[0] for row in cdb.session.query(db.Books.id).order_by(db.Books.id).all()]
             if progress:
@@ -143,7 +148,7 @@ class TaskRebuildMetadata(CalibreTask):
                 cdb.session.close()
             if self._store:
                 self._store.close()
-            if self.updated:
+            if self.updated or self.authors_tidied:
                 try:
                     from cps.duplicate_index import mark_duplicate_index_pending
                     mark_duplicate_index_pending("metadata rebuild")
@@ -212,6 +217,18 @@ class TaskRebuildMetadata(CalibreTask):
                 self._store.clear_rebuild_progress()
         except Exception as ex:
             log.warning("Rebuild: could not save the progress: %s", ex)
+
+    def _tidy_authors(self, cdb):
+        """Make each author the people it names first, so a lookup searches for them and a
+        book whose author was junk is looked up by its title."""
+        self.message = N_('Tidying authors')
+        try:
+            changed, removed = tidy_authors(cdb.session, calibre_path=config.get_book_path())
+            self.authors_tidied = changed
+            log.info("Rebuild: tidied the authors of %s books, removed %s unused authors", changed, removed)
+        except Exception as ex:
+            cdb.session.rollback()
+            log.error("Rebuild: could not tidy authors: %s", ex)
 
     def _tidy_tags(self, cdb):
         """Clear out tags that are not subjects first: it takes seconds, the lookups take hours."""

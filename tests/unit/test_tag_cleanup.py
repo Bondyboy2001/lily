@@ -29,6 +29,8 @@ JUNK = [
     "<p>Suitable for upper-level undergraduates; this accessible approach to set theory",
     "applications to specific problems are taken up only to illustrate a principle",
     "Спизжено у http://avaxhome.ws/blogs/exlib/",
+    "Cambridge University Press 2005", "AMS 2005", "New Age International 2009", "Publication Date",
+    "1991 Mathematics Subject Classification",
 ]
 SUBJECTS = [
     "Mathematics", "linear algebra", "Linear Logic", "List Edge Colorings", "Quantum Mechanics",
@@ -54,6 +56,18 @@ def test_junk_is_not_a_subject(name):
 @pytest.mark.parametrize("name", SUBJECTS)
 def test_subjects_are_kept(name):
     assert not is_junk_tag(name)
+
+
+@pytest.mark.unit
+def test_arxiv_codes_are_named_and_unknown_ones_dropped():
+    assert clean_tags(["cs.LG", "Machine Learning", "math.ST", "cond-mat.stat-mech", "hep-th", "cs.ZZ"]) == [
+        "Machine Learning", "Statistics Theory", "Condensed Matter", "High Energy Physics - Theory"]
+
+
+@pytest.mark.unit
+def test_an_authors_surname_is_not_a_subject():
+    assert clean_tags(["lienhard", "Heat transfer"], authors=["John H. Lienhard IV"]) == ["Heat transfer"]
+    assert clean_tags(["Levine", "Chemistry"], authors=["Levine| Ira N."]) == ["Chemistry"]
 
 
 @pytest.mark.unit

@@ -34,7 +34,8 @@ _JUNK_WORDS = re.compile(
     r'tex output|latex|typesetting|gnuplot|backref|keypagebackref|avax\w*|exlib|softarchive|denixxx|'
     r'snorgared|true liar|team \w+|knowledge is power|pages?|pp|retail|e-?books?|front ?matter|'
     r'back ?matter|table of contents|edition|version|volume|vol|no|custom|monographs?|'
-    r'library collection|graduate texts|lecture notes?|texts in|symposium|proceedings)\b|'
+    r'library collection|graduate texts|lecture notes?|texts in|symposium|proceedings|'
+    r'subject classification|publication date|project gutenberg|transcriber)\b|'
     r'©|_|;|\b(?:is|are|language:? english)\b|^(?:a|an|and|the|by|edited) |спизж|пизд',
     re.I)
 _PUBLISHER = re.compile(
@@ -45,6 +46,9 @@ _PUBLISHER = re.compile(
     r'\w+ical society|society (?:for|of)|association (?:for|of)|'
     r'cambridge e?text|referex)\b',
     re.I)
+# A publisher or society with the year of the edition: "Cambridge University Press 2005", "AMS 2005"
+_YEAR_END = re.compile(r'^(?:[A-Z]{2,6}|.*\b(?:[Pp]ress|[Uu]niversity|[Ii]nternational|[Pp]ublications?|'
+                       r'[Ss]ociety|[Ii]nstitute))\s(?:1[5-9]|20)\d\d$')
 _PLACEHOLDERS = {
     'none', 'null', 'nil', 'unknown', 'untitled', 'n/a', 'na', 'image', 'cover', 'fm', 'general',
     'free', 'pdf', 'epub', 'djvu', 'book', 'books', 'misc', 'other', 'default', 'keywords', 'hc',
@@ -53,6 +57,89 @@ _PLACEHOLDERS = {
 # Longer than a subject: a sentence, a description or a book title
 _MAX_WORDS = 6
 _MAX_LENGTH = 50
+
+
+# arXiv's subject classes, which a paper's PDF and arXiv's own records give as codes ("cs.LG")
+_ARXIV_ARCHIVES = {
+    'cs': 'Computer Science', 'math': 'Mathematics', 'stat': 'Statistics', 'q-fin': 'Quantitative Finance',
+    'econ': 'Economics', 'eess': 'Electrical Engineering and Systems Science', 'astro-ph': 'Astrophysics',
+    'cond-mat': 'Condensed Matter', 'gr-qc': 'General Relativity and Quantum Cosmology',
+    'hep-ex': 'High Energy Physics - Experiment', 'hep-lat': 'High Energy Physics - Lattice',
+    'hep-ph': 'High Energy Physics - Phenomenology', 'hep-th': 'High Energy Physics - Theory',
+    'math-ph': 'Mathematical Physics', 'nlin': 'Nonlinear Sciences', 'nucl-ex': 'Nuclear Experiment',
+    'nucl-th': 'Nuclear Theory', 'physics': 'Physics', 'quant-ph': 'Quantum Physics',
+    'q-bio': 'Quantitative Biology',
+}
+_ARXIV_CLASSES = {
+    'cs': {
+        'AI': 'Artificial Intelligence', 'AR': 'Hardware Architecture', 'CC': 'Computational Complexity',
+        'CE': 'Computational Engineering, Finance, and Science', 'CG': 'Computational Geometry',
+        'CL': 'Computation and Language', 'CR': 'Cryptography and Security',
+        'CV': 'Computer Vision and Pattern Recognition', 'CY': 'Computers and Society', 'DB': 'Databases',
+        'DC': 'Distributed, Parallel, and Cluster Computing', 'DL': 'Digital Libraries',
+        'DM': 'Discrete Mathematics', 'DS': 'Data Structures and Algorithms', 'ET': 'Emerging Technologies',
+        'FL': 'Formal Languages and Automata Theory', 'GR': 'Graphics', 'GT': 'Game Theory',
+        'HC': 'Human-Computer Interaction', 'IR': 'Information Retrieval', 'IT': 'Information Theory',
+        'LG': 'Machine Learning', 'LO': 'Logic in Computer Science', 'MA': 'Multiagent Systems',
+        'MM': 'Multimedia', 'MS': 'Mathematical Software', 'NA': 'Numerical Analysis',
+        'NE': 'Neural and Evolutionary Computing', 'NI': 'Networking and Internet Architecture',
+        'OS': 'Operating Systems', 'PF': 'Performance', 'PL': 'Programming Languages', 'RO': 'Robotics',
+        'SC': 'Symbolic Computation', 'SD': 'Sound', 'SE': 'Software Engineering',
+        'SI': 'Social and Information Networks', 'SY': 'Systems and Control',
+    },
+    'math': {
+        'AC': 'Commutative Algebra', 'AG': 'Algebraic Geometry', 'AP': 'Analysis of PDEs',
+        'AT': 'Algebraic Topology', 'CA': 'Classical Analysis and ODEs', 'CO': 'Combinatorics',
+        'CT': 'Category Theory', 'CV': 'Complex Variables', 'DG': 'Differential Geometry',
+        'DS': 'Dynamical Systems', 'FA': 'Functional Analysis', 'GM': 'General Mathematics',
+        'GN': 'General Topology', 'GR': 'Group Theory', 'GT': 'Geometric Topology',
+        'HO': 'History and Overview', 'IT': 'Information Theory', 'KT': 'K-Theory and Homology',
+        'LO': 'Logic', 'MG': 'Metric Geometry', 'MP': 'Mathematical Physics', 'NA': 'Numerical Analysis',
+        'NT': 'Number Theory', 'OA': 'Operator Algebras', 'OC': 'Optimization and Control',
+        'PR': 'Probability', 'QA': 'Quantum Algebra', 'RA': 'Rings and Algebras',
+        'RT': 'Representation Theory', 'SG': 'Symplectic Geometry', 'SP': 'Spectral Theory',
+        'ST': 'Statistics Theory',
+    },
+    'stat': {
+        'AP': 'Applied Statistics', 'CO': 'Computational Statistics', 'ME': 'Statistical Methodology',
+        'ML': 'Machine Learning', 'TH': 'Statistics Theory',
+    },
+    'q-fin': {
+        'CP': 'Computational Finance', 'EC': 'Economics', 'GN': 'General Finance',
+        'MF': 'Mathematical Finance', 'PM': 'Portfolio Management', 'PR': 'Pricing of Securities',
+        'RM': 'Risk Management', 'ST': 'Statistical Finance', 'TR': 'Trading and Market Microstructure',
+    },
+    'econ': {'EM': 'Econometrics', 'GN': 'General Economics', 'TH': 'Theoretical Economics'},
+    'eess': {'AS': 'Audio and Speech Processing', 'IV': 'Image and Video Processing',
+             'SP': 'Signal Processing', 'SY': 'Systems and Control'},
+}
+_ARXIV_CODE = re.compile(r'^(%s)(?:\.([A-Za-z-]+))?$' % '|'.join(map(re.escape, _ARXIV_ARCHIVES)), re.I)
+# The parts of a name that come after the surname
+_NAME_SUFFIXES = {'jr', 'sr', 'ii', 'iii', 'iv'}
+
+
+def arxiv_subject(tag):
+    """arXiv's name for a subject class code: "cs.LG" -> "Machine Learning", "hep-th" ->
+    "High Energy Physics - Theory". '' for an unknown class, None for any other tag."""
+    match = _ARXIV_CODE.match(tidy_tag(tag))
+    if not match:
+        return None
+    archive, code = match.group(1).lower(), match.group(2)
+    if code is None:
+        return _ARXIV_ARCHIVES[archive]
+    if archive in _ARXIV_CLASSES:
+        return _ARXIV_CLASSES[archive].get(code.upper(), '')
+    # A physics archive's classes are its own fields: "cond-mat.stat-mech" is condensed matter
+    return _ARXIV_ARCHIVES[archive]
+
+
+def _surname(name):
+    """The author's surname as a tag would give it: "Lienhard| John H." -> "lienhard"."""
+    name = (name or '').replace('|', ',')
+    words = _norm(name.split(',')[0] if ',' in name else name).split()
+    while len(words) > 1 and words[-1] in _NAME_SUFFIXES:
+        words.pop()
+    return words[-1] if words and len(words[-1]) > 2 else ''
 
 
 def _norm(text):
@@ -74,20 +161,22 @@ def is_junk_tag(name):
     if len(tag) > _MAX_LENGTH or len(tag.split()) > _MAX_WORDS or '<' in tag:
         return True
     return bool(_ISBN.search(tag) or _ASIN.match(tag) or len(_NUMBER.findall(tag)) > 2
-                or _CODE.search(_ORDINAL.sub('', tag)) or _URLISH.search(tag)
+                or _CODE.search(_ORDINAL.sub('', tag)) or _URLISH.search(tag) or _YEAR_END.match(tag)
                 or _LABEL.match(tag) or _JUNK_WORDS.search(tag) or _PUBLISHER.search(tag))
 
 
 def clean_tags(names, title='', authors=(), publishers=(), series=()):
     """The subjects among names, in order and without repeats.
 
-    Trims stray punctuation, and drops junk and anything that just repeats the book's own
-    title, authors, publisher or series."""
+    Trims stray punctuation, names arXiv's subject codes, and drops junk and anything that
+    just repeats the book's own title, authors (or their surnames), publisher or series."""
     own = {_norm(value) for value in [title, *authors, *publishers, *series] if _norm(value)}
+    own |= {surname for surname in map(_surname, authors) if surname}
     own_title = _norm(title)
     kept, seen = [], set()
     for name in names:
-        tag = tidy_tag(name)
+        subject = arxiv_subject(name)
+        tag = tidy_tag(name) if subject is None else subject
         key = _norm(tag)
         if not key or key in seen or key in own or is_junk_tag(tag):
             continue
