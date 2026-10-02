@@ -101,12 +101,18 @@ class TaskRebuildMetadata(CalibreTask):
         done, __ = wait(running, return_when=FIRST_COMPLETED)
         for future in done:
             book_id = running.pop(future)
-            updated, centred = future.result()
-            if updated:
-                self.updated += 1
-            if centred:
+            try:
+                updated, centred = future.result()
+                if updated:
+                    self.updated += 1
+                if centred:
+                    with library_lock:
+                        self._cover_changed(cdb, book_id)
+            except Exception as ex:
+                # One book going wrong must not end a run of hours, or strand the books under way
                 with library_lock:
-                    self._cover_changed(cdb, book_id)
+                    cdb.session.rollback()
+                log.error("Rebuild: book %s failed: %s", book_id, ex, exc_info=True)
             self._count(total)
 
     def _count(self, total):
@@ -137,6 +143,7 @@ class TaskRebuildMetadata(CalibreTask):
         except Exception as ex:
             cdb.session.rollback()
             log.error("Rebuild: could not record the new cover of book %s: %s", book_id, ex)
+            return
         self.covers += 1
         helper.replace_cover_thumbnail_cache(book_id)
 

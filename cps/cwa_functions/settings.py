@@ -6,6 +6,8 @@
 
 """Import & Metadata settings page (/cwa-settings) and metadata-provider settings helpers."""
 
+import threading
+
 from flask import redirect, flash, url_for, request, jsonify
 from flask_babel import gettext as _
 
@@ -18,6 +20,8 @@ from ..render_template import render_title_template
 # common puts the scripts dir on sys.path, so it must be imported before cwa_db
 from .common import cwa_settings
 from cwa_db import CWA_DB
+
+_rebuild_start_lock = threading.Lock()
 
 
 ##————————————————————————————————————————————————————————————————————————————##
@@ -59,14 +63,16 @@ def set_cwa_settings():
 @login_required_if_no_ano
 @admin_required
 def rebuild_metadata():
-    """Start a lookup of every book with the metadata providers, one at a time. It runs on its
+    """Start a lookup of every book with the metadata providers, a few at once. It runs on its
     own thread, so covers and duplicate scans don't wait behind it."""
     from ..services.worker import WorkerThread
     from ..tasks.metadata_rebuild import TaskRebuildMetadata
-    if _running_rebuilds(including_stopping=True):
-        return jsonify({"success": True, "running": True})
-    task = TaskRebuildMetadata()
-    WorkerThread.add_parallel(current_user.name, task)
+    # Two requests at once (two tabs) start one rebuild
+    with _rebuild_start_lock:
+        if _running_rebuilds(including_stopping=True):
+            return jsonify({"success": True, "running": True})
+        task = TaskRebuildMetadata()
+        WorkerThread.add_parallel(current_user.name, task)
     return jsonify({"success": True, "task_id": str(task.id)})
 
 
@@ -74,7 +80,7 @@ def rebuild_metadata():
 @login_required_if_no_ano
 @admin_required
 def stop_rebuild_metadata():
-    """Stop a running rebuild after the book it is on; what it changed so far stays."""
+    """Stop a running rebuild after the books it is on; what it changed so far stays."""
     from ..services.worker import WorkerThread
     running = _running_rebuilds()
     for task in running:

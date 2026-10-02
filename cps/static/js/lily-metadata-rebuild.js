@@ -90,7 +90,7 @@
   });
   stopBtn.addEventListener("click", function () {
     stopBtn.disabled = true;
-    help.textContent = "Stopping after this book…";
+    help.textContent = "Stopping after the books under way…";
     post(stopBtn.dataset.url).then(poll).catch(function () { stopBtn.disabled = false; });
   });
 

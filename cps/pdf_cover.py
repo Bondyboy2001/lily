@@ -148,12 +148,18 @@ def recentre_cover(pdf_path, cover_path):
         centred = centred_page(page)
         if centred is None:
             return False
-        with centred:
-            centred.format = 'jpeg'
-            centred.compression_quality = 88
-            tmp_path = cover_path + '.centring'
-            centred.save(filename=tmp_path)
-    os.replace(tmp_path, cover_path)
+        tmp_path = cover_path + '.centring'
+        try:
+            with centred:
+                centred.format = 'jpeg'
+                centred.compression_quality = 88
+                centred.save(filename=tmp_path)
+            os.replace(tmp_path, cover_path)
+        except Exception:
+            # No half-written file left in the book's folder
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+            raise
     return True
 
 

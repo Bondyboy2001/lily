@@ -182,3 +182,55 @@ def test_parallel_task_runs_beside_the_queue_and_is_listed():
     release.set()
     thread.join(5)
     assert task.stat == STAT_FINISH_SUCCESS
+
+
+@pytest.mark.unit
+def test_stop_finishes_the_books_under_way_and_reports_it(env, monkeypatch):
+    import threading
+    from cps import metadata_helper
+    from cps.services.worker import STAT_ENDED
+    from cps.tasks.metadata_rebuild import TaskRebuildMetadata
+    for title in ("One", "Two", "Three"):
+        env.add_book(title)
+    started, release = threading.Event(), threading.Event()
+
+    def fake_fetch(book_id, force=False):
+        started.set()
+        release.wait(5)
+        return False
+    monkeypatch.setattr(metadata_helper, "fetch_and_apply_metadata", fake_fetch)
+
+    task = TaskRebuildMetadata(workers=1)
+
+    def run():
+        with env.app.test_request_context():
+            task.start(None)
+    thread = threading.Thread(target=run)
+    thread.start()
+    assert started.wait(5)
+    task.stat = STAT_ENDED  # what WorkerThread.end_task does to a running task
+    release.set()
+    thread.join(5)
+    assert task.finished and task.stat == STAT_ENDED
+    assert str(task.message) == "Stopped: 1 of 3 books checked, 0 updated"
+
+
+@pytest.mark.unit
+def test_one_book_failing_does_not_end_the_run(env, monkeypatch):
+    from cps import metadata_helper
+    from cps.services.worker import STAT_FINISH_SUCCESS
+    from cps.tasks.metadata_rebuild import TaskRebuildMetadata
+    ids = [env.add_book(t) for t in ("One", "Two", "Three")]
+
+    def fake_fetch(book_id, force=False):
+        if book_id == ids[0]:
+            raise RuntimeError("disk full")
+        return True
+    monkeypatch.setattr(metadata_helper, "fetch_and_apply_metadata", fake_fetch)
+    monkeypatch.setattr("cps.duplicate_index.mark_duplicate_index_pending", lambda reason=None: None)
+
+    task = TaskRebuildMetadata(workers=1)
+    with env.app.test_request_context():
+        task.start(None)
+    assert task.stat == STAT_FINISH_SUCCESS, task.error
+    assert (task.checked, task.updated) == (3, 2)
