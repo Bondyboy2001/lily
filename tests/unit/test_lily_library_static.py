@@ -468,3 +468,13 @@ def test_wide_page_covers_keep_their_left_margin():
     assert grid and "object-fit: cover" in grid[0] and "object-position: left center" in grid[0]
     order = [b for s, b in css_rules(css) if s == ".lily-order-cover"]
     assert order and "object-position: left center" in order[0]
+
+
+def test_book_row_series_number_is_not_a_hidden_author_line():
+    # Grid cards hide .meta .author; the book page's "Book N" must not use that class.
+    image = read(TEMPLATES / "image.html")
+    row = image[image.index("{% macro book_row"):]
+    row = row[:row.index("{%- endmacro %}")]
+    assert 'class="related-number"' in row and 'class="author"' not in row
+    css = read(CSS / "lily-library.css")
+    assert ".continue-reading-item .meta .continue-reading-percent,\n.continue-reading-item .meta .related-number {" in css

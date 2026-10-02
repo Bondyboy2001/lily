@@ -1,4 +1,5 @@
 {% extends is_xhr|yesno("fragment.html", "layout.html") %}
+{% import 'image.html' as image %}
 {% block header %}
     <meta property="og:type" content="book" />
     <meta property="og:title" content="{{ entry.title|truncate(35) }}" />
@@ -232,6 +233,18 @@
                 <section class="book-detail-description" aria-label="{{ _('Description') }}">
                     <div class="comments" id="book-description">{{ entry.comments[0].text|flatten_breaks }}</div>
                 </section>
+            {% endif %}
+
+            {# What to read next: the rest of the series (later books first), then the author's others. #}
+            {% if related and related.series %}
+                {{ image.book_row('related-series-heading',
+                                  _('Next in %(series)s', series=related.series.name) if related.series.next
+                                  else _('Earlier in %(series)s', series=related.series.name),
+                                  related.series.books, numbered=True) }}
+            {% endif %}
+            {% if related and related.author %}
+                {{ image.book_row('related-author-heading', _('More by %(author)s', author=related.author.name),
+                                  related.author.books) }}
             {% endif %}
 
 

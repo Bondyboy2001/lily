@@ -485,7 +485,11 @@ content (grid, panel, rows)
 - **Continue Reading** (`.continue-reading-row`): one row that scrolls sideways,
   never wraps, so the library starts on the first screen. Covers are 140px wide
   (112 on phones), 22 apart (14 on phones). The cover opens the reader in a
-  new tab at the saved format; the title opens the book page.
+  new tab at the saved format; the title opens the book page. The book page
+  reuses this row (`image.book_row`) under the description for "Next in
+  ‹Series›" (later books in order, or "Earlier in ‹Series›" for the last one,
+  with "Book N" under each title) and "More by ‹Author›" (up to 12, newest
+  first); there the cover and title both open the book page.
 - **Toolbar** (`.lily-list-toolbar`): chips and sort on the left, view switch
   (large icon buttons) top-right, margin-bottom 22. Toolbar chips are 38 tall
   so they sit level with the view switch. The direction chip shows only its

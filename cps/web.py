@@ -1403,6 +1403,51 @@ def read_book(book_id, book_format):
         return redirect(url_for("web.index"))
 
 
+RELATED_BOOKS_LIMIT = 12
+
+
+def _series_number(book):
+    try:
+        return float(book.series_index)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _related_books(entry):
+    """The book page's two rows: the rest of its series (next books first) and more by its
+    first named author. Each is None when it would be empty; archived and hidden books stay out."""
+    related = {"series": None, "author": None}
+    shown = {entry.id}
+    if entry.series:
+        series = entry.series[0]
+        siblings = (calibre_db.session.query(db.Books)
+                    .filter(db.Books.series.any(db.Series.id == series.id))
+                    .filter(db.Books.id != entry.id)
+                    .filter(calibre_db.common_filters())
+                    .all())
+        siblings.sort(key=_series_number)
+        here = _series_number(entry)
+        later = [b for b in siblings if _series_number(b) > here]
+        earlier = [b for b in siblings if _series_number(b) <= here]
+        books = (later or earlier)[:RELATED_BOOKS_LIMIT]
+        if books:
+            related["series"] = {"name": series.name, "id": series.id, "next": bool(later), "books": books}
+            shown.update(b.id for b in books)
+    authors = [a for a in entry.authors if a.name not in ("Unknown", "")]
+    if authors:
+        author = authors[0]
+        books = (calibre_db.session.query(db.Books)
+                 .filter(db.Books.authors.any(db.Authors.id == author.id))
+                 .filter(db.Books.id.notin_(shown))
+                 .filter(calibre_db.common_filters())
+                 .order_by(db.Books.timestamp.desc())
+                 .limit(RELATED_BOOKS_LIMIT)
+                 .all())
+        if books:
+            related["author"] = {"name": author.name.replace('|', ','), "id": author.id, "books": books}
+    return related
+
+
 @web.route("/book/<int:book_id>")
 @login_required_if_no_ano
 def show_book(book_id):
@@ -1461,8 +1506,15 @@ def show_book(book_id):
         cwa_db = CWA_DB()
         cwa_settings = cwa_db.cwa_settings
 
+        try:
+            related = _related_books(entry)
+        except Exception as e:
+            log.warning("Could not load related books for %s: %s", book_id, e)
+            related = {"series": None, "author": None}
+
         return render_title_template('detail.html',
                                      entry=entry,
+                                     related=related,
                                      resume=resume,
                                      cc=cc,
                                      is_xhr=request.headers.get('X-Requested-With') == 'XMLHttpRequest',

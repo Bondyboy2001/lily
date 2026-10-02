@@ -723,6 +723,9 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 /* Continue reading row and empty library (index.html)                  */
 /* ------------------------------------------------------------------ */
 .continue-reading { margin: 0 0 22px; }
+/* The same row on the book page (image.book_row): full width of its column so it can scroll,
+   spaced by the column's own 22px gap. */
+.book-detail-extra > .book-related { align-self: stretch; min-width: 0; margin: 0; }
 
 /* One row that scrolls sideways, with covers smaller than the grid's, so the library
    still starts on the first screen however many books are in progress. */
@@ -770,7 +773,8 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     border-radius: 0 999px 999px 0;
 }
 
-.continue-reading-item .meta .continue-reading-percent {
+.continue-reading-item .meta .continue-reading-percent,
+.continue-reading-item .meta .related-number {
     margin: 0;
     color: var(--muted);
     font-size: 14px;

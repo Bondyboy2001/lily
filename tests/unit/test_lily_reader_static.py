@@ -508,3 +508,39 @@ def test_pdf_reader_remembers_the_zoom_per_book():
     # Saving waits for the saved page to be restored, so the opening zoom isn't recorded.
     handler = html[html.index('app.eventBus.on("scalechanging"'):]
     assert handler.index("if (!restored)") < handler.index("localStorage.setItem")
+
+
+@pytest.mark.unit
+def test_book_page_offers_the_rest_of_the_series_and_the_author(client, temp_cwa_db):
+    import sqlite3
+    env, c, _ = client
+    ids = {n: env.add_book(f"Saga {n}", author="Ann Writer") for n in (1, 2, 3)}
+    env.add_book("Standalone", author="Ann Writer")
+    con = sqlite3.connect(env.library_dir / "metadata.db")
+    con.create_function("title_sort", 1, lambda t: t)  # Calibre's triggers call it
+    con.execute("INSERT INTO series (name, sort) VALUES ('Saga', 'Saga')")
+    sid = con.execute("SELECT id FROM series WHERE name='Saga'").fetchone()[0]
+    for n, book_id in ids.items():
+        con.execute("INSERT INTO books_series_link (book, series) VALUES (?, ?)", (book_id, sid))
+        con.execute("UPDATE books SET series_index=? WHERE id=?", (float(n), book_id))
+    con.commit()
+    con.close()
+
+    def row(html, heading_id):
+        section = html[html.index(f'aria-labelledby="{heading_id}"'):]
+        section = section[:section.index("</section>")]
+        return re.findall(r'<p title="([^"]+)" class="title">', section), section
+
+    html = c.get(f"/book/{ids[1]}").get_data(as_text=True)
+    titles, section = row(html, "related-series-heading")
+    assert "Next in Saga" in section and titles == ["Saga 2", "Saga 3"] and "Book 2" in section
+    titles, section = row(html, "related-author-heading")
+    assert "More by Ann Writer" in section and titles == ["Standalone"]
+
+    # The last book looks back instead; a book with no series or siblings shows neither row.
+    html = c.get(f"/book/{ids[3]}").get_data(as_text=True)
+    titles, section = row(html, "related-series-heading")
+    assert "Earlier in Saga" in section and titles == ["Saga 1", "Saga 2"]
+    lone = env.add_book("Only Child", author="Solo Author")
+    html = c.get(f"/book/{lone}").get_data(as_text=True)
+    assert "related-series-heading" not in html and "related-author-heading" not in html

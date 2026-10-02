@@ -256,3 +256,32 @@
       <label for="{{ name }}-none" class="lily-stars-clear" title="{{ none_text }}"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span><span class="sr-only">{{ none_text }}</span></label>
     </div>
 {%- endmacro %}
+
+{# A sideways-scrolling row of books under a heading: the Continue Reading row's look (§6.3), used
+   on the book page for the rest of a series and more by the author. Each cover and title opens
+   the book's page; the cover is skipped by the keyboard so each book is one tab stop.
+   numbered shows "Book N" (the series number) under the title. #}
+{% macro book_row(id, heading, books, numbered=False) -%}
+<section class="continue-reading book-related" aria-labelledby="{{ id }}">
+  <h2 id="{{ id }}">{{ heading }}</h2>
+  <div class="continue-reading-row" role="list">
+    {% for book in books %}
+    <div class="book lily-book continue-reading-item" role="listitem">
+      <div class="cover">
+        <a href="{{ url_for('web.show_book', book_id=book.id) }}" class="book-cover-link" tabindex="-1" aria-hidden="true">
+          <span class="img">{{ book_cover(book) }}</span>
+        </a>
+      </div>
+      <div class="meta">
+        <a href="{{ url_for('web.show_book', book_id=book.id) }}">
+          <p title="{{ book.title }}" class="title">{{ book.title }}</p>
+        </a>
+        {% if numbered %}
+        <p class="related-number">{{ _('Book %(index)s', index=book.series_index|formatfloat(2)) }}</p>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{%- endmacro %}
