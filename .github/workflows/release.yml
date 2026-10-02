@@ -23,10 +23,12 @@ on:
       - '**/*.md'
   workflow_dispatch:
 
-# A newer push to main replaces a release still in progress.
+# Releases run one at a time and a running one always finishes, so a quick run of pushes
+# still publishes each finished build instead of cancelling until the pushes stop. Only
+# the newest waiting run is kept: GitHub drops an older pending run when a newer one queues.
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -38,10 +40,13 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.value }}
     steps:
-      - name: Checkout code (full history)
+      # git describe needs every commit and tag but no file contents: a blobless clone
+      # takes seconds where the full one sometimes took most of a minute.
+      - name: Checkout code (full history, no blobs)
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          filter: blob:none
 
       - name: Check the commit is on origin/main
         run: |
@@ -199,9 +204,9 @@ jobs:
             -v "$PWD/smoke/config:/config" -v "$PWD/smoke/ingest:/cwa-book-ingest" \
             -v "$PWD/smoke/library:/calibre-library" -p 8083:8083 \
             "$image"
-          for i in $(seq 1 60); do
+          for i in $(seq 1 300); do
             if body=$(curl -fs http://localhost:8083/health); then
-              echo "healthy after ~$((i * 5))s: $body"
+              echo "healthy after ~${i}s: $body"
               version=$(echo "$body" | jq -r .version)
               if [ "$version" != "$EXPECTED" ]; then
                 echo "::error::/health reports '$version', expected '$EXPECTED'"
@@ -209,7 +214,7 @@ jobs:
               fi
               exit 0
             fi
-            sleep 5
+            sleep 1
           done
           echo "::error::/health never returned 200"
           docker logs lily-smoke
