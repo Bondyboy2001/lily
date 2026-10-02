@@ -8,7 +8,8 @@ calibre takes a PDF's author from the file's own details, and those are often a 
 people in one name ("Stefano Bellucci, Sergio Ferrara, Alessio Marrani", "Akcoglu, Mustafa
 A.,Ha, Dzung Minh."), a catalogue entry ("Murray, Francis J. (Francis Joseph), 1911-1996."),
 a name in capitals, or not a name at all: a publisher's id ("0000253"), the account that made
-the file ("Administrator@NEO-10"), a typesetter's job stamp or a download site's signature.
+the file ("Administrator@NEO-10", "lenovo"), the company or tool that did ("Lightning Source
+Inc", "JPG To PDF Converter"), a typesetter's job stamp or a download site's signature.
 
 clean_author_names turns one such name into the people it names. Rebuild metadata runs
 tidy_authors before its lookups and imports run tidy_new_book_authors, so a book
@@ -17,24 +18,45 @@ whose only author was junk goes by "Unknown" and is looked up by its title alone
 calibre keeps a name's comma as "|"; these functions take and give names with commas."""
 
 import re
+from collections import Counter
 
 from cps.constants import UNKNOWN_AUTHOR
 
 # Not a name: an account, a site or tool's signature, a mangled encoding, a hash
 _JUNK = re.compile(
-    r"[@<>=/\\©#]|--|\d{1,2}:\d\d:\d\d|\b[0-9a-f]{32}\b|anna[’']s archive|ebooks? account|"
-    r"prepress|converpage|\badministra[dt]|^admin$|^-|__",
+    r"[@<>=/\\©#]|\d{1,2}:\d\d:\d\d|\b[0-9a-f]{32}\b|anna[’']s archive|ebooks? account|"
+    r"prepress|converpage|\badministra[dt]|администратор|^admin$|^-|__|\.(?:com|org|net|ws|ru|html?)\b",
     re.I)
 _PLACEHOLDERS = {
     "unknown", "editor", "editors", "admin", "user", "owner", "author", "authors", "n/a", "na",
-    "none", "null", "default", "pdf", "eds", "ed", "edt",
+    "none", "null", "default", "pdf", "eds", "ed", "edt", "various", "anonymous", "anonymus",
 }
-# A role or a reference in brackets: "(editor)", "(eds.)", "(Author)", "(Francis Joseph)", "(2)"
-_BRACKETS = re.compile(r"\s*\([^)]*(?:\)|$)")
+# A company, a machine or the tool that made the file, not a person: "Lightning Source Inc",
+# "Springer-Verlag GmbH", "JPG To PDF Converter", "MY PC", "Copier User", "Second Edition".
+# "Press" and "Springer" alone are left: they are people's surnames too.
+_NOT_A_PERSON = re.compile(
+    r"\b(?:inc|ltd|llc|gmbh|corp|verlag|publish(?:ers?|ing)|converter|edition|team|copier|scanner|"
+    r"(?:university|academies|education|academic) press)\b|\b(?:user|owner|unknown|pc)$",
+    re.I)
+# A role or a reference in brackets: "(editor)", "(eds.)", "(Author)", "(Francis Joseph)", "(2)",
+# "[ POISSON ]"
+_BRACKETS = re.compile(r"\s*[(\[][^)\]]*(?:[)\]]|$)")
 _ET_AL = re.compile(r"[,\s]*\bet\.? al\b\.?", re.I)
-_LEADING_ROLE = re.compile(r"^(?:by|edited by|editors?|eds?\.?)\s*:?\s+", re.I)
+_LEADING_ROLE = re.compile(r"^(?:and|by|edited by|editors?|eds?\.?)\s*:?\s+", re.I)
 # A part of a catalogue name that names no one: a role, or life dates ("1911-1996.", "1940-")
-_ROLE = re.compile(r"^(?:editors?|eds?\.?|edt|\(?ed\.?\)?|jr\.?|sr\.?)$", re.I)
+_ROLE = re.compile(r"^(?:editors?|eds?\.?|edrs?\.?|edt|\(?ed\.?\)?|jr\.?|sr\.?)$", re.I)
+# Quote marks a file name leaves round a name
+_QUOTES = str.maketrans("", "", '"“”„«»')
+# Chinese catalogues: full-width separators, and "compiled by" after the names
+_FULL_WIDTH = str.maketrans({"，": ", ", "；": "; ", "、": ", "})
+_CJK_ROLE = re.compile(r"(?:编著|主编|编|著|等)+$")
+# UTF-8 read as Latin-1: "GÃ©rard" for "Gérard"
+_MANGLED = re.compile(r"[ÃÂÅÄ][\x80-\xbf¡-¿]")
+# Initials run into the surname ("G.C.Smith", "R.TEMAM"), and an initial's stop set apart
+# ("ANDREW J . MAJDA")
+_RUN_ON_INITIALS = re.compile(r"((?:\b[^\W\d_]\.)+)(?=[^\W\d_]{2})")
+_LOOSE_STOP = re.compile(r"\b([^\W\d_])\s+\.(?=\s)")
+_CJK = re.compile(r"^[\u3400-\u9fff\u3040-\u30ff\uac00-\ud7af]+$")
 _PARTICLES = {"de", "la", "le", "du", "des", "di", "da", "del", "della", "van", "von", "der",
               "den", "ter", "ten", "y", "e", "dos", "das"}
 # An initial: "C.", "R.K.", "J", "P.W"
@@ -63,17 +85,23 @@ def _is_word(part: str) -> bool:
     return " " not in part and not _INITIAL.match(part)
 
 
+def _is_surname(part: str) -> bool:
+    """A word, or one after its particles: "Lyndon", "Del Vecchio", "van der Waerden"."""
+    *particles, last = part.split() or [""]
+    return _is_word(last) and all(p.casefold() in _PARTICLES for p in particles)
+
+
 def _forenames(part: str) -> bool:
     """Whether a catalogue name's second part is forenames rather than another surname:
     it has an initial ("Roger C.") or two names ("Paula Yurkanis")."""
     return " " in part or bool(_INITIAL.match(part))
 
 
-def _person(surname: str, forenames: str, given) -> str:
+def _person(surname: str, forenames: str, given, sure=False) -> str:
     """"Lyndon", "Roger C." -> "Roger C. Lyndon". Two single names may be two surnames
     ("Johnson, Kotz"), so they stay as calibre keeps a sorted name, unless the second is
-    one of the given names."""
-    if _forenames(forenames) or forenames.casefold() in given:
+    one of the given names or the list is known (sure) to pair surnames with forenames."""
+    if sure or _forenames(forenames) or forenames.casefold() in given:
         return f"{forenames} {surname}"
     return f"{surname}, {forenames}"
 
@@ -91,11 +119,21 @@ def _people(chunk: str, given) -> list:
     if all(" " in p for p in parts):
         # "Stefano Bellucci, Sergio Ferrara": full names in a list
         return parts
-    if len(parts) % 2 == 0 and all(_is_word(p) for p in parts[::2]):
-        # "Lyndon, Roger C." or "Nicholson, James, Clapham, Christopher": surname, forenames
-        return [_person(parts[i], parts[i + 1], given) for i in range(0, len(parts), 2)]
+    if all(_CJK.match(p) for p in parts):
+        # "罗锋, 顾险峰": a name is one word
+        return parts
+    if len(parts) % 2 == 0 and all(_is_surname(p) for p in parts[::2]):
+        # "Lyndon, Roger C." or "Murray, Richard M., Del Vecchio, Domitilla": surname, forenames.
+        # One pair plainly so in a longer list ("Richard M.") says the others are too
+        sure = len(parts) > 2 and any(_forenames(p) for p in parts[1::2])
+        return [_person(parts[i], parts[i + 1], given, sure) for i in range(0, len(parts), 2)]
     if all(_is_word(p) and "." not in p for p in parts) and len(parts) > 2:
         # "Fine, Rosenberger, Smith": surnames
+        return parts
+    if (len(parts) > 2 and " " in parts[0] and sum(" " in p for p in parts) > 1
+            and not any(_initials(p) for p in parts)):
+        # "M. Jamil Aslam, Faheem Hussian, Asghar Qadir, Riazuddin": a list of full names, one
+        # of them going by a single name
         return parts
     return [", ".join(parts)]
 
@@ -122,41 +160,80 @@ def _tidy_person(name: str) -> str:
     return _tidy_case(_strip_stop(" ".join(name.split())))
 
 
+def _plain_marks(name: str) -> str:
+    """A name with the "_" a catalogue's marks became put right: "Vasil_evich" is
+    "Vasil'evich" (a soft sign), "I_Uri_" is "IUri" (a ligature). A single word with one is
+    a stamp ("Pagination_Cover", "HP_Owner") and is left for is_junk_person."""
+    if "_" not in name or " " not in name.strip():
+        return name
+    name = re.sub(r"(?<=[a-zà-ÿ])_(?=[a-zà-ÿ])", "'", name)
+    return name.replace("_", "")
+
+
 def is_junk_person(name: str) -> bool:
     """Whether a name is no one's: no letters, digits ("David1", "PG1248", a stamp's date),
     an account or a lone lower-case word ("uoyilmaz", "bconway")."""
     name = (name or "").strip()
-    if not _has_letters(name) or re.search(r"\d", name) or _JUNK.search(name):
+    if not _has_letters(name) or re.search(r"[\d_:]", name) or _JUNK.search(name):
         return True
-    if name.casefold() in _PLACEHOLDERS:
+    if name.casefold() in _PLACEHOLDERS or _NOT_A_PERSON.search(name) or _initials(name):
         return True
-    return " " not in name and name == name.lower() and name.isascii()
+    if " " in name:
+        return False
+    # A lone word that starts small is an account ("uoyilmaz", "massiveMonkey"), unless it
+    # is a particle and a name ("d'Inverno"); three capitals or fewer are no surname ("PC")
+    if name[0].islower() and name.isascii():
+        return not re.match(r"[a-z]+['’-][A-Z]", name)
+    return len(name) <= 3 and name.isupper()
+
+
+def _unmangled(text: str) -> str:
+    """Text whose UTF-8 was read as Latin-1, read properly; any other text as it is."""
+    if not _MANGLED.search(text):
+        return text
+    for encoding in ("cp1252", "latin-1"):
+        try:
+            return text.encode(encoding).decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            continue
+    return text
 
 
 def given_names(names) -> frozenset:
-    """The forenames among full names: the first word of each with two or more."""
-    found = set()
+    """The forenames among full names: the words that start more names than they end.
+    "Karen" does; "Zhang" starts "Zhang Wei" but ends many more, so "Han, Zhang" stays two
+    surnames."""
+    first, last = Counter(), Counter()
     for name in names:
         words = _shown(name).split()
-        if "," not in _shown(name) and len(words) > 1 and len(words[0]) > 1 and not _INITIAL.match(words[0]):
-            found.add(words[0].casefold())
-    return frozenset(found)
+        if "," in _shown(name) or len(words) < 2:
+            continue
+        if len(words[0]) > 1 and not _INITIAL.match(words[0]):
+            first[words[0].casefold()] += 1
+        last[words[-1].casefold()] += 1
+    return frozenset(word for word, count in first.items() if count > last[word])
 
 
 def clean_author_names(name: str, given=frozenset()) -> list:
     """The people an author's name names, cleaned up; [] when it names no one. given holds
     the forenames that tell "Kleppner, Daniel" (Daniel Kleppner) from "Johnson, Kotz"."""
     text = re.sub(r"\\u([0-9a-fA-F]{4})", lambda m: chr(int(m.group(1), 16)), name or "")
-    text = " ".join(text.split())
+    text = _unmangled(text).translate(_QUOTES).translate(_FULL_WIDTH)
+    text = _RUN_ON_INITIALS.sub(r"\1 ", _LOOSE_STOP.sub(r"\1.", text))
+    text = _CJK_ROLE.sub("", " ".join(text.split()))
+    if " -- " in f" {text} ":
+        # A download site's file name, "Title -- Authors -- Edition -- Publisher -- …", which
+        # calibre cut somewhere in the title: the authors are its second part
+        text = text.split("--")[1].strip()
     if not _has_letters(text) or _JUNK.search(text):
         return []
     if text.casefold() == UNKNOWN_AUTHOR.casefold():
         return [UNKNOWN_AUTHOR]
     names, seen = [], set()
-    # ";" and a comma without a space after it separate people: "Wang, Liqiu.; Yu, Pei",
-    # "Akcoglu, Mustafa A.,Ha, Dzung Minh."
-    for chunk in re.split(r"\s*;\s*|,(?=[^\s,])", text):
-        chunk = _BRACKETS.sub("", chunk)
+    # ";", a comma without a space after it and a full stop on its own separate people:
+    # "Wang, Liqiu.; Yu, Pei", "Akcoglu, Mustafa A.,Ha, Dzung Minh.", "Peter Atkins . Julio De Paula"
+    for chunk in re.split(r"\s*;\s*|,(?=[^\s,])|\s+\.\s+", text):
+        chunk = _plain_marks(_BRACKETS.sub("", chunk))
         chunk = _LEADING_ROLE.sub("", _ET_AL.sub("", chunk).strip())
         for person in _people(chunk, given):
             person = _tidy_person(person)
@@ -177,12 +254,21 @@ def _shown(name: str) -> str:
 class _Authors:
     """Finds or makes the author row for a name, so each name has one row."""
 
-    def __init__(self, session):
+    def __init__(self, session, settle=False):
         from cps import db
         from cps.helper import get_sorted_author
         self.db, self.sorted, self.session = db, get_sorted_author, session
         self.rows = {row.name.casefold(): row for row in session.query(db.Authors).all()}
-        self.given = given_names(row.name for row in self.rows.values())
+        names = [_shown(row.name) for row in self.rows.values()]
+        self.given = given_names(names)
+        # For a tidy of the whole library, the forenames are those of the names as they will
+        # be once cleaned: lists split apart bring new ones, and a second tidy must find
+        # nothing left to turn round
+        for _pass in range(3 if settle else 0):
+            given = given_names(p for name in names for p in clean_author_names(name, self.given))
+            if given == self.given:
+                break
+            self.given = given
 
     def row(self, name: str):
         """The row named name, made when there is none; a row of the same name in other
@@ -267,7 +353,7 @@ def tidy_authors(session, books=None, calibre_path=None):
     """Clean the authors of the books given, or of every book: (books changed, authors
     removed). Commits, then moves the folders of books whose first author changed."""
     from cps import db
-    finder = _Authors(session)
+    finder = _Authors(session, settle=books is None)
     if books is None:
         plan = _replacements(session.query(db.Authors).all(), finder)
         books = session.query(db.Books).filter(

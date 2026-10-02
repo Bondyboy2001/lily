@@ -48,10 +48,64 @@ pytestmark = pytest.mark.unit
     ("Administrador", []),
     ("Katharina Steingraeber Heidelberg 1107 1997 Oct 17 14:59:21", []),
     ("[Anonymus AC07883860]", []),
-    ("2nd -- Harold Abelson", []),
     ("Intech Prepress 2", []),
     ("David1", []),
     ("uoyilmaz", []),
+    # The account that made the file, in any script or none: "Администратор" with each
+    # letter's first byte lost
+    ("\x104<8=8AB@0B>@", []),
+    ("Администратор", []),
+    # Companies, machines and the tools that made the file
+    ("Lightning Source Inc", []),
+    ("Springer-Verlag GmbH", []),
+    ("World Scientific Publishing", []),
+    ("The National Academies Press", []),
+    ("JPG To PDF Converter", []),
+    ("ILOVEPDF.COM", []),
+    ("Copier User", []),
+    ("MY PC", []),
+    ("HP_Owner", []),
+    ("Pagination_Cover", []),
+    ("Second Edition", []),
+    ("Author Unknown", []),
+    ("massiveMonkey", []),
+    ("OCR", []),
+    ("A.N.", []),
+    ("Differentiable Manifolds: A Theoretical Physics Approach", []),
+    ("Borisov, A. V.;Higher Education Press Ltd. Comp.;Mamaev, Ivan S.;", ["A. V. Borisov", "Ivan S. Mamaev"]),
+    # A download site's file name: the authors are its second part
+    ("-- Marco Taboga -- Second edition, North C", ["Marco Taboga"]),
+    ("2nd -- Harold Abelson", ["Harold Abelson"]),
+    ("Linear Classifiers, Gradient -- Zsolt Kira; Various -- 994b5c0778648904d24e608b5d8eb048 -- Anna’s Archive",
+     ["Zsolt Kira"]),
+    ("Europe -- 9780073385", []),
+    # Quote marks, brackets, catalogue marks and garbled accents
+    ('"Rice, Richard G.,Duong, D. Do."', ["Richard G. Rice", "D. Do Duong"]),
+    ('"Jean-François Dat, Sascha Orlik, Michael Rapoport"', ["Jean-François Dat", "Sascha Orlik", "Michael Rapoport"]),
+    ("scanning [ POISSON ]", []),
+    ("Viktor Vasil_evich Prasolov", ["Viktor Vasil'evich Prasolov"]),
+    ("GÃ©rard A Maugin,Martine Rousseau", ["Gérard A Maugin", "Martine Rousseau"]),
+    ("罗锋，顾险峰编著", ["罗锋", "顾险峰"]),
+    # Initials run into the surname, and an initial's stop set apart
+    ("G.C.Smith", ["G.C. Smith"]),
+    ("R.TEMAM", ["R. Temam"]),
+    ("C.FOIAS, O.MANLEY, R.ROSA", ["C. Foias", "O. Manley", "R. Rosa"]),
+    ("ANDREW J . MAJDA", ["Andrew J. Majda"]),
+    # More ways a list is written
+    ("Peter Atkins . Julio De Paula", ["Peter Atkins", "Julio De Paula"]),
+    ("Bryce S. DeWitt, Neill Graham, edrs", ["Bryce S. DeWitt", "Neill Graham"]),
+    ("J. R. JAMES, P. S. HALL,and C.WOOD", ["J. R. James", "P. S. Hall", "C. Wood"]),
+    ("Murray, Richard M., Del Vecchio, Domitilla", ["Richard M. Murray", "Domitilla Del Vecchio"]),
+    ("M. Jamil Aslam, Faheem Hussian, Asghar Qadir, Riazuddin",
+     ["M. Jamil Aslam", "Faheem Hussian", "Asghar Qadir", "Riazuddin"]),
+    # People these rules must not catch
+    ("William H. Press", ["William H. Press"]),
+    ("T.A. Springer", ["T.A. Springer"]),
+    ("Press", ["Press"]),
+    ("d'Inverno", ["d'Inverno"]),
+    ("Li", ["Li"]),
+    ("McQuarrie", ["McQuarrie"]),
+    ("Marius Andronie, Transylvania, Romania", ["Marius Andronie, Transylvania, Romania"]),
 ])
 def test_a_name_is_cleaned_into_the_people_it_names(name, expected):
     from cps.author_cleanup import clean_author_names
@@ -64,6 +118,15 @@ def test_a_given_name_turns_a_sorted_name_round():
     assert given == {"daniel", "caroline"}
     assert clean_author_names("Kleppner, Daniel", given) == ["Daniel Kleppner"]
     assert clean_author_names("Johnson, Kotz", given) == ["Johnson, Kotz"]
+
+
+def test_a_word_that_ends_more_names_than_it_starts_is_a_surname():
+    # "Zhang Wei" alone would make Zhang a forename and "Han, Zhang" one person, "Zhang Han"
+    from cps.author_cleanup import clean_author_names, given_names
+    given = given_names(["Zhang Wei", "Fuzhen Zhang", "Shou-Cheng Zhang", "Karen Rhea", "Karen Smith"])
+    assert "karen" in given and "zhang" not in given
+    assert clean_author_names("Han, Zhang", given) == ["Han, Zhang"]
+    assert clean_author_names("Uhlenbeck, Karen", given) == ["Karen Uhlenbeck"]
 
 
 @pytest.fixture
@@ -116,6 +179,29 @@ def test_the_library_tidy_splits_merges_and_drops_authors(env):
     assert _q(env, "SELECT COUNT(*) FROM authors WHERE name='Sergio Ferrara'") == [(1,)]
     assert not _q(env, "SELECT 1 FROM authors WHERE name IN ('0000253', 'Levine| Ira N.')")
     # A second run finds nothing to do
+    assert _tidy(env) == (0, 0)
+
+
+def test_a_forename_that_only_a_split_list_shows_is_used_the_first_time(env):
+    # "Daniel" is a forename only once the list is split; found then, a second tidy (the next
+    # rebuild) would turn "Kleppner, Daniel" round and count the book as changed again
+    listed = env.add_book("Finite Simple Groups", author="Daniel Gorenstein|Richard Lyons")
+    sorted_name = env.add_book("Mechanics", author="Kleppner| Daniel")
+    assert _tidy(env) == (2, 2)
+    assert sorted(_authors(env, listed)) == ["Daniel Gorenstein", "Richard Lyons"]
+    assert _authors(env, sorted_name) == ["Daniel Kleppner"]
+    assert _tidy(env) == (0, 0)
+
+
+def test_the_library_tidy_drops_accounts_and_tools_and_keeps_the_people_beside_them(env):
+    made_by = env.add_book("Number Theory", author="\x104<8=8AB@0B>@")
+    printer = env.add_book("Algebra", author="Lightning Source Inc")
+    mixed = env.add_book("Topology", author="Yan| Min; Higher Education Press Ltd. Comp. Staff;")
+    site = env.add_book("Probability", author="-- Marco Taboga -- Second edition| North C")
+    assert _tidy(env) == (4, 4)
+    assert _authors(env, made_by) == _authors(env, printer) == ["Unknown"]
+    assert _authors(env, mixed) == ["Yan| Min"]
+    assert _authors(env, site) == ["Marco Taboga"]
     assert _tidy(env) == (0, 0)
 
 
