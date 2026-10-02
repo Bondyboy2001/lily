@@ -1208,9 +1208,10 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 }
 
 /* Square icon buttons: Read is the one Primary, the rest are Quiet. */
+/* The icons share the column's width in equal shares, so the bar fills the space
+   beside the cover rather than sitting as a small cluster at its left. */
 .book-action-bar {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
 }
@@ -1220,33 +1221,26 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    height: 36px;
+    height: 44px;
     margin: 0;
     padding: 0 15px;
-    line-height: 36px;
+    line-height: 44px;
 }
 
 .book-action-bar .btn .glyphicon {
     top: 0;
-    font-size: 14px;
+    font-size: 18px;
 }
 
-/* Every action is a square glyph, menus (Download, Shelves) included. */
+/* Every action is a glyph, menus (Download) included, each an equal share of the line. */
+.book-action-bar > .btn.is-icon { flex: 1 1 0; }
+.book-action-bar > .dropdown { flex: 1 1 0; }
+
 .book-action-bar > .btn.is-icon,
 .book-action-bar > .dropdown > .btn.is-icon {
     justify-content: center;
-    width: 36px;
+    width: 100%;
     padding: 0;
-}
-
-/* Fingers get the 44px minimum (§9); these are buttons, not .icon-btn, so they grow instead. */
-@media (pointer: coarse) {
-    .book-action-bar .btn {
-        height: 44px;
-        line-height: 44px;
-    }
-
-    .book-action-bar .btn.is-icon { width: 44px; }
 }
 
 /* Read state: a tick in a circle, green on a clearly green tint once read. */
@@ -1371,11 +1365,6 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 
     .book-detail-meta h1#title { font-size: 23px; }
     .book-detail-meta .author { margin-top: 2px; font-size: 16px; }
-
-    /* The icons share one line, each growing to an equal share of it. */
-    .book-action-bar > .btn.is-icon { flex: 1 1 0; width: auto; }
-    .book-action-bar > .dropdown { flex: 1 1 0; }
-    .book-action-bar > .dropdown > .btn.is-icon { width: 100%; }
 }
 
 /* ------------------------------------------------------------------ */

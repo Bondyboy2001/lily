@@ -72,7 +72,10 @@ def test_detail_edit_and_read_state_are_named_icon_buttons():
     assert "caret" not in html
     css = read(CSS / "lily-library.css")
     square = re.search(r"\.book-action-bar > \.btn\.is-icon,\s*\.book-action-bar > \.dropdown > \.btn\.is-icon \{([^}]*)\}", css)
-    assert square and "width: 36px" in square.group(1)
+    assert square and "width: 100%" in square.group(1)
+    # The icons fill the column in equal shares, at every width.
+    share = re.search(r"^\.book-action-bar > \.btn\.is-icon \{([^}]*)\}", css, flags=re.M)
+    assert share and "flex: 1 1 0" in share.group(1)
 
 
 def test_detail_rare_actions_are_icon_buttons_not_a_menu():
@@ -133,7 +136,7 @@ def test_detail_toolbar_buttons_are_labelled():
     css = read(CSS / "lily-library.css")
     parts = _rules_by_selector(css, ".book-action-bar")
     body = parts[".book-action-bar > .btn"]
-    for decl in ("display: inline-flex", "height: 36px"):
+    for decl in ("display: inline-flex", "height: 44px"):
         assert decl in body, decl
     lily = read(CSS / "lily.css")
     assert re.search(r"\.icon-btn:hover,\s*\.icon-btn:focus\s*{[^}]*color:\s*var\(--accent\)", lily)
