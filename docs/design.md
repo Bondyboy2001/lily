@@ -492,10 +492,12 @@ content (grid, panel, rows)
 
 ### 6.4 Book page ("Shelf" layout)
 
-- **≥1500px:** three columns: cover | heading, actions and description |
-  facts side panel (§5.10). Heading and action rows are `min-content` so a tall
-  cover never pushes the description down.
-- **768–1499px:** two columns; the facts panel stacks under the cover.
+- **≥1500px:** three columns: cover | heading and actions | facts side panel
+  (§5.10). The description sits under the cover and runs across the cover and
+  middle columns, stopping at the panel. Heading and action rows are
+  `min-content` and a `1fr` row takes the cover's extra height.
+- **768–1499px:** two columns; the facts panel stacks under the cover and the
+  description sits under the actions in the second column.
 - **≤767px:** the cover becomes a 108px thumbnail beside the title; actions,
   description and facts go full-width, facts last. Reset row sizing here. The
   primary action takes a full line; the rest share the next.
