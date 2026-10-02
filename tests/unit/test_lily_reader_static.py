@@ -615,35 +615,6 @@ def test_reader_chrome_is_legible_in_every_page_theme():
 
 
 @pytest.mark.unit
-def test_book_table_opens_on_the_columns_a_cleanup_reads(client, temp_cwa_db):
-    env, c, book_id = client
-    html = c.get("/table").get_data(as_text=True)
-
-    def visible(field):
-        return re.search(r'<th[^>]*data-field="%s"[^>]*data-visible\s*=\s*"(\w+)"' % field, html).group(1)
-
-    for field in ("title", "authors", "formats", "isbn", "added"):
-        assert visible(field) == "true", field
-    for field in ("sort", "author_sort", "tags", "series", "languages", "publishers"):
-        assert visible(field) == "false", field
-    # Admins can look the ticked books up; it starts disabled like the other selection actions
-    assert re.search(r'id="lookup_selected_books"[^>]*aria-disabled="true"', html)
-    rows = c.get("/ajax/listbooks?offset=0&limit=10").get_json()["rows"]
-    row = next(r for r in rows if r["id"] == book_id)
-    assert row["formats"] == "EPUB" and row["added"] == "2026-01-01" and row["isbn"] == ""
-
-
-@pytest.mark.unit
-def test_a_columns_the_user_toggled_keeps_its_saved_state(client, temp_cwa_db):
-    env, c, _ = client
-    saved = {"title": "true", "authors": "true", "series": "true"}
-    assert c.post("/ajax/table_settings", json=saved).status_code == 200
-    html = c.get("/table").get_data(as_text=True)
-    assert re.search(r'data-field="series"[^>]*data-visible\s*=\s*"true"', html)
-    assert re.search(r'data-field="formats"[^>]*data-visible\s*=\s*"true"', html)
-
-
-@pytest.mark.unit
 def test_book_page_offers_a_lookup_when_the_description_is_missing(client, temp_cwa_db):
     env, c, book_id = client
     html = c.get(f"/book/{book_id}").get_data(as_text=True)

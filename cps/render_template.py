@@ -155,11 +155,6 @@ def get_sidebar_config(kwargs=None):
     sidebar.append({"glyph": "glyphicon-file", "text": _('File formats'), "link": 'web.formats_list', "id": "format",
                     "visibility": constants.SIDEBAR_FORMAT, 'public': True,
                     "page": "format", "show_text": _('Show File Formats Section'), "config_show": True})
-    if not simple:
-        sidebar.append(
-            {"glyph": "glyphicon-th-list", "text": _('Books List'), "link": 'web.books_table', "id": "list",
-             "visibility": constants.SIDEBAR_LIST, 'public': (not current_user.is_anonymous), "page": "list",
-             "show_text": _('Show Books List'), "config_show": content})
     g.shelves_access = ub.session.query(ub.Shelf).filter(
         or_(ub.Shelf.is_public == 1, ub.Shelf.user_id == current_user.id)).order_by(ub.Shelf.name).all()
     g.shelf_book_counts = shelf_book_counts([shelf.id for shelf in g.shelves_access])

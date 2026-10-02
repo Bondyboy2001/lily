@@ -102,26 +102,6 @@ def edit_book(book_id):
     return do_edit_book(book_id)
 
 
-@editbook.route("/ajax/getcustomenum/<int:c_id>")
-@user_login_required
-def table_get_custom_enum(c_id):
-    ret = list()
-    cc = (calibre_db.session.query(db.CustomColumns)
-          .filter(db.CustomColumns.id == c_id)
-          .filter(db.CustomColumns.datatype.notin_(db.cc_exceptions)).one_or_none())
-    ret.append({'value': "", 'text': ""})
-    for en in cc.get_display_dict()['enum_values']:
-        ret.append({'value': en, 'text': en})
-    return json.dumps(ret)
-
-
-@editbook.route("/ajax/editbooks/<param>", methods=['POST'])
-@login_required_if_no_ano
-@edit_required
-def edit_list_book(param):
-    vals = request.form.to_dict()
-    return edit_book_param(param, vals)
-
 @editbook.route("/ajax/editselectedbooks", methods=['POST'])
 @login_required_if_no_ano
 @edit_required

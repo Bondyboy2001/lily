@@ -1650,7 +1650,7 @@ dl.book-record {
 
 
 /* ------------------------------------------------------------------ */
-/* Book editor (book_edit.html) and books table (book_table.html)       */
+/* Book editor (book_edit.html)                                        */
 /* ------------------------------------------------------------------ */
 /* Three columns, centred: cover and its tools | fields | Save panel. The Save
    panel runs the height of the fields in its own column, so it sticks under the
@@ -2028,29 +2028,6 @@ dl.book-record {
     .editbook-actions .btn { width: auto; }
     /* The row runs right to left, so Read goes to the far left, away from Save */
     .editbook-actions .editbook-read { order: 1; margin-right: auto; }
-}
-
-.lily-table-actions { margin-bottom: 14px; }
-
-.lily-table-actions .btn { margin: 0; }
-
-.lily-inline-checks {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 22px;
-}
-
-.lily-inline-checks .checkbox { margin: 0; }
-
-.lily-inline-checks label { display: inline-flex; align-items: center; gap: 6px; padding-left: 0; }
-
-.lily-inline-checks input[type="checkbox"] { position: static; margin: 0; }
-
-.lily-table-note { margin-top: 8px; }
-
-body.book_table .pagination {
-    position: static;
-    margin-top: 8px;
 }
 
 #detail-rating-block .glyphicon { top: 0; font-size: 16px; }

@@ -14,14 +14,13 @@ import importlib
 from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify
-from flask import request, redirect, make_response, flash, abort, url_for
+from flask import request, redirect, flash, abort, url_for
 from flask import session as flask_session
 from flask_babel import gettext as _
 from flask_babel import get_locale
 from .cw_login import current_user
 from sqlalchemy.exc import IntegrityError, InvalidRequestError, OperationalError
-from sqlalchemy.sql.expression import text, func, and_
-from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy.sql.expression import func, and_
 from sqlalchemy.sql.functions import coalesce
 
 from . import constants, logger, isoLanguages, helper
@@ -1261,122 +1260,6 @@ def index(page):
 @login_required_if_no_ano
 def books_list(data, sort_param, book_id, page):
     return render_books_list(data, sort_param, book_id, page)
-
-
-TABLE_DEFAULT_COLUMNS = {
-    'title': 'true', 'authors': 'true', 'formats': 'true', 'isbn': 'true', 'added': 'true', 'read_status': 'true',
-    'sort': 'false', 'author_sort': 'false', 'tags': 'false', 'series': 'false', 'series_index': 'false',
-    'languages': 'false', 'publishers': 'false', 'comments': 'false',
-}
-
-
-@web.route("/table")
-@user_login_required
-def books_table():
-    # The columns a metadata clean-up reads; whatever the user toggled later wins.
-    visibility = {**TABLE_DEFAULT_COLUMNS, **current_user.view_settings.get('table', {})}
-    cc = calibre_db.get_cc_columns(config, filter_config_custom_read=True)
-    return render_title_template('book_table.html', title=_("Books List"), cc=cc, page="book_table",
-                                 visiblility=visibility)
-
-
-@web.route("/ajax/listbooks")
-@user_login_required
-def list_books():
-    off = int(request.args.get("offset") or 0)
-    limit = int(request.args.get("limit") or config.config_books_per_page)
-    search_param = request.args.get("search")
-    sort_param = request.args.get("sort", "id")
-    order = request.args.get("order", "").lower()
-    state = None
-    join = tuple()
-
-    if sort_param == "state":
-        state = json.loads(request.args.get("state", "[]"))
-    elif sort_param == "tags":
-        order = [db.Tags.name.asc()] if order == "asc" else [db.Tags.name.desc()]
-        join = db.books_tags_link, db.Books.id == db.books_tags_link.c.book, db.Tags
-    elif sort_param == "series":
-        order = [db.Series.name.asc()] if order == "asc" else [db.Series.name.desc()]
-        join = db.books_series_link, db.Books.id == db.books_series_link.c.book, db.Series
-    elif sort_param == "publishers":
-        order = [db.Publishers.name.asc()] if order == "asc" else [db.Publishers.name.desc()]
-        join = db.books_publishers_link, db.Books.id == db.books_publishers_link.c.book, db.Publishers
-    elif sort_param == "authors":
-        order = [db.Authors.name.asc(), db.Series.name, db.Books.series_index] if order == "asc" \
-            else [db.Authors.name.desc(), db.Series.name.desc(), db.Books.series_index.desc()]
-        join = db.books_authors_link, db.Books.id == db.books_authors_link.c.book, db.Authors, db.books_series_link, \
-            db.Books.id == db.books_series_link.c.book, db.Series
-    elif sort_param == "author_sort":
-        order = [db.Books.author_sort.asc()] if order == "asc" else [db.Books.author_sort.desc()]
-    elif sort_param == "languages":
-        order = [db.Languages.lang_code.asc()] if order == "asc" else [db.Languages.lang_code.desc()]
-        join = db.books_languages_link, db.Books.id == db.books_languages_link.c.book, db.Languages
-    elif order and sort_param in ["sort", "title", "authors_sort", "series_index"]:
-        order = [text(sort_param + " " + order)]
-    elif not state:
-        order = [db.Books.timestamp.desc()]
-
-    total_count = filtered_count = calibre_db.session.query(db.Books).filter(
-        calibre_db.common_filters()).count()
-    if state is not None:
-        if search_param:
-            books = calibre_db.search_query(search_param, config).all()
-            filtered_count = len(books)
-        else:
-            query = calibre_db.generate_linked_query(config.config_read_column, db.Books)
-            books = query.filter(calibre_db.common_filters()).all()
-        entries = calibre_db.get_checkbox_sorted(books, state, off, limit, order, True)
-    elif search_param:
-        entries, filtered_count, __ = calibre_db.get_search_results(search_param,
-                                                                    config,
-                                                                    off,
-                                                                    [order, ''],
-                                                                    limit,
-                                                                    *join)
-    else:
-        entries, __ = calibre_db.fill_indexpage((int(off) / (int(limit)) + 1),
-                                                limit,
-                                                db.Books,
-                                                True,
-                                                order,
-                                                True,
-                                                config.config_read_column,
-                                                *join)
-
-    result = list()
-    for entry in entries:
-        val = entry[0]
-        val.read_status = entry[1] == ub.ReadBook.STATUS_FINISHED
-        val.formats = ", ".join(d.format for d in val.data)
-        val.added = val.timestamp.strftime("%Y-%m-%d") if val.timestamp else ""
-        for lang_index in range(0, len(val.languages)):
-            val.languages[lang_index].language_name = isoLanguages.get_language_name(get_locale(), val.languages[
-                lang_index].lang_code)
-        result.append(val)
-
-    table_entries = {'totalNotFiltered': total_count, 'total': filtered_count, "rows": result}
-    js_list = json.dumps(table_entries, cls=db.AlchemyEncoder)
-
-    response = make_response(js_list)
-    response.headers["Content-Type"] = "application/json; charset=utf-8"
-    return response
-
-
-@web.route("/ajax/table_settings", methods=['POST'])
-@user_login_required
-def update_table_settings():
-    current_user.view_settings['table'] = json.loads(request.data)
-    try:
-        try:
-            flag_modified(current_user, "view_settings")
-        except AttributeError:
-            pass
-        ub.session.commit()
-    except (InvalidRequestError, OperationalError):
-        log.error("Invalid request received: %r ", request, )
-        return "Invalid request", 400
-    return ""
 
 
 # ###################################Show single book ##################################################################

@@ -10,7 +10,7 @@ TEMPLATES = REPO_ROOT / "cps/templates"
 LIBRARY_TEMPLATES = [
     "index.html", "grid.html", "list.html", "detail.html", "author.html", "search.html",
     "search_form.html", "shelf.html", "shelf_edit.html", "shelf_order.html",
-    "book_edit.html", "book_table.html", "image.html", "modal_dialogs.html",
+    "book_edit.html", "image.html", "modal_dialogs.html",
 ]
 SORT_TEMPLATES = ["index.html", "author.html", "search.html", "shelf.html", "grid.html", "list.html"]
 
@@ -567,12 +567,6 @@ def test_small_copy_fixes_stay_fixed():
     assert "ngettext('%(num)s Result for “%(term)s”'" in read(TEMPLATES / "search.html")
     readpdf = read(TEMPLATES / "readpdf.html")
     assert "app.setTitle = function () { document.title = {{ title|tojson }}; };" in readpdf
-
-
-def test_the_book_table_is_reachable_from_the_view_switch():
-    # /table (bulk shelve, mark read, delete) had no link anywhere
-    switch = read(TEMPLATES / "image.html").split("{% macro view_switch", 1)[1].split("{%- endmacro %}", 1)[0]
-    assert "url_for('web.books_table')" in switch and "Edit many books at once" in switch
 
 
 def test_duplicate_scan_notice_does_not_show_the_tasks_progress_line():

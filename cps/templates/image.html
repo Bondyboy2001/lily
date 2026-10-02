@@ -181,11 +181,6 @@
       <button type="button" class="icon-btn" data-view="{{ view }}" aria-pressed="{{ 'true' if current == view else 'false' }}"
               title="{{ label }}" aria-label="{{ label }}"><span class="glyphicon {{ glyph }}" aria-hidden="true"></span></button>
       {% endfor %}
-      {% if kind == 'books' %}
-      {# The table edits, shelves, marks or deletes many books at once #}
-      <a class="icon-btn" href="{{ url_for('web.books_table') }}" title="{{ _('Edit many books at once') }}"
-         aria-label="{{ _('Edit many books at once') }}"><span class="glyphicon glyphicon-th" aria-hidden="true"></span></a>
-      {% endif %}
     </div>
 {%- endmacro %}
 

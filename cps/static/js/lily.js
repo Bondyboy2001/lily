@@ -118,7 +118,7 @@
     if ($region.length) { $region.append($row); } else { $(".navbar").first().after($row); }
   }
 
-  // Exposed so other scripts (e.g. table.js) can report failures the same way.
+  // Exposed so other scripts (e.g. duplicates.js) can report failures the same way.
   window.lilyFlash = flash;
 
   // News steps aside by itself after a while. Errors and notices with their own close button

@@ -18,16 +18,14 @@ from sqlalchemy.exc import OperationalError, IntegrityError
 from sqlalchemy.orm.exc import StaleDataError
 
 from . import helper
-from . import config, calibre_db, ub, book_recovery
+from . import calibre_db, ub
 from .book_recovery import RecoveryError
 from .cw_login import current_user
 from .usermanagement import user_login_required
 
-from datetime import datetime, timezone
 
 from .editbooks import (editbook, log, _queue_duplicate_scan_after_change, perform_delete,
-                        merge_books, edit_required, delete_required,
-                        handle_author_on_edit, handle_title_on_edit)
+                        merge_books, edit_required, delete_required)
 
 MAX_BATCH_IDS = 1000
 
@@ -56,50 +54,6 @@ def batch_response(results, status=200):
     ok = bool(results) and all(entry.get("status") == "succeeded" for entry in results)
     return Response(json.dumps({"success": ok, "results": results, "summary": summary}),
                     mimetype='application/json', status=status)
-
-
-@editbook.route("/ajax/sort_value/<field>/<int:bookid>")
-@user_login_required
-def get_sorted_entry(field, bookid):
-    if field in ['title', 'authors', 'sort', 'author_sort']:
-        book = calibre_db.get_filtered_book(bookid)
-        if book:
-            if field == 'title':
-                return json.dumps({'sort': book.sort})
-            elif field == 'authors':
-                return json.dumps({'author_sort': book.author_sort})
-            if field == 'sort':
-                return json.dumps({'sort': book.title})
-            if field == 'author_sort':
-                return json.dumps({'authors': " & ".join([a.name for a in calibre_db.order_authors([book])])})
-    return ""
-
-
-@editbook.route("/ajax/simulatemerge", methods=['POST'])
-@user_login_required
-@edit_required
-def simulate_merge_list_book():
-    d = request.get_json(silent=True)
-    vals = d.get('Merge_books') if isinstance(d, dict) else None
-    ids, error = parse_batch_ids(vals)
-    if error is not None:
-        return error
-    to_book = calibre_db.get_filtered_book(ids[0])
-    if not to_book:
-        return json.dumps({'to': '', 'from': [], 'conflicts': [_("Target book not found")]})
-    sources = []
-    conflicts = []
-    for book_id in ids[1:]:
-        source = calibre_db.get_filtered_book(book_id)
-        if source:
-            sources.append(source)
-        else:
-            conflicts.append(_("Book %(id)s not found or not visible", id=book_id))
-    if sources:
-        conflicts.extend(book_recovery.merge_preflight(to_book, sources, config.get_book_path()))
-    return json.dumps({'to': to_book.title,
-                       'from': [s.title for s in sources],
-                       'conflicts': [str(c) for c in conflicts]})
 
 
 @editbook.route("/ajax/displayselectedbooks", methods=['POST'])
@@ -227,74 +181,4 @@ def merge_list_book():
             entry["status"] = "skipped"
             entry["message"] = str(_("Not processed"))
     _queue_duplicate_scan_after_change([to_book.id] + ids[1:])
-    return batch_response(results)
-
-
-@editbook.route("/ajax/xchange", methods=['POST'])
-@user_login_required
-@edit_required
-def table_xchange_author_title():
-    d = request.get_json(silent=True)
-    if not isinstance(d, dict):
-        return batch_response([], status=400)
-    vals, error = parse_batch_ids(d.get('xchange'))
-    if error is not None:
-        return error
-    results = []
-    for val in vals:
-        entry = {"book_id": val, "status": "failed", "message": ""}
-        modify_date = False
-        book = calibre_db.get_filtered_book(val)
-        if not book:
-            entry["message"] = str(_("Book not found"))
-            results.append(entry)
-            continue
-        try:
-            edited_books_id = False
-            authors = book.title
-            book.authors = calibre_db.order_authors([book])
-            author_names = []
-            for authr in book.authors:
-                author_names.append(authr.name.replace('|', ','))
-
-            title_change = handle_title_on_edit(book, " ".join(author_names))
-            input_authors, author_change = handle_author_on_edit(book, authors)
-            if author_change or title_change:
-                edited_books_id = book.id
-                modify_date = True
-
-            dir_error = None
-            if edited_books_id:
-                # Returns False on success, or an error message when the move failed.
-                dir_error = helper.update_dir_structure(
-                    edited_books_id, config.get_book_path(), input_authors[0])
-                if dir_error:
-                    log.error("Directory structure update failed for book {}: {}",
-                              edited_books_id, dir_error)
-            if modify_date:
-                book.last_modified = datetime.now(timezone.utc)
-                calibre_db.set_metadata_dirty(book.id)
-            try:
-                calibre_db.session.commit()
-            except (OperationalError, IntegrityError, StaleDataError) as e:
-                calibre_db.session.rollback()
-                log.error_or_exception("Database error: {}".format(e))
-                entry["message"] = str(_("Database error: %(err)s",
-                                         err=str(e.orig if hasattr(e, "orig") else e)))
-                results.append(entry)
-                continue
-
-            if dir_error:
-                # The metadata edit is saved, but the files were not moved, so the book
-                # path no longer matches the database. Report it instead of claiming success.
-                entry["message"] = str(dir_error)
-                results.append(entry)
-                continue
-            entry["status"] = "succeeded"
-        except Exception as e:
-            calibre_db.session.rollback()
-            ub.session.rollback()
-            log.error_or_exception("Author/title swap failed for book %s: %s", val, e)
-            entry["message"] = str(e)
-        results.append(entry)
     return batch_response(results)

@@ -193,12 +193,12 @@ $(document).ready(function() {
             }
             mergeBookIds = bookIds;
 
-            // Use relative URL like table.js to respect base paths
+            // Use a relative URL to respect base paths
             var relativeUrl = window.location.pathname + "/../ajax/displayselectedbooks";
 
             $('#merge_selected_modal').modal('show');
 
-            // Show list of books to be merged (no CSRF - match table.js exactly)
+            // Show list of books to be merged
             var ajaxData = {"selections": bookIds};
 
             $.ajax({
@@ -208,7 +208,7 @@ $(document).ready(function() {
                 url: relativeUrl,
                 data: JSON.stringify(ajaxData),
                 beforeSend: function(xhr) {
-                    // Add CSRF token as header (like table.js)
+                    // Add CSRF token as header
                     if (csrfToken) {
                         xhr.setRequestHeader('X-CSRFToken', csrfToken);
                     }
@@ -245,15 +245,15 @@ $(document).ready(function() {
                 return;
             }
             
-            // Use relative URL like table.js to respect base paths
+            // Use a relative URL to respect base paths
             var relativeUrl = window.location.pathname + "/../ajax/displayselectedbooks";
             
             $('#delete_selected_modal').modal('show');
             
-            // Convert book IDs to integers (same as table.js)
+            // Convert book IDs to integers
             var bookIds = selectedBooks.map(function(id) { return parseInt(id, 10); });
             
-            // Show list of books to be deleted (no CSRF - match table.js exactly)
+            // Show list of books to be deleted
             var ajaxData = {"selections": bookIds};
             
             $.ajax({
@@ -263,7 +263,7 @@ $(document).ready(function() {
                 url: relativeUrl,
                 data: JSON.stringify(ajaxData),
                 beforeSend: function(xhr) {
-                    // Add CSRF token as header (like table.js)
+                    // Add CSRF token as header
                     if (csrfToken) {
                         xhr.setRequestHeader('X-CSRFToken', csrfToken);
                     }
@@ -295,7 +295,7 @@ $(document).ready(function() {
             url: mergeUrl,
             data: JSON.stringify(mergeData),
             beforeSend: function(xhr) {
-                // Add CSRF token as header (like table.js)
+                // Add CSRF token as header
                 if (csrfToken) {
                     xhr.setRequestHeader('X-CSRFToken', csrfToken);
                 }
@@ -321,7 +321,7 @@ $(document).ready(function() {
     $('#delete_selected_confirm').click(function() {
         var deleteUrl = window.location.pathname + "/../ajax/deleteselectedbooks";
         
-        // Convert book IDs to integers (same as table.js)
+        // Convert book IDs to integers
         var bookIds = selectedBooks.map(function(id) { return parseInt(id, 10); });
         
         var deleteData = {"selections": bookIds};
@@ -333,7 +333,7 @@ $(document).ready(function() {
             url: deleteUrl,
             data: JSON.stringify(deleteData),
             beforeSend: function(xhr) {
-                // Add CSRF token as header (like table.js)
+                // Add CSRF token as header
                 if (csrfToken) {
                     xhr.setRequestHeader('X-CSRFToken', csrfToken);
                 }

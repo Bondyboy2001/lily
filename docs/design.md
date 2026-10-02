@@ -497,13 +497,6 @@ content (grid, panel, rows)
   rows gets a Filter field (a §5.4 Field, 38 tall, 240 wide) at the end of the
   sort chips: it hides rows whose name lacks the typed text, and narrows
   within the chosen letter. "Nothing matches that filter." shows when none is left.
-- **Book table** (`/table`, `book_table.html`): where metadata is cleaned up in
-  bulk. It opens with Title, Authors, Format, ISBN, Added and Read?; the sort
-  keys, categories, series, languages, publishers and comments are off until
-  switched on in the column menu (a column the user has already toggled keeps its
-  saved state). Admins get "Look up metadata" beside the selection actions: it runs
-  the Import & Metadata lookup on just the ticked books and follows it in the batch
-  notice.
 - **Duplicates notice:** when duplicate groups exist, a dismissible warning Notice
   ("3 groups of duplicate books. Review duplicates") joins the flashes at the top of
   the page, once per browser session and again when the count rises. It is never a
