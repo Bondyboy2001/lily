@@ -9,13 +9,17 @@
 # scraping with a captcha, so this queries arXiv and Crossref instead. arXiv
 # papers are searched by title through DataCite, which registers arXiv's DOIs:
 # the arXiv API rate-limits and times out, and Crossref doesn't index preprints.
+# Semantic Scholar adds its best title match from journals and conferences.
 # arXiv API: https://info.arxiv.org/help/api/user-manual.html
 # DataCite API: https://support.datacite.org/docs/api-queries
+# Semantic Scholar API: https://api.semanticscholar.org/api-docs/graph
 # Crossref API: https://api.crossref.org/swagger-ui/index.html
 import re
 import html
+import time
 from concurrent.futures import ThreadPoolExecutor
 from html.parser import HTMLParser
+from os import getenv
 from typing import Dict, List, Optional
 from xml.etree import ElementTree
 
@@ -40,6 +44,8 @@ class google_scholar(Metadata):
     ARXIV_URL = "https://export.arxiv.org/api/query"
     ARXIV_ABS_URL = "https://arxiv.org/abs/"
     DATACITE_URL = "https://api.datacite.org/dois"
+    S2_MATCH_URL = "https://api.semanticscholar.org/graph/v1/paper/search/match"
+    S2_FIELDS = "title,authors,abstract,publicationDate,year,venue,journal,externalIds,fieldsOfStudy,url"
     CROSSREF_URL = "https://api.crossref.org/works"
     # arXiv answers 406 when brotli/zstd are offered, which requests does
     # whenever those packages are installed
@@ -55,9 +61,10 @@ class google_scholar(Metadata):
         if ARXIV_ID_RE.fullmatch(query.strip()):
             return self._search_arxiv(query)
         results = self._run([lambda: self._search_arxiv(query),
+                             lambda: self._search_semantic_scholar(query),
                              lambda: self._search_crossref(query)])
 
-        # arXiv preprints are often also in Crossref; keep the first of each title
+        # A paper is often in several sources; keep the first of each title
         seen = set()
         val = []
         for record in results:
@@ -265,6 +272,56 @@ class google_scholar(Metadata):
                             if r.get("relationType") == "IsVersionOf"
                             and r.get("relatedIdentifierType") == "DOI"), None)
         match.identifiers["doi"] = journal_doi or ARXIV_DOI_PREFIX + arxiv_id
+        return match
+
+    def _search_semantic_scholar(self, query: str) -> List[MetaRecord]:
+        """Semantic Scholar's closest title match, if it has one."""
+        headers = dict(self.HEADERS)
+        # Without a key every caller shares one pool, which is often busy
+        key = getenv("SEMANTIC_SCHOLAR_API_KEY")
+        if key:
+            headers["x-api-key"] = key
+        params = {"query": query, "fields": self.S2_FIELDS}
+        for attempt in range(2):
+            response = requests.get(
+                self.S2_MATCH_URL, params=params, headers=headers, timeout=10
+            )
+            if response.status_code != 429 or attempt:
+                break
+            time.sleep(1.5)
+        if response.status_code == 404:
+            return []
+        response.raise_for_status()
+        hits = response.json().get("data", [])
+        return [r for r in (self._parse_semantic_scholar(h) for h in hits) if r]
+
+    def _parse_semantic_scholar(self, hit: Dict) -> Optional[MetaRecord]:
+        title = " ".join((hit.get("title") or "").split())
+        if not title or not hit.get("paperId"):
+            return None
+        match = MetaRecord(
+            id=hit["paperId"],
+            title=title,
+            authors=[a.get("name") for a in hit.get("authors") or [] if a.get("name")],
+            url=hit.get("url") or "https://www.semanticscholar.org/paper/" + hit["paperId"],
+            source=MetaSourceInfo(
+                id=self.__id__, description="Semantic Scholar",
+                link="https://www.semanticscholar.org/",
+            ),
+        )
+        match.cover = ""
+        match.description = " ".join((hit.get("abstract") or "").split())
+        match.publisher = (hit.get("journal") or {}).get("name") or hit.get("venue") or ""
+        match.publishedDate = hit.get("publicationDate") or str(hit.get("year") or "")
+        match.tags = hit.get("fieldsOfStudy") or []
+        ids = hit.get("externalIds") or {}
+        match.identifiers = {}
+        if ids.get("ArXiv"):
+            match.identifiers["arxiv"] = ids["ArXiv"]
+        # The journal's DOI once published, otherwise arXiv's own
+        doi = ids.get("DOI") or (ARXIV_DOI_PREFIX + ids["ArXiv"] if ids.get("ArXiv") else "")
+        if doi:
+            match.identifiers["doi"] = doi
         return match
 
     def _search_crossref(self, query: str) -> List[MetaRecord]:

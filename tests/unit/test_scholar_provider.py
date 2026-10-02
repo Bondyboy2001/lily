@@ -1,6 +1,6 @@
 """The Scholar provider: arXiv ids looked up from the abstract page, titles
-searched through DataCite, and outages reported as failures rather than as no
-results."""
+searched through DataCite and Semantic Scholar, and outages reported as failures
+rather than as no results."""
 
 import json
 
@@ -64,6 +64,24 @@ DATACITE_HIT = {
         ],
     },
 }
+
+
+# Trimmed from api.semanticscholar.org/graph/v1/paper/search/match
+S2_MATCH = {"data": [{
+    "paperId": "846aedd869a00c09b40f1f1f35673cb22bc87490",
+    "externalIds": {"DOI": "10.1038/nature16961", "CorpusId": 515925},
+    "url": "https://www.semanticscholar.org/paper/846aedd869a00c09b40f1f1f35673cb22bc87490",
+    "title": "Mastering the game of Go with deep  neural networks and tree search",
+    "venue": "Nature",
+    "year": 2016,
+    "fieldsOfStudy": ["Computer Science", "Medicine"],
+    "publicationDate": "2016-01-27",
+    "journal": {"name": "Nature", "pages": "484-489", "volume": "529"},
+    "authors": [{"authorId": "145824029", "name": "David Silver"},
+                {"authorId": "1885349", "name": "Aja Huang"}],
+    "abstract": "The game of Go has  long been viewed as the most challenging.",
+    "matchScore": 204.4,
+}]}
 
 
 class _Response:
@@ -131,18 +149,24 @@ def test_arxiv_outage_is_reported_as_a_failure(monkeypatch):
         google_scholar().search_identifiers({"arxiv": "1108.1680"})
 
 
+def _down(q):
+    raise requests.Timeout()
+
+
 def test_text_search_shows_crossref_when_arxiv_is_down(monkeypatch):
     scholar = google_scholar()
     record = scholar._parse_arxiv_abs("1108.1680", ABS_PAGE)
-    monkeypatch.setattr(scholar, "_search_arxiv", lambda q: (_ for _ in ()).throw(requests.Timeout()))
+    monkeypatch.setattr(scholar, "_search_arxiv", _down)
+    monkeypatch.setattr(scholar, "_search_semantic_scholar", _down)
     monkeypatch.setattr(scholar, "_search_crossref", lambda q: [record])
     assert scholar.search("copula graphical models") == [record]
 
 
 def test_text_search_fails_when_every_source_is_down(monkeypatch):
     scholar = google_scholar()
-    monkeypatch.setattr(scholar, "_search_arxiv", lambda q: (_ for _ in ()).throw(requests.Timeout()))
-    monkeypatch.setattr(scholar, "_search_crossref", lambda q: (_ for _ in ()).throw(requests.Timeout()))
+    monkeypatch.setattr(scholar, "_search_arxiv", _down)
+    monkeypatch.setattr(scholar, "_search_semantic_scholar", _down)
+    monkeypatch.setattr(scholar, "_search_crossref", _down)
     with pytest.raises(requests.Timeout):
         scholar.search("copula graphical models")
 
@@ -193,3 +217,66 @@ def test_datacite_record_without_a_journal_keeps_the_arxiv_doi():
     hit["attributes"]["relatedIdentifiers"] = []
     record = google_scholar()._parse_datacite_hit(hit)
     assert record.identifiers["doi"] == "10.48550/arXiv.1108.1680"
+
+
+def test_text_search_lists_arxiv_then_semantic_scholar_then_crossref(monkeypatch):
+    from types import SimpleNamespace
+    scholar = google_scholar()
+
+    def found(*titles):
+        return lambda q: [SimpleNamespace(title=t) for t in titles]
+    monkeypatch.setattr(scholar, "_search_arxiv", found("A paper"))
+    monkeypatch.setattr(scholar, "_search_semantic_scholar", found("A Paper", "Journal paper"))
+    monkeypatch.setattr(scholar, "_search_crossref", found("Journal Paper", "Near miss"))
+    assert [r.title for r in scholar.search("a paper")] == ["A paper", "Journal paper", "Near miss"]
+
+
+def test_semantic_scholar_match_reads_as_a_record(monkeypatch):
+    calls = []
+    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+        "https://api.semanticscholar.org/": _Response(text=json.dumps(S2_MATCH)),
+    }, calls))
+    record, = google_scholar()._search_semantic_scholar("Mastering the game of Go")
+    assert calls[0][1]["query"] == "Mastering the game of Go"
+    assert record.title == "Mastering the game of Go with deep neural networks and tree search"
+    assert record.authors == ["David Silver", "Aja Huang"]
+    assert record.description == "The game of Go has long been viewed as the most challenging."
+    assert record.publisher == "Nature"
+    assert record.publishedDate == "2016-01-27"
+    assert record.tags == ["Computer Science", "Medicine"]
+    assert record.identifiers == {"doi": "10.1038/nature16961"}
+    assert record.source.description == "Semantic Scholar"
+
+
+def test_semantic_scholar_arxiv_paper_gets_arxivs_doi():
+    hit = dict(S2_MATCH["data"][0], externalIds={"ArXiv": "1706.03762"}, journal=None, venue="")
+    record = google_scholar()._parse_semantic_scholar(hit)
+    assert record.identifiers == {"arxiv": "1706.03762", "doi": "10.48550/arXiv.1706.03762"}
+
+
+def test_semantic_scholar_without_a_match_is_no_result(monkeypatch):
+    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+        "https://api.semanticscholar.org/": _Response(404, '{"error":"Title match not found"}'),
+    }))
+    assert google_scholar()._search_semantic_scholar("qwzx plorp") == []
+
+
+def test_semantic_scholar_is_retried_once_when_busy(monkeypatch):
+    answers = [_Response(429), _Response(text=json.dumps(S2_MATCH))]
+    monkeypatch.setattr(scholar_module.requests, "get", lambda url, **kw: answers.pop(0))
+    monkeypatch.setattr(scholar_module.time, "sleep", lambda s: None)
+    assert len(google_scholar()._search_semantic_scholar("Mastering the game of Go")) == 1
+
+
+def test_semantic_scholar_sends_the_api_key_when_set(monkeypatch):
+    sent = []
+
+    def get(url, **kwargs):
+        sent.append(kwargs["headers"])
+        return _Response(404)
+    monkeypatch.setattr(scholar_module.requests, "get", get)
+    monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "k123")
+    google_scholar()._search_semantic_scholar("anything")
+    monkeypatch.delenv("SEMANTIC_SCHOLAR_API_KEY")
+    google_scholar()._search_semantic_scholar("anything")
+    assert sent[0]["x-api-key"] == "k123" and "x-api-key" not in sent[1]

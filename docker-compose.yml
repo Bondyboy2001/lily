@@ -9,6 +9,7 @@ services:
       - TZ=Europe/London
       # Optional, see docs/deployment.md
       # - HARDCOVER_TOKEN=your_hardcover_api_key   # Hardcover metadata
+      # - SEMANTIC_SCHOLAR_API_KEY=your_key        # paper metadata
       # - TRUSTED_PROXY_COUNT=1                    # behind a reverse proxy
       # - SESSION_COOKIE_SECURE=true               # served over HTTPS
       # - NETWORK_SHARE_MODE=true                  # library on NFS/SMB
