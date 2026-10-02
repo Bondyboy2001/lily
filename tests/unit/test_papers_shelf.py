@@ -155,6 +155,20 @@ def test_the_backfill_files_the_papers_already_there_once(env, tmp_path):
     assert _shelved(env)["Papers"][2] == [euclid]
 
 
+def test_the_backfill_leaves_the_apps_library_session_as_it_was(env, tmp_path):
+    """It runs at startup on the thread that serves requests. Borrowing that thread's session
+    turned off its expire-on-commit, and the next save of a book just saved read the book as
+    it was before, then failed adding an identifier it already had."""
+    from cps import calibre_db
+    from cps.services import papers_shelf
+    # As at startup: the app's session is the one its thread is handed
+    calibre_db.session = calibre_db.session_factory()
+    calibre_db.session.expire_on_commit = True
+    _identify(env, env.add_book("Arxiv"), arxiv="2401.00001")
+    assert papers_shelf.backfill_once(str(tmp_path / "papers_shelf_v1")) == 1
+    assert calibre_db.session.expire_on_commit is True
+
+
 def test_the_edit_pages_papers_chip_uses_the_shared_shelf(env):
     from cps.cw_login import login_user
     from cps import editbooks, ub

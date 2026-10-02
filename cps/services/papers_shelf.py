@@ -86,14 +86,13 @@ def file_papers(book_ids):
 def paper_book_ids():
     """The ids of the library's books whose identifiers make them papers, in id order."""
     from cps import db
-    cdb = db.CalibreDB(expire_on_commit=False, init=True)
-    try:
-        ids = {}
-        for book_id, kind, val in cdb.session.query(db.Identifiers.book, db.Identifiers.type, db.Identifiers.val) \
+    ids = {}
+    # A session of its own: the backfill runs at startup on the thread that serves requests,
+    # where db.CalibreDB(init=True) is handed the app's session and changes its settings
+    with Session(db.CalibreDB.engine) as session:
+        for book_id, kind, val in session.query(db.Identifiers.book, db.Identifiers.type, db.Identifiers.val) \
                 .filter(func.lower(db.Identifiers.type).in_(("arxiv", "doi", "isbn"))):
             ids.setdefault(book_id, {})[kind.lower()] = val
-    finally:
-        cdb.session.close()
     return sorted(book_id for book_id, found in ids.items() if is_paper(found))
 
 
