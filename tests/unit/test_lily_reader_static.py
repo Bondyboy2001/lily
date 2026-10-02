@@ -566,3 +566,40 @@ def test_phone_pdf_toolbar_keeps_to_one_row_with_larger_buttons():
     hidden = phone.split("{ display: none; }", 1)[0]
     for selector in ("#toolbarViewerMiddle", "#editorModeButtons", "#editorModeSeparator"):
         assert selector in hidden
+
+
+def _reader_chrome_contrast(opacity, ink, ground):
+    named = {"white": "#ffffff", "black": "#000000"}
+
+    def rgb(value):
+        value = named.get(value, value).lstrip("#")
+        if len(value) == 3:
+            value = "".join(c * 2 for c in value)
+        return [int(value[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+
+    def luminance(c):
+        r, g, b = [v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4 for v in c]
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+    fg, bg = rgb(ink), rgb(ground)
+    mixed = [opacity * f + (1 - opacity) * b for f, b in zip(fg, bg)]
+    hi, lo = sorted((luminance(mixed), luminance(bg)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def test_reader_chrome_is_legible_in_every_page_theme():
+    # The chapter title (.7), page share (.6) and arrows (.3) take the theme's ink at an
+    # opacity; in Sepia that was 3.3:1, 2.7:1 and 1.6:1
+    template = read(TEMPLATES / "read.html")
+    themes = re.findall(r'"bgColor": "([^"]+)",\s*"css_path": "[^"]*",\s*"title-color": "([^"]+)"', template)
+    assert len(themes) == 4
+    css = read(CSS / "lily-reader.css")
+
+    def opacity(selector):
+        rule = css.split(selector + " {", 1)[1].split("}", 1)[0]
+        return float(re.search(r"opacity: ([.\d]+);", rule).group(1))
+
+    for ground, ink in themes:
+        assert _reader_chrome_contrast(opacity(".lily-reader #chapter-title"), ink, ground) >= 4.5
+        assert _reader_chrome_contrast(opacity(".lily-reader #progress:not([role])"), ink, ground) >= 4.5
+        assert _reader_chrome_contrast(opacity(".lily-reader .arrow"), ink, ground) >= 3

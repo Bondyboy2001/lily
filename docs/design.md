@@ -622,7 +622,13 @@ Reader title bars are 56px. Their buttons are large icon buttons (§4.3). The
 EPUB title bar and page arrows take the page theme's ink (set inline from
 `window.themes`, a content colour like the page background), so they tint with
 `currentColor` (16% when pressed or expanded) instead of `--control-tint`.
-Sidebar tabs and settings options are chips with `aria-pressed`.
+Because that ink comes at an opacity, its text (chapter title, page share) stays at
+90% or more and the arrows at 70% (100% on hover), so text keeps 4.5:1 and arrows
+3:1 in every page theme, Sepia being the tightest (tested). An arrow is faint
+(`.disabled`) only on the book's first or last page.
+Sidebar tabs and settings options are chips with `aria-pressed`. Reader settings
+is a dialog: focus moves into it (to the chosen theme) when it opens, Tab stays
+inside it, and Escape or Close shuts it and returns focus to the settings button.
 At 600px and below the EPUB arrows become invisible tap strips, 18% of the width
 on each side, stacked above the book's iframe so a tap there turns the page; a
 swipe anywhere turns it too.

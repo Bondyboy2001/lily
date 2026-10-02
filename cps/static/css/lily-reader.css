@@ -150,7 +150,9 @@ body.lily-reader {
     font-weight: 600;
 }
 
-.lily-reader #chapter-title { opacity: .7; }
+/* Reader chrome takes the page theme's ink; 90% keeps text at 4.5:1 and more in every theme
+   (Sepia is the tightest), and the arrows' 70% keeps them at 3:1 (tested). */
+.lily-reader #chapter-title { opacity: .9; }
 
 /* ------------------------------------------------------------------ */
 /* Page area and arrows                                                 */
@@ -167,14 +169,14 @@ body.lily-reader {
     background: transparent;
     color: inherit;
     font-size: 32px;
-    opacity: .3;
+    opacity: .7;
     transition: opacity .12s ease-out;
 }
 
 .lily-reader #prev .glyphicon { transform: scaleX(-1); }
 
 .lily-reader .arrow:hover,
-.lily-reader .arrow:focus-visible { color: inherit; opacity: .75; }
+.lily-reader .arrow:focus-visible { color: inherit; opacity: 1; }
 
 .lily-reader .arrow:active,
 .lily-reader .arrow.active { color: inherit; opacity: 1; }
@@ -189,7 +191,7 @@ body.lily-reader {
     bottom: 16px;
     font-size: 12px;
     font-variant-numeric: tabular-nums;
-    opacity: .6;
+    opacity: .9;
 }
 
 .lily-reader .lily-progress-status {

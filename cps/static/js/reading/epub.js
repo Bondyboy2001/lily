@@ -174,9 +174,67 @@ var reader;
         }
     }
 
+    // The vendor marks an arrow .disabled at the book's start or end but never clears it, so
+    // after the first page Previous stayed faint. Keep both in step with where the page is.
+    reader.rendition.on("relocated", function (location) {
+        document.getElementById("prev").classList.toggle("disabled", !!location.atStart);
+        document.getElementById("next").classList.toggle("disabled", !!location.atEnd);
+    });
+
+    // Reader settings is a dialog (the vendor shows it by adding .md-show): focus moves into it
+    // when it opens and back to the settings button when it closes, Tab stays inside it, and
+    // Escape closes it before it closes the sidebar.
+    var settingsModal = document.getElementById("settings-modal");
+    var settingsButton = document.getElementById("setting");
+
+    function settingsOpen() {
+        return settingsModal.classList.contains("md-show");
+    }
+
+    function settingsControls() {
+        return Array.prototype.filter.call(
+            settingsModal.querySelectorAll("button, select, input"),
+            function (el) { return !el.disabled && el.offsetParent !== null; });
+    }
+
+    // The dialog fades in from visibility: hidden, so focus() fails until it has started to show
+    function focusSettings(tries) {
+        if (!settingsOpen() || settingsModal.contains(document.activeElement)) { return; }
+        var target = settingsModal.querySelector('button[aria-pressed="true"]') || settingsControls()[0];
+        if (target) { target.focus(); }
+        if (document.activeElement !== target && tries > 0) {
+            setTimeout(function () { focusSettings(tries - 1); }, 30);
+        }
+    }
+
+    new MutationObserver(function () {
+        if (settingsOpen()) {
+            focusSettings(10);
+        } else if (settingsModal.contains(document.activeElement) || document.activeElement === document.body) {
+            settingsButton.focus();
+        }
+    }).observe(settingsModal, {attributes: true, attributeFilter: ["class"]});
+
+    settingsModal.addEventListener("keydown", function (event) {
+        if (event.key !== "Tab" || !settingsOpen()) { return; }
+        var controls = settingsControls();
+        var first = controls[0], last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    });
+
     document.getElementById("sidebar-scrim").addEventListener("click", closeSidebar);
     document.addEventListener("keydown", function (event) {
         if (event.key === "Escape") {
+            if (settingsOpen()) {
+                settingsModal.querySelector(".closer").click();
+                return;
+            }
             closeSidebar();
         }
     });
