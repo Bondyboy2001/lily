@@ -1,16 +1,18 @@
 name: Release
 
 # Every push to main publishes the image: the lint/type/unit checks run, an amd64
-# build must start and answer /health, and only then are amd64 and arm64 built and
-# pushed to GHCR and (when the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets exist)
+# build must start and answer /health, and only then are the amd64 and arm64 images
+# tagged on GHCR and (when the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN secrets exist)
 # Docker Hub as <username>/lily, tagged :latest and :sha-<short>.
 # Pushing a tag like v1.2.3 does the same and also adds :1.2.3 and :1.2.
 #
 # The version baked into the image (About, /health) comes from `git describe`, e.g.
 # v4.4.0-3-gabc1234 for the third commit after v4.4.0.
 #
-# Each platform builds natively on its own runner (no QEMU), in parallel, and pushes
-# by digest; the publish job then ties the two digests together under the tags.
+# Each platform builds natively on its own runner (no QEMU), in parallel with the
+# checks, and pushes by digest only. Nothing is tagged until the publish job, which
+# waits for the checks and the smoke test and then ties the two digests together
+# under the tags. A failed run leaves an untagged digest that no tag points at.
 on:
   push:
     branches: [main]
@@ -155,7 +157,7 @@ jobs:
   build:
     name: Build ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
-    needs: [on-main, checks, image-smoke]
+    needs: [on-main]
     timeout-minutes: 60
     permissions:
       contents: read
@@ -164,15 +166,18 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          # Reads only: a tag run can restore caches saved on main or on its own tag, never
-          # on an earlier tag, so saving here (~1 GB, ~100 s on arm64) helped no later run.
-          # amd64 reads main's "lily-image" scope (tests.yml) and image-smoke's save above.
+          # amd64 reads main's "lily-image" scope, which image-smoke (and tests.yml) save.
+          # arm64 has no other writer, so it saves its own scope on main pushes; without
+          # that every arm64 build started cold. Tag runs only read: a tag can restore
+          # caches saved on main but never ones saved on an earlier tag.
           - platform: linux/amd64
             runner: ubuntu-latest
             cache_scope: lily-image
+            save_cache: false
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
             cache_scope: lily-image-arm64
+            save_cache: true
     env:
       HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
     steps:
@@ -229,6 +234,7 @@ jobs:
             BUILD_DATE=${{ steps.date.outputs.value }}
           outputs: type=image,"name=${{ env.IMAGE_NAMES }}",push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.cache_scope }}
+          cache-to: ${{ matrix.save_cache && github.ref == 'refs/heads/main' && format('type=gha,scope={0},mode=max', matrix.cache_scope) || '' }}
 
       - name: Export digest
         run: |
@@ -247,7 +253,7 @@ jobs:
   publish:
     name: Publish multi-arch tags
     runs-on: ubuntu-latest
-    needs: build
+    needs: [checks, image-smoke, build]
     timeout-minutes: 15
     permissions:
       contents: read
