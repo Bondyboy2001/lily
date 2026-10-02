@@ -63,6 +63,10 @@ def test_detail_edit_and_read_state_are_named_icon_buttons():
     edit = re.search(r'<a href="[^"]*show_edit_book[^"]*" id="edit_book" class="btn is-icon"[^>]*>', html, flags=re.S)
     assert edit, "Edit Metadata icon button missing"
     assert "aria-label=\"{{ _('Edit metadata') }}\"" in edit.group(0)
+    # Fetch metadata sits just before Edit and opens the editor with the lookup running.
+    fetch = re.search(r'<a href="[^"]*show_edit_book[^"]*fetch=1[^"]*" id="fetch_book_meta" class="btn is-icon"[^>]*>', html, flags=re.S)
+    assert fetch and "aria-label=\"{{ _('Fetch metadata') }}\"" in fetch.group(0)
+    assert html.index('id="fetch_book_meta"') < html.index('id="edit_book"')
     toggle = re.search(r'<button[^>]*id="toggle-read-btn"[^>]*>(.*?)</button>', html, flags=re.S)
     assert toggle and 'class="btn is-icon' in toggle.group(0)
     assert 'class="book-action-label sr-only"' in toggle.group(1)

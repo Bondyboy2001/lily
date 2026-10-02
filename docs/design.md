@@ -563,7 +563,8 @@ content (grid, panel, rows)
   Date added, Last edited.
 - Tags and shelves are not shown on the book page; both stay editable on the
   edit page.
-- The action bar is Read, Download, Mark as read, Edit metadata and Delete. A book's
+- The action bar is Read, Download, Mark as read, Fetch metadata (the magnifying glass,
+  opening the editor with the lookup running, `?fetch=1`), Edit metadata and Delete. A book's
   shelves are changed on its edit page (the Shelves rows), never from the book page.
   There is no archive and no Keep offline button. On a shelf page each cover gets a
   quiet `.icon-btn.is-danger` remove action (`shelves.js`).
