@@ -41,7 +41,7 @@ from . import calibre_db, cli_param
 from .string_helper import strip_whitespaces
 from . import logger, config, db, ub, fs
 from .constants import (STATIC_DIR as _STATIC_DIR, CACHE_TYPE_THUMBNAILS, THUMBNAIL_TYPE_COVER, THUMBNAIL_TYPE_SERIES,
-                        EXTENSIONS_AUDIO)
+                        EXTENSIONS_AUDIO, is_unknown_author)
 
 # Track books with pending thumbnail generation to prevent duplicate tasks
 _pending_thumbnail_books = set()
@@ -939,7 +939,8 @@ def get_download_link(book_id, book_format):
         ub.update_download(book_id, int(current_user.id))
 
     file_name = book.title
-    if len(book.authors) > 0:
+    # calibre's "Unknown" stand-in is no author to name the file after
+    if len(book.authors) > 0 and not is_unknown_author(book.authors[0].name):
         file_name = file_name + ' - ' + book.authors[0].name
     file_name = get_valid_filename(file_name, replace_whitespace=False)
     headers = Headers()

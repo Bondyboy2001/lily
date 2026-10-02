@@ -406,6 +406,21 @@ def test_visible_cached_groups_drop_groups_the_user_cannot_see_two_copies_of(dup
     assert duplicate_index.visible_cached_groups(cached, user_id=None) == cached
 
 
+def test_a_group_of_books_with_no_author_shows_none_and_keeps_its_hash(duplicate_index):
+    # calibre's "Unknown" stand-in is not shown; the hash still has it, so a group dismissed
+    # before stays dismissed
+    books = [SimpleNamespace(id=i, title="Lecture Notes", timestamp=None, has_cover=0,
+                             ordered_authors=[SimpleNamespace(name="Unknown")]) for i in (1, 2)]
+    group = duplicate_index._group_from_books(books)
+    assert group["author"] == "" and [book.author_names for book in books] == ["", ""]
+    assert group["group_hash"] == duplicate_index.generate_group_hash("Lecture Notes", "Unknown")
+
+    named = [SimpleNamespace(id=3, title="Dune", timestamp=None, has_cover=0,
+                             ordered_authors=[SimpleNamespace(name="Herbert| Frank"), SimpleNamespace(name="Unknown")])]
+    assert duplicate_index._group_from_books(named)["author"] == "Herbert"
+    assert named[0].author_names == "Herbert, Frank"
+
+
 def test_cache_merge_keeps_serialization_shape(duplicate_index):
     books = [_book(1, "Dune", "Frank Herbert"), _book(2, "Dune", "Frank Herbert"), _book(3, "Other", "Writer")]
     duplicate_index.calibre_db.session = _Session(books)

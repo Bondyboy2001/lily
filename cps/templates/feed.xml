@@ -44,7 +44,7 @@
     <title>{{entry.Books.title}}</title>
     <id>urn:uuid:{{entry.Books.uuid}}</id>
     <updated>{{entry.Books.atom_timestamp}}</updated>
-    {% for author in entry.Books.authors %}
+    {% for author in entry.Books.authors|named_authors %}
       <author>
         <name>{{author.name}}</name>
       </author>

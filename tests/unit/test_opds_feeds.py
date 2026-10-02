@@ -133,6 +133,13 @@ class TestAcquisitionFeeds:
         assert acq[0].get("type") == "application/epub+zip"
         assert entry.find(ATOM + "author").findtext(ATOM + "name") == "Test Author"
 
+    def test_a_book_with_no_author_names_none(self, env):
+        # calibre keeps "Unknown" as a stand-in; a reader app is not told it is the author
+        env.add_book("Anonymous Notes", author="Unknown")
+        entry = _get_feed(env, "/opds/new", _admin_headers(env)).find(ATOM + "entry")
+        assert entry.findtext(ATOM + "title") == "Anonymous Notes"
+        assert entry.find(ATOM + "author") is None
+
     def test_feed_hidden_when_sidebar_entry_disabled(self, env):
         from cps import constants
         user = env.add_user("norated", password="pw",

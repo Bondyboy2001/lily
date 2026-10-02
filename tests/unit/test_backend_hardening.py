@@ -222,6 +222,19 @@ def test_download_without_user_agent_does_not_crash(env):
     assert client.get(f"/download/{book_id}/epub").status_code == 200
 
 
+@pytest.mark.unit
+@pytest.mark.parametrize("author, file_name", [
+    ("Frank Herbert", "Dune - Frank Herbert.epub"),
+    ("Unknown", "Dune.epub"),  # calibre's stand-in for no author is not one to name the file after
+])
+def test_a_download_is_named_after_the_title_and_the_author_it_has(env, author, file_name):
+    from urllib.parse import quote
+    book_id = env.add_book("Dune", author=author)
+    _add_book_file(env, book_id)
+    disposition = _login(env).get(f"/download/{book_id}/epub").headers["Content-Disposition"]
+    assert disposition.startswith(f"attachment; filename={quote(file_name)};")
+
+
 # --------------------------------------------------------------------------- 8. web reader progress
 def _read_status(env, book_id):
     ub = env.ub

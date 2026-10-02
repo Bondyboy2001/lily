@@ -363,16 +363,19 @@ def _indexed_group_book_ids_for_books(settings, book_ids):
     return affected_ids
 
 
+def _no_author(name) -> bool:
+    """calibre's "Unknown" stand-in (constants.UNKNOWN_AUTHOR): a book with no author shows none."""
+    return (name or "").strip().lower() == "unknown"
+
+
 def _decorate_books_for_group(books):
     for book in books:
         if not hasattr(book, "ordered_authors") or not book.ordered_authors:
             book.ordered_authors = calibre_db.order_authors([book])
-        if book.ordered_authors and len(book.ordered_authors) > 0:
-            book.author_names = ", ".join(
-                [author.name.replace("|", ",") for author in book.ordered_authors if author.name]
-            )
-        else:
-            book.author_names = "Unknown"
+        book.author_names = ", ".join(
+            author.name.replace("|", ",") for author in book.ordered_authors or []
+            if author.name and not _no_author(author.name)
+        )
         book.cover_url = f"/cover/{book.id}" if getattr(book, "has_cover", None) else "/static/generic_cover.svg"
 
 
@@ -385,7 +388,9 @@ def _group_from_books(books):
         display_author = books[0].author_names.split(",")[0].strip()
     return {
         "title": display_title,
-        "author": display_author,
+        # Shown blank for a book with no author; the hash keeps the stand-in, so groups
+        # dismissed before stay dismissed
+        "author": "" if _no_author(display_author) else display_author,
         "count": len(books),
         "books": books,
         "group_hash": generate_group_hash(display_title, display_author),

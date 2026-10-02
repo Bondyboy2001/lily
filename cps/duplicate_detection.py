@@ -25,6 +25,11 @@ from cwa_db import CWA_DB
 log = logger.create()
 
 
+def _no_author(name) -> bool:
+    """calibre's "Unknown" stand-in (constants.UNKNOWN_AUTHOR): a book with no author shows none."""
+    return (name or "").strip().lower() == "unknown"
+
+
 def get_unresolved_duplicate_count(user_id=None):
     """Get count of unresolved duplicate groups for a user
 
@@ -419,11 +424,8 @@ def find_duplicate_books_sql(use_title, use_author, use_language, use_series, us
             if not hasattr(book, 'ordered_authors') or not book.ordered_authors:
                 book.ordered_authors = calibre_db.order_authors([book])
 
-            # Handle potential missing authors
-            if book.ordered_authors and len(book.ordered_authors) > 0:
-                book.author_names = ', '.join([author.name.replace('|', ',') for author in book.ordered_authors if author.name])
-            else:
-                book.author_names = 'Unknown'
+            book.author_names = ', '.join(author.name.replace('|', ',') for author in book.ordered_authors or []
+                                          if author.name and not _no_author(author.name))
 
             # Add cover URL
             if hasattr(book, 'has_cover') and book.has_cover:
@@ -442,7 +444,7 @@ def find_duplicate_books_sql(use_title, use_author, use_language, use_series, us
 
         duplicate_groups.append({
             'title': display_title,
-            'author': display_author,
+            'author': '' if _no_author(display_author) else display_author,
             'count': len(books),
             'books': books,
             'group_hash': group_hash
@@ -595,11 +597,8 @@ def find_duplicate_books_python(use_title, use_author, use_language, use_series,
                 if not hasattr(book, 'ordered_authors') or not book.ordered_authors:
                     book.ordered_authors = calibre_db.order_authors([book])
 
-                # Handle potential missing authors
-                if book.ordered_authors and len(book.ordered_authors) > 0:
-                    book.author_names = ', '.join([author.name.replace('|', ',') for author in book.ordered_authors if author.name])
-                else:
-                    book.author_names = 'Unknown'
+                book.author_names = ', '.join(author.name.replace('|', ',') for author in book.ordered_authors or []
+                                              if author.name and not _no_author(author.name))
 
                 # Add cover URL
                 if hasattr(book, 'has_cover') and book.has_cover:
@@ -618,7 +617,7 @@ def find_duplicate_books_python(use_title, use_author, use_language, use_series,
 
             duplicate_groups.append({
                 'title': display_title,
-                'author': display_author,
+                'author': '' if _no_author(display_author) else display_author,
                 'count': len(books),
                 'books': books,
                 'group_hash': group_hash
