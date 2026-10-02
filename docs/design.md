@@ -614,6 +614,9 @@ EPUB title bar and page arrows take the page theme's ink (set inline from
 `window.themes`, a content colour like the page background), so they tint with
 `currentColor` (16% when pressed or expanded) instead of `--control-tint`.
 Sidebar tabs and settings options are chips with `aria-pressed`.
+At 600px and below the EPUB arrows become invisible tap strips, 18% of the width
+on each side, stacked above the book's iframe so a tap there turns the page; a
+swipe anywhere turns it too.
 The EPUB page theme follows the app's Light/Dark choice (Light → Light, Dark →
 Dark) until one is picked in the reader's settings; only a pick is saved
 (`localStorage["lily-reader-theme"]`).

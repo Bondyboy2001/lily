@@ -545,3 +545,14 @@ def test_book_page_offers_the_rest_of_the_series_and_the_author(client, temp_cwa
     lone = env.add_book("Only Child", author="Solo Author")
     html = c.get(f"/book/{lone}").get_data(as_text=True)
     assert "related-series-heading" not in html and "related-author-heading" not in html
+
+
+def test_phone_tap_strips_sit_above_the_book():
+    # The iframe in #viewer took every tap but the outer 14px, so tapping an edge did nothing
+    css = read(CSS / "lily-reader.css")
+    phone = css.split("@media (max-width: 600px) {", 1)[1].split("\n}\n", 1)[0]
+    arrow = phone.split(".lily-reader.lily-epub .arrow {", 1)[1].split("}", 1)[0]
+    assert "z-index: 3;" in arrow and "width: 18%;" in arrow
+    # ...which is above #viewer's own
+    viewer = read(CSS / "main.css").split("#viewer {", 1)[1].split("}", 1)[0]
+    assert "z-index: 2;" in viewer

@@ -288,13 +288,16 @@ body.lily-reader {
 }
 
 /* Phones: the page runs nearly edge to edge and the arrows become invisible tap
-   strips along each side, as in most reading apps. */
+   strips along each side, as in most reading apps. They sit above #viewer (z-index 2 in
+   main.css), whose iframe otherwise takes every tap but the outer 14px; swipes still reach
+   the book through the middle. */
 @media (max-width: 600px) {
     .lily-reader.lily-epub #viewer { top: 56px; right: 14px; bottom: 36px; left: 14px; }
 
     .lily-reader.lily-epub .arrow {
         top: 56px;
         bottom: 0;
+        z-index: 3;
         width: 18%;
         color: transparent;
         text-indent: 0;
