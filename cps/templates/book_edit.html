@@ -294,11 +294,9 @@
       <% if (safeUrl(book.cover) && !/\/generic_cover\.svg(\?|$)/.test(book.cover)) { %>
       <div class="media-image-wrapper">
         <img
-          onload="coverDimensions(this)"
           src="<%- safeUrl(book.cover) %>"
           alt="<%- book.title ? 'Cover of ' + book.title : 'Cover' %>"
         >
-        <div class="image-dimensions"></div>
         <input type="checkbox" data-meta-value="cover" aria-label="{{_('Use this cover')}}" checked>
       </div>
       <% } else { %>
@@ -349,20 +347,6 @@
     'remove': {{_('Remove')|safe|tojson}},
   };
   var language = 'en';
-
-  // A result's cover size, and in words whether it is larger or smaller than the book's own
-  function coverDimensions(el) {
-    var existing = document.querySelector("#detailcover");
-    var badge = el.nextElementSibling;
-    var theirs = el.naturalWidth * el.naturalHeight;
-    var ours = existing ? existing.naturalWidth * existing.naturalHeight : 0;
-    var size = el.naturalWidth + "×" + el.naturalHeight;
-    var larger = ours && theirs > ours, smaller = ours && theirs < ours;
-    badge.textContent = larger ? size + " · " + {{ _('larger')|tojson }}
-                      : smaller ? size + " · " + {{ _('smaller')|tojson }} : size;
-    badge.classList.toggle("larger", !!larger);
-    badge.classList.toggle("smaller", !!smaller);
-  }
 </script>
 <script src="{{ url_for('static', filename='js/libs/typeahead.bundle.js') }}"></script>
 <script src="{{ url_for('static', filename='js/get_meta.js') }}"></script>

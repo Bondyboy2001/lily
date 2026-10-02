@@ -567,14 +567,10 @@ def test_empty_shelf_says_how_books_get_there_now():
     assert "choose Edit metadata and add this shelf under Shelves" in template
 
 
-def test_fetch_result_cover_size_says_larger_or_smaller_in_words():
-    # It was a solid red or green box with --paper text: colour alone, hand-styled
-    template = read(TEMPLATES / "book_edit.html")
-    assert "{{ _('larger')|tojson }}" in template and "{{ _('smaller')|tojson }}" in template
-    css = read(CSS / "lily-library.css")
-    badge = css.split("#meta-info #book-list .media .media-image .image-dimensions {", 1)[1].split("}", 1)[0]
-    assert "border-radius: 999px;" in badge and "background: var(--surface);" in badge
-    assert "var(--paper)" not in badge
+def test_fetch_result_cover_has_no_size_badge():
+    # The size pill over each result's cover was removed: no text over the art
+    assert "image-dimensions" not in read(TEMPLATES / "book_edit.html")
+    assert "image-dimensions" not in read(CSS / "lily-library.css")
 
 
 def test_small_copy_fixes_stay_fixed():
