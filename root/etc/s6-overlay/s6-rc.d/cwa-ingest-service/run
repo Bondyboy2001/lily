@@ -214,7 +214,8 @@ event_loop() {
 
 run_fallback() {
         echo "[cwa-ingest-service] Falling back to polling watcher" >&2
-        python3 /app/calibre-web-automated/scripts/watch_fallback.py --path "$WATCH_FOLDER" --interval 5 | event_loop
+        python3 /app/calibre-web-automated/scripts/watch_fallback.py --path "$WATCH_FOLDER" --interval 5 | event_loop &
+        wait $!
 }
 
 cleanup_stale_temps() {
@@ -436,8 +437,14 @@ cleanup_background_jobs() {
         fi
 }
 
+# Bash runs a trap only once the foreground command returns, so the watchers below
+# run in the background behind `wait`, which a trapped signal interrupts at once.
+# s6 starts this script as its own process group: signalling the group stops the
+# watcher pipeline and any ingest in progress rather than leaving them to the kill.
 terminate_service() {
+        trap - TERM HUP INT
         cleanup_background_jobs
+        kill -TERM -- -$$ 2>/dev/null
         exit 0
 }
 
@@ -647,4 +654,5 @@ fi
 
 ( set -o pipefail
         inotifywait -m -r --format="%e %w%f" -e close_write -e moved_to "$WATCH_FOLDER" | event_loop
-) || run_fallback
+) &
+wait $! || run_fallback

@@ -11,6 +11,12 @@ echo "[metadata-change-detector] Watching folder: $WATCH_FOLDER"
 # unprivileged abc user because they process attacker-influenced book metadata)
 install -d -o abc -g abc "$WATCH_FOLDER"
 
+# Bash runs a trap only once the foreground command returns, so the watchers below
+# run in the background behind `wait`, which a trapped signal interrupts at once.
+# s6 starts this script as its own process group: signalling the group stops the
+# watcher pipeline too, instead of orphaning it until the container is killed.
+trap 'trap - TERM HUP INT; kill -TERM -- -$$ 2>/dev/null; exit 0' TERM HUP INT
+
 # Monitor the folder for new files; on inotify errors, fall back to polling
 run_fallback() {
         echo "[metadata-change-detector] Falling back to polling watcher (inotify unavailable or out of watches)" >&2
@@ -22,7 +28,8 @@ run_fallback() {
                 filename=$(basename -- "$filepath")
                 echo "[metadata-change-detector] New file detected: $filename"
                 s6-setuidgid abc python3 /app/calibre-web-automated/scripts/cover_enforcer.py "--log" "$filename"
-        done
+        done &
+        wait $!
 }
 
 # Detect if running under Docker Desktop (Windows/macOS) and prefer polling
@@ -69,4 +76,5 @@ fi
                 echo "[metadata-change-detector] New file detected: $filename"
                 s6-setuidgid abc python3 /app/calibre-web-automated/scripts/cover_enforcer.py "--log" "$filename"
         done
-) || run_fallback
+) &
+wait $! || run_fallback

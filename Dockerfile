@@ -197,6 +197,18 @@ RUN \
 # ============================================================================
 FROM runtime-base
 
+# --link copies are independent layers: they don't get redone when an earlier layer changes
+COPY --link --from=calibre /app/calibre /app/calibre
+
+# Calibre's installer links its tools (calibredb, ebook-convert...) into /usr/bin and
+# adds shell completions. Done here, the calibre-binaries-setup service finds them and
+# skips it, rather than spending over a minute on it in every new container. It sits
+# above the ARGs because every RUN after an ARG is rebuilt when that value changes,
+# and BUILD_DATE changes on every build. Its desktop-menu step fails without a desktop
+# and only warns.
+RUN /app/calibre/calibre_postinstall > /dev/null && \
+  calibredb --version
+
 ARG BUILD_DATE
 ARG VERSION
 ARG CALIBRE_RELEASE
@@ -205,8 +217,6 @@ LABEL build_version="Version:- ${VERSION}" \
   build_date="${BUILD_DATE}" \
   maintainer="Bondyboy2001"
 
-# --link copies are independent layers: they don't get redone when an earlier layer changes
-COPY --link --from=calibre /app/calibre /app/calibre
 COPY --link --from=lsof /usr/bin/lsof /usr/bin/lsof
 # Python 3.13 itself comes from the deadsnakes package in runtime-base; /lsiopy's venv links to it
 COPY --link --from=python-deps /lsiopy /lsiopy
@@ -222,6 +232,9 @@ RUN \
   rm -R root/ && \
   # Makes required dirs, sets script permissions, adds CLI aliases, compiles translations
   bash scripts/setup-cwa.sh && \
+  # The install stays owned by the build-time abc, so when PUID differs abc can't
+  # write bytecode caches next to the code; compile them here instead
+  python3 -m compileall -q -j 0 cps scripts cps.py && \
   # Versions shown on the About/Admin pages and read by the init scripts
   echo "$VERSION" > /app/CWA_RELEASE && \
   echo "$CALIBRE_RELEASE" > /CALIBRE_RELEASE

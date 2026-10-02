@@ -36,6 +36,15 @@ done
 
 echo "[cwa-init] Environment verification complete"
 
+# chown -R rewrites every inode on every start: tens of thousands of library and
+# /config files, plus a copy of each image file into the container layer, which
+# took minutes on a NAS. Only entries not already owned by abc are changed.
+fix_owner() {
+  local uid gid
+  uid=$(id -u abc) && gid=$(id -g abc) || return 1
+  find "$1" \( ! -uid "$uid" -o ! -gid "$gid" \) -exec chown -h abc:abc {} +
+}
+
 # FROM lscio/docker-calibre-web - init-calibre-web-config.sh
 # create symlinks for imagemagick policy.xml
 echo "[cwa-init] Setting up ImageMagick policy..."
@@ -48,11 +57,10 @@ mkdir -p /app/calibre-web-automated/cps/cache
 # permissions (skip chown on network shares for bind mounts, but still fix /app)
 if [ "${NETWORK_SHARE_MODE,,}" = "true" ] || [ "${NETWORK_SHARE_MODE}" = "1" ] || [ "${NETWORK_SHARE_MODE,,}" = "yes" ] || [ "${NETWORK_SHARE_MODE,,}" = "on" ]; then
   echo "[cwa-init] NETWORK_SHARE_MODE=true detected; skipping initial chown of /config"
-  chown -R abc:abc /app/calibre-web-automated/cps/cache
+  fix_owner /app/calibre-web-automated/cps/cache
 else
-  chown -R abc:abc \
-    /config \
-    /app/calibre-web-automated/cps/cache
+  fix_owner /config
+  fix_owner /app/calibre-web-automated/cps/cache
 fi
 
 export CALIBRE_DBPATH=/config
@@ -91,10 +99,10 @@ if [ -n "$INGEST_DIR" ]; then
     if [ "$INGEST_DIR" = "/cwa-book-ingest" ]; then
       echo "[cwa-init] NETWORK_SHARE_MODE=true detected; skipping chown of $INGEST_DIR"
     else
-      chown -R abc:abc "$INGEST_DIR" 2>/dev/null || true
+      fix_owner "$INGEST_DIR" 2>/dev/null || true
     fi
   else
-    chown -R abc:abc "$INGEST_DIR" 2>/dev/null || true
+    fix_owner "$INGEST_DIR" 2>/dev/null || true
   fi
 fi
 
@@ -204,8 +212,12 @@ echo "[cwa-init] CWA-init complete! Service exiting now..."
 #  Set required permissions
 #------------------------------------------------------------------------------------------------------------------------
 
-# In addition to /config and /app/calibre-web-automated, parse required dirs from dirs.json
-declare -a requiredDirs=("/config" "/app/calibre-web-automated" "/calibre-library")
+# The app only writes to these folders of its own install; the rest of it is
+# read-only code, so it is left as built. Required dirs also come from dirs.json.
+declare -a requiredDirs=("/config" "/calibre-library"
+  "/app/calibre-web-automated/cps/cache"
+  "/app/calibre-web-automated/metadata_change_logs"
+  "/app/calibre-web-automated/metadata_temp")
 if [ -f /app/calibre-web-automated/dirs.json ]; then
   while IFS= read -r dir; do
     [ -n "$dir" ] && requiredDirs+=("$dir")
@@ -225,6 +237,18 @@ PY
   )
 fi
 
+# dirs.json repeats /calibre-library, and a folder inside one already listed
+# (/config/.cwa_conversion_tmp) needs no second pass
+declare -a uniqueDirs=()
+for d in "${requiredDirs[@]}"; do
+  covered=0
+  for u in "${uniqueDirs[@]}"; do
+    case "$d" in "$u"|"$u"/*) covered=1 ;; esac
+  done
+  [ "$covered" = 0 ] && uniqueDirs+=("$d")
+done
+requiredDirs=("${uniqueDirs[@]}")
+
 dirs=$(printf ", %s" "${requiredDirs[@]}")
 dirs=${dirs:1}
 
@@ -239,7 +263,8 @@ for d in "${requiredDirs[@]}"; do
         ;;
     esac
   fi
-  chown -R abc:abc "$d"
+  mkdir -p "$d"
+  fix_owner "$d"
   if [[ $? == 0 ]]; then
     echo "[cwa-init] Successfully set permissions for '$d'!"
   elif [[ $? > 0 ]]; then

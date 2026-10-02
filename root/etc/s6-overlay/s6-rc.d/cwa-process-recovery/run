@@ -106,6 +106,9 @@ reset_processing_status() {
     else
         echo "[cwa-process-recovery] No processing status file found, creating with idle status"
         echo "idle" > "$status_file"
+        # This runs as root after cwa-init has set ownership; the ingest service
+        # (abc) rewrites the file on every book
+        chown abc:abc "$status_file" 2>/dev/null || true
     fi
 }
 
