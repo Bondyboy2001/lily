@@ -246,3 +246,22 @@ class TestCWADBErrorHandling:
 if __name__ == '__main__':
     # Allow running directly
     pytest.main([__file__, '-v'])
+
+
+
+def test_rebuild_progress_is_one_row_until_cleared(temp_cwa_db):
+    assert temp_cwa_db.get_rebuild_progress() is None
+    temp_cwa_db.save_rebuild_progress(7, 3, 1, 0, 10)
+    temp_cwa_db.save_rebuild_progress(9, 5, 2, 1, 10)
+    assert temp_cwa_db.get_rebuild_progress() == {"next_book_id": 9, "checked": 5, "updated": 2,
+                                                  "covers": 1, "total": 10}
+    temp_cwa_db.clear_rebuild_progress()
+    assert temp_cwa_db.get_rebuild_progress() is None
+
+
+def test_cover_check_keeps_the_last_cover_weighed_per_book(temp_cwa_db):
+    assert temp_cwa_db.get_cover_check(4) is None
+    temp_cwa_db.save_cover_check(4, "https://covers.example/a.jpg", "10:1")
+    temp_cwa_db.save_cover_check(4, "https://covers.example/b.jpg", "12:2")
+    assert temp_cwa_db.get_cover_check(4) == ("https://covers.example/b.jpg", "12:2")
+    assert temp_cwa_db.get_cover_check(5) is None

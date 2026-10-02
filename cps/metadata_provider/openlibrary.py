@@ -78,25 +78,29 @@ class OpenLibrary(Metadata):
         self._add_descriptions([record])
         return [record]
 
+    def _request(self, path: str, params: Optional[Dict] = None) -> Dict:
+        for attempt in range(2):
+            response = requests.get(
+                self.BASE_URL + path, params=params, headers=self.HEADERS, timeout=15
+            )
+            # Busy (Rebuild metadata asks for several books at once): ask once more after a pause
+            if response.status_code != 429 or attempt:
+                break
+            time.sleep(2)
+        response.raise_for_status()
+        return response.json()
+
     def _get_json(self, path: str, params: Optional[Dict] = None) -> Optional[Dict]:
+        """A detail of a record already found (edition, description): None when it can't be had."""
         try:
-            for attempt in range(2):
-                response = requests.get(
-                    self.BASE_URL + path, params=params, headers=self.HEADERS, timeout=15
-                )
-                # Busy (Rebuild metadata asks for several books at once): ask once more after a pause
-                if response.status_code != 429 or attempt:
-                    break
-                time.sleep(2)
-            response.raise_for_status()
-            return response.json()
+            return self._request(path, params)
         except Exception as e:
             log.warning("Open Library request %s failed: %s", path, e)
             return None
 
     def _search_docs(self, params: Dict) -> List[Dict]:
-        data = self._get_json("/search.json", dict(params, fields=SEARCH_FIELDS))
-        return (data or {}).get("docs", [])
+        """The search itself: a failure is raised, not passed off as no results."""
+        return (self._request("/search.json", dict(params, fields=SEARCH_FIELDS)) or {}).get("docs", [])
 
     def _parse_doc(self, doc: Dict, generic_cover: str, locale: str) -> Optional[MetaRecord]:
         title = doc.get("title")
@@ -115,6 +119,7 @@ class OpenLibrary(Metadata):
                 id=self.__id__, description=self.__name__, link=self.BASE_URL + "/"
             ),
         )
+        match.subtitle = doc.get("subtitle") or ""
         match.cover = (
             self.COVER_URL.format(doc["cover_i"]) if doc.get("cover_i") else generic_cover
         )

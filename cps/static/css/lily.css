@@ -721,6 +721,7 @@ input[type="radio"] {
 }
 
 .modal-footer .btn + .btn { margin-left: 0; }
+.modal-footer > [hidden] { display: none; }  /* .btn's display would beat the attribute */
 .modal-footer::before,
 .modal-footer::after { display: none; }
 

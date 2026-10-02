@@ -111,6 +111,16 @@ def test_exact_title_beats_a_subtitled_one_when_both_hit_the_authorless_cap():
     assert score(_record(title)) > score(_record(title + ": A Survey"))
 
 
+def test_a_title_without_the_records_subtitle_still_scores_in_full():
+    # Google's and Open Library's titles carry the subtitle; an import accepts the book either way
+    from cps.search_metadata import _scorer
+    record = _record("Sapiens: A Brief History of Humankind", ["Yuval Noah Harari"])
+    record.subtitle = "A Brief History of Humankind"
+    for title in ("Sapiens", "Sapiens: A Brief History of Humankind"):
+        score = _scorer({"title": title, "authors": "Yuval Noah Harari"}, "")
+        assert score(record) == pytest.approx(1.0)
+
+
 def _file_ids_setup(monkeypatch, page, book=True):
     from types import SimpleNamespace
     from cps import metadata_helper

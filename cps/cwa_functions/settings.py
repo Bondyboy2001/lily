@@ -64,14 +64,15 @@ def set_cwa_settings():
 @admin_required
 def rebuild_metadata():
     """Start a lookup of every book with the metadata providers, a few at once. It runs on its
-    own thread, so covers and duplicate scans don't wait behind it."""
+    own thread, so covers and duplicate scans don't wait behind it. With `resume`, it carries on
+    where a stopped or interrupted rebuild got to."""
     from ..services.worker import WorkerThread
     from ..tasks.metadata_rebuild import TaskRebuildMetadata
     # Two requests at once (two tabs) start one rebuild
     with _rebuild_start_lock:
         if _running_rebuilds(including_stopping=True):
             return jsonify({"success": True, "running": True})
-        task = TaskRebuildMetadata()
+        task = TaskRebuildMetadata(resume=bool(request.form.get("resume")))
         WorkerThread.add_parallel(current_user.name, task)
     return jsonify({"success": True, "task_id": str(task.id)})
 
@@ -94,12 +95,20 @@ def stop_rebuild_metadata():
 def rebuild_metadata_status():
     """The latest rebuild, for the settings page's status line. `state` is idle (none since the
     server started), running, stopping (stopped, finishing the books under way), stopped, done
-    or failed."""
+    or failed. `resume` says how far an unfinished rebuild got, when the next can carry on."""
     from ..services.worker import WorkerThread, STAT_WAITING, STAT_STARTED, STAT_FAIL, STAT_FINISH_SUCCESS
+    from ..tasks.metadata_rebuild import saved_progress
     rebuilds = [task for __, __, __, task, __ in WorkerThread.get_instance().tasks
                 if type(task).__name__ == "TaskRebuildMetadata"]
+    resume = ""
+    if not _running_rebuilds(including_stopping=True):
+        progress = saved_progress()
+        if progress:
+            resume = _("The last rebuild stopped after %(checked)s of %(total)s books.",
+                       checked=progress["checked"], total=progress["total"])
     if not rebuilds:
-        return jsonify({"state": "idle", "message": ""})
+        # None since the server started: one cut short by the restart shows as stopped
+        return jsonify({"state": "idle", "message": resume, "resume": resume})
     task = rebuilds[-1]
     message = str(task.message)
     if task.stat == STAT_WAITING:
@@ -114,7 +123,7 @@ def rebuild_metadata_status():
         state = "stopped"
     else:
         state, message = "stopping", _("Stopping after the books under way…")
-    return jsonify({"state": state, "message": message})
+    return jsonify({"state": state, "message": message, "resume": resume})
 
 
 def _running_rebuilds(including_stopping=False):

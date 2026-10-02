@@ -92,7 +92,7 @@ def test_rebuild_tidies_every_books_tags_before_the_lookups(env, monkeypatch):
     second = env.add_book("Logic", tags=['"functional analysis', "Springer 2011", "Mathematics"])
     seen = []
     monkeypatch.setattr(metadata_helper, "fetch_and_apply_metadata",
-                        lambda book_id, force=False: seen.append(_tags(env)[0][book_id]) or False)
+                        lambda book_id, force=False, unanswered=None: seen.append(_tags(env)[0][book_id]) or False)
     monkeypatch.setattr("cps.duplicate_index.mark_duplicate_index_pending", lambda reason=None: None)
 
     with env.app.test_request_context():

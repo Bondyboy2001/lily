@@ -43,11 +43,15 @@
     <div class="modal-content">
       <div class="modal-header"><h4 class="modal-title" id="rebuildMetadataTitle">{{ _('Rebuild Metadata?') }}</h4></div>
       <div class="modal-body">
+        {# Filled in by lily-metadata-rebuild.js when a stopped rebuild can be carried on #}
+        <p id="rebuildMetadataResume" hidden></p>
         <p id="rebuildMetadataText">{{ _('Removes tags that aren’t subjects, then looks up every book again. A book’s details are replaced only on an exact match; the rest keep theirs. PDF covers are centred on the printed page. This can take a while.') }}</p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-default" data-dismiss="modal">{{ _('Cancel') }}</button>
-        <button type="button" class="btn btn-danger" id="rebuild_metadata_confirm">{{ _('Rebuild') }}</button>
+        <button type="button" class="btn btn-default" id="rebuild_metadata_restart" hidden>{{ _('Start again') }}</button>
+        <button type="button" class="btn btn-danger" id="rebuild_metadata_confirm"
+                data-label="{{ _('Rebuild') }}" data-continue-label="{{ _('Continue') }}">{{ _('Rebuild') }}</button>
       </div>
     </div>
   </div>

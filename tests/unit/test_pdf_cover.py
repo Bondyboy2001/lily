@@ -97,7 +97,7 @@ def test_rebuild_centres_pdf_covers_after_the_lookup(env, monkeypatch):
     before = dict(con.execute("SELECT id, last_modified FROM books"))
     order, refreshed = [], []
     monkeypatch.setattr(metadata_helper, "fetch_and_apply_metadata",
-                        lambda book_id, force=False: order.append(("lookup", book_id)) or False)
+                        lambda book_id, force=False, unanswered=None: order.append(("lookup", book_id)) or False)
     monkeypatch.setattr(pdf_cover, "available", lambda: True)
 
     def fake_recentre(pdf_path, cover_path):

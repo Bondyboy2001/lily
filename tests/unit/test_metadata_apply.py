@@ -310,3 +310,15 @@ def test_a_library_author_kept_with_a_bar_matches_the_providers(env, monkeypatch
     helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice."))
     assert helper.fetch_and_apply_metadata(book) is True
     assert _q(env, "SELECT text FROM comments") == [("Spice.",)]
+
+
+@pytest.mark.parametrize("title, becomes", [
+    ("sapiens", "Sapiens"),
+    ("sapiens a brief history of humankind", "Sapiens: A Brief History of Humankind"),
+])
+def test_a_book_keeps_going_by_its_title_with_or_without_the_subtitle(env, monkeypatch, title, becomes):
+    book = env.add_book(title, author="Yuval Noah Harari")
+    helper = _setup(monkeypatch, _record(title="Sapiens: A Brief History of Humankind",
+                                         subtitle="A Brief History of Humankind", authors=["Yuval Noah Harari"]))
+    _applies_once(env, helper, book)
+    assert _q(env, "SELECT title FROM books") == [(becomes,)]

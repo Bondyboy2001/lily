@@ -15,7 +15,7 @@ import requests
 
 from cps import config, constants, logger
 from cps.isoLanguages import get_language_name
-from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata
+from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata, ProviderError
 
 log = logger.create()
 
@@ -100,8 +100,8 @@ class Hardcover(Metadata):
         return val
 
     def _query(self, gql: str, variable) -> Optional[Dict]:
-        """Runs a GraphQL query. None on any failure, and without a token (Hardcover
-        is off until HARDCOVER_TOKEN is set), quietly: a library rebuild asks once a book."""
+        """Runs a GraphQL query. None without a token (Hardcover is off until HARDCOVER_TOKEN
+        is set), quietly: a library rebuild asks once a book. A failed request is raised."""
         token = getattr(config, "config_hardcover_token", None) or getenv("HARDCOVER_TOKEN")
         if not token:
             log.debug("Hardcover skipped: no HARDCOVER_TOKEN")
@@ -117,21 +117,13 @@ class Hardcover(Metadata):
             )
             resp.raise_for_status()
             response_data = resp.json()
-        except requests.exceptions.RequestException as e:
-            log.warning(f"HTTP request failed: {e}")
-            return None
-        except ValueError as e:
-            log.warning(f"JSON parsing failed: {e}")
-            return None
         except Exception as e:
-            log.warning(f"Unexpected error: {e}")
-            return None
+            # The token travels in a header, so the error's text is safe to pass on
+            raise ProviderError(f"Hardcover request failed: {e}") from None
         if "errors" in response_data:
-            log.error(f"GraphQL errors: {response_data['errors']}")
-            return None
+            raise ProviderError(f"Hardcover answered with errors: {response_data['errors']}")
         if "data" not in response_data:
-            log.warning("Invalid response structure: missing 'data' field")
-            return None
+            raise ProviderError("Hardcover's answer has no data")
         return response_data
 
     def _parse_title_result(

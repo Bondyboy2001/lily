@@ -28,6 +28,16 @@ def normalise_title(text: str) -> str:
     return " ".join(re.sub(r"[^\w\s]|_", " ", text).split())
 
 
+def title_forms(record) -> list[str]:
+    """The titles a provider's record goes by: in full and, when it has a subtitle, without it.
+    "Sapiens: A Brief History of Humankind" is also "Sapiens"; a book called either is that book."""
+    title = getattr(record, "title", "") or ""
+    subtitle = getattr(record, "subtitle", "") or ""
+    if subtitle and title.endswith(": " + subtitle):
+        return [title, title[:-len(subtitle) - 2]]
+    return [title]
+
+
 def _tokens(text: str) -> set[str]:
     return {t for t in _WORD.findall(normalise_title(text)) if t not in _STOPWORDS}
 

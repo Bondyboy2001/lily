@@ -27,7 +27,7 @@ def test_rebuild_task_looks_up_every_book(env, monkeypatch):
     ids = [env.add_book(t) for t in ("One", "Two", "Three")]
     calls = []
 
-    def fake_fetch(book_id, force=False):
+    def fake_fetch(book_id, force=False, unanswered=None):
         calls.append((book_id, force))
         return book_id == ids[1]
     monkeypatch.setattr(metadata_helper, "fetch_and_apply_metadata", fake_fetch)
@@ -52,7 +52,7 @@ def test_rebuild_looks_several_books_up_at_once(env, monkeypatch):
     # Each lookup waits for a second one to be under way, which a book-by-book rebuild never has
     overlap = threading.Barrier(2, timeout=5)
 
-    def fake_fetch(book_id, force=False):
+    def fake_fetch(book_id, force=False, unanswered=None):
         overlap.wait()
         return False
     monkeypatch.setattr(metadata_helper, "fetch_and_apply_metadata", fake_fetch)
@@ -79,7 +79,7 @@ def test_rebuild_route_queues_one_task_for_admins(env, monkeypatch):
     assert len(queued) == 1
 
     status = "/cwa-settings/rebuild-metadata/status"
-    assert c.get(status).get_json() == {"state": "running", "message": "Waiting to start…"}
+    assert c.get(status).get_json() == {"state": "running", "message": "Waiting to start…", "resume": ""}
 
     from cps.services.worker import STAT_CANCELLED
     assert c.post("/cwa-settings/rebuild-metadata/stop").get_json() == {"success": True, "stopped": 1}
@@ -122,6 +122,8 @@ def test_settings_page_offers_the_rebuild(env):
     assert 'id="rebuild_metadata"' in html and 'data-url="/cwa-settings/rebuild-metadata"' in html
     assert 'id="rebuildMetadataModal"' in html and "js/lily-metadata-rebuild.js" in html
     assert 'data-status-url="/cwa-settings/rebuild-metadata/status"' in html
+    # The dialog can offer to carry on a stopped rebuild or start again
+    assert 'id="rebuild_metadata_restart" hidden' in html and 'data-continue-label="Continue"' in html
 
 
 @pytest.mark.unit
@@ -131,18 +133,20 @@ def test_status_tells_how_the_last_rebuild_ended(env, monkeypatch):
     c = _login(env)
     status = "/cwa-settings/rebuild-metadata/status"
     monkeypatch.setattr(WorkerThread, "tasks", property(lambda self: []))
-    assert c.get(status).get_json() == {"state": "idle", "message": ""}
+    assert c.get(status).get_json() == {"state": "idle", "message": "", "resume": ""}
 
     env.add_book("One")
-    monkeypatch.setattr("cps.metadata_helper.fetch_and_apply_metadata", lambda book_id, force=False: False)
+    monkeypatch.setattr("cps.metadata_helper.fetch_and_apply_metadata", lambda book_id, force=False, unanswered=None: False)
     task = TaskRebuildMetadata(workers=1)
     monkeypatch.setattr(WorkerThread, "tasks", property(lambda self: [(1, "admin", None, task, False)]))
     with env.app.test_request_context():
         task.start(None)
-    assert c.get(status).get_json() == {"state": "done", "message": "Done: 1 books checked, 0 updated"}
+    assert c.get(status).get_json() == {"state": "done", "message": "Done: 1 books checked, 0 updated",
+                                        "resume": ""}
 
     task._handleError("disk full")
-    assert c.get(status).get_json() == {"state": "failed", "message": "The rebuild failed: disk full"}
+    assert c.get(status).get_json() == {"state": "failed", "message": "The rebuild failed: disk full",
+                                        "resume": ""}
     env.add_user("reader", password="pw")
     assert _login(env, "reader", "pw").get(status).status_code in (302, 403)
 
@@ -224,7 +228,7 @@ def test_stop_finishes_the_books_under_way_and_reports_it(env, monkeypatch):
         env.add_book(title)
     started, release = threading.Event(), threading.Event()
 
-    def fake_fetch(book_id, force=False):
+    def fake_fetch(book_id, force=False, unanswered=None):
         started.set()
         release.wait(5)
         return False
@@ -252,7 +256,7 @@ def test_one_book_failing_does_not_end_the_run(env, monkeypatch):
     from cps.tasks.metadata_rebuild import TaskRebuildMetadata
     ids = [env.add_book(t) for t in ("One", "Two", "Three")]
 
-    def fake_fetch(book_id, force=False):
+    def fake_fetch(book_id, force=False, unanswered=None):
         if book_id == ids[0]:
             raise RuntimeError("disk full")
         return True
@@ -264,3 +268,79 @@ def test_one_book_failing_does_not_end_the_run(env, monkeypatch):
         task.start(None)
     assert task.stat == STAT_FINISH_SUCCESS, task.error
     assert (task.checked, task.updated) == (3, 2)
+
+
+def _run_rebuild(env, monkeypatch, stop_after=None, fail=None, **options):
+    """Runs a rebuild with a stand-in lookup; returns (task, the book ids looked up). With
+    stop_after, Stop is pressed while that book is being looked up."""
+    from cps import metadata_helper
+    from cps.services.worker import STAT_ENDED
+    from cps.tasks.metadata_rebuild import TaskRebuildMetadata
+    task = TaskRebuildMetadata(workers=1, **options)
+    looked_up = []
+
+    def fake_fetch(book_id, force=False, unanswered=None):
+        looked_up.append(book_id)
+        if book_id == stop_after:
+            task.stat = STAT_ENDED
+        if fail and book_id in fail:
+            unanswered.update(fail[book_id])
+        return True
+    monkeypatch.setattr(metadata_helper, "fetch_and_apply_metadata", fake_fetch)
+    monkeypatch.setattr("cps.duplicate_index.mark_duplicate_index_pending", lambda reason=None: None)
+    with env.app.test_request_context():
+        task.start(None)
+        task.message = str(task.message)
+    return task, looked_up
+
+
+@pytest.mark.unit
+def test_a_stopped_rebuild_is_carried_on_from_where_it_got_to(env, monkeypatch):
+    from cps.tasks.metadata_rebuild import saved_progress
+    ids = [env.add_book(t) for t in ("One", "Two", "Three", "Four")]
+    task, looked_up = _run_rebuild(env, monkeypatch, stop_after=ids[1])
+    assert looked_up == ids[:2] and task.message == "Stopped: 2 of 4 books checked, 2 updated"
+    assert saved_progress() == {"next_book_id": ids[2], "checked": 2, "updated": 2, "covers": 0, "total": 4}
+
+    status = _login(env).get("/cwa-settings/rebuild-metadata/status").get_json()
+    assert status == {"state": "idle", "message": "The last rebuild stopped after 2 of 4 books.",
+                      "resume": "The last rebuild stopped after 2 of 4 books."}
+
+    # A book imported meanwhile is checked too; the counts go on from the first run's
+    ids.append(env.add_book("Five"))
+    task, looked_up = _run_rebuild(env, monkeypatch, resume=True)
+    assert looked_up == ids[2:] and task.message == "Done: 5 books checked, 5 updated"
+    assert saved_progress() is None
+
+
+@pytest.mark.unit
+def test_start_again_ignores_the_saved_progress(env, monkeypatch):
+    from cps.tasks.metadata_rebuild import saved_progress
+    ids = [env.add_book(t) for t in ("One", "Two", "Three")]
+    _run_rebuild(env, monkeypatch, stop_after=ids[0])
+    assert saved_progress()["next_book_id"] == ids[1]
+    task, looked_up = _run_rebuild(env, monkeypatch)
+    assert looked_up == ids and task.message == "Done: 3 books checked, 3 updated"
+    assert saved_progress() is None
+    # Nothing to carry on: Continue is a full run
+    assert _run_rebuild(env, monkeypatch, resume=True)[1] == ids
+
+
+@pytest.mark.unit
+def test_the_start_route_passes_on_continue(env, monkeypatch):
+    from cps.services.worker import WorkerThread
+    queued = []
+    monkeypatch.setattr(WorkerThread, "add_parallel", classmethod(lambda cls, user, task: queued.append(task)))
+    monkeypatch.setattr(WorkerThread, "tasks", property(lambda self: []))
+    c = _login(env)
+    c.post("/cwa-settings/rebuild-metadata", data={"resume": "1"})
+    c.post("/cwa-settings/rebuild-metadata")
+    assert [task.resume for task in queued] == [True, False]
+
+
+@pytest.mark.unit
+def test_the_status_line_names_providers_that_did_not_answer(env, monkeypatch):
+    ids = [env.add_book(t) for t in ("One", "Two", "Three")]
+    task, __ = _run_rebuild(env, monkeypatch, fail={ids[0]: {"Google"}, ids[2]: {"Google", "Open Library"}})
+    assert task.unanswered == {"Google": 2, "Open Library": 1}
+    assert task.message == "Done: 3 books checked, 3 updated. No answer from Google (2), Open Library (1)"

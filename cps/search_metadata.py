@@ -114,16 +114,20 @@ def _scorer(form, query=""):
     ties, since an author-less score is capped."""
     if '/app/calibre-web-automated/scripts/' not in sys.path:
         sys.path.insert(1, '/app/calibre-web-automated/scripts/')
-    from metadata_suggestions import match_score, title_similarity
+    from metadata_suggestions import match_score, title_forms, title_similarity
     title = form.get("title") or ""
     authors = [a.strip() for a in (form.get("authors") or "").split("&") if a.strip()]
 
     def score(record):
-        rec_title, rec_authors = record.title or "", record.authors or []
-        best = match_score(title, authors, rec_title, rec_authors)
-        if query:
-            best = max(best, match_score(query, authors, rec_title, rec_authors))
-        return 0.99 * best + 0.01 * title_similarity(query or title, rec_title)
+        rec_authors = record.authors or []
+        # With or without its subtitle, whichever is closer: an import accepts either
+        best, close = 0.0, 0.0
+        for rec_title in title_forms(record):
+            best = max(best, match_score(title, authors, rec_title, rec_authors))
+            if query:
+                best = max(best, match_score(query, authors, rec_title, rec_authors))
+            close = max(close, title_similarity(query or title, rec_title))
+        return 0.99 * best + 0.01 * close
     return score
 
 

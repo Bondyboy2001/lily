@@ -14,7 +14,7 @@ import requests
 
 from cps import config, logger
 from cps.isoLanguages import get_lang3, get_language_name
-from cps.services.Metadata import CoolOff, MetaRecord, MetaSourceInfo, Metadata
+from cps.services.Metadata import CoolOff, MetaRecord, MetaSourceInfo, Metadata, ProviderBusy, ProviderError
 
 log = logger.create()
 
@@ -28,6 +28,8 @@ class Google(Metadata):
     BOOK_URL = "https://books.google.com/books?id="
     SEARCH_URL = "https://www.googleapis.com/books/v1/volumes"
     ISBN_TYPE = "ISBN_13"
+    # _parse_cover asks for a cover within 800x900: a book whose own is larger keeps it unseen
+    COVER_MAX_PIXELS = 800 * 900
 
     def __init__(self):
         # Set when Google answers 429: without a key the shared quota is soon used up
@@ -59,19 +61,19 @@ class Google(Metadata):
         key = self._api_key()
         if key:
             params["key"] = key
+        hint = "" if key else "; set a Google Books API key to avoid the shared quota"
         if self._busy.active():
-            return []
+            raise ProviderBusy("Google Books is out of quota" + hint)
         try:
             results = requests.get(Google.SEARCH_URL, params=params, timeout=15)
             results.raise_for_status()
         except Exception as e:
-            # Don't log the URL: it carries the API key
             status = getattr(getattr(e, "response", None), "status_code", None)
             if status == 429:
                 self._busy.start(e.response)
-            log.warning("Google Books search failed%s%s", f" ({status})" if status else "",
-                        "" if key else "; set a Google Books API key to avoid the shared quota")
-            return []
+            # Not the error itself: its text has the URL, which carries the API key
+            raise ProviderError("Google Books search failed{}{}".format(
+                f" ({status})" if status else "", hint)) from None
         val = []
         for result in results.json().get("items", []):
             mr = self._parse_search_result(result=result, generic_cover=generic_cover, locale=locale)
@@ -86,9 +88,11 @@ class Google(Metadata):
         if "title" not in volume_info:
             return None
 
+        # Google keeps the subtitle apart; the title in full is what a book is usually called
+        subtitle = (volume_info.get("subtitle") or "").strip()
         match = MetaRecord(
             id=result["id"],
-            title=volume_info["title"],
+            title="{}: {}".format(volume_info["title"], subtitle) if subtitle else volume_info["title"],
             authors=volume_info.get("authors", []),
             url=Google.BOOK_URL + result["id"],
             source=MetaSourceInfo(
@@ -98,6 +102,7 @@ class Google(Metadata):
             ),
         )
 
+        match.subtitle = subtitle
         match.cover = self._parse_cover(result=result, generic_cover=generic_cover)
         match.description = volume_info.get("description", "")
         match.languages = self._parse_languages(result=result, locale=locale)

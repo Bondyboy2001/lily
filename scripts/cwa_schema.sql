@@ -222,3 +222,20 @@ CREATE INDEX IF NOT EXISTS idx_cwa_operation_jobs_kind_state
     ON cwa_operation_jobs(kind, state);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_cwa_operation_jobs_one_running
     ON cwa_operation_jobs(kind) WHERE state='running' AND kind='refresh';
+
+-- Rebuild metadata, how far a run got (one row while a run is unfinished) so the next can carry on
+CREATE TABLE IF NOT EXISTS metadata_rebuild_progress(
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    next_book_id INTEGER NOT NULL,  -- every book below this id has been checked
+    checked INTEGER NOT NULL,
+    updated INTEGER NOT NULL,
+    covers INTEGER NOT NULL,
+    total INTEGER NOT NULL
+);
+
+-- The provider cover last weighed against each book's own, so a later lookup need not download it again to compare
+CREATE TABLE IF NOT EXISTS metadata_cover_checks(
+    book_id INTEGER PRIMARY KEY,
+    url TEXT NOT NULL,
+    cover TEXT NOT NULL  -- the book's cover.jpg once weighed, as "size:mtime"
+);

@@ -2,7 +2,8 @@
  * Import & Metadata → Rebuild metadata (templates/cwa_settings.html): confirm, start the
  * rebuild, then show its progress in a help line under the label until it finishes, with Stop
  * beside it meanwhile. A stopped rebuild is followed until the books under way are done.
- * Opening the page while a rebuild runs picks it up again.
+ * Opening the page while a rebuild runs picks it up again. After a rebuild that was stopped
+ * or cut short, the dialog offers to continue from there or start again.
  */
 (function () {
   "use strict";
@@ -10,6 +11,11 @@
   var btn = document.getElementById("rebuild_metadata");
   if (!btn) { return; }
   var stopBtn = document.getElementById("rebuild_metadata_stop");
+  var confirmBtn = document.getElementById("rebuild_metadata_confirm");
+  var restartBtn = document.getElementById("rebuild_metadata_restart");
+  var resumeText = document.getElementById("rebuildMetadataResume");
+  // How far an unfinished rebuild got, in words; empty when there is none to continue
+  var resume = "";
   var glyph = btn.querySelector(".glyphicon");
   var timer = null;
   // The row has no help text of its own: the line appears once there is progress to show
@@ -29,8 +35,9 @@
     return { "X-CSRFToken": token ? token.value : "", Accept: "application/json" };
   }
 
-  function post(url) {
-    return fetch(url, { method: "POST", credentials: "same-origin", headers: csrfHeaders() })
+  function post(url, data) {
+    return fetch(url, { method: "POST", credentials: "same-origin", headers: csrfHeaders(),
+                        body: data ? new URLSearchParams(data) : undefined })
       .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.json(); });
   }
 
@@ -52,6 +59,7 @@
     busy(active);
     stopBtn.disabled = status.state === "stopping";
     say(status.message);
+    resume = status.resume || "";
     if (active) {
       follow();
     } else {
@@ -67,10 +75,11 @@
       .catch(function () { /* the next tick tries again */ });
   }
 
-  function start() {
+  function start(continuing) {
+    $("#rebuildMetadataModal").modal("hide");
     busy(true);
     say("Waiting to start…");
-    post(btn.dataset.url)
+    post(btn.dataset.url, continuing ? { resume: "1" } : null)
       .then(function () { follow(); poll(); })
       .catch(function () {
         busy(false);
@@ -78,11 +87,15 @@
       });
   }
 
-  btn.addEventListener("click", function () { $("#rebuildMetadataModal").modal("show"); });
-  document.getElementById("rebuild_metadata_confirm").addEventListener("click", function () {
-    $("#rebuildMetadataModal").modal("hide");
-    start();
+  btn.addEventListener("click", function () {
+    resumeText.textContent = resume;
+    resumeText.hidden = !resume;
+    restartBtn.hidden = !resume;
+    confirmBtn.textContent = resume ? confirmBtn.dataset.continueLabel : confirmBtn.dataset.label;
+    $("#rebuildMetadataModal").modal("show");
   });
+  confirmBtn.addEventListener("click", function () { start(Boolean(resume)); });
+  restartBtn.addEventListener("click", function () { start(false); });
   stopBtn.addEventListener("click", function () {
     stopBtn.disabled = true;
     post(stopBtn.dataset.url).then(poll).catch(function () { stopBtn.disabled = false; });

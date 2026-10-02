@@ -1,11 +1,12 @@
-"""How lookups treat the providers: a busy one is left alone for a while, and Open Library is
-asked for a description only for the record that is applied."""
+"""How lookups treat the providers: a busy one is left alone for a while, a failed search is
+raised rather than passed off as no results, Open Library is asked for a description only for
+the record that is applied, and a subtitle is part of the title."""
 from types import SimpleNamespace
 
 import pytest
 import requests
 
-from cps.services.Metadata import CoolOff
+from cps.services.Metadata import CoolOff, ProviderBusy, ProviderError
 
 pytestmark = pytest.mark.unit
 
@@ -51,15 +52,33 @@ def test_google_out_of_quota_is_not_asked_again_at_once(monkeypatch):
         asked.append(kw["params"]["q"])
         return _Response(429)
     monkeypatch.setattr(module.requests, "get", get)
+    monkeypatch.setattr(module.Google, "_api_key", staticmethod(lambda: "secret-key"))
     google = module.Google()
-    assert google.search("Dune Frank Herbert") == []
-    assert google.search_identifiers({"isbn": "9780441172719"}) == []
+    # A failure, not "no results": the edit page says the search failed, a rebuild who didn't answer
+    with pytest.raises(ProviderError) as failed:
+        google.search("Dune Frank Herbert")
+    assert "429" in str(failed.value) and "secret-key" not in str(failed.value)
+    with pytest.raises(ProviderBusy):
+        google.search_identifiers({"isbn": "9780441172719"})
     assert asked == ["Dune Frank Herbert"]
     # Another failure is not a quota: the next search asks again
     other = module.Google()
     monkeypatch.setattr(module.requests, "get", lambda url, **kw: asked.append("again") or _Response(500))
-    assert other.search("Dune") == [] and other.search("Dune") == []
+    for _attempt in range(2):
+        with pytest.raises(ProviderError):
+            other.search("Dune")
     assert asked[1:] == ["again", "again"]
+
+
+def test_google_gives_the_title_in_full(monkeypatch):
+    from cps.metadata_provider import google as module
+    items = [{"id": "a1", "volumeInfo": {"title": "Sapiens", "subtitle": "A Brief History of Humankind"}},
+             {"id": "b2", "volumeInfo": {"title": "Dune"}}]
+    monkeypatch.setattr(module.requests, "get", lambda url, **kw: _Response(payload={"items": items}))
+    sapiens, dune = module.Google().search("anything")
+    assert (sapiens.title, sapiens.subtitle) == ("Sapiens: A Brief History of Humankind",
+                                                 "A Brief History of Humankind")
+    assert (dune.title, dune.subtitle) == ("Dune", "")
 
 
 def _open_library(monkeypatch):
@@ -105,3 +124,55 @@ def test_a_provider_without_the_lighter_search_is_searched_as_before(monkeypatch
                                search=lambda q, *a: [record])
     monkeypatch.setattr(metadata_helper, "metadata_providers", [provider])
     assert metadata_helper._find_record("Dune", ["Frank Herbert"], {}, "") is record
+
+
+def test_a_failed_open_library_search_is_raised_but_a_missing_description_is_not(monkeypatch):
+    from cps.metadata_provider import openlibrary as module
+    monkeypatch.setattr(module.time, "sleep", lambda s: None)
+    monkeypatch.setattr(module.requests, "get", lambda url, **kw: _Response(503))
+    with pytest.raises(requests.HTTPError):
+        module.OpenLibrary().search("Dune")
+
+    def get(url, **kw):
+        if url.endswith("/search.json"):
+            return _Response(payload={"docs": [{"key": "/works/OL1W", "title": "Dune"}]})
+        return _Response(503)
+    monkeypatch.setattr(module.requests, "get", get)
+    assert [(r.title, r.description) for r in module.OpenLibrary().search("Dune")] == [("Dune", "")]
+
+
+def test_hardcover_without_a_token_is_skipped_and_a_failure_is_raised(monkeypatch):
+    from cps.metadata_provider import hardcover as module
+    monkeypatch.delenv("HARDCOVER_TOKEN", raising=False)
+    monkeypatch.setattr(module, "config", SimpleNamespace(config_hardcover_token=None))
+    assert module.Hardcover().search("Dune") == []
+    monkeypatch.setenv("HARDCOVER_TOKEN", "t0ken")
+
+    def down(url, **kw):
+        raise requests.ConnectionError("down")
+    monkeypatch.setattr(module.requests, "post", down)
+    with pytest.raises(ProviderError):
+        module.Hardcover().search("Dune")
+
+
+def test_a_lookup_names_the_providers_that_did_not_answer(monkeypatch):
+    from cps import metadata_helper
+
+    def failing(error):
+        def search(*a):
+            raise error
+        return search
+    record = SimpleNamespace(title="Dune", authors=["Frank Herbert"])
+    providers = [
+        SimpleNamespace(__id__="google", __name__="Google", identifier_types=frozenset({"isbn"}),
+                        search_identifiers=failing(ProviderBusy("out of quota")),
+                        search=failing(ProviderBusy("out of quota"))),
+        SimpleNamespace(__id__="openlibrary", __name__="Open Library", identifier_types=frozenset(),
+                        search=failing(requests.Timeout())),
+        SimpleNamespace(__id__="x", __name__="Other", identifier_types=frozenset(), search=lambda q, *a: [record]),
+    ]
+    monkeypatch.setattr(metadata_helper, "metadata_providers", providers)
+    unanswered = set()
+    found = metadata_helper._find_record("Dune", ["Frank Herbert"], {"isbn": "9780441172719"}, "", unanswered)
+    # The book is still looked up with those that do answer
+    assert found is record and unanswered == {"Google", "Open Library"}

@@ -88,3 +88,19 @@ def test_no_results():
 def test_an_author_is_the_same_surname_first_or_last(book_author, found_author):
     result = record("The Dispossessed", [found_author])
     assert best_metadata_match("The Dispossessed", [book_author], [result]) is result
+
+
+SAPIENS = SimpleNamespace(title="Sapiens: A Brief History of Humankind", subtitle="A Brief History of Humankind",
+                          authors=["Yuval Noah Harari"])
+
+
+@pytest.mark.parametrize("title, applied", [
+    ("sapiens", "Sapiens"),                                  # the book goes by the title alone
+    ("Sapiens - a brief history of humankind", "Sapiens: A Brief History of Humankind"),
+    ("Sapiens: A Graphic History", None),                    # another subtitle is another book
+    ("A Brief History of Humankind", None),
+])
+def test_a_record_with_a_subtitle_matches_with_or_without_it(title, applied):
+    from cps.metadata_helper import matched_title
+    assert matched_title(title, SAPIENS) == applied
+    assert (best_metadata_match(title, ["Yuval Noah Harari"], [SAPIENS]) is SAPIENS) is (applied is not None)

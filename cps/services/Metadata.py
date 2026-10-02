@@ -25,6 +25,8 @@ class MetaSourceInfo:
 @dataclasses.dataclass
 class MetaRecord:
     id: Union[str, int]
+    # In full, "Title: Subtitle" when the provider knows a subtitle (kept below too, so a
+    # book known by the title alone still matches: metadata_suggestions.title_forms)
     title: str
     authors: List[str]
     url: str
@@ -40,6 +42,17 @@ class MetaRecord:
     languages: Optional[List[str]] = dataclasses.field(default_factory=list)
     tags: Optional[List[str]] = dataclasses.field(default_factory=list)
     format: Optional[str] = None
+    subtitle: Optional[str] = None
+
+
+class ProviderError(Exception):
+    """A provider could not be reached or did not answer properly. Raised rather than returned
+    as no results, so a search shows as failed and a rebuild can say who didn't answer. The
+    message is safe to log: no keys or request URLs."""
+
+
+class ProviderBusy(ProviderError):
+    """Not asked at all: the provider answered 429 a moment ago (CoolOff)."""
 
 
 class CoolOff:

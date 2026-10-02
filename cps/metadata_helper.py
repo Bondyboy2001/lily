@@ -23,12 +23,13 @@ from cps import logger, db, constants, helper
 from cps.clean_html import clean_string
 from cps.helper import get_sorted_author
 from cps.search_metadata import cl as metadata_providers
+from cps.services.Metadata import ProviderBusy
 from cps.services.identifiers import (ARXIV_ID, DOI_RE, arxiv_id_from_doi, normalise_identifiers,
                                       parse_identifier)
 from cps.tag_cleanup import clean_tags
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB  # noqa: E402
-from metadata_suggestions import normalise_title, surname  # noqa: E402
+from metadata_suggestions import normalise_title, surname, title_forms  # noqa: E402
 
 log = logger.create()
 
@@ -59,16 +60,23 @@ def titles_match(a: str, b: str) -> bool:
     return bool(a) and a == _normalise(b)
 
 
+def matched_title(title: str, record):
+    """The record's title as this book has it, in the provider's spelling: in full or, for a
+    record with a subtitle, without it. None when the book's title is neither."""
+    return next((form for form in title_forms(record) if titles_match(title, form)), None)
+
+
 def best_metadata_match(title: str, authors, results):
     """Return the result that is exactly this book, or None.
 
-    The title must match exactly (see titles_match) and, when both sides list authors, they
-    must share a surname. A result naming the authors wins over one that names none.
+    The title must match exactly (see titles_match), with or without the result's subtitle,
+    and, when both sides list authors, they must share a surname. A result naming the
+    authors wins over one that names none.
     """
     book_surnames = _surnames(authors)
     title_only = None
     for result in results or []:
-        if not titles_match(title, getattr(result, 'title', '')):
+        if matched_title(title, result) is None:
             continue
         result_surnames = _surnames(getattr(result, 'authors', None))
         if book_surnames and result_surnames:
@@ -210,19 +218,65 @@ def _download_cover(url: str, folder: str):
     return path
 
 
+def _cover_path(book):
+    """The book's cover.jpg, or None when it has no cover."""
+    from cps import config
+    path = os.path.join(config.get_book_path(), book.path, 'cover.jpg')
+    return path if book.has_cover and os.path.isfile(path) else None
+
+
 def _cover_wins(book, new_cover: str) -> bool:
     """A provider's cover replaces the book's only when the book has none or it is
     larger: a provider's cover is often a small thumbnail, worse than the one the file
     came with. Any doubt keeps the current cover."""
-    from cps import config
-    current = os.path.join(config.get_book_path(), book.path, 'cover.jpg')
-    if not book.has_cover or not os.path.isfile(current):
+    current = _cover_path(book)
+    if current is None:
         return True
     new_area, old_area = _image_area(new_cover), _image_area(current)
     return bool(new_area and old_area and new_area > old_area)
 
 
-def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
+def _cover_state(path) -> str:
+    """A cover file as "size:mtime", which changes whenever the file does; '' for none."""
+    try:
+        stat = os.stat(path)
+    except (OSError, TypeError):
+        return ''
+    return f"{stat.st_size}:{stat.st_mtime_ns}"
+
+
+def _largest_cover(record) -> int:
+    """The most pixels the record's cover can have, when its provider says (0 when not)."""
+    source = getattr(getattr(record, 'source', None), 'id', None)
+    provider = next((p for p in metadata_providers if source and getattr(p, '__id__', None) == source), None)
+    return getattr(provider, 'COVER_MAX_PIXELS', 0)
+
+
+def _cover_worth_fetching(store, book_id, record, current) -> bool:
+    """Whether to download the record's cover to weigh it against the book's (see _cover_wins).
+    Not when it can't be larger, or when this very cover was already weighed against the
+    one the book still has: a rebuild would download every matched book's cover again."""
+    if current is None:
+        return True
+    largest = _largest_cover(record)
+    if largest and _image_area(current) >= largest:
+        return False
+    try:
+        return store.get_cover_check(book_id) != (record.cover, _cover_state(current))
+    except Exception as e:
+        log.debug(f"No cover check to read for book {book_id}: {e}")
+        return True
+
+
+def _remember_cover(store, book_id, url, current) -> None:
+    """Note that the cover at url was weighed against the book's, as it now is."""
+    try:
+        store.save_cover_check(book_id, url, _cover_state(current))
+    except Exception as e:
+        log.debug(f"Could not note the cover check of book {book_id}: {e}")
+
+
+def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None) -> bool:
     """Look the book up and apply an exact match; True when the book changed.
 
     Runs for a new book when "Fetch metadata for new books" is on, and for every book in
@@ -230,11 +284,13 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
     cover downloaded without holding it, then every change is made and committed at once
     under library_lock, so the write lock is held for moments, not for a download. A new
     title or first author moves the book's folder, and with "Write edits into book files"
-    on, the change is queued for the files."""
+    on, the change is queued for the files. The names of providers that failed to answer
+    are added to `unanswered` (a set) when one is given."""
     if not db.CalibreDB.session_factory:
         log.error("CalibreDB not initialized; skipping metadata fetch")
         return False
-    settings = CWA_DB().get_cwa_settings()
+    store = CWA_DB()
+    settings = store.get_cwa_settings()
     if not force and not settings.get('auto_metadata_fetch_enabled'):
         return False
     with library_lock:
@@ -251,14 +307,22 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
             own_ids = normalise_identifiers({i.type: i.val for i in book.identifiers or []})
             page_text = pdf_first_page_text(book)
             title = book.title
-        record = _find_record(title, authors, own_ids, page_text)
+            current_cover = _cover_path(book)
+        record = _find_record(title, authors, own_ids, page_text, unanswered)
         if record is None:
             return False
+        url = getattr(record, 'cover', '') or ''
         with tempfile.TemporaryDirectory() as tmp:
-            cover = _download_cover(getattr(record, 'cover', ''), tmp)
+            cover = None
+            if _cover_worth_fetching(store, book_id, record, current_cover):
+                cover = _download_cover(url, tmp)
             with library_lock:
                 before = _title_and_author(cdb, book)
-                if not _apply_record(cdb, book, record, cover):
+                changed = _apply_record(cdb, book, record, cover)
+                if cover:
+                    # Weighed, whichever won: the same cover need not be fetched to compare again
+                    _remember_cover(store, book_id, url, _cover_path(book))
+                if not changed:
                     return False
                 source = getattr(getattr(record, 'source', None), 'description', 'a provider')
                 log.info(f"Applied metadata from {source} to book {book_id}")
@@ -281,10 +345,20 @@ def _rollback(cdb):
         log.error(f"Rollback failed: {e}")
 
 
-def _find_record(title, authors, own_ids, page_text):
+def _no_answer(provider, what, error, unanswered) -> None:
+    """Log a provider's failure and note its name for the caller."""
+    if unanswered is not None:
+        unanswered.add(provider.__name__)
+    # Left alone after a 429: said once then, not for every book until it is asked again
+    level = log.debug if isinstance(error, ProviderBusy) else log.warning
+    level(f"{what} with {provider.__name__} failed: {error}")
+
+
+def _find_record(title, authors, own_ids, page_text, unanswered=None):
     """The provider record that is exactly this book, or None. An identifier lookup
     comes first: a paper by its arXiv id or DOI, as its title is often the file name,
-    which no title search matches; a book by its ISBN. Then each provider's title search."""
+    which no title search matches; a book by its ISBN. Then each provider's title search.
+    Providers that fail to answer are added to `unanswered`."""
     lookup_ids = find_paper_identifiers(title, page_text, own_ids)
     if own_ids.get('isbn'):
         lookup_ids['isbn'] = own_ids['isbn']
@@ -295,7 +369,7 @@ def _find_record(title, authors, own_ids, page_text):
         try:
             results = provider.search_identifiers(ids, "", "en") or []
         except Exception as e:
-            log.warning(f"Looking up {ids} with {provider.__name__} failed: {e}")
+            _no_answer(provider, f"Looking up {ids}", e, unanswered)
             continue
         record = next((r for r in results if found_by_id_is_this_book(
             r, ids, title, authors, page_text, own_ids)), None)
@@ -311,7 +385,7 @@ def _find_record(title, authors, own_ids, page_text):
             if record is not None and hasattr(provider, 'complete'):
                 record = provider.complete(record)
         except Exception as e:
-            log.warning(f"Searching {provider.__name__} for '{query}' failed: {e}")
+            _no_answer(provider, f"Searching for '{query}'", e, unanswered)
             continue
         if record is not None:
             return record
@@ -372,7 +446,8 @@ def _apply_record(cdb, book, record, cover):
     changed = False
     dropped = []
     with session.no_autoflush:
-        title = (record.title or '').strip()
+        # A book that goes by the title without its subtitle (or with it) keeps going by that
+        title = (matched_title(book.title, record) or record.title or '').strip()
         if title and title != book.title:
             book.title = title
             changed = True

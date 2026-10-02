@@ -751,6 +751,32 @@ class CWA_DB:
     # ==============================
 
 
+    def get_rebuild_progress(self) -> dict | None:
+        """How far an unfinished Rebuild metadata run got, or None when the last one finished."""
+        row = self.cur.execute("SELECT next_book_id, checked, updated, covers, total "
+                               "FROM metadata_rebuild_progress WHERE id = 1").fetchone()
+        return dict(zip(("next_book_id", "checked", "updated", "covers", "total"), row)) if row else None
+
+    def save_rebuild_progress(self, next_book_id: int, checked: int, updated: int, covers: int, total: int) -> None:
+        self.cur.execute("INSERT OR REPLACE INTO metadata_rebuild_progress "
+                         "(id, next_book_id, checked, updated, covers, total) VALUES (1, ?, ?, ?, ?, ?)",
+                         (next_book_id, checked, updated, covers, total))
+        self.con.commit()
+
+    def clear_rebuild_progress(self) -> None:
+        self.cur.execute("DELETE FROM metadata_rebuild_progress")
+        self.con.commit()
+
+    def get_cover_check(self, book_id: int) -> tuple[str, str] | None:
+        """(provider cover URL, the book's cover as it was) from the last time one was weighed."""
+        return self.cur.execute("SELECT url, cover FROM metadata_cover_checks WHERE book_id = ?",
+                                (book_id,)).fetchone()
+
+    def save_cover_check(self, book_id: int, url: str, cover: str) -> None:
+        self.cur.execute("INSERT OR REPLACE INTO metadata_cover_checks (book_id, url, cover) VALUES (?, ?, ?)",
+                         (book_id, url, cover))
+        self.con.commit()
+
     def invalidate_duplicate_cache(self):
         """Mark duplicate cache as needing refresh"""
         try:
