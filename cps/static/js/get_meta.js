@@ -233,6 +233,8 @@ $(function () {
         $shelves.val(JSON.stringify(names)).trigger("change");
       }
     }
+    // The save notes the book as matched by this provider (editbooks.py)
+    $("#metadata_source").val((book.source && book.source.description) || "Fetch Metadata");
     $("#book_edit_frm").trigger("lily:reveal-filled");
   }
 

@@ -250,6 +250,8 @@
     <a href="{{ return_to or url_for('web.show_book', book_id=book.id) }}" id="edit_cancel" class="btn btn-default">{{_('Cancel')}}</a>
     {# Save and Cancel go back to the page the editor was opened from, else the book page #}
     <input type="hidden" name="detail_view" value="1">
+    {# get_meta.js fills it with the provider of an applied Fetch Metadata result: the save marks the book matched #}
+    <input type="hidden" name="metadata_source" id="metadata_source" value="">
     {% if return_to %}<input type="hidden" name="next" value="{{ return_to }}">{% endif %}
   </aside>
 </form>

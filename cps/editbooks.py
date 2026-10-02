@@ -737,6 +737,8 @@ def do_edit_book(book_id, upload_formats=None):
             log.error_or_exception(f"Failed to write metadata change log for book {book.id}: {e}")
 
         _update_shelves(book.id, to_save)
+        if to_save.get("metadata_source"):
+            _note_matched(book.id, to_save["metadata_source"])
 
         # Stage 4: Post-commit operations.
         if not edit_error and not title_author_error and cover_upload_success is not False:
@@ -1114,6 +1116,16 @@ def render_edit_book(book_id):
                                  return_to=(_return_to(request.values.get("next"))
                                             or _return_to(request.referrer)),
                                  config=config)
+
+
+def _note_matched(book_id, source):
+    """A Fetch Metadata result was applied by hand: the book counts as matched by that provider,
+    whatever its last automatic lookup found, for the library's Metadata filter."""
+    try:
+        from cwa_db import CWA_DB
+        CWA_DB().save_metadata_lookup(book_id, "matched", source[:100])
+    except Exception as e:
+        log.debug("Could not note book %s as matched: %s", book_id, e)
 
 
 def edit_book_ratings(to_save, book):

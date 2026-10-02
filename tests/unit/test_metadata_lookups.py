@@ -165,3 +165,26 @@ def test_book_page_shows_the_lookup_to_editors(env):
     env.add_user("reader", password="pw")
     html = _login(env, "reader", "pw").get(f"/book/{book}").get_data(as_text=True)
     assert "book-metadata-lookup" not in html
+
+
+@pytest.mark.parametrize("before", ["failed", "nomatch"])
+def test_applying_a_fetch_metadata_result_marks_the_book_matched(env, before):
+    book_id = env.add_book("Dune", author="Frank Herbert")
+    (env.library_dir / "Frank Herbert" / "Dune").mkdir(parents=True, exist_ok=True)
+    store = _store()
+    store.save_metadata_lookup(book_id, before)
+    client = _login(env)
+    # A plain save leaves the lookup alone
+    client.post(f"/admin/book/{book_id}", data={"title": "Dune", "authors": "Frank Herbert"})
+    assert _store().get_metadata_lookup(book_id)["status"] == before
+    client.post(f"/admin/book/{book_id}", data={"title": "Dune", "authors": "Frank Herbert",
+                                                "metadata_source": "Open Library"})
+    lookup = _store().get_metadata_lookup(book_id)
+    assert lookup["status"] == "matched" and lookup["source"] == "Open Library"
+
+
+def test_fetch_metadata_apply_names_its_provider_for_the_save():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2] / "cps"
+    assert '$("#metadata_source").val(' in (root / "static/js/get_meta.js").read_text(encoding="utf-8")
+    assert 'name="metadata_source"' in (root / "templates/book_edit.html").read_text(encoding="utf-8")
