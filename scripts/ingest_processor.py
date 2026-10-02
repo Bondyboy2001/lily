@@ -39,6 +39,7 @@ _CPS_AVAILABLE = False
 _cps_config = None
 fetch_and_apply_metadata = None
 tidy_new_book_tags = None
+recentre_new_book_cover = None
 _ub = None
 CWA_DB = None
 audiobook = None
@@ -220,7 +221,7 @@ def _load_runtime_dependencies() -> None:
 
 
 def _load_optional_cps_modules() -> None:
-    global _CPS_AVAILABLE, _cps_config, fetch_and_apply_metadata, tidy_new_book_tags, _ub
+    global _CPS_AVAILABLE, _cps_config, fetch_and_apply_metadata, tidy_new_book_tags, recentre_new_book_cover, _ub
 
     if _CPS_AVAILABLE:
         return
@@ -241,11 +242,13 @@ def _load_optional_cps_modules() -> None:
         try:
             from cps.metadata_helper import fetch_and_apply_metadata as loaded_fetch_and_apply_metadata
             from cps.tag_cleanup import tidy_new_book_tags as loaded_tidy_new_book_tags
+            from cps.pdf_cover import recentre_new_book_cover as loaded_recentre_new_book_cover
             from cps import ub as loaded_ub
             from cps.calibre_init import init_calibre_db_from_app_db
             init_calibre_db_from_app_db(get_app_db_path())
             fetch_and_apply_metadata = loaded_fetch_and_apply_metadata
             tidy_new_book_tags = loaded_tidy_new_book_tags
+            recentre_new_book_cover = loaded_recentre_new_book_cover
             _ub = loaded_ub
             _CPS_AVAILABLE = True
             print("[ingest-processor] Metadata functionality available", flush=True)
@@ -253,6 +256,7 @@ def _load_optional_cps_modules() -> None:
             print(f"[ingest-processor] Metadata functionality not available: {e}", flush=True)
             fetch_and_apply_metadata = None
             tidy_new_book_tags = None
+            recentre_new_book_cover = None
             _ub = None
             _CPS_AVAILABLE = False
 
@@ -866,6 +870,8 @@ class NewBookProcessor:
 
             # calibre turns a PDF's Keywords into tags: keep only the subjects
             self.tidy_tags(self.last_added_book_ids or [])
+            # calibre's cover for a PDF is page 1 as printed, often off-centre: centre it on the print
+            self.centre_covers(self.last_added_book_ids or [])
 
             # Fetch metadata if enabled, prefer exact book id from calibredb
             if self.last_added_book_id is not None:
@@ -990,6 +996,16 @@ class NewBookProcessor:
                     print(f"[ingest-processor] Removed tags that are not subjects from book id={book_id}", flush=True)
             except Exception as e:
                 print(f"[ingest-processor] WARN: Could not tidy the tags of book id={book_id}: {e}", flush=True)
+
+    def centre_covers(self, book_ids) -> None:
+        if not _CPS_AVAILABLE or recentre_new_book_cover is None:
+            return
+        for book_id in book_ids:
+            try:
+                if recentre_new_book_cover(int(book_id), self.library_dir):
+                    print(f"[ingest-processor] Centred the cover of book id={book_id}", flush=True)
+            except Exception as e:
+                print(f"[ingest-processor] WARN: Could not centre the cover of book id={book_id}: {e}", flush=True)
 
     def fetch_metadata_if_enabled(self, book_title: str | None = None, book_id: int | None = None) -> None:
         """Fetch and apply metadata for newly ingested books if enabled"""

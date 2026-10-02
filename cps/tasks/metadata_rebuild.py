@@ -4,7 +4,8 @@
 
 """Task that looks every book up again with the metadata providers (Import & Metadata → Rebuild).
 
-It first clears tags that are not subjects (ISBNs, publisher lines, shop listing scraps).
+It first clears tags that are not subjects (ISBNs, publisher lines, shop listing scraps), and
+after each lookup centres a PDF's page-render cover on what is printed (cps/pdf_cover.py).
 
 A book that gets new details is kept in step like an edit is: its folder follows a new title or
 first author, and with "Write edits into book files" on, the change is queued for the files."""
@@ -16,7 +17,7 @@ from datetime import datetime
 
 from flask_babel import lazy_gettext as N_
 
-from cps import config, db, helper, logger
+from cps import config, db, helper, logger, pdf_cover
 from cps.services.worker import CalibreTask, STAT_CANCELLED, STAT_ENDED
 from cps.tag_cleanup import tidy_library_tags
 from cps.ub import init_db_thread
@@ -37,6 +38,7 @@ class TaskRebuildMetadata(CalibreTask):
         self.workers = workers
         self.checked = 0
         self.updated = 0
+        self.covers = 0
         self.write_files = False
 
     @property
@@ -64,6 +66,7 @@ class TaskRebuildMetadata(CalibreTask):
                 self._tidy_tags(cdb)
                 book_ids = [row[0] for row in cdb.session.query(db.Books.id).order_by(db.Books.id).all()]
             total = len(book_ids)
+            centre_covers = pdf_cover.available()
             running = {}
             with ThreadPoolExecutor(max_workers=self.workers) as pool:
                 for book_id in book_ids:
@@ -73,8 +76,9 @@ class TaskRebuildMetadata(CalibreTask):
                         break
                     with library_lock:
                         before = _title_and_author(cdb, book_id)
+                        cover = _cover_paths(cdb, book_id) if before and centre_covers else None
                     if before:
-                        running[pool.submit(fetch_and_apply_metadata, book_id, force=True)] = (book_id, before)
+                        running[pool.submit(_look_up, fetch_and_apply_metadata, book_id, cover)] = (book_id, before)
                     else:
                         self._count(total)
                 # A stop lets the books under way finish
@@ -93,8 +97,13 @@ class TaskRebuildMetadata(CalibreTask):
                     mark_duplicate_index_pending("metadata rebuild")
                 except Exception as ex:
                     log.debug("Could not mark the duplicate index pending: %s", ex)
-        self.message = N_('Done: %(total)s books checked, %(updated)s updated', total=total, updated=self.updated)
-        log.info("Metadata rebuild finished: %s books checked, %s updated", total, self.updated)
+        if self.covers:
+            self.message = N_('Done: %(total)s books checked, %(updated)s updated, %(covers)s covers centred',
+                              total=total, updated=self.updated, covers=self.covers)
+        else:
+            self.message = N_('Done: %(total)s books checked, %(updated)s updated', total=total, updated=self.updated)
+        log.info("Metadata rebuild finished: %s books checked, %s updated, %s covers centred",
+                 total, self.updated, self.covers)
         self._handleSuccess()
 
     def _finish(self, cdb, running, total):
@@ -103,10 +112,14 @@ class TaskRebuildMetadata(CalibreTask):
         done, __ = wait(running, return_when=FIRST_COMPLETED)
         for future in done:
             book_id, before = running.pop(future)
-            if future.result():
+            updated, centred = future.result()
+            if updated:
                 self.updated += 1
                 with library_lock:
                     self._follow_up(cdb, book_id, before)
+            if centred:
+                with library_lock:
+                    self._cover_changed(cdb, book_id)
             self._count(total)
 
     def _count(self, total):
@@ -124,6 +137,21 @@ class TaskRebuildMetadata(CalibreTask):
         except Exception as ex:
             cdb.session.rollback()
             log.error("Rebuild: could not tidy tags: %s", ex)
+
+    def _cover_changed(self, cdb, book_id):
+        """Record a centred cover so its URL and thumbnails change with it."""
+        cdb.session.expire_all()
+        book = cdb.session.get(db.Books, book_id)
+        if book is None:
+            return
+        try:
+            pdf_cover.mark_cover_changed(book)
+            cdb.session.commit()
+        except Exception as ex:
+            cdb.session.rollback()
+            log.error("Rebuild: could not record the new cover of book %s: %s", book_id, ex)
+        self.covers += 1
+        helper.replace_cover_thumbnail_cache(book_id)
 
     def _follow_up(self, cdb, book_id, before):
         """Move the folder after a new title or first author, then queue the file write."""
@@ -143,6 +171,20 @@ class TaskRebuildMetadata(CalibreTask):
                 log.error("Rebuild: could not move the folder of book %s: %s", book_id, ex)
         if self.write_files and {d.format.upper() for d in book.data} & ENFORCED_FORMATS:
             _write_change_log(book)
+
+
+def _look_up(fetch, book_id, cover):
+    """One book's work in the pool: the lookup, then centring a PDF's cover on its print.
+
+    The cover comes second so a cover the provider just set is never cropped: it no longer
+    looks like the page render, so recentre_cover leaves it."""
+    updated = fetch(book_id, force=True)
+    return updated, pdf_cover.try_recentre_cover(cover, book_id)
+
+
+def _cover_paths(cdb, book_id):
+    book = cdb.session.get(db.Books, book_id)
+    return pdf_cover.cover_paths(book, config.get_book_path()) if book else None
 
 
 def _cwa_settings():

@@ -422,8 +422,10 @@ one fill, and hovering previews a rating. It posts "1"…"5", or "" for none.
 Aspect ratio **1 : 1.414**, `object-fit: cover` anchored `left center` (a US Letter
 page, wider than A4, loses its right margin rather than half of arXiv's left-margin
 stamp), `--sunk` behind, a 1px
-`--line-soft` inset hairline (`outline-offset: -1px`), no shadow. Read state is
-a 3px `--success` inset outline plus a corner tick badge titled "Finished" on grid
+`--line-soft` inset hairline (`outline-offset: -1px`), no shadow. A PDF whose cover is
+its first page has that page cropped to even side margins around the print on import and
+on Rebuild metadata (`cps/pdf_cover.py`), no wider than the tile, so the anchor rarely
+trims those. Read state is a 3px `--success` inset outline plus a corner tick badge titled "Finished" on grid
 covers, and a green dot in list view. Mark-as-read controls use the tick-in-a-circle
 glyph (`glyphicon-ok-circle`), the same mark as the sidebar's Finished row.
 
