@@ -83,20 +83,24 @@ def test_stats_views_have_at_most_one_primary_button():
 
 
 def test_duplicates_empty_state_follows_the_guide():
+    # §5.13: the shared empty_state macro (.library-empty-state), not a page-local copy.
     html = read(TEMPLATES / "duplicates.html")
-    assert "stats-empty" in html
-    assert "stats-empty-glyph" in html and "stats-empty-title" in html
+    assert "image.empty_state('glyphicon-ok-circle', _('No Duplicate Books')" in html
+    assert "stats-empty" not in html
+    assert ".stats-empty" not in read(CSS / "lily-stats.css")
 
 
-def test_duplicates_page_has_no_manual_scan_controls():
-    # The page is a read-and-resolve view: scanning runs itself after an import,
-    # so there is no scan card, no trigger button, and no settings link.
+def test_duplicates_empty_state_offers_a_scan():
+    # Scanning runs itself after an import; the empty state's one action rescans on demand,
+    # with no scan card or settings link beside it.
     html = read(TEMPLATES / "duplicates.html")
-    assert "trigger_scan" not in html
-    assert "Scan for duplicates" not in html
+    assert re.search(r'<button type="button" class="btn btn-primary" id="scan_duplicates">'
+                     r"{{_\('Scan for duplicates'\)}}</button>", html)
     assert "Run Full Duplicate Scan" not in html
     assert "Duplicate settings" not in html
     assert "next_scan_run" not in html
     script = read(JS / "duplicates.js")
-    assert "trigger_scan" not in script
-    assert "trigger-scan" not in script
+    handler = script[script.index("$('#scan_duplicates').on('click'"):]
+    assert "duplicateScanEndpoint('/duplicates/trigger-scan')" in handler
+    assert "'X-CSRFToken': csrfToken" in handler
+    assert "setInterval(pollDuplicateScanTask" in handler

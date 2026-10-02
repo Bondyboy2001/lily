@@ -1,5 +1,6 @@
 {% extends "settings_layout.html" %}
 {% import "lily_form.html" as f with context %}
+{% import "image.html" as image %}
 {% block pane_class %} is-wide{% endblock %}
 {% block settings %}
 <div class="lp dup-page">
@@ -153,11 +154,10 @@
   {% elif not duplicate_index_needs_full_scan %}
     <div id="no_duplicate_books_message">
       {% call f.group(None, id='results') %}
-        <div class="stats-empty dup-empty">
-          <span class="glyphicon glyphicon-ok-circle stats-empty-glyph" aria-hidden="true"></span>
-          <h3 class="stats-empty-title">{{_('No Duplicate Books')}}</h3>
-          <p>{{_('No two books share the same title, author, and language.')}}</p>
-        </div>
+        {% call image.empty_state('glyphicon-ok-circle', _('No Duplicate Books'),
+                                  _('No two books share the same title, author, and language.')) %}
+          <button type="button" class="btn btn-primary" id="scan_duplicates">{{_('Scan for duplicates')}}</button>
+        {% endcall %}
       {% endcall %}
     </div>
   {% endif %}

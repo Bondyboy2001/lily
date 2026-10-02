@@ -5,41 +5,6 @@
  */
 
 /* ------------------------------------------------------------------ */
-/* Empty state (§5.13, as .library-empty-state): faint glyph, title, one sentence */
-/* ------------------------------------------------------------------ */
-.stats-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    max-width: 560px;
-    margin: 48px auto;
-    text-align: center;
-}
-
-.stats-empty[hidden] { display: none; }
-
-.stats-empty-glyph {
-    color: var(--faint);
-    font-size: 44px;
-    line-height: 1;
-}
-
-.stats-empty-title {
-    margin: 4px 0 0;
-    color: var(--heading);
-    font-family: var(--font-body);
-    font-size: var(--heading-size);
-    font-weight: 600;
-}
-
-.stats-empty p {
-    max-width: 440px;
-    margin: 0 0 6px;
-    color: var(--muted);
-}
-
-/* ------------------------------------------------------------------ */
 /* Duplicates: one Primary, everything else Quiet; groups are flat cards  */
 /* with rows; notices are tone at 7% (lily.css .alert).                 */
 /* ------------------------------------------------------------------ */

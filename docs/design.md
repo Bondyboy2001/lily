@@ -737,8 +737,6 @@ Places where the code doesn't yet match this guide. Fix toward the guide and
 delete the line. Don't copy any of these.
 
 **Duplicated components (promote to `lily.css`)**
-- Empty state: `.stats-empty` on the duplicates page repeats
-  `.library-empty-state`; use the shared class.
 - Dialog skins: reader `.md-content` (the vendored `reader.min.js` drives it
   with `md-show`, and the reader has no Bootstrap), `#metaModal` in `style.css`.
   Target `.modal` (§5.7).

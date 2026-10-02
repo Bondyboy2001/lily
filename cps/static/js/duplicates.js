@@ -559,6 +559,38 @@ $(document).ready(function() {
 
     pollDuplicateScanTask();
 
+    // "Scan for duplicates" on the empty state: queue a full scan, then follow it like any
+    // other running scan (the page reloads with the new results when it finishes).
+    $('#scan_duplicates').on('click', function() {
+        var btn = $(this);
+        btn.prop('disabled', true);
+        $.ajax({
+            url: duplicateScanEndpoint('/duplicates/trigger-scan'),
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            dataType: 'json',
+            success: function(data) {
+                if (data && data.success) {
+                    duplicateScanWasActive = true;
+                    duplicateScanTaskId = data.task_id || null;
+                    setDuplicateScanNotice({ progress: 0 });
+                    if (!duplicateScanPollTimer) {
+                        duplicateScanPollTimer = setInterval(pollDuplicateScanTask, 2000);
+                    }
+                } else {
+                    notify((data && data.message) || 'Couldn\'t start the scan. Try again.');
+                    btn.prop('disabled', false);
+                }
+            },
+            error: function(xhr) {
+                notify(ajaxErrorMessage(xhr, 'Couldn\'t start the scan. Try again.'));
+                btn.prop('disabled', false);
+            }
+        });
+    });
+
     document.addEventListener('cwa:duplicates-status', function(event) {
         var data = event.detail || {};
         if (data.count > 0 && !data.needs_scan && !data.needs_full_scan) {
