@@ -139,6 +139,7 @@ new password before anything else.
 |---|---|---|
 | `TZ` | — | Your timezone |
 | `HARDCOVER_TOKEN` | — | Turns on [Hardcover](https://docs.hardcover.app/api/getting-started/) metadata |
+| `CROSSREF_MAILTO` | — | Optional contact address sent to [Crossref](https://www.crossref.org/documentation/retrieve-metadata/rest-api/tips-for-using-the-crossref-rest-api/), which serves such requests from a less crowded pool |
 | `SEMANTIC_SCHOLAR_API_KEY` | — | Optional [Semantic Scholar key](https://www.semanticscholar.org/product/api#api-key-form), so paper searches aren't turned away when its shared pool is busy |
 | `SECRET_KEY` | generated | Session signing key |
 | `TRUSTED_PROXY_COUNT` | `0` | Set to `1` behind nginx, Caddy or similar |

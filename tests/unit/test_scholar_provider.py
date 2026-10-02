@@ -120,12 +120,25 @@ def test_arxiv_id_is_read_from_the_abstract_page():
     assert record.authors == ["Adrian Dobra", "Alex Lenkoski"]
     assert record.description == "We propose a Bayesian approach & more."
     assert record.publishedDate == "2011-08-08"
-    assert record.tags == ["stat.AP", "stat.ME"]
+    assert record.tags == ["Applications", "Methodology"]
     assert record.identifiers == {"arxiv": "1108.1680", "doi": "10.1214/10-AOAS397"}
 
 
-def test_arxiv_id_lookup_does_not_wait_on_the_api(monkeypatch):
+def test_arxiv_id_is_read_from_datacite_first(monkeypatch):
+    # arxiv.org is often slow; DataCite holds the same record under arXiv's DOI
+    calls = []
     monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+        "https://api.datacite.org/dois/10.48550/arXiv.1108.1680":
+            _Response(text=json.dumps({"data": DATACITE_HIT})),
+    }, calls))
+    records = google_scholar().search_identifiers({"arxiv": "1108.1680v2"})
+    assert [r.title[:5] for r in records] == ["Copul"] and len(calls) == 1
+
+
+def test_arxiv_id_missing_from_datacite_is_read_from_the_abstract_page(monkeypatch):
+    # A paper from the last day or two isn't registered yet
+    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+        "https://api.datacite.org/": _Response(404),
         "https://arxiv.org/abs/1108.1680": _Response(text=ABS_PAGE),
         "https://export.arxiv.org/": requests.Timeout("API hangs"),
     }))
@@ -135,6 +148,7 @@ def test_arxiv_id_lookup_does_not_wait_on_the_api(monkeypatch):
 
 def test_unknown_arxiv_id_is_no_result_not_an_error(monkeypatch):
     monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+        "https://api.datacite.org/": _Response(404),
         "https://arxiv.org/abs/": _Response(404),
     }))
     assert google_scholar()._search_arxiv("2999.99999") == []
@@ -142,6 +156,7 @@ def test_unknown_arxiv_id_is_no_result_not_an_error(monkeypatch):
 
 def test_arxiv_outage_is_reported_as_a_failure(monkeypatch):
     monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+        "https://api.datacite.org/": requests.ConnectionError("down"),
         "https://arxiv.org/abs/": requests.ConnectionError("down"),
         "https://export.arxiv.org/": requests.Timeout("API hangs"),
     }))
@@ -208,7 +223,7 @@ def test_datacite_record_reads_like_the_abstract_page():
     assert record.publishedDate == "2011-08-08"
     assert record.publisher == "arXiv"
     assert record.url == "https://arxiv.org/abs/1108.1680"
-    assert record.tags == ["stat.AP", "stat.ME"]
+    assert record.tags == ["Applications", "Methodology"]
     assert record.identifiers == {"arxiv": "1108.1680", "doi": "10.1214/10-aoas397"}
 
 
@@ -280,3 +295,25 @@ def test_semantic_scholar_sends_the_api_key_when_set(monkeypatch):
     monkeypatch.delenv("SEMANTIC_SCHOLAR_API_KEY")
     google_scholar()._search_semantic_scholar("anything")
     assert sent[0]["x-api-key"] == "k123" and "x-api-key" not in sent[1]
+
+
+def test_crossref_is_retried_once_when_busy(monkeypatch):
+    answers = [_Response(429), _Response(text=json.dumps({"message": {"items": []}}))]
+    monkeypatch.setattr(scholar_module.requests, "get", lambda url, **kw: answers.pop(0))
+    monkeypatch.setattr(scholar_module.time, "sleep", lambda s: None)
+    assert google_scholar()._search_crossref("anything") == [] and answers == []
+
+
+def test_crossref_gets_the_contact_address_when_set(monkeypatch):
+    # Crossref serves requests naming a contact from its less crowded "polite" pool
+    sent = []
+
+    def get(url, **kwargs):
+        sent.append(kwargs["params"])
+        return _Response(text=json.dumps({"message": {"items": []}}))
+    monkeypatch.setattr(scholar_module.requests, "get", get)
+    monkeypatch.setenv("CROSSREF_MAILTO", "me@example.org")
+    google_scholar()._search_crossref("anything")
+    monkeypatch.delenv("CROSSREF_MAILTO")
+    google_scholar()._search_crossref("anything")
+    assert sent[0]["mailto"] == "me@example.org" and "mailto" not in sent[1]

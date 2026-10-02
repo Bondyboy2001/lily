@@ -33,6 +33,7 @@ forces polling anywhere.
 | `PUID` / `PGID` | `1000` | Owner of the files Lily writes |
 | `TZ` | — | Timezone |
 | `HARDCOVER_TOKEN` | — | Hardcover API key |
+| `CROSSREF_MAILTO` | — | Contact address for Crossref paper searches |
 | `SEMANTIC_SCHOLAR_API_KEY` | — | Semantic Scholar API key for paper searches |
 | `SECRET_KEY` | generated | Session signing key |
 | `TRUSTED_PROXY_COUNT` | `0` | See above |

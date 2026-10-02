@@ -116,6 +116,13 @@ class google_scholar(Metadata):
         arxiv_id = ARXIV_ID_RE.search(query)
         if not arxiv_id:
             return self._search_datacite(query)
+        # DataCite answers fastest; a paper from the last day or two isn't there yet
+        try:
+            records = self._fetch_datacite_doi(arxiv_id.group(1))
+            if records:
+                return records
+        except Exception as e:
+            log.warning("DataCite lookup of arXiv %s failed: %s", arxiv_id.group(1), e)
         # The abstract page answers even when the API is slow or down
         try:
             return self._fetch_arxiv_abs(arxiv_id)
@@ -132,6 +139,16 @@ class google_scholar(Metadata):
             if record:
                 records.append(record)
         return records
+
+    def _fetch_datacite_doi(self, arxiv_id: str) -> List[MetaRecord]:
+        """The paper from DataCite's record of arXiv's DOI; empty when it has none."""
+        response = _get(self.DATACITE_URL + "/" + ARXIV_DOI_PREFIX + arxiv_id,
+                        headers=self.HEADERS, timeout=10)
+        if response.status_code == 404:
+            return []
+        response.raise_for_status()
+        record = self._parse_datacite_hit(response.json().get("data") or {})
+        return [record] if record else []
 
     def _fetch_arxiv_abs(self, arxiv_id) -> List[MetaRecord]:
         """The paper from its abstract page's citation_* meta tags (the ones Google
@@ -165,9 +182,9 @@ class google_scholar(Metadata):
         match.description = " ".join(tags.first("citation_abstract").split())
         match.publisher = "arXiv"
         match.publishedDate = tags.first("citation_date").replace("/", "-")[:10]
-        # "Applications (stat.AP); Methodology (stat.ME)" -> the API's category terms
         subjects = re.search(r'class="tablecell subjects">(.*?)</td>', page, re.S)
-        match.tags = re.findall(r"\(([a-z-]+(?:\.[A-Za-z-]+)?)\)", subjects.group(1)) if subjects else []
+        subjects = re.sub(r"<[^>]+>", "", subjects.group(1)) if subjects else ""
+        match.tags = _subject_names(html.unescape(subjects).split(";"))
         match.identifiers = {"arxiv": arxiv_id}
         # The journal's DOI once published, otherwise arXiv's own
         match.identifiers["doi"] = tags.first("citation_doi") or ARXIV_DOI_PREFIX + arxiv_id
@@ -213,9 +230,7 @@ class google_scholar(Metadata):
             "sort": "relevance",
             "page[size]": self.MAX_RESULTS,
         }
-        response = requests.get(
-            self.DATACITE_URL, params=params, headers=self.HEADERS, timeout=15
-        )
+        response = _get(self.DATACITE_URL, params=params, headers=self.HEADERS, timeout=15)
         response.raise_for_status()
         hits = response.json().get("data", [])
         return [r for r in (self._parse_datacite_hit(h) for h in hits) if r]
@@ -262,10 +277,8 @@ class google_scholar(Metadata):
         submitted = sorted(d.get("date") or "" for d in attrs.get("dates", [])
                            if d.get("dateType") == "Submitted")
         match.publishedDate = submitted[0][:10] if submitted else str(attrs.get("publicationYear") or "")
-        # "Applications (stat.AP)" -> the API's category term
-        match.tags = [t.group(1) for t in (
-            re.search(r"\(([a-z-]+(?:\.[A-Za-z-]+)?)\)$", s.get("subject") or "")
-            for s in attrs.get("subjects", []) if s.get("subjectScheme") == "arXiv") if t]
+        match.tags = _subject_names(s.get("subject") or "" for s in attrs.get("subjects", [])
+                                    if s.get("subjectScheme") == "arXiv")
         match.identifiers = {"arxiv": arxiv_id}
         # The journal's DOI once published, otherwise arXiv's own
         journal_doi = next((r.get("relatedIdentifier") for r in attrs.get("relatedIdentifiers", [])
@@ -282,13 +295,7 @@ class google_scholar(Metadata):
         if key:
             headers["x-api-key"] = key
         params = {"query": query, "fields": self.S2_FIELDS}
-        for attempt in range(2):
-            response = requests.get(
-                self.S2_MATCH_URL, params=params, headers=headers, timeout=10
-            )
-            if response.status_code != 429 or attempt:
-                break
-            time.sleep(1.5)
+        response = _get(self.S2_MATCH_URL, params=params, headers=headers, timeout=10)
         if response.status_code == 404:
             return []
         response.raise_for_status()
@@ -334,9 +341,10 @@ class google_scholar(Metadata):
             params["filter"] = "doi:" + doi.group(0)
         else:
             params["query.bibliographic"] = query
-        response = requests.get(
-            self.CROSSREF_URL, params=params, headers=self.HEADERS, timeout=15
-        )
+        # A contact address moves the requests to Crossref's less crowded "polite" pool
+        if getenv("CROSSREF_MAILTO"):
+            params["mailto"] = getenv("CROSSREF_MAILTO")
+        response = _get(self.CROSSREF_URL, params=params, headers=self.HEADERS, timeout=15)
         response.raise_for_status()
         items = response.json().get("message", {}).get("items", [])
         return [r for r in (self._parse_crossref_item(i) for i in items) if r]
@@ -376,6 +384,25 @@ class google_scholar(Metadata):
         match.tags = item.get("subject", [])
         match.identifiers = {"doi": doi}
         return match
+
+
+def _get(url, **kwargs):
+    """requests.get, asking once more after a pause when the service says it's busy (429)."""
+    response = requests.get(url, **kwargs)
+    if response.status_code == 429:
+        time.sleep(1.5)
+        response = requests.get(url, **kwargs)
+    return response
+
+
+def _subject_names(subjects) -> List[str]:
+    """arXiv's "Computation and Language (cs.CL)" subjects as their names, once each."""
+    names: List[str] = []
+    for subject in subjects:
+        name = re.sub(r"\s*\([^()]*\)\s*$", "", " ".join(subject.split()))
+        if name and name not in names:
+            names.append(name)
+    return names
 
 
 class _CitationTags(HTMLParser):
