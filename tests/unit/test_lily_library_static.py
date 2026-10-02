@@ -380,6 +380,14 @@ def test_editor_hides_empty_optional_fields_until_added_or_fetched():
     assert '$("#book_edit_frm").trigger("lily:reveal-filled");' in read(JS / "get_meta.js")
 
 
+def test_fetch_metadata_search_is_a_field_and_a_separate_button():
+    template = read(TEMPLATES / "book_edit.html")
+    form = template.split('<form class="padded-bottom" id="meta-search">', 1)[1].split("</form>", 1)[0]
+    assert "input-group" not in form
+    css = read(CSS / "lily-library.css")
+    assert "#metaModal #meta-search { order: 3; flex: 1 0 100%; display: flex; gap: 8px;" in css
+
+
 def test_editor_save_panel_starts_with_read():
     template = read(TEMPLATES / "book_edit.html")
     panel = template.split('<aside class="editbook-actions"', 1)[1].split("</aside>", 1)[0]

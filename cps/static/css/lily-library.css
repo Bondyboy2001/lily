@@ -1666,9 +1666,10 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 #metaModal .modal-header { flex-wrap: wrap; row-gap: 14px; }
 #metaModal .modal-title { order: 1; margin: 0; padding: 0; }
 #metaModal .modal-header .close { order: 2; }
-#metaModal #meta-search { order: 3; flex: 1 0 100%; padding-bottom: 0; }
-#metaModal #keyword { height: 38px; }
-#metaModal #do-search { height: 38px; padding: 0 18px; }
+/* A Field and a separate button 8px apart, each with its own radius (§5.2, §5.4). */
+#metaModal #meta-search { order: 3; flex: 1 0 100%; display: flex; gap: 8px; padding-bottom: 0; }
+#metaModal #keyword { flex: 1 1 auto; min-width: 0; height: 38px; }
+#metaModal #do-search { flex: none; height: 38px; padding: 0 18px; }
 
 /* The dialog never outgrows the window: header and search stay put and only the
    results scroll. min-width: 0 so the clamped description (a -webkit-box, whose
