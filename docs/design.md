@@ -543,7 +543,8 @@ content (grid, panel, rows)
 - Papers: an arXiv row shows the id itself, linked to the abstract page; its
   DOI isn't shown. Other identifiers (a non-arXiv paper's DOI included) stay as
   named links in one Identifiers row. A Citations row fills in after load from OpenAlex
-  and stays hidden when the paper isn't found.
+  and stays hidden when the paper isn't found; a count above zero links to the citing
+  works there.
 - **Editor** (`book_edit.html`): Title, authors and shelves always show, and are
   the only things added by hand. Series, publisher, published date, language,
   rating, tags and description show only when the book has a value, which Fetch
@@ -558,9 +559,12 @@ content (grid, panel, rows)
 - **Fetch Metadata results** are compact cards: a 128px cover column with
   Apply under it, fields in 14px, a description clamped to six lines. The match
   score is a bare 24px number ("21%") in the card's top right; an exact match
-  shows its pill under Apply instead. A result without a cover shows an empty
-  "No cover" slot the cover's shape, with no tick box or size badge. The dialog opens beside the edit page's
-  cover, not over it, whenever 600px of window is left (get_meta.js).
+  shows its pill under Apply instead. Each result's cover carries its size as a pill
+  drawn on `--surface` (it sits over the art), saying in words whether it is larger
+  or smaller than the book's own cover, in `--success` / `--danger`. A result without
+  a cover shows an empty "No cover" slot the cover's shape, with no tick box or size
+  badge. The dialog opens beside the edit page's cover, not over it, whenever 600px
+  of window is left (get_meta.js).
 
 ### 6.5 Settings (`settings_layout.html`, `lily_form.html`)
 

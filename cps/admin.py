@@ -108,7 +108,7 @@ def shutdown():
     if task == 2:
         log.warning("reconnecting to calibre database")
         calibre_db.reconnect_db(config, ub.app_DB_path)
-        show_text['text'] = _('Success! Database Reconnected')
+        show_text['text'] = _('Database reconnected')
         return json.dumps(show_text)
 
     show_text['text'] = _('Unknown command')

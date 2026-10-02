@@ -873,9 +873,9 @@ def render_delete_book_result(book_format, json_response, warning, book_id, loca
             return json.dumps([warning, {"location": get_redirect_location(location, "web.index"),
                                          "type": "success",
                                          "format": book_format,
-                                         "message": _('Book Successfully Deleted')}])
+                                         "message": _('Book deleted')}])
         else:
-            flash(_('Book Successfully Deleted'), category="success")
+            flash(_('Book deleted'), category="success")
             return redirect(get_redirect_location(location, "web.index"))
 
 

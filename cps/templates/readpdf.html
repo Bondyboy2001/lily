@@ -29,7 +29,7 @@ See https://github.com/adobe-type-tools/cmap-resources
     {% if g.google_site_verification|length > 0 %}
       <meta name="google-site-verification" content="{{g.google_site_verification}}">
     {% endif %}      
-    <title>{{_('PDF Reader')}} | {{title}}</title>
+    <title>{{title}}</title>
 
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}"> 
@@ -578,6 +578,9 @@ See https://github.com/adobe-type-tools/cmap-resources
                 return;
             }
             app.initializedPromise.then(function () {
+                // The tab keeps the book's title; pdf.js would show the PDF's own title and
+                // file name ("Title - Title - Author.pdf").
+                app.setTitle = function () { document.title = {{ title|tojson }}; };
                 // documentinit follows pdf.js' start-up view, which would undo a zoom set sooner.
                 app.eventBus.on("documentinit", function () {
                     var savedZoom = null;

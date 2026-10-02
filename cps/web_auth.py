@@ -284,7 +284,7 @@ def change_profile(translations, languages):
 
     try:
         ub.session.commit()
-        flash(_("Success! Profile Updated"), category="success")
+        flash(_("Profile saved"), category="success")
         log.debug("Profile updated")
         return redirect(url_for('web.profile'))
     except IntegrityError:

@@ -1729,19 +1729,23 @@ dl.book-metadata:not(:has(> div)) { display: none; }
     border-radius: 4px;
 }
 
+/* The result's cover size as a pill (§5.9). It sits over cover art, so it is drawn on
+   --surface rather than a tint; "larger" and "smaller" are words, the tone only repeats them. */
 #meta-info #book-list .media .media-image .image-dimensions {
     position: absolute;
     right: 4px;
     bottom: 4px;
-    padding: 1px 5px;
-    border-radius: 4px;
-    background: var(--ink);
-    color: var(--paper);
+    padding: 3px 6px;
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--ink-soft);
     font-size: 11px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
 }
 #meta-info #book-list .media .media-image .image-dimensions:empty { display: none; }
-#meta-info #book-list .media .media-image .image-dimensions.larger { background: var(--success); }
-#meta-info #book-list .media .media-image .image-dimensions.smaller { background: var(--danger); }
+#meta-info #book-list .media .media-image .image-dimensions.larger { color: var(--success); }
+#meta-info #book-list .media .media-image .image-dimensions.smaller { color: var(--danger); }
 
 /* A result without a cover: an empty slot the shape of one, nothing to tick */
 #meta-info #book-list .media .media-image .meta-no-cover {

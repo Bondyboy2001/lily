@@ -349,14 +349,18 @@
   };
   var language = '{{ current_user.locale }}';
 
+  // A result's cover size, and in words whether it is larger or smaller than the book's own
   function coverDimensions(el) {
-    var existing_cover = document.querySelector("#detailcover")
-    el.nextElementSibling.innerText = el.naturalWidth + 'x' + el.naturalHeight
-    if (existing_cover.naturalHeight*existing_cover.naturalWidth >  el.naturalWidth * el.naturalHeight){
-      el.nextElementSibling.classList.add("smaller")
-    } else if (existing_cover.naturalHeight*existing_cover.naturalWidth < el.naturalWidth * el.naturalHeight){
-      el.nextElementSibling.classList.add("larger")
-    }
+    var existing = document.querySelector("#detailcover");
+    var badge = el.nextElementSibling;
+    var theirs = el.naturalWidth * el.naturalHeight;
+    var ours = existing ? existing.naturalWidth * existing.naturalHeight : 0;
+    var size = el.naturalWidth + "×" + el.naturalHeight;
+    var larger = ours && theirs > ours, smaller = ours && theirs < ours;
+    badge.textContent = larger ? size + " · " + {{ _('larger')|tojson }}
+                      : smaller ? size + " · " + {{ _('smaller')|tojson }} : size;
+    badge.classList.toggle("larger", !!larger);
+    badge.classList.toggle("smaller", !!smaller);
   }
 </script>
 <script src="{{ url_for('static', filename='js/libs/typeahead.bundle.js') }}"></script>

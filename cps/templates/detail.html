@@ -269,7 +269,11 @@
                 if (typeof data.count !== "number") {
                     return;
                 }
-                $citations.find("dd").text(data.count.toLocaleString());
+                var count = data.count.toLocaleString();
+                // The count opens the citing works on OpenAlex (none to open at 0)
+                $citations.find("dd").empty().append(data.url && data.count > 0
+                    ? $("<a>", {href: data.url, target: "_blank", rel: "noopener", text: count})
+                    : document.createTextNode(count));
                 $citations.prop("hidden", false);
             });
         }

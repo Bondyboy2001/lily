@@ -16,7 +16,7 @@
                             (_('Clear search'), url_for('web.index'), False)]) }}
       {% endif %}
     {% else %}
-      <h2>{{ _('%(count)s Results for %(term)s', count=result_count, term=adv_searchterm) }}</h2>
+      <h2>{{ ngettext('%(num)s Result for “%(term)s”', '%(num)s Results for “%(term)s”', result_count, term=adv_searchterm) }}</h2>
       <div class="lily-list-toolbar">
         {# Grid/List icons, pinned to the toolbar's top right #}
         {{ self.view_switch() }}
