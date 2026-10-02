@@ -162,3 +162,21 @@ def test_simple_search_finds_description_words_and_a_papers_id(env):
         assert found(query) == {"Graph Growth"}, query
     # Markup in a description and part of an id are not matches
     assert found("span") == set() and found("2601") == set()
+
+
+def test_the_editor_returns_to_the_page_it_was_opened_from(env):
+    admin = _client(env, env.admin().name, ADMIN_PASSWORD)
+    book = env.add_book("Round Trip", author="Jane Roe")
+    page = admin.get(f"/admin/book/{book}", headers={"Referer": "http://localhost/search?query=round"})
+    html = page.get_data(as_text=True)
+    assert 'name="next" value="/search?query=round"' in html
+    assert 'href="/search?query=round" id="edit_cancel"' in html
+    # Save goes where the "next" field says, when it is a page on this site and not the editor
+    from cps.editbooks import _return_to
+    with env.app.test_request_context(f"/admin/book/{book}", base_url="http://localhost"):
+        assert _return_to("/search?query=round") == "/search?query=round"
+        assert _return_to("http://localhost/shelf/3") == "/shelf/3"
+        for bad in ("https://evil.example/x", "//evil.example/x", "/\\evil.example", f"/admin/book/{book}", "", None):
+            assert _return_to(bad) is None, bad
+    html = admin.get(f"/admin/book/{book}", headers={"Referer": "https://evil.example/"}).get_data(as_text=True)
+    assert 'name="next"' not in html and f'href="/book/{book}" id="edit_cancel"' in html

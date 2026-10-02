@@ -496,3 +496,21 @@ $("#book_edit_frm").on("submit", function () {
         });
     });
 })();
+
+/* Leaving with unsaved edits asks first (the browser's own "Leave site?" prompt). Only what
+   the user types or picks counts: set-up code fills fields too. Saving, and Fetch Metadata's
+   Apply, which saves by itself, leave freely. */
+(function () {
+    var $form = $("#book_edit_frm");
+    if (!$form.length) { return; }
+    var dirty = false;
+    $form.on("input change", function (e) {
+        if (e.originalEvent && e.originalEvent.isTrusted) { dirty = true; }
+    });
+    $form.on("submit", function () { dirty = false; });
+    window.addEventListener("beforeunload", function (e) {
+        if (!dirty) { return; }
+        e.preventDefault();
+        e.returnValue = "";
+    });
+})();

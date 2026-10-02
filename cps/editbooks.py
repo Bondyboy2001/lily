@@ -748,7 +748,8 @@ def do_edit_book(book_id, upload_formats=None):
             return Response(json.dumps({"location": url_for('edit-book.show_edit_book', book_id=book_id)}), mimetype='application/json')
 
         if "detail_view" in to_save:
-            return redirect(url_for('web.show_book', book_id=book.id))
+            # Back to the page the editor was opened from (a shelf, a search, the grid)
+            return redirect(_return_to(to_save.get("next")) or url_for('web.show_book', book_id=book.id))
         else:
             return render_edit_book(book_id)
 
@@ -1070,6 +1071,22 @@ def delete_book_from_table(book_id, book_format, json_response, location=""):
         return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
 
 
+def _return_to(value):
+    """The page on this site to go back to after the editor (a path with its query), or None
+    for anything else: another site, a protocol-relative URL, or the editor itself."""
+    if not value:
+        return None
+    parts = urlsplit(value)
+    if (parts.scheme or parts.netloc) and parts.netloc != request.host:
+        return None
+    path = parts.path
+    if not path.startswith("/") or path.startswith("//") or "\\" in value:
+        return None
+    if path.startswith(request.script_root + "/admin/book/"):
+        return None
+    return path + ("?" + parts.query if parts.query else "")
+
+
 def render_edit_book(book_id):
     cc = calibre_db.session.query(db.CustomColumns).filter(db.CustomColumns.datatype.notin_(db.cc_exceptions)).all()
     book = calibre_db.get_filtered_book(book_id)
@@ -1094,6 +1111,8 @@ def render_edit_book(book_id):
                                  book_shelf_ids=_book_shelf_ids(book.id),
                                  reader_list=helper.check_read_formats(book),
                                  title=_("Edit Metadata"), page="editbook",
+                                 return_to=(_return_to(request.values.get("next"))
+                                            or _return_to(request.referrer)),
                                  config=config)
 
 

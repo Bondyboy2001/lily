@@ -247,9 +247,10 @@
     <a id="readbtn" class="btn btn-default editbook-read" target="_blank" rel="noopener" data-reader-link="" href="{{ url_for('web.read_book', book_id=book.id, book_format=reader_list[0]) }}"><span class="glyphicon glyphicon-book" aria-hidden="true"></span> {{_('Read')}}</a>
     {% endif %}
     <button type="submit" id="submit" class="btn btn-primary">{{_('Save')}}</button>
-    <a href="{{ url_for('web.show_book', book_id=book.id) }}" id="edit_cancel" class="btn btn-default">{{_('Cancel')}}</a>
-    {# Saving always returns to the book page #}
+    <a href="{{ return_to or url_for('web.show_book', book_id=book.id) }}" id="edit_cancel" class="btn btn-default">{{_('Cancel')}}</a>
+    {# Save and Cancel go back to the page the editor was opened from, else the book page #}
     <input type="hidden" name="detail_view" value="1">
+    {% if return_to %}<input type="hidden" name="next" value="{{ return_to }}">{% endif %}
   </aside>
 </form>
 
