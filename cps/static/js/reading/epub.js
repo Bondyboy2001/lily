@@ -345,8 +345,8 @@ var reader;
         // Theme
         if (typeof selectTheme === 'function') selectTheme(savedReaderTheme(), false);
 
-        // Font size (150% until the reader picks one)
-        let savedFontSize = localStorage.getItem("calibre.reader.fontSize") || "150";
+        // Font size (the book's own, 100%, until the reader picks one)
+        let savedFontSize = localStorage.getItem("calibre.reader.fontSize") || "100";
         let fontSizeFader = document.getElementById('fontSizeFader');
         if (savedFontSize && fontSizeFader && reader && reader.rendition && reader.rendition.themes) {
             fontSizeFader.value = savedFontSize;

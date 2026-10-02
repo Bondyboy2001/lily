@@ -61,11 +61,12 @@ See https://github.com/adobe-type-tools/cmap-resources
         PDFViewerApplicationOptions.set('cMapUrl', "{{ url_for('static', filename='cmaps/') }}");
         PDFViewerApplicationOptions.set('standardFontDataUrl', "{{ url_for('static', filename='standard_fonts/') }}");
         PDFViewerApplicationOptions.set('sidebarViewOnLoad', 0);
-        // Phones (§4.5 small phone, 600px) open at page width: 150% crops the page there.
+        // pdf.js' own Automatic Zoom: fit the page to the window width, never above 125%.
+        // Phones (§4.5 small phone, 600px) open at page width, uncapped.
         // Lily restores only the page number (below) and pdf.js' default zoom always
         // wins over its stored one, so this never overrides a saved reading position.
         var phone = window.matchMedia('(max-width: 600px)').matches;
-        PDFViewerApplicationOptions.set('defaultZoomValue', phone ? 'page-width' : '150');
+        PDFViewerApplicationOptions.set('defaultZoomValue', phone ? 'page-width' : 'auto');
         PDFViewerApplicationOptions.set('workerSrc', "{{ url_for('static', filename='js/libs/pdf.worker.mjs') }}");
         PDFViewerApplicationOptions.set('defaultUrl',"{{ url_for('web.serve_book', book_id=pdffile, book_format='pdf') }}")
     });

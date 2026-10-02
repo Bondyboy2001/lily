@@ -332,7 +332,7 @@ def test_pdf_reader_has_a_back_to_book_link_first_in_its_toolbar():
 def test_pdf_reader_opens_at_page_width_on_phones_only():
     html = read(TEMPLATES / "readpdf.html")
     assert "window.matchMedia('(max-width: 600px)')" in html
-    assert "PDFViewerApplicationOptions.set('defaultZoomValue', phone ? 'page-width' : '150')" in html
+    assert "PDFViewerApplicationOptions.set('defaultZoomValue', phone ? 'page-width' : 'auto')" in html
     # The saved position is a page number only, so the default zoom never fights it.
     assert '"page:"' in html and "app.page = Math.floor(page)" in html
 
