@@ -1,6 +1,6 @@
 /*
  * Import & Metadata → Rebuild metadata (templates/cwa_settings.html): confirm, start the
- * rebuild, then show its progress in the row's help line until it finishes, with Stop
+ * rebuild, then show its progress in a help line under the label until it finishes, with Stop
  * beside it meanwhile. Opening the page while a rebuild runs picks it up again.
  */
 (function () {
@@ -9,10 +9,19 @@
   var btn = document.getElementById("rebuild_metadata");
   if (!btn) { return; }
   var stopBtn = document.getElementById("rebuild_metadata_stop");
-  var help = btn.closest(".lp-row").querySelector(".lp-help");
   var glyph = btn.querySelector(".glyphicon");
   var timer = null;
+  // The row has no help text of its own: the line appears once there is progress to show
+  var help = document.createElement("p");
+  help.className = "lp-help";
+  help.hidden = true;
   help.setAttribute("role", "status");
+  btn.closest(".lp-row").querySelector(".lp-text").appendChild(help);
+
+  function say(text) {
+    help.textContent = text;
+    help.hidden = !text;
+  }
 
   function csrfHeaders() {
     var token = document.querySelector('input[name="csrf_token"]');
@@ -50,15 +59,15 @@
   function show(task) {
     if (task.stat === 0 || task.stat === 2) {
       busy(true);
-      help.textContent = task.stat === 0 ? "Waiting to start…" : messageOf(task);
+      say(task.stat === 0 ? "Waiting to start…" : messageOf(task));
       follow();
       return;
     }
     done();
     if (task.stat === 1) {
-      help.textContent = "The rebuild failed: " + (task.error || "see the logs");
+      say("The rebuild failed: " + (task.error || "see the logs"));
     } else {
-      help.textContent = messageOf(task);
+      say(messageOf(task));
     }
   }
 
@@ -74,12 +83,12 @@
 
   function start() {
     busy(true);
-    help.textContent = "Waiting to start…";
+    say("Waiting to start…");
     post(btn.dataset.url)
       .then(follow)
       .catch(function () {
         busy(false);
-        help.textContent = "Couldn’t start the rebuild. Try again.";
+        say("Couldn’t start the rebuild. Try again.");
       });
   }
 
@@ -90,7 +99,7 @@
   });
   stopBtn.addEventListener("click", function () {
     stopBtn.disabled = true;
-    help.textContent = "Stopping after the books under way…";
+    say("Stopping after the books under way…");
     post(stopBtn.dataset.url).then(poll).catch(function () { stopBtn.disabled = false; });
   });
 
