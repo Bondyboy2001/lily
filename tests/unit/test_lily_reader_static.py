@@ -482,3 +482,16 @@ def test_delete_dialog_renders_its_placeholders_as_markup(client, temp_cwa_db):
     assert '<span class="delete-title"></span> will be deleted from the library' in html
     assert 'The <span class="delete-format"></span> file of <span class="delete-title"></span>' in html
     assert "&lt;span" not in html
+
+
+@pytest.mark.unit
+def test_a_book_with_no_author_shows_none(client, temp_cwa_db):
+    # Calibre files a book with no author under "Unknown"; Lily leaves the author blank
+    env, c, _ = client
+    book_id = env.add_book("Abstract Algebra", author="Unknown")
+    detail = c.get(f"/book/{book_id}").get_data(as_text=True)
+    assert "Abstract Algebra" in detail and 'class="author"' not in detail
+    edit = c.get(f"/admin/book/{book_id}").get_data(as_text=True)
+    assert 'name="authors" id="authors" value=""' in edit
+    authors = c.get("/author").get_data(as_text=True)
+    assert "Test Author" in authors and "Unknown" not in authors
