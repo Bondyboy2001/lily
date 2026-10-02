@@ -136,3 +136,29 @@ def test_simple_search_finds_titles_and_survives_hostile_input(env):
         assert r.status_code == 200
         assert "<script>alert(1)</script>" not in r.get_data(as_text=True)
     assert admin.get("/search").status_code == 200  # empty query renders the search form
+
+
+def test_simple_search_finds_description_words_and_a_papers_id(env):
+    import sqlite3
+    admin = _client(env, env.admin().name, ADMIN_PASSWORD)
+    novel = env.add_book("A Summer Book", author="Jane Roe")
+    paper = env.add_book("Graph Growth", author="Sam Poe")
+    env.add_book("Other Book", author="Ann Doe")
+    con = sqlite3.connect(env.library_dir / "metadata.db")
+    con.execute("INSERT INTO comments (book, text) VALUES (?, ?)",
+                (novel, "<p><span>Nick spends a summer next door to Daisy Buchanan.</span></p>"))
+    con.execute("INSERT INTO identifiers (book, type, val) VALUES (?, 'arxiv', '2601.22106')", (paper,))
+    con.execute("INSERT INTO identifiers (book, type, val) VALUES (?, 'doi', '10.48550/arXiv.2601.22106')", (paper,))
+    con.commit()
+    con.close()
+
+    def found(query):
+        html = admin.get("/search", query_string={"query": query}, follow_redirects=True).get_data(as_text=True)
+        return {t for t in ("A Summer Book", "Graph Growth", "Other Book") if t in html}
+
+    assert found("Daisy Buchanan") == {"A Summer Book"}
+    for query in ("2601.22106", "arXiv:2601.22106", "https://arxiv.org/abs/2601.22106v2",
+                  "10.48550/arxiv.2601.22106"):
+        assert found(query) == {"Graph Growth"}, query
+    # Markup in a description and part of an id are not matches
+    assert found("span") == set() and found("2601") == set()

@@ -44,6 +44,7 @@ from flask import flash
 from . import logger, ub, isoLanguages
 from .pagination import Pagination
 from .string_helper import strip_whitespaces
+from .services.identifiers import parse_identifier
 
 log = logger.create()
 
@@ -216,6 +217,10 @@ class Identifiers(Base):
             return link
         else:
             return "{0}".format(self.val)
+
+
+# HTML words a description holds as markup, which a search for them would match in every book
+_MARKUP_WORDS = {"span", "strong", "class", "style", "href", "font"}
 
 
 class Comments(Base):
@@ -1190,6 +1195,12 @@ class CalibreDB:
                              Books.authors.any(and_(*q)),
                              Books.publishers.any(contains(Publishers.name, term)),
                              contains(Books.title, term)]
+        # Words from a description or abstract (stored as HTML, so not a tag's name), and a
+        # book's own id: "2306.12345", a DOI, or an arXiv link, matched as the id it holds
+        if len(term) >= 4 and term.lower() not in _MARKUP_WORDS:
+            filter_expression.append(Books.comments.any(contains(Comments.text, term)))
+        for value in {term.lower(), *(v.lower() for v in parse_identifier(term).values())}:
+            filter_expression.append(Books.identifiers.any(func.lower(Identifiers.val) == value))
         for c in cc:
             if c.datatype not in ["datetime", "rating", "bool", "int", "float"]:
                 filter_expression.append(
