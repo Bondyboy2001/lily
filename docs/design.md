@@ -536,7 +536,7 @@ content (grid, panel, rows)
   the rating), then the fact tags, then the action bar, 22 apart. The stage is one
   row, so a tall cover never spreads the heading out.
 - **Under the stage** (`.book-detail-extra`, 40 below it, indented 40 to match the
-  stage padding): the description, the housekeeping line, then the related rows
+  stage padding): the description, the lookup line, then the related rows
   ("Next in ‹Series›", "More by ‹Author›") under the description.
 - **≤1499px:** a smaller plate (≤268) and a 46px title. **≤1099px:** stage padding 24,
   title 40. **≤767px:** the stage stacks and centres: a 196px plate, a 30px title, the
@@ -557,10 +557,10 @@ content (grid, panel, rows)
 - **Description:** a pull-quote: `--font-body` 22px italic, line-height 1.6, `--ink-soft`,
   the full width of the page (no measure cap), indented 64 behind a 112px `--accent` opening mark (19px, 40 and 76 on
   phones). A book without one shows editors the "Fetch metadata" notice instead.
-- **Housekeeping line** (`dl.book-record`): one 13px `--muted` line under the
-  description, aligned with its text, facts joined by "·": the Metadata lookup (editors
-  only: "From Open Library", "No match" or "Lookup failed", with the date in its tooltip),
-  Date added, Last edited.
+- **Lookup line** (`dl.book-record`, editors only): one 13px `--muted` line under the
+  description, aligned with its text, saying what the last metadata lookup found
+  ("From Open Library", "No match" or "Lookup failed", with the date in its tooltip).
+  Date added and Last edited are not shown on the book page.
 - Tags and shelves are not shown on the book page; both stay editable on the
   edit page.
 - The action bar is Read, Download, Mark as read, Fetch metadata (the magnifying glass,

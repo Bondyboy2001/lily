@@ -264,7 +264,7 @@ def test_book_links_open_the_book_page_not_a_modal():
 
 def test_detail_page_is_a_frontispiece_stage():
     # docs/design.md §6.4: a --sunk stage (cover plate | heading, fact tags, actions), and under
-    # it the description, the housekeeping line and the related rows.
+    # it the description, the lookup line and the related rows.
     css = read(CSS / "lily-library.css")
     rules = css_rules(css)
     main_rules = [body for selector, body in rules if selector == ".book-detail-main"]
@@ -289,11 +289,13 @@ def test_detail_page_is_a_frontispiece_stage():
     stage = html[html.index('<div class="book-detail-main">'):html.index('<div class="book-detail-extra">')]
     assert '<dl class="book-metadata">' in stage and 'id="readbtn"' in stage
     extra = html[html.index('<div class="book-detail-extra">'):]
-    # The housekeeping line and the related rows come after the description.
+    # The lookup line and the related rows come after the description.
     assert extra.index('class="book-detail-description"') < extra.index('<dl class="book-record">') \
         < extra.index("related-author-heading")
-    for name in ("book-metadata-lookup", "book-date-added", "book-last-modified"):
-        assert name in extra and name not in stage
+    assert "book-metadata-lookup" in extra and "book-metadata-lookup" not in stage
+    # Date added and Last edited aren't shown on the book page.
+    for name in ("book-date-added", "book-last-modified", "_('Date added')", "_('Last edited')"):
+        assert name not in html
 
 
 def test_detail_arxiv_publisher_is_not_said_twice():

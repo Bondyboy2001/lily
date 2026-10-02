@@ -11,7 +11,7 @@
 {% block body %}
 <div class="discover lily-book-detail">
     {# "Frontispiece" (design §6.4): a stage with the cover as a mounted plate beside the title,
-       byline, fact tags and actions; below it the description, housekeeping and what to read next. #}
+       byline, fact tags and actions; below it the description, the lookup line and what to read next. #}
     <div class="book-detail-main">
         <div class="book-detail-cover">
             <div class="book-detail-cover-art cover">
@@ -210,10 +210,9 @@
             </div>
         {% endif %}
 
-        {# Housekeeping, quietly under the description: the last lookup (editors only), added, edited #}
+        {# What its last metadata lookup found, quietly under the description (editors only) #}
+        {% if metadata_lookup %}
         <dl class="book-record">
-            {% if metadata_lookup %}
-            {# What its last metadata lookup found; editors only (web._metadata_lookup) #}
             {% set lookup_words = {'nomatch': _('No match'), 'failed': _('Lookup failed')} %}
             <div class="book-metadata-lookup">
                 <dt>{{ _('Metadata') }}</dt>
@@ -225,16 +224,8 @@
                     {%- endif -%}
                 </dd>
             </div>
-            {% endif %}
-            <div class="book-date-added">
-                <dt>{{ _('Date added') }}</dt>
-                <dd>{{ entry.timestamp|formatdate }}</dd>
-            </div>
-            <div class="book-last-modified">
-                <dt>{{ _('Last edited') }}</dt>
-                <dd>{{ entry.last_modified|formatdate }}</dd>
-            </div>
         </dl>
+        {% endif %}
 
         {# What to read next: the rest of the series (later books first), then the author's others. #}
         {% if related and related.series %}

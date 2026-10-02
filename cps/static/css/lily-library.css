@@ -1156,7 +1156,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 
 .book-detail-actions { min-width: 0; }
 
-/* Under the stage: the description, the housekeeping line, then what to read next. */
+/* Under the stage: the description, the lookup line, then what to read next. */
 .book-detail-extra {
     display: flex;
     flex-direction: column;
@@ -1342,7 +1342,7 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 .book-detail-description .comments p { margin: 0 0 14px; }
 .book-detail-description .comments p:last-child { margin-bottom: 0; }
 
-/* Housekeeping on one quiet line under the description: "Metadata From arXiv · Date added …" */
+/* What the last metadata lookup found, on one quiet line under the description (editors only). */
 dl.book-record {
     display: flex;
     flex-wrap: wrap;
