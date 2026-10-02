@@ -14,10 +14,13 @@ import re
 _EDGE_CHARS = ' \t\r\n"\'“”‘’`•·*#-–—_:;,.|/\\'
 _ISBN = re.compile(r'(?<![\dA-Z])(?:97[89][- ]?)?(?:\d[- ]?){9}[\dX](?![\dA-Z])', re.I)
 _ASIN = re.compile(r'^B0[0-9A-Z]{8}$')
-# A four-digit run: a year, ISBN, page range or date, never part of a subject name
-_DIGIT_RUN = re.compile(r'\d{4}')
-# A word of letters and digits ("62H12", "gnv64", "6x9") or a trailing number ("Series 514")
-_CODE = re.compile(r'(?=\w*\d)(?=\w*[^\W\d_])\w{3,}|\s\d+$')
+# Three or more numbers: a date, a journal reference or a page range ("SIAM Rev. 1970.12:1-63").
+# A subject has at most a year or two ("History, 1914-1918") or a version ("Python 3").
+_NUMBER = re.compile(r'\d+')
+# A word of letters and two or more digits ("62H12", "gnv64", "6x9") or a long trailing number
+# that isn't a year ("Series 514"); ordinals ("20th Century") are words
+_CODE = re.compile(r'(?=\w*\d\w*\d)(?=\w*[^\W\d_])\w{3,}|\s(?!(?:1[5-9]|20)\d\d$)\d{3,}$')
+_ORDINAL = re.compile(r'\b\d+(?:st|nd|rd|th)\b', re.I)
 _URLISH = re.compile(r'https?:|www\.|@|~|\.(?:com|org|net|edu|gov|ws|in|ru|info)\b|'
                      r'\.(?:pdf|epub|djvu|mobi|azw3?|tex)$', re.I)
 # Field labels from shop listings and book front matter
@@ -35,11 +38,11 @@ _JUNK_WORDS = re.compile(
     r'©|_|;|\b(?:is|are|language:? english)\b|^(?:a|an|and|the|by|edited) |спизж|пизд',
     re.I)
 _PUBLISHER = re.compile(
-    r'\b(?:springer|birkh\S{1,2}user|wiley|elsevier|press|crc|de gruyter|world scientific|'
-    r'publish\w*|publications?|pub co|verlag|vieweg|teubner|mcgraw|prentice|addison|pearson|'
-    r'routledge|taylor & francis|chapman|a k peters|nova science|north-holland|butterworth|'
-    r'heinemann|claypool|createspace|dover|artech|atlantis|eagle hill|humana|\w+ical society|'
-    r'society (?:for|of)|association|'
+    r'\b(?:springer|birkh\S{1,2}user|wiley|elsevier|press$|crc|de gruyter|world scientific|'
+    r'publishers?|publishing (?:company|house|group|co)|pub co|verlag|vieweg|teubner|mcgraw|prentice|'
+    r'addison|pearson|routledge|taylor & francis|chapman|a k peters|nova science|north-holland|'
+    r'butterworth|heinemann|claypool|createspace|dover|artech|atlantis|eagle hill|humana|'
+    r'\w+ical society|society (?:for|of)|association (?:for|of)|'
     r'cambridge e?text|referex)\b',
     re.I)
 _PLACEHOLDERS = {
@@ -70,7 +73,8 @@ def is_junk_tag(name):
         return True
     if len(tag) > _MAX_LENGTH or len(tag.split()) > _MAX_WORDS or '<' in tag:
         return True
-    return bool(_ISBN.search(tag) or _ASIN.match(tag) or _DIGIT_RUN.search(tag) or _CODE.search(tag) or _URLISH.search(tag)
+    return bool(_ISBN.search(tag) or _ASIN.match(tag) or len(_NUMBER.findall(tag)) > 2
+                or _CODE.search(_ORDINAL.sub('', tag)) or _URLISH.search(tag)
                 or _LABEL.match(tag) or _JUNK_WORDS.search(tag) or _PUBLISHER.search(tag))
 
 
