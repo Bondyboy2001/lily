@@ -16,6 +16,7 @@
 # DataCite API: https://support.datacite.org/docs/api-queries
 # Semantic Scholar API: https://api.semanticscholar.org/api-docs/graph
 # Crossref API: https://api.crossref.org/swagger-ui/index.html
+import hashlib
 import re
 import html
 from concurrent.futures import ThreadPoolExecutor
@@ -53,6 +54,10 @@ class google_scholar(Metadata):
     # The edition with that ISBN, whose cover is its own, not its work's (often another edition's)
     OPENLIBRARY_EDITION_URL = "https://openlibrary.org/isbn/{}.json"
     OPENLIBRARY_COVER_URL = "https://covers.openlibrary.org/b/id/{}-L.jpg"
+    # Google Books' cover of the book with an ISBN, served apart from its API and its daily quota
+    GOOGLE_COVER_URL = "https://books.google.com/books/content?vid=ISBN{}&printsec=frontcover&img=1&zoom=3"
+    # The "image not available" picture it serves for a book it has no cover of
+    GOOGLE_NO_COVER_MD5 = "a64fa89d7ebc97075c1d363fc5fea71f"
     # arXiv answers 406 when brotli/zstd are offered, which requests does
     # whenever those packages are installed
     HEADERS = {"User-Agent": "Lily/1.0 (metadata lookup)", "Accept-Encoding": "gzip"}
@@ -375,7 +380,8 @@ class google_scholar(Metadata):
                 record.cover = cover
 
     def _book_cover(self, isbn: str) -> str:
-        """The cover of the book with this ISBN: Open Library's, else Google Books'; '' for none.
+        """The cover of the book with this ISBN: Open Library's, else Google Books' (from its
+        API, or by the cover's own address when the API has used the day's quota); '' for none.
         A failure is no cover, never a failed search."""
         try:
             response = requests.get(self.OPENLIBRARY_EDITION_URL.format(isbn), headers=self.HEADERS, timeout=10)
@@ -395,6 +401,14 @@ class google_scholar(Metadata):
                     return record.cover
         except Exception as e:
             log.debug("No Google Books cover for ISBN %s: %s", isbn, e)
+        try:
+            url = self.GOOGLE_COVER_URL.format(isbn)
+            response = requests.get(url, headers=self.HEADERS, timeout=10)
+            response.raise_for_status()
+            if response.content and hashlib.md5(response.content).hexdigest() != self.GOOGLE_NO_COVER_MD5:
+                return url
+        except Exception as e:
+            log.debug("No Google Books cover at its address for ISBN %s: %s", isbn, e)
         return ""
 
     def _parse_crossref_item(self, item: Dict) -> Optional[MetaRecord]:

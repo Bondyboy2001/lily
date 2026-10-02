@@ -390,3 +390,28 @@ def test_a_cover_lookup_failing_still_shows_the_result(monkeypatch):
     }))
     (record,) = google_scholar()._search_crossref("nobel")
     assert record.title == "Nobel Lectures" and record.cover == ""
+
+
+def test_with_google_books_out_of_quota_its_cover_is_asked_for_by_isbn(monkeypatch):
+    # The API refuses once the day's quota is used; the cover's own address has no quota
+    from types import SimpleNamespace
+    import cps.search_metadata as search_metadata
+
+    def refused(ids, *a):
+        raise requests.HTTPError("429")
+    monkeypatch.setattr(search_metadata, "cl", [SimpleNamespace(__id__="google", search_identifiers=refused)])
+    crossref = _crossref({"DOI": "10.1201/9781439894323", "title": ["Understanding Real Analysis"],
+                          "type": "book", "ISBN": ["9781439894323"]})
+    cover = _Response(text="a cover's bytes")
+    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+        "https://api.crossref.org/": crossref, "https://openlibrary.org/isbn/": _Response(404),
+        "https://books.google.com/books/content": cover}))
+    (record,) = google_scholar()._search_crossref("understanding real analysis")
+    assert record.cover == ("https://books.google.com/books/content?vid=ISBN9781439894323"
+                            "&printsec=frontcover&img=1&zoom=3")
+
+    # For a book it has no cover of, Google serves its "image not available" picture
+    import hashlib
+    monkeypatch.setattr(scholar_module.google_scholar, "GOOGLE_NO_COVER_MD5", hashlib.md5(cover.content).hexdigest())
+    (record,) = google_scholar()._search_crossref("understanding real analysis")
+    assert record.cover == ""
