@@ -333,7 +333,8 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
     under library_lock, so the write lock is held for moments, not for a download. A new
     title or first author moves the book's folder, and with "Write edits into book files"
     on, the change is queued for the files. The names of providers that failed to answer
-    are added to `unanswered` (a set) when one is given."""
+    are added to `unanswered` (a set) when one is given. What the lookup found is noted in
+    cwa.db (see _note_lookup)."""
     if not db.CalibreDB.session_factory:
         log.error("CalibreDB not initialized; skipping metadata fetch")
         return False
@@ -359,8 +360,13 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
                 # What it is shows on its title page, and its ISBN on the copyright page
                 page_text = "\n".join((page_text, pdf_front_matter_text(book)))
             current_cover = _cover_path(book)
-        record = _find_record(title, authors, own_ids, page_text, unanswered)
+        missed = set()
+        record = _find_record(title, authors, own_ids, page_text, missed)
+        if unanswered is not None:
+            unanswered.update(missed)
         if record is None:
+            # A provider that didn't answer might have it: worth asking again
+            _note_lookup(store, book_id, 'failed' if missed else 'nomatch')
             _file_if_paper(book_id, own_ids)
             return False
         url = getattr(record, 'cover', '') or ''
@@ -379,17 +385,35 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
         if cover:
             # Weighed, whichever won: the same cover need not be fetched to compare again
             _remember_cover(store, book_id, url, cover_state)
+        _note_lookup(store, book_id, 'matched', getattr(getattr(record, 'source', None), 'description', ''))
         _file_if_paper(book_id, {**own_ids, **(getattr(record, 'identifiers', None) or {})},
                        getattr(getattr(record, 'source', None), 'id', None))
         return changed
     except Exception as e:
         log.error(f"Metadata lookup for book {book_id} failed: {e}", exc_info=True)
+        _note_lookup(store, book_id, 'failed')
         with library_lock:
             _rollback(cdb)
         return False
     finally:
         with library_lock:
             cdb.session.close()
+
+
+def _note_lookup(store, book_id, status, source=''):
+    """Note what the book's lookup found: matched, nomatch (every provider answered and none
+    has it) or failed (one didn't answer, or the lookup went wrong). The library's Metadata
+    filter and Retry failed read it; a failure here is logged, never the lookup's."""
+    try:
+        store.save_metadata_lookup(book_id, status, source)
+    except Exception as e:
+        log.debug(f"Could not note the lookup of book {book_id}: {e}")
+
+
+def _lookup_order():
+    """The providers in the order a lookup asks them: Google Books last, as its daily quota
+    is soon used up and the others often have the book."""
+    return sorted(metadata_providers, key=lambda provider: provider.__id__ == 'google')
 
 
 def _file_if_paper(book_id, identifiers, source_id=None):
@@ -424,13 +448,14 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None):
     comes first: a paper by its arXiv id or DOI, as its title is often the file name,
     which no title search matches; a book by its ISBN, its own or, for a book named by its
     file, the one its copyright page prints. Then each provider's title search, unless the
-    title is a file's name. Providers that fail to answer are added to `unanswered`."""
+    title is a file's name. Google Books is asked last (see _lookup_order). Providers that
+    fail to answer are added to `unanswered`."""
     lookup_ids = find_paper_identifiers(title, page_text, own_ids)
     if own_ids.get('isbn'):
         lookup_ids['isbn'] = own_ids['isbn']
     elif named_by_file(title) and isbn_on_pages(page_text):
         lookup_ids['isbn'] = isbn_on_pages(page_text)
-    for provider in metadata_providers:
+    for provider in _lookup_order():
         ids = {k: v for k, v in lookup_ids.items() if k in provider.identifier_types}
         if not ids:
             continue
@@ -448,7 +473,7 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None):
         log.info(f"No identifier found for '{title}'; keeping its details")
         return None
     query = " ".join([title] + authors)
-    for provider in metadata_providers:
+    for provider in _lookup_order():
         try:
             # Only the record applied needs the details a provider fetches per result
             record = best_metadata_match(title, authors, provider.search_titles(query, "", "en") or [])

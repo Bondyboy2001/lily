@@ -72,6 +72,23 @@
 {%- endmacro %}
 
 {# Page numbers for a paginated book list; they sit in the list's toolbar, after Sort. #}
+{# The Metadata filter's chips (list_filters.py), shown once the filter is on, which the
+   Import & Metadata page's lookup rows do: one per thing a lookup can find. The chosen one
+   turns the filter off again. #}
+{% macro metadata_chips(list_filters) -%}
+    {%- set chosen = list_filters.active.get('metadata') -%}
+    {%- set labels = {'matched': (_('Matched'), _('A provider had the book and its details were applied')),
+                      'nomatch': (_('No match'), _('Every provider answered, but none has the book')),
+                      'failed': (_('Lookup failed'), _('A provider didn’t answer; Retry failed asks again')),
+                      'unchecked': (_('Not looked up'), _('Not looked up since lookups were recorded'))} -%}
+    <div class="lily-chips filterheader" role="group" aria-label="{{ _('Metadata') }}">
+      {%- for choice in list_filters.metadata_choices %}
+      {{ chip('metadata_' ~ choice, labels[choice][0], labels[choice][1],
+              list_filters.url(metadata=None if choice == chosen else choice), active=(choice == chosen)) }}
+      {%- endfor %}
+    </div>
+{%- endmacro %}
+
 {% macro pager(pagination) -%}
     {% if pagination and (pagination.has_next or pagination.has_prev) %}
       <ul class="pagination" role="navigation" aria-label="{{_('Pagination')}}">

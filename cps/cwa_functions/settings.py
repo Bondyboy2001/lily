@@ -11,7 +11,7 @@ import threading
 from flask import redirect, flash, url_for, request, jsonify
 from flask_babel import gettext as _
 
-from .. import config
+from .. import config, logger
 from ..cw_login import current_user
 from ..usermanagement import login_required_if_no_ano
 from ..admin import admin_required
@@ -20,6 +20,8 @@ from ..render_template import render_title_template
 # common puts the scripts dir on sys.path, so it must be imported before cwa_db
 from .common import cwa_settings
 from cwa_db import CWA_DB
+
+log = logger.create()
 
 _rebuild_start_lock = threading.Lock()
 
@@ -56,7 +58,21 @@ def set_cwa_settings():
         return redirect(url_for('cwa_settings.set_cwa_settings'))
 
     return render_title_template("cwa_settings.html", title=_("Import & Metadata"), page="cwa-settings",
-                                 cwa_settings=cwa_db.get_cwa_settings(), config=config)
+                                 cwa_settings=cwa_db.get_cwa_settings(), config=config, lookups=_lookup_counts(cwa_db))
+
+
+def _lookup_counts(cwa_db):
+    """{status: books} from the books' last metadata lookups, counting only books still in the library."""
+    from .. import calibre_db, db
+    try:
+        books = {row[0] for row in calibre_db.session.query(db.Books.id)}
+        counts = {}
+        for status in ("failed", "nomatch"):
+            counts[status] = sum(1 for book_id in cwa_db.metadata_lookup_ids(status) if book_id in books)
+        return counts
+    except Exception as e:
+        log.debug("No metadata lookups to count: %s", e)
+        return {}
 
 
 @cwa_settings.route("/cwa-settings/rebuild-metadata", methods=["POST"])
@@ -65,14 +81,21 @@ def set_cwa_settings():
 def rebuild_metadata():
     """Start a lookup of every book with the metadata providers, a few at once. It runs on its
     own thread, so covers and duplicate scans don't wait behind it. With `resume`, it carries on
-    where a stopped or interrupted rebuild got to."""
+    where a stopped or interrupted rebuild got to; with `failed`, it looks up again only the
+    books whose last lookup failed (Retry failed)."""
     from ..services.worker import WorkerThread
     from ..tasks.metadata_rebuild import TaskRebuildMetadata
     # Two requests at once (two tabs) start one rebuild
     with _rebuild_start_lock:
         if _running_rebuilds(including_stopping=True):
             return jsonify({"success": True, "running": True})
-        task = TaskRebuildMetadata(resume=bool(request.form.get("resume")))
+        if request.form.get("failed"):
+            book_ids = CWA_DB().metadata_lookup_ids("failed")
+            if not book_ids:
+                return jsonify({"success": True, "none": True})
+            task = TaskRebuildMetadata(book_ids=book_ids)
+        else:
+            task = TaskRebuildMetadata(resume=bool(request.form.get("resume")))
         WorkerThread.add_parallel(current_user.name, task)
     return jsonify({"success": True, "task_id": str(task.id)})
 

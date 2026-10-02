@@ -48,11 +48,13 @@ def saved_progress():
 
 
 class TaskRebuildMetadata(CalibreTask):
-    def __init__(self, workers=WORKERS, resume=False):
+    def __init__(self, workers=WORKERS, resume=False, book_ids=None):
         super(TaskRebuildMetadata, self).__init__(N_('Rebuilding metadata'))
         self.workers = workers
         # Carry on where an unfinished run got to, rather than from the first book
         self.resume = resume
+        # Only these books (Retry failed): no tidy first, and a full rebuild's progress is left alone
+        self.book_ids = sorted(book_ids) if book_ids is not None else None
         self.checked = 0
         self.updated = 0
         self.covers = 0
@@ -68,7 +70,7 @@ class TaskRebuildMetadata(CalibreTask):
 
     @property
     def name(self):
-        return str(N_('Rebuild metadata'))
+        return str(N_('Retry failed lookups') if self.book_ids is not None else N_('Rebuild metadata'))
 
     @property
     def is_cancellable(self):
@@ -114,10 +116,14 @@ class TaskRebuildMetadata(CalibreTask):
         try:
             progress = self._store.get_rebuild_progress() if self.resume and self._store else None
             with library_lock:
-                if not progress:
+                if not progress and self.book_ids is None:
                     self._tidy_authors(cdb)
                     self._tidy_tags(cdb)
                 book_ids = [row[0] for row in cdb.session.query(db.Books.id).order_by(db.Books.id).all()]
+            if self.book_ids is not None:
+                # Those still in the library; picked here, not in SQL, as there can be thousands
+                wanted = set(self.book_ids)
+                book_ids = [book_id for book_id in book_ids if book_id in wanted]
             if progress:
                 book_ids = [book_id for book_id in book_ids if book_id >= progress["next_book_id"]]
                 self.checked, self.updated, self.covers = (progress[k] for k in ("checked", "updated", "covers"))
@@ -207,7 +213,7 @@ class TaskRebuildMetadata(CalibreTask):
     def _save_progress(self, running):
         """Note the lowest book not yet checked, for a later run to carry on from; nothing is
         kept once every book is done."""
-        if not self._store:
+        if not self._store or self.book_ids is not None:
             return
         waiting = list(running.values()) + ([self._unsubmitted] if self._unsubmitted is not None else [])
         try:

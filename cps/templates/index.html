@@ -80,6 +80,7 @@
     {% if page == 'hot' %}{% set sort_fields = ['downloads'] %}
     {% elif page == 'series' %}{% set sort_fields = ['added', 'read', 'title', 'author', 'published', 'series'] %}
     {% else %}{% set sort_fields = ['added', 'read', 'title', 'author', 'published'] %}{% endif %}
+    {% if list_filters and list_filters.active.get('metadata') %}{{ image.metadata_chips(list_filters) }}{% endif %}
     {{ image.sort_menu(order, url_for('web.books_list', data=page, book_id=id, sort_param='SORT_PARAM', **(list_filters.args if list_filters else {})), sort_fields) }}
     {{ image.pager(pagination) }}
   </div>
@@ -93,7 +94,7 @@
   {% if not entries[0] and list_filters and list_filters.active %}
   {{ image.empty_state('glyphicon-filter', _('No Books Match These Filters'),
                        _('Try removing a filter, or clear them all.'),
-                       [(_('Clear filters'), list_filters.url(format=None, lang=None, status=None, tag=None), True)]) }}
+                       [(_('Clear filters'), list_filters.url(format=None, lang=None, status=None, tag=None, metadata=None), True)]) }}
   {% elif not entries[0] and page == 'newest' %}
   {% call image.empty_state('glyphicon-book', _('Add Your First Book'),
                             _('Upload a book to start your library, or drop files into the import folder and Lily adds them automatically.')) %}

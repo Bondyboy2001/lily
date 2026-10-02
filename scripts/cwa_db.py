@@ -11,7 +11,7 @@ import os
 import threading
 from sqlite3 import Error as sqlError
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 from tabulate import tabulate
 
@@ -776,6 +776,27 @@ class CWA_DB:
         self.cur.execute("INSERT OR REPLACE INTO metadata_cover_checks (book_id, url, cover) VALUES (?, ?, ?)",
                          (book_id, url, cover))
         self.con.commit()
+
+    def save_metadata_lookup(self, book_id: int, status: str, source: str = '') -> None:
+        """Note what a metadata lookup of the book found: matched, nomatch or failed."""
+        self.cur.execute("INSERT OR REPLACE INTO metadata_lookups (book_id, status, source, checked_at) "
+                         "VALUES (?, ?, ?, ?)",
+                         (book_id, status, source or '', datetime.now(timezone.utc).isoformat(timespec='seconds')))
+        self.con.commit()
+
+    def get_metadata_lookup(self, book_id: int) -> dict | None:
+        """{status, source, checked_at} from the book's last lookup, or None when it has had none."""
+        row = self.cur.execute("SELECT status, source, checked_at FROM metadata_lookups WHERE book_id = ?",
+                               (book_id,)).fetchone()
+        return dict(zip(("status", "source", "checked_at"), row)) if row else None
+
+    def metadata_lookup_ids(self, status: str | None = None) -> list[int]:
+        """The books whose last lookup ended in `status`; every book looked up when it is None."""
+        if status is None:
+            rows = self.cur.execute("SELECT book_id FROM metadata_lookups")
+        else:
+            rows = self.cur.execute("SELECT book_id FROM metadata_lookups WHERE status = ?", (status,))
+        return [row[0] for row in rows]
 
     def invalidate_duplicate_cache(self):
         """Mark duplicate cache as needing refresh"""

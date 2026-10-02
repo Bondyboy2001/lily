@@ -239,3 +239,11 @@ CREATE TABLE IF NOT EXISTS metadata_cover_checks(
     url TEXT NOT NULL,
     cover TEXT NOT NULL  -- the book's cover.jpg once weighed, as "size:mtime"
 );
+
+-- What the last metadata lookup of each book found, for the library's Metadata filter and Retry failed
+CREATE TABLE IF NOT EXISTS metadata_lookups(
+    book_id INTEGER PRIMARY KEY,
+    status TEXT NOT NULL,  -- matched, nomatch (every provider answered, none has it) or failed (one didn't answer)
+    source TEXT NOT NULL DEFAULT '',  -- the provider that matched, as it names itself
+    checked_at TEXT NOT NULL  -- UTC, ISO 8601
+);

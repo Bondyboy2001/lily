@@ -212,6 +212,20 @@
                     {% endif %}
                 {% endfor %}
             {% endif %}
+            {% if metadata_lookup %}
+            {# What its last metadata lookup found; editors only (web._metadata_lookup) #}
+            {% set lookup_words = {'nomatch': _('No match'), 'failed': _('Lookup failed')} %}
+            <div class="book-metadata-lookup">
+                <dt>{{ _('Metadata') }}</dt>
+                <dd title="{{ _('Looked up %(date)s', date=metadata_lookup.checked|formatdate) }}">
+                    {%- if metadata_lookup.status == 'matched' -%}
+                        {{ _('From %(source)s', source=metadata_lookup.source) if metadata_lookup.source else _('Matched') }}
+                    {%- else -%}
+                        {{ lookup_words.get(metadata_lookup.status, metadata_lookup.status) }}
+                    {%- endif -%}
+                </dd>
+            </div>
+            {% endif %}
             <div class="book-date-added">
                 <dt>{{ _('Date added') }}</dt>
                 <dd>{{ entry.timestamp|formatdate }}</dd>

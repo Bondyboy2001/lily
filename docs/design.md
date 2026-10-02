@@ -506,6 +506,9 @@ content (grid, panel, rows)
   the next order). Page numbers (`image.pager`) sit after the sort chips on
   the same row, 38 tall, wrapping under them when narrow; lists have no pager
   at the bottom. On phones Previous and Next show only « and ».
+- **Metadata filter** (`?metadata=matched|nomatch|failed|unchecked`): reached
+  from the Import & Metadata page's lookup rows. While it is on, its four chips
+  (`image.metadata_chips`) lead the toolbar; the chosen one turns it off.
 
 ### 6.4 Book page ("Shelf" layout)
 
@@ -535,6 +538,8 @@ content (grid, panel, rows)
   shelves are changed on its edit page (the Shelves rows), never from the book page.
   There is no archive and no Keep offline button. On a shelf page each cover gets a
   quiet `.icon-btn.is-danger` remove action (`shelves.js`).
+- Editors also get a Metadata row, what the last lookup found: "From Open
+  Library", "No match" or "Lookup failed", with the date in its tooltip.
 - Papers: an arXiv row shows the id itself, linked to the abstract page; its
   DOI isn't shown. Other identifiers (a non-arXiv paper's DOI included) stay as
   named links in one Identifiers row. A Citations row fills in after load from OpenAlex

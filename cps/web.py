@@ -1495,6 +1495,7 @@ def show_book(book_id):
 
         cwa_db = CWA_DB()
         cwa_settings = cwa_db.cwa_settings
+        metadata_lookup = _metadata_lookup(cwa_db, book_id) if current_user.role_edit() else None
 
         try:
             related = _related_books(entry)
@@ -1511,12 +1512,26 @@ def show_book(book_id):
                                      title=entry.title,
                                      books_shelfs=book_in_shelves,
                                      cwa_settings=cwa_settings,
+                                     metadata_lookup=metadata_lookup,
                                      page="book")
     else:
         log.debug("Selected book is unavailable. File does not exist or is not accessible")
         flash(_("That book isn't in your library any more, or its file can't be read."),
               category="error")
         return redirect(url_for("web.index"))
+
+def _metadata_lookup(cwa_db, book_id):
+    """What the book's last metadata lookup found, for its Metadata fact: {status, source,
+    checked} with checked a datetime, or None when it has had none since they were recorded."""
+    try:
+        lookup = cwa_db.get_metadata_lookup(book_id)
+        if lookup:
+            lookup["checked"] = datetime.fromisoformat(lookup["checked_at"])
+        return lookup
+    except Exception as e:
+        log.debug("No metadata lookup to show for book %s: %s", book_id, e)
+        return None
+
 
 from . import web_auth  # noqa: E402,F401  (attaches its routes to this blueprint)
 

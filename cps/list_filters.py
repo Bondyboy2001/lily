@@ -5,15 +5,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Query-string filters for the library book grids (format, language, read status, tag).
+"""Query-string filters for the library book grids (format, language, read status, tag, and
+what the book's last metadata lookup found).
 
-Filters arrive as query parameters (?format=EPUB&lang=eng&status=unread&tag=12), so they survive
+Filters arrive as query parameters (?format=EPUB&lang=eng&status=unread&tag=12&metadata=failed), so they survive
 pagination (url_for_other_page copies request.args) and are carried into the sort links. They are
 AND-ed into the page's own db_filter; calibre_db.fill_indexpage still applies common_filters, so
 user tag/language/custom-column restrictions keep working.
 """
 from flask import request, url_for
-from sqlalchemy import select
+from sqlalchemy import bindparam, select
 from sqlalchemy.sql.expression import true, and_
 
 from . import config, db, logger, ub
@@ -21,8 +22,10 @@ from .cw_login import current_user
 
 log = logger.create()
 
-FILTER_PARAMS = ("format", "lang", "status", "tag")
+FILTER_PARAMS = ("format", "lang", "status", "tag", "metadata")
 STATUS_CHOICES = ("unread", "reading", "read")
+# What a book's last metadata lookup found (cwa.db's metadata_lookups), or unchecked for none yet
+METADATA_CHOICES = ("matched", "nomatch", "failed", "unchecked")
 
 
 def _read_status_subquery(status):
@@ -55,6 +58,8 @@ def active_filters():
             continue
         if key == "status" and value not in STATUS_CHOICES:
             continue
+        if key == "metadata" and value not in METADATA_CHOICES:
+            continue
         if key == "tag" and not value.isdigit():
             continue
         if key == "format":
@@ -73,6 +78,8 @@ def filter_expression(active=None):
         clauses.append(db.Books.languages.any(db.Languages.lang_code == active["lang"]))
     if "tag" in active:
         clauses.append(db.Books.tags.any(db.Tags.id == int(active["tag"])))
+    if "metadata" in active:
+        clauses.append(_metadata_clause(active["metadata"]))
     status = active.get("status")
     if status == "read":
         clauses.append(db.Books.id.in_(_finished_subquery()))
@@ -82,6 +89,23 @@ def filter_expression(active=None):
         clauses.append(db.Books.id.notin_(_finished_subquery()))
         clauses.append(db.Books.id.notin_(_read_status_subquery(ub.ReadBook.STATUS_IN_PROGRESS)))
     return and_(*clauses) if clauses else true()
+
+
+def _metadata_clause(choice):
+    """Books whose last lookup found `choice`, or that have had none (unchecked). The lookups
+    live in cwa.db, not the library, so their ids are written into the query as literals: a
+    library can have more books than SQLite takes bound parameters."""
+    from cwa_db import CWA_DB
+    try:
+        with CWA_DB() as store:
+            ids = store.metadata_lookup_ids(None if choice == "unchecked" else choice)
+    except Exception as e:
+        log.error("Could not read the metadata lookups: %s", e)
+        ids = []
+    ids_param = bindparam("metadata_lookup_ids", ids, expanding=True, literal_execute=True)
+    if choice == "unchecked":
+        return db.Books.id.notin_(ids_param)
+    return db.Books.id.in_(ids_param)
 
 
 def filter_url(**changes):
@@ -102,4 +126,5 @@ def filter_url(**changes):
 def filter_context():
     """What the book grids need from the active filters: the filters, their query args and a URL builder."""
     active = active_filters()
-    return {"active": active, "args": dict(active), "url": filter_url}
+    return {"active": active, "args": dict(active), "url": filter_url,
+            "metadata_choices": METADATA_CHOICES}

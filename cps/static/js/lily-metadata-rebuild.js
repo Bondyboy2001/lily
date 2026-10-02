@@ -3,7 +3,8 @@
  * rebuild, then show its progress in a help line under the label until it finishes, with Stop
  * beside it meanwhile. A stopped rebuild is followed until the books under way are done.
  * Opening the page while a rebuild runs picks it up again. After a rebuild that was stopped
- * or cut short, the dialog offers to continue from there or start again.
+ * or cut short, the dialog offers to continue from there or start again. Retry failed, shown
+ * when some books' lookups failed, starts a run of just those, followed the same way.
  */
 (function () {
   "use strict";
@@ -11,6 +12,7 @@
   var btn = document.getElementById("rebuild_metadata");
   if (!btn) { return; }
   var stopBtn = document.getElementById("rebuild_metadata_stop");
+  var retryBtn = document.getElementById("retry_failed_lookups");
   var confirmBtn = document.getElementById("rebuild_metadata_confirm");
   var restartBtn = document.getElementById("rebuild_metadata_restart");
   var resumeText = document.getElementById("rebuildMetadataResume");
@@ -48,6 +50,7 @@
 
   function busy(on) {
     btn.disabled = on;
+    if (retryBtn) { retryBtn.disabled = on; }
     glyph.classList.toggle("glyphicon-spin", on);
     stopBtn.hidden = !on;
     stopBtn.disabled = false;
@@ -80,12 +83,20 @@
       .catch(function () { /* the next tick tries again */ });
   }
 
-  function start(continuing) {
+  function start(continuing, failed) {
     $("#rebuildMetadataModal").modal("hide");
     busy(true);
     say("Waiting to start…");
-    post(btn.dataset.url, continuing ? { resume: "1" } : null)
-      .then(function () { follow(); poll(); })
+    post(btn.dataset.url, failed ? { failed: "1" } : (continuing ? { resume: "1" } : null))
+      .then(function (reply) {
+        if (reply.none) {
+          busy(false);
+          say("No failed lookups to retry.");
+          return;
+        }
+        follow();
+        poll();
+      })
       .catch(function () {
         busy(false);
         say("Couldn’t start the rebuild. Try again.");
@@ -101,6 +112,9 @@
   });
   confirmBtn.addEventListener("click", function () { start(Boolean(resume)); });
   restartBtn.addEventListener("click", function () { start(false); });
+  if (retryBtn) {
+    retryBtn.addEventListener("click", function () { start(false, true); });
+  }
   stopBtn.addEventListener("click", function () {
     stopBtn.disabled = true;
     post(stopBtn.dataset.url).then(poll).catch(function () { stopBtn.disabled = false; });
