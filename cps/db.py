@@ -23,6 +23,7 @@ from sqlalchemy import Table, Column, ForeignKey, CheckConstraint
 from sqlalchemy import String, Integer, Boolean, TIMESTAMP, Float
 from sqlalchemy.orm import relationship, sessionmaker, scoped_session, joinedload, object_session
 from sqlalchemy.orm import selectinload, lazyload
+from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.orm.collections import InstrumentedList
 from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.exc import OperationalError
@@ -1092,7 +1093,18 @@ class CalibreDB:
             else:
                 total_count = query.count()
             pagination = Pagination(page, pagesize, total_count)
-            entries = query.order_by(*order).offset(off).limit(pagesize).all()
+            ordered = query.order_by(*order).offset(off).limit(pagesize)
+            if database == Books and kwargs.get('cards_only'):
+                # Sort and page on the ids alone, then load only that page's rows. Otherwise
+                # SQLite carries every column of every book through the ORDER BY sorter.
+                # Card pages only: their joins never repeat a book, so the page is the same.
+                page_ids = [book_id for book_id, in ordered.with_entities(Books.id)]
+                rows = {}
+                for row in (query.filter(Books.id.in_(page_ids)).all() if page_ids else []):
+                    rows.setdefault((row[0] if join_archive_read else row).id, row)
+                entries = [rows[book_id] for book_id in page_ids if book_id in rows]
+            else:
+                entries = ordered.all()
         except Exception as ex:
             log.error_or_exception(ex)
         # display authors in right order
@@ -1146,7 +1158,9 @@ class CalibreDB:
 
             if list_return:
                 if combined:
-                    entry.Books.authors = authors_ordered
+                    # Display order only: a plain assignment marks every book on the page dirty,
+                    # and the next query then autoflushes them all for nothing.
+                    set_committed_value(entry.Books, 'authors', authors_ordered)
                 else:
                     entry.ordered_authors = authors_ordered
             else:
@@ -1166,10 +1180,17 @@ class CalibreDB:
         self.ensure_session()
         strip_whitespaces(term).lower()
         self.create_functions()
+
+        # lower() is the Python lcase callback here. ilike() would wrap both the column and the
+        # pattern in it again, so lower the pattern once in Python and compare with LIKE
+        # (ASCII case-insensitive, and lcase only ever returns ASCII).
+        def contains(column, value):
+            return func.lower(column).like(lcase("%" + value + "%"))
+
         q = list()
         author_terms = re.split("[, ]+", term)
         for author_term in author_terms:
-            q.append(Books.authors.any(func.lower(Authors.name).ilike("%" + author_term + "%")))
+            q.append(Books.authors.any(contains(Authors.name, author_term)))
         query = self.generate_linked_query(config.config_read_column, Books)
         if len(join) == 6:
             query = query.outerjoin(join[0], join[1]).outerjoin(join[2]).outerjoin(join[3], join[4]).outerjoin(join[5])
@@ -1181,17 +1202,17 @@ class CalibreDB:
             query = query.outerjoin(join[0])
 
         cc = self.get_cc_columns(config, filter_config_custom_read=True)
-        filter_expression = [Books.tags.any(func.lower(Tags.name).ilike("%" + term + "%")),
-                             Books.series.any(func.lower(Series.name).ilike("%" + term + "%")),
+        filter_expression = [Books.tags.any(contains(Tags.name, term)),
+                             Books.series.any(contains(Series.name, term)),
                              Books.authors.any(and_(*q)),
-                             Books.publishers.any(func.lower(Publishers.name).ilike("%" + term + "%")),
-                             func.lower(Books.title).ilike("%" + term + "%")]
+                             Books.publishers.any(contains(Publishers.name, term)),
+                             contains(Books.title, term)]
         for c in cc:
             if c.datatype not in ["datetime", "rating", "bool", "int", "float"]:
                 filter_expression.append(
                     getattr(Books,
                             'custom_column_' + str(c.id)).any(
-                        func.lower(cc_classes[c.id].value).ilike("%" + term + "%")))
+                        contains(cc_classes[c.id].value, term)))
         # Eagerly load the data relationship to prevent session errors. selectinload, so a
         # paginated search isn't wrapped in a subquery (which breaks text ORDER BY clauses)
         query = query.options(selectinload(Books.data))

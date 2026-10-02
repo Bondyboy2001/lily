@@ -25,6 +25,9 @@ REPO = Path(__file__).resolve().parents[2]
 EMPTY_LIBRARY_DB = REPO / "empty_library" / "metadata.db"
 
 ADMIN_PASSWORD = "admin-test-pw"
+# Test passwords get one PBKDF2 round: the default scrypt hash costs ~70 ms to make and
+# again to check at login, which was most of every environment's setup time.
+FAST_HASH = "pbkdf2:sha256:1"
 
 
 def _admin_name():
@@ -60,7 +63,7 @@ class LilyEnv:
         user.email = f"{name}@example.org"
         user.role = constants.ROLE_USER | constants.ROLE_DOWNLOAD if role is None else role
         user.sidebar_view = constants.ADMIN_USER_SIDEBAR
-        user.password = generate_password_hash(password)
+        user.password = generate_password_hash(password, method=FAST_HASH)
         for key, value in fields.items():
             setattr(user, key, value)
         ub.session.add(user)
@@ -174,7 +177,7 @@ def lily_env(tmp_path, **config_overrides):
         # Make the default admin password known.
         from werkzeug.security import generate_password_hash
         admin = ub.session.query(ub.User).filter(ub.User.name == _admin_name()).one()
-        admin.password = generate_password_hash(ADMIN_PASSWORD)
+        admin.password = generate_password_hash(ADMIN_PASSWORD, method=FAST_HASH)
         ub.session.commit()
 
         key, _ = config_sql.get_encryption_key(str(tmp_path))

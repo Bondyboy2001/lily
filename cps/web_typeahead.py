@@ -12,6 +12,7 @@ import json
 
 from flask import request, url_for
 from flask_babel import get_locale
+from sqlalchemy.orm import lazyload, selectinload
 from sqlalchemy.sql.expression import func, not_, or_
 
 from . import isoLanguages
@@ -74,7 +75,10 @@ def get_book_titles_json():
     if len(query) < 2:
         return json.dumps([])
     pattern = "%" + query + "%"
+    # A suggestion shows the title, authors and cover; leave the other relationships
+    # (tags, comments, identifiers, ...) unloaded instead of one query each per keystroke.
     books = calibre_db.session.query(db.Books) \
+        .options(lazyload('*'), selectinload(db.Books.authors)) \
         .filter(calibre_db.common_filters()) \
         .filter(or_(db.Books.title.ilike(pattern),
                     db.Books.authors.any(db.Authors.name.ilike(pattern)))) \
