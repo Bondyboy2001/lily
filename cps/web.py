@@ -151,6 +151,8 @@ def set_bookmark(book_id, book_format):
 
 WEB_PROGRESS_CFI_MAX_LEN = 4096
 WEB_PROGRESS_FINISHED_AT = 0.99
+# A finished book read again from (near) the start counts as being read again.
+WEB_PROGRESS_REREAD_BELOW = 0.05
 
 
 def _library_uuid():
@@ -247,7 +249,8 @@ def _seeded_legacy_progress(legacy, book, fmt):
 
 
 def _update_read_status_from_web_progress(user_id, book_id, percent):
-    """Unread -> in progress; anything not finished -> finished once the reader hits the end."""
+    """Unread -> in progress; anything not finished -> finished once the reader hits the end;
+    finished -> in progress again when it is reopened from the start (a re-read)."""
     read_book = ub.session.query(ub.ReadBook).filter(ub.ReadBook.user_id == user_id,
                                                      ub.ReadBook.book_id == book_id).first()
     if not read_book:
@@ -257,7 +260,8 @@ def _update_read_status_from_web_progress(user_id, book_id, percent):
     if percent >= WEB_PROGRESS_FINISHED_AT:
         if read_book.read_status != ub.ReadBook.STATUS_FINISHED:
             read_book.read_status = ub.ReadBook.STATUS_FINISHED
-    elif read_book.read_status in (None, ub.ReadBook.STATUS_UNREAD):
+    elif (read_book.read_status in (None, ub.ReadBook.STATUS_UNREAD)
+          or (read_book.read_status == ub.ReadBook.STATUS_FINISHED and 0 < percent < WEB_PROGRESS_REREAD_BELOW)):
         read_book.read_status = ub.ReadBook.STATUS_IN_PROGRESS
         read_book.times_started_reading = (read_book.times_started_reading or 0) + 1
         read_book.last_time_started_reading = datetime.now(timezone.utc)

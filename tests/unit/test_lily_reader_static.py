@@ -113,6 +113,9 @@ def test_progress_sync_contract():
     # between user accounts and libraries on the same browser.
     assert 'localStorage.getItem("calibre.reader.progress' not in epub
     assert "getItem('calibre.reader.progress" not in epub
+    # The last page before notes/index counts as the end, so back matter can't block "Finished".
+    assert "function atStoryEnd" in epub and "atStoryEnd(fraction) ? 1 : fraction" in epub
+    assert "BACK_MATTER" in epub and "STORY_END_MIN_FRACTION = 0.9" in epub
     # Vendor restore:false stays — progressSync alone picks the position.
     assert "restore: false" in read(JS / "reading/epub.js")
     assert '"page:"' in read(TEMPLATES / "readpdf.html")

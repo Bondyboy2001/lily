@@ -266,6 +266,17 @@ class TestWebReaderProgress:
         client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/2)", "percent": 0.1})
         assert _read_status(env, book_id) == env.ub.ReadBook.STATUS_FINISHED
 
+    def test_reading_a_finished_book_again_from_the_start_reopens_it(self, env):
+        book_id = env.add_book("Progress Book")
+        client = _login(env)
+        client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/99)", "percent": 1.0})
+        assert _read_status(env, book_id) == env.ub.ReadBook.STATUS_FINISHED
+        # just opening it at the very start (the cover) doesn't count yet
+        client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/2)", "percent": 0.0})
+        assert _read_status(env, book_id) == env.ub.ReadBook.STATUS_FINISHED
+        client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/4)", "percent": 0.02})
+        assert _read_status(env, book_id) == env.ub.ReadBook.STATUS_IN_PROGRESS
+
     @pytest.mark.parametrize("payload", [None, [], {"cfi": "x"}, {"percent": 0.5}, {"cfi": "", "percent": 0.5},
                                          {"cfi": 5, "percent": 0.5}, {"cfi": "x", "percent": 1.5},
                                          {"cfi": "x", "percent": -0.1}, {"cfi": "x", "percent": "0.5"},

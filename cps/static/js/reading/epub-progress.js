@@ -27,6 +27,50 @@ function currentFraction(){
     return typeof fraction === "number" && !isNaN(fraction) ? fraction : null;
 }
 
+// Sections after the story that a reader rarely pages through. Reaching the last page before them
+// counts as finishing the book, so long endnotes or an index don't leave it stuck at 90%.
+const BACK_MATTER = /^\s*(notes|endnotes|index|bibliography|references|works cited|sources|acknowledg|about the (author|authors|publisher)|also by|other (books|titles) by|by the same author|glossary|appendix|appendices|copyright|credits|colophon|further reading|reading group|discussion questions|permissions)/i;
+const STORY_END_MIN_FRACTION = 0.9;
+
+function hrefKey(href){
+    return String(href || "").split("#")[0].split("/").pop();
+}
+
+function tocLabels(){
+    let labels = {};
+    let walk = (items)=>{
+        (items || []).forEach((item)=>{
+            let key = hrefKey(item.href);
+            if (key && !(key in labels)) {
+                labels[key] = String(item.label || "").trim();
+            }
+            walk(item.subitems);
+        });
+    };
+    walk(epub && epub.navigation ? epub.navigation.toc : []);
+    return labels;
+}
+
+/** True on the last page of the story: the book's last page, or the last page of a section that
+ *  only back matter (by its table-of-contents label) follows, past 90% of the book. */
+function atStoryEnd(fraction){
+    let location = reader.rendition.location;
+    if (location.atEnd) {
+        return true;
+    }
+    let end = location.end;
+    if (fraction < STORY_END_MIN_FRACTION || !end || !end.displayed || end.displayed.page < end.displayed.total
+        || !epub.spine || !epub.spine.spineItems) {
+        return false;
+    }
+    let labels = tocLabels();
+    let later = epub.spine.spineItems.slice(end.index + 1).filter((item)=>item.linear !== false && item.linear !== "no");
+    return later.every((item)=>{
+        let label = labels[hrefKey(item.href)];
+        return !label || BACK_MATTER.test(label);
+    });
+}
+
 function calculateProgress(){
     let fraction = currentFraction();
     return fraction === null ? 0 : Math.round(fraction*100);
@@ -75,7 +119,7 @@ function saveProgress(){
     if (!start || !start.cfi || fraction === null) {
         return;
     }
-    progressSync.save(start.cfi, fraction);
+    progressSync.save(start.cfi, atStoryEnd(fraction) ? 1 : fraction);
 }
 
 function showProgress(){
