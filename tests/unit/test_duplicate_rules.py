@@ -74,3 +74,87 @@ def test_highest_quality_format_uses_configured_priority_with_default_fallback(r
 
     monkeypatch.setattr(rules, "CWA_DB", _Settings)
     assert rules.select_book_to_keep([pdf, epub], "highest_quality_format") is pdf
+
+
+def test_titles_fold_case_accents_and_punctuation(rules):
+    fold = rules.normalize_title_for_duplicates
+    assert fold("Low-Dimensional  Topology") == fold("low dimensional topology") == "low dimensional topology"
+    assert fold("A2.2: Complex Analysis") == fold("A2.2  Complex Analysis")
+    assert fold("Erdős on Graphs") == "erdos on graphs"
+
+
+def test_authors_match_by_surname_and_first_initial(rules):
+    author = rules.normalize_author_for_duplicates
+    assert author("Ricardo Baptista") == author("R. Baptista") == author("Baptista| Ricardo") == "baptista r"
+    assert author("William H. Meeks III") == author("Meeks III| W.") == "meeks w"
+    assert author("Johannson") == "johannson"
+    assert author("Unknown") == author("") == author(None) == ""
+    assert author("Ricardo Baptista") != author("Rebecca Morrison")
+
+
+def test_a_group_is_keyed_by_its_books_in_any_order(rules):
+    assert rules.group_hash_for_books([3, 1, 2]) == rules.group_hash_for_books((2, 3, 1))
+    assert rules.group_hash_for_books([1, 2]) != rules.group_hash_for_books([1, 2, 3])
+
+
+class _Dismissals:
+    """ub stub: DismissedDuplicateGroup rows as (user_id, group_hash)."""
+
+    def __init__(self, rows, fail=False):
+        self.rows, self.fail = rows, fail
+        outer = self
+
+        class _Query:
+            def __init__(self, user_id=None):
+                self.user_id = user_id
+
+            def filter(self, expression):
+                return _Query(expression)
+
+            def all(self):
+                if outer.fail:
+                    raise RuntimeError("db locked")
+                return [(group_hash,) for user_id, group_hash in outer.rows
+                        if self.user_id is None or user_id == self.user_id]
+
+        self.session = SimpleNamespace(query=lambda column: _Query())
+
+
+@pytest.fixture
+def detection(monkeypatch):
+    from cps import duplicate_detection
+
+    def install(rows, fail=False):
+        ub = _Dismissals(rows, fail)
+        # `DismissedDuplicateGroup.user_id == user_id` evaluates to the user id itself
+        ub.DismissedDuplicateGroup = SimpleNamespace(group_hash="group_hash", user_id=_UserIdColumn())
+        monkeypatch.setattr(duplicate_detection, "ub", ub)
+        monkeypatch.setattr(duplicate_detection, "current_user", None)
+        return duplicate_detection
+    return install
+
+
+class _UserIdColumn:
+    def __eq__(self, user_id):
+        return user_id
+
+
+GROUPS = [{"group_hash": "a"}, {"group_hash": "b", "legacy_group_hash": "old-b"}, {"group_hash": "c"}]
+
+
+def test_a_user_sees_every_group_but_the_ones_they_dismissed(detection):
+    module = detection([(1, "a"), (2, "c"), (1, "old-b")])
+    assert module.filter_dismissed_groups(GROUPS, user_id=2) == [GROUPS[0], GROUPS[1]]
+    # A group dismissed before groups were keyed by their books stays dismissed
+    assert module.filter_dismissed_groups(GROUPS, user_id=1) == [GROUPS[2]]
+
+
+def test_background_scans_skip_groups_any_user_dismissed(detection):
+    module = detection([(1, "a"), (2, "c")])
+    assert module.filter_dismissed_groups(GROUPS) == [GROUPS[1]]
+
+
+def test_background_scans_resolve_nothing_when_dismissals_cannot_be_read(detection):
+    module = detection([], fail=True)
+    assert module.filter_dismissed_groups(GROUPS) == []
+    assert module.filter_dismissed_groups(GROUPS, user_id=1) == GROUPS

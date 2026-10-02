@@ -34,6 +34,9 @@ from ..recent_imports import added_summary, books_added_after, newest_book_id
 _duplicate_scan_timer = None
 _duplicate_scan_lock = Lock()
 _duplicate_scan_book_ids = set()
+# An import asks for "every book newer than the last scan" by sending no ids; an
+# edit sends its own ids. One debounced task has to honour both.
+_duplicate_scan_new_books = False
 
 
 ##————————————————————————————————————————————————————————————————————————————##
@@ -265,7 +268,7 @@ def queue_debounced_duplicate_scan(delay_seconds=None, book_ids=None):
     if not enabled or frequency != 'after_import':
         return {"success": True, "skipped": True, "reason": "disabled_or_manual"}
 
-    global _duplicate_scan_timer, _duplicate_scan_book_ids
+    global _duplicate_scan_timer, _duplicate_scan_book_ids, _duplicate_scan_new_books
     with _duplicate_scan_lock:
         if _duplicate_scan_timer is not None:
             try:
@@ -274,19 +277,25 @@ def queue_debounced_duplicate_scan(delay_seconds=None, book_ids=None):
                 pass
 
         _duplicate_scan_book_ids.update(book_ids)
+        if not book_ids:
+            _duplicate_scan_new_books = True
 
         def _enqueue_scan():
             try:
                 log.debug("[cwa-duplicates] Timer fired, attempting to import TaskDuplicateScan...")
                 from ..tasks.duplicate_scan import TaskDuplicateScan
                 log.debug("[cwa-duplicates] TaskDuplicateScan imported successfully, creating task...")
+                global _duplicate_scan_new_books
                 with _duplicate_scan_lock:
-                    queued_book_ids = sorted(_duplicate_scan_book_ids) if _duplicate_scan_book_ids else None
+                    queued_book_ids = sorted(_duplicate_scan_book_ids)
+                    include_new_books = _duplicate_scan_new_books or not queued_book_ids
                     _duplicate_scan_book_ids.clear()
+                    _duplicate_scan_new_books = False
                 task = TaskDuplicateScan(
                     full_scan=False,
                     trigger_type='after_import',
                     book_ids=queued_book_ids,
+                    include_new_books=include_new_books,
                 )
                 log.debug("[cwa-duplicates] Task created, adding to WorkerThread...")
                 WorkerThread.add('System', task, hidden=False)

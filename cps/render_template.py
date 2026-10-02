@@ -269,17 +269,13 @@ def render_title_template(*args, **kwargs):
                 elif cache_data and cache_data.get('duplicate_groups') is not None:
                     duplicate_groups = cache_data.get('duplicate_groups') or []
                     try:
-                        dismissed_groups = ub.session.query(ub.DismissedDuplicateGroup.group_hash)\
-                            .filter(ub.DismissedDuplicateGroup.user_id == current_user.id)\
-                            .all()
-                        dismissed_hashes = {row[0] for row in dismissed_groups}
-                        if dismissed_hashes:
-                            duplicate_groups = [
-                                group for group in duplicate_groups
-                                if group.get('group_hash') not in dismissed_hashes
-                            ]
+                        # The same groups the Duplicates page and /duplicates/status count
+                        from .duplicate_detection import filter_dismissed_groups
+                        from .duplicate_index import visible_cached_groups
+                        duplicate_groups = filter_dismissed_groups(duplicate_groups, current_user.id)
+                        duplicate_groups = visible_cached_groups(duplicate_groups, current_user.id)
                     except Exception as e:
-                        log.debug("Could not filter dismissed duplicate groups: %s", e)
+                        log.debug("Could not filter duplicate groups for the badge: %s", e)
 
                     preview = []
                     for group in duplicate_groups[:3]:

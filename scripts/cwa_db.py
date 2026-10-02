@@ -132,7 +132,13 @@ def _m1_settings_page_defaults(cur):
                 "hardcover_auto_fetch_enabled=0")
 
 
-MIGRATIONS: list = [(1, "always detect duplicates, no Hardcover auto-fetch", _m1_settings_page_defaults)]
+def _m2_drop_duplicate_file_keys(cur) -> None:
+    # Exact-hash file matches, replaced by cwa_duplicate_file_matches (block-level)
+    cur.execute("DROP TABLE IF EXISTS cwa_duplicate_file_keys")
+
+
+MIGRATIONS: list = [(1, "always detect duplicates, no Hardcover auto-fetch", _m1_settings_page_defaults),
+                    (2, "drop exact-hash duplicate file keys", _m2_drop_duplicate_file_keys)]
 SCHEMA_MIGRATIONS_TABLE = "cwa_schema_migrations"
 
 
@@ -158,7 +164,7 @@ class CWA_DB:
             "cwa_user_activity",
             "cwa_duplicate_cache",
             "cwa_duplicate_book_keys",
-            "cwa_duplicate_file_keys",
+            "cwa_duplicate_file_matches",
             "cwa_duplicate_resolutions",
             "cwa_operation_jobs",
         ]
@@ -855,6 +861,8 @@ class CWA_DB:
                     'author': group.get('author', ''),
                     'count': group.get('count', 0),
                     'group_hash': group.get('group_hash', ''),
+                    'legacy_group_hash': group.get('legacy_group_hash', ''),
+                    'same_file': bool(group.get('same_file')),
                     'book_ids': [book.id for book in group.get('books', [])]
                 }
                 serializable_groups.append(serializable_group)

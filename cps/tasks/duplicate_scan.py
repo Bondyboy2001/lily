@@ -34,7 +34,8 @@ log = logger.create()
 
 
 class TaskDuplicateScan(CalibreTask):
-    def __init__(self, full_scan=True, task_message=None, trigger_type='manual', user_id=None, book_ids=None):
+    def __init__(self, full_scan=True, task_message=None, trigger_type='manual', user_id=None, book_ids=None,
+                 include_new_books=None):
         super(TaskDuplicateScan, self).__init__(task_message or N_('Duplicate scan'))
         self.full_scan = full_scan
         self.trigger_type = trigger_type
@@ -48,6 +49,8 @@ class TaskDuplicateScan(CalibreTask):
                 continue
             if parsed_book_id > 0:
                 self.book_ids.append(parsed_book_id)
+        # Also scan every book added since the last scan; the default when no ids are given
+        self.include_new_books = not self.book_ids if include_new_books is None else bool(include_new_books)
 
     @property
     def name(self):
@@ -133,10 +136,9 @@ class TaskDuplicateScan(CalibreTask):
                 # Incremental after-import work must stay bounded to changed candidate groups.
                 settings = cwa_db.cwa_settings
                 last_scanned_book_id = int(cache_data.get('last_scanned_book_id') or 0)
-                if self.book_ids:
-                    candidate_ids = list(dict.fromkeys(self.book_ids))
-                else:
-                    candidate_ids = [
+                candidate_ids = list(dict.fromkeys(self.book_ids))
+                if self.include_new_books:
+                    candidate_ids += [
                         int(row[0])
                         for row in (
                             calibre_db.session.query(db.Books.id)
@@ -157,6 +159,7 @@ class TaskDuplicateScan(CalibreTask):
                         log.info("[cwa-duplicates] After-import duplicate scan marked pending: too many new books")
                         return
 
+                candidate_ids = list(dict.fromkeys(candidate_ids))
                 if not has_valid_duplicate_index_baseline(settings, candidate_book_ids=candidate_ids):
                     mark_duplicate_index_pending("after_import without valid duplicate index baseline")
                     self.result_count = 0
@@ -196,7 +199,8 @@ class TaskDuplicateScan(CalibreTask):
                     self.result_count = 0
                 else:
                     try:
-                        merge_result = merge_affected_groups_into_cache(candidate_ids, settings)
+                        merge_result = merge_affected_groups_into_cache(
+                            candidate_ids, settings, scanned_new_books=self.include_new_books)
                     except Exception as ex:
                         mark_duplicate_index_pending("after_import incremental duplicate merge failed")
                         self.result_count = 0

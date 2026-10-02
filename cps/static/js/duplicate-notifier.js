@@ -14,6 +14,8 @@
     let currentDuplicateCount = 0;
     let pollAttempts = 0;
     let pollTimer = null;
+    // Polling runs only while a scan is pending, at most POLL_MAX_ATTEMPTS times per page
+    let pollingExhausted = false;
     let lastPreviewSignature = '';
     
     /**
@@ -78,19 +80,19 @@
     }
 
     function startStatusPolling() {
-        if (pollTimer) {
+        if (pollTimer || pollingExhausted || isModalActive()) {
             return;
         }
-        if (isModalActive()) {
-            return;
-        }
-        pollAttempts = 0;
         pollTimer = setInterval(() => {
+            if (document.hidden) {
+                return;
+            }
             pollAttempts += 1;
-            fetchDuplicateStatus().then(handleStatusResponse);
             if (pollAttempts >= POLL_MAX_ATTEMPTS) {
+                pollingExhausted = true;
                 stopStatusPolling();
             }
+            fetchDuplicateStatus().then(handleStatusResponse);
         }, POLL_INTERVAL_MS);
     }
 
@@ -179,13 +181,11 @@
             }
         }
 
+        // Keep checking only while a scan is pending; once the results are in, stop
         if ((data.needs_scan || data.stale) && !isModalActive()) {
             startStatusPolling();
-            return;
-        }
-
-        if (data.enabled) {
-            startStatusPolling();
+        } else {
+            stopStatusPolling();
         }
     }
     
@@ -218,8 +218,8 @@
             return; // Modal not rendered, user doesn't have permission
         }
         
-        // Fetch initial status once on page load
-        // No periodic updates - badge refreshes after ingest operations only
+        // The page arrives with the cached status; one fetch refreshes it, and polling
+        // only follows while a scan is pending
         const bootstrapData = window.cwaDuplicateBootstrap;
         if (bootstrapData && typeof bootstrapData === 'object') {
             handleStatusResponse({
@@ -234,7 +234,6 @@
         }
 
         fetchDuplicateStatus().then(handleStatusResponse);
-        startStatusPolling();
 
         document.addEventListener('visibilitychange', function() {
             if (!document.hidden) {

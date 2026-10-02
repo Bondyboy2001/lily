@@ -213,6 +213,45 @@ def test_internal_duplicate_queue_passes_coalesced_book_ids(monkeypatch):
     assert status == 200
     assert response["queued"] is True
     assert added_tasks[0][1].kwargs["book_ids"] == [4, 5]
+    assert added_tasks[0][1].kwargs["include_new_books"] is False
+
+
+def test_an_import_and_an_edit_in_one_debounce_window_scan_both(monkeypatch):
+    # The import asks for new books by sending no ids; the edit sends its own.
+    # Before, the edit's id replaced the import's request and new books went unscanned.
+    added_tasks = []
+    timers = []
+
+    class _TaskDuplicateScan:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class _ManualTimer:
+        def __init__(self, delay, func):
+            self.func = func
+            self.daemon = False
+            timers.append(self)
+
+        def start(self):
+            return None
+
+        def cancel(self):
+            return None
+
+    payloads = iter([{"delay_seconds": 5, "book_ids": []}, {"delay_seconds": 5, "book_ids": [9]}])
+    request = SimpleNamespace(headers={}, remote_addr="127.0.0.1",
+                              get_json=lambda force=True, silent=True: next(payloads))
+    module = _load_cwa_functions(monkeypatch, request)
+    monkeypatch.setattr(module.ingest, "Timer", _ManualTimer)
+    module.ingest.WorkerThread.add = lambda username, task, hidden=False: added_tasks.append(task)
+    _install_stub("cps.tasks.duplicate_scan", {"TaskDuplicateScan": _TaskDuplicateScan})
+
+    module.cwa_internal_queue_duplicate_scan()
+    module.cwa_internal_queue_duplicate_scan()
+    timers[-1].func()
+
+    assert added_tasks[0].kwargs["book_ids"] == [9]
+    assert added_tasks[0].kwargs["include_new_books"] is True
 
 
 def test_internal_duplicate_queue_defaults_to_sixty_second_debounce(monkeypatch):

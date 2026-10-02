@@ -19,7 +19,9 @@
 
 $(document).ready(function() {
     var selectedBooks = [];
-    
+    // The group whose "Merge selected" opened the merge dialog; merging stays inside it
+    var mergeBookIds = [];
+
     // Get CSRF token
     var csrfToken = $('input[name="csrf_token"]').val();
     
@@ -28,16 +30,19 @@ $(document).ready(function() {
         if (count === 0) {
             $('#selection_count').text('No books selected');
             $('#delete_selected').addClass('disabled').attr('aria-disabled', true);
-            $('.merge-selected-btn').addClass('disabled').attr('aria-disabled', true);
-        } else if (count === 1) {
-            $('#selection_count').text('1 book selected');
-            $('#delete_selected').removeClass('disabled').attr('aria-disabled', false);
-            $('.merge-selected-btn').addClass('disabled').attr('aria-disabled', true);
         } else {
-            $('#selection_count').text(count + ' books selected');
+            $('#selection_count').text(count === 1 ? '1 book selected' : count + ' books selected');
             $('#delete_selected').removeClass('disabled').attr('aria-disabled', false);
-            $('.merge-selected-btn').removeClass('disabled').attr('aria-disabled', false);
         }
+        // Each group's merge needs two of its own books checked
+        $('.duplicate-group').each(function() {
+            var enough = groupSelection($(this)).length > 1;
+            $(this).find('.merge-selected-btn').toggleClass('disabled', !enough).attr('aria-disabled', !enough);
+        });
+    }
+
+    function groupSelection(group) {
+        return group.find('.book-checkbox:checked').map(function() { return parseInt($(this).val(), 10); }).get();
     }
     
     function updateBookItemVisuals() {
@@ -180,19 +185,18 @@ $(document).ready(function() {
         if ($(this).hasClass('disabled')) {
             event.stopPropagation();
         } else {
-            // Check if at least 2 books are selected
-            if (selectedBooks.length < 2) {
-                notify('Select at least two books to merge.', 'warning');
+            // Only this group's checked books, newest first as listed; the first is kept
+            var bookIds = groupSelection($(this).closest('.duplicate-group'));
+            if (bookIds.length < 2) {
+                notify('Select at least two books in this group to merge.', 'warning');
                 return;
             }
+            mergeBookIds = bookIds;
 
             // Use relative URL like table.js to respect base paths
             var relativeUrl = window.location.pathname + "/../ajax/displayselectedbooks";
 
             $('#merge_selected_modal').modal('show');
-
-            // Convert book IDs to integers (same as table.js)
-            var bookIds = selectedBooks.map(function(id) { return parseInt(id, 10); });
 
             // Show list of books to be merged (no CSRF - match table.js exactly)
             var ajaxData = {"selections": bookIds};
@@ -281,11 +285,8 @@ $(document).ready(function() {
     $('#merge_selected_confirm').click(function() {
         var mergeUrl = window.location.pathname + "/../ajax/mergebooks";
 
-        // Convert book IDs to integers (same as table.js)
-        var bookIds = selectedBooks.map(function(id) { return parseInt(id, 10); });
-
         // First book in array is target, rest are merged into it
-        var mergeData = {"Merge_books": bookIds};
+        var mergeData = {"Merge_books": mergeBookIds};
 
         $.ajax({
             method: 'post',
@@ -354,70 +355,43 @@ $(document).ready(function() {
         });
     });
     
-    // Dismiss/Undismiss duplicate group handlers
+    // Dismiss a group: it leaves the page and its books leave the selection
     $(document).on('click', '.dismiss-duplicate-btn', function(e) {
         e.preventDefault();
         var btn = $(this);
-        var groupHash = btn.data('group-hash');
-        var isDismissed = btn.data('dismissed');
         var groupContainer = btn.closest('.duplicate-group');
-        
-        // Determine action
-        var action = isDismissed ? 'undismiss' : 'dismiss';
-        var endpoint = '/duplicates/' + action + '/' + groupHash;
-        
-        // Disable button during request
         btn.prop('disabled', true);
-        
-        // Make AJAX request
         $.ajax({
-            url: endpoint,
+            url: duplicateScanEndpoint('/duplicates/dismiss/' + encodeURIComponent(btn.data('group-hash'))),
             type: 'POST',
-            headers: {
-                'X-CSRFToken': csrfToken
-            },
+            headers: {'X-CSRFToken': csrfToken},
             dataType: 'json',
             success: function(response) {
-                if (response.success) {
-                    // Update button state
-                    if (action === 'dismiss') {
-                        btn.data('dismissed', true);
-                        btn.html('<span class="glyphicon glyphicon-eye-open"></span> Show');
-                        btn.attr('title', 'Show this duplicate group');
-                        
-                        // Fade out the group
-                        groupContainer.fadeOut(300);
-                    } else {
-                        btn.data('dismissed', false);
-                        btn.html('<span class="glyphicon glyphicon-eye-close"></span> Dismiss');
-                        btn.attr('title', 'Dismiss this duplicate group');
-                    }
-                    
-                    // Update badge count in real-time
-                    if (window.CWADuplicates && window.CWADuplicates.updateBadge) {
-                        window.CWADuplicates.updateBadge(response.count);
-                    }
-                    
-                    // Show success message (optional)
-                    console.log('[CWA Duplicates] ' + response.message);
-                } else {
-                    // Show error
-                    alert('Error: ' + response.error);
+                if (!response.success) {
+                    btn.prop('disabled', false);
+                    notify('Couldn\'t dismiss this group. Reload the page and try again.');
+                    return;
                 }
-                
-                // Re-enable button
-                btn.prop('disabled', false);
+                groupContainer.find('.book-checkbox').each(function() {
+                    var idx = selectedBooks.indexOf($(this).val());
+                    if (idx > -1) { selectedBooks.splice(idx, 1); }
+                });
+                groupContainer.fadeOut(300, function() {
+                    groupContainer.remove();
+                    updateSelectionCount();
+                    if (!$('.duplicate-group').length) { window.location.reload(); }
+                });
+                if (window.CWADuplicates && window.CWADuplicates.updateBadge) {
+                    window.CWADuplicates.updateBadge(response.count);
+                }
             },
-            error: function(xhr, status, error) {
-                console.error('[CWA Duplicates] Error ' + action + 'ing duplicate group:', error);
-                alert('Error: Failed to update duplicate group');
-                
-                // Re-enable button
+            error: function() {
                 btn.prop('disabled', false);
+                notify('Couldn\'t dismiss this group. Reload the page and try again.');
             }
         });
     });
-    
+
     var duplicateScanPollTimer = null;
     var duplicateScanTaskId = null;
     window.CWADuplicateScanActive = false;
@@ -598,6 +572,14 @@ $(document).ready(function() {
         }
     });
 
+    // Apply resolves exactly the groups the last preview showed, with its strategy
+    var previewedGroupHashes = null;
+    function forgetPreview() {
+        previewedGroupHashes = null;
+        $('#execute_resolution').addClass('disabled').attr('aria-disabled', true);
+    }
+    $('#resolution_strategy').on('change', forgetPreview);
+
     // Auto-resolution preview
     $('#preview_resolution').on('click', function() {
         var strategy = $('#resolution_strategy').val();
@@ -606,7 +588,7 @@ $(document).ready(function() {
         btn.html('<span class="glyphicon glyphicon-refresh glyphicon-spin"></span> Loading...');
         
         $.ajax({
-            url: '/duplicates/preview-resolution',
+            url: duplicateScanEndpoint('/duplicates/preview-resolution'),
             method: 'POST',
             contentType: 'application/json',
             headers: {
@@ -616,13 +598,17 @@ $(document).ready(function() {
             success: function(data) {
                 if (data.success && data.preview) {
                     showResolutionPreview(data);
-                    $('#execute_resolution').removeClass('disabled').prop('aria-disabled', false);
+                    previewedGroupHashes = data.preview.map(function(group) { return group.group_hash; });
+                    var any = previewedGroupHashes.length > 0;
+                    $('#execute_resolution').toggleClass('disabled', !any).attr('aria-disabled', !any);
                 } else {
-                    alert('Error generating preview: ' + (data.errors || []).join(', '));
+                    forgetPreview();
+                    notify('Couldn\'t preview the resolution. ' + (data.errors || []).join(' '));
                 }
             },
-            error: function() {
-                alert('Failed to generate preview');
+            error: function(xhr) {
+                forgetPreview();
+                notify(ajaxErrorMessage(xhr, 'Couldn\'t preview the resolution. Try again.'));
             },
             complete: function() {
                 btn.prop('disabled', false);
@@ -633,7 +619,7 @@ $(document).ready(function() {
     
     // Execute resolution
     $('#execute_resolution').on('click', function() {
-        if ($(this).hasClass('disabled')) return;
+        if ($(this).hasClass('disabled') || !previewedGroupHashes) return;
 
         $('#execute_resolution_strategy_name').text($('#resolution_strategy option:selected').text());
         $('#execute_resolution_modal').modal('show');
@@ -645,13 +631,13 @@ $(document).ready(function() {
         btn.addClass('disabled').html('<span class="glyphicon glyphicon-refresh glyphicon-spin"></span> Applying…');
         
         $.ajax({
-            url: '/duplicates/execute-resolution',
+            url: duplicateScanEndpoint('/duplicates/execute-resolution'),
             method: 'POST',
             contentType: 'application/json',
             headers: {
                 'X-CSRFToken': csrfToken
             },
-            data: JSON.stringify({ strategy: strategy }),
+            data: JSON.stringify({ strategy: strategy, group_hashes: previewedGroupHashes }),
             success: function(data) {
                 if (data.success) {
                     showResolutionSuccess(data);
@@ -704,6 +690,7 @@ $(document).ready(function() {
     }
     
     function escapeHtml(text) {
+        text = String(text == null ? '' : text);
         var map = {
             '&': '&amp;',
             '<': '&lt;',

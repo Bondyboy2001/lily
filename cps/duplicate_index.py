@@ -15,13 +15,15 @@ from datetime import datetime
 from typing import Iterable
 
 from sqlalchemy import func
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import lazyload, selectinload
 
 from . import calibre_db, config, db, logger
 from .duplicate_rules import (
     _AWARE_MIN,
     _timestamp_or_default,
     generate_group_hash,
+    group_hash_for_books,
+    normalize_author_for_duplicates,
     normalize_title_for_duplicates,
 )
 from .duplicate_detection import filter_dismissed_groups, get_common_filters
@@ -32,13 +34,19 @@ from cwa_db import CWA_DB
 
 log = logger.create()
 
-# v2 added the identical-file pass; bumping it makes old indexes rescan once
-NORMALIZATION_VERSION = "duplicate-index-v2"
+# Bumping this makes existing indexes rescan once. v2 added the same-file pass;
+# v3 folds titles and authors, stops matching books with no author by metadata
+# alone and matches files that differ only in embedded metadata.
+NORMALIZATION_VERSION = "duplicate-index-v3"
 MAX_INCREMENTAL_BOOK_IDS = 1000
-DUPLICATE_INDEX_REBUILD_BATCH_SIZE = 250
+DUPLICATE_INDEX_REBUILD_BATCH_SIZE = 500
+# Book ids per IN (...) query, well under SQLite's bound-parameter limit
+LOAD_CHUNK_SIZE = 500
 INGEST_BATCH_DIRTY_FILE = "/config/cwa_ingest_batch_dirty"
 INGEST_BATCH_ACTIVE_FILE = "/config/cwa_ingest_batch_active"
-FILE_HASH_CHUNK_SIZE = 1024 * 1024
+FILE_BLOCK_SIZE = 1024
+# Share of equal blocks at which two same-size files count as one document
+SAME_DOCUMENT_BLOCK_SHARE = 0.9
 
 
 @dataclass(frozen=True)
@@ -132,7 +140,7 @@ def build_book_key_parts(book, settings):
     # leading primary-author prefix, unlike the old Python fallback's no-author mode.
     return BookKeyParts(
         normalized_title=normalize_title_for_duplicates(title, primary_author),
-        normalized_author=primary_author.lower().strip() if primary_author else "unknown",
+        normalized_author=normalize_author_for_duplicates(primary_author),
         normalized_language=language.lower().strip(),
         normalized_series=series.lower().strip(),
         normalized_publisher=publisher.lower().strip(),
@@ -141,14 +149,15 @@ def build_book_key_parts(book, settings):
 
 
 def _enabled_key_values(parts: BookKeyParts, settings):
+    """The metadata a book is matched on. Language is left out: books with no
+    language match books with one, so groups are split by language afterwards
+    (see _split_by_language)."""
     criteria = get_effective_duplicate_criteria(settings)
     values = []
     if criteria["title"]:
         values.append(("title", parts.normalized_title))
     if criteria["author"]:
         values.append(("author", parts.normalized_author))
-    if criteria["language"]:
-        values.append(("language", parts.normalized_language))
     if criteria["series"]:
         values.append(("series", parts.normalized_series))
     if criteria["publisher"]:
@@ -158,25 +167,55 @@ def _enabled_key_values(parts: BookKeyParts, settings):
     return values
 
 
-def _book_query(book_ids=None):
+def _duplicate_key(book_id, parts: BookKeyParts, settings):
+    if not parts.normalized_author:
+        # A book with no author is matched only by an identical file: on real
+        # libraries "Untitled-1", "DjVu Document" or "Front Matter" are titles
+        # that scanned PDFs carry, not signs of the same book.
+        return _hash_json([("book", int(book_id))])
+    return _hash_json(_enabled_key_values(parts, settings))
+
+
+def _book_query(book_ids, keys_only=False):
+    # selectinload, not joinedload: SQLite answers the nested link-table joins of a
+    # joinedload by copying each whole link table, ~20 ms a query on a 17k library.
     query = (
         calibre_db.session.query(db.Books)
-        .options(joinedload(db.Books.data))
-        .options(joinedload(db.Books.authors))
-        .options(joinedload(db.Books.languages))
-        .options(joinedload(db.Books.series))
-        .options(joinedload(db.Books.publishers))
+        .options(selectinload(db.Books.data))
+        .options(selectinload(db.Books.authors))
+        .options(selectinload(db.Books.languages))
+        .options(selectinload(db.Books.series))
+        .options(selectinload(db.Books.publishers))
+        .filter(db.Books.id.in_(list(book_ids)))
     )
-    if book_ids is not None:
-        query = query.filter(db.Books.id.in_(list(book_ids)))
+    if keys_only:
+        # Keys never read these; loading them was half of a full rebuild. Lazy, not
+        # empty, so a later keep-strategy in this session still sees the real values.
+        query = query.options(lazyload(db.Books.tags), lazyload(db.Books.comments),
+                              lazyload(db.Books.ratings), lazyload(db.Books.identifiers))
     return query
 
 
-def _load_books_by_ids(book_ids=None, user_id=None):
-    query = _book_query(book_ids)
-    if user_id is not None:
-        query = query.filter(get_common_filters(user_id=user_id))
-    return query.order_by(db.Books.title, db.Books.timestamp.desc()).all()
+def _load_books_by_ids(book_ids, user_id=None, keys_only=False):
+    """The books with these ids (those `user_id` may see, when given), in chunks."""
+    visibility = get_common_filters(user_id=user_id) if user_id is not None else None
+    books = []
+    for chunk in _chunks(sorted({int(book_id) for book_id in book_ids}), LOAD_CHUNK_SIZE):
+        query = _book_query(chunk, keys_only=keys_only)
+        if visibility is not None:
+            query = query.filter(visibility)
+        books.extend(query.all())
+    return books
+
+
+def _visible_book_ids(book_ids, user_id):
+    """The subset of `book_ids` that `user_id` may see, without loading the books."""
+    visibility = get_common_filters(user_id=user_id)
+    visible = set()
+    for chunk in _chunks(sorted({int(book_id) for book_id in book_ids}), LOAD_CHUNK_SIZE):
+        rows = calibre_db.session.query(db.Books.id).filter(db.Books.id.in_(chunk)).filter(visibility).all()
+        visible.update(int(row[0]) for row in rows)
+    return visible
 
 
 def _current_max_book_id():
@@ -235,7 +274,7 @@ def _same_size_files(book_files):
         )
         other_ids = {int(row[0]) for row in rows} - own_ids
         if other_ids:
-            for book in _load_books_by_ids(other_ids):
+            for book in _load_books_by_ids(other_ids, keys_only=True):
                 matches.extend(file for file in _book_files(book) if (file[1], file[2]) == (fmt, size))
     return matches
 
@@ -248,71 +287,98 @@ def _file_signature(path):
     return stat.st_size, stat.st_mtime_ns
 
 
-def _hash_file(path):
-    digest = hashlib.sha256()
+def _block_digests(path):
+    """An 8-byte digest per FILE_BLOCK_SIZE block of the file, concatenated."""
+    digests = bytearray()
     with open(path, "rb") as handle:
-        for chunk in iter(lambda: handle.read(FILE_HASH_CHUNK_SIZE), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+        for block in iter(lambda: handle.read(FILE_BLOCK_SIZE), b""):
+            digests += hashlib.blake2b(block, digest_size=8).digest()
+    return bytes(digests)
 
 
-def _known_file_hashes(cwa_db):
-    cwa_db.cur.execute("SELECT book_id, format, file_size, file_mtime_ns, content_hash FROM cwa_duplicate_file_keys")
-    return {(int(book_id), fmt): (size, mtime_ns, content_hash)
-            for book_id, fmt, size, mtime_ns, content_hash in cwa_db.cur.fetchall()}
+def _same_document(digests_a, digests_b):
+    """Two equal-size files hold the same document when nearly all their blocks match.
+
+    Copies of one PDF that only got different embedded metadata differ in a block or
+    two (the header, the trailer ID); different documents that happen to share a
+    byte count differ in almost every block.
+    """
+    if len(digests_a) != len(digests_b) or not digests_a:
+        return False
+    if digests_a == digests_b:
+        return True
+    blocks = len(digests_a) // 8
+    equal = sum(1 for offset in range(0, len(digests_a), 8)
+                if digests_a[offset:offset + 8] == digests_b[offset:offset + 8])
+    return equal >= SAME_DOCUMENT_BLOCK_SHARE * blocks
 
 
-def _file_key_rows(book_files, known_hashes):
-    """Hash the files that share a format and byte size with another book's file.
+def _known_file_matches(cwa_db):
+    cwa_db.cur.execute("SELECT book_id, format, file_size, file_mtime_ns, match_key FROM cwa_duplicate_file_matches")
+    return {(int(book_id), fmt): (size, mtime_ns, match_key)
+            for book_id, fmt, size, mtime_ns, match_key in cwa_db.cur.fetchall()}
 
-    Equal size alone is not proof: in a big library two different PDFs can match
-    by chance, so only a matching content hash makes them duplicates. A file whose
-    size and mtime are unchanged keeps its stored hash instead of being read again.
+
+def _file_match_rows(book_files, known_matches):
+    """Rows (book_id, format, size, mtime_ns, match_key) for files that hold the
+    same document as another book's file of the same format and byte size.
+
+    Only same-size files are read. A size bucket whose files are all unchanged
+    since the last check keeps its stored keys without being read again.
     """
     buckets = {}
     for book_id, fmt, size, path in book_files:
-        buckets.setdefault((fmt, size), {})[(book_id, fmt)] = path
+        buckets.setdefault((fmt, size), {})[book_id] = path
     rows = []
-    for files in buckets.values():
-        if len({book_id for book_id, _fmt in files}) < 2:
+    for (fmt, size), paths in buckets.items():
+        if len(paths) < 2:
             continue
-        for (book_id, fmt), path in files.items():
-            signature = _file_signature(path)
-            if signature is None:
-                continue
-            known = known_hashes.get((book_id, fmt))
-            if known and tuple(known[:2]) == signature:
-                content_hash = known[2]
-            else:
-                try:
-                    content_hash = _hash_file(path)
-                except OSError as ex:
-                    log.warning("[cwa-duplicates] Could not read %s for the identical-file check: %s", path, ex)
-                    continue
-            rows.append((book_id, fmt, signature[0], signature[1], content_hash))
+        signatures = {book_id: _file_signature(path) for book_id, path in paths.items()}
+        signatures = {book_id: signature for book_id, signature in signatures.items() if signature}
+        known = {book_id: known_matches.get((book_id, fmt)) for book_id in signatures}
+        if all(entry and tuple(entry[:2]) == signatures[book_id] for book_id, entry in known.items()):
+            rows.extend((book_id, fmt, *signatures[book_id], known[book_id][2]) for book_id in signatures)
+            continue
+        digests = {}
+        for book_id in sorted(signatures):
+            try:
+                digests[book_id] = _block_digests(paths[book_id])
+            except OSError as ex:
+                log.warning("[cwa-duplicates] Could not read %s for the same-file check: %s", paths[book_id], ex)
+        ordered = sorted(digests)
+        matched = [{a, b} for index, a in enumerate(ordered) for b in ordered[index + 1:]
+                   if _same_document(digests[a], digests[b])]
+        for members in _union(matched):
+            match_key = f"{fmt}:{size}:{min(members)}"
+            rows.extend((book_id, fmt, *signatures[book_id], match_key) for book_id in members)
     return rows
 
 
-def _write_file_key_rows(cwa_db, rows):
+def _write_file_match_rows(cwa_db, rows):
     cwa_db.cur.executemany(
         """
-        INSERT OR REPLACE INTO cwa_duplicate_file_keys (book_id, format, file_size, file_mtime_ns, content_hash)
+        INSERT OR REPLACE INTO cwa_duplicate_file_matches (book_id, format, file_size, file_mtime_ns, match_key)
         VALUES (?, ?, ?, ?, ?)
         """,
         rows,
     )
 
 
-def _upsert_file_keys(cwa_db, books):
+def _upsert_file_matches(cwa_db, books):
     """Re-check the files of `books` against same-size files elsewhere in the library."""
     book_files = [file for book in books for file in _book_files(book)]
     book_ids = {int(book.id) for book in books}
-    # Copies can match each other inside one import batch, so hash the batch's own files too
-    rows = _file_key_rows(book_files + _same_size_files(book_files), _known_file_hashes(cwa_db))
+    # Copies can match each other inside one import batch, so the batch's own files count too
+    others = _same_size_files(book_files)
+    rows = _file_match_rows(book_files + others, _known_file_matches(cwa_db))
     if book_ids:
         placeholders = ",".join("?" for _ in book_ids)
-        cwa_db.cur.execute(f"DELETE FROM cwa_duplicate_file_keys WHERE book_id IN ({placeholders})", tuple(book_ids))
-    _write_file_key_rows(cwa_db, rows)
+        cwa_db.cur.execute(f"DELETE FROM cwa_duplicate_file_matches WHERE book_id IN ({placeholders})",
+                           tuple(book_ids))
+    # The other books' size buckets were re-checked too; their other formats were not
+    cwa_db.cur.executemany("DELETE FROM cwa_duplicate_file_matches WHERE book_id = ? AND format = ?",
+                           [(book_id, fmt) for book_id, fmt, _size, _path in others])
+    _write_file_match_rows(cwa_db, rows)
 
 
 def upsert_book_keys(book_ids: Iterable[int], settings):
@@ -323,13 +389,13 @@ def upsert_book_keys(book_ids: Iterable[int], settings):
         return {"updated": 0, "missing": 0, "missing_ids": [], "fingerprint": get_criteria_fingerprint(settings)}
 
     fingerprint = get_criteria_fingerprint(settings)
-    books = _load_books_by_ids(book_ids)
+    books = _load_books_by_ids(book_ids, keys_only=True)
     loaded_book_ids = {int(book.id) for book in books}
     cwa_db = CWA_DB()
     updated = 0
     for book in books:
         parts = build_book_key_parts(book, settings)
-        duplicate_key = _hash_json(_enabled_key_values(parts, settings))
+        duplicate_key = _duplicate_key(book.id, parts, settings)
         cwa_db.cur.execute(
             """
             INSERT INTO cwa_duplicate_book_keys (
@@ -351,7 +417,7 @@ def upsert_book_keys(book_ids: Iterable[int], settings):
             (book.id, *parts.as_db_tuple(), duplicate_key, fingerprint),
         )
         updated += 1
-    _upsert_file_keys(cwa_db, books)
+    _upsert_file_matches(cwa_db, books)
     cwa_db.con.commit()
     missing_ids = sorted(book_ids - loaded_book_ids)
     return {"updated": updated, "missing": len(missing_ids), "missing_ids": missing_ids, "fingerprint": fingerprint}
@@ -365,7 +431,7 @@ def delete_book_keys(book_ids: Iterable[int]):
     placeholders = ",".join("?" for _ in book_ids)
     cwa_db.cur.execute(f"DELETE FROM cwa_duplicate_book_keys WHERE book_id IN ({placeholders})", tuple(book_ids))
     deleted = cwa_db.cur.rowcount
-    cwa_db.cur.execute(f"DELETE FROM cwa_duplicate_file_keys WHERE book_id IN ({placeholders})", tuple(book_ids))
+    cwa_db.cur.execute(f"DELETE FROM cwa_duplicate_file_matches WHERE book_id IN ({placeholders})", tuple(book_ids))
     cwa_db.con.commit()
     return deleted
 
@@ -381,13 +447,13 @@ def rebuild_duplicate_index(settings, progress_callback=None):
     if progress_callback:
         progress_callback(indexed_count, total_books)
     for batch_ids in _chunks(book_ids, DUPLICATE_INDEX_REBUILD_BATCH_SIZE):
-        books_by_id = {int(book.id): book for book in _load_books_by_ids(batch_ids)}
+        books_by_id = {int(book.id): book for book in _load_books_by_ids(batch_ids, keys_only=True)}
         for book_id in batch_ids:
             book = books_by_id.get(int(book_id))
             if book is None:
                 continue
             parts = build_book_key_parts(book, settings)
-            duplicate_key = _hash_json(_enabled_key_values(parts, settings))
+            duplicate_key = _duplicate_key(book.id, parts, settings)
             key_rows.append(
                 (book.id, *parts.as_db_tuple(), duplicate_key, fingerprint)
             )
@@ -408,9 +474,15 @@ def rebuild_duplicate_index(settings, progress_callback=None):
         """,
         key_rows,
     )
-    file_key_rows = _file_key_rows(book_files, _known_file_hashes(cwa_db))
-    cwa_db.cur.execute("DELETE FROM cwa_duplicate_file_keys")
-    _write_file_key_rows(cwa_db, file_key_rows)
+    file_match_rows = _file_match_rows(book_files, _known_file_matches(cwa_db))
+    cwa_db.cur.execute("DELETE FROM cwa_duplicate_file_matches")
+    _write_file_match_rows(cwa_db, file_match_rows)
+    # Books deleted while this rebuild ran would otherwise come back as keys
+    gone = set(book_ids) - _current_library_book_ids()
+    if gone:
+        placeholders = ",".join("?" for _ in gone)
+        for table in ("cwa_duplicate_book_keys", "cwa_duplicate_file_matches"):
+            cwa_db.cur.execute(f"DELETE FROM {table} WHERE book_id IN ({placeholders})", tuple(gone))
     cwa_db.con.commit()
     return {
         "max_book_id": max(book_ids, default=0),
@@ -449,8 +521,8 @@ def _duplicate_key_rows(settings, candidate_book_ids=None):
     return cwa_db.cur.fetchall()
 
 
-def _identical_file_rows(candidate_book_ids=None):
-    """(content_hash, book ids) for each set of books holding a byte-identical file."""
+def _same_file_rows(candidate_book_ids=None):
+    """(match key, book ids) for each set of books holding the same document file."""
     cwa_db = CWA_DB()
     where = ""
     params = ()
@@ -460,16 +532,16 @@ def _identical_file_rows(candidate_book_ids=None):
             return []
         placeholders = ",".join("?" for _ in candidate_book_ids)
         where = (
-            "WHERE content_hash IN (SELECT content_hash FROM cwa_duplicate_file_keys "
+            "WHERE match_key IN (SELECT match_key FROM cwa_duplicate_file_matches "
             f"WHERE book_id IN ({placeholders}))"
         )
         params = tuple(candidate_book_ids)
     cwa_db.cur.execute(
         f"""
-        SELECT content_hash, GROUP_CONCAT(DISTINCT book_id)
-        FROM cwa_duplicate_file_keys
+        SELECT match_key, GROUP_CONCAT(DISTINCT book_id)
+        FROM cwa_duplicate_file_matches
         {where}
-        GROUP BY content_hash
+        GROUP BY match_key
         HAVING COUNT(DISTINCT book_id) > 1
         """,
         params,
@@ -482,19 +554,66 @@ def _split_ids(book_ids_str):
 
 
 def _merged_book_id_sets(metadata_sets, file_sets):
-    """Join sets sharing a book, so a book matched by metadata and by file sits in one group.
+    """Combine metadata matches with identical-file matches into groups.
 
-    Returns (book ids, matched by an identical file) pairs.
+    Returns (book ids, holds identical files) pairs. Identical files join a
+    metadata group only when every copy is in it. Copies with different
+    metadata form their own group and leave their metadata groups, so one
+    mislabelled file can't chain two different works into a group that
+    "Select duplicates" or auto-resolve would thin out.
     """
-    merged = []
-    for book_ids, same_file in [(ids, False) for ids in metadata_sets] + [(ids, True) for ids in file_sets]:
+    file_groups = _union(file_sets)
+    owner = {book_id: index for index, group in enumerate(file_groups) for book_id in group}
+    groups = []
+    contained = set()
+    for book_ids in metadata_sets:
         book_ids = set(book_ids)
-        for other in [entry for entry in merged if entry[0] & book_ids]:
-            merged.remove(other)
-            book_ids |= other[0]
-            same_file = same_file or other[1]
-        merged.append((book_ids, same_file))
-    return merged
+        same_file = False
+        for index in {owner[book_id] for book_id in book_ids if book_id in owner}:
+            if file_groups[index] <= book_ids:
+                contained.add(index)
+                same_file = True
+            else:
+                book_ids -= file_groups[index]
+        groups.append((book_ids, same_file))
+    groups.extend((group, True) for index, group in enumerate(file_groups) if index not in contained)
+    return [(book_ids, same_file) for book_ids, same_file in groups if len(book_ids) > 1]
+
+
+def _union(sets):
+    """Join sets that share a member (a book with two formats can link two file hashes)."""
+    parent = {}
+
+    def find(item):
+        while parent[item] != item:
+            parent[item] = parent[parent[item]]
+            item = parent[item]
+        return item
+
+    for members in sets:
+        members = list(members)
+        for member in members:
+            parent.setdefault(member, member)
+        for member in members[1:]:
+            parent[find(member)] = find(members[0])
+    joined = {}
+    for member in parent:
+        joined.setdefault(find(member), set()).add(member)
+    return list(joined.values())
+
+
+def _split_by_language(books):
+    """Split a metadata match by language. A book with no language goes with the
+    others when they share one language, and stays apart when they don't."""
+    by_language = {}
+    for book in books:
+        languages = getattr(book, "languages", None) or []
+        code = (languages[0].lang_code or "").strip().lower() if languages else ""
+        by_language.setdefault(code, []).append(book)
+    unknown = by_language.pop("", [])
+    if len(by_language) <= 1:
+        return [unknown + next(iter(by_language.values()), [])]
+    return list(by_language.values()) + [unknown]
 
 
 def _indexed_group_book_ids_for_books(settings, book_ids):
@@ -522,7 +641,7 @@ def _indexed_group_book_ids_for_books(settings, book_ids):
     affected_ids = set()
     for (book_ids_str,) in cwa_db.cur.fetchall():
         affected_ids.update(_split_ids(book_ids_str))
-    for _content_hash, book_ids_str in _identical_file_rows(book_ids):
+    for _match_key, book_ids_str in _same_file_rows(book_ids):
         affected_ids.update(_split_ids(book_ids_str))
     return affected_ids
 
@@ -552,12 +671,14 @@ def _group_from_books(books, same_file=False):
         display_author = books[0].author_names.split(",")[0].strip()
     return {
         "title": display_title,
-        # Shown blank for a book with no author; the hash keeps the stand-in, so groups
-        # dismissed before stay dismissed
+        # Shown blank for a book with no author; the legacy hash keeps the stand-in,
+        # so groups dismissed before stay dismissed
         "author": "" if _no_author(display_author) else display_author,
         "count": len(books),
         "books": books,
-        "group_hash": generate_group_hash(display_title, display_author),
+        "group_hash": group_hash_for_books(book.id for book in books),
+        # What older versions keyed a dismissal on; still honoured (see filter_dismissed_groups)
+        "legacy_group_hash": generate_group_hash(display_title, display_author),
         # At least two of the books hold byte-identical files, whatever their metadata says
         "same_file": same_file,
     }
@@ -566,10 +687,21 @@ def _group_from_books(books, same_file=False):
 def get_duplicate_groups_from_index(settings, include_dismissed=False, user_id=None, candidate_book_ids=None):
     metadata_sets = [_split_ids(book_ids_str) for _key, book_ids_str, _count
                      in _duplicate_key_rows(settings, candidate_book_ids=candidate_book_ids)]
-    file_sets = [_split_ids(book_ids_str) for _hash, book_ids_str in _identical_file_rows(candidate_book_ids)]
+    file_sets = [_split_ids(book_ids_str) for _hash, book_ids_str in _same_file_rows(candidate_book_ids)]
+    all_ids = set().union(*metadata_sets, *file_sets)
+    # One batched load for every group; books `user_id` may not see drop out here
+    books_by_id = {int(book.id): book for book in _load_books_by_ids(all_ids, user_id=user_id)}
+
+    if get_effective_duplicate_criteria(settings)["language"]:
+        split_sets = []
+        for book_ids in metadata_sets:
+            books = [books_by_id[book_id] for book_id in book_ids if book_id in books_by_id]
+            split_sets.extend({int(book.id) for book in part} for part in _split_by_language(books))
+        metadata_sets = split_sets
+
     duplicate_groups = []
     for book_ids, same_file in _merged_book_id_sets(metadata_sets, file_sets):
-        books = _load_books_by_ids(book_ids, user_id=user_id)
+        books = [books_by_id[book_id] for book_id in book_ids if book_id in books_by_id]
         if len(books) < 2:
             continue
         duplicate_groups.append(_group_from_books(books, same_file=same_file))
@@ -587,8 +719,41 @@ def visible_cached_groups(cached_groups, user_id=None):
     cached_ids = set()
     for group in cached_groups:
         cached_ids.update(_cached_group_book_ids(group))
-    visible_ids = {int(book.id) for book in _load_books_by_ids(cached_ids, user_id=user_id)}
+    visible_ids = _visible_book_ids(cached_ids, user_id)
     return [group for group in cached_groups if len(_cached_group_book_ids(group) & visible_ids) > 1]
+
+
+def forget_deleted_books(book_ids):
+    """Drop deleted books from the index and the cached groups, without regrouping.
+
+    Groups left with one book disappear. last_scanned_book_id stays put, so books
+    imported but not yet indexed are still picked up by the next incremental scan.
+    """
+    book_ids = {int(book_id) for book_id in book_ids if book_id is not None}
+    if not book_ids:
+        return
+    delete_book_keys(book_ids)
+    cwa_db = CWA_DB()
+    cache_data = cwa_db.get_duplicate_cache()
+    if not cache_data:
+        return
+    groups = []
+    for group in cache_data.get("duplicate_groups") or []:
+        remaining = [book_id for book_id in group.get("book_ids", []) if int(book_id) not in book_ids]
+        if len(remaining) > 1:
+            groups.append({**group, "book_ids": remaining, "count": len(remaining)})
+    cwa_db.cur.execute(
+        "UPDATE cwa_duplicate_cache SET duplicate_groups_json = ?, total_count = ? WHERE id = 1",
+        (json.dumps(groups), len(groups)),
+    )
+    cwa_db.con.commit()
+
+
+def unresolved_cached_group_count(user_id):
+    """Groups the Duplicates page shows `user_id`, counted from the cache rather than a rescan."""
+    cache_data = CWA_DB().get_duplicate_cache() or {}
+    groups = filter_dismissed_groups(cache_data.get("duplicate_groups") or [], user_id=user_id)
+    return len(visible_cached_groups(groups, user_id=user_id))
 
 
 def _cached_group_book_ids(group):
@@ -607,6 +772,8 @@ def _serialize_group_for_cache(group):
         "author": group.get("author", ""),
         "count": group.get("count", 0),
         "group_hash": group.get("group_hash", ""),
+        "legacy_group_hash": group.get("legacy_group_hash", ""),
+        "same_file": bool(group.get("same_file")),
         "book_ids": book_ids,
     }
 
@@ -628,7 +795,12 @@ def _write_duplicate_cache_groups(cwa_db, duplicate_groups, max_book_id):
     cwa_db.con.commit()
 
 
-def merge_affected_groups_into_cache(candidate_book_ids, settings):
+def merge_affected_groups_into_cache(candidate_book_ids, settings, scanned_new_books=True):
+    """Regroup the books `candidate_book_ids` touch and splice them into the cache.
+
+    `scanned_new_books` says the candidates include every book added since the last
+    scan; only then may last_scanned_book_id move up to the library's newest book.
+    """
     candidate_book_ids = {int(book_id) for book_id in candidate_book_ids if book_id is not None}
     if len(candidate_book_ids) > MAX_INCREMENTAL_BOOK_IDS:
         mark_duplicate_index_pending("incremental candidate set too large")
@@ -646,7 +818,7 @@ def merge_affected_groups_into_cache(candidate_book_ids, settings):
     affected_rows = _duplicate_key_rows(settings, candidate_book_ids=candidate_book_ids)
     for _duplicate_key, book_ids_str, _count in affected_rows:
         affected_ids.update(_split_ids(book_ids_str))
-    for _content_hash, book_ids_str in _identical_file_rows(candidate_book_ids):
+    for _match_key, book_ids_str in _same_file_rows(candidate_book_ids):
         affected_ids.update(_split_ids(book_ids_str))
 
     cwa_db = CWA_DB()
@@ -656,7 +828,9 @@ def merge_affected_groups_into_cache(candidate_book_ids, settings):
     fresh_groups = get_duplicate_groups_from_index(settings, include_dismissed=True, candidate_book_ids=affected_ids)
     merged_groups = retained_groups + fresh_groups
     merged_groups.sort(key=lambda group: (group["title"].lower(), group["author"].lower()))
-    _write_duplicate_cache_groups(cwa_db, merged_groups, _current_max_book_id())
+    last_scanned_book_id = (_current_max_book_id() if scanned_new_books
+                            else int(cache_data.get("last_scanned_book_id") or 0))
+    _write_duplicate_cache_groups(cwa_db, merged_groups, last_scanned_book_id)
     return {"updated": True, "pending": False, "merged_count": len(merged_groups)}
 
 

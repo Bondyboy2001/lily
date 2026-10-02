@@ -247,7 +247,8 @@
     <script src="{{ url_for('static', filename='js/lily.js') }}"></script>
     <script src="{{ url_for('static', filename='js/offline.js') }}" defer></script>
     {% block js %}{% endblock %}
-    {% if current_user.is_authenticated and (current_user.role_admin() or current_user.role_edit()) %}
+    {# Not on shell-less pages (the forced password change): the dialog would cover the form #}
+    {% if current_user.is_authenticated and (current_user.role_admin() or current_user.role_edit()) and bodyClass != 'login' %}
     <!-- Duplicate Notification Modal -->
     <div class="modal fade" id="duplicate-notification-modal" tabindex="-1" role="dialog" aria-labelledby="duplicate-notification-title">
       <div class="modal-dialog" role="document">

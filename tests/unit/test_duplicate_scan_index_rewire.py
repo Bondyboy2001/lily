@@ -131,7 +131,7 @@ def _load_duplicate_scan_module(monkeypatch, calls):
             "has_valid_duplicate_index_baseline": lambda settings, candidate_book_ids=None: True,
             "ingest_batch_follow_up_pending": lambda: False,
             "mark_duplicate_index_pending": lambda reason=None: True,
-            "merge_affected_groups_into_cache": lambda candidate_book_ids, settings: {
+            "merge_affected_groups_into_cache": lambda candidate_book_ids, settings, **kwargs: {
                 "updated": True,
                 "pending": False,
                 "merged_count": 1,
@@ -326,7 +326,7 @@ def test_after_import_valid_baseline_merges_index_without_legacy_scans(monkeypat
     monkeypatch.setattr(
         module,
         "merge_affected_groups_into_cache",
-        lambda candidate_book_ids, settings: merge_calls.append((list(candidate_book_ids), settings))
+        lambda candidate_book_ids, settings, **kwargs: merge_calls.append((list(candidate_book_ids), settings))
         or {"updated": True, "pending": False, "merged_count": 1},
     )
 
@@ -352,7 +352,7 @@ def test_after_import_uses_provided_book_ids_without_candidate_lookup(monkeypatc
     monkeypatch.setattr(
         module,
         "merge_affected_groups_into_cache",
-        lambda candidate_book_ids, settings: merge_calls.append((list(candidate_book_ids), settings))
+        lambda candidate_book_ids, settings, **kwargs: merge_calls.append((list(candidate_book_ids), settings))
         or {"updated": True, "pending": False, "merged_count": 1},
     )
 
@@ -597,7 +597,7 @@ def _load_duplicates_route_module(
         calls.append(("groups", include_dismissed, user_id, candidate_book_ids))
         if not library_has_books:
             return []
-        return [{"title": "Dune", "author": "Frank Herbert", "count": 2, "books": []}]
+        return [{"title": "Dune", "author": "Frank Herbert", "count": 2, "books": [], "group_hash": "h-dune"}]
 
     _install_stub(
         "cps.duplicate_index",
@@ -621,7 +621,6 @@ def _load_duplicates_route_module(
     sys.modules["cps.duplicates"] = module
     spec.loader.exec_module(module)
     monkeypatch.setattr(module, "CWA_DB", _RouteCwaDB)
-    monkeypatch.setattr(module, "find_duplicate_books", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError))
     return module
 
 
@@ -734,7 +733,7 @@ def test_duplicates_page_uses_index_when_baseline_exists(monkeypatch):
 
     assert response["duplicate_index_needs_full_scan"] is False
     assert response["duplicate_groups"] == [
-        {"title": "Dune", "author": "Frank Herbert", "count": 2, "books": []}
+        {"title": "Dune", "author": "Frank Herbert", "count": 2, "books": [], "group_hash": "h-dune"}
     ]
     assert calls == [("groups", False, 7, None)]
 
@@ -778,27 +777,6 @@ def test_duplicate_status_does_not_require_scan_when_library_empty(monkeypatch):
     assert response["stale"] is True
     assert response["needs_scan"] is False
     assert response["needs_full_scan"] is False
-
-
-def test_manual_trigger_sync_fallback_rebuilds_index_and_cache(monkeypatch):
-    calls = []
-    module = _load_duplicates_route_module(monkeypatch, calls)
-    _RouteCwaDB.instances = []
-
-    response = module.trigger_scan()
-
-    assert response["success"] is True
-    assert response["fallback"] is True
-    assert response["count"] == 1
-    assert calls == [
-        ("rebuild", _RouteCwaDB.instances[0].cwa_settings),
-        ("groups", False, 7, None),
-        ("groups", True, None, None),
-    ]
-    assert _RouteCwaDB.instances[0].invalidated is True
-    assert _RouteCwaDB.instances[0].cache_updates == [
-        ([{"title": "Dune", "author": "Frank Herbert", "count": 2, "books": []}], 1, 55)
-    ]
 
 
 def test_manual_trigger_blocks_full_scan_while_ingest_pending(monkeypatch):
@@ -861,58 +839,56 @@ def test_preview_resolution_uses_indexed_duplicate_groups(monkeypatch):
     assert response == expected_result
     assert auto_resolve_calls
     assert auto_resolve_calls[0]["duplicate_groups"] == [
-        {"title": "Dune", "author": "Frank Herbert", "count": 2, "books": []}
+        {"title": "Dune", "author": "Frank Herbert", "count": 2, "books": [], "group_hash": "h-dune"}
     ]
     assert auto_resolve_calls[0]["dry_run"] is True
     assert calls == [("groups", False, 7, None)]
 
 
-def test_execute_resolution_uses_indexed_duplicate_groups(monkeypatch):
+def _execute(monkeypatch, payload):
     calls = []
     module = _load_duplicates_route_module(monkeypatch, calls)
-    flask_module = sys.modules["flask"]
-    flask_module.request = SimpleNamespace(json={"strategy": "newest"})
+    sys.modules["flask"].request = SimpleNamespace(json=payload)
     auto_resolve_calls = []
     monkeypatch.setattr(
         module,
         "auto_resolve_duplicates",
         lambda **kwargs: auto_resolve_calls.append(kwargs) or {"success": True},
     )
+    return module.execute_resolution(), auto_resolve_calls, calls
 
-    response = module.execute_resolution()
+
+def test_execute_resolution_resolves_the_previewed_indexed_groups(monkeypatch):
+    response, auto_resolve_calls, calls = _execute(monkeypatch, {"strategy": "newest", "group_hashes": ["h-dune"]})
 
     assert response["success"] is True
-    assert auto_resolve_calls
     assert auto_resolve_calls[0]["duplicate_groups"] == [
-        {"title": "Dune", "author": "Frank Herbert", "count": 2, "books": []}
+        {"title": "Dune", "author": "Frank Herbert", "count": 2, "books": [], "group_hash": "h-dune"}
     ]
     assert auto_resolve_calls[0]["dry_run"] is False
     assert calls == [("groups", False, 7, None)]
 
 
-def test_manual_trigger_sync_fallback_passes_unresolved_groups_to_auto_resolution(monkeypatch):
+def test_execute_resolution_skips_groups_that_changed_since_the_preview(monkeypatch):
+    # A copy added or removed since the preview gives the group a new hash
+    response, auto_resolve_calls, _calls = _execute(monkeypatch, {"strategy": "newest", "group_hashes": ["h-old"]})
+
+    assert auto_resolve_calls[0]["duplicate_groups"] == []
+
+
+def test_execute_resolution_requires_a_preview(monkeypatch):
+    (response, status), auto_resolve_calls, _calls = _execute(monkeypatch, {"strategy": "newest"})
+
+    assert status == 400 and auto_resolve_calls == []
+
+
+def test_manual_trigger_queues_a_full_scan(monkeypatch):
     calls = []
     module = _load_duplicates_route_module(monkeypatch, calls)
-    fallback_db = _RouteCwaDB()
-    fallback_db.cwa_settings["duplicate_auto_resolve_enabled"] = 1
-    auto_resolve_calls = []
-
-    monkeypatch.setattr(module, "CWA_DB", lambda: fallback_db)
-    monkeypatch.setattr(
-        module,
-        "auto_resolve_duplicates",
-        lambda **kwargs: auto_resolve_calls.append(kwargs)
-        or {"success": True, "resolved_count": 1, "kept_count": 1, "deleted_count": 1},
-    )
+    queued = []
+    monkeypatch.setattr(module, "_queue_full_duplicate_scan", lambda: queued.append(1) or SimpleNamespace(id=5))
 
     response = module.trigger_scan()
 
-    assert response["success"] is True
-    assert response["fallback"] is True
-    assert [call[0] for call in calls] == ["rebuild", "groups", "groups", "rebuild", "groups", "groups"]
-    assert auto_resolve_calls
-    assert auto_resolve_calls[0]["duplicate_groups"] == [
-        {"title": "Dune", "author": "Frank Herbert", "count": 2, "books": []}
-    ]
-    assert auto_resolve_calls[0]["user_id"] == 7
-    assert auto_resolve_calls[0]["trigger_type"] == "manual"
+    assert response["queued"] is True and response["task_id"] == "5"
+    assert queued == [1]

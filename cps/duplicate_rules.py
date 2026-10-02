@@ -11,7 +11,9 @@ and the scan task can use them without importing the duplicates blueprint."""
 
 from datetime import datetime, timezone
 import hashlib
+import re
 import sys
+import unicodedata
 
 from . import logger
 
@@ -33,6 +35,9 @@ def _timestamp_or_default(ts, default):
     normalized = _normalize_timestamp(ts)
     return normalized if normalized is not None else default
 
+
+_NON_WORD = re.compile(r"[\W_]+")
+_NAME_SUFFIXES = {"jr", "sr", "ii", "iii", "iv"}
 
 _AWARE_MIN = datetime.min.replace(tzinfo=timezone.utc)
 _AWARE_MAX = datetime.max.replace(tzinfo=timezone.utc)
@@ -59,19 +64,56 @@ def generate_group_hash(title, author):
     return hashlib.md5(composite.encode('utf-8')).hexdigest()
 
 
-def normalize_title_for_duplicates(title, primary_author=None):
-    """Normalize title for duplicate detection.
+def group_hash_for_books(book_ids):
+    """A duplicate group's identity: its books. Dismissing a group hides exactly
+    these books together; a new copy turning up makes a new group to review."""
+    composite = ",".join(str(book_id) for book_id in sorted(int(book_id) for book_id in book_ids))
+    return hashlib.md5(f"books:{composite}".encode('utf-8')).hexdigest()
 
-    If the title starts with the primary author (e.g., "Homer, the Iliad"),
-    strip the leading author prefix to avoid false negatives.
+
+def fold_for_duplicates(text):
+    """Lower-case `text` without accents, punctuation or repeated spaces.
+
+    "Low-Dimensional  Topology" and "low dimensional topology" fold alike, as do
+    "Erdős" and "Erdos".
     """
-    normalized = (title or "untitled").lower().strip()
-    if primary_author:
-        author_norm = str(primary_author).lower().strip()
-        author_prefix = f"{author_norm}, "
-        if normalized.startswith(author_prefix):
-            normalized = normalized[len(author_prefix):].strip()
+    decomposed = unicodedata.normalize("NFKD", str(text or ""))
+    plain = "".join(char for char in decomposed if not unicodedata.combining(char))
+    return " ".join(_NON_WORD.sub(" ", plain.casefold()).split())
+
+
+def normalize_title_for_duplicates(title, primary_author=None):
+    """Fold the title for comparison, dropping a leading author prefix ("Homer, The Iliad")."""
+    normalized = fold_for_duplicates(title) or "untitled"
+    author = fold_for_duplicates(primary_author)
+    if author and normalized.startswith(author + " "):
+        normalized = normalized[len(author) + 1:]
     return normalized
+
+
+def normalize_author_for_duplicates(name):
+    """Surname plus first initial, or "" for no author.
+
+    "Ricardo Baptista", "R. Baptista" and "Baptista| Ricardo" (calibre keeps a
+    comma in a name as "|") all give "baptista r", so one book entered with full
+    names and once with initials still matches.
+    """
+    name = str(name or "")
+    if "|" in name:
+        surname, _, given = name.partition("|")
+        surnames, givens = _without_suffix(fold_for_duplicates(surname).split()), fold_for_duplicates(given).split()
+    else:
+        words = _without_suffix(fold_for_duplicates(name).split())
+        surnames, givens = words[-1:], words[:-1]
+    if not surnames or surnames == ["unknown"]:
+        return ""
+    return f"{surnames[-1]} {givens[0][0]}" if givens else surnames[-1]
+
+
+def _without_suffix(words):
+    while len(words) > 1 and words[-1] in _NAME_SUFFIXES:
+        words = words[:-1]
+    return words
 
 
 def validate_resolution_strategy(strategy):
@@ -85,7 +127,7 @@ def select_book_to_keep(books, strategy):
     Select which book to keep from a duplicate group based on strategy.
 
     Args:
-        books: List of book objects from find_duplicate_books()
+        books: The books of one duplicate group
         strategy: One of 'newest', 'highest_quality_format', 'most_metadata', 'largest_file_size'
 
     Returns:

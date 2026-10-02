@@ -890,34 +890,15 @@ def _perform_book_deletion(book, book_format="", recovery_id=None):
     recovery_id = book_recovery.delete_captured_book(book, book_format,
                                                      recovery_id=recovery_id)
 
-    refreshed_duplicate_cache = False
-    if not book_format:
-        try:
-            from cps.duplicate_index import (
-                _current_max_book_id,
-                delete_book_keys,
-                get_duplicate_groups_from_index,
-            )
-            sys.path.insert(1, '/app/calibre-web-automated/scripts/')
-            from cwa_db import CWA_DB
-
-            delete_book_keys([book_id])
-            cwa_db = CWA_DB()
-            duplicate_groups = get_duplicate_groups_from_index(cwa_db.cwa_settings, include_dismissed=True)
-            cwa_db.update_duplicate_cache(duplicate_groups, len(duplicate_groups), _current_max_book_id())
-            refreshed_duplicate_cache = True
-        except Exception as e:
-            log.warning("Failed to refresh duplicate index/cache after deleting book %s: %s", book_id, str(e))
-
-    # Format-only deletions and refresh failures need a later cache refresh.
-    if not refreshed_duplicate_cache:
-        try:
-            sys.path.insert(1, '/app/calibre-web-automated/scripts/')
-            from cwa_db import CWA_DB
-            cwa_db = CWA_DB()
-            cwa_db.invalidate_duplicate_cache()
-        except Exception as e:
-            log.error("Failed to invalidate duplicate cache after deletion: %s", str(e))
+    try:
+        if book_format:
+            # The book stays, but its files changed: re-check its keys and file hashes
+            _queue_duplicate_scan_after_change([book_id])
+        else:
+            from cps.duplicate_index import forget_deleted_books
+            forget_deleted_books([book_id])
+    except Exception as e:
+        log.warning("Failed to update the duplicate index after deleting book %s: %s", book_id, str(e))
     return warning, recovery_id
 
 

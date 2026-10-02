@@ -41,6 +41,7 @@
 
   {% if duplicate_groups %}
     <div id="duplicate_results_content">
+      {% if current_user.role_admin() %}
       <!-- Auto-resolution -->
       <section class="dup-card dup-resolve">
         <h3 class="dup-card-title">{{_('Auto-Resolve Duplicates')}}</h3>
@@ -75,6 +76,7 @@
           </div>
         </div>
       </section>
+      {% endif %}
 
       <div class="dup-toolbar bulk-actions">
         <button type="button" class="btn btn-default" id="select_all">{{_('Select duplicates')}}</button>
@@ -92,7 +94,7 @@
               <div class="duplicate-author">
                 {{ group.author }}
                 <span class="duplicate-count">{{ group.count }} {{ _('copies') if group.count > 1 else _('copy') }}</span>
-                {% if group.same_file %}<span class="label label-info" title="{{_('At least two of these books hold byte-identical files')}}">{{_('Identical files')}}</span>{% endif %}
+                {% if group.same_file %}<span class="label label-info" title="{{_('Some of these books hold the same file; at most its embedded details differ')}}">{{_('Same file')}}</span>{% endif %}
               </div>
             </div>
             <div class="duplicate-group-actions">

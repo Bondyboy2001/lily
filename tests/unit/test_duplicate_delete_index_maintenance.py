@@ -209,6 +209,7 @@ def _load_editbooks_module(delete_key_calls):
         "cps.duplicate_index",
         {
             "delete_book_keys": lambda ids: delete_key_calls.append(list(ids)),
+            "forget_deleted_books": lambda ids: delete_key_calls.append(("forget", list(ids))),
             "get_duplicate_groups_from_index": lambda settings, include_dismissed=False: [],
             "_current_max_book_id": lambda: 1,
         },
@@ -340,7 +341,7 @@ def _load_duplicates_module(delete_key_calls):
     return module, calibre_books, calls
 
 
-def test_delete_book_from_table_whole_book_deletes_duplicate_keys_and_refreshes_cache():
+def test_deleting_a_whole_book_forgets_it_without_regrouping_the_library():
     _CwaDB.instances = []
     delete_key_calls = []
     module, calls = _load_editbooks_module(delete_key_calls)
@@ -350,15 +351,16 @@ def test_delete_book_from_table_whole_book_deletes_duplicate_keys_and_refreshes_
     assert result == "deleted"
     assert ("whole", 12) in calls
     assert "commit" in calls
-    assert delete_key_calls == [[12]]
-    assert _CwaDB.instances[-1].cache_updates == [([], 0, 1)]
-    assert _CwaDB.instances[-1].invalidated is False
+    assert delete_key_calls == [("forget", [12])]
+    assert all(db.cache_updates == [] for db in _CwaDB.instances)
 
 
-def test_delete_book_from_table_format_only_keeps_duplicate_keys_and_invalidates_cache():
+def test_deleting_one_format_rechecks_that_book():
     _CwaDB.instances = []
     delete_key_calls = []
     module, calls = _load_editbooks_module(delete_key_calls)
+    queued = []
+    module._queue_duplicate_scan_after_change = lambda book_ids=None: queued.append(book_ids)
 
     result = module.delete_book_from_table(12, "EPUB", True)
 
@@ -366,7 +368,7 @@ def test_delete_book_from_table_format_only_keeps_duplicate_keys_and_invalidates
     assert "format-delete" in calls
     assert "commit" in calls
     assert delete_key_calls == []
-    assert _CwaDB.instances[-1].invalidated is True
+    assert queued == [[12]]
 
 
 def test_auto_resolve_duplicates_deletes_duplicate_keys_and_refreshes_cache():
@@ -406,8 +408,8 @@ def test_auto_resolve_duplicates_deletes_duplicate_keys_and_refreshes_cache():
     assert result["success"] is True
     assert result["deleted_count"] == 1
     assert ("whole", 2) in calls
-    assert delete_key_calls == [[2]]
-    assert _CwaDB.instances[-1].cache_updates == [([], 0, 1)]
+    # One regroup after all deletions; the scan mark stays for books not yet indexed
+    assert _CwaDB.instances[-1].cache_updates == [([], 0, None)]
     assert _CwaDB.instances[-1].invalidated is False
 
 
