@@ -9,7 +9,7 @@
 Download public domain ebooks from Project Gutenberg for testing.
 
 This script downloads a curated set of small public domain books
-in multiple formats (EPUB, MOBI, HTML, TXT) for use in CWA tests.
+as EPUBs into sample_books/ for the ingest integration tests.
 
 Usage:
     python download_gutenberg.py
@@ -26,10 +26,10 @@ BASE_URL = "https://www.gutenberg.org/cache/epub"
 # Curated list of small, well-formatted public domain books
 # Format: (gutenberg_id, title, author, formats_to_download)
 BOOKS = [
-    (11, "alice_in_wonderland", "Lewis Carroll", ["epub", "mobi", "txt"]),
-    (5200, "metamorphosis", "Franz Kafka", ["epub", "kindle", "txt"]),
-    (46, "christmas_carol", "Charles Dickens", ["epub", "kindle", "txt"]),
-    (1661, "sherlock_holmes", "Arthur Conan Doyle", ["epub", "kindle"]),
+    (11, "alice_in_wonderland", "Lewis Carroll", ["epub"]),
+    (5200, "metamorphosis", "Franz Kafka", ["epub"]),
+    (46, "christmas_carol", "Charles Dickens", ["epub"]),
+    (1661, "sherlock_holmes", "Arthur Conan Doyle", ["epub"]),
 ]
 
 # Expected file sizes (approximate, for validation)

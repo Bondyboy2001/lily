@@ -129,7 +129,6 @@ def test_settings_page_counts_lookups(env):
     store.save_metadata_lookup(nomatch, "nomatch")
     store.save_metadata_lookup(9999, "failed")  # deleted since: not counted
     html = _login(env).get("/cwa-settings").get_data(as_text=True)
-    assert 'id="retry_failed_lookups"' not in html
     row = re.search(r'<a class="lp-row" href="([^"]+)" id="lookups_failed".*?</a>', html, flags=re.S)
     assert row and "metadata=failed" in row.group(1) and '<span class="lp-value">1</span>' in row.group(0)
     assert 'id="lookups_nomatch"' in html

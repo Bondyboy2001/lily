@@ -88,11 +88,10 @@ def _clear_modules():
 def _load_cwa_functions(monkeypatch, request):
     _clear_modules()
     cps = _install_stub("cps")
-    for name in ("config", "constants", "csrf", "helper", "ub", "calibre_db"):
+    for name in ("config", "constants", "csrf", "ub", "calibre_db"):
         module = _install_stub(f"cps.{name}")
         setattr(cps, name, module)
     cps.config.save = lambda: None
-    cps.helper.get_internal_api_url = lambda path: f"http://localhost{path}"
     cps.logger = _install_stub("cps.logger", {"create": lambda: _Logger()})
     cps.csrf.exempt = lambda fn: fn
 
@@ -104,9 +103,7 @@ def _load_cwa_functions(monkeypatch, request):
     _install_stub("cps.internal_api", {"internal_only": lambda fn: fn})
     _install_stub("cps.render_template", {"render_title_template": lambda *args, **kwargs: {"template": args[0]}})
     _install_stub("cps.cw_login", {"current_user": SimpleNamespace(id=7), "login_user": None, "logout_user": None})
-    _install_stub("cps.web", {"cwa_get_num_books_in_library": lambda: 0})
     _install_stub("cps.services")
-    _install_stub("cps.services.background_scheduler", {"BackgroundScheduler": lambda: None, "DateTrigger": object})
     worker_module = _install_stub(
         "cps.services.worker",
         {
@@ -119,7 +116,6 @@ def _load_cwa_functions(monkeypatch, request):
     )
     _install_stub("cps.tasks")
     _install_stub("cps.tasks.database", {"TaskReconnectDatabase": object})
-    _install_stub("cps.tasks.auto_send", {"TaskAutoSend": object})
     _install_stub("cwa_db", {"CWA_DB": _SettingsCwaDB})
     _install_stub(
         "flask",
@@ -143,24 +139,6 @@ def _load_cwa_functions(monkeypatch, request):
             "lazy_gettext": lambda text, **kwargs: text,
         },
     )
-    _install_stub(
-        "cps.duplicate_index",
-        {
-            "get_criteria_fingerprint": lambda settings: tuple(
-                int(settings.get(key, 0))
-                for key in (
-                    "duplicate_detection_title",
-                    "duplicate_detection_author",
-                    "duplicate_detection_language",
-                    "duplicate_detection_series",
-                    "duplicate_detection_publisher",
-                    "duplicate_detection_format",
-                )
-            ),
-            "mark_duplicate_index_pending": lambda reason=None: pending_reasons.append(reason) or True,
-        },
-    )
-
     _install_stub("cps.recent_imports", {
         "added_summary": lambda *args, **kwargs: "",
         "books_added_after": lambda *args, **kwargs: [],
@@ -177,9 +155,6 @@ def _load_cwa_functions(monkeypatch, request):
     spec.loader.exec_module(module)
     module.ingest.WorkerThread = worker_module.WorkerThread
     return module
-
-
-pending_reasons = []
 
 
 def test_internal_duplicate_queue_passes_coalesced_book_ids(monkeypatch):
@@ -334,8 +309,6 @@ def test_cwa_settings_saves_only_the_fields_the_page_shows(monkeypatch):
         "auto_metadata_enforcement": 0,
         "auto_ingest_automerge": "overwrite",
     }
-    # Settings the page no longer shows are never written.
-    assert "duplicate_detection_enabled" not in saved and "hardcover_auto_fetch_enabled" not in saved
     config = sys.modules["cps.config"]
     assert config.config_google_books_api_key == "abc" and config.config_uploading == 1
 

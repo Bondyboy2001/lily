@@ -1,15 +1,14 @@
 # Calibre-Web Automated – fork of Calibre-Web
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Scoped reader positions: /ajax/progress/<id>?format=<> and continue reading."""
+"""Scoped reader positions: /ajax/progress/<id>?format=<> and the in-progress books query."""
 
 import pytest
 
-from .lily_env import lily_env, ADMIN_PASSWORD
+from .lily_env import lily_env, ADMIN_PASSWORD, continue_reading_progress
 
 @pytest.fixture
-def env(tmp_path, temp_cwa_db, monkeypatch):
-    monkeypatch.setenv("BOOK_RECOVERY_DIR", str(tmp_path / "recovery"))
+def env(tmp_path, temp_cwa_db):
     with lily_env(tmp_path) as e:
         e.app.jinja_env.globals.setdefault("csrf_token", lambda: "test-token")
         yield e
@@ -18,13 +17,6 @@ def _login(env, name=None, password=ADMIN_PASSWORD):
     client = env.app.test_client()
     client.post("/login", data={"username": name or env.admin().name, "password": password})
     return client
-
-
-def continue_reading_progress(session, user_id, limit=None, library_uuid=None):
-    """[(book_id, percent)] from the Continue Reading query (web._continue_reading_rows)."""
-    from cps.web import CONTINUE_READING_LIMIT, _continue_reading_rows
-    return [(book_id, percent) for book_id, percent, __ in
-            _continue_reading_rows(session, user_id, limit or CONTINUE_READING_LIMIT, library_uuid)]
 
 
 def _library_uuid(env):
@@ -199,7 +191,7 @@ class TestReaderPositionApi:
         assert got["cfi"] is None
 
 @pytest.mark.unit
-class TestContinueReadingPositions:
+class TestInProgressReadingPositions:
     def test_scoped_position_wins_and_supplies_format(self, env):
         from cps import ub
         admin = env.admin()
@@ -223,7 +215,7 @@ class TestContinueReadingPositions:
         html = _login(env).get("/").get_data(as_text=True)
         assert f"/read/{bid}/pdf" in html
 
-    def test_missing_format_links_to_book_page(self, env):
+    def test_missing_format_offers_no_reader_link(self, env):
         from cps import ub
         admin = env.admin()
         bid = env.add_book("Gone Format", fmt="EPUB")
@@ -235,7 +227,6 @@ class TestContinueReadingPositions:
         ub.session_commit()
         html = _login(env).get("/").get_data(as_text=True)
         assert f"/read/{bid}/pdf" not in html
-        assert f'href="/book/{bid}"' in html
 
     def test_other_library_positions_ignored(self, env):
         from cps import ub

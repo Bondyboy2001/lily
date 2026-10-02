@@ -43,22 +43,10 @@ def test_ui_strings_avoid_banned_phrases():
     assert offenders == []
 
 
-def test_templates_do_not_label_public_shelves():
-    for path in TEMPLATES.glob("*.*"):
-        assert "(Public)" not in strip_comments(read(path)), path.name
-
-
 def test_flashes_do_not_show_raw_exceptions():
     pattern = re.compile(r"flash\(\s*_\([^\n]*(error=ex?\b|\.format\(ex?\))")
     for path in CPS.glob("*.py"):
         assert not pattern.search(read(path)), path.name
-
-
-def test_templates_translate_whole_sentences():
-    for path in TEMPLATES.glob("*.html"):
-        text = read(path)
-        assert "_('Enter ') +" not in text, path.name
-        assert not re.search(r"_\('(Select|Cover for)'\)\s*\}\}\s*\{\{", text), path.name
 
 
 def test_new_password_field_hints_password_managers():

@@ -5,7 +5,7 @@
 # See CONTRIBUTORS for full list of authors.
 
 """
-Smoke Tests for Calibre-Web Automated
+Smoke tests for Lily
 
 These are fast tests (<30 seconds total) that verify basic functionality.
 Run these before committing to catch critical breakage early.
@@ -71,36 +71,6 @@ class TestBasicFunctionality:
             assert CWA_DB is not None
         except ImportError as e:
             pytest.fail(f"Failed to import CWA_DB: {e}")
-
-
-@pytest.mark.smoke
-@pytest.mark.requires_calibre
-class TestCalibreTools:
-    """Verify Calibre CLI tools are installed and accessible."""
-
-    def test_calibredb_exists(self):
-        """Verify calibredb binary is installed."""
-        import shutil
-        calibredb_path = shutil.which('calibredb')
-        assert calibredb_path is not None, "calibredb not found in PATH"
-
-    def test_ebook_polish_exists(self):
-        """Verify ebook-polish, which writes edits into EPUB files, is installed."""
-        import shutil
-        polish_path = shutil.which('ebook-polish')
-        assert polish_path is not None, "ebook-polish not found in PATH"
-
-    def test_calibre_version(self):
-        """Verify Calibre version can be queried."""
-        import subprocess
-        result = subprocess.run(
-            ['calibredb', '--version'],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        assert result.returncode == 0, "calibredb --version failed"
-        assert 'calibre' in result.stdout.lower(), "Unexpected calibredb version output"
 
 
 @pytest.mark.smoke
@@ -205,29 +175,6 @@ class TestEnvironmentConfiguration:
                     f"Version format unexpected: {version}"
         else:
             pytest.skip("Not in Docker environment - /app/CWA_RELEASE not found")
-
-    def test_network_share_mode_detection(self):
-        """Verify network share mode can be detected from environment."""
-        # This should not crash
-        network_mode = os.environ.get('NETWORK_SHARE_MODE', 'false').lower()
-        assert network_mode in ['true', 'false', '0', '1', 'yes', 'no', 'on', 'off'], \
-            f"Invalid NETWORK_SHARE_MODE value: {network_mode}"
-
-
-# ============================================================================
-# Quick Sanity Check - Run this first!
-# ============================================================================
-
-@pytest.mark.smoke
-def test_smoke_suite_itself():
-    """
-    Meta-test: Verify the smoke test suite can run.
-
-    This test should always pass. If it fails, something is very wrong
-    with the test infrastructure itself.
-    """
-    assert True, "If this fails, the test infrastructure is broken"
-
 
 if __name__ == '__main__':
     # Allow running smoke tests directly: python tests/smoke/test_smoke.py

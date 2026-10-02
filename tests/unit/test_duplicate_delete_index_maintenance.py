@@ -81,7 +81,6 @@ class _CwaDB:
         self.cache_updates = []
         self.cwa_settings = {"duplicate_detection_enabled": 1}
         self.resolutions = []
-        self.scheduled_cancelled = []
         self.__class__.instances.append(self)
 
     def invalidate_duplicate_cache(self):
@@ -97,10 +96,6 @@ class _CwaDB:
 
     def log_duplicate_resolution(self, **kwargs):
         self.resolutions.append(kwargs)
-
-    def scheduled_cancel_for_book(self, book_id):
-        self.scheduled_cancelled.append(book_id)
-        return 0
 
 
 def _clear_modules():
@@ -371,7 +366,7 @@ def test_deleting_one_format_rechecks_that_book():
     assert queued == [[12]]
 
 
-def test_auto_resolve_duplicates_deletes_duplicate_keys_and_refreshes_cache():
+def test_auto_resolve_duplicates_deletes_the_older_copy_and_regroups_once():
     _CwaDB.instances = []
     delete_key_calls = []
     module, calibre_books, calls = _load_duplicates_module(delete_key_calls)

@@ -4,13 +4,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-import pytest
-import sys
-import os
-
-# Add the parent directory to the path so we can import cps modules
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-
 from types import SimpleNamespace
 
 from cps.jinjia import flatten_breaks_filter as flatten_breaks, formatfloat, named_authors_filter
@@ -81,10 +74,6 @@ class TestFormatFloatFilter:
         assert formatfloat(-1.5, 2) == '-1.5'
         assert formatfloat('-1.5', 2) == '-1.5'
         assert formatfloat(-1.0, 2) == '-1'
-
-
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
 
 
 class TestFlattenBreaksFilter:

@@ -62,7 +62,6 @@ def test_delete_shelf_control_is_only_on_edit_page(env):
     browse = admin.get(f"/shelf/{sid}")
     assert browse.status_code == 200
     html = browse.get_data(as_text=True)
-    assert 'id="shelf-menu-toggle"' not in html
     assert 'id="delete_shelf"' not in html
     assert 'id="edit_shelf"' in html
 

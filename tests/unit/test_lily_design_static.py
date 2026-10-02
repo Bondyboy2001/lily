@@ -1,4 +1,4 @@
-"""Static checks that Lily's styling follow the Mauve palette."""
+"""Static checks that Lily's styling follows docs/design.md: the Mauve palette, tokens, type and layout."""
 import re
 from pathlib import Path
 
@@ -74,7 +74,7 @@ def test_derived_states_use_guide_formulas():
 
 
 def test_no_gradients_or_blur():
-    for name in LILY_STYLESHEETS:
+    for name in set(LILY_STYLESHEETS + PAGE_STYLESHEETS):
         css = read(CSS / name)
         for banned in ("gradient", "backdrop-filter", "blur("):
             assert banned not in css, (name, banned)
@@ -97,36 +97,18 @@ def test_buttons_have_no_border():
 
 LILY_STYLESHEETS.append("lily-shell.css")
 
+# Ids in layout.html that main.js and lily.js look up.
 KEPT_IDS = [
-    "query", "query_submit", "advanced_search", "form-upload", "btn-upload", "btn-upload2",
-    "refresh-library", "top_settings", "login",
-    "scnd-nav", "nav_createshelf",
-    "message_library_refresh", "library_refresh_message", "bookDetailsModal",
+    "query", "form-upload", "btn-upload", "refresh-library",
+    "message_library_refresh", "library_refresh_message",
 ]
 
 
-def test_layout_loads_lily_styles_and_not_caliblur_css():
+def test_layout_loads_lily_styles_in_order():
     layout = read(TEMPLATES / "layout.html")
     for asset in ("css/lily.css", "css/lily-shell.css"):
         assert asset in layout, asset
-    for asset in ("caliBlur.css", "caliBlur_override.css", "lily-light.css"):
-        assert asset not in layout, asset
     assert layout.index("css/lily-fixes.css") < layout.index("css/lily.css") < layout.index("css/lily-shell.css")
-
-
-def test_legacy_caliblur_assets_are_deleted():
-    for path in ("css/caliBlur.css", "css/caliBlur_override.css", "css/lily-light.css",
-                 "js/caliBlur.js", "css/images/caliblur"):
-        assert not (REPO_ROOT / "cps/static" / path).exists(), path
-
-
-def test_legacy_theme_switching_is_gone():
-    layout = read(TEMPLATES / "layout.html")
-    main_js = read(REPO_ROOT / "cps/static/js/main.js")
-    for needle in ("cwa-switch-theme", "current_theme", "allow-mobile-blur"):
-        assert needle not in layout, needle
-    for needle in ("lily-theme", "cwa-switch-theme"):
-        assert needle not in main_js, needle
 
 
 DARK_PALETTE_BLOCK = ':root[data-theme="dark"]'
@@ -238,12 +220,6 @@ def test_login_css_uses_tokens_only():
     assert "!important" not in css
 
 
-def test_sidebar_nav_avoids_legacy_navigation_rules():
-    # style.css still styles `.navigation .create-shelf` / `.nav-head` (teal button, grey rules).
-    layout = read(TEMPLATES / "layout.html")
-    assert 'class="navigation"' not in layout
-
-
 def test_flash_rows_reset_legacy_negative_margin():
     # An older rule gives .row-fluid a -20px top margin, pulling notices under the sticky top bar.
     bodies = [b for s, b in css_rules(read(CSS / "lily-shell.css")) if s == ".lily-topbar ~ .row-fluid"]
@@ -300,10 +276,8 @@ def test_settings_button_opens_settings_with_logout_in_rail():
     bar = layout[layout.index('class="navbar lily-topbar"'):layout.index("</header>")]
     assert 'id="top_settings"' in bar and "glyphicon-cog" in bar
     assert "dropdown-menu" not in bar and "url_for('web.profile')" in bar
-    for gone in ("glyphicon-user", "glyphicon-dashboard", "glyphicon-tasks"):
-        assert gone not in bar, gone
-    rail = read(TEMPLATES / "settings_layout.html")
-    assert "tasks.get_tasks_status" not in rail and "id='logout'" in rail
+    assert "glyphicon-user" not in bar
+    assert "id='logout'" in read(TEMPLATES / "settings_layout.html")
 
 
 def test_sort_direction_is_one_toggle_button_not_a_dropdown():

@@ -23,8 +23,10 @@ def client(tmp_path):
 
 def test_default_pages_have_no_unsafe_eval(client):
     env, c = client
-    for path in ("/", "/login", "/admin/view", "/account/security"):
-        csp = c.get(path).headers.get("Content-Security-Policy", "")
+    for path in ("/", "/login", "/me", "/admin/usertable", "/logs"):
+        resp = c.get(path)
+        assert resp.status_code in (200, 302), path  # /login redirects a signed-in user
+        csp = resp.headers.get("Content-Security-Policy", "")
         assert "default-src" in csp and "'unsafe-eval'" not in csp, path
         assert "'unsafe-inline'" in csp
 

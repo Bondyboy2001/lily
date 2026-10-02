@@ -72,12 +72,6 @@ class TestRoutes:
 
 @pytest.mark.unit
 class TestBookSpecs:
-    def test_the_book_page_has_no_keep_offline_button(self, env):
-        # Books are kept offline from the books in progress only
-        book = env.add_book("Offline Epub", fmt="EPUB")
-        html = _login(env).get(f"/book/{book}").get_data(as_text=True)
-        assert 'keep-offline-btn' not in html
-
     def test_library_hands_over_the_books_in_progress(self, env):
         from cps import ub
         reading = env.add_book("In Progress", fmt="EPUB")

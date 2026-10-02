@@ -1,7 +1,6 @@
-"""Static checks that the stats and duplicates pages follow docs/design.md.
+"""Static checks that the duplicates page follows docs/design.md.
 
-Colours live in lily.css only; these pages and their stylesheet use tokens, and charts read the tokens at
-runtime through static/js/lily-charts.js.
+Colours live in lily.css only; the page, its stylesheet (lily-stats.css) and its scripts use tokens.
 """
 import re
 from pathlib import Path
@@ -13,15 +12,14 @@ CSS = REPO_ROOT / "cps/static/css"
 JS = REPO_ROOT / "cps/static/js"
 TEMPLATES = REPO_ROOT / "cps/templates"
 
-STATS_TEMPLATES = ["duplicates.html"]
-STATS_STYLESHEETS = ["lily-stats.css"]
-STATS_SCRIPTS = ["duplicates.js", "duplicate-notifier.js"]
+DUPLICATES_TEMPLATES = ["duplicates.html"]
+DUPLICATES_STYLESHEETS = ["lily-stats.css"]
+DUPLICATES_SCRIPTS = ["duplicates.js", "duplicate-notifier.js"]
 
 HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
 # HTML character references (&#039;) look like hex colours to the regex above.
 CHAR_REF = re.compile(r"&#x?[0-9a-fA-F]+;")
 COLOUR_FUNCTION = re.compile(r"\b(?:rgba?|hsla?)\(")
-EMOJI = re.compile("[\U0001F300-\U0001FAFF☀-➿]")
 
 
 def read(path):
@@ -32,50 +30,36 @@ def strip_comments(text):
     return re.sub(r"/\*.*?\*/", "", text, flags=re.S)
 
 
-@pytest.mark.parametrize("name", STATS_TEMPLATES)
-def test_stats_templates_have_no_inline_style_blocks(name):
+@pytest.mark.parametrize("name", DUPLICATES_TEMPLATES)
+def test_duplicates_templates_have_no_inline_style_blocks(name):
     assert "<style" not in read(TEMPLATES / name), f"{name}: move inline <style> into lily-stats.css"
 
 
-@pytest.mark.parametrize("name", STATS_TEMPLATES)
-def test_stats_templates_have_no_hard_coded_colours(name):
+@pytest.mark.parametrize("name", DUPLICATES_TEMPLATES)
+def test_duplicates_templates_have_no_hard_coded_colours(name):
     text = CHAR_REF.sub("", read(TEMPLATES / name))
     assert not HEX.findall(text), f"{name}: hex colour outside lily.css"
     assert not COLOUR_FUNCTION.findall(text), f"{name}: rgb()/hsl() colour outside lily.css"
     assert "gradient" not in text.lower(), f"{name}: gradients are not part of the design language"
 
 
-@pytest.mark.parametrize("name", STATS_STYLESHEETS)
-def test_stats_stylesheets_use_tokens_only(name):
-    css = strip_comments(read(CSS / name))
-    assert not HEX.findall(css), f"{name}: hex colour outside lily.css"
-    assert not COLOUR_FUNCTION.findall(css), f"{name}: rgb()/hsl() colour outside lily.css"
-    for banned in ("gradient", "backdrop-filter", "blur("):
-        assert banned not in css, f"{name}: {banned} is not part of the design language"
-
-
-@pytest.mark.parametrize("name", STATS_STYLESHEETS)
-def test_stats_stylesheets_only_shadow_floating_surfaces(name):
+@pytest.mark.parametrize("name", DUPLICATES_STYLESHEETS)
+def test_duplicates_stylesheets_only_shadow_floating_surfaces(name):
     # The one shadow in the language belongs to menus and popovers (§5); it comes from --menu-shadow.
     css = strip_comments(read(CSS / name))
     for value in re.findall(r"box-shadow\s*:\s*([^;]+);", css):
         assert value.strip() in ("none", "var(--menu-shadow)"), f"{name}: decorative box-shadow {value!r}"
 
 
-@pytest.mark.parametrize("name", STATS_SCRIPTS)
-def test_stats_scripts_inject_no_colours(name):
+@pytest.mark.parametrize("name", DUPLICATES_SCRIPTS)
+def test_duplicates_scripts_inject_no_colours(name):
     text = CHAR_REF.sub("", read(JS / name))
     assert not HEX.findall(text), f"{name}: hex colour in script"
     assert "gradient" not in text.lower(), f"{name}: gradient in script"
 
 
-@pytest.mark.parametrize("name", STATS_TEMPLATES)
-def test_stats_labels_have_no_emoji(name):
-    assert not EMOJI.findall(read(TEMPLATES / name)), f"{name}: emoji in labels"
-
-
-def test_stats_views_have_at_most_one_primary_button():
-    for name in STATS_TEMPLATES:
+def test_duplicates_views_have_at_most_one_primary_button():
+    for name in DUPLICATES_TEMPLATES:
         html = read(TEMPLATES / name)
         # Modals are separate views; count only the page body outside them.
         body = re.split(r'class="modal[ "]', html, maxsplit=1)[0]

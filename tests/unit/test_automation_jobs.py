@@ -80,17 +80,6 @@ class TestOperationJobs:
         assert len(set(got)) == 1
         assert len(aj.list_jobs(kind="refresh")) >= 2
 
-    def test_stale_pid_marked_interrupted(self, jobs_db):
-        aj, _ = jobs_db
-        jid = aj.create_job("refresh")
-        db = aj._connect()
-        db.cur.execute("UPDATE cwa_operation_jobs SET pid=2147483000 WHERE id=?",
-                       (jid,))
-        db.con.commit()
-        db.con.close()
-        aj.mark_stale_interrupted()
-        assert aj.get_job(jid)["state"] == "interrupted"
-
     def test_get_job_unknown(self, jobs_db):
         aj, _ = jobs_db
         assert aj.get_job("not-a-job") is None

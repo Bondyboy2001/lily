@@ -5,7 +5,8 @@
 # See CONTRIBUTORS for full list of authors.
 
 """Regression tests for security hardening: shell injection, XSS, CSRF, proxy trust
-and forced default-password change."""
+and the default admin account. The forced default-password change is covered in
+test_backend_hardening.py."""
 
 import ast
 import re

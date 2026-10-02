@@ -215,3 +215,10 @@ def lily_env(tmp_path, **config_overrides):
         ub.session, ub.app_DB_path = saved_ub
         config.__dict__.clear()
         config.__dict__.update(saved_config)
+
+
+def continue_reading_progress(session, user_id, limit=None, library_uuid=None):
+    """[(book_id, percent)] from web._continue_reading_rows, the in-progress books query."""
+    from cps.web import CONTINUE_READING_LIMIT, _continue_reading_rows
+    return [(book_id, percent) for book_id, percent, __ in
+            _continue_reading_rows(session, user_id, limit or CONTINUE_READING_LIMIT, library_uuid)]

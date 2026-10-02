@@ -9,7 +9,6 @@ import subprocess
 import sys
 import textwrap
 import importlib
-import inspect
 from pathlib import Path
 
 import pytest
@@ -98,16 +97,6 @@ def test_failed_runtime_initialization_is_not_retried(monkeypatch, tmp_path):
     assert ingest_processor.initialize_runtime() is False
     assert ingest_processor.initialize_runtime() is False
     assert acquire_calls == 1
-
-
-def test_optional_cps_modules_retry_after_partial_load(monkeypatch, tmp_path):
-    scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
-    monkeypatch.syspath_prepend(str(scripts_dir))
-    monkeypatch.setenv("TMPDIR", str(tmp_path))
-    ingest_processor = importlib.import_module("ingest_processor")
-    source = inspect.getsource(ingest_processor._load_optional_cps_modules)
-
-    assert "if _CPS_AVAILABLE:" in source
 
 
 def test_import_process_config_knows_the_library_paths(tmp_path, monkeypatch):

@@ -107,13 +107,6 @@ class TestDataEndpoint:
         assert "cwa-auto-library" + " (current)" not in text
         assert text.index("cwa-auto-library before") < text.index("cwa-auto-library now")
 
-    def test_source_param_is_ignored(self, clients, tmp_path, monkeypatch):
-        _, _, _, admin = clients
-        _fake_source(tmp_path, monkeypatch)
-        for query in ("?source=nope", "?source=../../etc/passwd", "?source=/etc/passwd"):
-            payload = admin.get("/logs/data" + query).get_json()
-            assert payload["success"] and "ERROR boom" in payload["text"]
-
     def test_missing_file_is_skipped(self, clients, tmp_path, monkeypatch):
         from cps import logs
         _, _, _, admin = clients

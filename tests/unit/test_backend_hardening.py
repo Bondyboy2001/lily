@@ -4,13 +4,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Backend hardening: forced default-password change, content restrictions on reading /
-sending, stats SQL parameter binding, missing User-Agent headers and web reader progress."""
+"""Backend hardening: forced default-password change, content restrictions on reading,
+missing User-Agent headers and web reader progress."""
 
 import base64
 import re
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -196,7 +196,7 @@ class TestContentRestrictions:
         assert client.get(f"/show/{hidden}/epub").status_code == 404
 
 
-# --------------------------------------------------------------------------- 7. missing User-Agent
+# --------------------------------------------------------------------------- 3. missing User-Agent
 @pytest.mark.unit
 def test_no_single_argument_user_agent_lookups():
     offenders = []
@@ -235,7 +235,7 @@ def test_a_download_is_named_after_the_title_and_the_author_it_has(env, author, 
     assert disposition.startswith(f"attachment; filename={quote(file_name)};")
 
 
-# --------------------------------------------------------------------------- 8. web reader progress
+# --------------------------------------------------------------------------- 4. web reader progress
 def _read_status(env, book_id):
     ub = env.ub
     ub.session.expire_all()
@@ -362,50 +362,6 @@ class TestWebReaderProgress:
         token = client.get("/_test_csrf").get_data(as_text=True)
         resp = client.post(f"/ajax/progress/{book_id}", json=payload, headers={"X-CSRFToken": token})
         assert resp.status_code == 200
-
-
-@pytest.mark.unit
-class TestContinueReadingWebSource:
-    @pytest.fixture
-    def session(self):
-        from sqlalchemy import create_engine
-        from sqlalchemy.orm import sessionmaker
-        from cps import ub
-        engine = create_engine("sqlite:///:memory:")
-        ub.Base.metadata.create_all(engine)
-        sess = sessionmaker(bind=engine)()
-        yield sess
-        sess.close()
-
-    BASE = datetime(2026, 1, 1)
-
-    def _reading(self, session, book_id, minutes, web=None):
-        from cps import ub
-        rb = ub.ReadBook(user_id=1, book_id=book_id, read_status=ub.ReadBook.STATUS_IN_PROGRESS)
-        session.add(rb)
-        if web is not None:
-            session.add(ub.WebReaderProgress(user_id=1, book_id=book_id, cfi="x", percent=web[0]))
-        session.commit()
-        at = self.BASE + timedelta(minutes=minutes)
-        session.query(ub.ReadBook).filter_by(book_id=book_id).update({ub.ReadBook.last_modified: at})
-        if web is not None:
-            session.query(ub.WebReaderProgress).filter_by(book_id=book_id).update(
-                {ub.WebReaderProgress.last_modified: self.BASE + timedelta(minutes=web[1])})
-        session.commit()
-
-    def test_web_progress_orders_the_row(self, session):
-        from .test_continue_reading import continue_reading_progress
-        self._reading(session, 10, 1, web=(0.6, 5))
-        self._reading(session, 11, 8)                  # no progress, but touched most recently
-        self._reading(session, 12, 1, web=(0.1, 20))   # web position is the newest activity
-        self._reading(session, 13, 4)
-        result = continue_reading_progress(session, 1)
-        assert [book_id for book_id, __ in result] == [12, 11, 10, 13]
-        progress = dict(result)
-        assert progress[10] == pytest.approx(60.0)
-        assert progress[11] is None
-        assert progress[12] == pytest.approx(10.0)
-        assert progress[13] is None
 
 
 @pytest.mark.unit

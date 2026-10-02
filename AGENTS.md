@@ -7,7 +7,7 @@
 
 # Verification
 
-- Run shared UI checks with `.venv/bin/python -m pytest tests/unit/test_lily_library_static.py tests/unit/test_lily_design_static.py tests/unit/test_lily_admin_static.py tests/unit/test_lily_stats_static.py tests/unit/test_lily_reader_static.py`.
+- Run shared UI checks with `.venv/bin/python -m pytest tests/unit/test_lily_library_static.py tests/unit/test_lily_design_static.py tests/unit/test_lily_admin_static.py tests/unit/test_lily_duplicates_static.py tests/unit/test_lily_reader_static.py`.
 - Run `git diff --check` before finishing changes.
 
 # Git and releases

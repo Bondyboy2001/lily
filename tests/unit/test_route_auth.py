@@ -53,7 +53,7 @@ def internal_client(token_file):
     from cps.internal_api import internal_only
 
     app = Flask(__name__)
-    # Same middleware setup as cps/__init__.py with the default TRUSTED_PROXY_COUNT=1.
+    # Same middleware setup as cps/__init__.py behind one proxy (TRUSTED_PROXY_COUNT=1).
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
     @app.route("/internal", methods=["POST"])

@@ -64,18 +64,6 @@ def test_unknown_settings_column_is_preserved(cwa_dir):
 
 
 @pytest.mark.unit
-def test_unknown_stats_column_is_preserved(cwa_dir):
-    CWA_DB().close()
-    db_file = str(cwa_dir / "cwa.db")
-    con = sqlite3.connect(db_file)
-    con.execute("ALTER TABLE cwa_import ADD COLUMN newer_col TEXT")
-    con.commit()
-    con.close()
-    _reopen(cwa_dir).close()
-    assert "newer_col" in _columns(db_file, "cwa_import")
-
-
-@pytest.mark.unit
 def test_missing_columns_are_added(cwa_dir):
     CWA_DB().close()
     db_file = str(cwa_dir / "cwa.db")

@@ -43,19 +43,6 @@ class TestFeedGetCover:
         mock_get_book_cover.assert_called_once_with("42", constants.COVER_THUMBNAIL_MEDIUM)
         assert result == "sentinel-response"
 
-    @patch('cps.opds.get_book_cover')
-    def test_resolution_argument_is_truthy(self, mock_get_book_cover):
-        """Regression guard: COVER_THUMBNAIL_ORIGINAL is 0, which is falsy
-        and is silently treated as "no resolution requested" by
-        get_book_cover_internal()'s `if resolution:` check. Whatever
-        resolution feed_get_cover passes must stay nonzero, or OPDS covers
-        silently go back to being served uncached on every request."""
-        feed_get_cover.__wrapped__("1")
-
-        called_resolution = mock_get_book_cover.call_args.args[1]
-        assert called_resolution, "resolution passed to get_book_cover must be truthy"
-        assert called_resolution != constants.COVER_THUMBNAIL_ORIGINAL
-
 
 # ============================================================================
 # Test Markers

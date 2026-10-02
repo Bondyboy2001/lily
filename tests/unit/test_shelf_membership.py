@@ -69,19 +69,6 @@ class TestSetBookOnShelf:
         signed_out = env.app.test_client()
         assert signed_out.post(f"/shelf/{shelf}/book/{book}", json={"on": True}).status_code in (302, 401)
 
-    def test_book_page_does_not_show_its_shelves(self, env):
-        # Shelves are changed on the edit page; the book page doesn't show them
-        from cps import ub
-        book = env.add_book("Shelvable")
-        on, off = _shelf(env, "Reading Group"), _shelf(env, "Holiday")
-        ub.session.get(ub.Shelf, on).books.append(ub.BookShelf(book_id=book, order=1))
-        ub.session.commit()
-        html = _login(env).get(f"/book/{book}").get_data(as_text=True)
-        assert "book-shelves-menu" not in html and "menuitemcheckbox" not in html
-        panel = html[html.index('<dl class="book-metadata">'):]
-        panel = panel[:panel.index("</dl>")]
-        assert "book-shelves-row" not in html and "Reading Group" not in panel
-
     def test_shelf_page_cards_offer_removal(self, env):
         from cps import ub
         book = env.add_book("Shelvable")

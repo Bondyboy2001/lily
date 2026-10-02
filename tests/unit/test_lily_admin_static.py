@@ -1,4 +1,4 @@
-"""Static checks that the admin, configuration and settings pages follow docs/design.md."""
+"""Static checks that the admin and settings pages follow docs/design.md."""
 import re
 from pathlib import Path
 
@@ -11,8 +11,8 @@ TEMPLATES = REPO_ROOT / "cps/templates"
 ADMIN_TEMPLATES = [
     "cwa_settings.html", "user_edit.html", "user_table.html", "http_error.html", "lily_form.html",
 ]
-ADMIN_STYLESHEETS = ["lily-admin.css"]
 HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
+EMOJI = re.compile("[\U0001F300-\U0001FAFF⌛☀-➿]")
 
 
 def read(path):
@@ -35,36 +35,21 @@ def test_admin_templates_have_no_hard_coded_colours_in_style_attributes(name):
         assert "--color-secondary" not in attr, (name, attr)
 
 
-@pytest.mark.parametrize("name", ADMIN_STYLESHEETS)
-def test_admin_stylesheets_use_tokens_not_hex(name):
-    css = re.sub(r"/\*.*?\*/", "", read(CSS / name), flags=re.S)
-    assert not HEX.search(css), (name, HEX.findall(css)[:5])
-    for banned in ("gradient", "backdrop-filter", "blur(", "--color-secondary"):
-        assert banned not in css, (name, banned)
-
-
 @pytest.mark.parametrize("name", ["http_error.html"])
-def test_standalone_pages_use_lily_css_not_caliblur(name):
+def test_standalone_pages_use_lily_css(name):
     html = read(TEMPLATES / name)
-    assert "caliBlur" not in html
     assert "css/lily.css" in html
 
 
 def test_profile_hides_theme_picker_but_still_posts_theme():
     html = read(TEMPLATES / "user_edit.html")
-    assert "caliBlur" not in html
     assert '<select name="theme"' not in html
     assert re.search(r'<input type="hidden" name="theme"[^>]*value="1"', html)
 
 
-@pytest.mark.parametrize("name", existing(ADMIN_TEMPLATES))
-def test_admin_headings_carry_no_emoji(name):
-    html = read(TEMPLATES / name)
-    assert '<span aria-hidden="true">{{ emoji }}</span>' not in html, name
-    # Emoji survive only inside the msgids passed to emoji_heading, which strips them.
-    for line in html.splitlines():
-        if re.search(r"[\U0001F300-\U0001FAFF⌛⚡⚙]", line):
-            assert "emoji_heading(" in line, (name, line)
+@pytest.mark.parametrize("name", existing(ADMIN_TEMPLATES) + ["duplicates.html"])
+def test_admin_labels_carry_no_emoji(name):
+    assert not EMOJI.findall(read(TEMPLATES / name)), name
 
 
 SETTINGS_FORMS = ["user_edit.html", "cwa_settings.html"]
@@ -75,8 +60,6 @@ def test_settings_pages_use_the_shared_row_macros(name):
     html = read(TEMPLATES / name)
     assert '{% import "lily_form.html" as f with context %}' in html
     assert 'class="lp' in html or "f.group(" in html
-    # The old stacked cards are gone.
-    assert "settings-container" not in html
 
 
 @pytest.mark.parametrize("name", SETTINGS_FORMS + ["user_table.html"])
@@ -86,11 +69,8 @@ def test_settings_pages_share_the_settings_frame(name):
     assert "{% block settings %}" in html and "{% block body %}" not in html, name
 
 
-def test_settings_frame_is_a_short_rail_without_search_or_tabs():
-    html = read(TEMPLATES / "settings_layout.html")
-    assert "lily-settings-shell.js" in html
-    for gone in ('id="lp-search"', "lp-tabs", "'pane'"):
-        assert gone not in html, gone
+def test_settings_frame_loads_its_shell_script():
+    assert "lily-settings-shell.js" in read(TEMPLATES / "settings_layout.html")
 
 
 def test_settings_rail_signout_is_a_quiet_button():
@@ -118,13 +98,6 @@ def test_signout_row_styles_desktop_and_mobile():
         r"\.lp-rail-list > \.lp-rail-signout-row\s*{[^}]*margin-top:\s*0[^}]*padding-left:\s*0", container.group(1))
 
 
-def test_settings_rail_lists_only_the_essential_pages():
-    html = read(TEMPLATES / "settings_layout.html")
-    ids = re.findall(r"\{'id': '(\w+)', 'group'", html)
-    assert ids == ["profile", "import", "users", "duplicates", "logs"]
-    assert "maintenance" not in html and "admin.admin" not in html
-
-
 @pytest.mark.parametrize("name", ["duplicates.html", "logs.html"])
 def test_utility_pages_share_the_settings_frame(name):
     html = read(TEMPLATES / name)
@@ -133,14 +106,11 @@ def test_utility_pages_share_the_settings_frame(name):
     assert "{% block pane_class %} is-wide{% endblock %}" in html, name
 
 
-def test_logs_page_is_a_live_tail_without_filters():
+def test_logs_page_is_a_live_tail():
     html = read(TEMPLATES / "logs.html")
-    for gone in ("log_source", "log_search", "log_errors", "log_autorefresh", "log_refresh", "f.group"):
-        assert gone not in html, gone
     assert 'id="log_output"' in html and 'role="status"' in html
     js = read(REPO_ROOT / "cps/static/js/logs.js")
     assert "visibilitychange" in js and "since=" in js
-    assert "#log_source" not in js and "setInterval" not in js
 
 
 def test_logs_page_copies_what_it_shows():
@@ -159,28 +129,6 @@ def test_logs_page_copies_what_it_shows():
     css = read(REPO_ROOT / "cps/static/css/lily-admin.css")
     assert ".logs-copy-buffer" in css and ".lily-logs .logs-frame { position: relative; }" in css
     assert ".lily-logs .logs-copy { position: absolute; top: 8px; right: 8px; }" in css
-
-
-def test_sidebar_has_no_utility_links():
-    layout = read(TEMPLATES / "layout.html")
-    assert 'id="nav_duplicates"' not in layout and 'id="nav_logs"' not in layout
-    sidebar = layout[layout.index('<aside class="lily-sidebar"'):layout.index("</aside>")]
-    assert "logs.show_logs" not in sidebar
-    settings = read(TEMPLATES / "settings_layout.html")
-    assert "'id': 'duplicates'" in settings and "duplicates.show_duplicates" in settings
-    assert "signed_in and (is_admin or current_user.role_edit())" in settings
-    assert "'id': 'logs'" in settings and "logs.show_logs" in settings
-    assert 'id="duplicate-count-badge"' in settings
-    sidebar_source = read(REPO_ROOT / "cps/render_template.py")
-    assert '"id": "duplicates"' not in sidebar_source
-
-
-def test_removed_settings_pages_are_gone():
-    for name in ("config_edit.html", "config_view_edit.html", "schedule_edit.html", "config_db.html",
-                 "db_backups.html", "book_recovery.html", "ingest_failures.html", "metadata_suggestions.html",
-                 "tasks.html", "hardcover_review_matches.html", "account_security.html", "reading_stats.html",
-                 "cwa_stats_tabs.html"):
-        assert not (TEMPLATES / name).exists(), name
 
 
 @pytest.mark.parametrize("name", SETTINGS_FORMS)

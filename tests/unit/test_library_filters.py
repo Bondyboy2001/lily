@@ -53,7 +53,6 @@ class TestFilterChips:
         html = _get(_login(env), "/")
         assert _titles(html) == ["Epub English", "Epub German", "Pdf German"]
         assert 'class="lily-filter-chips"' not in html
-        assert "Discover (Random Books)" not in html
 
     def test_format_language_and_tag_filters_combine(self, env):
         self._library(env)

@@ -931,20 +931,3 @@ def replace_cover_thumbnail_cache(book_id, book_path=None, last_modified=None):
         _pending_thumbnail_books.add(book_id)
     except Exception as e:
         log.error(f'Failed to queue thumbnail generation for book {book_id}: {e}')
-
-
-def get_internal_api_url(path):
-    port = os.getenv('CWA_PORT_OVERRIDE', '8083').strip()
-    if not port.isdigit():
-        port = '8083'
-
-    protocol = "http"
-    certfile = config.get_config_certfile()
-    keyfile = config.get_config_keyfile()
-    if certfile and keyfile and os.path.isfile(certfile) and os.path.isfile(keyfile):
-        protocol = "https"
-
-    if not path.startswith("/"):
-        path = "/" + path
-
-    return f"{protocol}://127.0.0.1:{port}{path}"

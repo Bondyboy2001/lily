@@ -9,8 +9,7 @@ from .lily_env import lily_env, ADMIN_PASSWORD
 
 
 @pytest.fixture
-def env(tmp_path, temp_cwa_db, monkeypatch):
-    monkeypatch.setenv("BOOK_RECOVERY_DIR", str(tmp_path / "recovery"))
+def env(tmp_path, temp_cwa_db):
     with lily_env(tmp_path) as e:
         e.app.jinja_env.globals.setdefault("csrf_token", lambda: "test-token")
         yield e

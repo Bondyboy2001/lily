@@ -30,8 +30,6 @@ class TestSettingsRail:
     def test_admin_rail_lists_only_remaining_sections(self, env):
         html = _login(env, env.admin().name, ADMIN_PASSWORD).get("/me").get_data(as_text=True)
         assert _rail_ids(html) == ["profile", "import", "users", "duplicates", "logs"]
-        for gone in ("security", "configuration", "library", "backups", "recovery", "statistics"):
-            assert f'data-section="{gone}"' not in html, gone
         assert "id='logout'" in html
 
     def test_reader_rail_has_profile_and_logout_only(self, env):
@@ -39,34 +37,10 @@ class TestSettingsRail:
         html = _login(env, "reader", "pw").get("/me").get_data(as_text=True)
         assert _rail_ids(html) == ["profile"]
         assert "id='logout'" in html
-        for gone in ("security", "import", "users", "duplicates", "logs",
-                     "configuration", "library", "backups", "recovery", "statistics"):
-            assert f'data-section="{gone}"' not in html, gone
-
-    def test_guest_session_has_no_security_link(self, env):
-        html = env.app.test_client().get("/login").get_data(as_text=True)
-        assert "/account/security" not in html
 
 
 @pytest.mark.unit
 class TestPageReachability:
-    def test_profile_has_no_links_group(self, env):
-        html = _login(env, env.admin().name, ADMIN_PASSWORD).get("/me").get_data(as_text=True)
-        assert 'href="/account/security"' not in html
-        assert 'href="/reading"' not in html
-
-    def test_import_settings_has_no_tools_group(self, env):
-        html = _login(env, env.admin().name, ADMIN_PASSWORD).get("/cwa-settings").get_data(as_text=True)
-        for href in ("/admin/config", "/admin/dbconfig", "/admin/db_backups",
-                     "/admin/book-recovery", "/cwa-stats-show",
-                     "/admin/ingest_failures", "/admin/metadata/suggestions",
-                     "/tasks"):
-            assert f'href="{href}"' not in html, href
-
-    def test_import_settings_has_no_automation_summary(self, env):
-        html = _login(env, env.admin().name, ADMIN_PASSWORD).get("/cwa-settings").get_data(as_text=True)
-        assert "Latest database snapshot" not in html and "Running jobs" not in html
-
     def test_import_settings_denied_to_reader(self, env):
         env.add_user("reader", password="pw")
         resp = _login(env, "reader", "pw").get("/cwa-settings")
@@ -110,15 +84,10 @@ class TestSettingsUtilityLinks:
 
 
 @pytest.mark.unit
-class TestMyReadingSidebar:
-    def test_signed_in_user_has_no_my_reading_sidebar_link(self, env):
+class TestMainSidebar:
+    def test_signed_in_user_can_create_a_shelf_from_the_sidebar(self, env):
         html = _login(env, env.admin().name, ADMIN_PASSWORD).get("/").get_data(as_text=True)
-        assert 'id="nav_reading"' not in html and 'href="/reading"' not in html
         assert 'id="nav_createshelf"' in html
-
-    def test_my_reading_page_is_gone(self, env):
-        resp = _login(env, env.admin().name, ADMIN_PASSWORD).get("/reading")
-        assert resp.status_code == 404
 
 
 @pytest.mark.unit

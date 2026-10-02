@@ -2,7 +2,7 @@
 
 ## Problem
 
-When running CWA integration tests inside a Docker container (like a dev container), bind mounts don't work because:
+When running Lily's integration tests inside a Docker container (like a dev container), bind mounts don't work because:
 
 1. Tests create bind mounts from paths like `/tmp/pytest-xxx`
 2. These paths exist **inside the dev container**
@@ -100,50 +100,11 @@ The original tests are **100% compatible** with both modes. No test code changes
 
 The VolumeHelper class intentionally does NOT implement all Path methods to avoid confusion. Tests using advanced Path features will need adjustments when using volume mode.
 
-## Performance
-
-**Standard Mode (Bind Mounts):**
-- Container startup: ~30s
-- Test execution: Fast
-- Total: 3-4 minutes for 25 tests
-
-**Docker Volume Mode:**
-- Container startup: ~21s (faster due to log polling)
-- Test execution: Fast (file operations via docker cp)
-- Total: Similar performance
-
-## Limitations
-
-Currently, only the working 6 tests are compatible with Docker volume mode. The remaining 14 tests need minor adjustments to VolumeHelper to support:
-
-- `.iterdir()` method
-- `.name` property
-- Better subdirectory handling
-
-This is tracked in `DOCKER_TEST_STATUS.md`.
-
 ## Files
 
 - `tests/conftest.py` - Main fixtures, conditionally loads volume mode
 - `tests/conftest_volumes.py` - Docker volume implementations
-- `DOCKER_TEST_STATUS.md` - Detailed status and troubleshooting
 
 ## Environment Detection
 
-The system does NOT auto-detect DinD. You must explicitly set `USE_DOCKER_VOLUMES=true`. This is intentional to:
-
-1. Keep CI behavior predictable (always uses bind mounts)
-2. Make local behavior explicit (dev chooses mode)
-3. Avoid accidental mode switching
-
-## Adding to pytest.ini (Optional)
-
-You can add a custom pytest flag if preferred:
-
-```ini
-# pytest.ini
-[pytest]
-addopts = --use-volumes  # Always use volumes locally
-```
-
-Or create a `pytest-local.ini` for dev use.
+Volume mode is opt-in: set `USE_DOCKER_VOLUMES=true` to use it. In bind-mount mode, `conftest.py` also checks that the container can see a sentinel file in the ingest folder; if it can't, it falls back to copying files in and out with `docker cp`.

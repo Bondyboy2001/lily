@@ -49,7 +49,7 @@ def test_admin_pages_are_closed_to_users_and_visitors(clients, path):
 def test_admin_actions_are_closed_to_users_and_visitors(clients, path):
     visitor, user, _ = clients
     for c in (visitor, user):
-        resp = c.post(path, data={"names": "x", "snapshot": "20260101_030000"})
+        resp = c.post(path, data={"names": "x"})
         assert _blocked(resp, path), "%s reached %s" % (path, resp.status_code)
 
 

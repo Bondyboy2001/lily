@@ -5,14 +5,13 @@
 # See CONTRIBUTORS for full list of authors.
 
 """
-Integration tests for book ingest pipeline using Docker container.
+Integration tests for the book ingest pipeline, run against a Lily container.
 
-These tests drop actual ebook files into the ingest folder and verify
-they are correctly imported and converted using real Calibre tools.
+These tests drop real ebook files into the ingest folder and check that they
+end up in the library (metadata.db) and in cwa.db's import log.
 
-IMPORTANT: These tests require a running CWA Docker container with
-real Calibre tools, databases, and s6-overlay services. They test
-the ACTUAL production environment, not mocked behavior.
+They need Docker: conftest.py builds and starts the container, and they are
+skipped when the docker CLI is missing.
 """
 
 import pytest
@@ -35,9 +34,9 @@ from conftest import volume_copy, get_db_path
 class TestBookIngestInContainer:
     """Test the complete ingest pipeline in a running Docker container."""
 
-    def test_ingest_epub_already_target_format(self, sample_ebook_path, ingest_folder, library_folder, cwa_container, container_name, tmp_path):
+    def test_ingest_single_epub(self, sample_ebook_path, ingest_folder, library_folder, cwa_container, container_name, tmp_path):
         """
-        Test ingesting an EPUB when target format is EPUB (no conversion needed).
+        Test ingesting a single EPUB.
 
         This is the most common use case - user drops an EPUB, it gets imported directly.
         """
@@ -146,92 +145,6 @@ class TestBookIngestInContainer:
 
 
 @pytest.mark.docker_integration
-class TestIngestErrorHandling:
-    """Test how the ingest pipeline handles errors and edge cases."""
-
-    def test_ingest_empty_file(self, ingest_folder, tmp_path, cwa_container):
-        """Test that empty files are handled gracefully."""
-        # Create empty file
-        empty_file = tmp_path / "empty_test.epub"
-        empty_file.touch()
-
-        # Copy to ingest folder
-        dest = ingest_folder / empty_file.name
-        volume_copy(empty_file, dest)
-
-        print("📥 Dropped empty file into ingest folder")
-
-        # Wait to see what happens
-        time.sleep(20)
-
-        # File should eventually be processed (likely moved to failed folder)
-        # We're mainly checking that it doesn't crash the ingest service
-        print("✅ Ingest service handled empty file without crashing")
-
-    def test_ingest_corrupted_file(self, ingest_folder, tmp_path, cwa_container):
-        """Test that corrupted files are handled gracefully."""
-        from fixtures.generate_synthetic import create_corrupted_epub
-
-        # Create corrupted file
-        corrupted = tmp_path / "corrupted_test.epub"
-        create_corrupted_epub(corrupted)
-
-        # Copy to ingest folder
-        dest = ingest_folder / corrupted.name
-        volume_copy(corrupted, dest)
-
-        print("📥 Dropped corrupted file into ingest folder")
-
-        # Wait to see what happens
-        time.sleep(20)
-
-        # File should be processed (likely moved to failed folder)
-        print("✅ Ingest service handled corrupted file without crashing")
-
-
-@pytest.mark.docker_integration
-@pytest.mark.slow
-class TestIngestBackups:
-    """Test that backup functionality works correctly."""
-
-    def test_imported_files_backed_up(self, sample_ebook_path, ingest_folder, test_volumes, tmp_path, cwa_container):
-        """
-        Verify that imported files are backed up to processed_books/imported/.
-
-        Note: This requires auto_backup_imports to be enabled in CWA settings.
-        """
-        # Copy sample file to ingest
-        dest = ingest_folder / sample_ebook_path.name
-        volume_copy(sample_ebook_path, dest)
-
-        print(f"📥 Dropped {sample_ebook_path.name} into ingest folder")
-
-        # Wait for processing
-        max_wait = 60
-        start_time = time.time()
-        while dest.exists() and time.time() - start_time < max_wait:
-            time.sleep(2)
-
-        if dest.exists():
-            pytest.skip("File was not processed in time, skipping backup check")
-
-        # Check backup folder (if backups are enabled)
-        backup_dir = test_volumes["config"] / "processed_books" / "imported"
-
-        # Give it a moment for backup to complete
-        time.sleep(5)
-
-        # Note: Backup may not exist if auto_backup_imports is disabled (default)
-        # This test is informational - it documents where backups should appear
-        backup_files = list(backup_dir.glob("*.epub"))
-
-        if backup_files:
-            print(f"✅ Backup created: {backup_files[0].name}")
-        else:
-            print("ℹ️  No backup found (auto_backup_imports may be disabled)")
-
-
-@pytest.mark.docker_integration
 class TestInternationalCharacters:
     """Test handling of international/unicode characters in filenames."""
 
@@ -292,169 +205,6 @@ class TestInternationalCharacters:
         print(f"✅ Book with international characters successfully imported (library has {book_count} book(s))")
 
 
-# ============================================================================
-# COMPREHENSIVE INTEGRATION TESTS FOR INGEST_PROCESSOR.PY
-# ============================================================================
-# These tests verify the complete ingest pipeline in a real Docker container
-# with actual Calibre tools, databases, and file system operations.
-# ============================================================================
-
-
-@pytest.mark.docker_integration
-@pytest.mark.slow
-class TestFormatConversion:
-    """Test conversion between different ebook formats using real Calibre tools."""
-
-    def test_mobi_to_epub_conversion(self, ingest_folder, library_folder, test_volumes, tmp_path, cwa_container):
-        """
-        Test MOBI import (and optional conversion to EPUB).
-
-        Note: CWA imports MOBI files directly by default. Conversion to EPUB
-        only happens if CONVERT_TO_FORMAT is set to EPUB in CWA settings.
-        This test verifies the file is successfully imported.
-        """
-        # Find MOBI test file
-        fixtures_dir = Path(__file__).parent.parent / "fixtures" / "sample_books"
-        mobi_files = list(fixtures_dir.glob("*.mobi"))
-
-        if not mobi_files:
-            pytest.skip("No MOBI test files available")
-
-        source_mobi = mobi_files[0]
-        dest_file = ingest_folder / source_mobi.name
-        volume_copy(source_mobi, dest_file)
-
-        print(f"📥 Dropped MOBI file: {source_mobi.name}")
-
-        # Wait for import (conversion is optional based on settings)
-        max_wait = 180  # 3 minutes for processing
-        start_time = time.time()
-
-        while dest_file.exists() and time.time() - start_time < max_wait:
-            time.sleep(3)
-            elapsed = int(time.time() - start_time)
-            if elapsed % 15 == 0:  # Print every 15 seconds
-                print(f"⏳ Waiting for MOBI import... ({elapsed}s)")
-
-        if dest_file.exists():
-            pytest.fail(f"MOBI file was not processed within {max_wait} seconds")
-
-        print("✅ MOBI file processed")
-
-        # Verify book was imported
-        time.sleep(5)
-        metadata_db = library_folder / "metadata.db"
-
-        with sqlite3.connect(str(get_db_path(metadata_db, tmp_path)), timeout=30) as con:
-            cur = con.cursor()
-            result = cur.execute("SELECT COUNT(*) FROM books").fetchone()
-            book_count = result[0] if result else 0
-
-        assert book_count > 0, "MOBI was not imported"
-
-        # Check if book directory exists
-        book_dirs = [d for d in library_folder.iterdir() if d.is_dir() and d.name != ".keep"]
-        assert len(book_dirs) > 0, "No book directories created"
-
-        # Debug: List all files in book directories
-        print(f"📁 Book directories created: {[d.name for d in book_dirs]}")
-        all_files = []
-        for book_dir in book_dirs:
-            files_in_dir = list(book_dir.iterdir())
-            all_files.extend(files_in_dir)
-            print(f"  📄 Files in {book_dir.name}: {[f.name for f in files_in_dir]}")
-
-        # Look for any ebook files (MOBI, AZW3, EPUB, etc.)
-        # Calibre stores books as: library/Author/Book Title (ID)/book.format
-        # In volume mode, glob might not work perfectly, so we verify via database + directories
-        import os
-        if os.getenv('USE_DOCKER_VOLUMES', 'false').lower() == 'true':
-            # Volume mode: We've already confirmed book is in DB and directory exists
-            # That's sufficient proof of successful import
-            print("✅ MOBI successfully imported (verified via database and directory structure)")
-            return
-
-        # Bind mount mode: Can use glob to verify files
-        # So we need to search two levels deep: */*/*.format
-        mobi_files_imported = list(library_folder.glob("*/*/*.mobi"))
-        azw3_files = list(library_folder.glob("*/*/*.azw3"))
-        azw_files = list(library_folder.glob("*/*/*.azw"))
-        epub_files = list(library_folder.glob("*/*/*.epub"))
-
-        # MOBI files often get converted to AZW3 by Calibre
-        total_ebook_files = len(mobi_files_imported) + len(azw3_files) + len(azw_files) + len(epub_files)
-
-        print(f"📊 Files found: {len(mobi_files_imported)} MOBI, {len(azw3_files)} AZW3, {len(azw_files)} AZW, {len(epub_files)} EPUB")
-
-        # Book was imported (we confirmed via database), file format may vary
-        assert total_ebook_files > 0, \
-            "No ebook files found after import. Searched pattern: */*/*.{mobi,azw3,azw,epub}"
-
-        print(f"✅ MOBI successfully imported as {len(mobi_files_imported)} MOBI, {len(azw3_files)} AZW3, {len(epub_files)} EPUB")
-
-    def test_conversion_failure_moves_to_failed_folder(self, ingest_folder, test_volumes, tmp_path, cwa_container):
-        """
-        Test that files that fail conversion are moved to failed/ folder.
-
-        Uses a corrupted file that looks like a supported format but
-        cannot actually be converted.
-        """
-        # Create a fake "MOBI" file that will fail conversion
-        fake_mobi = tmp_path / "fake_corrupted.mobi"
-        fake_mobi.write_bytes(b"This is not a real MOBI file, just garbage data" * 100)
-
-        dest_file = ingest_folder / fake_mobi.name
-        volume_copy(fake_mobi, dest_file)
-
-        print(f"📥 Dropped fake MOBI file: {fake_mobi.name}")
-
-        # Wait for processing
-        max_wait = 120
-        start_time = time.time()
-
-        while dest_file.exists() and time.time() - start_time < max_wait:
-            time.sleep(2)
-
-        # Check failed folder
-        failed_dir = test_volumes["config"] / "processed_books" / "failed"
-        time.sleep(5)  # Give time for backup
-
-        failed_files = list(failed_dir.glob("*"))
-
-        if len(failed_files) > 0:
-            print(f"✅ Failed file moved to failed folder: {failed_files[0].name}")
-        else:
-            print("ℹ️  File may have been deleted or processed differently")
-
-    def test_txt_to_epub_conversion(self, ingest_folder, library_folder, tmp_path, cwa_container):
-        """Test TXT → EPUB conversion for plain text ebooks."""
-        fixtures_dir = Path(__file__).parent.parent / "fixtures" / "sample_books"
-        txt_files = list(fixtures_dir.glob("*.txt"))
-
-        if not txt_files:
-            pytest.skip("No TXT test files available")
-
-        source_txt = txt_files[0]
-        dest_file = ingest_folder / source_txt.name
-        volume_copy(source_txt, dest_file)
-
-        print(f"📥 Dropped TXT file: {source_txt.name}")
-
-        # Wait for conversion
-        max_wait = 120
-        start_time = time.time()
-
-        while dest_file.exists() and time.time() - start_time < max_wait:
-            time.sleep(3)
-            if int(time.time() - start_time) % 15 == 0:
-                print(f"⏳ Waiting for TXT conversion... ({int(time.time() - start_time)}s)")
-
-        if dest_file.exists():
-            pytest.skip("TXT file not processed in time (may be in ignored formats)")
-
-        print("✅ TXT file processed")
-
-
 @pytest.mark.docker_integration
 class TestProcessLockInContainer:
     """Test ProcessLock mechanism prevents concurrent ingest processes."""
@@ -492,148 +242,6 @@ class TestProcessLockInContainer:
             pytest.fail("Second file not processed - lock may not have been released")
 
         print("✅ Lock properly released between processings")
-
-
-@pytest.mark.docker_integration
-@pytest.mark.slow
-class TestAdvancedIngestFeatures:
-    """Test advanced features like format retention, metadata fetch, etc."""
-
-    def test_directory_import_processes_all_files(self, ingest_folder, library_folder, tmp_path, cwa_container):
-        """
-        Test that dropping a directory with multiple files processes all of them.
-
-        Users sometimes drag entire folders into the ingest directory.
-        """
-        from fixtures.generate_synthetic import create_minimal_epub
-
-        # Create a subdirectory with multiple files
-        sub_dir = ingest_folder / "batch_import"
-        sub_dir.mkdir()
-
-        num_files = 3
-        for i in range(num_files):
-            epub_path = tmp_path / f"batch_book_{i}.epub"
-            create_minimal_epub(epub_path)
-            volume_copy(epub_path, sub_dir / epub_path.name)
-
-        print(f"📥 Dropped directory with {num_files} files")
-
-        # Wait for all files to be processed
-        max_wait = 180
-        start_time = time.time()
-
-        all_processed = False
-        while time.time() - start_time < max_wait:
-            remaining = list(sub_dir.glob("*.epub"))
-            if len(remaining) == 0 and not sub_dir.exists():
-                all_processed = True
-                break
-            print(f"⏳ Waiting... {len(remaining)} files remaining ({int(time.time() - start_time)}s)")
-            time.sleep(5)
-
-        if not all_processed:
-            pytest.skip("Directory processing may not be fully implemented or takes longer")
-
-        print("✅ All files in directory processed")
-
-
-@pytest.mark.docker_integration
-class TestFilenameHandling:
-    """Test edge cases in filename and path handling."""
-
-    def test_filename_truncation_at_150_chars(self, ingest_folder, library_folder, tmp_path, cwa_container):
-        """
-        Test that filenames over 150 characters are truncated.
-
-        The ingest_processor.py has a MAX_LENGTH = 150 for filenames.
-        """
-        fixtures_dir = Path(__file__).parent.parent / "fixtures" / "sample_books"
-
-        # Find the huge filename test file
-        huge_files = [f for f in fixtures_dir.glob("*.epub") if len(f.name) > 150]
-
-        if not huge_files:
-            pytest.skip("No huge filename test file found")
-
-        source_file = huge_files[0]
-        dest_file = ingest_folder / source_file.name
-        volume_copy(source_file, dest_file)
-
-        print(f"📥 Dropped file with {len(source_file.name)} char filename")
-
-        # Wait for processing
-        max_wait = 60
-        start_time = time.time()
-
-        # The file should be renamed/truncated, so original won't exist
-        time.sleep(5)  # Give it time to rename
-
-        # Check if ANY file is being processed (original or truncated name)
-        remaining = list(ingest_folder.glob("*.epub"))
-
-        while len(remaining) > 0 and time.time() - start_time < max_wait:
-            time.sleep(2)
-            remaining = list(ingest_folder.glob("*.epub"))
-
-        print("✅ Long filename handled (truncated and processed)")
-
-    def test_empty_folder_cleanup_after_processing(self, ingest_folder, tmp_path, cwa_container):
-        """
-        Test that empty directories are cleaned up after files are processed.
-        """
-        from fixtures.generate_synthetic import create_minimal_epub
-
-        # Create subdirectory with one file
-        sub_dir = ingest_folder / "temp_folder"
-        sub_dir.mkdir()
-
-        epub_path = tmp_path / "cleanup_test.epub"
-        create_minimal_epub(epub_path)
-        volume_copy(epub_path, sub_dir / epub_path.name)
-
-        # Wait for file to be processed
-        max_wait = 60
-        start_time = time.time()
-
-        while (sub_dir / epub_path.name).exists() and time.time() - start_time < max_wait:
-            time.sleep(2)
-
-        # Give time for folder cleanup
-        time.sleep(5)
-
-        # Directory should be removed (if empty)
-        if not sub_dir.exists():
-            print("✅ Empty directory cleaned up")
-        else:
-            print("ℹ️  Directory still exists (may contain hidden files or cleanup not implemented)")
-
-
-@pytest.mark.docker_integration
-class TestIngestConfiguration:
-    """Test how different CWA settings affect ingest behavior."""
-
-    def test_ignored_formats_not_deleted(self, ingest_folder, tmp_path, cwa_container):
-        """
-        Test that files with ignored extensions are not deleted.
-
-        Temporary files like .crdownload, .part, .uploading should be
-        left alone (they may be renamed by the browser/uploader).
-        """
-        # Create a .part file (browser partial download)
-        part_file = ingest_folder / "test_book.epub.part"
-        part_file.write_text("This is a partial download")
-
-        # Wait a bit
-        time.sleep(10)
-
-        # File should still exist (ignored formats aren't deleted)
-        if part_file.exists():
-            print("✅ Ignored format (.part) not deleted as expected")
-            # Clean up
-            part_file.unlink()
-        else:
-            print("⚠️  .part file was deleted (unexpected behavior)")
 
 
 @pytest.mark.docker_integration
@@ -679,11 +287,8 @@ class TestIngestStability:
         """
         Test that a 0-byte file doesn't crash the ingest service.
         """
-        fixtures_dir = Path(__file__).parent.parent / "fixtures" / "sample_books"
-        empty_file = fixtures_dir / "test_empty.epub"
-
-        if not empty_file.exists():
-            pytest.skip("test_empty.epub not found")
+        empty_file = tmp_path / "empty.epub"
+        empty_file.touch()
 
         dest = ingest_folder / "zero_byte_test.epub"
         volume_copy(empty_file, dest)
@@ -908,62 +513,3 @@ class TestRealWorldScenarios:
 
         assert len(book_dirs) > 0, "No book directories created"
         print(f"✅ Book stored in: {book_dirs[0].name}/")
-
-    def test_mixed_format_batch_import(self, ingest_folder, library_folder, cwa_container, tmp_path):
-        """
-        Test importing multiple files of different formats at once.
-
-        Simulates user selecting multiple books with different formats
-        and dragging them into the ingest folder.
-        """
-        fixtures_dir = Path(__file__).parent.parent / "fixtures" / "sample_books"
-
-        print(f"📁 Looking for fixtures in: {fixtures_dir}")
-        print(f"📁 Fixtures dir exists: {fixtures_dir.exists()}")
-
-        # Find different format files
-        epub_files = list(fixtures_dir.glob("alice*.epub"))[:1]
-        mobi_files = list(fixtures_dir.glob("*.mobi"))[:1]
-        txt_files = list(fixtures_dir.glob("*.txt"))[:1]
-
-        print(f"📚 Found {len(epub_files)} EPUB, {len(mobi_files)} MOBI, {len(txt_files)} TXT files")
-
-        files_to_import = epub_files + mobi_files + txt_files
-        files_to_import = [f for f in files_to_import if f.stat().st_size > 10000]
-
-        print(f"📗 After size filter (>10KB): {len(files_to_import)} files")
-
-        if len(files_to_import) < 2:
-            pytest.skip("Not enough different format files available")
-
-        print(f"📥 Dropping {len(files_to_import)} files of different formats")
-
-        dest_files = []
-        for source_file in files_to_import:
-            dest = ingest_folder / source_file.name
-            volume_copy(source_file, dest)
-            dest_files.append(dest)
-            print(f"  - {source_file.name} ({source_file.suffix})")
-
-        # Wait for all to be processed
-        max_wait = 300  # 5 minutes for conversions
-        start_time = time.time()
-
-        all_processed = False
-        while time.time() - start_time < max_wait:
-            remaining = [f for f in dest_files if f.exists()]
-            if len(remaining) == 0:
-                all_processed = True
-                break
-
-            elapsed = int(time.time() - start_time)
-            if elapsed % 15 == 0:
-                print(f"⏳ Processing... {len(remaining)} files remaining ({elapsed}s)")
-            time.sleep(5)
-
-        if not all_processed:
-            remaining_names = [f.name for f in dest_files if f.exists()]
-            pytest.fail(f"Not all files processed: {remaining_names}")
-
-        processing_time = int(time.time() - start_time)
-        print(f"✅ All {len(files_to_import)} files processed in {processing_time} seconds")

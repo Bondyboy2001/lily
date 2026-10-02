@@ -86,7 +86,7 @@ the type-checked set is listed in `pyproject.toml` (`[tool.mypy]`).
 | `tests/unit/` | Fast tests. `lily_env.py` builds a real Flask app on real `app.db` and `metadata.db`; a few older duplicate tests exec modules against stubs (`duplicate_loader.py`). |
 | `tests/smoke/` | Import and wiring checks. |
 | `tests/e2e/smoke.mjs` | Browser run: sign in, visit pages, fail on HTTP errors and CSP violations. |
-| `tests/integration/`, `tests/docker/` | Full container runs (CI: main/dev). |
+| `tests/integration/` | Ingest runs against a real container (CI: pushes to main). |
 
 New blueprints must be added in `main.py` **and** `tests/unit/lily_env.py`.
 

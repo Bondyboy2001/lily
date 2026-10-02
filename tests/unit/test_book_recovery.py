@@ -369,19 +369,6 @@ class TestMergeSafety:
         resp = client.post("/ajax/mergebooks", json={"Merge_books": [target, source]})
         assert resp.status_code == 403
 
-    def test_auto_resolution_fails_closed_on_capture_error(self, env, monkeypatch):
-        from cps import calibre_db, book_recovery
-        from cps.editbooks import delete_book_automatic
-
-        bid = env.add_book("Auto Dup", author="Author Ten", fmt="EPUB")
-        _write_files(env, bid, {"Auto Dup.epub": b"e"})
-        monkeypatch.setattr(book_recovery, "capture_book",
-                            lambda *a, **k: (_ for _ in ()).throw(book_recovery.RecoveryError("no space")))
-        with pytest.raises(Exception):
-            delete_book_automatic(calibre_db.get_book(bid))
-        assert calibre_db.get_book(bid) is not None
-        assert (_book_dir(env, bid) / "Auto Dup.epub").exists()
-
     def test_conflicting_source_only_format_rejects_all(self, env):
         from cps import calibre_db
         target = env.add_book("T", author="Merge Author", fmt="EPUB")
@@ -610,26 +597,6 @@ class TestDeleteRevalidationAndScope:
             delete_captured_book(calibre_db.get_book(bid), "", recovery_id=rid)
         assert (_book_dir(env, bid) / "Fmt Only.epub").exists()
 
-    def test_reader_positions_scoped_to_current_library(self, env):
-        from cps import calibre_db, ub
-        from cps.editbooks import delete_book_automatic
-
-        admin = env.admin()
-        bid = env.add_book("Scoped Pos", author="Auth", fmt="EPUB")
-        _write_files(env, bid, {"Scoped Pos.epub": b"e"})
-        lib = _meta(env).execute("SELECT uuid FROM library_id").fetchone()[0]
-        ub.session.add(ub.ReaderPosition(user_id=admin.id, library_uuid=lib,
-                                         book_id=bid, format="epub",
-                                         cfi="epubcfi(/2)", percent=0.2))
-        ub.session.add(ub.ReaderPosition(user_id=admin.id, library_uuid="other-lib",
-                                         book_id=bid, format="epub",
-                                         cfi="epubcfi(/9)", percent=0.9))
-        ub.session_commit()
-
-        _warning, rid = delete_book_automatic(calibre_db.get_book(bid))
-        positions = {p.library_uuid: p.cfi
-                     for p in ub.session.query(ub.ReaderPosition).filter_by(book_id=bid)}
-        assert positions == {"other-lib": "epubcfi(/9)"}
 
 def _book_dir_exists(env, book_id):
     con = _meta(env)

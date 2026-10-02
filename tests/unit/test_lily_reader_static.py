@@ -25,13 +25,6 @@ def strip_comments(css):
 
 # ---------------------------------------------------------------------------- static
 
-def test_reader_css_uses_tokens_only():
-    css = strip_comments(read(CSS / "lily-reader.css"))
-    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", css)
-    for banned in ("rgba(", "hsla(", "gradient", "backdrop-filter"):
-        assert banned not in css, banned
-
-
 def test_every_reader_loads_the_lily_reader_css():
     for name in READERS:
         html = read(TEMPLATES / name)

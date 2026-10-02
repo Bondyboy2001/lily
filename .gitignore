@@ -44,9 +44,6 @@ gdrive.db
 *.epub
 # BUT allow test fixture ebooks
 !tests/fixtures/**/*.epub
-!tests/fixtures/**/*.mobi
-!tests/fixtures/**/*.txt
-!tests/fixtures/**/*.pdf
 
 # Dev files
 *.txz

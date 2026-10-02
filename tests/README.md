@@ -1,197 +1,43 @@
-# CWA Testing Quick Start Guide
+# Lily tests
 
-## Installation & Setup
+## Layout
 
-### 1. Install test dependencies:
+| Path | What it holds |
+|---|---|
+| `unit/` | Fast tests, no Docker. `lily_env.py` builds a real Flask app on a real `app.db` and `metadata.db`. The `test_lily_*_static.py` files check templates, CSS and JS against `docs/design.md`. |
+| `smoke/` | Import and wiring checks: the app imports, `cwa.db` initialises, the ingest lock works. |
+| `integration/` | Ingest runs against a real Lily container: drop a book in the ingest folder, check it lands in `metadata.db` and `cwa.db`. Needs Docker; skipped without it. |
+| `e2e/smoke.mjs` | Node Playwright run against a live server: sign in, visit pages, fail on HTTP errors and CSP violations. |
+| `fixtures/` | Sample Gutenberg EPUBs and `generate_synthetic.py`, which builds a minimal EPUB on the fly. |
+
+`conftest.py` marks everything under `unit/` and `smoke/` as `unit`/`smoke`, and holds the container fixtures the integration tests use.
+
+## Running locally
 
 ```bash
-pip install -r requirements-dev.txt
+# Smoke + unit (what CI's Fast Tests job runs)
+.venv/bin/python -m pytest -m "smoke or unit" -n auto
+
+# Shared UI checks (run before finishing any UI change)
+.venv/bin/python -m pytest tests/unit/test_lily_library_static.py tests/unit/test_lily_design_static.py \
+  tests/unit/test_lily_admin_static.py tests/unit/test_lily_duplicates_static.py tests/unit/test_lily_reader_static.py
+
+# Integration (builds and starts a container; run without -n)
+.venv/bin/python -m pytest tests/integration
+
+# Browser smoke against a running server
+cd tests/e2e && npm install --no-save playwright && BASE_URL=http://localhost:8083 node smoke.mjs
 ```
 
-### 2. Generate test fixtures (first time only):
+## CI
 
-```bash
-cd tests/fixtures
-python download_gutenberg.py    # Download public domain ebooks (~5MB)
-python generate_synthetic.py    # Create synthetic test files
-cd ../..
-```
+`.github/workflows/tests.yml` runs on every push:
 
-## Running Tests
+- **Lint**: ruff, vulture and mypy.
+- **Fast Tests**: `pytest -m "smoke or unit" -n auto` on Python 3.13 with the `requirements.lock` pins.
+- **Docker Build** (pull requests): builds the image, waits for `/health`, then runs `e2e/smoke.mjs`.
+- **Integration Tests** (pushes to `main`, or a manual run with `run_integration`): `pytest tests/integration`.
 
-### Quick Feedback Loop (< 2 minutes) 
-```bash
-# Smoke + Unit tests only (no Docker)
-pytest -m "smoke or unit" -n auto -v
-```
+`.github/workflows/release.yml` repeats lint, the smoke and unit tests and a container `/health` check before it publishes the image.
 
-### Run All Smoke Tests (Fastest - ~30 seconds)
-```bash
-pytest tests/smoke/ -v
-```
-
-### Run All Unit Tests (No Docker, can parallelize)
-```bash
-pytest tests/unit/ -n auto -v
-```
-
-### Run Docker Integration Tests (Requires Docker, ~15-20 min)
-```bash
-# These spin up actual CWA container - must run sequentially
-pytest tests/integration/ -v
-pytest tests/docker/ -v
-
-# IMPORTANT: Do NOT use -n flag with Docker tests!
-```
-
-### Skip Docker Tests
-```bash
-pytest -m "not docker_integration" -n auto -v
-```
-
-### Run Specific Test Category
-```bash
-pytest -m smoke -v              # Smoke tests only
-pytest -m unit -n auto -v       # Unit tests (parallel)
-pytest -m docker_integration -v # Docker integration tests
-pytest -m "slow" -v             # Only slow tests
-pytest -m "not slow" -v         # Skip slow tests
-```
-
-### Run Specific Test File
-```bash
-pytest tests/unit/test_cwa_db.py -v
-```
-
-### Run Specific Test Function
-```bash
-pytest tests/unit/test_cwa_db.py::TestCWADBInitialization::test_database_creates_successfully -v
-```
-
-### Run Tests Matching Pattern
-```bash
-pytest -k "test_database" -v
-```
-
-### Run Tests with Coverage Report
-```bash
-pytest tests/unit/ --cov=scripts --cov=cps --cov-report=html
-# Open htmlcov/index.html in browser to see coverage
-```
-
-### Run Tests in Parallel (Faster)
-```bash
-pytest tests/unit/ -n auto
-```
-
-### Run with More Verbose Output
-```bash
-pytest tests/smoke/ -vv --tb=long
-```
-
-## Continuous Integration
-
-Tests are automatically run on:
-- Every pull request
-- Every push to main/develop branches
-- Nightly for comprehensive E2E tests
-
-See `.github/workflows/tests.yml` for CI configuration.
-
-## Writing New Tests
-
-1. Create test file in appropriate directory:
-   - `tests/smoke/` - Fast verification tests
-   - `tests/unit/` - Isolated component tests
-   - `tests/integration/` - Multi-component tests
-   - `tests/e2e/` - Full workflow tests
-
-2. Use fixtures from `conftest.py`:
-   ```python
-   def test_something(temp_cwa_db, sample_book_data):
-       # temp_cwa_db and sample_book_data are automatically available
-       pass
-   ```
-
-3. Mark tests appropriately:
-   ```python
-   @pytest.mark.smoke     # Fast smoke test
-   @pytest.mark.unit      # Unit test
-   @pytest.mark.slow      # Takes >5 seconds
-   @pytest.mark.requires_docker   # Needs Docker
-   @pytest.mark.requires_calibre  # Needs Calibre CLI
-   ```
-
-4. Run your new tests:
-   ```bash
-   pytest path/to/your/test.py -v
-   ```
-
-## Troubleshooting
-
-### Tests fail with "module not found"
-```bash
-# Make sure you're in the project root
-cd /app/calibre-web-automated
-
-# Install dependencies
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-```
-
-### Tests timeout
-```bash
-# Increase timeout
-pytest --timeout=60 tests/
-```
-
-### Tests fail in Docker but pass locally
-```bash
-# Run tests inside Docker container
-docker exec -it calibre-web-automated pytest tests/smoke/ -v
-```
-
-### Database locked errors
-```bash
-# Clear any lock files
-rm /tmp/*.lock
-
-# Or use fresh test database (automatic with fixtures)
-pytest tests/unit/test_cwa_db.py -v
-```
-
-## Test Coverage Goals
-
-Current coverage status:
-```bash
-pytest --cov=cps --cov=scripts --cov-report=term
-```
-
-Target coverage:
-- **Critical modules** (ingest, db, helpers): 80%+
-- **Core application**: 70%+
-- **Overall project**: 50%+
-
-## Pre-Commit Checklist
-
-Before committing code:
-1. ✅ Run smoke tests: `pytest tests/smoke/ -v`
-2. ✅ Run relevant unit tests: `pytest tests/unit/ -v`
-3. ✅ Check code coverage: `pytest --cov=. --cov-report=term`
-4. ✅ Fix any failing tests
-5. ✅ Add tests for new functionality
-
-## Getting Help
-
-- Review `TESTING_STRATEGY.md` for comprehensive documentation
-- Check existing tests for examples
-- Ask in Discord: https://discord.gg/EjgSeek94R
-- Open an issue on GitHub
-
-## Next Steps
-
-See `TESTING_STRATEGY.md` for:
-- Integration test implementation
-- Docker E2E test setup
-- CI/CD configuration
-- Advanced testing patterns
+To run the integration tests from inside a container (Docker-in-Docker), see `DOCKER_VOLUMES.md`.

@@ -9,9 +9,9 @@ Unit tests for cps/helper.py
 Tests cover pure Python utility functions that don't require Docker:
 - Filename sanitization (get_valid_filename)
 - Author name parsing (split_authors, get_sorted_author)
-- Password generation and validation
-- Email validation
-- Username validation
+- Password validation (valid_password)
+- Email and username validation (valid_email, check_email, check_username)
+- List de-duplication (uniq) and readable-format detection (check_read_formats)
 
 Note: Functions involving database queries, file I/O, or external services
 are tested in integration tests instead.

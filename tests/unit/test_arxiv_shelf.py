@@ -221,4 +221,3 @@ def test_fetch_metadata_adds_the_arxiv_chip_for_a_result_with_an_arxiv_id():
     from pathlib import Path
     js = (Path(__file__).resolve().parents[2] / "cps/static/js/get_meta.js").read_text(encoding="utf-8")
     assert "book.identifiers.arxiv" in js and 'names.push("arXiv")' in js
-    assert "Papers" not in js

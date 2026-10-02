@@ -139,9 +139,6 @@ def _load_duplicate_scan_module(monkeypatch, calls):
         },
     )
 
-    def _legacy_scan(*args, **kwargs):
-        raise AssertionError("find_duplicate_books should not be used for full scans")
-
     auto_resolve_calls = []
 
     def _auto_resolve_duplicates(**kwargs):
@@ -151,10 +148,6 @@ def _load_duplicate_scan_module(monkeypatch, calls):
     duplicates = _install_stub(
         "cps.duplicates",
         {
-            "find_duplicate_books": _legacy_scan,
-            "find_duplicate_books_python": lambda *args, **kwargs: [],
-            "find_duplicate_candidate_ids_sql": lambda *args, **kwargs: [],
-            "find_duplicate_books_sql": lambda *args, **kwargs: [],
             "auto_resolve_duplicates": _auto_resolve_duplicates,
         },
     )
@@ -248,19 +241,6 @@ def test_full_duplicate_scan_passes_unresolved_groups_to_auto_resolution(monkeyp
     assert auto_resolve_calls[0]["trigger_type"] == "automatic"
 
 
-def _make_legacy_raise(module, monkeypatch):
-    duplicates = sys.modules["cps.duplicates"]
-
-    def _raise_legacy(*args, **kwargs):
-        raise AssertionError("after_import must not call legacy duplicate scans")
-
-    monkeypatch.setattr(duplicates, "find_duplicate_books", _raise_legacy)
-    monkeypatch.setattr(duplicates, "find_duplicate_books_python", _raise_legacy)
-    monkeypatch.setattr(duplicates, "find_duplicate_books_sql", _raise_legacy)
-    if hasattr(module, "find_duplicate_candidate_ids_sql"):
-        monkeypatch.setattr(module, "find_duplicate_candidate_ids_sql", lambda *args, **kwargs: [50, 51])
-
-
 class _BookIdColumn:
     def __gt__(self, other):
         return ("book_id_gt", other)
@@ -302,11 +282,10 @@ def _stub_incremental_book_ids(module, book_ids, max_book_id=None):
     module.calibre_db.session = _BookIdSession(book_ids, max_book_id=max_book_id)
 
 
-def test_after_import_valid_baseline_merges_index_without_legacy_scans(monkeypatch):
+def test_after_import_valid_baseline_merges_new_books_into_index(monkeypatch):
     calls = []
     module, _auto_resolve_calls = _load_duplicate_scan_module(monkeypatch, calls)
     _TaskCwaDB.instances = []
-    _make_legacy_raise(module, monkeypatch)
     pending_reasons = []
     merge_calls = []
 
@@ -345,7 +324,6 @@ def test_after_import_uses_provided_book_ids_without_candidate_lookup(monkeypatc
     calls = []
     module, _auto_resolve_calls = _load_duplicate_scan_module(monkeypatch, calls)
     _TaskCwaDB.instances = []
-    _make_legacy_raise(module, monkeypatch)
     merge_calls = []
 
     monkeypatch.setattr(module, "has_valid_duplicate_index_baseline", lambda settings, candidate_book_ids=None: True)
@@ -368,7 +346,6 @@ def test_after_import_missing_baseline_marks_pending_after_candidate_lookup(monk
     calls = []
     module, _auto_resolve_calls = _load_duplicate_scan_module(monkeypatch, calls)
     _TaskCwaDB.instances = []
-    _make_legacy_raise(module, monkeypatch)
     pending_reasons = []
 
     monkeypatch.setattr(
@@ -378,36 +355,12 @@ def test_after_import_missing_baseline_marks_pending_after_candidate_lookup(monk
     monkeypatch.setattr(
         module, "mark_duplicate_index_pending", lambda reason=None: pending_reasons.append(reason) or True
     )
-    _stub_incremental_book_ids(module, [50], max_book_id=50)
 
     task = module.TaskDuplicateScan(full_scan=False, trigger_type="after_import", user_id=7)
     task.run(worker_thread=None)
 
     assert task.success is True
     assert task.result_count == 0
-    assert pending_reasons == ["after_import without valid duplicate index baseline"]
-    assert calls == []
-
-
-def test_after_import_stale_fingerprint_marks_pending(monkeypatch):
-    calls = []
-    module, _auto_resolve_calls = _load_duplicate_scan_module(monkeypatch, calls)
-    _TaskCwaDB.instances = []
-    _make_legacy_raise(module, monkeypatch)
-    pending_reasons = []
-
-    monkeypatch.setattr(
-        module, "has_valid_duplicate_index_baseline", lambda settings, candidate_book_ids=None: False
-    )
-    _stub_incremental_book_ids(module, [50], max_book_id=50)
-    monkeypatch.setattr(
-        module, "mark_duplicate_index_pending", lambda reason=None: pending_reasons.append(reason) or True
-    )
-
-    task = module.TaskDuplicateScan(full_scan=False, trigger_type="after_import", user_id=7)
-    task.run(worker_thread=None)
-
-    assert task.success is True
     assert task.message == "Duplicate scan pending: manual scan required"
     assert pending_reasons == ["after_import without valid duplicate index baseline"]
     assert calls == []
@@ -417,7 +370,6 @@ def test_after_import_too_many_new_books_marks_pending(monkeypatch):
     calls = []
     module, _auto_resolve_calls = _load_duplicate_scan_module(monkeypatch, calls)
     _TaskCwaDB.instances = []
-    _make_legacy_raise(module, monkeypatch)
     pending_reasons = []
 
     monkeypatch.setattr(module, "has_valid_duplicate_index_baseline", lambda settings, candidate_book_ids=None: True)
@@ -439,7 +391,6 @@ def test_after_import_empty_candidate_set_does_not_merge_or_mark_pending(monkeyp
     calls = []
     module, _auto_resolve_calls = _load_duplicate_scan_module(monkeypatch, calls)
     _TaskCwaDB.instances = []
-    _make_legacy_raise(module, monkeypatch)
     pending_reasons = []
 
     monkeypatch.setattr(module, "has_valid_duplicate_index_baseline", lambda settings, candidate_book_ids=None: True)
@@ -466,7 +417,6 @@ def test_after_import_merge_failure_marks_pending(monkeypatch):
     calls = []
     module, _auto_resolve_calls = _load_duplicate_scan_module(monkeypatch, calls)
     _TaskCwaDB.instances = []
-    _make_legacy_raise(module, monkeypatch)
     pending_reasons = []
 
     monkeypatch.setattr(module, "has_valid_duplicate_index_baseline", lambda settings, candidate_book_ids=None: True)

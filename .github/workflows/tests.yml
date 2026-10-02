@@ -4,7 +4,7 @@ on:
   push:
     branches: ['**']
   pull_request:
-    branches: [main, dev]
+    branches: [main]
   workflow_dispatch:
     inputs:
       run_integration:
@@ -46,8 +46,8 @@ jobs:
 
   # ============================================================================
   # Dependency audit: known-vulnerable pins in requirements.lock.
-  # Informational (continue-on-error) because Google Drive's old caps may
-  # hold a few packages back; read the output rather than gating merges on it.
+  # Informational (continue-on-error): read the output rather than gating
+  # merges on it.
   # ============================================================================
   dependency-audit:
     name: Dependency Audit (pip-audit)
@@ -76,12 +76,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Remove Python bytecode and pycache
-        run: |
-          echo "Removing any leftover .pyc and pycache"
-          find . -name '__pycache__' -type d -print -exec rm -rf {} +
-          find . -name '*.pyc' -type f -print -delete
-      
       - name: Set up Python 3.13
         uses: actions/setup-python@v7
         with:
@@ -92,25 +86,17 @@ jobs:
             requirements.lock
             requirements-dev.txt
       
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libssl-dev
-      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           # Same pins as the Docker image (requirements.lock), so CI tests what ships
           pip install -r requirements.txt -c requirements.lock
           pip install -r requirements-dev.txt -c requirements.lock
-          # Fail fast if the resolver produced an incompatible pyOpenSSL/cryptography pair
-          pip check
-          python -c "import OpenSSL, cryptography; print('pyOpenSSL', OpenSSL.__version__, 'cryptography', cryptography.__version__)"
       
       - name: Create test environment structure
         run: |
-          sudo mkdir -p /config /books/import /books/ingest /config/processed_books
-          sudo chmod -R 777 /config /books
+          sudo mkdir -p /config/processed_books
+          sudo chmod -R 777 /config
           touch /config/cwa.db
       
       - name: Run smoke and unit tests
@@ -129,7 +115,7 @@ jobs:
 
   # ============================================================================
   # Docker build check
-  # Runs on: every PR (integration below only runs on main/dev)
+  # Runs on: every PR (integration below only runs on main)
   # Purpose: a broken Dockerfile, pin or apt package fails the PR, not the merge.
   # BuildKit layers come from the amd64 cache release.yml writes to GHCR on main,
   # so most PR builds only redo the layers the PR actually touches. Nothing here
@@ -183,17 +169,16 @@ jobs:
 
   # ============================================================================
   # JOB 2: Integration Tests (Docker)
-  # Runs on: Merge to main/dev, manual trigger
+  # Runs on: Merge to main, manual trigger
   # Duration: ~15-20 minutes
   # Purpose: Validate real-world behavior in Docker container
   # ============================================================================
   integration-tests:
     name: Integration Tests (Docker)
     runs-on: ubuntu-latest
-    # Only run on merge to main/dev OR manual dispatch with flag
+    # Only run on merge to main OR manual dispatch with flag
     if: |
-      github.ref == 'refs/heads/main' || 
-      github.ref == 'refs/heads/dev' ||
+      github.ref == 'refs/heads/main' ||
       (github.event_name == 'workflow_dispatch' && inputs.run_integration)
     
     steps:
@@ -212,11 +197,6 @@ jobs:
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
-      
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libssl-dev
       
       - name: Install dependencies
         run: |
@@ -242,7 +222,7 @@ jobs:
       - name: Run Docker integration tests
         run: |
           # CRITICAL: No -n flag! Docker tests must run sequentially
-          pytest tests/docker/ tests/integration/ \
+          pytest tests/integration/ \
             -v \
             --tb=long \
             --durations=10 \
@@ -257,10 +237,7 @@ jobs:
         if: always()
         with:
           name: integration-test-results
-          path: |
-            integration-results.xml
-            tests/logs/
-            tests/tmp/
+          path: integration-results.xml
           retention-days: 7
 
 
@@ -286,7 +263,7 @@ jobs:
           for job in "lint=${{ needs.lint.result }}" "fast-tests=${{ needs.fast-tests.result }}" \
                      "docker-build=${{ needs.docker-build.result }}" \
                      "integration-tests=${{ needs.integration-tests.result }}"; do
-            # "skipped" is fine: docker-build only runs on PRs, integration only on main/dev or when requested
+            # "skipped" is fine: docker-build only runs on PRs, integration only on main or when requested
             if [[ "${job#*=}" == "failure" || "${job#*=}" == "cancelled" ]]; then
               echo "❌ ${job%%=*} ${job#*=}"
               failed=1

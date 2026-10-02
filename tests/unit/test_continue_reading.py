@@ -4,7 +4,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Unit tests for the home page "Continue reading" query helper."""
+"""The in-progress books query (web._continue_reading_rows), which orders the Reading list's
+progress and the offline auto-download list."""
 
 from datetime import datetime, timedelta, timezone
 
@@ -14,6 +15,8 @@ from sqlalchemy.orm import sessionmaker
 
 from cps import ub
 
+from .lily_env import continue_reading_progress
+
 
 @pytest.fixture
 def session():
@@ -22,13 +25,6 @@ def session():
     sess = sessionmaker(bind=engine)()
     yield sess
     sess.close()
-
-
-def continue_reading_progress(session, user_id, limit=None, library_uuid=None):
-    """[(book_id, percent)] from the Continue Reading query (web._continue_reading_rows)."""
-    from cps.web import CONTINUE_READING_LIMIT, _continue_reading_rows
-    return [(book_id, percent) for book_id, percent, __ in
-            _continue_reading_rows(session, user_id, limit or CONTINUE_READING_LIMIT, library_uuid)]
 
 
 BASE = datetime(2026, 1, 1, tzinfo=timezone.utc)

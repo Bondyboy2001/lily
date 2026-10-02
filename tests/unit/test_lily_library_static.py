@@ -1,4 +1,4 @@
-"""Static checks for the library pages' restyle onto docs/design.md (phase 2)."""
+"""Static checks that the library pages follow docs/design.md."""
 import re
 from pathlib import Path
 
@@ -24,9 +24,8 @@ def css_rules(css):
     return [(sel.strip(), body) for sel, body in re.findall(r"([^{}]+)\{([^{}]*)\}", css)]
 
 
-def test_layout_no_longer_loads_caliblur_js():
+def test_layout_loads_lily_library_css_after_the_shell():
     layout = read(TEMPLATES / "layout.html")
-    assert "caliBlur.js" not in layout
     assert "css/lily-library.css" in layout
     assert layout.index("css/lily-shell.css") < layout.index("css/lily-library.css")
 
@@ -159,13 +158,6 @@ def test_detail_read_toggle_shows_state_without_a_disc():
     assert "ok-circle" not in html
 
 
-def test_lily_library_css_uses_tokens_only():
-    css = re.sub(r"/\*.*?\*/", "", read(CSS / "lily-library.css"), flags=re.S)
-    assert not re.search(r"#[0-9a-fA-F]{3,8}\b", css)
-    for banned in ("rgba(", "hsla(", "gradient", "backdrop-filter", "blur("):
-        assert banned not in css, banned
-
-
 def test_lily_library_css_shadows_only_on_menus():
     for selector, body in css_rules(read(CSS / "lily-library.css")):
         for value in re.findall(r"box-shadow\s*:\s*([^;]+)", body):
@@ -255,11 +247,6 @@ def test_style_css_has_no_legacy_colours():
     assert not re.search(r"#[0-9a-fA-F]{3,8}\b", css)
     assert "rgba(" not in css and "gradient" not in css
     assert "body h2" not in css  # it outranked lily.css headings
-
-
-def test_book_links_open_the_book_page_not_a_modal():
-    for name in ["index.html", "author.html", "search.html", "shelf.html", "image.html"]:
-        assert "#bookDetailsModal" not in read(TEMPLATES / name), name
 
 
 def test_detail_page_is_a_frontispiece_stage():
@@ -475,16 +462,6 @@ def test_book_title_is_the_page_h1_and_the_top_bar_has_none():
     title = [b for s, b in css_rules(css) if s == ".book-detail-meta h1#title"]
     assert title and "font-size: 52px" in title[0] and "font-weight: 700" in title[0]
     assert "font-size: 30px" in "".join(title[1:])  # phone size
-
-
-def test_grid_quick_actions_name_their_book():
-    # docs/design.md §9: "Read Quiet Machines", not five identical "Read in browser" buttons.
-    image = read(TEMPLATES / "image.html")
-    actions = re.search(r"{% macro cover_actions.*?{%- endmacro %}", image, flags=re.S).group(0)
-    for msgid in ("Read %(name)s", "Download %(name)s", "Mark %(name)s as unread",
-                  "Mark %(name)s as read", "Edit %(name)s"):
-        assert "_('%s', name=book.title)" % msgid in actions, msgid
-    assert "Read in browser" not in actions and "_('Edit metadata')" not in actions
 
 
 def test_read_toggles_flip_their_label_without_aria_pressed():

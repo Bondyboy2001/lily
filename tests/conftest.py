@@ -21,7 +21,6 @@ import sys
 import pytest
 import shutil
 import time
-import requests
 import subprocess
 from pathlib import Path
 from typing import Generator
@@ -167,26 +166,6 @@ else:
             return shutil.copy2(src, dest)
 
 
-def check_container_available(port=None):
-    """
-    Check if a CWA container is available on the specified port.
-
-    Args:
-        port: Port to check (defaults to CWA_TEST_PORT env var or 8085)
-
-    Returns:
-        bool: True if container is accessible, False otherwise
-    """
-    if port is None:
-        port = os.getenv('CWA_TEST_PORT', '8085')
-
-    try:
-        response = requests.get(f"http://localhost:{port}", timeout=2)
-        return response.status_code == 200
-    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-        return False
-
-
 # ---------------------------------------------------------------------------
 # sys.modules isolation
 # ---------------------------------------------------------------------------
@@ -279,26 +258,6 @@ def isolated_sys_modules():
         restore_sys_modules(snapshot)
 
 
-@pytest.fixture(scope="module")
-def isolated_sys_modules_module():
-    """Module-scoped variant of ``isolated_sys_modules`` for test files that
-    import a production module once against stubs and share it between tests."""
-    snapshot = dict(sys.modules)
-    try:
-        yield
-    finally:
-        restore_sys_modules(snapshot)
-
-
-@pytest.fixture(scope="session")
-def container_available():
-    """
-    Session-scoped fixture that checks once if a container is available.
-    Tests can use this to skip if no container is running.
-    """
-    return check_container_available()
-
-
 def get_db_path(db_path, tmp_path=None):
     """
     Get a local filesystem path for database access.
@@ -343,87 +302,6 @@ def get_db_path(db_path, tmp_path=None):
 
 
 # ============================================================================
-# Temporary Directory Fixtures
-# ============================================================================
-
-@pytest.fixture
-def temp_dir(tmp_path):
-    """Provide a temporary directory that's cleaned up after the test."""
-    yield tmp_path
-    # Cleanup happens automatically with tmp_path
-
-
-@pytest.fixture
-def temp_config_dir(tmp_path):
-    """Create a temporary /config directory structure for testing."""
-    config_dir = tmp_path / "config"
-    config_dir.mkdir()
-
-    # Create subdirectories
-    (config_dir / "processed_books" / "imported").mkdir(parents=True)
-    (config_dir / "processed_books" / "failed").mkdir(parents=True)
-    (config_dir / "log_archive").mkdir()
-    (config_dir / ".cwa_conversion_tmp").mkdir()
-
-    yield config_dir
-
-
-@pytest.fixture
-def temp_library_dir(tmp_path):
-    """Create a temporary Calibre library directory for testing."""
-    library = tmp_path / "calibre-library"
-    library.mkdir()
-
-    # Create minimal metadata.db
-    import sqlite3
-    db_path = library / "metadata.db"
-    con = sqlite3.connect(str(db_path))
-
-    # Minimal schema (just enough to not crash)
-    con.execute("""
-        CREATE TABLE books (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL DEFAULT 'Unknown',
-            sort TEXT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            pubdate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            series_index REAL NOT NULL DEFAULT 1.0,
-            author_sort TEXT,
-            isbn TEXT DEFAULT '',
-            lccn TEXT DEFAULT '',
-            path TEXT NOT NULL DEFAULT '',
-            flags INTEGER NOT NULL DEFAULT 1,
-            uuid TEXT,
-            has_cover BOOL DEFAULT 0,
-            last_modified TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    con.execute("""
-        CREATE TABLE authors (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL COLLATE NOCASE,
-            sort TEXT COLLATE NOCASE,
-            link TEXT NOT NULL DEFAULT ''
-        )
-    """)
-
-    con.execute("""
-        CREATE TABLE books_authors_link (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            book INTEGER NOT NULL,
-            author INTEGER NOT NULL,
-            UNIQUE(book, author)
-        )
-    """)
-
-    con.commit()
-    con.close()
-
-    yield library
-
-
-# ============================================================================
 # Database Fixtures
 # ============================================================================
 
@@ -460,79 +338,13 @@ def temp_cwa_db(tmp_path, monkeypatch):
 
 
 # ============================================================================
-# Sample Data Fixtures
+# Markers by directory, and skips for missing tools
 # ============================================================================
-
-@pytest.fixture
-def sample_book_data():
-    """Provide sample book metadata for testing."""
-    return {
-        'title': 'Test Book',
-        'author': 'Test Author',
-        'isbn': '9781234567890',
-        'publisher': 'Test Publisher',
-        'year': 2024,
-        'language': 'eng',
-        'description': 'A test book for unit testing',
-        'tags': ['test', 'fiction']
-    }
-
-
-@pytest.fixture
-def sample_user_data():
-    """Provide sample user data for testing."""
-    return {
-        'username': 'testuser',
-        'email': 'test@example.com',
-        'password': 'TestPass123!',
-        'role': 'user'
-    }
-
-
-# ============================================================================
-# Mock Fixtures
-# ============================================================================
-
-# ============================================================================
-# Skip Markers for Conditional Tests
-# ============================================================================
-
-def pytest_configure(config):
-    """Register custom markers."""
-    config.addinivalue_line(
-        "markers", "requires_docker: mark test as requiring Docker environment"
-    )
-    config.addinivalue_line(
-        "markers", "requires_calibre: mark test as requiring Calibre CLI tools"
-    )
-    config.addinivalue_line(
-        "markers",
-        "docker_integration: mark test as requiring Docker container (slow)"
-    )
-    config.addinivalue_line(
-        "markers",
-        "docker_e2e: mark test as end-to-end test requiring full Docker environment (very slow)"
-    )
-
 
 @pytest.hookimpl(tryfirst=True)  # add directory markers before -m deselection
 def pytest_collection_modifyitems(config, items):
-    """
-    Automatically skip tests based on environment.
-
-    Skip Docker tests if not in Docker environment.
-    Skip Calibre tests if Calibre tools not installed.
-    Skip docker_integration tests if Docker not available.
-    """
-    import shutil
-    import os
-
-    skip_docker = pytest.mark.skip(reason="Not running in Docker environment")
-    skip_calibre = pytest.mark.skip(reason="Calibre tools not installed")
+    """Mark tests by directory and skip Docker tests when Docker is missing."""
     skip_docker_integration = pytest.mark.skip(reason="Docker not available")
-
-    in_docker = os.path.exists('/.dockerenv') or os.environ.get('DOCKER_CONTAINER') == 'true'
-    has_calibre = shutil.which('calibredb') is not None
     has_docker = shutil.which('docker') is not None
 
     tests_root = Path(__file__).parent
@@ -546,16 +358,12 @@ def pytest_collection_modifyitems(config, items):
         for directory, marker in dir_markers.items():
             if directory in item_path.parents and item.get_closest_marker(marker) is None:
                 item.add_marker(getattr(pytest.mark, marker))
-        if "requires_docker" in item.keywords and not in_docker:
-            item.add_marker(skip_docker)
-        if "requires_calibre" in item.keywords and not has_calibre:
-            item.add_marker(skip_calibre)
-        if ("docker_integration" in item.keywords or "docker_e2e" in item.keywords) and not has_docker:
+        if "docker_integration" in item.keywords and not has_docker:
             item.add_marker(skip_docker_integration)
 
 
 # ============================================================================
-# Docker Container Fixtures (for integration/e2e tests)
+# Docker Container Fixtures (for integration tests)
 # ============================================================================
 
 @pytest.fixture(scope="session")
@@ -812,53 +620,6 @@ def container_name(cwa_container) -> str:
 
 
 @pytest.fixture(scope="function")
-def cwa_api_client(cwa_container) -> dict:
-    """
-    Provide a configured API client for interacting with CWA container.
-
-    Skips the test if no container is available on the configured port.
-
-    Returns a dict with:
-    - base_url: The CWA web interface URL
-    - session: Authenticated requests.Session
-    - container: The docker compose instance
-    """
-    import requests
-
-    # Use configurable port
-    # Default to 8085 to avoid conflicts with production CWA on 8083
-    test_port = os.getenv('CWA_TEST_PORT', '8085')
-    base_url = f"http://localhost:{test_port}"
-
-    # Check if container is accessible
-    if not check_container_available(test_port):
-        pytest.skip(f"No CWA container available on port {test_port}")
-
-    # Create session with default credentials
-    session = requests.Session()
-
-    # Login to Lily (default credentials: harry/harry10)
-    try:
-        login_response = session.post(
-            f"{base_url}/login",
-            data={"username": "harry", "password": "harry10"},
-            allow_redirects=False,
-            timeout=5
-        )
-
-        if login_response.status_code not in (200, 302):
-            pytest.skip("Could not authenticate with CWA container")
-    except requests.exceptions.RequestException as e:
-        pytest.skip(f"Could not connect to CWA container: {e}")
-
-    return {
-        "base_url": base_url,
-        "session": session,
-        "container": cwa_container,
-    }
-
-
-@pytest.fixture(scope="function")
 def sample_ebook_path(tmp_path) -> Path:
     """
     Provide path to a minimal test EPUB file.
@@ -870,8 +631,7 @@ def sample_ebook_path(tmp_path) -> Path:
     from pathlib import Path as PathLib
 
     # Add tests directory to path if not already there
-    # NOTE: append (not prepend) to avoid shadowing site-packages
-    # (e.g., tests/docker/ would shadow the `docker` SDK package)
+    # NOTE: append (not prepend) so tests/ never shadows site-packages
     tests_dir = PathLib(__file__).parent
     if str(tests_dir) not in sys.path:
         sys.path.append(str(tests_dir))
