@@ -6,6 +6,8 @@
 # See CONTRIBUTORS for full list of authors.
 
 import json
+import logging
+import os
 import re
 import unicodedata
 from difflib import SequenceMatcher
@@ -16,6 +18,7 @@ from cps.search_metadata import cl as metadata_providers
 import sys
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB
+from cps.services.identifiers import ARXIV_ID, DOI_RE, normalise_identifiers, parse_identifier
 
 log = logger.create()
 
@@ -71,6 +74,52 @@ def best_metadata_match(title: str, authors, results):
             continue
         best, best_score = result, score
     return best
+
+
+# arXiv stamps its id down the first page's margin: "arXiv:1706.03762v7 [cs.CL] 2 Aug 2023"
+_ARXIV_STAMP = re.compile(rf"arxiv:\s*({ARXIV_ID})", re.I)
+
+
+def find_paper_identifiers(title: str, page_text: str = "", identifiers=None) -> dict:
+    """The arXiv id and DOI naming a paper: the book's own, else one its title is
+    (a PDF often imports under its file name, "1706.03762v7") or one on its first
+    page (arXiv's margin stamp, a journal's DOI line)."""
+    found = {k: v for k, v in normalise_identifiers(identifiers or {}).items()
+             if k in ("arxiv", "doi")}
+    typed = parse_identifier(title)
+    for text in (title, page_text):
+        stamp = _ARXIV_STAMP.search(text or "")
+        if stamp:
+            typed.setdefault("arxiv", stamp.group(1))
+    doi = DOI_RE.search(page_text or "")
+    if doi:
+        typed.setdefault("doi", doi.group(0).rstrip(".,;:)]}"))
+    for key in ("arxiv", "doi"):
+        if typed.get(key):
+            found.setdefault(key, typed[key])
+    return found
+
+
+def _pdf_first_page_text(book) -> str:
+    """The text of the book's PDF's first page; empty without a PDF or text layer."""
+    from cps import config
+    pdf = next((d for d in book.data or [] if (d.format or "").upper() == "PDF"), None)
+    if pdf is None:
+        return ""
+    path = os.path.join(config.get_book_path(), book.path, pdf.name + ".pdf")
+    pypdf_log = logging.getLogger("pypdf")
+    level = pypdf_log.level
+    # pypdf warns about every font it can't fully decode; the ids read fine regardless
+    pypdf_log.setLevel(logging.ERROR)
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(path)
+        return (reader.pages[0].extract_text() or "") if reader.pages else ""
+    except Exception as e:
+        log.debug(f"Could not read the first page of {path}: {e}")
+        return ""
+    finally:
+        pypdf_log.setLevel(level)
 
 
 def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
@@ -130,24 +179,45 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
         provider_hierarchy = [p for p in provider_hierarchy if p in available_ids] + \
             [p for p in available_ids if p not in provider_hierarchy]
 
-        # Try each provider in order
+        providers = []
+        for provider_id in provider_hierarchy:
+            provider = next((p for p in metadata_providers if p.__id__ == provider_id), None)
+            if not provider or not provider.active:
+                continue
+            if not provider.is_globally_enabled(enabled_map):
+                log.debug(f"Provider {provider_id} is globally disabled")
+                continue
+            providers.append(provider)
+
         metadata_found = False
         matched = False
-        for provider_id in provider_hierarchy:
+        # A paper is looked up exactly by its arXiv id or DOI first: its title is
+        # often the file name, which no title search matches
+        paper_ids = find_paper_identifiers(
+            book.title, _pdf_first_page_text(book),
+            {i.type: i.val for i in book.identifiers or []})
+        if paper_ids:
+            log.info(f"Looking up '{book.title}' by {paper_ids}")
+        for provider in providers:
+            ids = {k: v for k, v in paper_ids.items() if k in provider.identifier_types}
+            if not ids:
+                continue
             try:
-                # Find the provider
-                provider = None
-                for p in metadata_providers:
-                    if p.__id__ == provider_id:
-                        provider = p
-                        break
+                results = provider.search_identifiers(ids, "", "en")
+            except Exception as e:
+                log.warning(f"Error looking up {ids} with provider {provider.__id__}: {e}")
+                continue
+            if not results:
+                continue
+            matched = True
+            if _apply_metadata_to_book(book, results[0], calibre_db_instance):
+                log.info(f"Applied metadata from {provider.__name__} found by {ids} for book: {book.title}")
+                metadata_found = True
+                break
 
-                if not provider or not provider.active:
-                    continue
-                if not provider.is_globally_enabled(enabled_map):
-                    log.debug(f"Provider {provider_id} is globally disabled")
-                    continue
-
+        # Otherwise try each provider's title search in order
+        for provider in providers if not matched else []:
+            try:
                 log.debug(f"Trying metadata provider: {provider.__name__}")
 
                 # Search for metadata
@@ -169,7 +239,7 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
                     break
 
             except Exception as e:
-                log.warning(f"Error fetching metadata from provider {provider_id}: {e}")
+                log.warning(f"Error fetching metadata from provider {provider.__id__}: {e}")
                 continue
 
         if not matched:
