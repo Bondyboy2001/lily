@@ -330,3 +330,14 @@ def test_jobs_db_down_still_imports_safely(ingest_processor, env, monkeypatch):
     assert ingest_processor.main(str(src)) == 0
     assert env["import_calls"] == [str(src)]
     assert not src.exists()
+
+
+def test_an_upload_is_staged_under_its_own_name(ingest_processor):
+    # calibre titles a file with nothing inside by its name: "new 1 20261002 174839 862677 Upload Test"
+    name = ingest_processor._import_name
+    assert name("new_1_20261002_174839_862677_Upload_Test_-_Nobody.djvu") == "Upload_Test_-_Nobody.djvu"
+    assert name("new_12_20261002_174839_000001_paper.pdf") == "paper.pdf"
+    # Files dropped in the folder, and a book's extra format, keep theirs
+    assert name("The Cartographer's Daughter - Isabel Moreau.pdf") == "The Cartographer's Daughter - Isabel Moreau.pdf"
+    assert name("format_5_20261002_174839_862677_book.epub") == "format_5_20261002_174839_862677_book.epub"
+    assert name("new_1_20261002_174839_862677_") == "new_1_20261002_174839_862677_"

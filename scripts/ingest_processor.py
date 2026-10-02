@@ -9,6 +9,7 @@
 import atexit
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -58,6 +59,16 @@ _duplicate_scan_lock = threading.Lock()
 def _bounded_reason(text: str, limit: int = 800) -> str:
     text = " ".join(str(text or "").split())
     return text[:limit]
+
+
+# A browser upload is saved as "new_<user id>_<UTC stamp>_<file name>" (editbooks_upload.py)
+_UPLOAD_PREFIX = re.compile(r"^new_\d+_\d{8}_\d{6}_\d{6}_(?=.)")
+
+
+def _import_name(name: str) -> str:
+    """The name a new book's file is staged under: the uploaded file's own name, since
+    calibre titles a file with no title inside it (DjVu, many PDFs) by its name."""
+    return _UPLOAD_PREFIX.sub("", name)
 
 
 def _record_job(job_id, state, error="", book_id=None):
@@ -797,7 +808,7 @@ class NewBookProcessor:
             return False
 
         # Stage file for import
-        staged_path = Path(self.staging_dir) / source_path.name
+        staged_path = Path(self.staging_dir) / _import_name(source_path.name)
         try:
             shutil.copy2(source_path, staged_path)
         except Exception as e:
