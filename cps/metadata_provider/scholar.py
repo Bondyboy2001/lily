@@ -12,6 +12,7 @@
 import re
 import html
 from concurrent.futures import ThreadPoolExecutor
+from html.parser import HTMLParser
 from typing import Dict, List, Optional
 from xml.etree import ElementTree
 
@@ -34,6 +35,7 @@ class google_scholar(Metadata):
     __id__ = "googlescholar"
     identifier_types = frozenset({"doi", "arxiv"})
     ARXIV_URL = "https://export.arxiv.org/api/query"
+    ARXIV_ABS_URL = "https://arxiv.org/abs/"
     CROSSREF_URL = "https://api.crossref.org/works"
     # arXiv answers 406 when brotli/zstd are offered, which requests does
     # whenever those packages are installed
@@ -48,10 +50,8 @@ class google_scholar(Metadata):
         # A bare arXiv id means nothing to Crossref's text search
         if ARXIV_ID_RE.fullmatch(query.strip()):
             return self._search_arxiv(query)
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            arxiv = pool.submit(self._search_arxiv, query)
-            crossref = pool.submit(self._search_crossref, query)
-            results = arxiv.result() + crossref.result()
+        results = self._run([lambda: self._search_arxiv(query),
+                             lambda: self._search_crossref(query)])
 
         # arXiv preprints are often also in Crossref; keep the first of each title
         seen = set()
@@ -68,21 +68,47 @@ class google_scholar(Metadata):
     ) -> List[MetaRecord]:
         if not self.active:
             return []
-        records = []
+        lookups = []
         doi = DOI_RE.search(identifiers.get("doi", ""))
         doi = doi.group(0) if doi else ""
         # An arXiv DOI names the arXiv id; Crossref doesn't know it
         doi_arxiv = arxiv_id_from_doi(doi)
         arxiv_id = ARXIV_ID_RE.search(identifiers.get("arxiv", "") or doi_arxiv)
         if arxiv_id:
-            records += self._search_arxiv(arxiv_id.group(0))
+            lookups.append(lambda: self._search_arxiv(arxiv_id.group(0)))
         if doi and not doi_arxiv:
-            records += self._search_crossref(doi)
+            lookups.append(lambda: self._search_crossref(doi))
+        return self._run(lookups)
+
+    @staticmethod
+    def _run(lookups) -> List[MetaRecord]:
+        """Runs the lookups at once and joins their records. Raises only when every
+        one failed, so one source being down still shows the other's results and
+        an outage is reported as a failed search rather than as no results."""
+        if not lookups:
+            return []
+        records, errors = [], []
+        with ThreadPoolExecutor(max_workers=len(lookups)) as pool:
+            for future in [pool.submit(lookup) for lookup in lookups]:
+                try:
+                    records += future.result()
+                except Exception as e:
+                    errors.append(e)
+        if len(errors) == len(lookups):
+            raise errors[0]
+        for e in errors:
+            log.warning("Scholar source failed: %s", e)
         return records
 
     def _search_arxiv(self, query: str) -> List[MetaRecord]:
+        """arXiv papers for an id or text; raises when arXiv can't be reached."""
         arxiv_id = ARXIV_ID_RE.search(query)
         if arxiv_id:
+            # The abstract page answers even when the API is slow or down
+            try:
+                return self._fetch_arxiv_abs(arxiv_id)
+            except Exception as e:
+                log.warning("arXiv abstract page lookup failed, trying the API: %s", e)
             params = {"id_list": arxiv_id.group(0)}
         else:
             words = re.findall(r"\w+", query)
@@ -92,21 +118,57 @@ class google_scholar(Metadata):
                 "search_query": " AND ".join("all:" + w for w in words),
                 "max_results": self.MAX_RESULTS,
             }
-        try:
-            response = requests.get(
-                self.ARXIV_URL, params=params, headers=self.HEADERS, timeout=15
-            )
-            response.raise_for_status()
-            feed = ElementTree.fromstring(response.content)
-        except Exception as e:
-            log.warning("arXiv search failed: %s", e)
-            return []
+        response = requests.get(
+            self.ARXIV_URL, params=params, headers=self.HEADERS, timeout=15
+        )
+        response.raise_for_status()
+        feed = ElementTree.fromstring(response.content)
         records = []
         for entry in feed.findall(ATOM + "entry"):
             record = self._parse_arxiv_entry(entry)
             if record:
                 records.append(record)
         return records
+
+    def _fetch_arxiv_abs(self, arxiv_id) -> List[MetaRecord]:
+        """The paper from its abstract page's citation_* meta tags (the ones Google
+        Scholar reads); empty when arXiv has no such paper."""
+        response = requests.get(
+            self.ARXIV_ABS_URL + arxiv_id.group(0), headers=self.HEADERS, timeout=10
+        )
+        if response.status_code == 404:
+            return []
+        response.raise_for_status()
+        return [self._parse_arxiv_abs(arxiv_id.group(1), response.text)]
+
+    def _parse_arxiv_abs(self, arxiv_id: str, page: str) -> MetaRecord:
+        tags = _CitationTags()
+        tags.feed(page)
+        title = " ".join(tags.first("citation_title").split())
+        if not title:
+            raise ValueError("no citation_title on the arXiv page for " + arxiv_id)
+        # Authors are "Last, First"; the API and other providers give "First Last"
+        authors = [" ".join(reversed(a.split(", ", 1))) for a in tags.get("citation_author", [])]
+        match = MetaRecord(
+            id=arxiv_id,
+            title=title,
+            authors=authors,
+            url="https://arxiv.org/abs/" + arxiv_id,
+            source=MetaSourceInfo(
+                id=self.__id__, description="arXiv", link="https://arxiv.org/"
+            ),
+        )
+        match.cover = ""
+        match.description = " ".join(tags.first("citation_abstract").split())
+        match.publisher = "arXiv"
+        match.publishedDate = tags.first("citation_date").replace("/", "-")[:10]
+        # "Applications (stat.AP); Methodology (stat.ME)" -> the API's category terms
+        subjects = re.search(r'class="tablecell subjects">(.*?)</td>', page, re.S)
+        match.tags = re.findall(r"\(([a-z-]+(?:\.[A-Za-z-]+)?)\)", subjects.group(1)) if subjects else []
+        match.identifiers = {"arxiv": arxiv_id}
+        # The journal's DOI once published, otherwise arXiv's own
+        match.identifiers["doi"] = tags.first("citation_doi") or ARXIV_DOI_PREFIX + arxiv_id
+        return match
 
     def _parse_arxiv_entry(self, entry) -> Optional[MetaRecord]:
         title = " ".join((entry.findtext(ATOM + "title") or "").split())
@@ -148,15 +210,11 @@ class google_scholar(Metadata):
             params["filter"] = "doi:" + doi.group(0)
         else:
             params["query.bibliographic"] = query
-        try:
-            response = requests.get(
-                self.CROSSREF_URL, params=params, headers=self.HEADERS, timeout=15
-            )
-            response.raise_for_status()
-            items = response.json().get("message", {}).get("items", [])
-        except Exception as e:
-            log.warning("Crossref search failed: %s", e)
-            return []
+        response = requests.get(
+            self.CROSSREF_URL, params=params, headers=self.HEADERS, timeout=15
+        )
+        response.raise_for_status()
+        items = response.json().get("message", {}).get("items", [])
         return [r for r in (self._parse_crossref_item(i) for i in items) if r]
 
     def _parse_crossref_item(self, item: Dict) -> Optional[MetaRecord]:
@@ -194,3 +252,23 @@ class google_scholar(Metadata):
         match.tags = item.get("subject", [])
         match.identifiers = {"doi": doi}
         return match
+
+
+class _CitationTags(HTMLParser):
+    """Collects a page's <meta name="citation_*" content="..."> tags."""
+
+    def __init__(self):
+        super().__init__()
+        self.tags: Dict[str, List[str]] = {}
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        name = attrs.get("name") or ""
+        if tag == "meta" and name.startswith("citation_"):
+            self.tags.setdefault(name, []).append(attrs.get("content") or "")
+
+    def get(self, name, default=None):
+        return self.tags.get(name, default)
+
+    def first(self, name) -> str:
+        return (self.tags.get(name) or [""])[0]
