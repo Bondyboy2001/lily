@@ -775,12 +775,39 @@ def migrate_default_sidebar(_session):
         _safe_session_rollback(_session, "default sidebar")
 
 
+def migrate_restore_emptied_sidebars(_session):
+    """One-time repair: saving the profile used to rebuild sidebar_view from show_* checkboxes the
+    page no longer has, so every save left it at 0 and hid the browse lists and the Archive button.
+    Users still at 0 get constants.DEFAULT_SIDEBAR back; a marker file next to app.db records the run."""
+    db_path = _session.bind.url.database
+    if not db_path or db_path == ":memory:":
+        return
+    marker = os.path.join(os.path.dirname(os.path.abspath(db_path)), ".lily_sidebar_restored")
+    if os.path.exists(marker):
+        return
+    try:
+        restored = 0
+        for user in _session.query(User).filter(User.role.op('&')(constants.ROLE_ANONYMOUS) == 0).all():
+            if not user.sidebar_view:
+                user.sidebar_view = constants.DEFAULT_SIDEBAR
+                restored += 1
+        _session.commit()
+        with open(marker, "w") as f:
+            f.write("emptied sidebars restored to the Lily defaults\n")
+        if restored:
+            log.info("Restored the default sidebar for %d user(s)", restored)
+    except Exception as e:
+        log.error("Could not restore emptied sidebars: %s", e)
+        _safe_session_rollback(_session, "restore sidebar")
+
+
 def migrate_Database(_session):
     engine = _session.bind
     add_missing_tables(engine, _session)
     migrate_user_session_table(engine, _session)
     migrate_user_table(engine, _session)
     migrate_default_sidebar(_session)
+    migrate_restore_emptied_sidebars(_session)
     # Runs after every user column migration so the full User model can be queried
     flag_users_with_default_password(_session)
     _safe_session_rollback(_session, "performance indexes")  # release any read lock before DDL

@@ -288,16 +288,6 @@ def change_profile(translations, languages):
                                      title=_("%(name)s's Profile", name=current_user.name.capitalize()),
                                      page="me")
 
-    val = 0
-    for key, __ in to_save.items():
-        if key.startswith('show'):
-            try:
-                val += int(key[5:])
-            except (ValueError, IndexError):
-                log.warning(f"Skipping invalid sidebar checkbox key: {key}")
-                continue
-    current_user.sidebar_view = val
-
     try:
         ub.session.commit()
         flash(_("Success! Profile Updated"), category="success")

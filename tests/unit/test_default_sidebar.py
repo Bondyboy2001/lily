@@ -60,3 +60,35 @@ def test_default_sidebar_is_the_core_views():
                  constants.SIDEBAR_RATING, constants.SIDEBAR_FORMAT, constants.SIDEBAR_LIST,
                  constants.SIDEBAR_DUPLICATES):
         assert not constants.DEFAULT_SIDEBAR & flag
+
+
+@pytest.mark.unit
+def test_emptied_sidebars_get_the_defaults_back_once(app_db, tmp_path):
+    from cps import ub, constants
+
+    reader = app_db.query(ub.User).one()
+    reader.sidebar_view = 0
+    app_db.add(ub.User(name="Guest", email="guest@example.org", role=constants.ROLE_ANONYMOUS, sidebar_view=0))
+    app_db.commit()
+
+    ub.migrate_restore_emptied_sidebars(app_db)
+
+    assert app_db.query(ub.User).filter_by(name="reader").one().sidebar_view == constants.DEFAULT_SIDEBAR
+    assert app_db.query(ub.User).filter_by(name="Guest").one().sidebar_view == 0
+    assert (tmp_path / ".lily_sidebar_restored").exists()
+
+    # A user who later empties their sidebar on purpose keeps it empty.
+    reader = app_db.query(ub.User).filter_by(name="reader").one()
+    reader.sidebar_view = 0
+    app_db.commit()
+    ub.migrate_restore_emptied_sidebars(app_db)
+    assert app_db.query(ub.User).filter_by(name="reader").one().sidebar_view == 0
+
+
+@pytest.mark.unit
+def test_saving_the_profile_leaves_the_sidebar_alone():
+    from pathlib import Path
+
+    source = (Path(__file__).resolve().parents[2] / "cps/web_auth.py").read_text(encoding="utf-8")
+    assert "current_user.sidebar_view =" not in source
+    assert "key.startswith('show')" not in source
