@@ -31,9 +31,9 @@ from metadata_suggestions import normalise_title  # noqa: E402
 
 log = logger.create()
 
-# Calibre's sessions share one SQLite connection (StaticPool), so one thread closing or rolling
-# back its session undoes another's unsaved changes. Rebuild metadata looks several books up at
-# once: each holds this while it reads or writes the library, and only provider lookups overlap.
+# Rebuild metadata looks several books up at once: each holds this while it reads or writes the
+# library, and only provider lookups overlap. Its writes and folder moves go one at a time, so the
+# lookups don't queue on SQLite's write lock or move two books' folders at once.
 library_lock = threading.RLock()
 
 # The metadata-change-detector service hands each log here to cover_enforcer.py
@@ -233,9 +233,9 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
     Runs for a new book when "Fetch metadata for new books" is on, and for every book in
     Rebuild metadata (force). The library is read, then the providers are asked and the
     cover downloaded without holding it, then every change is made and committed at once
-    under library_lock: the connection is shared, so a long open transaction could be
-    rolled back by another thread. A new title or first author moves the book's folder,
-    and with "Write edits into book files" on, the change is queued for the files."""
+    under library_lock, so the write lock is held for moments, not for a download. A new
+    title or first author moves the book's folder, and with "Write edits into book files"
+    on, the change is queued for the files."""
     if not db.CalibreDB.session_factory:
         log.error("CalibreDB not initialized; skipping metadata fetch")
         return False

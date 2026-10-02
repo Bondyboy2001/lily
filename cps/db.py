@@ -18,7 +18,7 @@ from weakref import WeakSet
 from uuid import uuid4
 
 from sqlite3 import OperationalError as sqliteOperationalError
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy import Table, Column, ForeignKey, CheckConstraint
 from sqlalchemy import String, Integer, Boolean, TIMESTAMP, Float
 from sqlalchemy.orm import relationship, sessionmaker, scoped_session, joinedload, object_session
@@ -32,7 +32,7 @@ try:
     from sqlalchemy.orm import declarative_base
 except ImportError:
     from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql.expression import and_, true, false, text, func, or_
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.sql import select, table as sql_table, column as sql_column
@@ -801,14 +801,19 @@ class CalibreDB:
             db_writable = os.access(dbpath, os.W_OK)
 
             try:
+                # A connection per thread at a time, not one shared by all: on a shared connection
+                # one thread's rollback (or a session closing) undid another's unsaved changes,
+                # and one thread's commit saved another's half-made ones. SQLite's own locking
+                # now keeps them apart; writers wait up to `timeout` seconds for each other.
                 cls.engine = create_engine('sqlite://',
                                            echo=False,
                                            isolation_level="SERIALIZABLE",
                                            connect_args={'check_same_thread': False, 'timeout': 30},
-                                           poolclass=StaticPool)
+                                           poolclass=QueuePool,
+                                           pool_size=POOL_SIZE,
+                                           max_overflow=POOL_OVERFLOW)
+                event.listen(cls.engine, "connect", _connection_setup(dbpath, app_db_path))
                 with cls.engine.begin() as connection:
-                    connection.execute(text("attach database '{}' as calibre;".format(dbpath)))
-                    connection.execute(text("attach database '{}' as app_settings;".format(app_db_path)))
                     # Try enabling WAL to improve concurrency unless running on a network share
                     # Controlled by env var NETWORK_SHARE_MODE (default False)
                     try:
@@ -839,6 +844,7 @@ class CalibreDB:
                     cc = conn.execute(text("SELECT id, datatype FROM custom_columns"))
                     cls.setup_db_cc_classes(cc)
                 except OperationalError as e:
+                    conn.close()
                     log.error_or_exception(e)
                     if cls.config:
                         if hasattr(cls.config, "invalidate"):
@@ -850,6 +856,8 @@ class CalibreDB:
                 Books._has_isbn_column = any(row[1] == "isbn" for row in cols)
             except Exception:
                 Books._has_isbn_column = False
+            finally:
+                conn.close()
 
             cls.session_factory = scoped_session(sessionmaker(autocommit=False,
                                                               autoflush=True,
@@ -1299,35 +1307,20 @@ class CalibreDB:
             return sorted(languages, key=lambda x: x.name, reverse=reverse_order)
 
     def create_functions(self, config=None):
+        """Register calibre's SQL functions on this session's connection. Every pooled
+        connection gets them when it opens (_connection_setup); this re-registers them, e.g.
+        after the title-sort pattern changed."""
         self.ensure_session()
         if self.session is None:
             log.error("create_functions: Cannot create functions because session is None")
             return
-
-        # user defined sort function for calibre databases (Series, etc.)
-        if config:
-            def _title_sort(title):
-                # calibre sort stuff
-                title_pat = re.compile(config.config_title_regex, re.IGNORECASE)
-                match = title_pat.search(title)
-                if match:
-                    prep = match.group(1)
-                    title = title[len(prep):] + ', ' + prep
-                return strip_whitespaces(title)
-
         try:
             # sqlalchemy <1.4.24 and sqlalchemy 2.0
             conn = self.session.connection().connection.driver_connection
         except AttributeError:
             # sqlalchemy >1.4.24
             conn = self.session.connection().connection.connection
-        try:
-            if config:
-                conn.create_function("title_sort", 1, _title_sort)
-            conn.create_function('uuid4', 0, lambda: str(uuid4()))
-            conn.create_function("lower", 1, lcase)
-        except sqliteOperationalError:
-            pass
+        _register_functions(conn, config)
 
     @classmethod
     def dispose(cls):
@@ -1383,6 +1376,45 @@ class CalibreDB:
             # Rebuild engine/session factory and update config
             self.setup_db(config.config_calibre_dir, app_db_path)
             self.update_config(config)
+
+
+# Connections kept open, and extra ones allowed at busy times: one per thread using the
+# library at once (web requests, the task queue, parallel tasks, a rebuild's lookups)
+POOL_SIZE = 10
+POOL_OVERFLOW = 20
+
+
+def _register_functions(conn, config=None):
+    """calibre's triggers call title_sort and uuid4; lower makes searches accent-blind."""
+    def _title_sort(title):
+        # calibre sort stuff; the pattern is read now, so a changed setting applies at once
+        pattern = getattr(config or CalibreDB.config, 'config_title_regex', None)
+        if pattern:
+            match = re.compile(pattern, re.IGNORECASE).search(title)
+            if match:
+                prep = match.group(1)
+                title = title[len(prep):] + ', ' + prep
+        return strip_whitespaces(title)
+    try:
+        conn.create_function("title_sort", 1, _title_sort)
+        conn.create_function('uuid4', 0, lambda: str(uuid4()))
+        conn.create_function("lower", 1, lcase)
+    except sqliteOperationalError:
+        pass
+
+
+def _connection_setup(dbpath, app_db_path):
+    """Prepare each new pooled connection as the library expects: metadata.db attached as
+    `calibre`, app.db as `app_settings`, and calibre's SQL functions registered."""
+    def on_connect(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute("ATTACH DATABASE ? AS calibre", (dbpath,))
+            cursor.execute("ATTACH DATABASE ? AS app_settings", (app_db_path,))
+        finally:
+            cursor.close()
+        _register_functions(dbapi_connection)
+    return on_connect
 
 
 def lcase(s):

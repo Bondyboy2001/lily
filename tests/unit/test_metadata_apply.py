@@ -184,7 +184,7 @@ def test_one_failing_book_does_not_stop_the_rebuild(env, monkeypatch):
 
 
 def test_a_request_ending_during_the_cover_download_loses_nothing(env, monkeypatch):
-    # Every session shares one connection, and a web request ending rolls it back
+    # A web request ending (its session removed) must not roll the lookup's changes back
     from cps import db
     dune = env.add_book("Dune", author="Unknown")
     helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice.",
