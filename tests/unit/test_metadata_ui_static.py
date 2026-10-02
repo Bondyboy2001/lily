@@ -75,3 +75,11 @@ def test_saving_always_opens_the_book_page():
 
     assert '<input type="hidden" name="detail_view" value="1">' in template
     assert 'name="detail_view" type="checkbox"' not in template
+
+
+def test_fetch_metadata_sends_the_book_id_so_its_pdf_can_be_read():
+    template = (REPO_ROOT / "cps/templates/book_edit.html").read_text(encoding="utf-8")
+    js = (REPO_ROOT / "cps/static/js/get_meta.js").read_text(encoding="utf-8")
+
+    assert 'id="metaModal" data-book-id="{{ book.id }}"' in template
+    assert 'book_id: $("#metaModal").data("book-id"),' in js

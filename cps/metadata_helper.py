@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
+import functools
 import json
 import logging
 import os
@@ -114,17 +115,32 @@ def found_by_id_is_this_book(record, ids: dict, title: str, authors, page_text: 
         return True
     if titles_match(title, record.title) or _surnames(authors) & _surnames(record.authors):
         return True
-    rec_title = _squash(record.title)
-    return bool(ids.get('doi') and rec_title) and rec_title in _squash(page_text)
+    return bool(ids.get('doi')) and title_on_page(record.title, page_text)
 
 
-def _pdf_first_page_text(book) -> str:
+def title_on_page(title: str, page_text: str) -> bool:
+    """Whether the title appears in the page's text, spacing and punctuation aside."""
+    title = _squash(title)
+    return bool(title) and title in _squash(page_text)
+
+
+def pdf_first_page_text(book) -> str:
     """The text of the book's PDF's first page; empty without a PDF or text layer."""
     from cps import config
     pdf = next((d for d in book.data or [] if (d.format or "").upper() == "PDF"), None)
     if pdf is None:
         return ""
     path = os.path.join(config.get_book_path(), book.path, pdf.name + ".pdf")
+    try:
+        return _read_first_page(path, os.path.getmtime(path))
+    except OSError:
+        return ""
+
+
+@functools.lru_cache(maxsize=32)
+def _read_first_page(path: str, mtime: float) -> str:
+    """The first page's text; keyed by mtime so a replaced file is read again. Fetch
+    metadata asks for it once per provider."""
     pypdf_log = logging.getLogger("pypdf")
     level = pypdf_log.level
     # pypdf warns about every font it can't fully decode; the ids read fine regardless
@@ -213,7 +229,7 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
         # id or DOI, as its title is often the file name, which no title search
         # matches; a book by its ISBN
         own_ids = normalise_identifiers({i.type: i.val for i in book.identifiers or []})
-        page_text = _pdf_first_page_text(book)
+        page_text = pdf_first_page_text(book)
         lookup_ids = find_paper_identifiers(book.title, page_text, own_ids)
         if own_ids.get('isbn'):
             lookup_ids['isbn'] = own_ids['isbn']

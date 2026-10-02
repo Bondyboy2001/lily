@@ -264,7 +264,7 @@
 {{ delete_book(current_user.role_delete_books()) }}
 {{ delete_confirm_modal() }}
 
-<div class="modal fade" id="metaModal" tabindex="-1" role="dialog" aria-labelledby="metaModalLabel">
+<div class="modal fade" id="metaModal" data-book-id="{{ book.id }}" tabindex="-1" role="dialog" aria-labelledby="metaModalLabel">
   <div class="modal-dialog modal-lg" role="document">
     <div class="modal-content">
       <div class="modal-header">

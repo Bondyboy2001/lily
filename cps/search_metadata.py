@@ -147,6 +147,34 @@ def _form_identifiers(raw_json):
     return normalise_identifiers(raw) if isinstance(raw, dict) else {}
 
 
+def _file_identifiers(book_id, title):
+    """The arXiv id or DOI the book's title or its PDF's first page names, and that
+    page's text, so Fetch metadata finds a paper whose title is still its file name."""
+    from cps import calibre_db
+    from cps.metadata_helper import find_paper_identifiers, pdf_first_page_text
+    try:
+        book = calibre_db.get_filtered_book(int(book_id))
+    except (TypeError, ValueError):
+        return {}, ""
+    if not book:
+        return {}, ""
+    page_text = pdf_first_page_text(book)
+    return find_paper_identifiers(title or book.title, page_text), page_text
+
+
+def _pinned(record, file_ids, form_ids, page_text):
+    """Whether a record an identifier lookup found stays pinned first as an exact
+    match. A DOI read off the PDF's first page may be a citation, so its record
+    needs its title on that page, unless the book's own identifiers name it too."""
+    from cps.metadata_helper import title_on_page
+    doi = file_ids.get("doi", "").lower()
+    if not doi or doi == form_ids.get("doi", "").lower():
+        return True
+    if (getattr(record, "identifiers", None) or {}).get("doi", "").lower() != doi:
+        return True
+    return title_on_page(record.title, page_text)
+
+
 def _scorer(form, query=""):
     """How well a record matches the book being edited (title and authors from the
     edit form) or the typed text as its title, scored by
@@ -204,7 +232,8 @@ def metadata_search():
     """Searches one provider (the edit page asks each separately so results show as
     they arrive). An ISBN, DOI, arXiv id or hardcover-id:N typed as the query is
     looked up exactly instead of searched as text; otherwise the book's own
-    identifiers are looked up alongside the text search."""
+    identifiers, and an arXiv id or DOI on its PDF's first page, are looked up
+    alongside the text search."""
     form = request.form.to_dict()
     query = (form.get("query") or "").strip()
     typed = parse_identifier(query)
@@ -213,8 +242,10 @@ def metadata_search():
     if provider is None or not query:
         # Not one to search for this query (the page's provider list is out of date)
         return make_response(jsonify({"results": [], "status": "skipped"}))
+    form_ids = _form_identifiers(form.get("identifiers"))
+    file_ids, page_text = ({}, "") if typed else _file_identifiers(form.get("book_id"), form.get("title"))
     records, status = _run_search(provider, "" if typed else query,
-                                  typed or _form_identifiers(form.get("identifiers")))
+                                  typed or {**file_ids, **form_ids})
     score = _scorer(form, "" if typed else query)
     data, seen = [], set()
     for record, exact in records:
@@ -223,7 +254,7 @@ def metadata_search():
             continue
         seen.add(key)
         item = asdict(record)
-        item["exact_match"] = exact
+        item["exact_match"] = exact and _pinned(record, file_ids, form_ids, page_text)
         item["score"] = score(record)
         data.append(item)
     return make_response(jsonify({"results": data, "status": status}))

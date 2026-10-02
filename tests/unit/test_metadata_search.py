@@ -109,3 +109,39 @@ def test_exact_title_beats_a_subtitled_one_when_both_hit_the_authorless_cap():
     title = "Deep Residual Learning for Image Recognition in Very Large Networks"
     score = _scorer({"title": title, "authors": ""}, title)
     assert score(_record(title)) > score(_record(title + ": A Survey"))
+
+
+def _file_ids_setup(monkeypatch, page, book=True):
+    from types import SimpleNamespace
+    from cps import metadata_helper
+    import cps
+    found = SimpleNamespace(title="1706.03762v7") if book else None
+    monkeypatch.setattr(cps.calibre_db, "get_filtered_book", lambda book_id: found, raising=False)
+    monkeypatch.setattr(metadata_helper, "pdf_first_page_text", lambda b: page)
+
+
+def test_fetch_metadata_finds_the_arxiv_id_on_the_pdfs_first_page(monkeypatch):
+    from cps.search_metadata import _file_identifiers
+    _file_ids_setup(monkeypatch, "Some title\narXiv:2601.22106v1 [stat.ME] 29 Jan 2026")
+    assert _file_identifiers("7", "Information-geometry-driven graph")[0] == {"arxiv": "2601.22106"}
+
+
+def test_fetch_metadata_reads_no_file_for_a_book_it_cannot_see(monkeypatch):
+    from cps.search_metadata import _file_identifiers
+    _file_ids_setup(monkeypatch, "arXiv:2601.22106", book=False)
+    assert _file_identifiers("7", "x") == ({}, "")
+    assert _file_identifiers("not a number", "x") == ({}, "")
+
+
+def test_a_cited_doi_on_the_first_page_is_not_pinned_as_exact():
+    from types import SimpleNamespace
+    from cps.search_metadata import _pinned
+    page = "Mastering the game of Go with deep neural networks\nand tree search doi:10.1038/nature16961"
+    paper = SimpleNamespace(title="Mastering the Game of Go with Deep Neural Networks and Tree Search",
+                            identifiers={"doi": "10.1038/nature16961"})
+    cited = SimpleNamespace(title="A cited dataset", identifiers={"doi": "10.1038/nature16961"})
+    file_ids = {"doi": "10.1038/nature16961"}
+    assert _pinned(paper, file_ids, {}, page) is True
+    assert _pinned(cited, file_ids, {}, page) is False
+    # The book's own DOI, typed into its identifiers, is trusted
+    assert _pinned(cited, file_ids, {"doi": "10.1038/nature16961"}, page) is True

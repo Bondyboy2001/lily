@@ -340,6 +340,7 @@ $(function () {
     form = readForm();
     request = {
       query: query,
+      book_id: $("#metaModal").data("book-id"),
       identifiers: JSON.stringify(form.ids),
       title: form.title,
       authors: form.authors,
