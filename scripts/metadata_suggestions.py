@@ -8,6 +8,7 @@ free of Flask/cps imports so the rules can be tested on their own.
 """
 
 import re
+import unicodedata
 
 _STOPWORDS = frozenset({"a", "an", "the", "of", "and", "in", "on", "to", "for", "by", "with"})
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
@@ -16,8 +17,19 @@ HIGH_CONFIDENCE = 0.85   # a score at or above this is treated as the same book
 TITLE_WEIGHT = 0.7
 
 
+_QUOTES = str.maketrans({"\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"'})
+
+
+def normalise_title(text: str) -> str:
+    """Lower case without accents, apostrophes or punctuation: "Don't Panic!" -> "dont panic".
+    Two titles are the same title when these agree (metadata_helper.titles_match)."""
+    text = unicodedata.normalize("NFKD", (text or "").translate(_QUOTES).casefold())
+    text = "".join(c for c in text if not unicodedata.combining(c)).replace("'", "")
+    return " ".join(re.sub(r"[^\w\s]|_", " ", text).split())
+
+
 def _tokens(text: str) -> set[str]:
-    return {t for t in _WORD.findall((text or "").casefold()) if t not in _STOPWORDS}
+    return {t for t in _WORD.findall(normalise_title(text)) if t not in _STOPWORDS}
 
 
 def _surname(author: str) -> str:
@@ -40,6 +52,10 @@ def title_similarity(a: str, b: str) -> float:
         return 0.0
     overlap = len(ta & tb)
     jaccard = overlap / len(ta | tb)
+    if jaccard == 1 and normalise_title(a) != normalise_title(b):
+        # The same words but not the same title ("The Dune", "Left Hand" for "Hand Left"):
+        # close, but short of the exact title that imports apply
+        return 0.95
     if overlap == min(len(ta), len(tb)):
         return max(jaccard, 0.75)
     return jaccard

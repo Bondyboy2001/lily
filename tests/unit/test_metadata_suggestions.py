@@ -46,3 +46,13 @@ def test_empty_or_stopword_only_titles_score_zero():
 
 def test_calibres_unknown_author_counts_as_no_author():
     assert m.match_score("Dune", ["Unknown"], "Dune", ["Frank Herbert"]) == m.match_score("Dune", [], "Dune", ["Frank Herbert"])
+
+
+def test_a_full_score_means_the_title_automatic_fetching_accepts():
+    # Imports apply a result only on the same title (cps/metadata_helper.titles_match),
+    # so 100% in Fetch metadata means that same title, not merely the same words
+    from cps.metadata_helper import titles_match
+    for a, b in (("Dune", "DUNE!"), ("Café Society", "Cafe Society"), ("Don't Panic", "Dont Panic"),
+                 ("The Dune", "Dune"), ("Hand Left", "Left Hand"), ("Dune", "Dune Messiah")):
+        assert (m.title_similarity(a, b) == 1.0) == titles_match(a, b), (a, b)
+    assert m.title_similarity("The Dune", "Dune") >= 0.9

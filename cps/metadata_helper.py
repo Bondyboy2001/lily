@@ -12,7 +12,6 @@ import os
 import re
 import shutil
 import tempfile
-import unicodedata
 from datetime import datetime, timezone
 
 from cps import logger, db, constants, helper
@@ -21,17 +20,14 @@ from cps.search_metadata import cl as metadata_providers
 import sys
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB
+from metadata_suggestions import normalise_title
 from cps.services.identifiers import ARXIV_ID, DOI_RE, normalise_identifiers, parse_identifier
 
 log = logger.create()
 
-_QUOTES = str.maketrans({'\u2018': "'", '\u2019': "'", '\u201c': '"', '\u201d': '"'})
-
-
-def _normalise(text: str) -> str:
-    text = unicodedata.normalize('NFKD', (text or '').translate(_QUOTES).casefold())
-    text = ''.join(c for c in text if not unicodedata.combining(c)).replace("'", '')
-    return ' '.join(re.sub(r'[^\w\s]|_', ' ', text).split())
+# One normalisation for imports and Fetch metadata's ranking, so a full score there
+# means the title an import would accept
+_normalise = normalise_title
 
 
 def _surnames(authors) -> set:
