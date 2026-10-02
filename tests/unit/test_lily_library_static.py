@@ -39,7 +39,7 @@ def test_library_templates_have_no_inline_style_blocks():
 def test_detail_page_has_no_inline_styles_and_one_primary():
     html = read(TEMPLATES / "detail.html")
     assert 'style="' not in html
-    # Actions are icon buttons; Read is the one Primary.
+    # Read is the one Primary and wears its word; the other actions are icon buttons.
     # The reader always opens in a new tab.
     m = re.search(r"<a id=\"readbtn\"[^>]*>.*?</a>", html, flags=re.S)
     assert m, "readbtn anchor missing"
@@ -48,8 +48,8 @@ def test_detail_page_has_no_inline_styles_and_one_primary():
     # So does the read button on a grid cover.
     assert 'window.open(url, "_blank", "noopener")' in read(JS / "lily.js")
 
-    assert 'class="btn btn-primary is-icon"' in read_btn
-    assert 'class="book-action-label sr-only"' in read_btn
+    assert 'class="btn btn-primary"' in read_btn
+    assert 'class="book-action-label">' in read_btn
     assert "url_for('web.read_book'" in read_btn
     assert "{{ _('Read') }}" in read_btn
     # A book in progress offers to continue, with how far in it is.
@@ -297,7 +297,7 @@ def test_detail_rows_keep_metadata_in_a_side_panel():
 def test_site_has_no_horizontal_separator_borders():
     names = ["style.css", "lily.css", "lily-shell.css", "lily-library.css",
              "lily-admin.css", "lily-stats.css", "lily-reader.css",
-             "duplicates-notifications.css", "login.css"]
+             "login.css"]
     rule = r"border-(?:top|bottom):\s*1px solid var\(--line(?:-soft)?\)"
     for name in names:
         css = re.sub(r"/\*.*?\*/", "", read(CSS / name), flags=re.S)

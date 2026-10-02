@@ -1224,7 +1224,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     margin-top: 2px;
 }
 
-/* Square icon buttons: Read is the one Primary, the rest are Quiet. */
+/* Read is the one Primary, with its word; the rest are square icon buttons, Quiet. */
 /* The icons share the column's width in equal shares, so the bar fills the space
    beside the cover rather than sitting as a small cluster at its left. */
 .book-action-bar {
@@ -1252,6 +1252,13 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 /* Every action is a glyph, menus (Download) included, each an equal share of the line. */
 .book-action-bar > .btn.is-icon { flex: 1 1 0; }
 .book-action-bar > .dropdown { flex: 1 1 0; }
+
+/* Read says its word ("Read", "Continue · 33%"), so it is wider than the glyph buttons. */
+.book-action-bar > .btn.btn-primary {
+    flex: 2 1 auto;
+    justify-content: center;
+    min-width: max-content;
+}
 
 .book-action-bar > .btn.is-icon,
 .book-action-bar > .dropdown > .btn.is-icon {
@@ -1333,6 +1340,7 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 .book-metadata > .formats > dd { text-align: left; white-space: normal; overflow: visible; }
 
 .book-detail-description { align-self: stretch; }
+.book-detail-prompt { align-self: start; margin: 0; }
 
 .book-detail-description .comments {
     font-family: var(--font-body);
@@ -2053,6 +2061,15 @@ body.book_table .pagination {
     gap: 8px;
     align-self: flex-start;
 }
+
+/* The Filter field on long lists (authors, tags): a Field as tall as the chips beside it. */
+.lily-sort-group .lily-list-filter {
+    width: 240px;
+    max-width: 100%;
+    height: 38px;
+}
+
+.lily-list-nomatch { margin: 22px 0; color: var(--muted); }
 
 /* Toolbar chips share the row with the 38px Grid/List icons, so they take the same height. */
 .lily-list-toolbar .btn.lily-chip {

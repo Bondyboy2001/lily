@@ -80,7 +80,8 @@ def _lookup_counts(cwa_db):
 @admin_required
 def rebuild_metadata():
     """Start a lookup of every book with the metadata providers, a few at once. It runs on its
-    own thread, so covers and duplicate scans don't wait behind it. With `resume`, it carries on
+    own thread, so covers and duplicate scans don't wait behind it. With `book_ids` (comma-separated),
+    it looks up only those books, the ones ticked in the book table. With `resume`, it carries on
     where a stopped or interrupted rebuild got to; with `failed`, it looks up again only the
     books whose last lookup failed (Retry failed)."""
     from ..services.worker import WorkerThread
@@ -89,7 +90,13 @@ def rebuild_metadata():
     with _rebuild_start_lock:
         if _running_rebuilds(including_stopping=True):
             return jsonify({"success": True, "running": True})
-        if request.form.get("failed"):
+        if request.form.get("book_ids"):
+            # The books ticked in the book table
+            book_ids = [int(i) for i in request.form["book_ids"].split(",") if i.strip().isdigit()]
+            if not book_ids:
+                return jsonify({"success": True, "none": True})
+            task = TaskRebuildMetadata(book_ids=book_ids, selection=True)
+        elif request.form.get("failed"):
             book_ids = CWA_DB().metadata_lookup_ids("failed")
             if not book_ids:
                 return jsonify({"success": True, "none": True})

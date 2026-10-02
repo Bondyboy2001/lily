@@ -14,7 +14,7 @@ JS = REPO_ROOT / "cps/static/js"
 TEMPLATES = REPO_ROOT / "cps/templates"
 
 STATS_TEMPLATES = ["duplicates.html"]
-STATS_STYLESHEETS = ["lily-stats.css", "duplicates-notifications.css"]
+STATS_STYLESHEETS = ["lily-stats.css"]
 STATS_SCRIPTS = ["duplicates.js", "duplicate-notifier.js"]
 
 HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")

@@ -14,6 +14,10 @@
 >{{ show_text }}</th>
 {%- endmacro %}
 
+{% macro plain_row(parameter, show_text) -%}
+<th data-field="{{ parameter }}" id="{{ parameter }}" data-visible="{{visiblility.get(parameter)}}" data-escape="true">{{ show_text }}</th>
+{%- endmacro %}
+
 {% macro book_checkbox_row(parameter, show_text, sort) -%}
 <th data-name="{{parameter}}" data-field="{{parameter}}" data-switchable="false"
   {% if sort %}data-sortable="true" {% endif %}
@@ -40,6 +44,13 @@
       <button type="button" class="btn btn-default disabled" id="delete_selected_books" aria-disabled="true">{{_('Delete')}}</button>
       <button type="button" class="btn btn-default disabled" id="add_to_shelf_btn" aria-disabled="true">{{_('Add to shelf')}}</button>
       <button type="button" class="btn btn-default disabled" id="table_xchange" aria-disabled="true">{{_('Exchange author & title')}}</button>
+      {% if current_user.role_admin() %}
+      <button type="button" class="btn btn-default disabled" id="lookup_selected_books" aria-disabled="true"
+              data-url="{{ url_for('cwa_settings.rebuild_metadata') }}"
+              data-status-url="{{ url_for('cwa_settings.rebuild_metadata_status') }}"
+              data-running="{{ _('A metadata run is already going. Try again when it has finished.') }}"
+              data-failed="{{ _('Couldn’t start the lookup. Try again.') }}">{{_('Look up metadata')}}</button>
+      {% endif %}
       {% if current_user.role_edit() %}
       <button type="button" class="btn btn-default" id="select_all">{{ _('Select all') }}</button>
       <button type="button" class="btn btn-default" id="unselect_all">{{ _('Clear all') }}</button>
@@ -49,11 +60,11 @@
       <div class="filterhead lily-inline-checks">
         <div class="checkbox">
           <input type="checkbox" id="autoupdate_titlesort" name="autoupdate_titlesort" checked>
-          <label for="autoupdate_titlesort">{{_('Update title sort automatically')}}</label>
+          <label for="autoupdate_titlesort">{{_('Also update the title sort')}}</label>
         </div>
         <div class="checkbox">
           <input type="checkbox" id="autoupdate_authorsort" name="autoupdate_authorsort" checked>
-          <label for="autoupdate_authorsort">{{_('Update author sort automatically')}}</label>
+          <label for="autoupdate_authorsort">{{_('Also update the author sort')}}</label>
         </div>
       </div>
     </div>
@@ -72,6 +83,9 @@
               {{ text_table_row('sort', _('Enter Title Sort'),_('Title Sort'), false, true) }}
               {{ text_table_row('author_sort', _('Enter Author Sort'),_('Author Sort'), false, true) }}
               {{ text_table_row('authors', _('Enter Authors'),_('Authors'), true, true) }}
+              {{ plain_row('formats', _('Format')) }}
+              {{ plain_row('isbn', _('ISBN')) }}
+              {{ plain_row('added', _('Added')) }}
               {{ text_table_row('tags', _('Enter Categories'),_('Categories'), false, true) }}
               {{ text_table_row('series', _('Enter Series'),_('Series'), false, true) }}
               <th data-field="series_index" id="series_index" data-visible="{{visiblility.get('series_index')}}" data-edit-validate="{{ _('This Field is Required') }}" data-sortable="true" {% if current_user.role_edit() %} data-editable-type="number" data-editable-placeholder="1" data-editable-step="0.01" data-editable-min="0" data-editable-url="{{ url_for('edit-book.edit_list_book', param='series_index')}}" data-edit="true" data-editable-title="{{_('Enter Series Number')}}"{% endif %}>{{_('Series Number')}}</th>

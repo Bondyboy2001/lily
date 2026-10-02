@@ -1238,10 +1238,18 @@ def books_list(data, sort_param, book_id, page):
     return render_books_list(data, sort_param, book_id, page)
 
 
+TABLE_DEFAULT_COLUMNS = {
+    'title': 'true', 'authors': 'true', 'formats': 'true', 'isbn': 'true', 'added': 'true', 'read_status': 'true',
+    'sort': 'false', 'author_sort': 'false', 'tags': 'false', 'series': 'false', 'series_index': 'false',
+    'languages': 'false', 'publishers': 'false', 'comments': 'false',
+}
+
+
 @web.route("/table")
 @user_login_required
 def books_table():
-    visibility = current_user.view_settings.get('table', {})
+    # The columns a metadata clean-up reads; whatever the user toggled later wins.
+    visibility = {**TABLE_DEFAULT_COLUMNS, **current_user.view_settings.get('table', {})}
     cc = calibre_db.get_cc_columns(config, filter_config_custom_read=True)
     return render_title_template('book_table.html', title=_("Books List"), cc=cc, page="book_table",
                                  visiblility=visibility)
@@ -1315,6 +1323,8 @@ def list_books():
     for entry in entries:
         val = entry[0]
         val.read_status = entry[1] == ub.ReadBook.STATUS_FINISHED
+        val.formats = ", ".join(d.format for d in val.data)
+        val.added = val.timestamp.strftime("%Y-%m-%d") if val.timestamp else ""
         for lang_index in range(0, len(val.languages)):
             val.languages[lang_index].language_name = isoLanguages.get_language_name(get_locale(), val.languages[
                 lang_index].lang_code)

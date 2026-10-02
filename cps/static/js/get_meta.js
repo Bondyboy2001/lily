@@ -400,6 +400,14 @@ $(function () {
     runSearch(text);
   });
 
+  // The book page's "Fetch metadata" link arrives with ?fetch=1: open the lookup straight away
+  if (new URLSearchParams(window.location.search).has("fetch")) {
+    var clean = new URL(window.location.href);
+    clean.searchParams.delete("fetch");
+    window.history.replaceState(window.history.state, "", clean.pathname + clean.search + clean.hash);
+    $("#get_meta").trigger("click");
+  }
+
   // The dialog opens beside the cover, not over it, so results can be compared with
   // the book's own cover. Only when at least 600px is left for it; otherwise centred.
   // Rects and innerWidth are in window pixels, margins in CSS pixels under the page

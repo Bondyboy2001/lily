@@ -42,8 +42,8 @@
         </div>
 
         <div class="book-detail-actions">
-            {# Every action is a square icon button named by its title and a hidden label;
-               Read is the one Primary. #}
+            {# Read is the one Primary and wears its word; every other action is a square icon button
+               named by its title and a hidden label. #}
             <div class="book-action-bar" role="toolbar" aria-label="{{ _('Book actions') }}">
                 {% set can_read = entry.reader_list and current_user.role_viewer() %}
                 {% set can_download = current_user.role_download() and entry.data|length %}
@@ -51,9 +51,9 @@
                 {% if can_read %}
                     {# A book in progress is named "Continue · 33%" and opens the format it was last read in, in a new tab. #}
                     {% set read_name = resume and (_('Continue') ~ ' · ' ~ resume.percent ~ '%') or _('Read') %}
-                    <a id="readbtn" class="btn btn-primary is-icon" target="_blank" rel="noopener" data-reader-link=""
+                    <a id="readbtn" class="btn btn-primary" target="_blank" rel="noopener" data-reader-link=""
                        href="{{ url_for('web.read_book', book_id=entry.id, book_format=(resume and resume.format) or entry.reader_list[0]) }}" title="{{ read_name }}">
-                        <span class="glyphicon glyphicon-book" aria-hidden="true"></span><span class="book-action-label sr-only">{% if resume %}{{ _('Continue') }} · {{ resume.percent }}%{% else %}{{ _('Read') }}{% endif %}</span>
+                        <span class="glyphicon glyphicon-book" aria-hidden="true"></span><span class="book-action-label">{% if resume %}{{ _('Continue') }} · {{ resume.percent }}%{% else %}{{ _('Read') }}{% endif %}</span>
                     </a>
                 {% endif %}
                 {% if can_download %}
@@ -227,6 +227,12 @@
                 <section class="book-detail-description" aria-label="{{ _('Description') }}">
                     <div class="comments" id="book-description">{{ entry.comments[0].text|flatten_breaks }}</div>
                 </section>
+            {% elif current_user.role_edit() %}
+                {# A thin book: one step to the lookup instead of Edit, Fetch metadata, Apply, Save #}
+                <div class="alert alert-info book-detail-prompt" id="book-fetch-prompt">
+                    <span>{% if metadata_lookup and metadata_lookup.status in ['nomatch', 'failed'] %}{{ _('This book has no description, and the automatic lookup found nothing.') }}{% else %}{{ _('This book has no description yet.') }}{% endif %}
+                        <a href="{{ url_for('edit-book.show_edit_book', book_id=entry.id, fetch=1) }}">{{ _('Fetch metadata') }}</a></span>
+                </div>
             {% endif %}
 
             {# What to read next: the rest of the series (later books first), then the author's others. #}

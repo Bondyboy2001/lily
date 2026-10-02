@@ -69,6 +69,18 @@
       if (e.key === "Escape" && app.classList.contains("drawer-open")) {
         setOpen(false);
       }
+      // "/" jumps to the search box, as on most sites, unless the user is typing somewhere
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey && !e.altKey && !app.classList.contains("drawer-open")
+          && !document.body.classList.contains("modal-open")) {
+        var t = e.target;
+        if (t && (t.isContentEditable || /^(input|textarea|select)$/i.test(t.tagName))) { return; }
+        var search = document.getElementById("query");
+        if (search) {
+          e.preventDefault();
+          search.focus();
+          search.select();
+        }
+      }
     });
   });
 })();

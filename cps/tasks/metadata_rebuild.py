@@ -48,13 +48,15 @@ def saved_progress():
 
 
 class TaskRebuildMetadata(CalibreTask):
-    def __init__(self, workers=WORKERS, resume=False, book_ids=None):
+    def __init__(self, workers=WORKERS, resume=False, book_ids=None, selection=False):
         super(TaskRebuildMetadata, self).__init__(N_('Rebuilding metadata'))
         self.workers = workers
         # Carry on where an unfinished run got to, rather than from the first book
         self.resume = resume
-        # Only these books (Retry failed): no tidy first, and a full rebuild's progress is left alone
+        # Only these books (Retry failed, or a selection in the book table): no tidy first, and a full rebuild's progress is left alone
         self.book_ids = sorted(book_ids) if book_ids is not None else None
+        # The books were picked by hand in the book table, not the failed ones: only the name differs
+        self.selection = selection
         self.checked = 0
         self.updated = 0
         self.covers = 0
@@ -70,6 +72,8 @@ class TaskRebuildMetadata(CalibreTask):
 
     @property
     def name(self):
+        if self.selection:
+            return str(N_('Look up selected books'))
         return str(N_('Retry failed lookups') if self.book_ids is not None else N_('Rebuild metadata'))
 
     @property

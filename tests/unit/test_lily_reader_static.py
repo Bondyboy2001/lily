@@ -603,3 +603,73 @@ def test_reader_chrome_is_legible_in_every_page_theme():
         assert _reader_chrome_contrast(opacity(".lily-reader #chapter-title"), ink, ground) >= 4.5
         assert _reader_chrome_contrast(opacity(".lily-reader #progress:not([role])"), ink, ground) >= 4.5
         assert _reader_chrome_contrast(opacity(".lily-reader .arrow"), ink, ground) >= 3
+
+
+@pytest.mark.unit
+def test_book_table_opens_on_the_columns_a_cleanup_reads(client, temp_cwa_db):
+    env, c, book_id = client
+    html = c.get("/table").get_data(as_text=True)
+
+    def visible(field):
+        return re.search(r'<th[^>]*data-field="%s"[^>]*data-visible\s*=\s*"(\w+)"' % field, html).group(1)
+
+    for field in ("title", "authors", "formats", "isbn", "added"):
+        assert visible(field) == "true", field
+    for field in ("sort", "author_sort", "tags", "series", "languages", "publishers"):
+        assert visible(field) == "false", field
+    # Admins can look the ticked books up; it starts disabled like the other selection actions
+    assert re.search(r'id="lookup_selected_books"[^>]*aria-disabled="true"', html)
+    rows = c.get("/ajax/listbooks?offset=0&limit=10").get_json()["rows"]
+    row = next(r for r in rows if r["id"] == book_id)
+    assert row["formats"] == "EPUB" and row["added"] == "2026-01-01" and row["isbn"] == ""
+
+
+@pytest.mark.unit
+def test_a_columns_the_user_toggled_keeps_its_saved_state(client, temp_cwa_db):
+    env, c, _ = client
+    saved = {"title": "true", "authors": "true", "series": "true"}
+    assert c.post("/ajax/table_settings", json=saved).status_code == 200
+    html = c.get("/table").get_data(as_text=True)
+    assert re.search(r'data-field="series"[^>]*data-visible\s*=\s*"true"', html)
+    assert re.search(r'data-field="formats"[^>]*data-visible\s*=\s*"true"', html)
+
+
+@pytest.mark.unit
+def test_book_page_offers_a_lookup_when_the_description_is_missing(client, temp_cwa_db):
+    env, c, book_id = client
+    html = c.get(f"/book/{book_id}").get_data(as_text=True)
+    assert 'id="book-fetch-prompt"' in html
+    assert f"/admin/book/{book_id}?fetch=1" in html
+    # The edit page takes the flag and the lookup button it opens is there
+    edit = c.get(f"/admin/book/{book_id}?fetch=1").get_data(as_text=True)
+    assert 'id="get_meta"' in edit
+    assert '.has("fetch")' in read(JS / "get_meta.js")
+
+
+@pytest.mark.unit
+def test_long_browse_lists_get_a_filter_short_ones_do_not(client, temp_cwa_db):
+    env, c, _ = client
+    assert 'id="lily-list-filter"' not in c.get("/author").get_data(as_text=True)
+    for n in range(30):
+        env.add_book(f"Book {n}", author=f"Author {n:02d}")
+    html = c.get("/author").get_data(as_text=True)
+    assert 'id="lily-list-filter"' in html and 'id="lily-list-nomatch"' in html
+    assert "applyListFilter" in read(JS / "filter_list.js")
+
+
+@pytest.mark.unit
+def test_duplicates_are_a_notice_never_a_dialog(client, temp_cwa_db):
+    env, c, _ = client
+    html = c.get("/").get_data(as_text=True)
+    assert "duplicate-notification-modal" not in html and "Remind me later" not in html
+    assert 'id="duplicate-notice-config"' in html and "js/duplicate-notifier.js" in html
+    js = read(JS / "duplicate-notifier.js")
+    assert ".modal(" not in js and "showNotice" in js
+
+
+@pytest.mark.unit
+def test_slash_focuses_the_search_box(client, temp_cwa_db):
+    env, c, _ = client
+    assert 'aria-keyshortcuts="/"' in c.get("/").get_data(as_text=True)
+    js = read(JS / "lily.js")
+    assert 'e.key === "/"' in js and 'getElementById("query")' in js

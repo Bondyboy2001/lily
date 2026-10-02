@@ -16,7 +16,7 @@
     {% call f.group(_('Metadata')) %}
       {{ f.toggle('auto_metadata_fetch_enabled', _('Fetch metadata for new books'), cwa_settings['auto_metadata_fetch_enabled']) }}
       {{ f.toggle('auto_metadata_enforcement', _('Write edits into book files'), cwa_settings['auto_metadata_enforcement'],
-         help=_('Edits are saved into the EPUB file too, not just the library.')) }}
+         help=_('Edits are saved into EPUB and AZW3 files too, not just the library. PDFs are never changed.')) }}
       {{ f.input('config_google_books_api_key', _('Google Books API key'), config.config_google_books_api_key, type='password',
          help=_('Optional. Raises the Google Books rate limit.')) }}
       {# lily-metadata-rebuild.js: confirms, queues the task and shows its progress under the label #}

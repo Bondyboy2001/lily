@@ -195,6 +195,8 @@ $(function() {
                 $("#add_to_shelf_btn").addClass("disabled");
                 $("#add_to_shelf_btn").attr("aria-disabled", true);
             }
+            $("#lookup_selected_books").toggleClass("disabled", selections.length < 1)
+                .attr("aria-disabled", selections.length < 1);
             if (selections.length < 1) {
                 $("#table_xchange").addClass("disabled");
                 $("#table_xchange").attr("aria-disabled", true);
@@ -433,6 +435,57 @@ $(function() {
                 reselectAfterRefresh(showBatchOutcome(response).retry);
             },
             error: ajaxErrorResult
+        });
+    });
+
+    // Look up the ticked books with the metadata providers (the same run as Import & Metadata →
+    // Rebuild, on just these), then follow it in the batch notice until it finishes.
+    var lookupTimer = null;
+
+    function lookupNotice(text, tone) {
+        var box = $("<div></div>").attr("class", "alert alert-" + tone).attr("role", tone === "danger" ? "alert" : "status");
+        $("<p></p>").text(text).appendTo(box);
+        $("#batch-results").empty().append(box);
+    }
+
+    function followLookup(statusUrl) {
+        if (lookupTimer) { return; }
+        lookupTimer = setInterval(function () {
+            $.getJSON(statusUrl, function (status) {
+                var running = status.state === "running" || status.state === "stopping";
+                lookupNotice(status.message, running ? "info" : (status.state === "failed" ? "danger" : "success"));
+                if (!running) {
+                    clearInterval(lookupTimer);
+                    lookupTimer = null;
+                    $("#books-table").bootstrapTable("refresh", {silent: true});
+                }
+            });
+        }, 2000);
+    }
+
+    $(document).on("click", "#lookup_selected_books", function () {
+        var btn = this;
+        if ($(btn).hasClass("disabled")) { return; }
+        $(btn).addClass("disabled");
+        lookupNotice("…", "info");
+        $.ajax({
+            method: "post",
+            url: btn.dataset.url,
+            headers: {"X-CSRFToken": $("input[name='csrf_token']").val()},
+            data: {book_ids: selections.join(",")},
+            dataType: "json",
+            success: function (reply) {
+                $(btn).removeClass("disabled");
+                if (reply.running) {
+                    lookupNotice(btn.dataset.running, "warning");
+                    return;
+                }
+                followLookup(btn.dataset.statusUrl);
+            },
+            error: function () {
+                $(btn).removeClass("disabled");
+                lookupNotice(btn.dataset.failed, "danger");
+            }
         });
     });
 

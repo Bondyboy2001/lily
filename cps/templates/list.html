@@ -13,7 +13,7 @@ See CONTRIBUTORS for full list of authors. -->
   {# Grid/List icons, pinned to the toolbar's top right #}
   {{ self.view_switch() }}
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  {{ image.list_menu(order, data, charlist|map(attribute=0)|list) }}
+  {{ image.list_menu(order, data, charlist|map(attribute=0)|list, filterable=entries|length > 24) }}
 </div>
 {# One list; CSS columns flow it into as many ~300px columns as fit, so counts sit beside their names. #}
 <div class="lily-list-columns" id="{{ list_id }}">
@@ -39,6 +39,9 @@ See CONTRIBUTORS for full list of authors. -->
   {% endfor %}
   </div>
 </div>
+{% if entries|length > 24 %}
+<p class="lily-list-nomatch" id="lily-list-nomatch" role="status" hidden>{{ _('Nothing matches that filter.') }}</p>
+{% endif %}
 {% if not entries %}
   {% set empty_heading = {'author': _('No Authors Yet'), 'series': _('No Series Yet'), 'category': _('No Tags Yet'),
                           'publisher': _('No Publishers Yet'), 'language': _('No Languages Yet'),

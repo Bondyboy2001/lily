@@ -452,7 +452,8 @@ glyph (`glyphicon-ok-circle`), the same mark as the sidebar's Finished row.
 - **Drawer toggle:** a large icon button, first in the top bar on phones only
   (hidden from 768px up, where nothing hides the sidebar). It and ⌘/Ctrl+B open
   and close the drawer; `aria-expanded`, its name and tooltip follow it: "Show
-  sidebar (⌘B)" / "Hide sidebar (⌘B)".
+  sidebar (⌘B)" / "Hide sidebar (⌘B)". `/` focuses the search box from anywhere
+  that isn't a text field or an open dialog (`aria-keyshortcuts="/"`).
 - **Top bar:** 60px (`--topbar-height`), sticky, `--paper`, no border, padding
   0 24. Order: drawer toggle (phones) · page title · `page_title_actions` · search ·
   advanced search · actions (upload, refresh, theme, settings). Actions are
@@ -490,7 +491,21 @@ content (grid, panel, rows)
 - **Browse lists** (`list.html`: categories, authors, publishers…): one
   `.lily-list` flowed into 300px CSS columns, gap 22, so each count sits
   beside its name; lists of 12 or fewer stay one column, max 560. Rows are
-  list rows (§5.11), min-height 40; long names wrap.
+  list rows (§5.11), min-height 40; long names wrap. A list of more than 24
+  rows gets a Filter field (a §5.4 Field, 38 tall, 240 wide) at the end of the
+  sort chips: it hides rows whose name lacks the typed text, and narrows
+  within the chosen letter. "Nothing matches that filter." shows when none is left.
+- **Book table** (`/table`, `book_table.html`): where metadata is cleaned up in
+  bulk. It opens with Title, Authors, Format, ISBN, Added and Read?; the sort
+  keys, categories, series, languages, publishers and comments are off until
+  switched on in the column menu (a column the user has already toggled keeps its
+  saved state). Admins get "Look up metadata" beside the selection actions: it runs
+  the Import & Metadata lookup on just the ticked books and follows it in the batch
+  notice.
+- **Duplicates notice:** when duplicate groups exist, a dismissible warning Notice
+  ("3 groups of duplicate books. Review duplicates") joins the flashes at the top of
+  the page, once per browser session and again when the count rises. It is never a
+  dialog: nothing covers the page the user came to use.
 - **Continue Reading** (`.continue-reading-row`): one row that scrolls sideways,
   never wraps, so the library starts on the first screen. Covers are 140px wide
   (112 on phones), 22 apart (14 on phones). The cover opens the reader in a
@@ -524,9 +539,10 @@ content (grid, panel, rows)
   description and facts go full-width, facts last. Reset row sizing here.
 - At every width the action icons share one line in equal widths, filling the
   column.
-- Every book action, Read and Download included, is an icon button named by
-  its `title` and a hidden label; Read is the Primary. For a book in progress it is
-  named "Continue · 33%" and opens the reader in a new tab at the format last read.
+- Read is the Primary and wears its word ("Read", or "Continue · 33%" for a book in
+  progress, opening the reader in a new tab at the format last read); it takes two
+  shares of the line, the others one. Every other action, Download included, is an
+  icon button named by its `title` and a hidden label.
   Read state, once on, is the tick in `--success` on a 34% `--success` tint.
 - Description: `--font-body` 18px, line-height 1.68, `--ink-soft`, no measure
   cap: it fills the width it is given.
@@ -538,6 +554,10 @@ content (grid, panel, rows)
   shelves are changed on its edit page (the Shelves rows), never from the book page.
   There is no archive and no Keep offline button. On a shelf page each cover gets a
   quiet `.icon-btn.is-danger` remove action (`shelves.js`).
+- A book with no description shows editors a Notice where the description
+  would be ("This book has no description yet. Fetch metadata"), which opens the
+  edit page with the lookup dialog already open (`?fetch=1`). After a failed or empty
+  lookup it says so.
 - Editors also get a Metadata row, what the last lookup found: "From Open
   Library", "No match" or "Lookup failed", with the date in its tooltip.
 - Papers: an arXiv row shows the id itself, linked to the abstract page; its

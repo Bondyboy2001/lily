@@ -347,3 +347,17 @@ def test_the_status_line_names_providers_that_did_not_answer(env, monkeypatch):
     task, __ = _run_rebuild(env, monkeypatch, fail={ids[0]: {"Google"}, ids[2]: {"Google", "Open Library"}})
     assert task.unanswered == {"Google": 2, "Open Library": 1}
     assert task.message == "Done: 3 books checked, 3 updated. No answer from Google (2), Open Library (1)"
+
+
+@pytest.mark.unit
+def test_rebuild_route_looks_up_only_the_books_ticked_in_the_table(env, monkeypatch):
+    from cps.services.worker import WorkerThread
+    queued = []
+    monkeypatch.setattr(WorkerThread, "add_parallel", classmethod(lambda cls, user, task: queued.append(task)))
+    monkeypatch.setattr(WorkerThread, "tasks", property(lambda self: []))
+    c = _login(env)
+    assert c.post("/cwa-settings/rebuild-metadata", data={"book_ids": " ,x"}).get_json() == \
+        {"success": True, "none": True}
+    assert not queued
+    c.post("/cwa-settings/rebuild-metadata", data={"book_ids": "9,3,x,5"})
+    assert queued[0].book_ids == [3, 5, 9] and queued[0].name == "Look up selected books"

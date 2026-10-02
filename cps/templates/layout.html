@@ -33,7 +33,6 @@
     <link href="{{ url_for('static', filename='css/lily-stats.css') }}" rel="stylesheet" media="screen">
     <link href="{{ url_for('static', filename='css/lily-icons.css') }}" rel="stylesheet" media="screen">
     {% if current_user.is_authenticated and (current_user.role_admin() or current_user.role_edit()) %}
-    <link href="{{ url_for('static', filename='css/duplicates-notifications.css') }}" rel="stylesheet" media="screen">
     {% endif %}
     <script>
       // Page globals for main.js and lily.js, set before either loads
@@ -93,7 +92,7 @@
           {% if show_sidebar %}
           <form class="lily-search" role="search" action="{{url_for('search.simple_search')}}" method="GET">
             <label for="query" class="sr-only">{{_('Search')}}</label>
-            <input type="search" class="form-control" id="query" name="query" placeholder="{{_('Search Library')}}" value="{{searchterm}}"
+            <input type="search" class="form-control" id="query" name="query" aria-keyshortcuts="/" placeholder="{{_('Search Library')}}" value="{{searchterm}}"
                    autocomplete="off" data-suggest-url="{{url_for('web.get_book_titles_json')}}">
             <button type="submit" id="query_submit" class="sr-only">{{_('Search')}}</button>
           </form>
@@ -247,28 +246,14 @@
     <script src="{{ url_for('static', filename='js/lily.js') }}"></script>
     <script src="{{ url_for('static', filename='js/offline.js') }}" defer></script>
     {% block js %}{% endblock %}
-    {# Not on shell-less pages (the forced password change): the dialog would cover the form #}
+    {# Not on shell-less pages (the forced password change): the notice would sit over the form #}
     {% if current_user.is_authenticated and (current_user.role_admin() or current_user.role_edit()) and bodyClass != 'login' %}
-    <!-- Duplicate Notification Modal -->
-    <div class="modal fade" id="duplicate-notification-modal" tabindex="-1" role="dialog" aria-labelledby="duplicate-notification-title">
-      <div class="modal-dialog" role="document">
-        <div class="modal-content">
-          <div class="modal-header">
-            <button type="button" class="close" data-dismiss="modal" aria-label="{{_('Close')}}"><span aria-hidden="true">&times;</span></button>
-            <h4 class="modal-title" id="duplicate-notification-title">{{_('Duplicate Books Found')}}</h4>
-          </div>
-          <div class="modal-body">
-            <p>{{_('Some books are in your library more than once. Review them and choose which copy to keep.')}}</p>
-            <p class="duplicate-count-section"><span class="duplicate-count-badge" id="duplicate-notification-count">0</span> {{_('groups of duplicates')}}</p>
-            <ul id="duplicate-notification-preview" class="duplicate-preview-list"></ul>
-          </div>
-          <div class="modal-footer">
-            <button type="button" id="duplicate-notification-remind" class="btn btn-default" data-dismiss="modal">{{_('Remind me later')}}</button>
-            <a href="{{ url_for('duplicates.show_duplicates') }}" class="btn btn-primary">{{_('Resolve duplicates')}}</a>
-          </div>
-        </div>
-      </div>
-    </div>
+    <div id="duplicate-notice-config" hidden
+         data-url="{{ url_for('duplicates.show_duplicates') }}"
+         data-one="{{ _('1 group of duplicate books.') }}"
+         data-many="{{ _('%(count)s groups of duplicate books.', count='{count}') }}"
+         data-link="{{ _('Review duplicates') }}"
+         data-close="{{ _('Close') }}"></div>
     <script>
       window.cwaDuplicateBootstrap = {{ duplicate_notification|tojson if duplicate_notification is defined else '{}' }};
     </script>

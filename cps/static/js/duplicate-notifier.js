@@ -16,7 +16,6 @@
     let pollTimer = null;
     // Polling runs only while a scan is pending, at most POLL_MAX_ATTEMPTS times per page
     let pollingExhausted = false;
-    let lastPreviewSignature = '';
     
     /**
      * Check if notification was already shown in this session
@@ -80,7 +79,7 @@
     }
 
     function startStatusPolling() {
-        if (pollTimer || pollingExhausted || isModalActive()) {
+        if (pollTimer || pollingExhausted) {
             return;
         }
         pollTimer = setInterval(() => {
@@ -103,10 +102,8 @@
         }
     }
 
-    // A Bootstrap .modal (layout.html): it handles the backdrop, Escape and focus.
-    function isModalActive() {
-        const modal = document.getElementById('duplicate-notification-modal');
-        return !!modal && modal.classList.contains('in');
+    function noticeConfig() {
+        return document.getElementById('duplicate-notice-config');
     }
 
     function isDuplicatesPage() {
@@ -114,50 +111,32 @@
     }
     
     /**
-     * Show the notification modal
+     * Show the duplicates notice: a dismissible banner above the page, never a dialog over it
      */
-    function showNotificationModal(data) {
-        const { count, preview } = data;
+    function showNotice(data) {
+        const config = noticeConfig();
+        const host = document.getElementById('messageContainer');
+        if (!config || !host || document.getElementById('duplicate-notice')) {
+            return;
+        }
 
-        if (isModalActive()) {
+        const count = data.count;
+        if (wasNotificationShown() && count <= getLastNotifiedCount()) {
             return;
         }
-        
-        const lastCount = getLastNotifiedCount();
-        if (wasNotificationShown() && count <= lastCount) {
-            return;
-        }
-        
-        // Update count in modal
-        const countBadge = document.getElementById('duplicate-notification-count');
-        if (countBadge) {
-            countBadge.textContent = count;
-        }
-        
-        // Update preview list
-        const previewList = document.getElementById('duplicate-notification-preview');
-        if (previewList && preview && preview.length > 0) {
-            const signature = preview.map(item => `${item.title}|${item.author}|${item.count}`).join('||');
-            if (signature !== lastPreviewSignature) {
-                lastPreviewSignature = signature;
-                previewList.innerHTML = preview.map(item => `
-                    <li class="duplicate-preview-item">
-                        <strong>${escapeHtml(item.title)}</strong>
-                        <small>${escapeHtml(item.author)} · ${escapeHtml(String(item.count))}×</small>
-                    </li>
-                `).join('');
-            }
-        }
-        
-        const modal = document.getElementById('duplicate-notification-modal');
-        if (modal && window.jQuery) {
-            // A short pause so the dialog doesn't appear while the page is still drawing
-            setTimeout(() => {
-                window.jQuery(modal).modal('show');
-                markNotificationShown();
-                setLastNotifiedCount(count);
-            }, 500);
-        }
+
+        const text = (count === 1 ? config.dataset.one : config.dataset.many).replace('{count}', String(count));
+        const row = document.createElement('div');
+        row.className = 'row-fluid';
+        row.id = 'duplicate-notice';
+        row.innerHTML =
+            '<div class="alert alert-warning alert-cwa">' + escapeHtml(text) + ' ' +
+            '<a href="' + escapeHtml(config.dataset.url) + '">' + escapeHtml(config.dataset.link) + '</a>' +
+            '<button type="button" class="close" data-dismiss="alert" aria-label="' + escapeHtml(config.dataset.close) + '">' +
+            '<span aria-hidden="true">&times;</span></button></div>';
+        host.appendChild(row);
+        markNotificationShown();
+        setLastNotifiedCount(count);
     }
 
     function handleStatusResponse(data) {
@@ -170,32 +149,15 @@
         }
         document.dispatchEvent(new CustomEvent('cwa:duplicates-status', { detail: data }));
 
-        if (isModalActive()) {
-            return;
-        }
-
         if (data.count > 0 && data.enabled && !isDuplicatesPage()) {
-            showNotificationModal(data);
-            if (isModalActive()) {
-                return;
-            }
+            showNotice(data);
         }
 
         // Keep checking only while a scan is pending; once the results are in, stop
-        if ((data.needs_scan || data.stale) && !isModalActive()) {
+        if (data.needs_scan || data.stale) {
             startStatusPolling();
         } else {
             stopStatusPolling();
-        }
-    }
-    
-    /**
-     * Hide the notification modal
-     */
-    function hideNotificationModal() {
-        const modal = document.getElementById('duplicate-notification-modal');
-        if (modal && window.jQuery) {
-            window.jQuery(modal).modal('hide');
         }
     }
     
@@ -212,12 +174,11 @@
      * Main initialization function
      */
     function init() {
-        // Check if user has permission (admin or edit)
-        const userHasPermission = document.getElementById('duplicate-notification-modal');
-        if (!userHasPermission) {
-            return; // Modal not rendered, user doesn't have permission
+        // The notice's config is only rendered for users who may resolve duplicates
+        if (!noticeConfig()) {
+            return;
         }
-        
+
         // The page arrives with the cached status; one fetch refreshes it, and polling
         // only follows while a scan is pending
         const bootstrapData = window.cwaDuplicateBootstrap;
@@ -245,8 +206,7 @@
     // Expose functions globally for use by other scripts
     window.CWADuplicates = {
         updateBadge: updateBadge,
-        fetchStatus: fetchDuplicateStatus,
-        hideModal: hideNotificationModal
+        fetchStatus: fetchDuplicateStatus
     };
     
     // Initialize when DOM is ready

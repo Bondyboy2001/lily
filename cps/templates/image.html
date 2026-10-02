@@ -123,7 +123,7 @@
    filter_list.js / filter_grid.js sort and filter the rows in place, so the options are buttons
    keyed by id, not links. `chars` is the list of initials: the letter filter only appears when a
    list is long enough to need it. #}
-{% macro list_menu(order, data, chars) -%}
+{% macro list_menu(order, data, chars, filterable=False) -%}
     <div class="lily-sort-group filterheader" role="group" aria-label="{{ _('Sort and filter') }}">
       {% call list_dropdown('lily-field-toggle', 'glyphicon-sort', _('Sort'), _('Name')) %}
         <li class="active"><a role="button" aria-current="true">{{ _('Name') }}</a></li>
@@ -144,6 +144,12 @@
         <li><a href="#" role="button" class="char">{{ char }}</a></li>
         {% endfor %}
       {% endcall %}
+      {% endif %}
+      {% if filterable %}
+      {# Long lists (every author, every tag): type to narrow them. Rows are hidden, not fetched (filter_list.js). #}
+      <label class="sr-only" for="lily-list-filter">{{ _('Filter the list') }}</label>
+      <input id="lily-list-filter" class="form-control lily-list-filter" type="search" autocomplete="off"
+             placeholder="{{ _('Filter…') }}">
       {% endif %}
     </div>
 {%- endmacro %}

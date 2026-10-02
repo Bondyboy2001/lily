@@ -35,7 +35,7 @@ $(document).on("click", "#all", function(e) {
     if (!lilyPickOption(this)) {
         return;
     }
-    getListContainer().children(".row").show();
+    applyListFilter();
 });
 
 $(document).on("click", ".char", function(e) {
@@ -43,8 +43,23 @@ $(document).on("click", ".char", function(e) {
     if (!lilyPickOption(this)) {
         return;
     }
-    var character = this.innerText;
-    getListContainer().children(".row").each(function() {
-        $(this).toggle(this.attributes["data-id"].value.charAt(0).toUpperCase() === character);
-    });
+    applyListFilter();
 });
+
+// The Filter field (image.list_menu, long lists only): rows whose name lacks the typed text are
+// hidden. It narrows within the letter chosen in the Letter menu, so the two stay in step.
+function applyListFilter() {
+    var text = ($("#lily-list-filter").val() || "").trim().toLowerCase();
+    var letter = $(".lily-letter-menu li.active:not(.lily-letter-all) a").text();
+    var shown = 0;
+    getListContainer().children(".row").each(function() {
+        var name = $(this).children("a").first().text().toLowerCase();
+        var byLetter = !letter || this.attributes["data-id"].value.charAt(0).toUpperCase() === letter;
+        var visible = byLetter && name.indexOf(text) !== -1;
+        $(this).toggle(visible);
+        shown += visible ? 1 : 0;
+    });
+    $("#lily-list-nomatch").prop("hidden", shown > 0);
+}
+
+$(document).on("input", "#lily-list-filter", applyListFilter);
