@@ -334,3 +334,59 @@ def test_semantic_scholar_still_busy_is_left_out_for_a_while(monkeypatch):
     assert len(asked) == 2
     assert scholar._search_semantic_scholar("Attention Is All You Need") == []
     assert len(asked) == 2
+
+
+def _crossref(*items):
+    return _Response(text=json.dumps({"message": {"items": list(items)}}))
+
+
+def _openlibrary(cover_id=None):
+    return _Response(text=json.dumps({"covers": [cover_id]} if cover_id else {}))
+
+
+def test_crossref_book_gets_its_cover_from_open_library_by_isbn(monkeypatch):
+    calls = []
+    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+        "https://api.crossref.org/": _crossref(
+            {"DOI": "10.1142/3727", "title": ["Nobel Lectures in Physics 1922 - 1941"], "type": "monograph",
+             "ISBN": ["978-981-02-3402-7"]},
+            {"DOI": "10.1016/b978-1-4831-9745-6.50001-5", "title": ["Nobel Lectures"], "type": "book-chapter",
+             "ISBN": ["9781483197456"]},
+            {"DOI": "10.1016/0029-5582(65)90736-4", "title": ["An article"], "type": "journal-article"}),
+        "https://openlibrary.org/isbn/": _openlibrary(5254938),
+    }, calls))
+    book, chapter, article = google_scholar()._search_crossref("nobel lectures")
+    assert book.cover == "https://covers.openlibrary.org/b/id/5254938-L.jpg"
+    assert book.identifiers == {"doi": "10.1142/3727", "isbn": "9789810234027"}
+    # A chapter shows its book's cover, but the book's ISBN isn't the chapter's own
+    assert chapter.cover and "isbn" not in chapter.identifiers
+    # An article has no ISBN, and no cover to look for
+    assert article.cover == ""
+    assert sorted(url for url, __ in calls if "openlibrary" in url) == [
+        "https://openlibrary.org/isbn/9781483197456.json", "https://openlibrary.org/isbn/9789810234027.json"]
+
+
+def test_crossref_book_falls_back_to_google_books_cover(monkeypatch):
+    from types import SimpleNamespace
+    import cps.search_metadata as search_metadata
+    google = SimpleNamespace(__id__="google", search_identifiers=lambda ids, *a: [
+        SimpleNamespace(cover="https://books.google.com/cover?id=x" if ids == {"isbn": "9789810234027"} else "")])
+    monkeypatch.setattr(search_metadata, "cl", [google])
+    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+        "https://api.crossref.org/": _crossref(
+            {"DOI": "10.1142/3727", "title": ["Nobel Lectures"], "type": "monograph", "ISBN": ["9789810234027"]}),
+        "https://openlibrary.org/isbn/": _openlibrary(None),
+    }))
+    assert google_scholar()._search_crossref("nobel")[0].cover == "https://books.google.com/cover?id=x"
+
+
+def test_a_cover_lookup_failing_still_shows_the_result(monkeypatch):
+    import cps.search_metadata as search_metadata
+    monkeypatch.setattr(search_metadata, "cl", [])
+    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+        "https://api.crossref.org/": _crossref(
+            {"DOI": "10.1142/3727", "title": ["Nobel Lectures"], "type": "monograph", "ISBN": ["9789810234027"]}),
+        "https://openlibrary.org/isbn/": requests.ConnectionError("down"),
+    }))
+    (record,) = google_scholar()._search_crossref("nobel")
+    assert record.title == "Nobel Lectures" and record.cover == ""

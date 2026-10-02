@@ -10,6 +10,8 @@
 # papers are searched by title through DataCite, which registers arXiv's DOIs:
 # the arXiv API rate-limits and times out, and Crossref doesn't index preprints.
 # Semantic Scholar adds its best title match from journals and conferences.
+# Crossref also has books and their chapters, with ISBNs but no covers: those
+# come from Open Library by the ISBN, else Google Books.
 # arXiv API: https://info.arxiv.org/help/api/user-manual.html
 # DataCite API: https://support.datacite.org/docs/api-queries
 # Semantic Scholar API: https://api.semanticscholar.org/api-docs/graph
@@ -26,7 +28,7 @@ import requests
 
 from cps import logger
 from cps.services.Metadata import CoolOff, MetaRecord, MetaSourceInfo, Metadata, get_patiently
-from cps.services.identifiers import ARXIV_DOI_PREFIX, ARXIV_ID_RE, DOI_RE, arxiv_id_from_doi
+from cps.services.identifiers import ARXIV_DOI_PREFIX, ARXIV_ID_RE, DOI_RE, arxiv_id_from_doi, compact_isbn
 
 log = logger.create()
 
@@ -45,6 +47,12 @@ class google_scholar(Metadata):
     S2_MATCH_URL = "https://api.semanticscholar.org/graph/v1/paper/search/match"
     S2_FIELDS = "title,authors,abstract,publicationDate,year,venue,journal,externalIds,fieldsOfStudy,url"
     CROSSREF_URL = "https://api.crossref.org/works"
+    # Crossref's types for a whole book, whose ISBN is the record's own; a chapter's
+    # ISBN is its book's, good for a cover but not an identifier
+    CROSSREF_BOOKS = frozenset({"book", "monograph", "edited-book", "reference-book"})
+    # The edition with that ISBN, whose cover is its own, not its work's (often another edition's)
+    OPENLIBRARY_EDITION_URL = "https://openlibrary.org/isbn/{}.json"
+    OPENLIBRARY_COVER_URL = "https://covers.openlibrary.org/b/id/{}-L.jpg"
     # arXiv answers 406 when brotli/zstd are offered, which requests does
     # whenever those packages are installed
     HEADERS = {"User-Agent": "Lily/1.0 (metadata lookup)", "Accept-Encoding": "gzip"}
@@ -340,7 +348,7 @@ class google_scholar(Metadata):
         doi = DOI_RE.search(query)
         params = {
             "rows": self.MAX_RESULTS,
-            "select": "DOI,title,author,publisher,container-title,issued,abstract,subject,URL",
+            "select": "DOI,title,author,publisher,container-title,issued,abstract,subject,URL,type,ISBN",
         }
         if doi:
             params["filter"] = "doi:" + doi.group(0)
@@ -352,7 +360,42 @@ class google_scholar(Metadata):
         response = get_patiently(self.CROSSREF_URL, params=params, headers=self.HEADERS, timeout=15)
         response.raise_for_status()
         items = response.json().get("message", {}).get("items", [])
-        return [r for r in (self._parse_crossref_item(i) for i in items) if r]
+        parsed = [(self._parse_crossref_item(item), _crossref_isbn(item)) for item in items]
+        # Books and chapters have their book's ISBN, and so a cover
+        self._add_book_covers([(record, isbn) for record, isbn in parsed if record and isbn])
+        return [record for record, __ in parsed if record]
+
+    def _add_book_covers(self, wanted) -> None:
+        """Give each (record, ISBN) the cover of the book with that ISBN, looked up at once."""
+        if not wanted:
+            return
+        with ThreadPoolExecutor(max_workers=len(wanted)) as pool:
+            covers = pool.map(lambda pair: self._book_cover(pair[1]), wanted)
+            for (record, __), cover in zip(wanted, covers):
+                record.cover = cover
+
+    def _book_cover(self, isbn: str) -> str:
+        """The cover of the book with this ISBN: Open Library's, else Google Books'; '' for none.
+        A failure is no cover, never a failed search."""
+        try:
+            response = requests.get(self.OPENLIBRARY_EDITION_URL.format(isbn), headers=self.HEADERS, timeout=10)
+            if response.status_code != 404:  # Open Library doesn't have that edition
+                response.raise_for_status()
+                covers = [c for c in response.json().get("covers") or [] if isinstance(c, int) and c > 0]
+                if covers:
+                    return self.OPENLIBRARY_COVER_URL.format(covers[0])
+        except Exception as e:
+            log.debug("No Open Library cover for ISBN %s: %s", isbn, e)
+        try:
+            # The shared provider, so its API key and its pause after a 429 apply
+            from cps.search_metadata import cl
+            google = next(p for p in cl if p.__id__ == "google")
+            for record in google.search_identifiers({"isbn": isbn}, "", "en") or []:
+                if record.cover:
+                    return record.cover
+        except Exception as e:
+            log.debug("No Google Books cover for ISBN %s: %s", isbn, e)
+        return ""
 
     def _parse_crossref_item(self, item: Dict) -> Optional[MetaRecord]:
         title = " ".join((item.get("title") or [""])[0].split())
@@ -388,7 +431,15 @@ class google_scholar(Metadata):
             match.publishedDate = "{:04d}-{:02d}-{:02d}".format(*parts[:3])
         match.tags = item.get("subject", [])
         match.identifiers = {"doi": doi}
+        isbn = _crossref_isbn(item)
+        if isbn and item.get("type") in self.CROSSREF_BOOKS:
+            match.identifiers["isbn"] = isbn
         return match
+
+
+def _crossref_isbn(item: Dict) -> str:
+    """The first ISBN Crossref gives for a work, compacted; '' for none (a journal's article)."""
+    return compact_isbn((item.get("ISBN") or [""])[0])
 
 
 def _subject_names(subjects) -> List[str]:

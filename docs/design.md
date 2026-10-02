@@ -559,7 +559,8 @@ content (grid, panel, rows)
 - **Fetch Metadata results** are compact cards: a 128px cover column with
   Apply under it, fields in 14px, a description clamped to six lines. The match
   score is a bare 24px number ("21%") in the card's top right; an exact match
-  shows its pill under Apply instead. The dialog opens beside the edit page's
+  shows its pill under Apply instead. A result without a cover shows an empty
+  "No cover" slot the cover's shape, with no tick box or size badge. The dialog opens beside the edit page's
   cover, not over it, whenever 600px of window is left (get_meta.js).
 
 ### 6.5 Settings (`settings_layout.html`, `lily_form.html`)

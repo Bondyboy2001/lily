@@ -289,15 +289,20 @@
 <script type="text/template" id="template-book-result">
   <li class="media<%- book.exact_match ? ' meta-exact' : '' %>" data-uid="<%- uid %>">
     <div class="media-image">
+      {# A provider with no cover sends nothing or Lily's placeholder: no picture to pick #}
+      <% if (safeUrl(book.cover) && !/\/generic_cover\.svg(\?|$)/.test(book.cover)) { %>
       <div class="media-image-wrapper">
         <img
           onload="coverDimensions(this)"
-          src="<%- safeUrl(book.cover) || "{{ url_for('static', filename='img/academicpaper.svg') }}" %>"
+          src="<%- safeUrl(book.cover) %>"
           alt="<%- book.title ? 'Cover of ' + book.title : 'Cover' %>"
         >
         <div class="image-dimensions"></div>
         <input type="checkbox" data-meta-value="cover" aria-label="{{_('Use this cover')}}" checked>
       </div>
+      <% } else { %>
+      <div class="meta-no-cover">{{_('No cover')}}</div>
+      <% } %>
       <button type="button" class="btn btn-default meta-apply" title="{{_('Fill the form with the ticked fields and save')}}">{{_("Apply")}}</button>
       <div><a class="meta_source" href="<%- safeUrl(book.url) || safeUrl(book.source.link) %>" target="_blank" rel="noopener"><%- book.source.description %></a></div>
       <% if (book.exact_match) { %>

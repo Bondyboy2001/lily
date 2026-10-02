@@ -1746,6 +1746,19 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 #meta-info #book-list .media .media-image .image-dimensions.larger { background: var(--success); }
 #meta-info #book-list .media .media-image .image-dimensions.smaller { background: var(--danger); }
 
+/* A result without a cover: an empty slot the shape of one, nothing to tick */
+#meta-info #book-list .media .media-image .meta-no-cover {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    border-radius: 4px;
+    background: var(--control-tint);
+    color: var(--muted);
+    font-size: 13px;
+}
+
 #meta-info #book-list .media .media-image input {
     position: absolute;
     top: 4px;
