@@ -209,6 +209,13 @@ def test_page_numbers_sit_in_the_toolbar_after_sort():
     rules = dict(css_rules(read(CSS / "lily-library.css")))
     assert "flex-direction: row" in rules[".lily-list-toolbar:has(> .pagination)"]
     assert "height: 38px" in rules[".lily-list-toolbar .pagination > li > a"]
+    # phones keep only the arrows; the links stay named by aria-label
+    macro = read(TEMPLATES / "image.html")
+    assert macro.count('<span class="page-step-word">') == 2
+    assert 'rel="prev" aria-label=' in macro and 'rel="next" aria-label=' in macro
+    css = read(CSS / "lily-library.css")
+    phone = css[css.index("@media (max-width: 767px) {\n    .pagination .page-step-word"):]
+    assert "display: none" in phone[:phone.index("}")]
 
 
 def test_advanced_search_pickers_are_fields():

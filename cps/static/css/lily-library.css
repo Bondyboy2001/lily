@@ -41,7 +41,7 @@
    toolbar's own controls never run underneath. */
 .lily-list-toolbar { position: relative; }
 
-.lily-list-toolbar:has(> .lily-view-switch) { padding-right: 92px; }
+.lily-list-toolbar:has(> .lily-view-switch) { --toolbar-end-room: 92px; padding-right: var(--toolbar-end-room); }
 
 .lily-list-toolbar > .lily-view-switch {
     position: absolute;
@@ -60,7 +60,7 @@
 }
 
 /* The same corner when a page adds its own ⋯ menu beside the Grid/List icons */
-.lily-list-toolbar:has(> .lily-toolbar-end) { padding-right: 132px; }
+.lily-list-toolbar:has(> .lily-toolbar-end) { --toolbar-end-room: 132px; padding-right: var(--toolbar-end-room); }
 
 .lily-list-toolbar > .lily-toolbar-end {
     position: absolute;
@@ -1664,6 +1664,13 @@ dl.book-metadata:not(:has(> div)) { display: none; }
    results scroll. min-width: 0 so the clamped description (a -webkit-box, whose
    min-content is its whole unwrapped line) can't widen the dialog. */
 #metaModal .modal-dialog { margin-top: 24px; margin-bottom: 24px; }
+/* Beside the cover rather than over it: get_meta.js sets --meta-left to 24px past the
+   cover's right edge when at least 600px of window is left */
+#metaModal .modal-dialog.meta-beside-cover {
+    width: min(900px, calc(100vw - var(--meta-left) - 24px));
+    margin-left: var(--meta-left);
+    margin-right: auto;
+}
 #metaModal .modal-content {
     min-width: 0;
     display: flex;
@@ -2034,6 +2041,21 @@ body.book_table .pagination {
 .lily-list-toolbar .pagination > li > a {
     height: 38px;
     line-height: 38px;
+}
+
+/* Phones: the page numbers take their own line under Sort, so they may run under the
+   Grid/List icons' room too; Previous / Next show only their arrows (the links keep their
+   aria-label) and every chip is at least 38 square. */
+@media (max-width: 767px) {
+    .lily-list-toolbar > .pagination { margin-right: calc(-1 * var(--toolbar-end-room, 0px)); }
+
+    .lily-list-toolbar .pagination > li > a {
+        justify-content: center;
+        min-width: 38px;
+        padding: 0 10px;
+    }
+
+    .pagination .page-step-word { display: none; }
 }
 
 .lily-sort > .btn.lily-chip {

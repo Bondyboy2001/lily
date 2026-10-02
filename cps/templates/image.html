@@ -76,7 +76,7 @@
     {% if pagination and (pagination.has_next or pagination.has_prev) %}
       <ul class="pagination" role="navigation" aria-label="{{_('Pagination')}}">
         {% if pagination.has_prev %}
-        <li class="page-item page-previous"><a class="page-link previous" rel="prev" aria-label="{{_('Previous page')}}" href="{{ (pagination.page - 1)|url_for_other_page }}">&laquo; {{_('Previous')}}</a></li>
+        <li class="page-item page-previous"><a class="page-link previous" rel="prev" aria-label="{{_('Previous page')}}" href="{{ (pagination.page - 1)|url_for_other_page }}">&laquo;<span class="page-step-word"> {{_('Previous')}}</span></a></li>
         {% endif %}
       {% for page in pagination.iter_pages() %}
         {% if page %}
@@ -102,7 +102,7 @@
         {% endif %}
       {% endfor %}
       {% if pagination.has_next %}
-        <li class="page-item page-next"><a class="page-link next" rel="next" aria-label="{{_('Next page')}}" href="{{ (pagination.page + 1)|url_for_other_page }}">{{_('Next')}} &raquo;</a></li>
+        <li class="page-item page-next"><a class="page-link next" rel="next" aria-label="{{_('Next page')}}" href="{{ (pagination.page + 1)|url_for_other_page }}"><span class="page-step-word">{{_('Next')}} </span>&raquo;</a></li>
       {% endif %}
       </ul>
     {% endif %}
