@@ -278,6 +278,9 @@ def test_detail_page_is_a_frontispiece_stage():
     assert "border-radius: 999px" in tag and "background: var(--control-tint)" in tag
     description = next(body for selector, body in rules if selector == ".book-detail-description .comments")
     assert "font-style: italic" in description
+    # The pull-quote runs the full width of the page.
+    quote = next(body for selector, body in rules if selector == ".book-detail-description")
+    assert "max-width" not in quote and "max-width" not in description
     html = read(TEMPLATES / "detail.html")
     stage = html[html.index('<div class="book-detail-main">'):html.index('<div class="book-detail-extra">')]
     assert '<dl class="book-metadata">' in stage and 'id="readbtn"' in stage

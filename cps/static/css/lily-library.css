@@ -1314,7 +1314,6 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 .book-detail-description {
     position: relative;
     align-self: stretch;
-    max-width: 44em;
     padding-left: 64px;
 }
 

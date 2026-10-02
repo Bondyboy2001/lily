@@ -555,7 +555,7 @@ content (grid, panel, rows)
   custom columns. Tags wrap; they never scroll.
 - Don't say a fact twice: a paper whose publisher is arXiv shows only the arXiv tag.
 - **Description:** a pull-quote: `--font-body` 22px italic, line-height 1.6, `--ink-soft`,
-  capped at 44em, indented 64 behind a 112px `--accent` opening mark (19px, 40 and 76 on
+  the full width of the page (no measure cap), indented 64 behind a 112px `--accent` opening mark (19px, 40 and 76 on
   phones). A book without one shows editors the "Fetch metadata" notice instead.
 - **Housekeeping line** (`dl.book-record`): one 13px `--muted` line under the
   description, aligned with its text, facts joined by "·": the Metadata lookup (editors
