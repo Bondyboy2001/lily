@@ -1058,7 +1058,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     display: grid;
     /* The middle column is only as wide as the heading and actions, so the facts panel takes
        the space that is left. */
-    grid-template-columns: clamp(220px, 17vw, 300px) minmax(min(100%, 420px), max-content) minmax(260px, 1fr);
+    grid-template-columns: clamp(240px, 19vw, 340px) minmax(min(100%, 420px), max-content) minmax(260px, 1fr);
     grid-template-rows: min-content min-content 1fr auto;
     gap: 22px clamp(40px, 4vw, 72px);
     align-items: start;
@@ -1346,7 +1346,7 @@ dl.book-metadata:not(:has(> div)) { display: none; }
    row, so a tall cover never opens a gap above it. */
 @media (max-width: 1499px) {
     .book-detail-main {
-        grid-template-columns: clamp(200px, 22vw, 280px) minmax(0, 1fr);
+        grid-template-columns: clamp(220px, 24vw, 310px) minmax(0, 1fr);
         grid-template-rows: min-content min-content auto 1fr;
     }
 

@@ -272,7 +272,7 @@ def test_detail_rows_keep_metadata_in_a_side_panel():
     main_rules = [body for selector, body in css_rules(css) if selector == ".book-detail-main"]
     # Wide: cover | book | facts panel, with content-sized heading and action rows.
     # The middle column fits its content, so the panel fills the space a short title leaves.
-    assert "grid-template-columns: clamp(220px, 17vw, 300px) minmax(min(100%, 420px), max-content) minmax(260px, 1fr)" in main_rules[0]
+    assert "grid-template-columns: clamp(240px, 19vw, 340px) minmax(min(100%, 420px), max-content) minmax(260px, 1fr)" in main_rules[0]
     assert "grid-template-rows: min-content min-content 1fr auto" in main_rules[0]
     # Wide: the panel sits beside the cover only; the description runs the full width under both.
     extra = next(body for selector, body in css_rules(css) if selector == ".book-detail-extra")
