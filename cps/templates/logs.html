@@ -2,7 +2,10 @@
 {% block pane_class %} is-wide{% endblock %}
 {% block settings %}
 <div class="lp lily-logs" data-logs-url="{{ url_for('logs.logs_data') }}" data-empty-message="{{ _('No logs captured yet.') }}">
-  <p id="logs_status" class="logs-status" role="status" aria-live="polite"></p>
+  <div class="logs-bar">
+    <p id="logs_status" class="logs-status" role="status" aria-live="polite"></p>
+    <button type="button" id="log_copy" class="btn btn-default logs-copy" disabled><span class="glyphicon glyphicon-copy" aria-hidden="true"></span> <span class="logs-copy-label" aria-live="polite" data-done="{{ _('Copied') }}" data-failed="{{ _('Couldn’t copy. Select the text and press Ctrl+C or ⌘C.') }}">{{ _('Copy logs') }}</span></button>
+  </div>
   <pre id="log_output" class="logs-output" tabindex="0" aria-labelledby="lp-heading"></pre>
 </div>
 {% endblock %}

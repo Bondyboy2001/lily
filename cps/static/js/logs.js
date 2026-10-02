@@ -17,7 +17,7 @@
 
 /* A live tail: poll the data endpoint, append when the log only grew, and stay
  * pinned to the bottom unless the reader has scrolled up. Polling stops while
- * the tab is hidden. */
+ * the tab is hidden. "Copy logs" puts everything shown on the clipboard. */
 $(document).ready(function () {
     var $panel = $(".lily-logs");
     if (!$panel.length) {
@@ -36,6 +36,11 @@ $(document).ready(function () {
     var truncated = false;
     var inFlight = false;
     var timer = null;
+    var $copy = $("#log_copy");
+    var $copyLabel = $copy.find(".logs-copy-label");
+    var copyLabel = $copyLabel.text();
+    var copyNote = "";
+    var copyTimer = null;
 
     function setStatus(message, isError) {
         $status.text(message);
@@ -51,6 +56,7 @@ $(document).ready(function () {
             output.textContent = text || emptyMessage;
         }
         shown = text;
+        $copy.prop("disabled", !text);
         if (atBottom) {
             output.scrollTop = output.scrollHeight;
         }
@@ -95,7 +101,7 @@ $(document).ready(function () {
                 truncated = !!payload.truncated;
                 render(payload.text || "");
             }
-            setStatus(truncated ? "Showing the most recent entries only." : "", false);
+            setStatus(copyNote || (truncated ? "Showing the most recent entries only." : ""), !!copyNote);
         }).catch(function (err) {
             delay = RETRY_MS;
             setStatus("Couldn't load new lines (" + err.message + "). Trying again shortly.", true);
@@ -104,6 +110,64 @@ $(document).ready(function () {
             schedule(delay);
         });
     }
+
+    function copyText(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(text);
+        }
+        // Over plain HTTP (a NAS on the LAN) there is no Clipboard API, so copy from a
+        // hidden textarea instead.
+        return new Promise(function (resolve, reject) {
+            var area = document.createElement("textarea");
+            area.value = text;
+            area.setAttribute("readonly", "");
+            area.className = "logs-copy-buffer";
+            document.body.appendChild(area);
+            area.select();
+            var copied = false;
+            try {
+                copied = document.execCommand("copy");
+            } catch (e) {
+                copied = false;
+            }
+            document.body.removeChild(area);
+            if (copied) {
+                resolve();
+            } else {
+                reject(new Error("copy refused"));
+            }
+        });
+    }
+
+    function selectOutput() {
+        var range = document.createRange();
+        range.selectNodeContents(output);
+        var selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+
+    $copy.on("click", function () {
+        clearTimeout(copyTimer);
+        copyText(shown || "").then(function () {
+            copyNote = "";
+            $copyLabel.text($copyLabel.attr("data-done"));
+        }, function () {
+            // Leave the text selected so the shortcut is all that's left to do.
+            selectOutput();
+            copyNote = $copyLabel.attr("data-failed");
+            setStatus(copyNote, true);
+        }).then(function () {
+            $copy[0].focus();
+            copyTimer = setTimeout(function () {
+                $copyLabel.text(copyLabel);
+                if (copyNote) {
+                    copyNote = "";
+                    setStatus(truncated ? "Showing the most recent entries only." : "", false);
+                }
+            }, copyNote ? 8000 : 2000);
+        });
+    });
 
     document.addEventListener("visibilitychange", function () {
         if (document.visibilityState === "hidden") {

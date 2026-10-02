@@ -143,6 +143,20 @@ def test_logs_page_is_a_live_tail_without_filters():
     assert "#log_source" not in js and "setInterval" not in js
 
 
+def test_logs_page_copies_what_it_shows():
+    html = read(TEMPLATES / "logs.html")
+    button = html[html.index('id="log_copy"'):html.index("</button>")]
+    assert 'class="btn btn-default logs-copy"' in html and "disabled" in button
+    assert "glyphicon-copy" in button and 'aria-hidden="true"' in button
+    assert "Copy logs" in button and 'aria-live="polite"' in button
+    js = read(REPO_ROOT / "cps/static/js/logs.js")
+    # Plain-HTTP installs have no Clipboard API, so there must be a fallback.
+    assert "navigator.clipboard" in js and "isSecureContext" in js and 'execCommand("copy")' in js
+    assert '$copy.prop("disabled", !text)' in js
+    css = read(REPO_ROOT / "cps/static/css/lily-admin.css")
+    assert ".logs-copy-buffer" in css and ".lily-logs .logs-bar" in css
+
+
 def test_sidebar_has_no_utility_links():
     layout = read(TEMPLATES / "layout.html")
     assert 'id="nav_duplicates"' not in layout and 'id="nav_logs"' not in layout

@@ -407,10 +407,13 @@ input[type="checkbox"].lp-switch:disabled { opacity: .4; cursor: not-allowed; }
     .lp-sub > .lp-row { padding-left: 14px; }
 }
 
-/* ---- Logs: a live tail in a pre under the pane heading ---- */
-.lily-logs .logs-status { min-height: 18px; margin: 0 4px 8px; font-size: 13px; color: var(--muted); }
+/* ---- Logs: a live tail in a pre under the pane heading, status and Copy above it ---- */
+.lily-logs .logs-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.lily-logs .logs-status { flex: 1 1 auto; min-width: 0; margin: 0 4px; font-size: 13px; color: var(--muted); }
 .lily-logs .logs-status.is-error { color: var(--danger); }
-.lily-logs .logs-status:empty { min-height: 0; margin: 0; }
+.lily-logs .logs-copy { flex: none; }
+/* logs.js copies through this when the Clipboard API is missing (plain HTTP). */
+.logs-copy-buffer { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
 .lily-logs .logs-output {
     margin: 0;
