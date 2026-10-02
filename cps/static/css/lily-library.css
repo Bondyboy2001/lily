@@ -1272,11 +1272,10 @@ dl.book-metadata {
        than the cover pushes the description down below it. */
     grid-row: 1 / 4;
     grid-column: 3;
-    /* A wide panel lays its facts out in columns rather than stretching each row across;
-       a panel narrower than one column (the cover column at high zoom) keeps a single one. */
-    grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+    /* One column of facts, however wide the panel */
+    grid-template-columns: minmax(0, 1fr);
     align-content: start;
-    gap: 8px 40px;
+    gap: 8px;
     box-sizing: border-box;
     margin: 0;
     padding: 20px 22px;

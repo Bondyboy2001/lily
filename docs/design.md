@@ -517,6 +517,7 @@ content (grid, panel, rows)
   Read state, once on, is the tick in `--success` on a 34% `--success` tint.
 - Description: `--font-body` 18px, line-height 1.68, `--ink-soft`, no measure
   cap: it fills the width it is given.
+- The facts are always one column, at every width: never split into two.
 - Every fact is one line; a long value ends in an ellipsis, never wraps.
 - Shelves and tags are plain rows in the facts panel: names as comma-separated
   `--accent` links, no chip or icon.

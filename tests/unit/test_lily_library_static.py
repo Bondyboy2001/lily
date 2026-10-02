@@ -260,6 +260,9 @@ def test_detail_rows_keep_metadata_in_a_side_panel():
     for declaration in ("grid-row: 1 / 4", "grid-column: 3", "padding: 20px 22px", "border: 0", "border-radius: 10px",
                         "background: var(--surface)", "margin: 0"):
         assert declaration in metadata
+    # One column of facts at every width
+    assert "grid-template-columns: minmax(0, 1fr)" in metadata
+    assert not any("book-metadata" in selector and "repeat(" in body for selector, body in css_rules(css))
     html = read(TEMPLATES / "detail.html")
     # The panel is its own grid item, not tucked under the description.
     assert html.index('<dl class="book-metadata">') < html.index('<div class="book-detail-extra">')
