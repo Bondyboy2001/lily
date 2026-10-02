@@ -24,8 +24,8 @@ from cps.clean_html import clean_string
 from cps.helper import get_sorted_author
 from cps.search_metadata import cl as metadata_providers
 from cps.services.Metadata import ProviderBusy
-from cps.services.identifiers import (ARXIV_ID, DOI_RE, arxiv_id_from_doi, normalise_identifiers,
-                                      parse_identifier)
+from cps.services.identifiers import (ARXIV_ID, DOI_RE, ISBN_RE, arxiv_id_from_doi, compact_isbn,
+                                      normalise_identifiers, parse_identifier)
 from cps.tag_cleanup import clean_tags
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB  # noqa: E402
@@ -120,6 +120,46 @@ def find_paper_identifiers(title: str, page_text: str = "", identifiers=None) ->
     return found
 
 
+# A title that is the name of the file the book was typeset or exported from: "427551_Print.indd",
+# "Microsoft Word - thesis.docx". calibre reads it from the PDF's own details, which the
+# publisher's layout software fills in.
+_FILE_NAME_TITLE = re.compile(
+    r"^microsoft (?:word|powerpoint) - "
+    r"|\.(?:indd|qxd|qxp|p65|pm[5-7]|fm|docx?|rtf|odt|tex|dvi|ps|eps|ai|pdf|txt)$", re.I)
+
+
+def named_by_file(title: str) -> bool:
+    """Whether the book's title is a file's name rather than its own."""
+    return bool(_FILE_NAME_TITLE.search((title or "").strip()))
+
+
+def placeholder_author(name: str) -> bool:
+    """calibre's "Unknown", or a name with no letters ("0000253", a publisher's id that a PDF
+    gives as its author): not a name to search for or match."""
+    return constants.is_unknown_author(name) or not re.search(r"[^\W\d_]", name or "")
+
+
+# "ISBN 978-1-4471-2490-0", "ISBN-10: 0-387-95385-X": the ISBNs a copyright page prints
+_ISBN_ON_PAGE = re.compile(r"ISBN(?:-1[03])?:?\s*((?:97[89][\s-]?)?\d(?:[\s-]?\d){8}[\s-]?[\dX])", re.I)
+
+
+def _isbn_checks(isbn: str) -> bool:
+    """Whether the ISBN's check digit is right: text read off a page can garble a digit."""
+    if len(isbn) == 13:
+        return isbn.isdigit() and sum(int(d) * (3 if i % 2 else 1) for i, d in enumerate(isbn)) % 10 == 0
+    return sum((10 - i) * (10 if d == "X" else int(d)) for i, d in enumerate(isbn)) % 11 == 0
+
+
+def isbn_on_pages(page_text: str) -> str:
+    """The first ISBN printed on the pages (the print edition's, on a copyright page); empty
+    when there is none."""
+    for match in _ISBN_ON_PAGE.finditer(page_text or ""):
+        isbn = compact_isbn(match.group(1))
+        if ISBN_RE.fullmatch(isbn) and _isbn_checks(isbn):
+            return isbn
+    return ""
+
+
 def _squash(text: str) -> str:
     """Letters and digits only: PDF text often loses or adds spaces and hyphens."""
     return re.sub(r'[\W_]+', '', _normalise(text))
@@ -142,7 +182,8 @@ def found_by_id_is_this_book(record, ids: dict, title: str, authors, page_text: 
 
     A record carrying the arXiv id or DOI looked up is this paper when the id is the
     book's own or its file name; one read off the first page may be a citation, so the
-    record's title must be on that page too. Anything else (an ISBN can be a placeholder
+    record's title must be on that page too. A book named by its file ("427551_Print.indd")
+    is the record whose title is on its first pages. Anything else (an ISBN can be a placeholder
     or another book's) needs the same title, subtitle aside, and no other author."""
     record_ids = normalise_identifiers(getattr(record, 'identifiers', None) or {})
     trusted = find_paper_identifiers(title, "", own_ids)
@@ -152,37 +193,54 @@ def found_by_id_is_this_book(record, ids: dict, title: str, authors, page_text: 
             continue
         if (trusted.get(key) or "").lower() == wanted or title_on_page(record.title, page_text):
             return True
+    if named_by_file(title):
+        # Its title says nothing about it, but its title page does
+        return any(title_on_page(form, page_text) for form in title_forms(record))
     if not _main_title(title) or _main_title(title) != _main_title(record.title):
         return False
     book_surnames, record_surnames = _surnames(authors), _surnames(record.authors)
     return not (book_surnames and record_surnames and not book_surnames & record_surnames)
 
 
+# A book's title page and copyright page come within its first few pages, after its cover
+FRONT_PAGES = 8
+
+
 def pdf_first_page_text(book) -> str:
     """The text of the book's PDF's first page; empty without a PDF or text layer."""
+    return _pdf_text(book, 0, 1)
+
+
+def pdf_front_matter_text(book) -> str:
+    """The text of the PDF's pages after the first, up to FRONT_PAGES: a book's title page,
+    and its copyright page with the ISBN. Empty without a PDF or text layer."""
+    return _pdf_text(book, 1, FRONT_PAGES)
+
+
+def _pdf_text(book, first: int, last: int) -> str:
     from cps import config
     pdf = next((d for d in book.data or [] if (d.format or "").upper() == "PDF"), None)
     if pdf is None:
         return ""
     path = os.path.join(config.get_book_path(), book.path, pdf.name + ".pdf")
     try:
-        return _read_first_page(path, os.path.getmtime(path))
+        return _read_pages(path, os.path.getmtime(path), first, last)
     except OSError:
         return ""
 
 
 @functools.lru_cache(maxsize=32)
-def _read_first_page(path: str, mtime: float) -> str:
-    """The first page's text; keyed by mtime so a replaced file is read again. Fetch
-    metadata asks for it once per provider."""
+def _read_pages(path: str, mtime: float, first: int, last: int) -> str:
+    """The text of pages first to last (from 0, last not included); keyed by mtime so a
+    replaced file is read again. Fetch metadata asks for the first page once per provider."""
     pypdf_log = logging.getLogger("pypdf")
     level = pypdf_log.level
     # pypdf warns about every font it can't fully decode; the ids read fine regardless
     pypdf_log.setLevel(logging.ERROR)
     try:
         from pypdf import PdfReader
-        reader = PdfReader(path)
-        return (reader.pages[0].extract_text() or "") if reader.pages else ""
+        pages = PdfReader(path).pages[first:last]
+        return "\n".join(page.extract_text() or "" for page in pages)
     except Exception as e:
         log.debug(f"Could not read the first page of {path}: {e}")
         return ""
@@ -301,12 +359,15 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
             if not book:
                 log.error(f"Book with ID {book_id} not found")
                 return False
-            # calibre's "Unknown" stand-in is not a name to search for; it keeps a name's comma as "|"
+            # "Unknown" and ids are not names to search for; calibre keeps a name's comma as "|"
             authors = [a.name.replace('|', ',') for a in book.authors or []
-                       if not constants.is_unknown_author(a.name)]
+                       if not placeholder_author(a.name)]
             own_ids = normalise_identifiers({i.type: i.val for i in book.identifiers or []})
             page_text = pdf_first_page_text(book)
             title = book.title
+            if named_by_file(title):
+                # What it is shows on its title page, and its ISBN on the copyright page
+                page_text = "\n".join((page_text, pdf_front_matter_text(book)))
             current_cover = _cover_path(book)
         record = _find_record(title, authors, own_ids, page_text, unanswered)
         if record is None:
@@ -357,11 +418,14 @@ def _no_answer(provider, what, error, unanswered) -> None:
 def _find_record(title, authors, own_ids, page_text, unanswered=None):
     """The provider record that is exactly this book, or None. An identifier lookup
     comes first: a paper by its arXiv id or DOI, as its title is often the file name,
-    which no title search matches; a book by its ISBN. Then each provider's title search.
-    Providers that fail to answer are added to `unanswered`."""
+    which no title search matches; a book by its ISBN, its own or, for a book named by its
+    file, the one its copyright page prints. Then each provider's title search, unless the
+    title is a file's name. Providers that fail to answer are added to `unanswered`."""
     lookup_ids = find_paper_identifiers(title, page_text, own_ids)
     if own_ids.get('isbn'):
         lookup_ids['isbn'] = own_ids['isbn']
+    elif named_by_file(title) and isbn_on_pages(page_text):
+        lookup_ids['isbn'] = isbn_on_pages(page_text)
     for provider in metadata_providers:
         ids = {k: v for k, v in lookup_ids.items() if k in provider.identifier_types}
         if not ids:
@@ -375,6 +439,10 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None):
             r, ids, title, authors, page_text, own_ids)), None)
         if record is not None:
             return record
+    if named_by_file(title):
+        # No provider has a book called "427551_Print.indd"
+        log.info(f"No identifier found for '{title}'; keeping its details")
+        return None
     query = " ".join([title] + authors)
     for provider in metadata_providers:
         # Without the details a provider fetches per result, when it can leave them out
