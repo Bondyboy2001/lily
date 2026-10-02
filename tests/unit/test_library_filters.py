@@ -78,6 +78,30 @@ class TestFilterChips:
         assert _titles(_get(client, "/", status="reading")) == ["Pdf German"]
         assert _titles(_get(client, "/", status="unread")) == ["Epub German"]
 
+    def test_last_read_sort_puts_the_latest_read_first_and_unread_last(self, env):
+        from datetime import datetime, timedelta, timezone
+        self._library(env)
+        client = _login(env)
+        from cps import ub, calibre_db, db
+        ids = {b.title: b.id for b in calibre_db.session.query(db.Books).all()}
+        admin = env.admin()
+        now = datetime.now(timezone.utc)
+        for title, age in (("Epub English", 3), ("Pdf German", 1)):
+            ub.session.add(ub.ReadBook(user_id=admin.id, book_id=ids[title], read_status=2,
+                                       last_modified=now - timedelta(days=age)))
+        ub.session.commit()
+
+        def order(html):
+            # The grid only: Continue Reading above it lists in-progress books by recency anyway.
+            grid = html[html.index('class="lily-list-toolbar"'):]
+            return re.findall(r'<p title="([^"]+)" class="title"', grid)
+
+        newest = order(_get(client, "/newest/readnew/"))
+        assert newest[:2] == ["Pdf German", "Epub English"] and newest[-1] == "Epub German"
+        oldest = order(_get(client, "/newest/readold/"))
+        assert oldest[:2] == ["Epub English", "Pdf German"] and oldest[-1] == "Epub German"
+        assert "Last read" in _get(client, "/newest/stored/")
+
     def test_filters_are_kept_in_sort_links_and_empty_result_offers_a_way_out(self, env):
         self._library(env)
         html = _get(_login(env), "/", format="MOBI")

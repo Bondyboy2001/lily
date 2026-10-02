@@ -56,6 +56,22 @@ _app_archived_book = sql_table('archived_book',
                                sql_column('user_id', Integer),
                                sql_column('is_archived', Boolean),
                                schema='app_settings')
+# Read status rows (app.db), touched on every reader save and read toggle: the "Last read" sort.
+_app_read_book = sql_table('book_read_link',
+                           sql_column('book_id', Integer),
+                           sql_column('user_id', Integer),
+                           sql_column('last_modified', TIMESTAMP),
+                           schema='app_settings')
+
+
+def last_read_order(newest_first=True):
+    """ORDER BY term for when the current user last read or marked each book; never-read books last."""
+    last_read = (select(func.max(_app_read_book.c.last_modified))
+                 .where(_app_read_book.c.book_id == Books.id)
+                 .where(_app_read_book.c.user_id == int(current_user.id))
+                 .scalar_subquery())
+    return (last_read.desc() if newest_first else last_read.asc()).nulls_last()
+
 
 Base = declarative_base()
 

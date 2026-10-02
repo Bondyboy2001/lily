@@ -72,8 +72,8 @@
     {# Grid/List icons, pinned to the toolbar's top right #}
     {{ self.view_switch() }}
     {% if page == 'hot' %}{% set sort_fields = ['downloads'] %}
-    {% elif page == 'series' %}{% set sort_fields = ['added', 'title', 'author', 'published', 'series'] %}
-    {% else %}{% set sort_fields = ['added', 'title', 'author', 'published'] %}{% endif %}
+    {% elif page == 'series' %}{% set sort_fields = ['added', 'read', 'title', 'author', 'published', 'series'] %}
+    {% else %}{% set sort_fields = ['added', 'read', 'title', 'author', 'published'] %}{% endif %}
     {{ image.sort_menu(order, url_for('web.books_list', data=page, book_id=id, sort_param='SORT_PARAM', **(list_filters.args if list_filters else {})), sort_fields) }}
   </div>
 

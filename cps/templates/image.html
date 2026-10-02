@@ -34,6 +34,7 @@
     {#- key: (label, ascending param, descending param) -#}
     {%- set sorts = {
         'added': (_('Date added'), 'old', 'new'),
+        'read': (_('Last read'), 'readold', 'readnew'),
         'title': (_('Title'), 'abc', 'zyx'),
         'author': (_('Author'), 'authaz', 'authza'),
         'published': (_('Published'), 'pubold', 'pubnew'),
