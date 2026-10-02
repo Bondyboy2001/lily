@@ -51,6 +51,13 @@ See https://github.com/adobe-type-tools/cmap-resources
         PDFViewerApplicationOptions.set('disableRange', false);
         PDFViewerApplicationOptions.set('disableStream', true);
         PDFViewerApplicationOptions.set('disablePreferences', true);
+        // pdf.js fetches in 64 KB ranges by default, and most library PDFs aren't linearized,
+        // so page 1 waited on 100+ sequential requests (7 s at 40 ms RTT). 1 MB ranges: under 1 s.
+        // rangeChunkSize isn't an AppOption, so it goes in through open().
+        var openPdf = PDFViewerApplication.open.bind(PDFViewerApplication);
+        PDFViewerApplication.open = function (args) {
+            return openPdf(Object.assign({ rangeChunkSize: 1048576 }, args));
+        };
         PDFViewerApplicationOptions.set('cMapUrl', "{{ url_for('static', filename='cmaps/') }}");
         PDFViewerApplicationOptions.set('standardFontDataUrl', "{{ url_for('static', filename='standard_fonts/') }}");
         PDFViewerApplicationOptions.set('sidebarViewOnLoad', 0);

@@ -64,6 +64,12 @@ def test_pdf_reader_zooms_its_toolbars_not_its_pages():
     assert re.search(r"#viewerContainer[^{]*\{\s*inset-block-start: calc\(32px \* var\(--pdf-chrome-zoom\)\)", css)
 
 
+def test_pdf_reader_fetches_in_large_ranges():
+    html = read(TEMPLATES / "readpdf.html")
+    assert "PDFViewerApplicationOptions.set('disableRange', false);" in html
+    assert "rangeChunkSize: 1048576" in html
+
+
 def test_readers_toolbar_controls_are_labelled_buttons():
     html = read(TEMPLATES / "read.html")
     for control in ["slider", "bookmark", "setting", "fullscreen"]:
