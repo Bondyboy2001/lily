@@ -206,8 +206,14 @@ The book-page cover is a spine shape: `4px 8px 8px 4px`.
 | Checkbox / radio | 14 × 14, `accent-color` | — |
 
 Bootstrap's `.btn-sm`, `.btn-xs` and `.btn-lg` do not change size. Every
-button is one size within its context. On coarse pointers icon buttons get a
-44px hit area via `::after`; the drawn size stays the same.
+button is one size within its context. On coarse pointers every control gets a
+44px hit area through `::after` and keeps its drawn size: icon buttons and
+`.close` reach out 7px all round; text buttons and chips 7px above and below
+only, so a row of them doesn't overlap (square ones, like the sort-direction
+chip, all round). Navigation rows (sidebar, settings rail) sit flush, so they
+grow to 44 tall instead. A scroller holding chips leaves 7px above and below
+for their reach. Fields render at 18px (§3.2) through the field rule's own
+selectors, so nothing outranks them.
 
 ### 4.4 Elevation
 

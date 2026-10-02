@@ -492,3 +492,27 @@ def test_refresh_toast_holds_while_it_has_focus():
     assert re.search(r'box\.addEventListener\("focusout", function \(e\) \{ resume\(e\.relatedTarget\); \}\)', js)
     resume = js[js.index("var resume = function"):js.index('box.addEventListener("mouseenter"')]
     assert 'box.matches(":hover")' in resume and "box.contains(next || document.activeElement)" in resume
+
+
+def _coarse_blocks(css):
+    return [block.split("\n}\n", 1)[0] for block in css.split("@media (pointer: coarse) {")[1:]]
+
+
+def test_touch_fields_are_18px_through_the_field_rules_own_selectors():
+    # "input" alone lost to the field rule's input[type="text"], so iOS zoomed into every field
+    css = read(CSS / "lily.css")
+    field_rule = css.split(".form-group { margin-bottom: 14px; }", 1)[1].split("{", 1)[0]
+    selectors = [s.strip() for s in field_rule.split(",") if s.strip()]
+    assert 'input[type="text"]' in selectors and "select" in selectors
+    coarse = [b for b in _coarse_blocks(css) if "font-size: 18px" in b]
+    assert len(coarse) == 1
+    listed = [s.strip() for s in coarse[0].split("*/", 1)[-1].split("{", 1)[0].split(",")]
+    assert listed == selectors
+
+
+def test_touch_text_buttons_and_nav_rows_reach_44px():
+    lily = "\n".join(_coarse_blocks(read(CSS / "lily.css")))
+    assert re.search(r"\.btn::after\s*{[^}]*inset: -7px 0;", lily)
+    assert re.search(r"\.close::after\s*{[^}]*inset: -7px;", lily)
+    assert ".lily-nav li > a { min-height: 44px; }" in read(CSS / "lily-shell.css")
+    assert ".lp-rail-item { min-height: 44px; }" in read(CSS / "lily-admin.css")

@@ -101,6 +101,11 @@ body { margin: 0; }
     transition: background-color .12s ease-out, color .12s ease-out;
 }
 
+/* Touch: rows sit flush, so each grows to 44 rather than reaching over its neighbour. */
+@media (pointer: coarse) {
+    .lily-nav li > a { min-height: 44px; }
+}
+
 .lily-nav li > a:hover,
 .lily-nav li > a:focus {
     background: var(--row-hover);

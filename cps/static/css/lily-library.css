@@ -101,6 +101,16 @@
     -webkit-overflow-scrolling: touch;
 }
 
+/* Touch: room above and below for the chips' 44px hit areas (lily.css), so they aren't
+   clipped by the scroller. */
+@media (pointer: coarse) {
+    .filterheader.lily-chips { margin: -7px -4px; padding: 7px 4px; }
+
+    /* Square buttons narrower than 44 reach out sideways too */
+    .lily-sort-dir::after,
+    .datepicker_delete::after { inset: -7px; }
+}
+
 .lily-chips > input[type="hidden"] { display: none; }
 
 .btn.lily-chip {

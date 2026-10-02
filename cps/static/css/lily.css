@@ -393,12 +393,28 @@ button:disabled {
 
 .icon-btn .glyphicon { top: 0; }
 
-/* Touch: 44pt hit target, same drawn size. */
+/* Touch: 44pt hit target, same drawn size. Text buttons and chips (30 tall, 38 in a
+   toolbar) reach out above and below only, so a row of them doesn't overlap sideways. */
 @media (pointer: coarse) {
     .icon-btn::after {
         content: "";
         position: absolute;
         inset: -7px;
+    }
+
+    .btn,
+    .close { position: relative; }
+
+    .close::after {
+        content: "";
+        position: absolute;
+        inset: -7px;
+    }
+
+    .btn::after {
+        content: "";
+        position: absolute;
+        inset: -7px 0;
     }
 }
 
@@ -583,8 +599,19 @@ input[type="radio"] {
 }
 
 @media (pointer: coarse) {
-    /* 16px stops iOS zooming into a field on focus. */
-    .form-control, input, select, textarea { font-size: 18px; }
+    /* 16px or more stops iOS zooming into a field on focus. The field rule's own selectors,
+       so this outranks it ("input" alone lost to input[type="text"] and fields stayed 15px). */
+    .form-control,
+    input[type="text"],
+    input[type="password"],
+    input[type="email"],
+    input[type="number"],
+    input[type="search"],
+    input[type="url"],
+    input[type="tel"],
+    input[type="date"],
+    select,
+    textarea { font-size: 18px; }
 }
 
 /* ------------------------------------------------------------------ */

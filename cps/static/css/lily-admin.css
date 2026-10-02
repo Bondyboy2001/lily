@@ -121,6 +121,11 @@
     transition: color .12s ease-out, background .12s ease-out;
 }
 
+/* Touch: 44 tall, like the sidebar's rows; as chips under 760px too (below). */
+@media (pointer: coarse) {
+    .lp-rail-item { min-height: 44px; }
+}
+
 .lp-rail-item:hover,
 .lp-rail-item:focus { background: var(--row-hover); color: var(--ink); text-decoration: none; }
 
@@ -392,6 +397,9 @@ input[type="checkbox"].lp-switch:disabled { opacity: .4; cursor: not-allowed; }
         font-weight: 500;
         line-height: 30px;
         white-space: nowrap;
+    }
+    @media (pointer: coarse) {
+        .lp-rail-item { height: 44px; line-height: 44px; }
     }
     .lp-rail-item:hover,
     .lp-rail-item:focus { background: var(--accent-soft); color: var(--ink); }
