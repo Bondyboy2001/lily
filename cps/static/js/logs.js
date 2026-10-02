@@ -38,6 +38,7 @@ $(document).ready(function () {
     var timer = null;
     var $copy = $("#log_copy");
     var $copyLabel = $copy.find(".logs-copy-label");
+    var $copyIcon = $copy.find(".glyphicon");
     var copyLabel = $copyLabel.text();
     var copyNote = "";
     var copyTimer = null;
@@ -152,6 +153,9 @@ $(document).ready(function () {
         copyText(shown || "").then(function () {
             copyNote = "";
             $copyLabel.text($copyLabel.attr("data-done"));
+            // A tick in place of the copy glyph says it worked.
+            $copyIcon.toggleClass("glyphicon-copy", false);
+            $copyIcon.toggleClass("glyphicon-ok", true);
         }, function () {
             // Leave the text selected so the shortcut is all that's left to do.
             selectOutput();
@@ -161,6 +165,8 @@ $(document).ready(function () {
             $copy[0].focus();
             copyTimer = setTimeout(function () {
                 $copyLabel.text(copyLabel);
+                $copyIcon.toggleClass("glyphicon-ok", false);
+                $copyIcon.toggleClass("glyphicon-copy", true);
                 if (copyNote) {
                     copyNote = "";
                     setStatus(truncated ? "Showing the most recent entries only." : "", false);

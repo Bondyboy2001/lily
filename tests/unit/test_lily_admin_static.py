@@ -146,15 +146,19 @@ def test_logs_page_is_a_live_tail_without_filters():
 def test_logs_page_copies_what_it_shows():
     html = read(TEMPLATES / "logs.html")
     button = html[html.index('id="log_copy"'):html.index("</button>")]
-    assert 'class="btn btn-default logs-copy"' in html and "disabled" in button
-    assert "glyphicon-copy" in button and 'aria-hidden="true"' in button
-    assert "Copy logs" in button and 'aria-live="polite"' in button
+    # An icon button in the log's top-right corner, named by its tooltip and a hidden label.
+    assert 'class="icon-btn logs-copy"' in button and "disabled" in button
+    assert 'title="{{ _(\'Copy logs\') }}"' in button and 'class="sr-only logs-copy-label"' in button
+    assert "glyphicon-copy" in button and 'aria-hidden="true"' in button and 'aria-live="polite"' in button
+    frame = html[html.index('class="logs-frame"'):]
+    assert frame.index('id="log_copy"') < frame.index('id="log_output"') < frame.index("</div>")
     js = read(REPO_ROOT / "cps/static/js/logs.js")
     # Plain-HTTP installs have no Clipboard API, so there must be a fallback.
     assert "navigator.clipboard" in js and "isSecureContext" in js and 'execCommand("copy")' in js
     assert '$copy.prop("disabled", !text)' in js
     css = read(REPO_ROOT / "cps/static/css/lily-admin.css")
-    assert ".logs-copy-buffer" in css and ".lily-logs .logs-bar" in css
+    assert ".logs-copy-buffer" in css and ".lily-logs .logs-frame { position: relative; }" in css
+    assert ".lily-logs .logs-copy { position: absolute; top: 8px; right: 8px; }" in css
 
 
 def test_sidebar_has_no_utility_links():
