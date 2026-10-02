@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS cwa_settings(
     archived_cleanup_schedule_day TEXT DEFAULT 'sunday' NOT NULL,
     archived_cleanup_schedule_hour INTEGER DEFAULT 3 NOT NULL,
     enable_mobile_blur SMALLINT DEFAULT 1 NOT NULL,
-    auto_metadata_fetch_enabled SMALLINT DEFAULT 0 NOT NULL,
+    auto_metadata_fetch_enabled SMALLINT DEFAULT 1 NOT NULL,
     auto_metadata_smart_application SMALLINT DEFAULT 0 NOT NULL,
     auto_metadata_update_title SMALLINT DEFAULT 1 NOT NULL,
     auto_metadata_update_authors SMALLINT DEFAULT 1 NOT NULL,

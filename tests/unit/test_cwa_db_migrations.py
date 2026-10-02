@@ -176,3 +176,28 @@ def test_failed_migration_rolls_back_and_stops(cwa_dir, monkeypatch):
         assert con.execute("SELECT COUNT(*) FROM cwa_schema_migrations").fetchone()[0] == 0
     finally:
         con.close()
+
+
+@pytest.mark.unit
+def test_a_new_library_fetches_metadata_for_new_books(cwa_dir):
+    # Off by default, a fresh install imported a paper with no abstract, date or arXiv id
+    db = CWA_DB()
+    try:
+        assert db.get_cwa_settings()["auto_metadata_fetch_enabled"] == 1
+    finally:
+        db.close()
+
+
+@pytest.mark.unit
+def test_an_existing_library_keeps_its_fetch_setting(cwa_dir):
+    CWA_DB().close()
+    db_file = str(cwa_dir / "cwa.db")
+    con = sqlite3.connect(db_file)
+    con.execute("UPDATE cwa_settings SET auto_metadata_fetch_enabled=0")
+    con.commit()
+    con.close()
+    db = _reopen(cwa_dir)
+    try:
+        assert db.get_cwa_settings()["auto_metadata_fetch_enabled"] == 0
+    finally:
+        db.close()
