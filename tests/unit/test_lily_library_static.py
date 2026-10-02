@@ -103,9 +103,10 @@ def test_detail_description_has_no_heading_and_shows_in_full():
             assert "line-clamp" not in body, selector
 
 
-def test_detail_page_does_not_show_tags():
+def test_detail_page_does_not_show_tags_or_shelves():
     html = read(TEMPLATES / "detail.html")
     assert 'class="tags"' not in html and "entry.tags" not in html and "data='category'" not in html
+    assert 'class="shelves"' not in html and "book-shelves-row" not in html and "books_shelfs" not in html
     assert "is-tag" not in html and "is-tag" not in read(CSS / "lily-library.css")
 
 
@@ -287,9 +288,6 @@ def test_detail_rows_keep_metadata_in_a_side_panel():
         assert declaration in metadata
     # One column of facts at every width
     assert "grid-template-columns: minmax(0, 1fr)" in metadata
-    # Every shelf is shown: that row wraps instead of ending in an ellipsis
-    wrapping = next(body for selector, body in css_rules(css) if ".book-metadata > .shelves > dd" in selector)
-    assert "white-space: normal" in wrapping and "overflow: visible" in wrapping
     assert not any("book-metadata" in selector and "repeat(" in body for selector, body in css_rules(css))
     html = read(TEMPLATES / "detail.html")
     # The panel is its own grid item, not tucked under the description.

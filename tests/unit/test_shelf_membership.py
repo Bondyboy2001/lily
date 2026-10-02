@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """One book on or off one shelf (shelf.set_book_on_shelf): the remove button on shelf pages."""
 
-import re
 
 import pytest
 
@@ -70,8 +69,8 @@ class TestSetBookOnShelf:
         signed_out = env.app.test_client()
         assert signed_out.post(f"/shelf/{shelf}/book/{book}", json={"on": True}).status_code in (302, 401)
 
-    def test_book_page_lists_its_shelves_without_a_shelves_menu(self, env):
-        # Shelves are changed on the edit page; the book page only names them
+    def test_book_page_does_not_show_its_shelves(self, env):
+        # Shelves are changed on the edit page; the book page doesn't show them
         from cps import ub
         book = env.add_book("Shelvable")
         on, off = _shelf(env, "Reading Group"), _shelf(env, "Holiday")
@@ -79,10 +78,9 @@ class TestSetBookOnShelf:
         ub.session.commit()
         html = _login(env).get(f"/book/{book}").get_data(as_text=True)
         assert "book-shelves-menu" not in html and "menuitemcheckbox" not in html
-        row = html[html.index('id="book-shelves-row"'):]
-        row = row[:row.index("</div>")]
-        assert re.search(r'data-shelf-id="%d">Reading Group' % on, row)
-        assert "Holiday" not in row
+        panel = html[html.index('<dl class="book-metadata">'):]
+        panel = panel[:panel.index("</dl>")]
+        assert "book-shelves-row" not in html and "Reading Group" not in panel
 
     def test_shelf_page_cards_offer_removal(self, env):
         from cps import ub

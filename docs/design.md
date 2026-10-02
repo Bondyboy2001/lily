@@ -531,11 +531,9 @@ content (grid, panel, rows)
 - Description: `--font-body` 18px, line-height 1.68, `--ink-soft`, no measure
   cap: it fills the width it is given.
 - The facts are always one column, at every width: never split into two.
-- Every fact is one line; a long value ends in an ellipsis, never wraps. Shelves
-  are the exception: every name is shown, wrapping onto more lines.
-- Shelves are a plain row in the facts panel: names as comma-separated `--accent`
-  links, no chip or icon. Tags are not shown on the book page (they stay
-  editable on the edit page).
+- Every fact is one line; a long value ends in an ellipsis, never wraps.
+- Tags and shelves are not shown on the book page; both stay editable on the
+  edit page.
 - The action bar is Read, Download, Mark as read, Edit metadata and Delete. A book's
   shelves are changed on its edit page (the Shelves rows), never from the book page.
   There is no archive and no Keep offline button. On a shelf page each cover gets a

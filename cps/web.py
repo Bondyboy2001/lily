@@ -1459,11 +1459,6 @@ def show_book(book_id):
             entry.languages[lang_index].language_name = isoLanguages.get_language_name(get_locale(), entry.languages[
                 lang_index].lang_code)
         cc = calibre_db.get_cc_columns(config, filter_config_custom_read=True)
-        book_in_shelves = []
-        shelves = ub.session.query(ub.BookShelf).filter(ub.BookShelf.book_id == book_id).all()
-        for sh in shelves:
-            book_in_shelves.append(sh.shelf)
-
         entry.tags = sort(entry.tags, key=lambda tag: tag.name)
 
         # Filter tags based on user's allowed/denied tags (Issue #906)
@@ -1510,7 +1505,6 @@ def show_book(book_id):
                                      cc=cc,
                                      is_xhr=request.headers.get('X-Requested-With') == 'XMLHttpRequest',
                                      title=entry.title,
-                                     books_shelfs=book_in_shelves,
                                      cwa_settings=cwa_settings,
                                      metadata_lookup=metadata_lookup,
                                      page="book")

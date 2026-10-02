@@ -140,14 +140,6 @@
                     <dd>{% for language in entry.languages %}{{ language.language_name }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>
                 </div>
             {% endif %}
-            {# Shelves are plain links; the book's shelves are changed on its edit page #}
-            {% set shelves = (g.shelves_access if current_user.is_authenticated else [])|selectattr('id', 'in', books_shelfs)|list %}
-            {% if shelves %}
-                <div class="shelves" id="book-shelves-row">
-                    <dt>{{ _('Shelves') }}</dt>
-                    <dd>{% for shelf in shelves %}<a href="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}" data-shelf-id="{{ shelf.id }}">{{ shelf.name }}</a>{% endfor %}</dd>
-                </div>
-            {% endif %}
             {# An arXiv paper shows its id, linked to the abstract page #}
             {% if entry.arxiv_id %}
                 <div class="arxiv">
