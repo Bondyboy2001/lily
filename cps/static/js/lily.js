@@ -221,7 +221,7 @@
         var $img = $book.find(".cover .img");
         $img.find(".badge.read").remove();
         if (nowRead) {
-          $("<span class='badge read is-new glyphicon glyphicon-ok-circle' aria-hidden='true'></span>").appendTo($img);
+          $("<span class='badge read is-new glyphicon glyphicon-eye-open' aria-hidden='true'></span>").appendTo($img);
         }
       }).fail(function (xhr) {
         flash((xhr.responseJSON && xhr.responseJSON.message) || "Could not change the read status. Try again.", "danger");

@@ -128,7 +128,7 @@ def get_sidebar_config(kwargs=None):
     sidebar.append({"glyph": "glyphicon-education", "text": _('Reading'), "link": 'web.books_list', "id": "inprogress",
                     "visibility": constants.SIDEBAR_RECENT, 'public': (not current_user.is_anonymous),
                     "page": "inprogress", "show_text": _('Show Reading'), "config_show": False})
-    sidebar.append({"glyph": "glyphicon-ok-circle", "text": _('Finished'), "link": 'web.books_list', "id": "read",
+    sidebar.append({"glyph": "glyphicon-eye-open", "text": _('Finished'), "link": 'web.books_list', "id": "read",
                     "visibility": constants.SIDEBAR_RECENT, 'public': (not current_user.is_anonymous),
                     "page": "read", "show_text": _('Show Read and Unread'), "config_show": content})
     sidebar.append(

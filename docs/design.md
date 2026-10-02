@@ -435,9 +435,9 @@ its first page has that page cropped to even side margins around the print on im
 on Rebuild metadata (`cps/pdf_cover.py`), no wider than the tile, so the anchor rarely
 trims those. A cover more than 5% wider than A4 (a publisher's 3:4 front prints its title
 and author near the edge) is marked `.cover-wide` by `lily.js` and shown whole with
-`object-fit: contain`, centred on the `--sunk` bands, rather than losing words. Read state is a 3px `--success` inset outline plus a corner tick badge titled "Finished" on grid
-covers, and a green dot in list view. Mark-as-read controls use the tick-in-a-circle
-glyph (`glyphicon-ok-circle`), the same mark as the sidebar's Finished row.
+`object-fit: contain`, centred on the `--sunk` bands, rather than losing words. Read state is a 3px `--success` inset outline plus a corner eye badge titled "Finished" on grid
+covers, and a green dot in list view. Mark-as-read controls use the eye
+glyph (`glyphicon-eye-open`), the same mark as the sidebar's Finished row.
 
 ---
 
@@ -484,8 +484,8 @@ content (grid, panel, rows)
   two lines, then meta 14px `--muted`. Quick actions are round buttons
   in a row at the cover's bottom right, 8px in, 6 apart: 32px `--surface`
   discs with a 1px `--line` edge and `--menu-shadow`, `--ink` icons, `--accent` on hover. They rise and fade in
-  on hover/focus and stay visible on touch (36px, 8 apart). Read state fills the tick's disc
-  `--success` with a `--surface` tick. No popups over the cover or its buttons (§5.6).
+  on hover/focus and stay visible on touch (36px, 8 apart). Read state fills the eye's disc
+  `--success` with a `--surface` eye. No popups over the cover or its buttons (§5.6).
 - **Series grid** (`grid.html`): Isotope lays it out with fixed 160px tiles,
   22 apart, so it doesn't follow the 190/26 card grid.
 - **List view ("ledger"):** one shared `--ledger-cols` track list for header and
@@ -545,7 +545,7 @@ content (grid, panel, rows)
 - Read is the Primary and wears its word ("Read", or "Continue · 33%" for a book in
   progress, opening the reader in a new tab at the format last read). Every other action
   is a 44px square icon button named by its `title` and a hidden label; Delete sits 14px
-  apart at the end. Read state, once on, is the tick in `--success` on a 34% `--success` tint.
+  apart at the end. Read state, once on, is the eye in `--success` on a 34% `--success` tint.
 - **Fact tags** (`dl.book-metadata`, one `.book-fact` per fact): radius 999, 30 tall,
   padding 0 14, 14px/500, `--control-tint` with `--ink-soft`; a tag holding a link takes
   `--accent-soft` with an `--accent` label (`--selected` on hover). Each tag keeps its `dt`
@@ -708,7 +708,7 @@ request says so in one quiet line at the foot of the page (`#bookmark-status`,
 | Cover actions rise | 300 ms, same curve as the hover lift | Grid quick actions |
 | Search widen | 400 ms, entrance curve | Top bar search on focus |
 | Refresh spin | 800 ms once on hover | `#refresh-library` |
-| Read-mark draw | 450 ms, entrance curve | A tick just marked read |
+| Read-mark draw | 450 ms, entrance curve | An eye just marked read |
 
 Anything beyond a state change goes inside
 `@media (prefers-reduced-motion: no-preference)`. The global

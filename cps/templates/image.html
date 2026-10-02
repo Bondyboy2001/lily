@@ -207,7 +207,7 @@
       {% set label_read = _('Mark %(name)s as unread', name=book.title) %}
       {% set label_unread = _('Mark %(name)s as read', name=book.title) %}
       <button type="button" class="icon-btn lily-toggle-read{{ ' is-on' if is_read }}" aria-label="{{ label_read if is_read else label_unread }}"
-              data-label-read="{{ label_read }}" data-label-unread="{{ label_unread }}"><span class="glyphicon glyphicon-ok-circle" aria-hidden="true"></span></button>
+              data-label-read="{{ label_read }}" data-label-unread="{{ label_unread }}"><span class="glyphicon glyphicon-eye-open" aria-hidden="true"></span></button>
       {% endif %}
       {% if user.role_edit() %}
       <a class="icon-btn" href="{{ url_for('edit-book.show_edit_book', book_id=book.id) }}" aria-label="{{ _('Edit %(name)s', name=book.title) }}"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></span></a>
@@ -239,7 +239,7 @@
         <a href="{{ url_for('web.show_book', book_id=book.id) }}" class="book-cover-link" data-book-id="{{ book.id }}">
           <span class="img">
             {{ book_cover(book, alt=alt) }}
-            {% if is_read %}<span class="badge read glyphicon glyphicon-ok-circle" aria-hidden="true"></span>{% endif %}
+            {% if is_read %}<span class="badge read glyphicon glyphicon-eye-open" aria-hidden="true"></span>{% endif %}
           </span>
         </a>
         {{ cover_actions(book, user, formats, is_read, shelf) }}

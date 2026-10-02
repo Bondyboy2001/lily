@@ -168,11 +168,11 @@
                         {% endif %}
                     {% endif %}
                     {% if not current_user.is_anonymous %}
-                        {# A tick in a circle, green once read (styled off .is-on); the hidden label is the button's name.
+                        {# An eye, green once read (styled off .is-on); the hidden label is the button's name.
                            The label names the action and flips, so there is no aria-pressed (design §5.1). #}
                         {% set read_label = entry.read_status and _('Mark as unread') or _('Mark as read') %}
                         <button type="button" class="btn is-icon{{ ' is-on' if entry.read_status }}" id="toggle-read-btn" title="{{ read_label }}">
-                            <span id="read-icon" class="glyphicon glyphicon-ok-circle" aria-hidden="true"></span><span class="book-action-label sr-only">{{ read_label }}</span>
+                            <span id="read-icon" class="glyphicon glyphicon-eye-open" aria-hidden="true"></span><span class="book-action-label sr-only">{{ read_label }}</span>
                         </button>
                     {% endif %}
                     {% if current_user.role_edit() %}

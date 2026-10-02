@@ -150,9 +150,9 @@ def test_detail_read_toggle_shows_state_without_a_disc():
     for body in parts.values():
         assert "border-radius: 50%" not in body and "background: var(--success)" not in body
     html = read(TEMPLATES / "detail.html")
-    # One glyph for both states (a tick in a circle); the colour shows which.
-    assert 'id="read-icon" class="glyphicon glyphicon-ok-circle"' in html
-    assert "eye-open" not in html
+    # One glyph for both states (an eye); the colour shows which.
+    assert 'id="read-icon" class="glyphicon glyphicon-eye-open"' in html
+    assert "ok-circle" not in html
 
 
 def test_lily_library_css_uses_tokens_only():

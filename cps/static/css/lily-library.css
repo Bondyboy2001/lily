@@ -260,7 +260,7 @@
     line-height: 1;
 }
 
-/* A finished book's corner tick, alongside the green edge. */
+/* A finished book's corner eye, alongside the green edge. */
 .lily-book .cover .badge.read {
     width: 20px;
     padding: 0;
@@ -354,7 +354,7 @@
     letter-spacing: 1px;
 }
 
-/* A read book's cover is edged in green (lily.js toggles .is-read with the tick button). */
+/* A read book's cover is edged in green (lily.js toggles .is-read with the eye button). */
 .lily-book.is-read .cover::after {
     z-index: 3;
     outline: 3px solid var(--success);
@@ -398,7 +398,7 @@
 
 .lily-cover-actions .icon-btn .glyphicon { font-size: 15px; }
 
-/* Read: the tick's disc fills green, and the cover gets a green edge. */
+/* Read: the eye's disc fills green, and the cover gets a green edge. */
 .lily-cover-actions .icon-btn.is-on,
 .lily-cover-actions .icon-btn.is-on:hover,
 .lily-cover-actions .icon-btn.is-on:focus {
@@ -661,7 +661,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
     background: none;
 }
 
-/* The read tick keeps its green disc even in list rows, where the other
+/* The read eye keeps its green disc even in list rows, where the other
    quick actions go square and flat. */
 body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read {
     border-radius: 50%;
@@ -1251,7 +1251,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 
 .book-action-bar > .btn.is-danger { margin-left: 14px; }
 
-/* Read state: a tick in a circle, green on a clearly green tint once read. */
+/* Read state: an eye, green on a clearly green tint once read. */
 .book-action-bar #toggle-read-btn.is-on,
 .book-action-bar #toggle-read-btn.is-on:focus {
     background: color-mix(in srgb, var(--success) 34%, transparent);
