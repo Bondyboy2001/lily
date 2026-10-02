@@ -600,14 +600,30 @@ input[type="radio"] {
     font-size: 15px;
 }
 
-.dropdown-menu > li > a {
+.dropdown-menu > li > a,
+.dropdown-menu > li > button {
     padding: 7px 11px;
     border-radius: var(--control-radius);
     color: var(--ink-soft);
 }
 
+/* A menu item that acts in place (a checkbox item) is a button drawn like a link item. */
+.dropdown-menu > li > button {
+    display: block;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    line-height: 1.42857;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
 .dropdown-menu > li > a:hover,
-.dropdown-menu > li > a:focus {
+.dropdown-menu > li > a:focus,
+.dropdown-menu > li > button:hover,
+.dropdown-menu > li > button:focus {
     background: var(--hover);
     color: var(--ink);
 }

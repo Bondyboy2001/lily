@@ -288,6 +288,42 @@ def render_show_shelf(shelf_id, page_no, sort_param):
         return redirect(url_for("web.index"))
 
 
+@shelf.route("/shelf/<int:shelf_id>/book/<int:book_id>", methods=["POST"])
+@user_login_required
+def set_book_on_shelf(shelf_id, book_id):
+    """Put one book on a shelf or take it off: JSON {"on": true|false}. Used by the book page's
+    Shelves menu and the remove button on shelf pages. Answers {"on": bool, "count": int}."""
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data.get("on"), bool):
+        return jsonify({"message": _("Say whether the book goes on the shelf or comes off it.")}), 400
+    cur_shelf = ub.session.query(ub.Shelf).filter(ub.Shelf.id == shelf_id).first()
+    if cur_shelf is None:
+        return jsonify({"message": _("That shelf doesn't exist any more.")}), 404
+    if not check_shelf_edit_permissions(cur_shelf):
+        return jsonify({"message": _("You can't change this shelf.")}), 403
+    if not calibre_db.session.query(db.Books.id).filter(db.Books.id == book_id).first():
+        return jsonify({"message": _("That book isn't in your library any more.")}), 404
+    link = ub.session.query(ub.BookShelf).filter(ub.BookShelf.shelf == shelf_id,
+                                                 ub.BookShelf.book_id == book_id).first()
+    try:
+        if data["on"] and not link:
+            max_order = ub.session.query(func.max(ub.BookShelf.order)).filter(
+                ub.BookShelf.shelf == shelf_id).scalar()
+            cur_shelf.books.append(ub.BookShelf(shelf=shelf_id, book_id=book_id, order=(max_order or 0) + 1))
+            cur_shelf.last_modified = datetime.now(timezone.utc)
+        elif not data["on"] and link:
+            ub.session.delete(link)
+            cur_shelf.last_modified = datetime.now(timezone.utc)
+        ub.session.commit()
+    except (OperationalError, InvalidRequestError) as e:
+        ub.session.rollback()
+        log.error_or_exception("Could not change shelf %s for book %s: %s", shelf_id, book_id, e)
+        return jsonify({"message": _("Couldn't change the shelf. Try again; if it keeps failing, "
+                                     "check Logs in Settings.")}), 500
+    count = ub.session.query(func.count(ub.BookShelf.id)).filter(ub.BookShelf.shelf == shelf_id).scalar()
+    return jsonify({"on": data["on"], "count": count or 0})
+
+
 @shelf.route("/shelf/add_selected_to_shelf", methods=["POST"])
 @user_login_required
 def add_selected_to_shelf():

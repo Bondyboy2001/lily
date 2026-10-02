@@ -329,7 +329,8 @@ drawn as a Menu (§5.6); elsewhere the native list stays.
 ### 5.6 Menus, popovers, tooltips
 
 `--surface`, 1px `--line`, radius 10, `--menu-shadow`, 6px inset. Items: padding
-7×11, radius 6, `--ink-soft`; hover `--hover`; current `--selected`. Group
+7×11, radius 6, `--ink-soft`; hover `--hover`; current `--selected`. An item that acts in place
+(a checkbox item) is a `<button>` drawn exactly like a link item. Group
 heads (`.dropdown-header`) are headings at `--heading-size`. No dividers
 (`.divider` is hidden): separate groups with a header. Tooltips use
 `--font-ui`; every icon button and truncated text has one, phrased as a plain
@@ -513,6 +514,11 @@ content (grid, panel, rows)
 - Every fact is one line; a long value ends in an ellipsis, never wraps.
 - Shelves and tags are plain rows in the facts panel: names as comma-separated
   `--accent` links, no chip or icon.
+- Shelves are changed in place: the action bar's Shelves icon opens a menu of the
+  shelves you may change, each a checkbox item (`role=menuitemcheckbox`, a tick when
+  on) that puts the book on or takes it off at once, plus "New shelf". The facts row
+  and sidebar counts follow without a reload. On a shelf page each cover gets a
+  quiet `.icon-btn.is-danger` remove action (`shelves.js`).
 - Papers: an arXiv row shows the id itself, linked to the abstract page; its
   DOI isn't shown. Other identifiers (a non-arXiv paper's DOI included) stay as
   named links in one Identifiers row. A Citations row fills in after load from OpenAlex
