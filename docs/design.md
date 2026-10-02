@@ -399,7 +399,7 @@ one level deep.
 ### 5.12 Progress and busy
 
 - **Progress bar:** 4px, radius 999, track `--control-tint`, bar `--accent`
-  (tone variants for success/warning/danger). On a cover (Continue Reading) it
+  (tone variants for success/warning/danger). On a cover (the Reading list) it
   runs flush along the bottom edge, 5px, on an ink-22% track (`--control-tint`
   vanishes over cover art); the share read is written under the author
   ("33% read", 14px `--muted`), not on the bar.
@@ -508,11 +508,10 @@ content (grid, panel, rows)
   ("3 groups of duplicate books. Review duplicates") joins the flashes at the top of
   the page, once per browser session and again when the count rises. It is never a
   dialog: nothing covers the page the user came to use.
-- **Continue Reading** (`.continue-reading-row`): one row that scrolls sideways,
-  never wraps, so the library starts on the first screen. Covers are 140px wide
-  (112 on phones), 22 apart (14 on phones). The cover opens the reader in a
-  new tab at the saved format; the title opens the book page. The book page
-  reuses this row (`image.book_row`) under the description for "Next in
+- **Book row** (`.continue-reading-row`, `image.book_row`): one row that scrolls
+  sideways, never wraps. Covers are 140px wide (112 on phones), 22 apart (14 on
+  phones). The library has no Continue Reading row; books in progress are in the
+  Reading list. The book page uses the row under the description for "Next in
   ‹Series›" (later books in order, or "Earlier in ‹Series›" for the last one,
   with "Book N" under each title) and "More by ‹Author›" (up to 12, newest
   first); there the cover and title both open the book page.
@@ -686,7 +685,7 @@ request says so in one quiet line at the foot of the page (`#bookmark-status`,
 
 - Only where the browser runs a service worker: HTTPS or localhost. Over plain
   `http://host:port` nothing changes.
-- Books in Continue Reading are kept automatically and let go when they leave it;
+- Books in progress (the Reading list) are kept automatically and let go when they leave it;
   there is no button to keep a book. Taking one in progress off the device sticks.
 - With no network, a page that was kept opens from the device; anything else opens
   the **Offline** page (`/offline`, a `.lily-standalone` page): the kept books as

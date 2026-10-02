@@ -405,6 +405,9 @@ class ReadBook(Base):
     user_id = Column(Integer, ForeignKey('user.id'), unique=False)
     read_status = Column(Integer, unique=False, default=STATUS_UNREAD, nullable=False)
     last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    # Active reading time in the web reader since this read began, which reaching the end
+    # needs enough of before the book counts as finished (web._update_read_status_from_web_progress)
+    reading_seconds = Column(Integer, default=0)
 
 
 class Bookmark(Base):
@@ -571,6 +574,15 @@ def migrate_bookmark_table(engine, _session):
         except exc.OperationalError:  # bookmark rows from before the reader's bookmark list
             _safe_session_rollback(_session, "bookmark." + column.key)
             _run_ddl_with_retry(engine, "ALTER TABLE bookmark ADD column '{}' String".format(column.key))
+
+
+def migrate_read_book_table(engine, _session):
+    try:
+        _session.query(exists().where(ReadBook.reading_seconds)).scalar()
+        _session.commit()
+    except exc.OperationalError:  # rows from before reading time was counted
+        _safe_session_rollback(_session, "book_read_link.reading_seconds")
+        _run_ddl_with_retry(engine, "ALTER TABLE book_read_link ADD column 'reading_seconds' Integer DEFAULT 0")
 
 
 def migrate_user_table(engine, _session):
@@ -847,6 +859,7 @@ def migrate_Database(_session):
     migrate_user_session_table(engine, _session)
     migrate_user_table(engine, _session)
     migrate_bookmark_table(engine, _session)
+    migrate_read_book_table(engine, _session)
     migrate_default_sidebar(_session)
     migrate_restore_emptied_sidebars(_session)
     # Runs after every user column migration so the full User model can be queried

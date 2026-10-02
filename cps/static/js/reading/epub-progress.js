@@ -104,7 +104,13 @@ const progressSync = LilyProgress.create({
     storageKey: calibre.progressKey || calibre.bookUrl,
     format: calibre.progressFormat,
     statusEl: document.getElementById("progress-sync-status"),
-    enabled: calibre.syncProgress === true
+    enabled: calibre.syncProgress === true,
+    // The book's length in pages, for how long it takes to read: epub.js makes a location
+    // every 150 characters, and a printed page holds about 1,800
+    pages: () => {
+        let count = epub && epub.locations ? epub.locations.length() : 0;
+        return count ? count * 150 / 1800 : null;
+    }
 });
 // Nothing is saved until the starting position has been restored, otherwise the
 // first page render would overwrite the position we are about to jump to.

@@ -231,7 +231,7 @@
 {%- endmacro %}
 
 {# One book in a cover grid (index, author, search, shelf). Cards are plain: cover, title, authors. #}
-{# progress: the share read (0-100) of a book in progress, drawn as Continue Reading draws it (Reading list) #}
+{# progress: the share read (0-100) of a book in progress, drawn along the cover's foot (Reading list) #}
 {% macro book_card(book, user, is_read=False, authors_max=0, series_link=True, alt=None, extra_class='', shelf=None, progress=None) -%}
     {%- set formats = book.data|map(attribute='format')|map('lower')|list -%}
     <div class="book lily-book{{ " is-read" if is_read }} {{ extra_class }}">
@@ -333,7 +333,7 @@
     </div>
 {%- endmacro %}
 
-{# A sideways-scrolling row of books under a heading: the Continue Reading row's look (§6.3), used
+{# A sideways-scrolling row of books under a heading (§6.3), used
    on the book page for the rest of a series and more by the author. Each cover and title opens
    the book's page; the cover is skipped by the keyboard so each book is one tab stop.
    numbered shows "Book N" (the series number) under the title. #}

@@ -73,12 +73,12 @@ class TestRoutes:
 @pytest.mark.unit
 class TestBookSpecs:
     def test_the_book_page_has_no_keep_offline_button(self, env):
-        # Books are kept offline from Continue Reading only
+        # Books are kept offline from the books in progress only
         book = env.add_book("Offline Epub", fmt="EPUB")
         html = _login(env).get(f"/book/{book}").get_data(as_text=True)
         assert 'keep-offline-btn' not in html
 
-    def test_library_hands_over_continue_reading(self, env):
+    def test_library_hands_over_the_books_in_progress(self, env):
         from cps import ub
         reading = env.add_book("In Progress", fmt="EPUB")
         env.add_book("Not Started", fmt="EPUB")
@@ -89,7 +89,7 @@ class TestBookSpecs:
         books = json.loads(re.search(r'<script type="application/json" id="lily-offline-auto">(.*?)</script>',
                                      html, flags=re.S).group(1))
         assert [(b["id"], b["format"]) for b in books] == [(reading, "epub")]
-        # Other lists (here: a filtered one) don't speak for Continue Reading.
+        # Other lists (here: a filtered one) don't speak for the books in progress.
         assert 'id="lily-offline-auto"' not in client.get("/", query_string={"format": "epub"}).get_data(as_text=True)
 
 

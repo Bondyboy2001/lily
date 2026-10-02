@@ -1,7 +1,7 @@
 /*
  * Offline reading, the page side (the worker is templates/sw.js, served at /sw.js).
  * - Registers the worker, where the browser allows one (HTTPS or localhost).
- * - Library: hands the worker the Continue Reading books (#lily-offline-auto) to keep.
+ * - Library: hands the worker the books in progress (#lily-offline-auto) to keep.
  * - Offline page: lists the books kept on this device.
  * Where there is no worker, nothing happens.
  */

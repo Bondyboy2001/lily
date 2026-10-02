@@ -28,7 +28,9 @@
         storageKey: calibre.progressKey,
         format: calibre.progressFormat,
         statusEl: document.getElementById("progress-sync-status"),
-        enabled: calibre.syncProgress === true
+        enabled: calibre.syncProgress === true,
+        // Listening goes on with the tab in the background
+        background: true
     });
     var restored = false;
     var lastSaved = -1;

@@ -92,7 +92,7 @@ class TestFilterChips:
         ub.session.commit()
 
         def order(html):
-            # The grid only: Continue Reading above it lists in-progress books by recency anyway.
+            # The grid only
             grid = html[html.index('class="lily-list-toolbar"'):]
             return re.findall(r'<p title="([^"]+)" class="title"', grid)
 

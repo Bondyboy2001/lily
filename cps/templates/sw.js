@@ -200,7 +200,7 @@ async function dropBook(id, keepTombstone) {
   const old = index[id];
   if (!old) { return null; }
   if (keepTombstone) {
-    // A book still in Continue Reading would come straight back; remember it was taken off.
+    // A book still in progress would come straight back; remember it was taken off.
     index[id] = { id: id, excluded: true, auto: true, picked: false, pages: [], files: [], statics: [] };
   } else {
     delete index[id];
@@ -217,7 +217,7 @@ async function patchEntry(id, fields) {
   await writeIndex(index);
 }
 
-// Continue Reading, as the library page lists it: keep those books, let go of the ones that left
+// The books in progress, as the library page hands them over: keep those books, let go of the ones that left
 // (unless they were picked), and forget "taken off" marks for books no longer in progress.
 async function syncAuto(books) {
   const wanted = new Map(books.map((b) => [String(b.id), b]));

@@ -273,7 +273,7 @@ class TestWebReaderProgress:
     def test_finishing_marks_read_and_does_not_reopen(self, env):
         book_id = env.add_book("Progress Book")
         client = _login(env)
-        client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/99)", "percent": 0.995})
+        client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/99)", "percent": 0.995, "seconds": 300})
         assert _read_status(env, book_id) == env.ub.ReadBook.STATUS_FINISHED
         # scrolling back after finishing keeps the book finished
         client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/2)", "percent": 0.1})
@@ -282,13 +282,46 @@ class TestWebReaderProgress:
     def test_reading_a_finished_book_again_from_the_start_reopens_it(self, env):
         book_id = env.add_book("Progress Book")
         client = _login(env)
-        client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/99)", "percent": 1.0})
+        client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/99)", "percent": 1.0, "seconds": 300})
         assert _read_status(env, book_id) == env.ub.ReadBook.STATUS_FINISHED
         # just opening it at the very start (the cover) doesn't count yet
         client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/2)", "percent": 0.0})
         assert _read_status(env, book_id) == env.ub.ReadBook.STATUS_FINISHED
         client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/4)", "percent": 0.02})
         assert _read_status(env, book_id) == env.ub.ReadBook.STATUS_IN_PROGRESS
+        # The re-read's time starts over: the first read's doesn't finish it again
+        client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/99)", "percent": 1.0, "seconds": 60})
+        assert _read_status(env, book_id) == env.ub.ReadBook.STATUS_IN_PROGRESS
+
+    def test_skimming_to_the_end_does_not_finish_a_book(self, env):
+        book_id = env.add_book("Progress Book")
+        client = _login(env)
+        client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/4)", "percent": 0.3, "seconds": 40})
+        client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/99)", "percent": 1.0, "seconds": 40})
+        assert _read_status(env, book_id) == env.ub.ReadBook.STATUS_IN_PROGRESS
+        # An old reader that sends no reading time can't finish one either
+        client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/99)", "percent": 1.0})
+        assert _read_status(env, book_id) == env.ub.ReadBook.STATUS_IN_PROGRESS
+
+    def test_reading_time_adds_up_across_posts_until_the_end_finishes_it(self, env):
+        book_id = env.add_book("Progress Book")
+        client = _login(env)
+        for percent in (0.3, 0.6, 0.9):
+            client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/4)", "percent": percent, "seconds": 100})
+        assert _read_status(env, book_id) == env.ub.ReadBook.STATUS_IN_PROGRESS
+        client.post(f"/ajax/progress/{book_id}", json={"cfi": "epubcfi(/6/99)", "percent": 1.0, "seconds": 0})
+        assert _read_status(env, book_id) == env.ub.ReadBook.STATUS_FINISHED
+
+    def test_a_longer_book_needs_longer(self, env):
+        book_id = env.add_book("Progress Book")
+        client = _login(env)
+        # An epub of 100 pages: 15 seconds a page
+        client.post(f"/ajax/progress/{book_id}",
+                    json={"cfi": "epubcfi(/6/99)", "percent": 1.0, "seconds": 1400, "pages": 100})
+        assert _read_status(env, book_id) == env.ub.ReadBook.STATUS_IN_PROGRESS
+        client.post(f"/ajax/progress/{book_id}",
+                    json={"cfi": "epubcfi(/6/99)", "percent": 1.0, "seconds": 100, "pages": 100})
+        assert _read_status(env, book_id) == env.ub.ReadBook.STATUS_FINISHED
 
     @pytest.mark.parametrize("payload", [None, [], {"cfi": "x"}, {"percent": 0.5}, {"cfi": "", "percent": 0.5},
                                          {"cfi": 5, "percent": 0.5}, {"cfi": "x", "percent": 1.5},
@@ -373,3 +406,27 @@ class TestContinueReadingWebSource:
         assert progress[11] is None
         assert progress[12] == pytest.approx(10.0)
         assert progress[13] is None
+
+
+@pytest.mark.unit
+class TestReadingTimeToFinish:
+    def test_pages_from_the_position_or_the_reader(self):
+        from cps.web import _seconds_to_finish
+        assert _seconds_to_finish("page:300", 1.0) == 300 * 15
+        assert _seconds_to_finish("page:150", 0.5) == 300 * 15
+        assert _seconds_to_finish("page:4", 1.0) == 5 * 60  # a short paper still takes five minutes
+        assert _seconds_to_finish("epubcfi(/6/2)", 1.0, pages=200) == 200 * 15
+        assert _seconds_to_finish("epubcfi(/6/2)", 1.0) == 5 * 60
+
+    def test_an_audiobook_needs_half_its_length(self):
+        from cps.web import _seconds_to_finish
+        assert _seconds_to_finish("time:3600", 1.0) == 1800
+
+    @pytest.mark.parametrize("data, expected", [
+        ({}, (0, None)), ({"seconds": -5}, (0, None)), ({"seconds": True}, (0, None)),
+        ({"seconds": 99999}, (3600, None)), ({"seconds": 12.7, "pages": 40}, (12, 40)),
+        ({"pages": 0}, (0, None)), ({"pages": "40"}, (0, None)),
+    ])
+    def test_reading_time_from_a_post(self, data, expected):
+        from cps.web import _reading_time
+        assert _reading_time(data) == expected

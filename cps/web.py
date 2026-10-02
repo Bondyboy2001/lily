@@ -154,6 +154,14 @@ WEB_PROGRESS_CFI_MAX_LEN = 4096
 WEB_PROGRESS_FINISHED_AT = 0.99
 # A finished book read again from (near) the start counts as being read again.
 WEB_PROGRESS_REREAD_BELOW = 0.05
+# Reaching the end only finishes a book after this much active reading (progress-sync.js
+# counts it): 15 seconds a page, at least five minutes, or half an audiobook's length.
+# Opening a book and scrolling through it to the end leaves it in progress.
+READ_SECONDS_PER_PAGE = 15
+READ_MIN_SECONDS = 5 * 60
+READ_AUDIO_SHARE = 0.5
+# The most reading time one post can claim (the reader posts far more often)
+READ_SECONDS_MAX_POST = 3600
 
 # Reader bookmarks: any number per user, book and format. Keys are positions in the
 # progress sync's form: an epub CFI, or "page:N" for pdf and djvu.
@@ -347,19 +355,48 @@ def _seeded_legacy_progress(legacy, book, fmt):
     return None
 
 
-def _update_read_status_from_web_progress(user_id, book_id, percent):
-    """Unread -> in progress; anything not finished -> finished once the reader hits the end;
-    finished -> in progress again when it is reopened from the start (a re-read)."""
+def _reading_time(data):
+    """(seconds read since the last post, the book's length in pages or None) from a progress
+    post. Clients from before reading time was counted send neither: no time, no length."""
+    seconds = data.get("seconds")
+    if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or not math.isfinite(seconds):
+        seconds = 0
+    pages = data.get("pages")
+    if isinstance(pages, bool) or not isinstance(pages, (int, float)) or not math.isfinite(pages) or pages <= 0:
+        pages = None
+    return int(max(0, min(READ_SECONDS_MAX_POST, seconds))), pages
+
+
+def _seconds_to_finish(cfi, percent, pages=None):
+    """How much active reading finishing the book takes. A page position near the end gives
+    the page count, a time position the audiobook's length; an epub reader sends its pages."""
+    m = re.fullmatch(r"(page|time):(\d+(?:\.\d+)?)", cfi or "")
+    if m and percent > 0:
+        size = float(m.group(2)) / percent
+        if m.group(1) == "time":
+            return READ_AUDIO_SHARE * size
+        pages = size
+    return max(READ_MIN_SECONDS, READ_SECONDS_PER_PAGE * pages) if pages else READ_MIN_SECONDS
+
+
+def _update_read_status_from_web_progress(user_id, book_id, percent, seconds=0, needed=READ_MIN_SECONDS):
+    """Unread -> in progress; anything not finished -> finished once the reader hits the end
+    after `needed` seconds of reading, counted across posts; finished -> in progress again when
+    it is reopened from the start (a re-read, whose reading time starts over)."""
     read_book = ub.session.query(ub.ReadBook).filter(ub.ReadBook.user_id == user_id,
                                                      ub.ReadBook.book_id == book_id).first()
     if not read_book:
         read_book = ub.ReadBook(user_id=user_id, book_id=book_id, read_status=ub.ReadBook.STATUS_UNREAD)
         ub.session.add(read_book)
-    if percent >= WEB_PROGRESS_FINISHED_AT:
-        if read_book.read_status != ub.ReadBook.STATUS_FINISHED:
-            read_book.read_status = ub.ReadBook.STATUS_FINISHED
-    elif (read_book.read_status in (None, ub.ReadBook.STATUS_UNREAD)
-          or (read_book.read_status == ub.ReadBook.STATUS_FINISHED and 0 < percent < WEB_PROGRESS_REREAD_BELOW)):
+    if read_book.read_status == ub.ReadBook.STATUS_FINISHED and 0 < percent < WEB_PROGRESS_REREAD_BELOW:
+        read_book.read_status = ub.ReadBook.STATUS_IN_PROGRESS
+        read_book.reading_seconds = 0
+    read_book.reading_seconds = (read_book.reading_seconds or 0) + seconds
+    if read_book.read_status == ub.ReadBook.STATUS_FINISHED:
+        pass
+    elif percent >= WEB_PROGRESS_FINISHED_AT and read_book.reading_seconds >= needed:
+        read_book.read_status = ub.ReadBook.STATUS_FINISHED
+    elif read_book.read_status in (None, ub.ReadBook.STATUS_UNREAD):
         read_book.read_status = ub.ReadBook.STATUS_IN_PROGRESS
     read_book.last_modified = datetime.now(timezone.utc)
 
@@ -430,7 +467,9 @@ def web_reader_progress(book_id):
             progress.cfi = cfi
             progress.percent = percent
             progress.last_modified = datetime.now(timezone.utc)
-            _update_read_status_from_web_progress(user_id, book_id, percent)
+            seconds, pages = _reading_time(data)
+            _update_read_status_from_web_progress(user_id, book_id, percent, seconds,
+                                                  _seconds_to_finish(cfi, percent, pages))
             ub.session.commit()
         except (OperationalError, InvalidRequestError, IntegrityError) as ex:
             ub.session.rollback()
@@ -476,7 +515,9 @@ def web_reader_progress(book_id):
         progress.cfi = cfi
         progress.percent = percent
         progress.last_modified = datetime.now(timezone.utc)
-        _update_read_status_from_web_progress(user_id, book_id, percent)
+        seconds, pages = _reading_time(data)
+        _update_read_status_from_web_progress(user_id, book_id, percent, seconds,
+                                              _seconds_to_finish(cfi, percent, pages))
         ub.session.commit()
     except (OperationalError, InvalidRequestError, IntegrityError) as ex:
         ub.session.rollback()
@@ -665,14 +706,12 @@ def render_books_list(data, sort_param, book_id, page):
         except (AttributeError, TypeError):
             title = _('Books (%(count)s)', count=cwa_get_num_books_in_library())
 
-        continue_reading = []
         offline_auto = None
         if website == "newest" and page == 1 and not list_filters.active_filters():
-            continue_reading = get_continue_reading_entries()
-            # The full Continue Reading list, so the service worker can keep these books offline
-            # and let go of ones that left it (offline.js; empty means "none in progress").
+            # The books in progress, so the service worker can keep them offline and let go of
+            # ones that left the list (offline.js; empty means "none in progress").
             offline_auto = []
-            for item in continue_reading:
+            for item in get_continue_reading_entries():
                 book = item['entry'].Books
                 fmt = (item.get('format') or '').lower()
                 if fmt and fmt in {d.format.lower() for d in book.data}:
@@ -682,7 +721,6 @@ def render_books_list(data, sort_param, book_id, page):
 
         return render_title_template('index.html', entries=entries, pagination=pagination,
                                      title=title, page=website, order=order[1],
-                                     continue_reading=continue_reading,
                                      offline_auto=offline_auto,
                                      list_filters=list_filters.filter_context(),
                                      setup_checklist=(setup_checklist() if website == "newest" and page == 1

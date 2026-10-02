@@ -3,7 +3,11 @@
  * Keeps a reader's position in localStorage (instant, works offline) and mirrors it to
  * the server so it follows the user across devices:
  *   GET  <url>  -> {"cfi": str, "percent": 0..1, "updated": iso-string | epoch}
- *   POST <url>  <- {"cfi": str, "percent": 0..1}   (X-CSRFToken header)
+ *   POST <url>  <- {"cfi": str, "percent": 0..1, "seconds": int, "pages": number?}   (X-CSRFToken header)
+ * "seconds" is the active reading time since the last post: the tab visible and the reader
+ * used (a page turn, scroll, key or tap) within IDLE_CAP, or with `background`, the audio
+ * playing. The server needs enough of it before a book counts as finished (web.py).
+ * "pages" is the book's length when the reader knows it and the position doesn't say (epub).
  * On open, whichever copy is newer wins. Every server error (offline, 401, 404, HTML
  * login page...) is swallowed and the local copy is used instead.
  *
@@ -11,6 +15,7 @@
  *   var sync = LilyProgress.create({url: "/ajax/progress/12", storageKey: "12.epub", enabled: true});
  *   sync.load().then(function (pos) { if (pos) { ...jump to pos.cfi / pos.percent... } });
  *   sync.save(cfi, percent);   // queued POST, flushed on pagehide / tab hidden
+ * Options: pages: function () -> number|null; background: true to count time with the tab hidden (audio).
  */
 (function (window) {
     "use strict";
@@ -20,6 +25,10 @@
     var LOAD_TIMEOUT = 2500;
     var RETRY_MAX = 30000;
     var STATUS_CLEAR = 2500;
+    // Longer than this without a page turn, scroll or key counts as away, not reading
+    var IDLE_CAP = 120000;
+    // One post claims at most this much reading (the server refuses more)
+    var SECONDS_MAX = 3600;
 
     function csrfToken() {
         var input = document.querySelector("input[name='csrf_token']");
@@ -119,6 +128,32 @@
         var retryDelay = POST_DELAY;
         var inflight = false;
         var authFailed = false;
+        var pages = typeof options.pages === "function" ? options.pages : null;
+        var background = !!options.background;
+        // Reading time not yet sent (ms), and when the reader was last used
+        var active = 0;
+        var lastUsed = null;
+        // The newest position, which a post of reading time alone repeats
+        var last = null;
+
+        function used() {
+            var now = Date.now();
+            if (!background && document.visibilityState === "hidden") {
+                lastUsed = null;
+                return;
+            }
+            if (lastUsed !== null) {
+                active += Math.min(now - lastUsed, IDLE_CAP);
+            }
+            lastUsed = now;
+        }
+
+        if (background || document.visibilityState !== "hidden") {
+            lastUsed = Date.now();
+        }
+        ["keydown", "pointerdown", "wheel", "touchstart", "scroll"].forEach(function (name) {
+            document.addEventListener(name, used, {capture: true, passive: true});
+        });
 
         var stored = readLocal(key);
         if (stored && stored.pending) {
@@ -181,9 +216,21 @@
             }
             inflight = true;
             var sent = pending;
-            var body = JSON.stringify({cfi: sent.cfi,
-                                       percent: sent.percent === null ? 0 : sent.percent,
-                                       format: format});
+            var seconds = Math.min(SECONDS_MAX, Math.floor(active / 1000));
+            active -= seconds * 1000;
+            var payload = {cfi: sent.cfi, percent: sent.percent === null ? 0 : sent.percent,
+                           format: format, seconds: seconds};
+            var size = null;
+            try { size = pages ? pages() : null; } catch (e) { size = null; }
+            if (typeof size === "number" && isFinite(size) && size > 0) {
+                payload.pages = size;
+            }
+            var body = JSON.stringify(payload);
+            // A post that didn't go through hands its reading time to the next one
+            function unsent() {
+                active += seconds * 1000;
+                seconds = 0;
+            }
             try {
                 window.fetch(url, {
                     method: "POST",
@@ -200,10 +247,12 @@
                         inflight = false;
                         if (response.status === 401) {
                             authFailed = true;
+                            unsent();
                             return;
                         }
                         var acked = ok ? normalise(data) : null;
                         if (!ok || !ackMatches(sent, acked)) {
+                            unsent();
                             status("failed");
                             retryDelay = Math.min(retryDelay * 2, RETRY_MAX);
                             schedule(retryDelay);
@@ -222,25 +271,46 @@
                     });
                 }).catch(function () {
                     inflight = false;
+                    unsent();
                     status("failed");
                     retryDelay = Math.min(retryDelay * 2, RETRY_MAX);
                     schedule(retryDelay);
                 });
             } catch (e) {
                 inflight = false;
+                unsent();
                 schedule(retryDelay);
             }
         }
 
         function flush() {
+            // Leaving the tab ends a stretch of reading: count it, and send it even when the
+            // position hasn't moved since the last post
+            if (lastUsed !== null) {
+                active += Math.min(Date.now() - lastUsed, IDLE_CAP);
+                lastUsed = null;
+            }
+            if (!pending && last && active >= 1000) {
+                pending = last;
+            }
             post(true);
         }
 
         document.addEventListener("visibilitychange", function () {
             if (document.visibilityState === "hidden") {
-                flush();
-            } else if (pending) {
-                schedule(POST_DELAY);
+                // Audio keeps playing, so its clock runs on; the position is sent all the same
+                if (background) {
+                    post(true);
+                } else {
+                    flush();
+                }
+            } else {
+                if (!background) {
+                    lastUsed = Date.now();
+                }
+                if (pending) {
+                    schedule(POST_DELAY);
+                }
             }
         });
         window.addEventListener("pagehide", flush);
@@ -265,11 +335,13 @@
                         writeLocal(key, {cfi: server.cfi, percent: server.percent,
                                          updated: server.updated,
                                          format: server.format, pending: false});
+                        last = server;
                         return server;
                     }
                     if (local && local.pending) {
                         schedule(POST_DELAY);
                     }
+                    last = local || null;
                     return local;
                 });
             },
@@ -277,6 +349,8 @@
             save: function (cfi, percent) {
                 var pos = {cfi: cfi || "", percent: clampPercent(percent),
                            updated: Date.now(), pending: enabled};
+                used();
+                last = pos;
                 writeLocal(key, pos);
                 if (enabled) {
                     pending = pos;

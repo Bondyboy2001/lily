@@ -111,23 +111,12 @@ def test_detail_page_does_not_show_tags_or_shelves():
     assert "is-tag" not in html and "is-tag" not in read(CSS / "lily-library.css")
 
 
-def test_continue_reading_progress_sits_on_the_cover_and_its_share_under_the_author():
+def test_library_has_no_continue_reading_row():
     html = read(TEMPLATES / "index.html")
-    cover = re.search(r'<div class="cover">(.*?)\n      </div>', html, flags=re.S).group(1)
-    meta = re.search(r'<div class="meta">(.*?)\n      </div>', html, flags=re.S).group(1)
-    assert "continue-reading-progress" in cover and "continue-reading-progress" not in meta
-    assert 'class="continue-reading-percent"' in meta and "% read" in meta
+    assert "continue_reading" not in html and "Continue Reading" not in html
 
 
-def test_continue_reading_opens_the_reader_in_a_new_tab():
-    html = read(TEMPLATES / "index.html")
-    cover = re.search(r'<div class="cover">(.*?)\n      </div>', html, flags=re.S).group(1)
-    # Only the reader link opens a new tab; a book with no readable format opens its page in place.
-    assert '{% if resume_format %}target="_blank" rel="noopener"' in cover
-    assert "Continue reading %(title)s (opens in a new tab)" in cover
-
-
-def test_continue_reading_is_one_scrolling_row():
+def test_book_row_is_one_scrolling_row():
     body = re.search(r"^\.continue-reading-row \{([^}]*)\}", read(CSS / "lily-library.css"), flags=re.M).group(1)
     assert "display: flex" in body and "overflow-x: auto" in body and "grid-template-columns" not in body
 
@@ -515,7 +504,7 @@ def test_read_toggles_flip_their_label_without_aria_pressed():
 
 
 def test_book_views_hide_the_unknown_author_placeholder():
-    for name in ["detail.html", "image.html", "index.html", "listenmp3.html", "shelf_order.html"]:
+    for name in ["detail.html", "image.html", "listenmp3.html", "shelf_order.html"]:
         assert "|named_authors" in read(TEMPLATES / name), name
 
 
@@ -526,8 +515,7 @@ def test_installed_app_opens_the_reader_in_place():
     assert '$("a[data-reader-link]")' in js and 'this.removeAttribute("target")' in js
     handler = js[js.index('".lily-cover-actions .lily-read-now"'):]
     assert handler.index("window.location.href = url") < handler.index('window.open(url, "_blank", "noopener")')
-    for name, needle in (("detail.html", 'id="readbtn"'), ("book_edit.html", 'id="readbtn"'),
-                         ("index.html", 'class="book-cover-link"')):
+    for name, needle in (("detail.html", 'id="readbtn"'), ("book_edit.html", 'id="readbtn"')):
         html = read(TEMPLATES / name)
         start = html.rindex("<a", 0, html.index(needle))
         tag = html[start:html.index(">", html.index(needle))]

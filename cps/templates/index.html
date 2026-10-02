@@ -27,51 +27,8 @@
 </section>
 {% endif %}
 {% if offline_auto is defined and offline_auto is not none %}
-{# Continue Reading for the service worker, which keeps these books for offline reading (offline.js). #}
+{# The books being read, for the service worker, which keeps them for offline reading (offline.js). #}
 <script type="application/json" id="lily-offline-auto">{{ offline_auto|tojson }}</script>
-{% endif %}
-{% if continue_reading %}
-<section class="continue-reading" aria-labelledby="continue-reading-heading">
-  <h2 id="continue-reading-heading">{{_('Continue Reading')}}</h2>
-  <div class="continue-reading-row" role="list">
-    {% for item in continue_reading %}
-    {% set book = item.entry.Books %}
-    {% set resume_format = item.format|lower if item.format and item.format|upper in book.data|map(attribute='format')|map('upper')|list else none %}
-    <div class="book lily-book continue-reading-item" role="listitem">
-      <div class="cover">
-        <a href="{% if resume_format %}{{ url_for('web.read_book', book_id=book.id, book_format=resume_format) }}{% else %}{{ url_for('web.show_book', book_id=book.id) }}{% endif %}"
-           data-book-id="{{ book.id }}"
-           data-book-formats="{% for format in book.data %}{{ format.format.lower() }}{% if not loop.last %},{% endif %}{% endfor %}"
-           {% if resume_format %}target="_blank" rel="noopener" aria-label="{{ _('Continue reading %(title)s (opens in a new tab)', title=book.title) }}"
-           data-reader-link="{{ _('Continue reading %(title)s', title=book.title) }}"{% endif %}
-           class="book-cover-link">
-          <span class="img">
-            {{ image.book_cover(book) }}
-          </span>
-        </a>
-        {% if item.progress is not none %}
-        <div class="progress continue-reading-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
-             aria-valuenow="{{ item.progress|round|int }}" aria-label="{{_('Reading progress')}}">
-          <div class="progress-bar" style="width: {{ item.progress|round(1) }}%;"></div>
-        </div>
-        {% endif %}
-      </div>
-      <div class="meta">
-        <a href="{{ url_for('web.show_book', book_id=book.id) }}">
-          <p title="{{ book.title }}" class="title">{{ book.title }}</p>
-        </a>
-        {% set authors = book.authors|named_authors %}
-        {% if authors %}
-        <p class="author">{{ authors[0].name.replace('|',',')|shortentitle(30) }}</p>
-        {% endif %}
-        {% if item.progress is not none %}
-        <p class="continue-reading-percent">{{ _('%(percent)s%% read', percent=item.progress|round|int) }}</p>
-        {% endif %}
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-</section>
 {% endif %}
 <div class="discover load-more">
   <div class="lily-list-toolbar">
