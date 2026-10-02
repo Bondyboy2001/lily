@@ -78,10 +78,7 @@ def formatdate_filter(val):
             val = val.date()
         return format_date(val, format='medium')
     except AttributeError as e:
-        log.error('Babel error: %s, Current user locale: %s, Current User: %s', e,
-                  current_user.locale,
-                  current_user.name
-                  )
+        log.error('Babel error: %s, Current User: %s', e, current_user.name)
         return val
 
 

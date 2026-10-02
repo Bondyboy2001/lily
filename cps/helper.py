@@ -68,7 +68,7 @@ except (ImportError, RuntimeError) as e:
 
 # Check if a reader is existing for any of the book formats, if not, return empty list, otherwise return
 # list with supported formats
-READER_PREFERENCE = ('epub', 'kepub', 'pdf', 'djvu', 'djv')
+READER_PREFERENCE = ('epub', 'pdf', 'djvu', 'djv')
 
 
 def check_read_formats(entry):
@@ -806,7 +806,7 @@ def do_download_file(book, book_format, data, headers):
         # ToDo: improve error handling
         log.error('File not found: %s', os.path.join(filename, book_name + "." + book_format))
 
-    if book_format != "kepub" and config.config_binariesdir and config.config_embed_metadata:
+    if config.config_binariesdir and config.config_embed_metadata:
         filename, download_name = do_calibre_export(book.id, book_format)
 
         # Rename the exported file to match the expected download name (from Content-Disposition)

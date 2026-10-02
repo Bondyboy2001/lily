@@ -84,17 +84,11 @@ class TestCalibreTools:
         calibredb_path = shutil.which('calibredb')
         assert calibredb_path is not None, "calibredb not found in PATH"
 
-    def test_ebook_convert_exists(self):
-        """Verify ebook-convert binary is installed."""
+    def test_ebook_polish_exists(self):
+        """Verify ebook-polish, which writes edits into EPUB files, is installed."""
         import shutil
-        convert_path = shutil.which('ebook-convert')
-        assert convert_path is not None, "ebook-convert not found in PATH"
-
-    def test_ebook_meta_exists(self):
-        """Verify ebook-meta binary is installed."""
-        import shutil
-        meta_path = shutil.which('ebook-meta')
-        assert meta_path is not None, "ebook-meta not found in PATH"
+        polish_path = shutil.which('ebook-polish')
+        assert polish_path is not None, "ebook-polish not found in PATH"
 
     def test_calibre_version(self):
         """Verify Calibre version can be queried."""
@@ -143,33 +137,6 @@ class TestDatabaseAccess:
         settings = temp_cwa_db.get_cwa_settings()
         assert settings is not None
         assert isinstance(settings, dict)
-
-
-@pytest.mark.smoke
-class TestFileFormatDetection:
-    """Verify file format detection logic works correctly."""
-
-    def test_supported_formats_recognized(self):
-        """Verify all supported ebook formats are recognized."""
-        # Import the function that checks file formats
-        # This is a simplified test - adjust based on actual implementation
-
-        supported_extensions = [
-            'epub', 'mobi', 'azw', 'azw3', 'azw4', 'pdf', 'txt',
-            'cbz', 'cbr', 'cb7', 'cbc', 'fb2', 'fbz', 'docx',
-            'html', 'htmlz', 'lit', 'lrf', 'odt', 'prc', 'pdb',
-            'pml', 'rb', 'snb', 'tcr', 'txtz', 'kepub', 'acsm'
-        ]
-
-        # Test that we have all 27+ formats
-        assert len(supported_extensions) >= 27, "Missing supported format definitions"
-
-    def test_temp_file_suffixes_defined(self):
-        """Verify temp file suffixes are properly defined for filtering."""
-        temp_suffixes = ['crdownload', 'download', 'part', 'uploading']
-
-        # These should be filtered out during ingest
-        assert len(temp_suffixes) > 0, "Temp file suffixes not defined"
 
 
 @pytest.mark.smoke

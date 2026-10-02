@@ -201,3 +201,52 @@ def test_an_existing_library_keeps_its_fetch_setting(cwa_dir):
         assert db.get_cwa_settings()["auto_metadata_fetch_enabled"] == 0
     finally:
         db.close()
+
+
+@pytest.mark.unit
+def test_migration_3_drops_the_settings_and_tables_of_removed_features(cwa_dir):
+    db_file = str(cwa_dir / "cwa.db")
+    # A cwa.db from before: a removed setting holding a value, and a removed table with rows
+    con = sqlite3.connect(db_file)
+    con.execute("CREATE TABLE cwa_settings (default_settings SMALLINT DEFAULT 1 NOT NULL, "
+                "auto_backup_imports SMALLINT DEFAULT 0 NOT NULL, "
+                "hardcover_auto_fetch_enabled SMALLINT DEFAULT 1 NOT NULL, "
+                "koreader_sync_enabled SMALLINT DEFAULT 0 NOT NULL)")
+    con.execute("INSERT INTO cwa_settings DEFAULT VALUES")
+    con.execute("CREATE TABLE cwa_user_activity (id INTEGER PRIMARY KEY, user_id INTEGER)")
+    con.execute("CREATE INDEX idx_activity_user ON cwa_user_activity(user_id)")
+    con.execute("INSERT INTO cwa_user_activity (user_id) VALUES (1)")
+    con.commit()
+    con.close()
+
+    db = _reopen(cwa_dir)
+    try:
+        columns = _columns(db_file, "cwa_settings")
+        assert "hardcover_auto_fetch_enabled" not in columns and "koreader_sync_enabled" not in columns
+        # Kept settings keep their values
+        assert db.cur.execute("SELECT auto_backup_imports FROM cwa_settings").fetchone()[0] == 0
+        tables = {r[0] for r in db.cur.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        assert "cwa_user_activity" not in tables
+        assert 3 in {r[0] for r in db.cur.execute("SELECT version FROM cwa_schema_migrations")}
+    finally:
+        db.close()
+    # The cwa.db from before is kept beside it
+    assert (cwa_dir / "cwa.db.before-migration-3").exists()
+
+
+@pytest.mark.unit
+def test_a_new_cwa_db_runs_every_migration(cwa_dir):
+    # Migration 1 pins a Hardcover setting a new cwa.db no longer has
+    db = CWA_DB()
+    try:
+        applied = {r[0] for r in db.cur.execute("SELECT version FROM cwa_schema_migrations")}
+        assert applied == {version for version, _, _ in cwa_db_module.MIGRATIONS}
+        assert db.cwa_settings["duplicate_detection_enabled"] is True
+    finally:
+        db.close()
+
+
+@pytest.mark.unit
+def test_a_new_cwa_db_is_not_copied_aside(cwa_dir):
+    CWA_DB().close()
+    assert not list(cwa_dir.glob("cwa.db.before-migration-*"))

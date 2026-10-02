@@ -198,7 +198,7 @@
               data-reader-url="{{ url_for('web.read_book', book_id=book.id, book_format=readable[0]) }}"><span class="glyphicon glyphicon-book" aria-hidden="true"></span></button>
       {% elif formats and user.role_download() %}
       {% set first = book.data[0] %}
-      <a class="icon-btn" href="{{ url_for('web.download_link', book_id=book.id, book_format=first.format|lower, anyname=book.id|string+'.'+first.format|lower|replace('kepub', 'kepub.epub')) }}"
+      <a class="icon-btn" href="{{ url_for('web.download_link', book_id=book.id, book_format=first.format|lower, anyname=book.id|string+'.'+first.format|lower) }}"
          aria-label="{{ _('Download %(name)s', name=book.title) }}"><span class="glyphicon glyphicon-download" aria-hidden="true"></span></a>
       {% endif %}
       {% if not user.is_anonymous %}

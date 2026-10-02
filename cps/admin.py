@@ -165,7 +165,6 @@ def new_user():
     else:
         content.role = config.config_default_role
         content.sidebar_view = config.config_default_show
-        content.locale = config.config_default_locale
         content.default_language = config.config_default_language
     opds_context = _build_opds_context(content)
     return render_title_template("user_edit.html", new_user=1, content=content,

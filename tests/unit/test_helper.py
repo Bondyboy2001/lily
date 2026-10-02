@@ -491,12 +491,12 @@ class TestCheckReadFormats:
         return SimpleNamespace(data=[SimpleNamespace(format=f) for f in formats])
 
     def test_unsupported_formats_yield_no_reader(self):
-        for fmt in ("TXT", "MOBI", "CBZ", "HTML", "AZW3", "FB2", "CBR"):
+        for fmt in ("TXT", "MOBI", "CBZ", "HTML", "AZW3", "FB2", "CBR", "KEPUB"):
             assert check_read_formats(self._entry(fmt)) == [], fmt
         assert check_read_formats(SimpleNamespace(data=[])) == []
 
     def test_document_and_audio_formats_are_supported(self):
-        for fmt in ("EPUB", "KEPUB", "PDF", "DJVU", "DJV", "MP3", "M4B", "FLAC"):
+        for fmt in ("EPUB", "PDF", "DJVU", "DJV", "MP3", "M4B", "FLAC"):
             assert check_read_formats(self._entry(fmt)) == [fmt.lower()], fmt
 
     def test_reader_preference_orders_the_list(self):

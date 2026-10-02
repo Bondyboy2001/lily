@@ -112,7 +112,7 @@ def is_unknown_author(name):
 _extension = ""
 if sys.platform == "win32":
     _extension = ".exe"
-SUPPORTED_CALIBRE_BINARIES = {binary: binary + _extension for binary in ["ebook-convert", "calibredb"]}
+SUPPORTED_CALIBRE_BINARIES = {binary: binary + _extension for binary in ["calibredb"]}
 
 
 def has_flag(value, bit_flag):

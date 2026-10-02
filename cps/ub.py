@@ -234,7 +234,6 @@ class User(UserBase, Base):
     password = Column(String)
     shelf = relationship('Shelf', backref='user', lazy='dynamic', order_by='Shelf.name')
     downloads = relationship('Downloads', backref='user', lazy='dynamic')
-    locale = Column(String(2), default="en")
     sidebar_view = Column(Integer, default=1)
     default_language = Column(String(3), default="all")
     denied_tags = Column(String, default="")
@@ -242,10 +241,6 @@ class User(UserBase, Base):
     denied_column_value = Column(String, default="")
     allowed_column_value = Column(String, default="")
     view_settings = Column(JSON, default={})
-    opds_only_shelves_sync = Column(Integer, default=0)
-    hardcover_token = Column(String, unique=True, default=None)
-    # Unused since Lily has a single look; kept so existing databases still match the model
-    theme = Column(Integer, default=1)
     # Set for accounts still using the shipped default password; the web UI forces a
     # password change before anything else can be used. Cleared whenever the password
     # is assigned (see _clear_force_password_change below).
@@ -263,13 +258,10 @@ def _clear_force_password_change(target, value, oldvalue, initiator):
 # anonymous user
 class Anonymous(AnonymousUserMixin, UserBase):
     def __init__(self):
-        self.hardcover_token = None
-        self.opds_only_shelves_sync = None
         self.view_settings = None
         self.allowed_column_value = None
         self.allowed_tags = None
         self.denied_tags = None
-        self.locale = None
         self.default_language = None
         self.sidebar_view = None
         self.id = None
@@ -286,14 +278,11 @@ class Anonymous(AnonymousUserMixin, UserBase):
         self.id=data.id
         self.sidebar_view = data.sidebar_view
         self.default_language = data.default_language
-        self.locale = data.locale
         self.denied_tags = data.denied_tags
         self.allowed_tags = data.allowed_tags
         self.denied_column_value = data.denied_column_value
         self.allowed_column_value = data.allowed_column_value
         self.view_settings = data.view_settings
-        self.opds_only_shelves_sync = data.opds_only_shelves_sync
-        self.hardcover_token = data.hardcover_token
     def role_admin(self):
         return False
 
@@ -416,8 +405,6 @@ class ReadBook(Base):
     user_id = Column(Integer, ForeignKey('user.id'), unique=False)
     read_status = Column(Integer, unique=False, default=STATUS_UNREAD, nullable=False)
     last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    last_time_started_reading = Column(DateTime, nullable=True)
-    times_started_reading = Column(Integer, default=0, nullable=False)
 
 
 class Bookmark(Base):
@@ -587,28 +574,6 @@ def migrate_bookmark_table(engine, _session):
 
 
 def migrate_user_table(engine, _session):
-    try:
-        _session.query(exists().where(User.hardcover_token)).scalar()
-        _session.commit()
-    except exc.OperationalError:  # Database is not compatible, some columns are missing
-        _safe_session_rollback(_session, "user.hardcover_token")
-        _run_ddl_with_retry(engine, "ALTER TABLE user ADD column 'hardcover_token' String")
-
-    try:
-        _session.query(exists().where(User.opds_only_shelves_sync)).scalar()
-        _session.commit()
-    except exc.OperationalError:
-        _safe_session_rollback(_session, "user.opds_only_shelves_sync")
-        _run_ddl_with_retry(engine, "ALTER TABLE user ADD column 'opds_only_shelves_sync' Integer DEFAULT 0")
-    # Migration for per-user theme column
-    try:
-        _session.query(exists().where(User.theme)).scalar()
-        _session.commit()
-    except exc.OperationalError:
-        _safe_session_rollback(_session, "user.theme")
-        _run_ddl_with_retry(engine, "ALTER TABLE user ADD column 'theme' Integer DEFAULT 0")
-
-
     # Migration for forced password change flag (default admin password)
     try:
         _session.query(exists().where(User.force_password_change)).scalar()
@@ -752,8 +717,132 @@ def migrate_restore_emptied_sidebars(_session):
         _safe_session_rollback(_session, "restore sidebar")
 
 
+# Tables and columns left by removed features: Kobo and KOReader sync, email and send-to-eReader,
+# LDAP, OAuth, registration, 2FA and API tokens, archiving, Hardcover sync and its review queue,
+# metadata suggestions, magic shelves, translations, themes and reading statistics. Nothing reads them;
+# migrate_drop_removed_schema() drops them once, after copying app.db aside.
+_REMOVED_TABLES = (
+    'archived_book', 'flask_dance_oauth', 'hardcover_book_blacklist', 'hardcover_match_queue',
+    'hidden_magic_shelf_templates', 'kobo_annotation_sync', 'kobo_bookmark', 'kobo_reading_state',
+    'kobo_statistics', 'kobo_synced_books', 'kosync_progress', 'magic_shelf', 'magic_shelf_cache',
+    'metadata_suggestion', 'oauthProvider', 'opds_magic_shelf_exposure', 'registration',
+    'remote_auth_token', 'shelf_archive',
+)
+_REMOVED_COLUMNS = {
+    'user': ('kindle_mail', 'kindle_mail_subject', 'locale', 'kobo_only_shelves_sync',
+             'opds_only_shelves_sync', 'hardcover_token', 'theme', 'auto_send_enabled',
+             'allow_additional_ereader_emails', 'totp_secret', 'totp_enabled', 'totp_last_step',
+             'api_token_hash'),
+    'shelf': ('kobo_sync',),
+    'book_read_link': ('last_time_started_reading', 'times_started_reading'),
+    'settings': (
+        'mail_server', 'mail_port', 'mail_use_ssl', 'mail_login', 'mail_password_e', 'mail_password',
+        'mail_from', 'mail_size', 'mail_server_type', 'mail_gmail_token', 'config_external_port',
+        'config_random_books', 'config_theme', 'config_public_reg', 'config_remote_login',
+        'config_kobo_sync', 'config_hardcover_sync', 'config_hardcover_annotations_sync',
+        'config_default_locale', 'config_use_google_drive', 'config_google_drive_folder',
+        'config_google_drive_watch_changes_response', 'config_use_goodreads',
+        'config_goodreads_api_key', 'config_register_email', 'config_login_type', 'config_kobo_proxy',
+        'config_ldap_provider_url', 'config_ldap_port', 'config_ldap_authentication',
+        'config_ldap_serv_username', 'config_ldap_serv_password_e', 'config_ldap_serv_password',
+        'config_ldap_encryption', 'config_ldap_cacert_path', 'config_ldap_cert_path',
+        'config_ldap_key_path', 'config_ldap_dn', 'config_ldap_user_object',
+        'config_ldap_member_user_object', 'config_ldap_openldap', 'config_ldap_group_object_filter',
+        'config_ldap_group_members_field', 'config_ldap_group_name', 'config_ldap_auto_create_users',
+        'config_kepubifypath', 'config_converterpath', 'config_calibre', 'config_rarfile_location',
+        'config_updatechannel', 'config_reverse_proxy_login_header_name',
+        'config_allow_reverse_proxy_header_login', 'config_reverse_proxy_auto_create_users',
+        'config_oauth_redirect_host', 'config_disable_standard_login',
+        'config_enable_oauth_group_admin_management',
+    ),
+}
+APP_DB_SCHEMA_BACKUP_SUFFIX = ".before-schema-cleanup"
+
+
+def _removed_schema_present(con):
+    """([tables], {table: [columns]}): what of _REMOVED_TABLES and _REMOVED_COLUMNS app.db still has."""
+    tables = {row[0] for row in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    columns = {}
+    for table, removed in _REMOVED_COLUMNS.items():
+        if table in tables:
+            present = {row[1] for row in con.execute('PRAGMA table_info("{}")'.format(table))}
+            found = [column for column in removed if column in present]
+            if found:
+                columns[table] = found
+    return [table for table in _REMOVED_TABLES if table in tables], columns
+
+
+def _rebuild_table(con, table):
+    """SQLite's documented table rebuild, for a column DROP COLUMN refuses (a UNIQUE one): a new
+    table made from the model, the model's columns copied in, the old table dropped and the new one
+    renamed, in one transaction. app.db runs with foreign keys off, so the drop touches no other table."""
+    from sqlalchemy import MetaData
+    from sqlalchemy.dialects import sqlite as sqlite_dialect
+    from sqlalchemy.schema import CreateIndex, CreateTable
+    dialect = sqlite_dialect.dialect()
+    model = Base.metadata.tables[table]
+    staging = model.to_metadata(MetaData(), name=table + "__rebuild")
+    staging.indexes.clear()  # the old table's indexes keep these names until it is dropped
+    present = {row[1] for row in con.execute('PRAGMA table_info("{}")'.format(table))}
+    kept = ", ".join('"{}"'.format(c.name) for c in model.columns if c.name in present)
+    con.execute("BEGIN")
+    try:
+        con.execute(str(CreateTable(staging).compile(dialect=dialect)))
+        con.execute('INSERT INTO "{0}__rebuild" ({1}) SELECT {1} FROM "{0}"'.format(table, kept))
+        con.execute('DROP TABLE "{}"'.format(table))
+        con.execute('ALTER TABLE "{0}__rebuild" RENAME TO "{0}"'.format(table))
+        for index in model.indexes:
+            con.execute(str(CreateIndex(index, if_not_exists=True).compile(dialect=dialect)))
+        con.execute("COMMIT")
+    except Exception:
+        con.execute("ROLLBACK")
+        raise
+
+
+def migrate_drop_removed_schema(engine):
+    """Drop what removed features left in app.db (_REMOVED_TABLES, _REMOVED_COLUMNS). A copy of
+    app.db is kept beside it first (APP_DB_SCHEMA_BACKUP_SUFFIX), once. Each drop stands alone: one
+    that fails is logged and tried again at the next start, and the rest stay done."""
+    path = engine.url.database
+    if not path or path == ":memory:":
+        return
+    con = sqlite3.connect(path, timeout=30, isolation_level=None)
+    try:
+        tables, columns = _removed_schema_present(con)
+        if not tables and not columns:
+            return
+        backup = path + APP_DB_SCHEMA_BACKUP_SUFFIX
+        if not os.path.exists(backup):
+            copy = sqlite3.connect(backup)
+            try:
+                con.backup(copy)
+            finally:
+                copy.close()
+        for table in tables:
+            con.execute('DROP TABLE IF EXISTS "{}"'.format(table))
+        for table, removed in columns.items():
+            for column in removed:
+                try:
+                    con.execute('ALTER TABLE "{}" DROP COLUMN "{}"'.format(table, column))
+                except sqlite3.OperationalError as e:
+                    if table not in Base.metadata.tables:
+                        log.warning("Could not drop %s.%s from app.db: %s", table, column, e)
+                        continue
+                    # The rebuild keeps only the model's columns, so it drops the rest as well
+                    _rebuild_table(con, table)
+                    break
+        log.info("Removed %d unused tables and unused columns of %s from app.db; the copy from before "
+                 "is %s", len(tables), ", ".join(sorted(columns)) or "no table", backup)
+    except Exception as e:
+        log.error("Could not remove unused tables and columns from app.db: %s", e)
+    finally:
+        con.close()
+
+
 def migrate_Database(_session):
     engine = _session.bind
+    # First: the column migrations below query the User model, which no longer maps these
+    migrate_drop_removed_schema(engine)
     add_missing_tables(engine, _session)
     migrate_user_session_table(engine, _session)
     migrate_user_table(engine, _session)

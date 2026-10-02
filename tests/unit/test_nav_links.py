@@ -138,9 +138,7 @@ class TestGridQuickActions:
         assert "data-reader-url" not in html
         assert f'href="/download/{book_id}/txt' in html
 
-    def test_kepub_and_audio_are_readable(self, env):
-        kepub_id = env.add_book("Kepub Book", fmt="KEPUB")
+    def test_audio_is_readable(self, env):
         audio_id = env.add_book("Audio Book", fmt="M4B")
         html = self._home(env)
-        assert f'data-reader-url="/read/{kepub_id}/kepub"' in html
         assert f'data-reader-url="/read/{audio_id}/m4b"' in html

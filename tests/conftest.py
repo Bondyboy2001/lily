@@ -493,28 +493,6 @@ def sample_user_data():
 # Mock Fixtures
 # ============================================================================
 
-@pytest.fixture
-def mock_calibre_tools(mocker):
-    """
-    Mock Calibre CLI tools (calibredb, ebook-convert, ebook-meta).
-
-    Returns a dictionary of mocked subprocess calls.
-    """
-    mocks = {
-        'calibredb': mocker.patch('subprocess.run'),
-        'ebook_convert': mocker.patch('subprocess.run'),
-        'ebook_meta': mocker.patch('subprocess.run')
-    }
-
-    # Configure default successful returns
-    for mock in mocks.values():
-        mock.return_value.returncode = 0
-        mock.return_value.stdout = b'Success'
-        mock.return_value.stderr = b''
-
-    return mocks
-
-
 # ============================================================================
 # Skip Markers for Conditional Tests
 # ============================================================================

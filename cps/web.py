@@ -157,7 +157,7 @@ WEB_PROGRESS_REREAD_BELOW = 0.05
 
 # Reader bookmarks: any number per user, book and format. Keys are positions in the
 # progress sync's form: an epub CFI, or "page:N" for pdf and djvu.
-BOOKMARK_FORMATS = ("epub", "kepub", "pdf", "djvu", "djv")
+BOOKMARK_FORMATS = ("epub", "pdf", "djvu", "djv")
 BOOKMARK_LABEL_MAX_LEN = 200
 BOOKMARK_EXCERPT_MAX_LEN = 300
 BOOKMARKS_PER_BOOK_MAX = 500
@@ -292,7 +292,7 @@ def _valid_progress_format(book, fmt):
     fmt = fmt.lower()
     if fmt not in _progress_formats(book):
         return None
-    if fmt in PAGED_PROGRESS_FORMATS or fmt in ("epub", "kepub"):
+    if fmt in PAGED_PROGRESS_FORMATS or fmt == "epub":
         return fmt
     if fmt in constants.EXTENSIONS_AUDIO:
         return fmt
@@ -300,7 +300,7 @@ def _valid_progress_format(book, fmt):
 
 
 def _progress_cfi_ok(fmt, cfi):
-    if fmt in ("epub", "kepub"):
+    if fmt == "epub":
         return cfi.startswith("epubcfi(")
     if fmt in PAGED_PROGRESS_FORMATS:
         m = re.fullmatch(r"page:(\d+)", cfi)
@@ -336,7 +336,7 @@ def _seeded_legacy_progress(legacy, book, fmt):
     cfi = legacy.cfi
     formats = _progress_formats(book)
     if cfi.startswith("epubcfi("):
-        if fmt == "epub" or (fmt == "kepub" and "epub" not in formats):
+        if fmt == "epub":
             return legacy
         return None
     if cfi.startswith("page:"):
@@ -353,8 +353,7 @@ def _update_read_status_from_web_progress(user_id, book_id, percent):
     read_book = ub.session.query(ub.ReadBook).filter(ub.ReadBook.user_id == user_id,
                                                      ub.ReadBook.book_id == book_id).first()
     if not read_book:
-        read_book = ub.ReadBook(user_id=user_id, book_id=book_id, read_status=ub.ReadBook.STATUS_UNREAD,
-                                times_started_reading=0)
+        read_book = ub.ReadBook(user_id=user_id, book_id=book_id, read_status=ub.ReadBook.STATUS_UNREAD)
         ub.session.add(read_book)
     if percent >= WEB_PROGRESS_FINISHED_AT:
         if read_book.read_status != ub.ReadBook.STATUS_FINISHED:
@@ -362,8 +361,6 @@ def _update_read_status_from_web_progress(user_id, book_id, percent):
     elif (read_book.read_status in (None, ub.ReadBook.STATUS_UNREAD)
           or (read_book.read_status == ub.ReadBook.STATUS_FINISHED and 0 < percent < WEB_PROGRESS_REREAD_BELOW)):
         read_book.read_status = ub.ReadBook.STATUS_IN_PROGRESS
-        read_book.times_started_reading = (read_book.times_started_reading or 0) + 1
-        read_book.last_time_started_reading = datetime.now(timezone.utc)
     read_book.last_modified = datetime.now(timezone.utc)
 
 
@@ -695,7 +692,7 @@ def render_books_list(data, sort_param, book_id, page):
 CONTINUE_READING_LIMIT = 12
 
 # Formats the service worker can keep for reading offline (audio streams stay online-only).
-OFFLINE_FORMATS = ("epub", "kepub", "pdf", "djvu", "djv")
+OFFLINE_FORMATS = ("epub", "pdf", "djvu", "djv")
 
 
 def offline_book_spec(book, fmt):
@@ -1382,7 +1379,7 @@ def read_book(book_id, book_format):
     user_key = str(current_user.id) if current_user.is_authenticated else "anonymous"
     progress_args = {}
     progress_uuid = _library_uuid()
-    if progress_uuid and (fmt_lower in ("epub", "kepub") or fmt_lower in PAGED_PROGRESS_FORMATS
+    if progress_uuid and (fmt_lower == "epub" or fmt_lower in PAGED_PROGRESS_FORMATS
                           or fmt_lower in constants.EXTENSIONS_AUDIO):
         progress_args = {
             "progress_key": "%s.%s.%s.%s" % (user_key, progress_uuid, book_id, fmt_lower),
@@ -1391,7 +1388,7 @@ def read_book(book_id, book_format):
                                     format=fmt_lower),
         }
 
-    if book_format.lower() in ("epub", "kepub"):
+    if book_format.lower() == "epub":
         log.debug("Start epub reader for %d (%s)", book_id, book_format.lower())
         return render_title_template('read.html', bookid=book_id, title=book.title,
                                      book_format=book_format.lower(),

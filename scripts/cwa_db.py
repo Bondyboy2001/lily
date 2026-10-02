@@ -125,11 +125,18 @@ def parse_schema_columns(tables: list[str]) -> dict[str, dict[str, str]]:
 #   def _m2_rename_foo(cur):
 #       cur.execute("ALTER TABLE cwa_import RENAME COLUMN foo TO bar")
 #   MIGRATIONS = [(2, "rename cwa_import.foo to bar", _m2_rename_foo)]
+def _columns(cur, table) -> set:
+    return {row[1] for row in cur.execute(f"PRAGMA table_info('{table}')").fetchall()}
+
+
 def _m1_settings_page_defaults(cur):
     # The settings page no longer offers these: duplicate detection is always on and
     # Hardcover auto-fetch is gone, so pin them for libraries that changed them before.
-    cur.execute("UPDATE cwa_settings SET duplicate_detection_enabled=1, duplicate_scan_enabled=1, "
-                "hardcover_auto_fetch_enabled=0")
+    # hardcover_auto_fetch_enabled left the schema in migration 3: a new cwa.db never has it.
+    pinned = ["duplicate_detection_enabled=1", "duplicate_scan_enabled=1"]
+    if "hardcover_auto_fetch_enabled" in _columns(cur, "cwa_settings"):
+        pinned.append("hardcover_auto_fetch_enabled=0")
+    cur.execute("UPDATE cwa_settings SET " + ", ".join(pinned))
 
 
 def _m2_drop_duplicate_file_keys(cur) -> None:
@@ -137,8 +144,46 @@ def _m2_drop_duplicate_file_keys(cur) -> None:
     cur.execute("DROP TABLE IF EXISTS cwa_duplicate_file_keys")
 
 
+# Settings and tables of removed features (auto-convert, the Kindle EPUB fixer, auto-zip,
+# KOReader sync, translations, archiving, the mobile blur, per-field metadata updates and
+# provider order, auto-send, Hardcover auto-fetch, the old duplicate-scan and backup tuning,
+# the trash, statistics), including some only older versions created. Nothing reads them.
+_REMOVED_SETTINGS = (
+    "auto_convert", "auto_convert_target_format", "auto_convert_ignored_formats",
+    "auto_convert_retained_formats", "auto_backup_conversions", "kindle_epub_fixer",
+    "kindle_epub_fixer_aggressive", "auto_backup_epub_fixes", "db_backup_keep_weekly",
+    "db_backup_keep_monthly", "library_mirror_version_days", "trash_retention_days",
+    "duplicate_auto_resolve_previewed_at", "duplicate_auto_resolve_last_abort",
+    "auto_zip_backups", "contribute_translations_notifications", "koreader_sync_enabled",
+    "archived_cleanup_enabled", "archived_cleanup_schedule", "archived_cleanup_schedule_day",
+    "archived_cleanup_schedule_hour", "enable_mobile_blur", "auto_metadata_smart_application",
+    "auto_metadata_update_title", "auto_metadata_update_authors", "auto_metadata_update_description",
+    "auto_metadata_update_publisher", "auto_metadata_update_tags", "auto_metadata_update_series",
+    "auto_metadata_update_rating", "auto_metadata_update_published_date",
+    "auto_metadata_update_identifiers", "auto_metadata_update_cover", "metadata_provider_hierarchy",
+    "metadata_providers_enabled", "auto_send_delay_minutes", "hardcover_auto_fetch_enabled",
+    "hardcover_auto_fetch_schedule", "hardcover_auto_fetch_schedule_day",
+    "hardcover_auto_fetch_schedule_hour", "hardcover_auto_fetch_min_confidence",
+    "hardcover_auto_fetch_batch_size", "hardcover_auto_fetch_rate_limit",
+    "duplicate_detection_use_sql", "duplicate_scan_method", "duplicate_scan_hour",
+    "duplicate_scan_chunk_size",
+)
+_REMOVED_TABLES = ("cwa_scheduled_jobs", "cwa_user_activity", "hardcover_match_queue",
+                   "hardcover_auto_fetch_stats")
+
+
+def _m3_drop_removed_features(cur) -> None:
+    for table in _REMOVED_TABLES:
+        cur.execute(f"DROP TABLE IF EXISTS {table}")  # its indexes go with it
+    present = _columns(cur, "cwa_settings")
+    for setting in _REMOVED_SETTINGS:
+        if setting in present:
+            cur.execute(f"ALTER TABLE cwa_settings DROP COLUMN {setting}")
+
+
 MIGRATIONS: list = [(1, "always detect duplicates, no Hardcover auto-fetch", _m1_settings_page_defaults),
-                    (2, "drop exact-hash duplicate file keys", _m2_drop_duplicate_file_keys)]
+                    (2, "drop exact-hash duplicate file keys", _m2_drop_duplicate_file_keys),
+                    (3, "drop the settings and tables of removed features", _m3_drop_removed_features)]
 SCHEMA_MIGRATIONS_TABLE = "cwa_schema_migrations"
 
 
@@ -150,7 +195,9 @@ class CWA_DB:
         # CWA_DB_PATH lets tests point at an isolated directory; production always uses /config/
         self.db_path = os.path.join(os.environ.get("CWA_DB_PATH", "/config"), "")
         full_path = os.path.abspath(self.db_path + self.db_file)
-        if not os.path.exists(full_path):
+        # A new cwa.db has nothing worth copying aside before its migrations
+        self._new_file = not os.path.exists(full_path)
+        if self._new_file:
             # A missing/replaced file must get its schema created again
             invalidate_schema_cache(full_path)
         self.con, self.cur = self.connect_to_db() # type: ignore
@@ -161,7 +208,6 @@ class CWA_DB:
         self.stats_tables = [
             "cwa_enforcement",
             "cwa_import",
-            "cwa_user_activity",
             "cwa_duplicate_cache",
             "cwa_duplicate_book_keys",
             "cwa_duplicate_file_matches",
@@ -204,6 +250,9 @@ class CWA_DB:
         )
         self.con.commit()
         applied = {row[0] for row in self.cur.execute(f"SELECT version FROM {SCHEMA_MIGRATIONS_TABLE}")}
+        pending = [version for version, _, _ in migrations if version not in applied]
+        if pending and not getattr(self, "_new_file", False):
+            self._backup_before_migration(max(pending))
         newly_applied = []
         for version, name, fn in sorted(migrations, key=lambda m: m[0]):
             if version in applied:
@@ -225,6 +274,22 @@ class CWA_DB:
                       f"later migrations were not applied: {e}", flush=True)
                 break
         return newly_applied
+
+
+    def _backup_before_migration(self, version: int) -> None:
+        """A copy of cwa.db as it was before migrating to `version` (cwa.db.before-migration-N),
+        made once: migrations can drop columns and tables."""
+        target = f"{self.db_path}{self.db_file}.before-migration-{version}"
+        if os.path.exists(target):
+            return
+        try:
+            copy = sqlite3.connect(target)
+            try:
+                self.con.backup(copy)
+            finally:
+                copy.close()
+        except Exception as e:
+            print(f"[cwa-db] Warning: could not copy cwa.db aside before migrating: {e}", flush=True)
 
 
     def close(self) -> None:
@@ -470,11 +535,7 @@ class CWA_DB:
                         if isinstance(col[2], str) and col[2].upper().startswith("TEXT")
                     }
 
-                    json_settings = {
-                        'metadata_provider_hierarchy',
-                        'metadata_providers_enabled',
-                        'duplicate_format_priority',
-                    }
+                    json_settings = {'duplicate_format_priority'}
 
                     for column_name in text_columns:
                         if column_name not in current_settings:
@@ -632,17 +693,6 @@ class CWA_DB:
 
         # Define default values for new columns (in case db doesn't have them yet)
         schema_defaults = {
-            'hardcover_auto_fetch_enabled': 0,
-            'hardcover_auto_fetch_schedule': 'weekly',
-            'hardcover_auto_fetch_schedule_day': 'sunday',
-            'hardcover_auto_fetch_schedule_hour': 2,
-            'hardcover_auto_fetch_min_confidence': 0.85,
-            'hardcover_auto_fetch_batch_size': 50,
-            'hardcover_auto_fetch_rate_limit': 5.0,
-            'archived_cleanup_enabled': 1,
-            'archived_cleanup_schedule': 'daily',
-            'archived_cleanup_schedule_day': 'sunday',
-            'archived_cleanup_schedule_hour': 3,
             'ingest_stale_temp_minutes': 120,
             'ingest_stale_temp_interval': 600,
             'cover_download_max_mb': 15,
@@ -655,16 +705,13 @@ class CWA_DB:
                 cwa_settings[key] = default_value
 
         # Define which settings should remain as integers (not converted to boolean)
-        integer_settings = ['ingest_timeout_minutes', 'ingest_stale_temp_minutes', 'ingest_stale_temp_interval', 'auto_send_delay_minutes', 'hardcover_auto_fetch_batch_size', 'hardcover_auto_fetch_schedule_hour', 'duplicate_scan_hour', 'duplicate_scan_chunk_size', 'duplicate_scan_debounce_seconds', 'duplicate_auto_resolve_cooldown_minutes', 'archived_cleanup_schedule_hour', 'cover_download_max_mb', 'db_backup_keep_count']
-
-        # Define which settings should remain as floats (not converted to boolean)
-        float_settings = ['hardcover_auto_fetch_min_confidence', 'hardcover_auto_fetch_rate_limit']
+        integer_settings = ['ingest_timeout_minutes', 'ingest_stale_temp_minutes', 'ingest_stale_temp_interval', 'duplicate_scan_debounce_seconds', 'duplicate_auto_resolve_cooldown_minutes', 'cover_download_max_mb', 'db_backup_keep_count']
 
         # Define which settings should remain as JSON strings (not split by comma)
-        json_settings = ['metadata_provider_hierarchy', 'metadata_providers_enabled', 'duplicate_format_priority']
+        json_settings = ['duplicate_format_priority']
 
         for header in headers:
-            if isinstance(cwa_settings[header], int) and header not in integer_settings and header not in float_settings:
+            if isinstance(cwa_settings[header], int) and header not in integer_settings:
                 cwa_settings[header] = bool(cwa_settings[header])
             elif isinstance(cwa_settings[header], str) and ',' in cwa_settings[header] and header not in json_settings:
                 cwa_settings[header] = cwa_settings[header].split(',')

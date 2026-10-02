@@ -150,7 +150,7 @@ def serve_book(book_id, book_format, anyname):
         return "File not in Database"
     range_header = request.headers.get('Range', None)
 
-    if book_format.upper() in ('EPUB', 'KEPUB'):
+    if book_format.upper() == 'EPUB':
         original_path = os.path.join(config.get_book_path(), book.path, data.name + "." + book_format)
         fixed_path = _repair_epub_container_if_needed(book_id, original_path)
         if fixed_path:

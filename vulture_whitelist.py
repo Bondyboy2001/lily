@@ -25,7 +25,6 @@ _.allow_upload
 _.config_is_initial
 _.illegal_characters
 _.flask_httpauth_user
-_.last_time_started_reading
 _._lily_cwa_db
 
 # SQLAlchemy model columns, relationships and hybrid properties

@@ -52,7 +52,7 @@ def process(tmp_file_path, original_file_name, original_file_extension, no_cover
     try:
         if ".PDF" == extension_upper:
             meta = pdf_meta(tmp_file_path, original_file_name, original_file_extension, no_cover)
-        elif extension_upper in [".KEPUB", ".EPUB"] and use_epub_meta is True:
+        elif extension_upper == ".EPUB" and use_epub_meta is True:
             meta = epub.get_epub_info(tmp_file_path, original_file_name, original_file_extension, no_cover)
         elif extension_upper in [".MP3", ".OGG", ".FLAC", ".WAV", ".AAC", ".AIFF", ".ASF", ".MP4",
                                  ".M4A", ".M4B", ".OGV", ".OPUS"] and use_audio_meta:
