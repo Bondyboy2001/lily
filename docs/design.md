@@ -523,8 +523,10 @@ content (grid, panel, rows)
 ### 6.4 Book page ("Frontispiece" layout)
 
 - **Stage** (`.book-detail-main`, §5.10): one `--sunk` band. On the left the cover is a
-  mounted plate: the spine-shaped cover on a `--surface` mount, padding 14 (8 on phones),
-  radius 8, flat. On the right, centred against it: the heading (series line, the book
+  mounted plate: the grid's A4 tile (§5.15) on a `--surface` mount, padding 14 (8 on phones),
+  radius 8, flat. A cover whose shape differs from the tile letterboxes on the mount
+  (`object-fit: contain`) — the plate shows the whole cover, and one deformed cover cannot
+  stretch the stage. On the right, centred against it: the heading (series line, the book
   title as a display line (§3.1), the authors as an italic `--accent` byline at 20px,
   the rating), then the fact tags, then the action bar, 22 apart. The stage is one
   row, so a tall cover never spreads the heading out.

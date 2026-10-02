@@ -1072,7 +1072,9 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     background: var(--sunk);
 }
 
-/* The plate: the cover on a --surface mount, flat like every panel. */
+/* The plate: the cover on a --surface mount, flat like every panel. Every plate is the
+   grid's A4 tile (§5.15), so one deformed cover cannot stretch the stage; a cover whose
+   shape differs letterboxes on the mount instead. */
 .book-detail-cover {
     min-width: 0;
     padding: 14px;
@@ -1085,13 +1087,15 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     position: relative;
     height: auto;
     margin: 0;
+    aspect-ratio: 1 / 1.414;
 }
 
 .container-fluid .book-detail-cover-art img,
 .book-detail-cover-art img {
     display: block;
     width: 100%;
-    height: auto;
+    height: 100%;
+    object-fit: contain;
     border: 0;
     border-radius: 4px 8px 8px 4px;
     box-shadow: none;
