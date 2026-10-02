@@ -103,11 +103,9 @@ def test_detail_description_has_no_heading_and_shows_in_full():
             assert "line-clamp" not in body, selector
 
 
-def test_detail_tags_are_plain_links_in_the_facts_panel():
+def test_detail_page_does_not_show_tags():
     html = read(TEMPLATES / "detail.html")
-    panel = re.search(r'<dl class="book-metadata">(.*?)</dl>', html, flags=re.S).group(0)
-    tags = re.search(r'<div class="tags">(.*?)</div>', panel, flags=re.S).group(0)
-    assert "data='category'" in tags and "glyphicon" not in tags and "lily-chip" not in tags
+    assert 'class="tags"' not in html and "entry.tags" not in html and "data='category'" not in html
     assert "is-tag" not in html and "is-tag" not in read(CSS / "lily-library.css")
 
 
@@ -289,9 +287,8 @@ def test_detail_rows_keep_metadata_in_a_side_panel():
         assert declaration in metadata
     # One column of facts at every width
     assert "grid-template-columns: minmax(0, 1fr)" in metadata
-    # Every tag and shelf is shown: those rows wrap instead of ending in an ellipsis
-    wrapping = next(body for selector, body in css_rules(css)
-                    if ".book-metadata > .tags > dd" in selector and ".book-metadata > .shelves > dd" in selector)
+    # Every shelf is shown: that row wraps instead of ending in an ellipsis
+    wrapping = next(body for selector, body in css_rules(css) if ".book-metadata > .shelves > dd" in selector)
     assert "white-space: normal" in wrapping and "overflow: visible" in wrapping
     assert not any("book-metadata" in selector and "repeat(" in body for selector, body in css_rules(css))
     html = read(TEMPLATES / "detail.html")

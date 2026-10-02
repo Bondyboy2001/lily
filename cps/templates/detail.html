@@ -140,13 +140,7 @@
                     <dd>{% for language in entry.languages %}{{ language.language_name }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>
                 </div>
             {% endif %}
-            {% if entry.tags|length > 0 %}
-                <div class="tags">
-                    <dt>{{ _('Tags') }}</dt>
-                    <dd>{% for tag in entry.tags|sort(attribute='name') %}<a href="{{ url_for('web.books_list', data='category', sort_param='stored', book_id=tag.id) }}">{{ tag.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</dd>
-                </div>
-            {% endif %}
-            {# Same look as tags; the book's shelves are changed on its edit page #}
+            {# Shelves are plain links; the book's shelves are changed on its edit page #}
             {% set shelves = (g.shelves_access if current_user.is_authenticated else [])|selectattr('id', 'in', books_shelfs)|list %}
             {% if shelves %}
                 <div class="shelves" id="book-shelves-row">

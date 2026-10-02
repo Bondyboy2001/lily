@@ -1324,8 +1324,7 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 /* Files lead the panel as tiles; the tiles say what they are, so the label is sr-only. */
 .book-metadata > .formats { display: block; grid-column: 1 / -1; margin-bottom: 6px; }
 .book-metadata > .formats > dd { text-align: left; white-space: normal; overflow: visible; }
-/* Tags and shelves are all shown: their names wrap onto more lines rather than end in an ellipsis */
-.book-metadata > .tags > dd,
+/* Shelves are all shown: their names wrap onto more lines rather than end in an ellipsis */
 .book-metadata > .shelves > dd { white-space: normal; overflow: visible; text-overflow: clip; }
 
 .book-detail-description { align-self: stretch; }
