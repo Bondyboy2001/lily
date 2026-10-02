@@ -112,18 +112,10 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          # Each platform saves its cache scope on main pushes (tests.yml also saves
-          # "lily-image"), so the next build only redoes what changed. Tag runs only
-          # read: a tag can restore caches saved on main but never ones saved on an
-          # earlier tag.
           - platform: linux/amd64
             runner: ubuntu-latest
-            cache_scope: lily-image
-            save_cache: true
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
-            cache_scope: lily-image-arm64
-            save_cache: true
     env:
       HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
     steps:
@@ -138,6 +130,7 @@ jobs:
         run: |
           platform='${{ matrix.platform }}'
           echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+          echo "CACHE_REF=ghcr.io/${GITHUB_REPOSITORY,,}:buildcache-${platform#linux/}" >> "$GITHUB_ENV"
           names="ghcr.io/${GITHUB_REPOSITORY,,}"
           if [ "$HAS_DOCKERHUB" = true ]; then
             names="$names,docker.io/${{ secrets.DOCKERHUB_USERNAME }}/lily"
@@ -179,8 +172,16 @@ jobs:
             VERSION=${{ needs.on-main.outputs.version }}
             BUILD_DATE=${{ steps.date.outputs.value }}
           outputs: type=image,"name=${{ env.IMAGE_NAMES }}",push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha,scope=${{ matrix.cache_scope }}
-          cache-to: ${{ matrix.save_cache && github.ref == 'refs/heads/main' && format('type=gha,scope={0},mode=max', matrix.cache_scope) || '' }}
+          # The layer cache lives in GHCR, not the Actions cache: that one is capped at
+          # 10 GB and was full, so the base layers kept being evicted and rebuilt. A
+          # rebuilt layer has new timestamps and so a new digest even when nothing in it
+          # changed, and every NAS update then downloaded ~185 MB instead of the ~6 MB
+          # app layer. Only main writes the cache; tag builds read it. The Actions cache
+          # is still read, so the first build after the switch reuses its layers.
+          cache-from: |
+            type=registry,ref=${{ env.CACHE_REF }}
+            type=gha,scope=${{ matrix.platform == 'linux/amd64' && 'lily-image' || 'lily-image-arm64' }}
+          cache-to: ${{ github.ref == 'refs/heads/main' && format('type=registry,ref={0},mode=max,image-manifest=true,oci-mediatypes=true', env.CACHE_REF) || '' }}
 
       # Checks the exact image that was just pushed: pulling it by digest is quicker
       # than a second build, and the tags only go on once this passes.

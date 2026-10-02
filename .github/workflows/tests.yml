@@ -131,9 +131,9 @@ jobs:
   # Docker build check
   # Runs on: every PR (integration below only runs on main/dev)
   # Purpose: a broken Dockerfile, pin or apt package fails the PR, not the merge.
-  # BuildKit layers are cached in the GitHub Actions cache under the same scope
-  # the integration job writes on main/dev, so most PR builds only redo the
-  # layers the PR actually touches.
+  # BuildKit layers come from the amd64 cache release.yml writes to GHCR on main,
+  # so most PR builds only redo the layers the PR actually touches. Nothing here
+  # writes a layer cache: the Actions cache is capped at 10 GB and was full.
   # ============================================================================
   docker-build:
     name: Docker Build
@@ -154,8 +154,7 @@ jobs:
           push: false
           load: true
           tags: lily:pr-${{ github.event.pull_request.number }}
-          cache-from: type=gha,scope=lily-image
-          cache-to: type=gha,scope=lily-image,mode=max
+          cache-from: type=registry,ref=ghcr.io/bondyboy2001/lily:buildcache-amd64
 
       - name: Smoke test (container starts and /health returns 200)
         run: |
@@ -233,8 +232,7 @@ jobs:
           push: false
           load: true
           tags: lily:latest
-          cache-from: type=gha,scope=lily-image
-          cache-to: type=gha,scope=lily-image,mode=max
+          cache-from: type=registry,ref=ghcr.io/bondyboy2001/lily:buildcache-amd64
 
       - name: Set test UID/GID
         run: |
