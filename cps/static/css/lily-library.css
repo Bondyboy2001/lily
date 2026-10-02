@@ -472,6 +472,10 @@
 /* Grid cards show the title only; list rows keep the authors. */
 body:not([data-book-view="list"]) .lily-book .meta .author { display: none; }
 
+/* A list row has no cover box to hold the progress bar, nor a column for the share read */
+body[data-book-view="list"] .lily-grid > .lily-book .continue-reading-progress,
+body[data-book-view="list"] .lily-grid > .lily-book .continue-reading-percent { display: none; }
+
 /* List view, "Ledger" (the top bar's List icon sets body[data-book-view]): one table-like row per book.
    The rules are anchored on ".lily-grid > .lily-book" to outrank the grid card rules above.
    The cover box is dissolved (display: contents) so its link and its action bar become cells of
@@ -772,8 +776,9 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 .continue-reading-item .meta .author { -webkit-line-clamp: 1; }
 
 /* Progress sits on the cover as a bar along its bottom edge. It takes no clicks, so the
-   cover stays a link. */
-.continue-reading-item .cover .continue-reading-progress {
+   cover stays a link. Cards on the Reading list carry it too. */
+.continue-reading-item .cover .continue-reading-progress,
+.lily-grid > .lily-book .cover .continue-reading-progress {
     position: absolute;
     right: 0;
     bottom: 0;
@@ -787,11 +792,13 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     pointer-events: none;
 }
 
-.continue-reading-item .cover .continue-reading-progress .progress-bar {
+.continue-reading-item .cover .continue-reading-progress .progress-bar,
+.lily-grid > .lily-book .cover .continue-reading-progress .progress-bar {
     height: 100%;
     border-radius: 0 999px 999px 0;
 }
 
+.lily-grid > .lily-book .meta .continue-reading-percent,
 .continue-reading-item .meta .continue-reading-percent,
 .continue-reading-item .meta .related-number {
     margin: 0;

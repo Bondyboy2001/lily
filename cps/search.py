@@ -223,7 +223,7 @@ def extend_search_term(searchterm,
     if rating_low:
         searchterm.extend([_("Rating >= %(rating)s", rating=rating_low)])
     if read_status != "Any":
-        searchterm.extend([_("Read Status = '%(status)s'", status=read_status)])
+        searchterm.extend([_("Finished") if read_status == "True" else _("Not finished")])
     searchterm.extend(ext for ext in tags['include_extension'])
     searchterm.extend(ext for ext in tags['exclude_extension'])
     # handle custom columns

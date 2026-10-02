@@ -48,7 +48,7 @@
         {{ date_field('publishstart', _('Published from')) }}
         {{ date_field('publishend', _('Published to')) }}
       {% endcall %}
-      {% call f.row(_('Read status'), for_id='read_status') %}
+      {% call f.row(_('Finished'), for_id='read_status') %}
         <select name="read_status" id="read_status" class="form-control">
           <option value="Any" selected>{{_('Any')}}</option>
           <option value="True">{{_('Yes')}}</option>

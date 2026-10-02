@@ -88,7 +88,8 @@
   {% if entries %}{{ image.list_head() }}{% endif %}
   <div class="row display-flex lily-grid">
     {% for entry in entries if entry %}
-    {{ image.book_card(entry.Books, current_user, entry[2] == True, g.config_authors_max, series_link=(page != 'series'), extra_class='books') }}
+    {{ image.book_card(entry.Books, current_user, entry[2] == True, g.config_authors_max, series_link=(page != 'series'), extra_class='books',
+                       progress=(reading_progress or {}).get(entry.Books.id)) }}
     {% endfor %}
   </div>
   {% if not entries[0] and list_filters and list_filters.active %}

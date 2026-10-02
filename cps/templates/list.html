@@ -40,7 +40,7 @@ See CONTRIBUTORS for full list of authors. -->
   </div>
 </div>
 {% if not entries %}
-  {% set empty_heading = {'author': _('No Authors Yet'), 'series': _('No Series Yet'), 'category': _('No Categories Yet'),
+  {% set empty_heading = {'author': _('No Authors Yet'), 'series': _('No Series Yet'), 'category': _('No Tags Yet'),
                           'publisher': _('No Publishers Yet'), 'language': _('No Languages Yet'),
                           'formats': _('No File Formats Yet'), 'ratings': _('No Ratings Yet')}.get(data, _('Nothing to List Yet')) %}
   {{ image.empty_state('glyphicon-list-alt', empty_heading,

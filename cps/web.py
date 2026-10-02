@@ -527,10 +527,14 @@ def query_char_list(data_colum, db_link):
     return results
 
 
+# Lists about reading open with the book last read first until another order is picked
+DEFAULT_SORTS = {"inprogress": "readnew", "read": "readnew"}
+
+
 def get_sort_function(sort_param, data):
     order = [db.Books.timestamp.desc()]
     if sort_param == 'stored':
-        sort_param = current_user.get_view_property(data, 'stored')
+        sort_param = current_user.get_view_property(data, 'stored') or DEFAULT_SORTS.get(data)
     else:
         current_user.set_view_property(data, 'stored', sort_param)
     if sort_param == 'pubnew':
@@ -1085,7 +1089,7 @@ def render_category_books(page, book_id, order):
         else:
             abort(404)
     return render_title_template('index.html', entries=entries, pagination=pagination, id=book_id,
-                                 title=_("Category: %(name)s", name=tagsname), page="category", order=order[1])
+                                 title=_("Tag: %(name)s", name=tagsname), page="category", order=order[1])
 
 
 def render_language_books(page, name, order):
@@ -1119,18 +1123,15 @@ def render_language_books(page, name, order):
 
 def render_read_books(page, are_read, as_xml=False, order=None):
     sort_param = order[0] if order else []
-    if not config.config_read_column:
-        if are_read:
-            db_filter = and_(ub.ReadBook.user_id == int(current_user.id),
-                             ub.ReadBook.read_status == ub.ReadBook.STATUS_FINISHED)
-        else:
-            db_filter = coalesce(ub.ReadBook.read_status, 0) != ub.ReadBook.STATUS_FINISHED
+    if not are_read:
+        # Neither finished nor in progress: a book being read is under Reading, not here too
+        db_filter = list_filters.filter_expression({"status": "unread"})
+    elif not config.config_read_column:
+        db_filter = and_(ub.ReadBook.user_id == int(current_user.id),
+                         ub.ReadBook.read_status == ub.ReadBook.STATUS_FINISHED)
     else:
         try:
-            if are_read:
-                db_filter = db.cc_classes[config.config_read_column].value == True
-            else:
-                db_filter = coalesce(db.cc_classes[config.config_read_column].value, False) != True
+            db_filter = db.cc_classes[config.config_read_column].value == True
         except (KeyError, AttributeError, IndexError):
             log.error("Custom Column No.{} does not exist in calibre database".format(config.config_read_column))
             if not as_xml:
@@ -1156,7 +1157,7 @@ def render_read_books(page, are_read, as_xml=False, order=None):
             name = _('Finished') + ' (' + str(pagination.total_count) + ')'
             page_name = "read"
         else:
-            name = _('Unread Books') + ' (' + str(pagination.total_count) + ')'
+            name = _('Unread') + ' (' + str(pagination.total_count) + ')'
             page_name = "unread"
         return render_title_template('index.html', entries=entries, pagination=pagination,
                                      title=name, page=page_name, order=order[1])
@@ -1172,8 +1173,15 @@ def render_reading_books(page, order):
                                                     db.Books.id == db.books_series_link.c.book,
                                                     db.Series, cards_only=True)
     name = _('Reading') + ' (' + str(pagination.total_count) + ')'
+    progress = {}
+    try:
+        rows = _continue_reading_rows(ub.session, int(current_user.id), pagination.total_count or 1,
+                                      _library_uuid())
+        progress = {book_id: percent for book_id, percent, _fmt in rows if percent is not None}
+    except Exception as ex:
+        log.debug("Could not load reading progress: %s", ex)
     return render_title_template('index.html', entries=entries, pagination=pagination,
-                                 title=name, page="inprogress", order=order[1])
+                                 title=name, page="inprogress", order=order[1], reading_progress=progress)
 
 
 # ################################### Health Check ##################################################################
