@@ -1058,26 +1058,26 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 /* ------------------------------------------------------------------ */
 .lily-book-detail { max-width: none; }
 
-/* Three zones: the cover with the description under it, the heading and actions beside
-   the cover, and the facts as a side panel. The heading and action rows stay content-sized
-   and the third row takes up the cover's extra height, so a tall cover never spreads them out. */
+/* "Frontispiece": a --sunk stage with the cover mounted as a plate beside the heading, the
+   fact tags and the actions. The stage is one row, centred, so a tall cover never spreads
+   the heading out; the description and the related rows run under it (.book-detail-extra). */
 .book-detail-main {
     display: grid;
-    /* The middle column is only as wide as the heading and actions, so the facts panel takes
-       the space that is left. */
-    grid-template-columns: clamp(240px, 19vw, 340px) minmax(min(100%, 420px), max-content) minmax(260px, 1fr);
-    grid-template-rows: min-content min-content 1fr auto;
-    gap: 22px clamp(40px, 4vw, 72px);
-    align-items: start;
+    grid-template-columns: clamp(240px, 20vw, 312px) minmax(0, 1fr);
+    grid-template-rows: auto;
+    gap: 40px;
+    align-items: center;
+    padding: 40px;
+    border-radius: 10px;
+    background: var(--sunk);
 }
 
+/* The plate: the cover on a --surface mount, flat like every panel. */
 .book-detail-cover {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    grid-row: 1 / 4;
-    grid-column: 1;
     min-width: 0;
+    padding: 14px;
+    border-radius: 8px;
+    background: var(--surface);
 }
 
 .container-fluid .book-detail-cover-art.cover,
@@ -1140,65 +1140,43 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     outline: none;
 }
 
-/* Each file on its own line: type mark, format, and its size pushed to the right. */
-.book-metadata dd.book-detail-files {
+.book-detail-head {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 22px;
+    min-width: 0;
 }
-
-.book-detail-file {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    background: var(--paper);
-    color: var(--ink);
-}
-
-.book-detail-file-name { font-weight: 500; }
-
-.book-detail-file-size {
-    margin-left: auto;
-    color: var(--muted);
-    font-size: 13px;
-}
-
-.book-detail-file .lily-format { flex: none; width: 22px; height: 22px; }
 
 .book-detail-meta {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     min-width: 0;
-    grid-row: 1;
-    grid-column: 2;
 }
 
-.book-detail-actions { grid-row: 2; grid-column: 2; min-width: 0; }
+.book-detail-actions { min-width: 0; }
 
+/* Under the stage: the description, the housekeeping line, then what to read next. */
 .book-detail-extra {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 22px;
-    grid-row: 4;
-    grid-column: 1 / -1;
+    margin-top: 40px;
+    padding: 0 40px;
     min-width: 0;
 }
 
+/* The book title is content, set as a display line (design §3.1). */
 .book-detail-meta h1#title {
     margin: 0;
     font-family: var(--font-body);
-    font-size: 40px;
+    font-size: 52px;
     font-weight: 700;
-    line-height: 1.08;
-    letter-spacing: -0.015em;
+    line-height: 1.04;
+    letter-spacing: -0.02em;
     color: var(--ink);
-    /* Long titles wrap at this measure; without it the middle column would size itself to
-       the whole title on one line and squeeze the facts panel. */
-    max-width: 15em;
+    max-width: 14em;
     overflow-wrap: break-word;
     text-wrap: balance;
 }
@@ -1211,10 +1189,13 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 
 .book-detail-meta #book_of a { font-weight: 500; }
 
+/* The byline: italic, in the accent. */
 .book-detail-meta .author {
-    /* Extra room under the large title so the names don't crowd its last line. */
-    margin: 8px 0 0;
-    font-size: 19px;
+    margin: 6px 0 0;
+    font-family: var(--font-body);
+    font-size: 20px;
+    font-style: italic;
+    color: var(--accent);
 }
 
 .book-detail-meta #detail-rating-block {
@@ -1224,11 +1205,11 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     margin-top: 2px;
 }
 
-/* Read is the one Primary, with its word; the rest are square icon buttons, Quiet. */
-/* The icons share the column's width in equal shares, so the bar fills the space
-   beside the cover rather than sitting as a small cluster at its left. */
+/* Read is the one Primary, with its word; the rest are 44px square icon buttons, Quiet,
+   and Delete sits apart at the end. */
 .book-action-bar {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
 }
@@ -1249,23 +1230,26 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     font-size: 18px;
 }
 
-/* Every action is a glyph, menus (Download) included, each an equal share of the line. */
-.book-action-bar > .btn.is-icon { flex: 1 1 0; }
-.book-action-bar > .dropdown { flex: 1 1 0; }
+/* Every other action is a glyph, menus (Download) included. */
+.book-action-bar > .btn.is-icon { flex: none; }
+.book-action-bar > .dropdown { flex: none; }
 
 /* Read says its word ("Read", "Continue · 33%"), so it is wider than the glyph buttons. */
 .book-action-bar > .btn.btn-primary {
-    flex: 2 1 auto;
     justify-content: center;
-    min-width: max-content;
+    min-width: 148px;
+    padding: 0 22px;
+    font-size: 16px;
 }
 
 .book-action-bar > .btn.is-icon,
 .book-action-bar > .dropdown > .btn.is-icon {
     justify-content: center;
-    width: 100%;
+    width: 44px;
     padding: 0;
 }
+
+.book-action-bar > .btn.is-danger { margin-left: 14px; }
 
 /* Read state: a tick in a circle, green on a clearly green tint once read. */
 .book-action-bar #toggle-read-btn.is-on,
@@ -1282,111 +1266,149 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 /* Delete takes the accent, red on hover. */
 .book-action-bar > .btn.is-danger:not(:hover):not(:focus-visible) { color: var(--accent); }
 
-/* The book's facts as a compact surface side panel: the files as tiles on top, then one
-   line per fact with the label on the left and the value on the right. */
+/* The book's facts as tags (design §6.4): neutral on --control-tint, a linked one in the
+   accent. A label shows only where the value alone is unclear ("arXiv", "Citations"). */
 dl.book-metadata {
-    display: grid;
-    /* Beside the cover only: the description runs the full width under both. A panel taller
-       than the cover pushes the description down below it. */
-    grid-row: 1 / 4;
-    grid-column: 3;
-    /* One column of facts, however wide the panel */
-    grid-template-columns: minmax(0, 1fr);
-    align-content: start;
-    gap: 8px;
-    box-sizing: border-box;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
     margin: 0;
-    padding: 20px 22px;
-    border: 0;
-    border-radius: 10px;
-    background: var(--surface);
 }
 
 dl.book-metadata:not(:has(> div)) { display: none; }
 
-.book-metadata > div {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 16px;
-    min-width: 0;
+.book-fact {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 30px;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: var(--control-tint);
+    color: var(--ink-soft);
+    font-size: 14px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
 }
 
-.book-metadata > div[hidden] { display: none; }
+.book-fact[hidden] { display: none; }
 
-.book-metadata dt {
-    flex: none;
+.book-fact dt {
     color: var(--muted);
-    font-size: 14px;
     font-weight: 400;
 }
 
-.book-metadata dd {
+.book-fact dd {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     margin: 0;
-    color: var(--ink);
-    font-size: 15px;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-    min-width: 0;
-    text-align: right;
-    /* One line per fact; a long value ends in an ellipsis */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
-/* Files lead the panel as tiles; the tiles say what they are, so the label is sr-only. */
-.book-metadata > .formats { display: block; grid-column: 1 / -1; margin-bottom: 6px; }
-.book-metadata > .formats > dd { text-align: left; white-space: normal; overflow: visible; }
+.book-fact:has(a) { background: var(--accent-soft); }
+.book-fact:has(a):hover { background: var(--selected); }
+.book-fact a { color: var(--accent); }
+.book-fact .lily-format { flex: none; width: 16px; height: 16px; }
 
-.book-detail-description { align-self: stretch; }
+/* The description as a pull-quote: italic reading text behind a large accent mark. */
+.book-detail-description {
+    position: relative;
+    align-self: stretch;
+    max-width: 44em;
+    padding-left: 64px;
+}
+
+.book-detail-description::before {
+    content: "\201C";
+    position: absolute;
+    top: -22px;
+    left: 0;
+    font-family: var(--font-body);
+    font-size: 112px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--accent);
+}
+
 .book-detail-prompt { align-self: start; margin: 0; }
 
 .book-detail-description .comments {
     font-family: var(--font-body);
-    font-size: 18px;
-    line-height: 1.68;
+    font-size: 22px;
+    font-style: italic;
+    line-height: 1.6;
     color: var(--ink-soft);
 }
 
 .book-detail-description .comments p { margin: 0 0 14px; }
 .book-detail-description .comments p:last-child { margin-bottom: 0; }
 
-
-/* Narrower: two columns, with the facts panel stacked under the cover so the description
-   keeps the full middle width. The description spans the cover's last row and the panel's
-   row, so a tall cover never opens a gap above it. */
-@media (max-width: 1499px) {
-    .book-detail-main {
-        grid-template-columns: clamp(220px, 24vw, 310px) minmax(0, 1fr);
-        grid-template-rows: min-content min-content auto 1fr;
-    }
-
-    .book-detail-cover { grid-row: 1 / 4; }
-    .book-detail-extra { grid-row: 3 / 5; grid-column: 2; padding-top: 14px; }
-
-    dl.book-metadata {
-        grid-row: 4;
-        grid-column: 1;
-    }
+/* Housekeeping on one quiet line under the description: "Metadata From arXiv · Date added …" */
+dl.book-record {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
 }
 
-/* Phone: a cover thumbnail beside the heading, then everything full width. */
-@media (max-width: 767px) {
+.book-detail-description + dl.book-record { padding-left: 64px; }
+
+.book-record > div { display: flex; gap: 4px; }
+.book-record > div + div::before { content: "·"; margin-right: 4px; }
+.book-record dt { font-weight: 400; }
+.book-record dd { margin: 0; color: var(--ink-soft); }
+
+/* Narrower: a smaller plate and title. */
+@media (max-width: 1499px) {
     .book-detail-main {
-        grid-template-columns: 108px minmax(0, 1fr);
-        grid-template-rows: auto;
-        gap: 14px;
+        grid-template-columns: clamp(220px, 22vw, 268px) minmax(0, 1fr);
+        gap: 24px 40px;
     }
 
-    .book-detail-cover { grid-row: 1; grid-column: 1; }
-    .book-detail-meta { grid-row: 1; grid-column: 2; align-self: center; }
-    .book-detail-actions { grid-row: 2; grid-column: 1 / -1; }
-    .book-detail-extra { grid-row: 3; grid-column: 1 / -1; padding-top: 0; }
-    dl.book-metadata { grid-row: 4; grid-column: 1 / -1; padding: 14px 16px; }
+    .book-detail-meta h1#title { font-size: 46px; }
+}
 
-    .book-detail-meta h1#title { font-size: 23px; }
-    .book-detail-meta .author { margin-top: 2px; font-size: 16px; }
+@media (max-width: 1099px) {
+    .book-detail-main { padding: 24px; gap: 24px; }
+    .book-detail-extra { padding: 0 24px; }
+    .book-detail-meta h1#title { font-size: 40px; }
+}
+
+/* Phone: the stage stacks and centres; Read takes the first line, the icons share the next. */
+@media (max-width: 767px) {
+    .book-detail-main {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto;
+        justify-items: center;
+        gap: 22px;
+        padding: 24px 16px;
+        text-align: center;
+    }
+
+    .book-detail-cover { width: 196px; padding: 8px; }
+    .book-detail-head { align-items: center; width: 100%; }
+    .book-detail-meta { align-items: center; }
+    dl.book-metadata { justify-content: center; }
+    .book-detail-actions { width: 100%; }
+
+    .book-detail-meta h1#title { font-size: 30px; line-height: 1.08; letter-spacing: -0.015em; }
+    .book-detail-meta .author { margin-top: 2px; font-size: 17px; }
+
+    .book-action-bar > .btn.btn-primary { flex: 1 1 100%; }
+    .book-action-bar > .btn.is-icon,
+    .book-action-bar > .dropdown { flex: 1 1 0; }
+    .book-action-bar > .dropdown > .btn.is-icon { width: 100%; }
+    .book-action-bar > .btn.is-icon { width: auto; }
+    .book-action-bar > .btn.is-danger { margin-left: 0; }
+
+    .book-detail-extra { margin-top: 22px; padding: 0; }
+    .book-detail-description { padding-left: 40px; }
+    .book-detail-description::before { top: -14px; font-size: 76px; }
+    .book-detail-description .comments { font-size: 19px; }
+    .book-detail-description + dl.book-record { padding-left: 40px; }
 }
 
 /* ------------------------------------------------------------------ */

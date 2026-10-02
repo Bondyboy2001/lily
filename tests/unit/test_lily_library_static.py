@@ -72,10 +72,11 @@ def test_detail_edit_and_read_state_are_named_icon_buttons():
     assert "caret" not in html
     css = read(CSS / "lily-library.css")
     square = re.search(r"\.book-action-bar > \.btn\.is-icon,\s*\.book-action-bar > \.dropdown > \.btn\.is-icon \{([^}]*)\}", css)
-    assert square and "width: 100%" in square.group(1)
-    # The icons fill the column in equal shares, at every width.
+    assert square and "width: 44px" in square.group(1)
+    # 44px squares beside the labelled Read; on phones they share the line under Read.
     share = re.search(r"^\.book-action-bar > \.btn\.is-icon \{([^}]*)\}", css, flags=re.M)
-    assert share and "flex: 1 1 0" in share.group(1)
+    assert share and "flex: none" in share.group(1)
+    assert re.search(r"\.book-action-bar > \.btn\.btn-primary \{ flex: 1 1 100%; \}", css)
 
 
 def test_detail_rare_actions_are_icon_buttons_not_a_menu():
@@ -268,30 +269,41 @@ def test_book_links_open_the_book_page_not_a_modal():
         assert "#bookDetailsModal" not in read(TEMPLATES / name), name
 
 
-def test_detail_rows_keep_metadata_in_a_side_panel():
+def test_detail_page_is_a_frontispiece_stage():
+    # docs/design.md §6.4: a --sunk stage (cover plate | heading, fact tags, actions), and under
+    # it the description, the housekeeping line and the related rows.
     css = read(CSS / "lily-library.css")
-    main_rules = [body for selector, body in css_rules(css) if selector == ".book-detail-main"]
-    # Wide: cover | book | facts panel, with content-sized heading and action rows.
-    # The middle column fits its content, so the panel fills the space a short title leaves.
-    assert "grid-template-columns: clamp(240px, 19vw, 340px) minmax(min(100%, 420px), max-content) minmax(260px, 1fr)" in main_rules[0]
-    assert "grid-template-rows: min-content min-content 1fr auto" in main_rules[0]
-    # Wide: the panel sits beside the cover only; the description runs the full width under both.
-    extra = next(body for selector, body in css_rules(css) if selector == ".book-detail-extra")
-    assert "grid-row: 4" in extra and "grid-column: 1 / -1" in extra
-    description = next(body for selector, body in css_rules(css) if selector == ".book-detail-description .comments")
-    assert "max-width" not in description
-    # Phone: row sizing is reset.
-    assert "grid-template-rows: auto" in main_rules[-1]
-    metadata = next(body for selector, body in css_rules(css) if selector == "dl.book-metadata")
-    for declaration in ("grid-row: 1 / 4", "grid-column: 3", "padding: 20px 22px", "border: 0", "border-radius: 10px",
-                        "background: var(--surface)", "margin: 0"):
-        assert declaration in metadata
-    # One column of facts at every width
-    assert "grid-template-columns: minmax(0, 1fr)" in metadata
-    assert not any("book-metadata" in selector and "repeat(" in body for selector, body in css_rules(css))
+    rules = css_rules(css)
+    main_rules = [body for selector, body in rules if selector == ".book-detail-main"]
+    assert "grid-template-columns: clamp(240px, 20vw, 312px) minmax(0, 1fr)" in main_rules[0]
+    assert "background: var(--sunk)" in main_rules[0] and "border-radius: 10px" in main_rules[0]
+    assert "box-shadow" not in main_rules[0]
+    # Phone: one centred column, row sizing reset.
+    assert "grid-template-rows: auto" in main_rules[-1] and "minmax(0, 1fr)" in main_rules[-1]
+    plate = next(body for selector, body in rules if selector == ".book-detail-cover")
+    assert "background: var(--surface)" in plate and "box-shadow" not in plate
+    # The facts are tags, not a side panel.
+    facts = next(body for selector, body in rules if selector == "dl.book-metadata")
+    assert "display: flex" in facts and "flex-wrap: wrap" in facts and "background" not in facts
+    tag = next(body for selector, body in rules if selector == ".book-fact")
+    assert "border-radius: 999px" in tag and "background: var(--control-tint)" in tag
+    description = next(body for selector, body in rules if selector == ".book-detail-description .comments")
+    assert "font-style: italic" in description
     html = read(TEMPLATES / "detail.html")
-    # The panel is its own grid item, not tucked under the description.
-    assert html.index('<dl class="book-metadata">') < html.index('<div class="book-detail-extra">')
+    stage = html[html.index('<div class="book-detail-main">'):html.index('<div class="book-detail-extra">')]
+    assert '<dl class="book-metadata">' in stage and 'id="readbtn"' in stage
+    extra = html[html.index('<div class="book-detail-extra">'):]
+    # The housekeeping line and the related rows come after the description.
+    assert extra.index('class="book-detail-description"') < extra.index('<dl class="book-record">') \
+        < extra.index("related-author-heading")
+    for name in ("book-metadata-lookup", "book-date-added", "book-last-modified"):
+        assert name in extra and name not in stage
+
+
+def test_detail_arxiv_publisher_is_not_said_twice():
+    # The arXiv tag already names arXiv; a paper published by arXiv gets no second tag.
+    html = read(TEMPLATES / "detail.html")
+    assert "not (entry.arxiv_id and entry.publishers[0].name|lower == 'arxiv')" in html
 
 
 def test_site_has_no_horizontal_separator_borders():
@@ -450,7 +462,7 @@ def test_delete_dialog_names_the_book_and_promises_no_restore():
 
 def test_book_title_is_the_page_h1_and_the_top_bar_has_none():
     # docs/design.md §6.1: the book title is the book page's h1; the top bar renders no
-    # (empty) h1 there. The title keeps its 40px/700 content look (§3.1).
+    # (empty) h1 there. The title keeps its 52px/700 display look (§3.1).
     html = read(TEMPLATES / "detail.html")
     assert re.search(r'<h1 id="title">{{ entry.title }}</h1>', html)
     assert '<h2 id="title">' not in html
@@ -460,8 +472,8 @@ def test_book_title_is_the_page_h1_and_the_top_bar_has_none():
     css = read(CSS / "lily-library.css")
     assert "h2#title" not in css
     title = [b for s, b in css_rules(css) if s == ".book-detail-meta h1#title"]
-    assert title and "font-size: 40px" in title[0] and "font-weight: 700" in title[0]
-    assert "font-size: 23px" in "".join(title[1:])  # phone size
+    assert title and "font-size: 52px" in title[0] and "font-weight: 700" in title[0]
+    assert "font-size: 30px" in "".join(title[1:])  # phone size
 
 
 def test_grid_quick_actions_name_their_book():

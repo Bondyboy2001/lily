@@ -10,6 +10,8 @@
 {% endblock %}
 {% block body %}
 <div class="discover lily-book-detail">
+    {# "Frontispiece" (design §6.4): a stage with the cover as a mounted plate beside the title,
+       byline, fact tags and actions; below it the description, housekeeping and what to read next. #}
     <div class="book-detail-main">
         <div class="book-detail-cover">
             <div class="book-detail-cover-art cover">
@@ -17,187 +19,194 @@
                      src="{{ url_for('web.get_cover', book_id=entry.id, resolution='og', c=entry|last_modified) }}"/>
             </div>
         </div>
-        <div class="book-detail-meta">
-            {% if entry.series|length > 0 %}
-                <p id="book_of">{{ _("Book %(index)s of %(range)s", index=entry.series_index|formatfloat(2), range=(url_for('web.books_list', data='series', sort_param='stored', book_id=entry.series[0].id)|escapedlink(entry.series[0].name))|safe) }}</p>
-            {% endif %}
-            {# The page's one h1: the top bar leaves its title out on this page (layout.html) #}
-            <h1 id="title">{{ entry.title }}</h1>
-            {% set authors = entry.ordered_authors|named_authors %}
-            {% if authors %}
-            <p class="author">
-                {% for author in authors %}
-                    <a href="{{ url_for('web.books_list',  data='author', sort_param='stored', book_id=author.id ) }}">{{ author.name.replace('|',',') }}</a>{% if not loop.last %} &amp; {% endif %}
+        <div class="book-detail-head">
+            <div class="book-detail-meta">
+                {% if entry.series|length > 0 %}
+                    <p id="book_of">{{ _("Book %(index)s of %(range)s", index=entry.series_index|formatfloat(2), range=(url_for('web.books_list', data='series', sort_param='stored', book_id=entry.series[0].id)|escapedlink(entry.series[0].name))|safe) }}</p>
+                {% endif %}
+                {# The page's one h1: the top bar leaves its title out on this page (layout.html) #}
+                <h1 id="title">{{ entry.title }}</h1>
+                {% set authors = entry.ordered_authors|named_authors %}
+                {% if authors %}
+                <p class="author">
+                    {% for author in authors %}
+                        <a href="{{ url_for('web.books_list',  data='author', sort_param='stored', book_id=author.id ) }}">{{ author.name.replace('|',',') }}</a>{% if not loop.last %} &amp; {% endif %}
+                    {% endfor %}
+                </p>
+                {% endif %}
+                {% set current_rating = (entry.ratings[0].rating / 2)|int if entry.ratings|length > 0 else 0 %}
+                {% if current_rating > 0 %}
+                <div class="rating" id="detail-rating-block" title="{{ current_rating }} / 5">
+                    {% for number in range(current_rating) %}<span class="glyphicon glyphicon-star good" aria-hidden="true"></span>{% endfor %}
+                    {% for number in range(5 - current_rating) %}<span class="glyphicon glyphicon-star-empty" aria-hidden="true"></span>{% endfor %}
+                    <span class="sr-only">{{ _('Rating') }}: {{ current_rating }} / 5</span>
+                </div>
+                {% endif %}
+            </div>
+
+            {# The facts as tags under the byline (design §6.4): files, date, publisher, language,
+               the paper's ids and its citations. Each keeps its label for screen readers; a tag
+               whose value alone is unclear shows the label too. Empty fields are left out. #}
+            <dl class="book-metadata">
+                {% for format in entry.data %}
+                    {% set f = format.format|lower %}
+                    <div class="book-fact formats">
+                        <dt class="sr-only">{{ _('File') }}</dt>
+                        <dd>{% if f in ['epub', 'pdf'] %}<span class="lily-format lily-format-{{ f }}" aria-hidden="true"></span>{% endif %}{{ format.format }} · {{ format.uncompressed_size|filesizeformat_binary }}</dd>
+                    </div>
                 {% endfor %}
-            </p>
-            {% endif %}
-            {% set current_rating = (entry.ratings[0].rating / 2)|int if entry.ratings|length > 0 else 0 %}
-            {% if current_rating > 0 %}
-            <div class="rating" id="detail-rating-block" title="{{ current_rating }} / 5">
-                {% for number in range(current_rating) %}<span class="glyphicon glyphicon-star good" aria-hidden="true"></span>{% endfor %}
-                {% for number in range(5 - current_rating) %}<span class="glyphicon glyphicon-star-empty" aria-hidden="true"></span>{% endfor %}
-                <span class="sr-only">{{ _('Rating') }}: {{ current_rating }} / 5</span>
-            </div>
-            {% endif %}
-        </div>
-
-        <div class="book-detail-actions">
-            {# Read is the one Primary and wears its word; every other action is a square icon button
-               named by its title and a hidden label. #}
-            <div class="book-action-bar" role="toolbar" aria-label="{{ _('Book actions') }}">
-                {% set can_read = entry.reader_list and current_user.role_viewer() %}
-                {% set can_download = current_user.role_download() and entry.data|length %}
-                {% set can_delete = current_user.role_edit() and current_user.role_delete_books() %}
-                {% if can_read %}
-                    {# A book in progress is named "Continue · 33%" and opens the format it was last read in, in a new tab. #}
-                    {% set read_name = resume and (_('Continue') ~ ' · ' ~ resume.percent ~ '%') or _('Read') %}
-                    <a id="readbtn" class="btn btn-primary" target="_blank" rel="noopener" data-reader-link=""
-                       href="{{ url_for('web.read_book', book_id=entry.id, book_format=(resume and resume.format) or entry.reader_list[0]) }}" title="{{ read_name }}">
-                        <span class="glyphicon glyphicon-book" aria-hidden="true"></span><span class="book-action-label">{% if resume %}{{ _('Continue') }} · {{ resume.percent }}%{% else %}{{ _('Read') }}{% endif %}</span>
-                    </a>
+                {# An arXiv paper shows its id, linked to the abstract page #}
+                {% if entry.arxiv_id %}
+                    <div class="book-fact arxiv">
+                        <dt>{{ _('arXiv') }}</dt>
+                        <dd><a href="https://arxiv.org/abs/{{ entry.arxiv_id }}" target="_blank" rel="noopener">{{ entry.arxiv_id }}</a></dd>
+                    </div>
                 {% endif %}
-                {% if can_download %}
-                    {% if entry.data|length < 2 %}
-                        {% for format in entry.data %}
-                            <a href="{{ url_for('web.download_link', book_id=entry.id, book_format=format.format|lower, anyname=entry.id|string+'.'+format.format|lower) }}"
-                               class="btn is-icon" id="downloadbtn" title="{{ _('Download') }}">
-                                <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span><span class="book-action-label sr-only">{{ _('Download') }}</span>
-                            </a>
-                        {% endfor %}
-                    {% else %}
-                        <span class="dropdown">
-                            <button id="downloadMenu" type="button" class="btn is-icon dropdown-toggle"
-                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="{{ _('Download') }}">
-                                <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span><span class="book-action-label sr-only">{{ _('Download') }}</span>
-                            </button>
-                            <ul class="dropdown-menu" aria-labelledby="downloadMenu">
-                                {% for format in entry.data %}
-                                    <li>
-                                        <a href="{{ url_for('web.download_link', book_id=entry.id, book_format=format.format|lower, anyname=entry.id|string+'.'+format.format|lower) }}">{{ format.format }}
-                                            ({{ format.uncompressed_size|filesizeformat_binary }})</a></li>
-                                {% endfor %}
-                            </ul>
-                        </span>
+                {% if (entry.pubdate|string)[:10] != '0101-01-01' %}
+                    <div class="book-fact publishing-date">
+                        <dt class="sr-only">{{ _('Published') }}</dt>
+                        <dd>{{ entry.pubdate|formatdate }}</dd>
+                    </div>
+                {% endif %}
+                {# The arXiv tag already names arXiv, so a paper whose publisher is arXiv doesn't say it twice #}
+                {% if entry.publishers|length > 0 and not (entry.arxiv_id and entry.publishers[0].name|lower == 'arxiv') %}
+                    <div class="book-fact publishers">
+                        <dt class="sr-only">{{ _('Publisher') }}</dt>
+                        <dd><a href="{{ url_for('web.books_list', data='publisher', sort_param='stored', book_id=entry.publishers[0].id ) }}">{{ entry.publishers[0].name }}</a></dd>
+                    </div>
+                {% endif %}
+                {% if entry.languages|length > 0 %}
+                    <div class="book-fact languages">
+                        <dt class="sr-only">{{ _('Languages') }}</dt>
+                        <dd>{% for language in entry.languages %}{{ language.language_name }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>
+                    </div>
+                {% endif %}
+                {# The arXiv tag stands for the paper, so its DOI isn't repeated; another paper's DOI stays a named link #}
+                {% set other_ids = entry.identifiers|rejectattr('type', 'in', (['doi', 'DOI'] if entry.arxiv_id else []) + ['arxiv', 'arXiv'])|list %}
+                {% for identifier in other_ids if identifier.__repr__() != identifier.val %}
+                    <div class="book-fact identifiers">
+                        <dt class="sr-only">{{ _('Identifiers') }}</dt>
+                        <dd><a href="{{ identifier|escape }}" target="_blank" rel="noopener">{{ identifier.format_type() }}</a></dd>
+                    </div>
+                {% endfor %}
+                {# Filled in after load from OpenAlex; stays hidden when the paper isn't found #}
+                {% if entry.paper_doi %}
+                    <div class="book-fact citations" id="book-citations" data-url="{{ url_for('web.get_citation_count', book_id=entry.id) }}" hidden>
+                        <dt>{{ _('Citations') }}</dt>
+                        <dd></dd>
+                    </div>
+                {% endif %}
+                {% if cc|length > 0 %}
+                    {% for c in cc %}
+                        {% if entry['custom_column_' ~ c.id]|length > 0 %}
+                            <div class="book-fact real_custom_columns">
+                                <dt>{{ c.name }}</dt>
+                                <dd>
+                                    {% for column in entry['custom_column_' ~ c.id] %}
+                                        {% if c.datatype == 'rating' %}
+                                            {{ (column.value / 2)|formatfloat }}
+                                        {% elif c.datatype == 'bool' %}
+                                            {% if column.value == true %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}
+                                        {% elif c.datatype == 'float' %}
+                                            {{ column.value|formatfloat(2) }}
+                                        {% elif c.datatype == 'datetime' %}
+                                            {{ column.value|formatdate }}
+                                        {% elif c.datatype == 'comments' %}
+                                            {{ column.value|striptags }}
+                                        {% elif c.datatype == 'series' %}
+                                            {{ '%s [%s]' % (column.value, column.extra|formatfloat(2)) }}
+                                        {% elif c.datatype == 'text' %}
+                                            {{ column.value.strip() }}{% if not loop.last %}, {% endif %}
+                                        {% else %}
+                                            {{ column.value }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </dd>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+            </dl>
+
+            <div class="book-detail-actions">
+                {# Read is the one Primary and wears its word; every other action is a square icon button
+                   named by its title and a hidden label. #}
+                <div class="book-action-bar" role="toolbar" aria-label="{{ _('Book actions') }}">
+                    {% set can_read = entry.reader_list and current_user.role_viewer() %}
+                    {% set can_download = current_user.role_download() and entry.data|length %}
+                    {% set can_delete = current_user.role_edit() and current_user.role_delete_books() %}
+                    {% if can_read %}
+                        {# A book in progress is named "Continue · 33%" and opens the format it was last read in, in a new tab. #}
+                        {% set read_name = resume and (_('Continue') ~ ' · ' ~ resume.percent ~ '%') or _('Read') %}
+                        <a id="readbtn" class="btn btn-primary" target="_blank" rel="noopener" data-reader-link=""
+                           href="{{ url_for('web.read_book', book_id=entry.id, book_format=(resume and resume.format) or entry.reader_list[0]) }}" title="{{ read_name }}">
+                            <span class="glyphicon glyphicon-book" aria-hidden="true"></span><span class="book-action-label">{% if resume %}{{ _('Continue') }} · {{ resume.percent }}%{% else %}{{ _('Read') }}{% endif %}</span>
+                        </a>
                     {% endif %}
-                {% endif %}
-                {% if not current_user.is_anonymous %}
-                    {# A tick in a circle, green once read (styled off .is-on); the hidden label is the button's name.
-                       The label names the action and flips, so there is no aria-pressed (design §5.1). #}
-                    {% set read_label = entry.read_status and _('Mark as unread') or _('Mark as read') %}
-                    <button type="button" class="btn is-icon{{ ' is-on' if entry.read_status }}" id="toggle-read-btn" title="{{ read_label }}">
-                        <span id="read-icon" class="glyphicon glyphicon-ok-circle" aria-hidden="true"></span><span class="book-action-label sr-only">{{ read_label }}</span>
-                    </button>
-                {% endif %}
-                {% if current_user.role_edit() %}
-                    <a href="{{ url_for('edit-book.show_edit_book', book_id=entry.id) }}" id="edit_book" class="btn is-icon"
-                       title="{{ _('Edit metadata') }}" aria-label="{{ _('Edit metadata') }}">
-                        <span class="glyphicon glyphicon-pencil" aria-hidden="true"></span>
-                    </a>
-                {% endif %}
-                {% if can_delete %}
-                    <button type="button" class="btn is-icon is-danger" id="delete" title="{{ _('Delete book') }}" aria-label="{{ _('Delete book') }}"
-                            data-toggle="modal" data-delete-id="{{ entry.id }}" data-delete-title="{{ entry.title }}" data-target="#deleteModal">
-                        <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
-                    </button>
-                {% endif %}
-            </div>
-        </div>
-
-        {# The facts as a side panel: each file as a tile (type mark, format, size), then one
-           label/value line per fact. Downloading goes through the Download button. Empty
-           fields are left out. #}
-        <dl class="book-metadata">
-            {% if entry.data|length > 0 %}
-                <div class="formats">
-                    <dt class="sr-only">{{ _('Files') }}</dt>
-                    <dd class="book-detail-files">
-                        {% for format in entry.data %}
-                            {% set f = format.format|lower %}
-                            <span class="book-detail-file">
-                                {% if f in ['epub', 'pdf'] %}<span class="lily-format lily-format-{{ f }}" aria-hidden="true"></span>{% endif %}
-                                <span class="book-detail-file-name">{{ format.format }}</span>
-                                <span class="book-detail-file-size">{{ format.uncompressed_size|filesizeformat_binary }}</span>
+                    {% if can_download %}
+                        {% if entry.data|length < 2 %}
+                            {% for format in entry.data %}
+                                <a href="{{ url_for('web.download_link', book_id=entry.id, book_format=format.format|lower, anyname=entry.id|string+'.'+format.format|lower) }}"
+                                   class="btn is-icon" id="downloadbtn" title="{{ _('Download') }}">
+                                    <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span><span class="book-action-label sr-only">{{ _('Download') }}</span>
+                                </a>
+                            {% endfor %}
+                        {% else %}
+                            <span class="dropdown">
+                                <button id="downloadMenu" type="button" class="btn is-icon dropdown-toggle"
+                                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="{{ _('Download') }}">
+                                    <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span><span class="book-action-label sr-only">{{ _('Download') }}</span>
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="downloadMenu">
+                                    {% for format in entry.data %}
+                                        <li>
+                                            <a href="{{ url_for('web.download_link', book_id=entry.id, book_format=format.format|lower, anyname=entry.id|string+'.'+format.format|lower) }}">{{ format.format }}
+                                                ({{ format.uncompressed_size|filesizeformat_binary }})</a></li>
+                                    {% endfor %}
+                                </ul>
                             </span>
-                        {% endfor %}
-                    </dd>
-                </div>
-            {% endif %}
-            {% if (entry.pubdate|string)[:10] != '0101-01-01' %}
-                <div class="publishing-date">
-                    <dt>{{ _('Published') }}</dt>
-                    <dd>{{ entry.pubdate|formatdate }}</dd>
-                </div>
-            {% endif %}
-            {% if entry.publishers|length > 0 %}
-                <div class="publishers">
-                    <dt>{{ _('Publisher') }}</dt>
-                    <dd><a href="{{ url_for('web.books_list', data='publisher', sort_param='stored', book_id=entry.publishers[0].id ) }}">{{ entry.publishers[0].name }}</a></dd>
-                </div>
-            {% endif %}
-            {% if entry.languages|length > 0 %}
-                <div class="languages">
-                    <dt>{{ _('Languages') }}</dt>
-                    <dd>{% for language in entry.languages %}{{ language.language_name }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>
-                </div>
-            {% endif %}
-            {# An arXiv paper shows its id, linked to the abstract page #}
-            {% if entry.arxiv_id %}
-                <div class="arxiv">
-                    <dt>{{ _('arXiv') }}</dt>
-                    <dd><a href="https://arxiv.org/abs/{{ entry.arxiv_id }}" target="_blank" rel="noopener">{{ entry.arxiv_id }}</a></dd>
-                </div>
-            {% endif %}
-            {# The arXiv row stands for the paper, so its DOI isn't repeated; another paper's DOI stays a named link #}
-            {% set other_ids = entry.identifiers|rejectattr('type', 'in', (['doi', 'DOI'] if entry.arxiv_id else []) + ['arxiv', 'arXiv'])|list %}
-            {% set ids = namespace(linked=false) %}
-            {% for identifier in other_ids if identifier.__repr__() != identifier.val %}{% set ids.linked = true %}{% endfor %}
-            {% if ids.linked %}
-                <div class="identifiers">
-                    <dt>{{ _('Identifiers') }}</dt>
-                    <dd>
-                        {% for identifier in other_ids if identifier.__repr__() != identifier.val %}
-                            <a href="{{ identifier|escape }}" target="_blank" rel="noopener">{{ identifier.format_type() }}</a>{% if not loop.last %}, {% endif %}
-                        {% endfor %}
-                    </dd>
-                </div>
-            {% endif %}
-            {# Filled in after load from OpenAlex; stays hidden when the paper isn't found #}
-            {% if entry.paper_doi %}
-                <div class="citations" id="book-citations" data-url="{{ url_for('web.get_citation_count', book_id=entry.id) }}" hidden>
-                    <dt>{{ _('Citations') }}</dt>
-                    <dd></dd>
-                </div>
-            {% endif %}
-            {% if cc|length > 0 %}
-                {% for c in cc %}
-                    {% if entry['custom_column_' ~ c.id]|length > 0 %}
-                        <div class="real_custom_columns">
-                            <dt>{{ c.name }}</dt>
-                            <dd>
-                                {% for column in entry['custom_column_' ~ c.id] %}
-                                    {% if c.datatype == 'rating' %}
-                                        {{ (column.value / 2)|formatfloat }}
-                                    {% elif c.datatype == 'bool' %}
-                                        {% if column.value == true %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}
-                                    {% elif c.datatype == 'float' %}
-                                        {{ column.value|formatfloat(2) }}
-                                    {% elif c.datatype == 'datetime' %}
-                                        {{ column.value|formatdate }}
-                                    {% elif c.datatype == 'comments' %}
-                                        {{ column.value|safe }}
-                                    {% elif c.datatype == 'series' %}
-                                        {{ '%s [%s]' % (column.value, column.extra|formatfloat(2)) }}
-                                    {% elif c.datatype == 'text' %}
-                                        {{ column.value.strip() }}{% if not loop.last %}, {% endif %}
-                                    {% else %}
-                                        {{ column.value }}
-                                    {% endif %}
-                                {% endfor %}
-                            </dd>
-                        </div>
+                        {% endif %}
                     {% endif %}
-                {% endfor %}
-            {% endif %}
+                    {% if not current_user.is_anonymous %}
+                        {# A tick in a circle, green once read (styled off .is-on); the hidden label is the button's name.
+                           The label names the action and flips, so there is no aria-pressed (design §5.1). #}
+                        {% set read_label = entry.read_status and _('Mark as unread') or _('Mark as read') %}
+                        <button type="button" class="btn is-icon{{ ' is-on' if entry.read_status }}" id="toggle-read-btn" title="{{ read_label }}">
+                            <span id="read-icon" class="glyphicon glyphicon-ok-circle" aria-hidden="true"></span><span class="book-action-label sr-only">{{ read_label }}</span>
+                        </button>
+                    {% endif %}
+                    {% if current_user.role_edit() %}
+                        <a href="{{ url_for('edit-book.show_edit_book', book_id=entry.id) }}" id="edit_book" class="btn is-icon"
+                           title="{{ _('Edit metadata') }}" aria-label="{{ _('Edit metadata') }}">
+                            <span class="glyphicon glyphicon-pencil" aria-hidden="true"></span>
+                        </a>
+                    {% endif %}
+                    {% if can_delete %}
+                        <button type="button" class="btn is-icon is-danger" id="delete" title="{{ _('Delete book') }}" aria-label="{{ _('Delete book') }}"
+                                data-toggle="modal" data-delete-id="{{ entry.id }}" data-delete-title="{{ entry.title }}" data-target="#deleteModal">
+                            <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="book-detail-extra">
+        {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
+            <section class="book-detail-description" aria-label="{{ _('Description') }}">
+                <div class="comments" id="book-description">{{ entry.comments[0].text|flatten_breaks }}</div>
+            </section>
+        {% elif current_user.role_edit() %}
+            {# A thin book: one step to the lookup instead of Edit, Fetch metadata, Apply, Save #}
+            <div class="alert alert-info book-detail-prompt" id="book-fetch-prompt">
+                <span>{% if metadata_lookup and metadata_lookup.status in ['nomatch', 'failed'] %}{{ _('This book has no description, and the automatic lookup found nothing.') }}{% else %}{{ _('This book has no description yet.') }}{% endif %}
+                    <a href="{{ url_for('edit-book.show_edit_book', book_id=entry.id, fetch=1) }}">{{ _('Fetch metadata') }}</a></span>
+            </div>
+        {% endif %}
+
+        {# Housekeeping, quietly under the description: the last lookup (editors only), added, edited #}
+        <dl class="book-record">
             {% if metadata_lookup %}
             {# What its last metadata lookup found; editors only (web._metadata_lookup) #}
             {% set lookup_words = {'nomatch': _('No match'), 'failed': _('Lookup failed')} %}
@@ -222,43 +231,28 @@
             </div>
         </dl>
 
-        <div class="book-detail-extra">
-            {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
-                <section class="book-detail-description" aria-label="{{ _('Description') }}">
-                    <div class="comments" id="book-description">{{ entry.comments[0].text|flatten_breaks }}</div>
-                </section>
-            {% elif current_user.role_edit() %}
-                {# A thin book: one step to the lookup instead of Edit, Fetch metadata, Apply, Save #}
-                <div class="alert alert-info book-detail-prompt" id="book-fetch-prompt">
-                    <span>{% if metadata_lookup and metadata_lookup.status in ['nomatch', 'failed'] %}{{ _('This book has no description, and the automatic lookup found nothing.') }}{% else %}{{ _('This book has no description yet.') }}{% endif %}
-                        <a href="{{ url_for('edit-book.show_edit_book', book_id=entry.id, fetch=1) }}">{{ _('Fetch metadata') }}</a></span>
-                </div>
-            {% endif %}
+        {# What to read next: the rest of the series (later books first), then the author's others. #}
+        {% if related and related.series %}
+            {{ image.book_row('related-series-heading',
+                              _('Next in %(series)s', series=related.series.name) if related.series.next
+                              else _('Earlier in %(series)s', series=related.series.name),
+                              related.series.books, numbered=True) }}
+        {% endif %}
+        {% if related and related.author %}
+            {{ image.book_row('related-author-heading', _('More by %(author)s', author=related.author.name),
+                              related.author.books) }}
+        {% endif %}
 
-            {# What to read next: the rest of the series (later books first), then the author's others. #}
-            {% if related and related.series %}
-                {{ image.book_row('related-series-heading',
-                                  _('Next in %(series)s', series=related.series.name) if related.series.next
-                                  else _('Earlier in %(series)s', series=related.series.name),
-                                  related.series.books, numbered=True) }}
-            {% endif %}
-            {% if related and related.author %}
-                {{ image.book_row('related-author-heading', _('More by %(author)s', author=related.author.name),
-                                  related.author.books) }}
-            {% endif %}
-
-
-            {% if not current_user.is_anonymous %}
-                <div class="meta-actions" hidden>
-                    <form id="have_read_form" action="{{ url_for('web.toggle_read', book_id=entry.id) }}" method="POST">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input id="have_read_cb" data-checked="{{ _('Mark as unread') }}"
-                               data-unchecked="{{ _('Mark as read') }}" type="checkbox"
-                               {% if entry.read_status %}checked{% endif %}>
-                    </form>
-                </div>
-            {% endif %}
-        </div>
+        {% if not current_user.is_anonymous %}
+            <div class="meta-actions" hidden>
+                <form id="have_read_form" action="{{ url_for('web.toggle_read', book_id=entry.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input id="have_read_cb" data-checked="{{ _('Mark as unread') }}"
+                           data-unchecked="{{ _('Mark as read') }}" type="checkbox"
+                           {% if entry.read_status %}checked{% endif %}>
+                </form>
+            </div>
+        {% endif %}
     </div>
     {{ delete_book(current_user.role_delete_books() and current_user.role_edit()) }}
 </div>

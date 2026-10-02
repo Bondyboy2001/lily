@@ -63,7 +63,7 @@ format: one token per row, the light value, then the dark value.
 | --- | --- | --- | --- |
 | `--paper` | `#F1EEEA` | `#1A1517` | Page background, dialogs, fields |
 | `--surface` | `#F8F6F3` | `#221B1F` | Raised: panels, menus, popovers, toasts |
-| `--sunk` | `#E7E1DC` | `#151012` | Recessed: sidebar, code wells, empty cover slots |
+| `--sunk` | `#E7E1DC` | `#151012` | Recessed: sidebar, code wells, empty cover slots, the book page's stage |
 | `--ink` | `#2B2127` | `#F0E8EC` | Primary text |
 | `--ink-soft` | `#4A3D45` | `#D6C8CF` | Quiet button labels, resting nav rows, long-form description |
 | `--muted` | `#655860` | `#B4A4AC` | Secondary text, help text, icon buttons at rest |
@@ -134,7 +134,8 @@ heading rule in `lily.css` (`.lp-label, .lp-heading, …`) rather than restating
 the recipe.
 
 Content titles are content, not headings, and keep their own look: the book
-title on the book page (40px/700, `text-wrap: balance`) and author names.
+title on the book page (a 52px/700 display line, `text-wrap: balance`; 46 below
+1500px, 40 below 1100, 30 on phones) and author names.
 
 ### 3.2 Text scale
 
@@ -145,9 +146,9 @@ title on the book page (40px/700, `text-wrap: balance`) and author names.
 | 13px | 400 | Help text (`.lp-help`), units, values in link rows, footnotes |
 | 14px | 400 | Secondary lines: author under a title, `dt` labels, menu meta |
 | **15px** | 400 / 500 | **Base.** Body, buttons, fields, nav rows, row titles (500) |
-| 17–18px | 400 | Long-form reading: book description (18), author bio (17) |
+| 17–22px | 400 | Long-form reading: book description (22 italic, 19 on phones), author bio (17) |
 | 22px | 600 | `--title-size` |
-| display | 600–700 | Content only: book title 40, empty-state glyph 44 |
+| display | 600–700 | Content only: book title 52, empty-state glyph 44 |
 
 - Line height: 1.5 body, 1.4 headings and UI rows, 1.6–1.7 long-form reading.
 - Weights: 400 text, 500 emphasis and labels, 600 headings and primary
@@ -200,7 +201,7 @@ The book-page cover is a spine shape: `4px 8px 8px 4px`.
 | Chip | 30 tall, 14 side padding | 15px, 500; count 11px mono |
 | Icon button | 30 × 30, 16px glyph | — |
 | Large icon button (top bar, list toolbar) | 38 × 38, 21px glyph | — |
-| Book action bar button | 44 tall, an equal share of the column's width, 18px glyph, no visible label | — |
+| Book action bar button | 44 × 44, 18px glyph, no visible label (Read: 44 tall, min 148 wide, labelled) | — |
 | Field | 30 tall, 10 inner padding | 15px |
 | Switch | 34 × 20, 16px thumb | — |
 | Checkbox / radio | 14 × 14, `accent-color` | — |
@@ -229,8 +230,8 @@ Use these widths only (tested). Write `max-width: N` and `min-width: N + 1`.
 | --- | --- | --- |
 | 600 | Small phone | Dialog and duplicates layouts tighten; reader labels hide |
 | 767 / 768 | Phone | Sidebar becomes a drawer; top bar wraps; book grid 2-up; book page stacks; content padding 16 |
-| 1099 / 1100 | Tablet | List view drops year and rating; book editor goes two-column |
-| 1499 / 1500 | Wide | Book page's facts panel moves from a third column to under the cover |
+| 1099 / 1100 | Tablet | List view drops year and rating; book editor goes two-column; book stage padding 24, title 40 |
+| 1499 / 1500 | Wide | Book page's plate and title shrink (plate ≤268, title 46) |
 | 1400, 1700 | Zoom | Whole page zooms 1.1 / 1.2 (`--page-zoom`); size full-height boxes with `calc(100vh / var(--page-zoom))` |
 
 Settings use a container query instead (`@container lp-settings (max-width: 760px)`)
@@ -376,7 +377,8 @@ is ink 12% with `--ink-soft`. If it does something, it's a chip.
 | Kind | Recipe | Use |
 | --- | --- | --- |
 | **Panel** | `--surface`, 1px `--line`, radius 10, padding 22 (dense: 14), no shadow | Any boxed group of content: `.panel`, `.well`, duplicate cards |
-| **Side panel** | `--surface`, no border, radius 10, padding 20×22 | Book page facts (`dl.book-metadata`) |
+| **Side panel** | `--surface`, no border, radius 10, padding 20×22 | A compact group of facts beside content |
+| **Stage** | `--sunk`, no border, radius 10, padding 40 (24 below 1100, 24×16 on phones) | The book page's top band (`.book-detail-main`), and only that |
 | **Group card** | ink 2.5% into `--paper`, 1px `--line-soft`, radius 12, padding 0 16 | Settings rows (`.lp-list`) and only that |
 
 A panel nested in a panel drops to a `--line-soft` edge. Never nest more than
@@ -526,45 +528,50 @@ content (grid, panel, rows)
   from the Import & Metadata page's lookup rows. While it is on, its four chips
   (`image.metadata_chips`) lead the toolbar; the chosen one turns it off.
 
-### 6.4 Book page ("Shelf" layout)
+### 6.4 Book page ("Frontispiece" layout)
 
-- **≥1500px:** three columns: cover | heading and actions | facts side panel
-  (§5.10). The panel sits beside the cover's rows only; the description sits
-  under the cover and runs the full width, under the panel too (a panel taller
-  than the cover pushes it down). Heading and action rows are `min-content`
-  and a `1fr` row takes the cover's extra height.
-- **768–1499px:** two columns; the facts panel stacks under the cover and the
-  description sits under the actions in the second column.
-- **≤767px:** the cover becomes a 108px thumbnail beside the title; actions,
-  description and facts go full-width, facts last. Reset row sizing here.
-- At every width the action icons share one line in equal widths, filling the
-  column.
+- **Stage** (`.book-detail-main`, §5.10): one `--sunk` band. On the left the cover is a
+  mounted plate: the spine-shaped cover on a `--surface` mount, padding 14 (8 on phones),
+  radius 8, flat. On the right, centred against it: the heading (series line, the book
+  title as a display line (§3.1), the authors as an italic `--accent` byline at 20px,
+  the rating), then the fact tags, then the action bar, 22 apart. The stage is one
+  row, so a tall cover never spreads the heading out.
+- **Under the stage** (`.book-detail-extra`, 40 below it, indented 40 to match the
+  stage padding): the description, the housekeeping line, then the related rows
+  ("Next in ‹Series›", "More by ‹Author›") under the description.
+- **≤1499px:** a smaller plate (≤268) and a 46px title. **≤1099px:** stage padding 24,
+  title 40. **≤767px:** the stage stacks and centres: a 196px plate, a 30px title, the
+  tags centred, Read across the full width with the icon buttons sharing the line
+  under it. Reset row sizing here.
 - Read is the Primary and wears its word ("Read", or "Continue · 33%" for a book in
-  progress, opening the reader in a new tab at the format last read); it takes two
-  shares of the line, the others one. Every other action, Download included, is an
-  icon button named by its `title` and a hidden label.
-  Read state, once on, is the tick in `--success` on a 34% `--success` tint.
-- Description: `--font-body` 18px, line-height 1.68, `--ink-soft`, no measure
-  cap: it fills the width it is given.
-- The facts are always one column, at every width: never split into two.
-- Every fact is one line; a long value ends in an ellipsis, never wraps.
+  progress, opening the reader in a new tab at the format last read). Every other action
+  is a 44px square icon button named by its `title` and a hidden label; Delete sits 14px
+  apart at the end. Read state, once on, is the tick in `--success` on a 34% `--success` tint.
+- **Fact tags** (`dl.book-metadata`, one `.book-fact` per fact): radius 999, 30 tall,
+  padding 0 14, 14px/500, `--control-tint` with `--ink-soft`; a tag holding a link takes
+  `--accent-soft` with an `--accent` label (`--selected` on hover). Each tag keeps its `dt`
+  for screen readers and shows it (in `--muted`) only where the value alone is unclear:
+  "arXiv 2608.24965", "Citations 12", custom columns. Order: each file (type mark, format,
+  size), arXiv id, published date, publisher, languages, other identifiers, citations,
+  custom columns. Tags wrap; they never scroll.
+- Don't say a fact twice: a paper whose publisher is arXiv shows only the arXiv tag.
+- **Description:** a pull-quote: `--font-body` 22px italic, line-height 1.6, `--ink-soft`,
+  capped at 44em, indented 64 behind a 112px `--accent` opening mark (19px, 40 and 76 on
+  phones). A book without one shows editors the "Fetch metadata" notice instead.
+- **Housekeeping line** (`dl.book-record`): one 13px `--muted` line under the
+  description, aligned with its text, facts joined by "·": the Metadata lookup (editors
+  only: "From Open Library", "No match" or "Lookup failed", with the date in its tooltip),
+  Date added, Last edited.
 - Tags and shelves are not shown on the book page; both stay editable on the
   edit page.
 - The action bar is Read, Download, Mark as read, Edit metadata and Delete. A book's
   shelves are changed on its edit page (the Shelves rows), never from the book page.
   There is no archive and no Keep offline button. On a shelf page each cover gets a
   quiet `.icon-btn.is-danger` remove action (`shelves.js`).
-- A book with no description shows editors a Notice where the description
-  would be ("This book has no description yet. Fetch metadata"), which opens the
-  edit page with the lookup dialog already open (`?fetch=1`). After a failed or empty
-  lookup it says so.
-- Editors also get a Metadata row, what the last lookup found: "From Open
-  Library", "No match" or "Lookup failed", with the date in its tooltip.
-- Papers: an arXiv row shows the id itself, linked to the abstract page; its
-  DOI isn't shown. Other identifiers (a non-arXiv paper's DOI included) stay as
-  named links in one Identifiers row. A Citations row fills in after load from OpenAlex
-  and stays hidden when the paper isn't found; a count above zero links to the citing
-  works there.
+- Papers: the arXiv tag shows the id, linked to the abstract page; its DOI isn't
+  shown. Other identifiers (a non-arXiv paper's DOI included) are linked tags named by
+  their type. The Citations tag fills in after load from OpenAlex and stays hidden when
+  the paper isn't found; a count above zero links to the citing works there.
 - **Editor** (`book_edit.html`): Title, authors and shelves always show, and are
   the only things added by hand. Series, publisher, published date, language,
   rating, tags and description show only when the book has a value, which Fetch
@@ -573,7 +580,7 @@ content (grid, panel, rows)
   Description) is hidden with its heading, and Fetch Metadata reveals any field
   it fills.
   The description box fits its text (no drag handle), padding 14/16 and
-  line-height 1.68 like the book page.
+  line-height 1.68.
   The Save panel starts with a secondary Read (new tab) when the book has a
   readable format; Save stays the one Primary.
 - **Fetch Metadata results** are compact cards: a 128px cover column with
