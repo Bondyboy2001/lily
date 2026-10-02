@@ -85,6 +85,88 @@ def best_metadata_match(title: str, authors, results):
     return title_only
 
 
+# calibre keeps a title to 42 characters in a file's name. A book imported under its file's
+# name has its title cut there, often mid-word: "Graph Drawing Algorithms for the Visualiza"
+FILE_NAME_TITLE_LENGTH = 42
+
+
+def cut_short(title: str) -> bool:
+    """Whether the title is as long as a file's name lets it be, so probably cut off there
+    (one shorter when the cut fell on a space)."""
+    return len((title or "").strip()) in (FILE_NAME_TITLE_LENGTH - 1, FILE_NAME_TITLE_LENGTH)
+
+
+# What a file's name adds after the title: "2e", ", 3rd Edition", "(Lecture Notes in Physics)"
+_EDITION_TAIL = re.compile(
+    r"[\s,]+(?:\d{1,2}e|(?:\d{1,2}(?:st|nd|rd|th)|second|third|fourth|fifth|sixth|revised|new)"
+    r"\s+ed(?:ition|n|\.)?)\s*$", re.I)
+_BRACKET_TAIL = re.compile(r"\s+\(([^()]*)\)\s*$")
+# "(Volume 2)", "(IV)": which book it is, not an addition
+_VOLUME = re.compile(r"(?:vol(?:ume)?|part|pt|book|band|teil|tome|no)\b|[\dIVXLC\s.,-]+$", re.I)
+
+
+def bare_title(title: str) -> str:
+    """The title without what a file's name adds after it: "Nanofluidics 2e" -> "Nanofluidics".
+    A volume in brackets stays; so does a title that is nothing else."""
+    title = (title or "").strip()
+    while True:
+        bracket = _BRACKET_TAIL.search(title)
+        if bracket and not _VOLUME.match(bracket.group(1).strip()):
+            shorter = title[:bracket.start()]
+        else:
+            shorter = _EDITION_TAIL.sub("", title)
+        shorter = shorter.rstrip(" ,;:-")
+        if not shorter or shorter == title:
+            return title
+        title = shorter
+
+
+def search_title(title: str) -> str:
+    """The title to ask a provider for: without what a file's name added, and without the
+    half word a cut left at its end."""
+    words = (title or "").split()
+    if cut_short(title) and len(words) > 2:
+        title = " ".join(words[:-1])
+    return bare_title(title)
+
+
+def loosely_titled(title: str, record) -> bool:
+    """Whether the record's title is the book's as a file's name left it: with an edition or
+    a series after it, or cut short (the record's title starts with all there is of it)."""
+    bare = bare_title(title)
+    if bare != (title or "").strip() and matched_title(bare, record) is not None:
+        return True
+    start = _normalise(title)
+    return bool(start) and cut_short(title) and any(
+        _normalise(form).startswith(start) for form in title_forms(record))
+
+
+def _on_pages(record, page_text: str) -> bool:
+    """Whether the record's title, with or without its subtitle, is printed on the pages."""
+    return any(title_on_page(form, page_text) for form in title_forms(record))
+
+
+def loose_metadata_match(title: str, authors, results, page_text: str = ""):
+    """The result that is this book going by a title its file's name damaged (see
+    loosely_titled), or None.
+
+    Such a title says less than an exact one, so one of the book's authors must be among the
+    result's, or the result's title printed on the book's own pages. Results that are
+    different books leave it undecided."""
+    book_surnames = surnames(authors)
+    found = None
+    for result in results or []:
+        if not loosely_titled(title, result):
+            continue
+        if not (book_surnames & surnames(getattr(result, 'authors', None)) or _on_pages(result, page_text)):
+            continue
+        if found is None:
+            found = result
+        elif _normalise(found.title) != _normalise(result.title):
+            return None
+    return found
+
+
 # arXiv stamps its id, version and date down the first page's margin: "arXiv:1706.03762v7
 # [cs.CL] 2 Aug 2023". A paper citing another names it without them.
 _ARXIV_STAMP = re.compile(
@@ -121,7 +203,7 @@ def find_paper_identifiers(title: str, page_text: str = "", identifiers=None) ->
 # publisher's layout software fills in.
 _FILE_NAME_TITLE = re.compile(
     r"^microsoft (?:word|powerpoint) - "
-    r"|\.(?:indd|qxd|qxp|p65|pm[5-7]|fm|docx?|rtf|odt|tex|dvi|ps|eps|ai|pdf|txt)$", re.I)
+    r"|\.(?:indd|qxd|qxp|p65|pm[5-7]|fm|docx?|rtf|odt|tex|dvi|ps|eps|ai|pdf|txt|djvu|tiff?)$", re.I)
 
 
 def named_by_file(title: str) -> bool:
@@ -144,6 +226,18 @@ def _isbn_checks(isbn: str) -> bool:
     if len(isbn) == 13:
         return isbn.isdigit() and sum(int(d) * (3 if i % 2 else 1) for i, d in enumerate(isbn)) % 10 == 0
     return sum((10 - i) * (10 if d == "X" else int(d)) for i, d in enumerate(isbn)) % 11 == 0
+
+
+# "9781118230725.pdf", "978-0-7923-0760-0_Book_PrintPDF.pdf": a publisher's file, named by its ISBN
+_ISBN_NAMED = re.compile(r"\s*(97[89](?:[\s-]?\d){10})(?!\d)")
+
+
+def isbn_in_title(title: str) -> str:
+    """The ISBN the title starts with, as a book imported under its file's name has when the
+    file was named by its ISBN; empty when it starts with none."""
+    match = _ISBN_NAMED.match(title or "")
+    isbn = compact_isbn(match.group(1)) if match else ""
+    return isbn if isbn and _isbn_checks(isbn) else ""
 
 
 def isbn_on_pages(page_text: str) -> str:
@@ -179,8 +273,9 @@ def found_by_id_is_this_book(record, ids: dict, title: str, authors, page_text: 
     A record carrying the arXiv id or DOI looked up is this paper when the id is the
     book's own or its file name; one read off the first page may be a citation, so the
     record's title must be on that page too. A book named by its file ("427551_Print.indd")
-    is the record whose title is on its first pages. Anything else (an ISBN can be a placeholder
-    or another book's) needs the same title, subtitle aside, and no other author."""
+    is the record whose title is on its first pages, or, for a file named by its ISBN, the
+    record carrying that ISBN. Anything else (an ISBN can be a placeholder or another book's)
+    needs the same title, subtitle and a file name's damage aside, and no other author."""
     record_ids = normalise_identifiers(getattr(record, 'identifiers', None) or {})
     trusted = find_paper_identifiers(title, "", own_ids)
     for key in ("arxiv", "doi"):
@@ -189,13 +284,32 @@ def found_by_id_is_this_book(record, ids: dict, title: str, authors, page_text: 
             continue
         if (trusted.get(key) or "").lower() == wanted or title_on_page(record.title, page_text):
             return True
-    if named_by_file(title):
+    named_isbn = isbn_in_title(title)
+    if named_isbn and record_ids.get("isbn") == named_isbn:
+        return True
+    if named_isbn or named_by_file(title):
         # Its title says nothing about it, but its title page does
-        return any(title_on_page(form, page_text) for form in title_forms(record))
-    if not _main_title(title) or _main_title(title) != _main_title(record.title):
-        return False
-    book_surnames, record_surnames = surnames(authors), surnames(record.authors)
+        return _on_pages(record, page_text)
+    return _same_title(title, record) and _authors_agree(authors, record)
+
+
+def _same_title(title: str, record) -> bool:
+    """The same title, subtitle aside, or the record's as a file's name left it."""
+    main = _main_title(title)
+    return bool(main) and main == _main_title(record.title) or loosely_titled(title, record)
+
+
+def _authors_agree(authors, record) -> bool:
+    """False only when both name authors and share no surname."""
+    book_surnames, record_surnames = surnames(authors), surnames(getattr(record, 'authors', None))
     return not (book_surnames and record_surnames and not book_surnames & record_surnames)
+
+
+def printed_isbn_is_this_book(record, title: str, authors, page_text: str) -> bool:
+    """Whether the record found by the ISBN a book's copyright page prints is that book: its
+    title is on those pages too, or is the book's own with no other author. (The pages can
+    print another book's ISBN: the set a volume belongs to, the hardback of a reprint.)"""
+    return _on_pages(record, page_text) or (_same_title(title, record) and _authors_agree(authors, record))
 
 
 # A book's title page and copyright page come within its first few pages, after its cover
@@ -334,7 +448,8 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
     title or first author moves the book's folder, and with "Write edits into book files"
     on, the change is queued for the files. The names of providers that failed to answer
     are added to `unanswered` (a set) when one is given. What the lookup found is noted in
-    cwa.db (see _note_lookup)."""
+    cwa.db (see _note_lookup). A rebuild's match replaces the book's tags; a new book's adds
+    to them."""
     if not db.CalibreDB.session_factory:
         log.error("CalibreDB not initialized; skipping metadata fetch")
         return False
@@ -361,7 +476,10 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
                 page_text = "\n".join((page_text, pdf_front_matter_text(book)))
             current_cover = _cover_path(book)
         missed = set()
-        record = _find_record(title, authors, own_ids, page_text, missed)
+        # The pages after the first are read only when the searches find nothing, and not
+        # while holding the library
+        record = _find_record(title, authors, own_ids, page_text, missed,
+                              front_matter=lambda: pdf_front_matter_text(book))
         if unanswered is not None:
             unanswered.update(missed)
         if record is None:
@@ -376,7 +494,7 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
                 cover = _download_cover(url, tmp)
             with library_lock:
                 before = _title_and_author(cdb, book)
-                changed = _apply_record(cdb, book, record, cover)
+                changed = _apply_record(cdb, book, record, cover, replace_tags=force)
                 cover_state = _cover_state(_cover_path(book))
                 if changed:
                     source = getattr(getattr(record, 'source', None), 'description', 'a provider')
@@ -443,18 +561,64 @@ def _no_answer(provider, what, error, unanswered) -> None:
     level(f"{what} with {provider.__name__} failed: {error}")
 
 
-def _find_record(title, authors, own_ids, page_text, unanswered=None):
+def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matter=None):
     """The provider record that is exactly this book, or None. An identifier lookup
     comes first: a paper by its arXiv id or DOI, as its title is often the file name,
-    which no title search matches; a book by its ISBN, its own or, for a book named by its
-    file, the one its copyright page prints. Then each provider's title search, unless the
-    title is a file's name. Google Books is asked last (see _lookup_order). Providers that
+    which no title search matches; a book by its ISBN, its own, the one its file was named
+    by or, for a book named by its file, the one its copyright page prints. Then each
+    provider's title search, unless the title is a file's name: an exact title first, then
+    one a file's name damaged (see loose_metadata_match). A book still not found is looked
+    up by the ISBN on its copyright page: `front_matter` gives the text of its pages after
+    the first when called. Google Books is asked last (see _lookup_order). Providers that
     fail to answer are added to `unanswered`."""
     lookup_ids = find_paper_identifiers(title, page_text, own_ids)
     if own_ids.get('isbn'):
         lookup_ids['isbn'] = own_ids['isbn']
+    elif isbn_in_title(title):
+        lookup_ids['isbn'] = isbn_in_title(title)
     elif named_by_file(title) and isbn_on_pages(page_text):
         lookup_ids['isbn'] = isbn_on_pages(page_text)
+    record = _find_by_identifiers(lookup_ids, unanswered, lambda found, ids: found_by_id_is_this_book(
+        found, ids, title, authors, page_text, own_ids))
+    if record is not None:
+        return record
+    if named_by_file(title) or isbn_in_title(title):
+        # No provider has a book called "427551_Print.indd"
+        log.info(f"No identifier found for '{title}'; keeping its details")
+        return None
+    query = " ".join([search_title(title)] + authors)
+    searched = []
+    for provider in _lookup_order():
+        try:
+            results = provider.search_titles(query, "", "en") or []
+            # Only the record applied needs the details a provider fetches per result
+            record = best_metadata_match(title, authors, results)
+            if record is not None:
+                record = provider.complete(record)
+        except Exception as e:
+            _no_answer(provider, f"Searching for '{query}'", e, unanswered)
+            continue
+        if record is not None:
+            return record
+        searched.append((provider, results))
+    record = _find_loosely(searched, title, authors, page_text, unanswered)
+    if record is None and front_matter and 'isbn' not in lookup_ids:
+        pages = "\n".join((page_text, front_matter()))
+        printed = isbn_on_pages(pages)
+        if printed:
+            record = _find_by_identifiers({'isbn': printed}, unanswered, lambda found, ids: (
+                printed_isbn_is_this_book(found, title, authors, pages)))
+        if record is None and pages.strip() != page_text.strip():
+            # The title page is among them: it can confirm a title the first page could not
+            record = _find_loosely(searched, title, authors, pages, unanswered)
+    if record is None:
+        log.info(f"No exact metadata match for '{title}'; keeping its details")
+    return record
+
+
+def _find_by_identifiers(lookup_ids, unanswered, is_this_book):
+    """The first record a provider finds by the identifiers it knows that
+    is_this_book(record, identifiers asked for) accepts, or None."""
     for provider in _lookup_order():
         ids = {k: v for k, v in lookup_ids.items() if k in provider.identifier_types}
         if not ids:
@@ -464,27 +628,23 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None):
         except Exception as e:
             _no_answer(provider, f"Looking up {ids}", e, unanswered)
             continue
-        record = next((r for r in results if found_by_id_is_this_book(
-            r, ids, title, authors, page_text, own_ids)), None)
+        record = next((r for r in results if is_this_book(r, ids)), None)
         if record is not None:
             return record
-    if named_by_file(title):
-        # No provider has a book called "427551_Print.indd"
-        log.info(f"No identifier found for '{title}'; keeping its details")
-        return None
-    query = " ".join([title] + authors)
-    for provider in _lookup_order():
-        try:
-            # Only the record applied needs the details a provider fetches per result
-            record = best_metadata_match(title, authors, provider.search_titles(query, "", "en") or [])
-            if record is not None:
-                record = provider.complete(record)
-        except Exception as e:
-            _no_answer(provider, f"Searching for '{query}'", e, unanswered)
+    return None
+
+
+def _find_loosely(searched, title, authors, page_text, unanswered):
+    """The first loose match (see loose_metadata_match) among the results the title
+    searches gave, completed by its provider, or None."""
+    for provider, results in searched:
+        record = loose_metadata_match(title, authors, results, page_text)
+        if record is None:
             continue
-        if record is not None:
-            return record
-    log.info(f"No exact metadata match for '{title}'; keeping its details")
+        try:
+            return provider.complete(record)
+        except Exception as e:
+            _no_answer(provider, f"Completing '{record.title}'", e, unanswered)
     return None
 
 
@@ -529,10 +689,11 @@ def _only(book, attr, row, dropped) -> bool:
     return True
 
 
-def _apply_record(cdb, book, record, cover):
+def _apply_record(cdb, book, record, cover, replace_tags=False):
     """Writes what the record changes and commits; True when anything changed. Only fields
     the record has are touched; a book's own identifiers are kept and new ones added. The
-    rating is left alone: a provider's is its readers' average, not this library's."""
+    rating is left alone: a provider's is its readers' average, not this library's. The
+    record's tags are added to the book's or, with replace_tags, take their place."""
     session = cdb.session
     changed = False
     dropped = []
@@ -582,14 +743,25 @@ def _apply_record(cdb, book, record, cover):
             changed |= _only(book, 'publishers', row, dropped)
 
         # Only subjects: a provider's tags can be shop categories or the book's own title
+        tags = []
         for name in clean_tags(record.tags or [], title=book.title,
                                authors=[a.name for a in book.authors],
                                publishers=[p.name for p in book.publishers],
                                series=[s.name for s in book.series]):
             tag = _named(cdb, db.Tags, cdb.get_tag_by_name, name)
-            if tag not in book.tags:
-                book.tags.append(tag)
+            if tag not in tags:
+                tags.append(tag)
+        if replace_tags and tags:
+            # A record with no subjects leaves the book's alone
+            if {t.name for t in tags} != {t.name for t in book.tags}:
+                dropped += [t for t in book.tags if t not in tags]
+                book.tags = tags
                 changed = True
+        else:
+            for tag in tags:
+                if tag not in book.tags:
+                    book.tags.append(tag)
+                    changed = True
 
         series = (record.series or '').strip()
         if series:

@@ -42,7 +42,7 @@ def _setup(monkeypatch, providers, front=FRONT_MATTER):
     monkeypatch.setattr(metadata_helper, "pdf_first_page_text", lambda book: "")
     monkeypatch.setattr(metadata_helper, "pdf_front_matter_text", lambda book: front)
     monkeypatch.setattr(metadata_helper, "_apply_record",
-                        lambda cdb, book, record, cover: applied.append(record.title) or True)
+                        lambda cdb, book, record, cover, **kw: applied.append(record.title) or True)
     return metadata_helper, applied
 
 

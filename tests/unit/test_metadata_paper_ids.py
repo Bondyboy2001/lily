@@ -57,7 +57,7 @@ def _setup(monkeypatch, providers, page=""):
     monkeypatch.setattr(metadata_helper, "CWA_DB", lambda: SimpleNamespace(get_cwa_settings=lambda: settings))
     monkeypatch.setattr(metadata_helper, "pdf_first_page_text", lambda book: page)
     monkeypatch.setattr(metadata_helper, "_apply_record",
-                        lambda cdb, book, record, cover: applied.append(record.title) or True)
+                        lambda cdb, book, record, cover, **kw: applied.append(record.title) or True)
     return metadata_helper, applied
 
 
