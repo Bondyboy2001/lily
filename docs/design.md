@@ -550,10 +550,10 @@ content (grid, panel, rows)
   padding 0 14, 14px/500, `--control-tint` with `--ink-soft`; a tag holding a link takes
   `--accent-soft` with an `--accent` label (`--selected` on hover). Each tag keeps its `dt`
   for screen readers and shows it (in `--muted`) only where the value alone is unclear:
-  "arXiv 2608.24965", "Citations 12", custom columns. Order: each file (type mark, format,
-  size), arXiv id, published date, publisher, languages, other identifiers, citations,
-  custom columns. Tags wrap; they never scroll.
-- Don't say a fact twice: a paper whose publisher is arXiv shows only the arXiv tag.
+  "arXiv 2608.24965". Only these, in order: each file (type mark, format, size), an arXiv
+  paper's id linked to its abstract page, the published date. Publisher, languages, other
+  identifiers and custom columns stay off the page (they're in the editor). Tags wrap;
+  they never scroll.
 - **Description:** a pull-quote: `--font-body` 22px italic, line-height 1.6, `--ink-soft`,
   the full width of the page (no measure cap), indented 64 behind a 112px `--accent` opening mark (19px, 40 and 76 on
   phones). A book without one shows editors the "Fetch metadata" notice instead.

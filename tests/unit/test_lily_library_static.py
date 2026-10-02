@@ -298,10 +298,13 @@ def test_detail_page_is_a_frontispiece_stage():
         assert name not in html
 
 
-def test_detail_arxiv_publisher_is_not_said_twice():
-    # The arXiv tag already names arXiv; a paper published by arXiv gets no second tag.
+def test_detail_fact_tags_are_file_arxiv_and_date_only():
+    # Design §6.4: each file, an arXiv paper's link, the date, and nothing else.
     html = read(TEMPLATES / "detail.html")
-    assert "not (entry.arxiv_id and entry.publishers[0].name|lower == 'arxiv')" in html
+    facts = html[html.index('<dl class="book-metadata">'):html.index("</dl>")]
+    kinds = re.findall(r'<div class="book-fact ([\w-]+)"', facts)
+    assert kinds == ["formats", "arxiv", "publishing-date"]
+    assert 'href="https://arxiv.org/abs/{{ entry.arxiv_id }}"' in facts
 
 
 def test_site_has_no_horizontal_separator_borders():
@@ -587,7 +590,6 @@ def test_small_copy_fixes_stay_fixed():
     assert "ngettext('%(num)s Result for “%(term)s”'" in read(TEMPLATES / "search.html")
     readpdf = read(TEMPLATES / "readpdf.html")
     assert "app.setTitle = function () { document.title = {{ title|tojson }}; };" in readpdf
-    assert 'data.url && data.count > 0' in read(TEMPLATES / "detail.html")
 
 
 def test_the_book_table_is_reachable_from_the_view_switch():

@@ -44,9 +44,9 @@
                 {% endif %}
             </div>
 
-            {# The facts as tags under the byline (design §6.4): files, date, publisher, language,
-               the paper's ids and its citations. Each keeps its label for screen readers; a tag
-               whose value alone is unclear shows the label too. Empty fields are left out. #}
+            {# The facts as tags under the byline (design §6.4): each file, an arXiv paper's link and
+               the date, nothing else. Each keeps its label for screen readers; the arXiv tag shows
+               it too. Empty fields are left out. #}
             <dl class="book-metadata">
                 {% for format in entry.data %}
                     {% set f = format.format|lower %}
@@ -67,64 +67,6 @@
                         <dt class="sr-only">{{ _('Published') }}</dt>
                         <dd>{{ entry.pubdate|formatdate }}</dd>
                     </div>
-                {% endif %}
-                {# The arXiv tag already names arXiv, so a paper whose publisher is arXiv doesn't say it twice #}
-                {% if entry.publishers|length > 0 and not (entry.arxiv_id and entry.publishers[0].name|lower == 'arxiv') %}
-                    <div class="book-fact publishers">
-                        <dt class="sr-only">{{ _('Publisher') }}</dt>
-                        <dd><a href="{{ url_for('web.books_list', data='publisher', sort_param='stored', book_id=entry.publishers[0].id ) }}">{{ entry.publishers[0].name }}</a></dd>
-                    </div>
-                {% endif %}
-                {% if entry.languages|length > 0 %}
-                    <div class="book-fact languages">
-                        <dt class="sr-only">{{ _('Languages') }}</dt>
-                        <dd>{% for language in entry.languages %}{{ language.language_name }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>
-                    </div>
-                {% endif %}
-                {# The arXiv tag stands for the paper, so its DOI isn't repeated; another paper's DOI stays a named link #}
-                {% set other_ids = entry.identifiers|rejectattr('type', 'in', (['doi', 'DOI'] if entry.arxiv_id else []) + ['arxiv', 'arXiv'])|list %}
-                {% for identifier in other_ids if identifier.__repr__() != identifier.val %}
-                    <div class="book-fact identifiers">
-                        <dt class="sr-only">{{ _('Identifiers') }}</dt>
-                        <dd><a href="{{ identifier|escape }}" target="_blank" rel="noopener">{{ identifier.format_type() }}</a></dd>
-                    </div>
-                {% endfor %}
-                {# Filled in after load from OpenAlex; stays hidden when the paper isn't found #}
-                {% if entry.paper_doi %}
-                    <div class="book-fact citations" id="book-citations" data-url="{{ url_for('web.get_citation_count', book_id=entry.id) }}" hidden>
-                        <dt>{{ _('Citations') }}</dt>
-                        <dd></dd>
-                    </div>
-                {% endif %}
-                {% if cc|length > 0 %}
-                    {% for c in cc %}
-                        {% if entry['custom_column_' ~ c.id]|length > 0 %}
-                            <div class="book-fact real_custom_columns">
-                                <dt>{{ c.name }}</dt>
-                                <dd>
-                                    {% for column in entry['custom_column_' ~ c.id] %}
-                                        {% if c.datatype == 'rating' %}
-                                            {{ (column.value / 2)|formatfloat }}
-                                        {% elif c.datatype == 'bool' %}
-                                            {% if column.value == true %}{{ _('Yes') }}{% else %}{{ _('No') }}{% endif %}
-                                        {% elif c.datatype == 'float' %}
-                                            {{ column.value|formatfloat(2) }}
-                                        {% elif c.datatype == 'datetime' %}
-                                            {{ column.value|formatdate }}
-                                        {% elif c.datatype == 'comments' %}
-                                            {{ column.value|striptags }}
-                                        {% elif c.datatype == 'series' %}
-                                            {{ '%s [%s]' % (column.value, column.extra|formatfloat(2)) }}
-                                        {% elif c.datatype == 'text' %}
-                                            {{ column.value.strip() }}{% if not loop.last %}, {% endif %}
-                                        {% else %}
-                                            {{ column.value }}
-                                        {% endif %}
-                                    {% endfor %}
-                                </dd>
-                            </div>
-                        {% endif %}
-                    {% endfor %}
                 {% endif %}
             </dl>
 
@@ -259,21 +201,6 @@
 <script src="{{ url_for('static', filename='js/fullscreen.js') }}"></script>
 <script type="text/javascript">
     $(function () {
-        var $citations = $("#book-citations");
-        if ($citations.length) {
-            $.getJSON($citations.data("url")).done(function (data) {
-                if (typeof data.count !== "number") {
-                    return;
-                }
-                var count = data.count.toLocaleString();
-                // The count opens the citing works on OpenAlex (none to open at 0)
-                $citations.find("dd").empty().append(data.url && data.count > 0
-                    ? $("<a>", {href: data.url, target: "_blank", rel: "noopener", text: count})
-                    : document.createTextNode(count));
-                $citations.prop("hidden", false);
-            });
-        }
-
         $("#toggle-read-btn").on("click", function () {
             var $cb = $("#have_read_cb");
             var $form = $("#have_read_form");

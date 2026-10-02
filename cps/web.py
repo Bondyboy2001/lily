@@ -36,7 +36,7 @@ from .render_template import render_title_template
 from . import list_filters
 from .setup_checklist import setup_checklist
 from .services.worker import WorkerThread
-from .services.citations import citation_count, paper_ids
+from .services.citations import paper_ids
 from .tasks_status import render_task_status
 from .usermanagement import user_login_required
 
@@ -399,16 +399,6 @@ def _update_read_status_from_web_progress(user_id, book_id, percent, seconds=0, 
     elif read_book.read_status in (None, ub.ReadBook.STATUS_UNREAD):
         read_book.read_status = ub.ReadBook.STATUS_IN_PROGRESS
     read_book.last_modified = datetime.now(timezone.utc)
-
-
-@web.route("/ajax/citations/<int:book_id>")
-@login_required_if_no_ano
-def get_citation_count(book_id):
-    """{"count": int, "url": str} for a paper with a DOI or arXiv id, else {}."""
-    book = calibre_db.get_filtered_book(book_id)
-    if not book:
-        abort(404)
-    return jsonify(citation_count(book.identifiers) or {})
 
 
 @web.route("/ajax/progress/<int:book_id>", methods=['GET', 'POST'])
@@ -1533,7 +1523,7 @@ def show_book(book_id):
         entry.ordered_authors = calibre_db.order_authors([entry])
 
         entry.reader_list = check_read_formats(entry)
-        entry.paper_doi, entry.arxiv_id = paper_ids(entry.identifiers)
+        entry.arxiv_id = paper_ids(entry.identifiers)[1]
 
         entry.audio_entries = []
         for media_format in entry.data:

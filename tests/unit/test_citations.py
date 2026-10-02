@@ -1,4 +1,4 @@
-"""Book page: arXiv and DOI links, and the citation count from OpenAlex."""
+"""Book page: arXiv and DOI links."""
 
 import pytest
 
@@ -27,25 +27,3 @@ def test_arxiv_identifier_links_to_its_abstract_page():
 ])
 def test_paper_ids(given, expected):
     assert citations.paper_ids(ids(**given)) == expected
-
-
-def test_book_without_paper_ids_never_asks_openalex(monkeypatch):
-    monkeypatch.setattr(citations, "_lookup", lambda *a: pytest.fail("looked up"))
-    assert citations.citation_count(ids(isbn="9780441172719")) is None
-
-
-def test_count_is_cached(monkeypatch):
-    calls = []
-    monkeypatch.setattr(citations, "_cache", {})
-    monkeypatch.setattr(citations, "_lookup", lambda doi, arxiv: calls.append(doi) or {"count": 3, "url": "u"})
-    for _ in range(2):
-        assert citations.citation_count(ids(arxiv="2601.22106")) == {"count": 3, "url": "u"}
-    assert calls == ["10.48550/arXiv.2601.22106"]
-
-
-def test_unreachable_openalex_gives_no_count(monkeypatch):
-    def fail(*a):
-        raise citations.requests.ConnectionError("down")
-    monkeypatch.setattr(citations, "_cache", {})
-    monkeypatch.setattr(citations, "_lookup", fail)
-    assert citations.citation_count(ids(arxiv="2601.22106")) is None
