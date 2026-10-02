@@ -1,4 +1,4 @@
-/* global $, calibre, EPUBJS, ePub, ePubReader */
+/* global calibre, EPUBJS, ePub, ePubReader */
 
 var reader;
 
@@ -8,9 +8,10 @@ var reader;
     EPUBJS.filePath = calibre.filePath;
     EPUBJS.cssPath = calibre.cssPath;
 
+    // Bookmarks are Lily's own (epub-bookmarks.js); the vendor's single-bookmark list stays empty.
     window.reader = reader = ePubReader(calibre.bookUrl, {
         restore: false,
-        bookmarks: calibre.bookmark ? [calibre.bookmark] : []
+        bookmarks: []
     });
 
     function showReaderError(message, error) {
@@ -56,13 +57,6 @@ var reader;
     Object.keys(themes).forEach(function (theme) {
         reader.rendition.themes.register(theme, themes[theme].css_path);
     });
-
-    if (calibre.useBookmarks) {
-        reader.on("reader:bookmarked", updateBookmark.bind(reader, "add"));
-        reader.on("reader:unbookmarked", updateBookmark.bind(reader, "remove"));
-    } else {
-        $("#bookmark, #show-Bookmarks").remove();
-    }
 
     // Enable swipe support
     // The book is rendered inside an iframe, and touch events there never bubble up to the
@@ -170,6 +164,13 @@ var reader;
     function closeSidebar() {
         if (reader.sidebarOpen) {
             document.getElementById("slider").click();
+            // The vendor's hide reads the current location first, which is briefly unknown
+            // while a jump from the sidebar renders; it then throws before closing.
+            var sidebar = document.getElementById("sidebar");
+            if (sidebar.classList.contains("open")) {
+                reader.sidebarOpen = false;
+                sidebar.classList.remove("open");
+            }
         }
     }
 
@@ -181,9 +182,19 @@ var reader;
     });
     // Picking a chapter, bookmark or search hit jumps there and gets the sidebar out of the way.
     document.getElementById("sidebar").addEventListener("click", function (event) {
-        var link = event.target.closest("a");
+        var link = event.target.closest("a, .reader-bookmark-jump");
         if (link && !link.classList.contains("toc_toggle") && link.closest("#tocView, #bookmarksView, #searchResults")) {
-            setTimeout(closeSidebar, 0);
+            // Once the new page is up (the vendor's hide needs its location), or shortly
+            // when the jump stays on the page already shown.
+            var closed = false;
+            var close = function () {
+                if (!closed) {
+                    closed = true;
+                    closeSidebar();
+                }
+            };
+            reader.rendition.once("relocated", function () { setTimeout(close, 0); });
+            setTimeout(close, 600);
         }
     });
 
@@ -204,10 +215,7 @@ var reader;
             sliderEl.setAttribute("aria-expanded", sidebarEl.classList.contains("open") ? "true" : "false");
         }).observe(sidebarEl, { attributes: true, attributeFilter: ["class"] });
     }
-    var bookmarkEl = document.getElementById("bookmark");
-    mirrorState(bookmarkEl, "aria-pressed", function () {
-        return bookmarkEl.classList.contains("icon-bookmark");
-    });
+    // The bookmark button's aria-pressed is set by epub-bookmarks.js.
     document.querySelectorAll("#panels .reader-tab").forEach(function (tab) {
         mirrorState(tab, "aria-pressed", function () { return tab.classList.contains("active"); });
     });
@@ -257,6 +265,8 @@ var reader;
         });
         return (best || candidates[0]).label.trim();
     }
+    // epub-bookmarks.js labels a new bookmark with the chapter it falls in.
+    reader.lilyChapterFor = chapterFor;
 
     reader.rendition.on("relocated", function (location) {
         if (!chapterTitle || !location || !location.start) {
@@ -272,32 +282,6 @@ var reader;
         chapterTitle.textContent = label || authorText;
     });
 
-    /**
-     * @param {string} action - Add or remove bookmark
-     * @param {string|int} location - Location or zero
-     */
-    function updateBookmark(action, location) {
-        // Remove other bookmarks (there can only be one)
-        if (action === "add") {
-            this.settings.bookmarks.filter(function (bookmark) {
-                return bookmark && bookmark !== location;
-            }).map(function (bookmark) {
-                this.removeBookmark(bookmark);
-            }.bind(this));
-        }
-        
-        var csrftoken = $("input[name='csrf_token']").val();
-
-        // Save to database
-        $.ajax(calibre.bookmarkUrl, {
-            method: "post",
-            data: { bookmark: location || "" },
-            headers: { "X-CSRFToken": csrftoken }
-        }).fail(function (xhr, status, error) {
-            alert(error);
-        });
-    }
-    
     // Restore all settings after DOM and reader are ready
     document.addEventListener("DOMContentLoaded", function() {
         // Theme

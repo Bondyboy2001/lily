@@ -129,6 +129,7 @@ def get_email_status_json():
     return jsonify(render_task_status(tasks))
 
 
+# The audio player's single resume point. The book readers keep a list (reader_bookmarks).
 @web.route("/ajax/bookmark/<int:book_id>/<book_format>", methods=['POST'])
 @user_login_required
 def set_bookmark(book_id, book_format):
@@ -153,6 +154,104 @@ WEB_PROGRESS_CFI_MAX_LEN = 4096
 WEB_PROGRESS_FINISHED_AT = 0.99
 # A finished book read again from (near) the start counts as being read again.
 WEB_PROGRESS_REREAD_BELOW = 0.05
+
+# Reader bookmarks: any number per user, book and format. Keys are positions in the
+# progress sync's form: an epub CFI, or "page:N" for pdf and djvu.
+BOOKMARK_FORMATS = ("epub", "kepub", "pdf", "djvu", "djv")
+BOOKMARK_LABEL_MAX_LEN = 200
+BOOKMARK_EXCERPT_MAX_LEN = 300
+BOOKMARKS_PER_BOOK_MAX = 500
+
+
+def _bookmark_json(bookmark):
+    return {"id": bookmark.id,
+            "key": bookmark.bookmark_key,
+            "label": bookmark.label or "",
+            "excerpt": bookmark.excerpt or ""}
+
+
+def _bookmark_text(value, limit):
+    if not isinstance(value, str):
+        return None
+    value = " ".join(value.split())
+    return value[:limit] or None
+
+
+def _bookmark_query(book_id, fmt):
+    return ub.session.query(ub.Bookmark).filter(ub.Bookmark.user_id == int(current_user.id),
+                                                ub.Bookmark.book_id == book_id,
+                                                ub.Bookmark.format == fmt)
+
+
+def _bookmark_format(book_id, book_format):
+    """The upper-case format of a book the user can see, or None (answered with 404)."""
+    fmt = (book_format or "").lower()
+    if fmt not in BOOKMARK_FORMATS:
+        return None
+    book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+    if not book or fmt not in _progress_formats(book):
+        return None
+    return fmt.upper()
+
+
+@web.route("/ajax/bookmarks/<int:book_id>/<book_format>", methods=['GET', 'POST'])
+@user_login_required
+def reader_bookmarks(book_id, book_format):
+    """The signed-in user's bookmarks in one format of a book.
+
+    GET  -> {"bookmarks": [{"id", "key", "label", "excerpt"}, ...]}, oldest first
+    POST <- {"key": str, "label": str?, "excerpt": str?} (CSRF token in the X-CSRFToken header)
+         -> 201 and the new bookmark, or 200 and the saved one when the key is already there
+    Rows from when a book had a single bookmark have no label or excerpt.
+    """
+    fmt = _bookmark_format(book_id, book_format)
+    if not fmt:
+        return jsonify({"error": "Book or format not found"}), 404
+    if request.method == 'GET':
+        rows = _bookmark_query(book_id, fmt).order_by(ub.Bookmark.id).all()
+        return jsonify({"bookmarks": [_bookmark_json(row) for row in rows if row.bookmark_key]})
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Expected a JSON object"}), 400
+    key = data.get("key")
+    if not isinstance(key, str) or not key or len(key) > WEB_PROGRESS_CFI_MAX_LEN \
+            or not _progress_cfi_ok(fmt.lower(), key):
+        return jsonify({"error": "Invalid bookmark position"}), 400
+    existing = _bookmark_query(book_id, fmt).filter(ub.Bookmark.bookmark_key == key).first()
+    if existing:
+        return jsonify(_bookmark_json(existing)), 200
+    if _bookmark_query(book_id, fmt).count() >= BOOKMARKS_PER_BOOK_MAX:
+        return jsonify({"error": "Too many bookmarks in this book"}), 400
+    bookmark = ub.Bookmark(user_id=int(current_user.id), book_id=book_id, format=fmt, bookmark_key=key,
+                           label=_bookmark_text(data.get("label"), BOOKMARK_LABEL_MAX_LEN),
+                           excerpt=_bookmark_text(data.get("excerpt"), BOOKMARK_EXCERPT_MAX_LEN))
+    ub.session.add(bookmark)
+    try:
+        ub.session.commit()
+    except OperationalError as e:
+        ub.session.rollback()
+        log.error("Could not save a bookmark in book %s: %s", book_id, e)
+        return jsonify({"error": "Could not save the bookmark"}), 500
+    return jsonify(_bookmark_json(bookmark)), 201
+
+
+@web.route("/ajax/bookmarks/<int:book_id>/<book_format>/<int:bookmark_id>", methods=['DELETE'])
+@web.route("/ajax/bookmarks/<int:book_id>/<book_format>/<int:bookmark_id>/remove", methods=['POST'])
+@user_login_required
+def remove_reader_bookmark(book_id, book_format, bookmark_id):
+    """Removes one of the user's bookmarks: 204, also when it was already gone."""
+    fmt = _bookmark_format(book_id, book_format)
+    if not fmt:
+        return jsonify({"error": "Book or format not found"}), 404
+    _bookmark_query(book_id, fmt).filter(ub.Bookmark.id == bookmark_id).delete()
+    try:
+        ub.session.commit()
+    except OperationalError as e:
+        ub.session.rollback()
+        log.error("Could not remove bookmark %s: %s", bookmark_id, e)
+        return jsonify({"error": "Could not remove the bookmark"}), 500
+    return "", 204
 
 
 def _library_uuid():
@@ -1258,9 +1357,9 @@ def read_book(book_id, book_format):
 
     book.ordered_authors = calibre_db.order_authors([book], False)
 
-    # check if book has a bookmark
+    # The audio player's resume point (the book readers fetch their bookmark list themselves)
     bookmark = None
-    if current_user.is_authenticated:
+    if current_user.is_authenticated and book_format.lower() in constants.EXTENSIONS_AUDIO:
         bookmark = ub.session.query(ub.Bookmark).filter(and_(ub.Bookmark.user_id == int(current_user.id),
                                                              ub.Bookmark.book_id == book_id,
                                                              ub.Bookmark.format == book_format.upper())).first()
@@ -1281,7 +1380,6 @@ def read_book(book_id, book_format):
     if book_format.lower() in ("epub", "kepub"):
         log.debug("Start epub reader for %d (%s)", book_id, book_format.lower())
         return render_title_template('read.html', bookid=book_id, title=book.title,
-                                     bookmark=bookmark,
                                      book_format=book_format.lower(),
                                      **progress_args)
     elif book_format.lower() == "pdf":

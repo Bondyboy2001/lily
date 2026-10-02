@@ -401,3 +401,73 @@ def test_grid_quick_actions_name_their_book(client):
     toggle = re.search(r'<button[^>]*class="icon-btn lily-toggle-read[^"]*"[^>]*>', actions).group(0)
     assert "aria-pressed" not in toggle and "title=" not in toggle
     assert 'data-label-read="Mark Reader Book as unread"' in toggle
+
+
+# ---------------------------------------------------------------------------- bookmarks
+
+def test_epub_reader_keeps_several_bookmarks():
+    epub = read(JS / "reading/epub.js")
+    marks = read(JS / "reading/epub-bookmarks.js")
+    shared = read(JS / "reading/bookmarks.js")
+    html = read(TEMPLATES / "read.html")
+    # The one-bookmark code and its raw alert() are gone; the vendor list starts empty.
+    assert "there can only be one" not in epub and "updateBookmark" not in epub
+    assert "bookmarks: []" in epub and "calibre.bookmark " not in epub
+    assert "web.set_bookmark" not in html and "web.reader_bookmarks" in html
+    order = [html.index("js/reading/" + name) for name in ("epub.js", "bookmarks.js", "epub-bookmarks.js")]
+    assert order == sorted(order)
+    # The title bar button toggles the page's bookmark and shows it pressed.
+    assert 'data-add-label="' in html and 'data-remove-label="' in html
+    assert '"aria-pressed"' in marks and "}, true);" in marks and "event.stopPropagation()" in marks
+    # Bookmarks list in the sidebar tab, labelled with the chapter and the page's first words.
+    assert 'id="show-Bookmarks"' in html and 'aria-pressed="false"' in html
+    assert "reader-bookmark-chapter" in marks and "reader-bookmark-excerpt" in marks
+    assert "lilyChapterFor" in epub and "lilyChapterFor" in marks
+    # Rows remove through a labelled trash icon button (§5.2).
+    assert "icon-btn is-danger reader-bookmark-remove" in shared and "glyphicon-trash" in shared
+    assert 'setAttribute("aria-label", options.removeLabel)' in shared
+    assert '"X-CSRFToken"' in shared and '"DELETE"' in shared
+
+
+def test_reader_scripts_never_alert():
+    for script in sorted((JS / "reading").glob("*.js")):
+        assert not re.search(r"\balert\(", read(script)), script.name
+
+
+def test_bookmark_failures_are_quiet_notices():
+    include = read(TEMPLATES / "reader_bookmark_status.html")
+    assert 'id="bookmark-status"' in include and 'role="status"' in include
+    for kind in ("load", "save", "remove"):
+        assert 'data-%s-failed="' % kind in include, kind
+    for name in ("read.html", "readdjvu.html", "readpdf.html"):
+        assert "{% include 'reader_bookmark_status.html' %}" in read(TEMPLATES / name), name
+    css = strip_comments(read(CSS / "lily-reader.css"))
+    assert ".lily-reader .lily-bookmark-status:empty { display: none; }" in css
+    assert "#bookmark-status:empty { display: none; }" in strip_comments(read(CSS / "lily-pdf.css"))
+
+
+def test_paged_readers_bookmark_pages():
+    djvu = read(TEMPLATES / "readdjvu.html")
+    js = read(JS / "reading/djvu_reader.js")
+    assert djvu.index("js/reading/bookmarks.js") < djvu.index("js/reading/djvu_reader.js")
+    for control in ('id="bookmark"', 'id="bookmarks-button"', 'aria-expanded="false"', 'id="bookmarks-panel"',
+                    'id="bookmarks-empty"', "data-bookmarks-url="):
+        assert control in djvu, control
+    assert "LilyBookmarks.paged(" in js and "bookmarks.setPage(page)" in js
+    pdf = read(TEMPLATES / "readpdf.html")
+    assert pdf.index("js/reading/bookmarks.js") < pdf.index("LilyBookmarks.paged(")
+    for control in ('id="lilyBookmark"', 'id="lilyBookmarks"', 'id="lilyBookmarksPanel"', "bookmarks.setPage(evt.pageNumber)"):
+        assert control in pdf, control
+    shared = read(JS / "reading/bookmarks.js")
+    assert '"page:" + page' in shared and "aria-expanded" in shared and '"Escape"' in shared
+    css = strip_comments(read(CSS / "lily-pdf.css"))
+    assert "#lilyBookmark::before" in css and "url(../icons/phosphor/bookmark-simple.svg)" in css
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("fmt", ["epub", "pdf", "djvu"])
+def test_readers_render_their_bookmarks_url(client, fmt):
+    env, c, book_id = client
+    html = c.get(f"/read/{book_id}/{fmt}").get_data(as_text=True)
+    assert f"/ajax/bookmarks/{book_id}/{fmt.upper()}" in html
+    assert 'id="bookmark-status"' in html

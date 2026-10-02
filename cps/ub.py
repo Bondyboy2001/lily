@@ -429,6 +429,10 @@ class Bookmark(Base):
     book_id = Column(Integer)
     format = Column(String(collation='NOCASE'))
     bookmark_key = Column(String)
+    # Shown in the reader's bookmark list: the chapter and a few words of the page (epub).
+    # Rows saved before several bookmarks per book were allowed have neither.
+    label = Column(String, nullable=True)
+    excerpt = Column(String, nullable=True)
 
 
 # Reading position saved by the built-in web reader (one row per user and book)
@@ -634,6 +638,16 @@ def migrate_user_session_table(engine, _session):
             ],
         )
 
+def migrate_bookmark_table(engine, _session):
+    for column in (Bookmark.label, Bookmark.excerpt):
+        try:
+            _session.query(exists().where(column)).scalar()
+            _session.commit()
+        except exc.OperationalError:  # bookmark rows from before the reader's bookmark list
+            _safe_session_rollback(_session, "bookmark." + column.key)
+            _run_ddl_with_retry(engine, "ALTER TABLE bookmark ADD column '{}' String".format(column.key))
+
+
 def migrate_user_table(engine, _session):
     try:
         _session.query(exists().where(User.hardcover_token)).scalar()
@@ -806,6 +820,7 @@ def migrate_Database(_session):
     add_missing_tables(engine, _session)
     migrate_user_session_table(engine, _session)
     migrate_user_table(engine, _session)
+    migrate_bookmark_table(engine, _session)
     migrate_default_sidebar(_session)
     migrate_restore_emptied_sidebars(_session)
     # Runs after every user column migration so the full User model can be queried

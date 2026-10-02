@@ -19,6 +19,7 @@
     <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='css/lily-icons.css') }}">
     <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='css/lily-reader.css') }}">
     <script src="{{ url_for('static', filename='js/reading/progress-sync.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/reading/bookmarks.js') }}"></script>
     <script src="{{ url_for('static', filename='js/reading/djvu_reader.js') }}"></script>
     <script src="{{ url_for('static', filename='js/libs/djvu_html5/djvu_html5/djvu_html5.nocache.js') }}"></script>
   </head>
@@ -46,14 +47,27 @@
                   data-fit-width="{{_('Fit width')}}" data-fit-page="{{_('Fit page')}}"></select>
           <button type="button" id="djvu-zoom-in" class="reader-btn" aria-label="{{_('Zoom in')}}" title="{{_('Zoom in')}}" disabled><span class="glyphicon glyphicon-plus" aria-hidden="true"></span></button>
         </div>
+        <div class="djvu-controls" role="group" aria-label="{{_('Bookmarks')}}">
+          <button type="button" id="bookmark" class="reader-btn" aria-label="{{_('Bookmark this page')}}" title="{{_('Bookmark this page')}}" aria-pressed="false"
+                  data-add-label="{{_('Bookmark this page')}}" data-remove-label="{{_('Remove the bookmark on this page')}}" hidden><span class="glyphicon glyphicon-bookmark" aria-hidden="true"></span></button>
+          <button type="button" id="bookmarks-button" class="reader-btn" aria-label="{{_('Bookmarks')}}" title="{{_('Bookmarks')}}" aria-expanded="false" aria-controls="bookmarks-panel" hidden><span class="glyphicon glyphicon-list-alt" aria-hidden="true"></span></button>
+        </div>
         <button type="button" id="fullscreen" class="reader-btn" aria-label="{{_('Fullscreen')}}" title="{{_('Fullscreen')}}" aria-pressed="false" hidden><span class="glyphicon glyphicon-fullscreen" aria-hidden="true"></span></button>
       </div>
+    </div>
+    {# Opened by the bookmarks button: a menu (§5.6) of bookmarked pages to jump to or remove. #}
+    <div id="bookmarks-panel" class="reader-bookmarks-menu" role="region" aria-label="{{_('Bookmarks')}}" hidden>
+      <h2 class="reader-bookmarks-title">{{_('Bookmarks')}}</h2>
+      <ul id="bookmarks" class="reader-bookmarks-list" data-page="{{_('Page %(page)s', page='%(page)s')}}"
+          data-remove="{{_('Remove the bookmark on page %(page)s', page='%(page)s')}}" data-remove-title="{{_('Remove bookmark')}}"></ul>
+      <p id="bookmarks-empty" class="reader-bookmarks-empty" hidden>{{_('Mark the page you are on with the bookmark button.')}}</p>
     </div>
 
     <button type="button" id="prev" class="arrow" aria-label="{{_('Previous page')}}" title="{{_('Previous page')}}" disabled><span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span></button>
     <div id="djvuContainer" file="{{ url_for('web.serve_book', book_id=djvufile, book_format=extension) }}"
          data-progress-url="{{ progress_url }}" data-progress-key="{{ progress_key }}"
-         data-progress-format="{{ progress_format }}" data-sync="{{ current_user.is_authenticated | tojson }}"></div>
+         data-progress-format="{{ progress_format }}" data-sync="{{ current_user.is_authenticated | tojson }}"
+         {% if current_user.is_authenticated %}data-bookmarks-url="{{ url_for('web.reader_bookmarks', book_id=djvufile, book_format=extension|upper) }}"{% endif %}></div>
     <button type="button" id="next" class="arrow" aria-label="{{_('Next page')}}" title="{{_('Next page')}}" disabled><span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span></button>
 
     <p id="djvu-status" class="djvu-status" role="status" aria-live="polite"
@@ -62,5 +76,6 @@
     <div id="progress-sync-status" role="status" aria-live="polite" class="lily-progress-status"
          data-pending-text="{{ _('Saved on this device; waiting to sync') }}"
          data-synced-text="{{ _('Synced') }}"></div>
+    {% include 'reader_bookmark_status.html' %}
   </body>
 </html>

@@ -20,7 +20,8 @@
  * The viewer draws its own toolbar; lily-reader.css hides it and the title bar's page box,
  * zoom and arrows drive its buttons and selects instead. The viewer sets those controls as
  * properties without firing events, so sync() reads them back on a short timer.
- * The position is saved as "page:N" through LilyProgress, like the pdf reader.
+ * The position is saved as "page:N" through LilyProgress, like the pdf reader, and
+ * bookmarks are whole pages kept through LilyBookmarks (bookmarks.js).
  */
 
 // Read by the viewer when it starts. The canvas paints its own backdrop, so it takes the
@@ -62,6 +63,7 @@ var DJVU_CONTEXT = {
         var restored = false;
         var failed = false;
         var progress = null;
+        var bookmarks = null;   // LilyBookmarks.paged(), once the pages are known
 
         if (container.getAttribute("data-progress-key")) {
             progress = LilyProgress.create({
@@ -220,6 +222,9 @@ var DJVU_CONTEXT = {
                 if (restored && progress) {
                     progress.save("page:" + page, page / pages);
                 }
+                if (bookmarks) {
+                    bookmarks.setPage(page);
+                }
             }
             if (document.activeElement !== ui.page && ui.page.value !== String(page)) {
                 ui.page.value = page;
@@ -234,6 +239,7 @@ var DJVU_CONTEXT = {
         // First time the document's pages are known: starting zoom, then the saved page.
         function ready() {
             choose(viewer.zoomSelect, PHONE.matches ? "Fit width" : "Fit page");
+            startBookmarks();
             if (!progress) {
                 restored = true;
                 return;
@@ -245,6 +251,25 @@ var DJVU_CONTEXT = {
                 }
             }).catch(function () {}).then(function () {
                 restored = true;
+            });
+        }
+
+        // Bookmarked pages ("page:N"), for signed-in readers: the bar's bookmark button marks
+        // the page on screen, the list button opens the bookmarks to jump to or remove.
+        function startBookmarks() {
+            var url = container.getAttribute("data-bookmarks-url");
+            if (bookmarks || !url || !window.LilyBookmarks) {
+                return;
+            }
+            bookmarks = LilyBookmarks.paged({
+                url: url,
+                noticeEl: $("bookmark-status"),
+                toggle: $("bookmark"),
+                listButton: $("bookmarks-button"),
+                panel: $("bookmarks-panel"),
+                list: $("bookmarks"),
+                empty: $("bookmarks-empty"),
+                goTo: goTo
             });
         }
 

@@ -45,3 +45,88 @@
     font-size: 12px;
     opacity: .7;
 }
+
+/* Bookmarks (bookmarks.js): a pdf.js toolbar toggle for the page on screen, pressed
+   (.toggled) when it is bookmarked, and the list of bookmarked pages in a doorhanger
+   like the Tools menu, beside it. */
+#lilyBookmark::before {
+    -webkit-mask-image: url(../icons/phosphor/bookmark-simple.svg);
+    mask-image: url(../icons/phosphor/bookmark-simple.svg);
+}
+
+#lilyBookmarks::before {
+    -webkit-mask-image: url(libs/images/toolbarButton-viewOutline.svg);
+    mask-image: url(libs/images/toolbarButton-viewOutline.svg);
+}
+
+/* The doorhanger's arrow points at the list button, one button left of Tools. */
+#lilyBookmarksPanel { inset-inline-end: 34px; }
+
+#lilyBookmarksContainer {
+    width: 240px;
+    max-height: calc(var(--viewer-container-height) - 40px);
+    overflow-y: auto;
+    margin-bottom: -4px;
+}
+
+#lilyBookmarksList {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+#lilyBookmarksList > li {
+    display: flex;
+    align-items: center;
+}
+
+.lilyBookmarkJump {
+    flex: 1 1 auto;
+    min-width: 0;
+    cursor: pointer;
+}
+
+.lilyBookmarkJump::before {
+    -webkit-mask-image: url(../icons/phosphor/bookmark-simple.svg);
+    mask-image: url(../icons/phosphor/bookmark-simple.svg);
+}
+
+.lilyBookmarkRemove {
+    position: relative;
+    flex: none;
+    cursor: pointer;
+}
+
+.lilyBookmarkRemove::before {
+    -webkit-mask-image: url(libs/images/editor-toolbar-delete.svg);
+    mask-image: url(libs/images/editor-toolbar-delete.svg);
+}
+
+#lilyBookmarksEmpty {
+    margin: 0;
+    padding: 4px 12px 6px;
+    color: var(--main-color);
+    opacity: .8;
+}
+
+/* A failed bookmark request: one quiet line at the foot of the page. */
+#bookmark-status {
+    position: fixed;
+    bottom: 14px;
+    left: 50%;
+    z-index: 10;
+    box-sizing: border-box;
+    width: max-content;
+    max-width: min(440px, calc(100vw - 32px));
+    margin: 0;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--doorhanger-bg-color);
+    color: var(--main-color);
+    font: message-box;
+    font-size: 12px;
+    text-align: center;
+    transform: translateX(-50%);
+}
+
+#bookmark-status:empty { display: none; }

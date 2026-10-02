@@ -295,6 +295,14 @@ See https://github.com/adobe-type-tools/cmap-resources
           </div>
         </div>  <!-- secondaryToolbar -->
 
+        <div id="lilyBookmarksPanel" class="secondaryToolbar doorHangerRight hidden" role="region" aria-label="{{_('Bookmarks')}}">
+          <div id="lilyBookmarksContainer">
+            <ul id="lilyBookmarksList" data-page="{{_('Page %(page)s', page='%(page)s')}}"
+                data-remove="{{_('Remove the bookmark on page %(page)s', page='%(page)s')}}" data-remove-title="{{_('Remove bookmark')}}"></ul>
+            <p id="lilyBookmarksEmpty" hidden>{{_('Mark the page you are on with the bookmark button.')}}</p>
+          </div>
+        </div>
+
         <div class="toolbar">
           <div id="toolbarContainer">
             <div id="toolbarViewer">
@@ -350,6 +358,14 @@ See https://github.com/adobe-type-tools/cmap-resources
                 </button>
 {% endif %}
                 <div class="verticalToolbarSeparator hiddenMediumView"></div>
+                {# Lily bookmarks (bookmarks.js): the page on screen, and the list of bookmarked pages. #}
+                <button id="lilyBookmark" class="toolbarButton" title="{{_('Bookmark this page')}}" aria-label="{{_('Bookmark this page')}}" aria-pressed="false" tabindex="43"
+                        data-add-label="{{_('Bookmark this page')}}" data-remove-label="{{_('Remove the bookmark on this page')}}" hidden>
+                  <span>{{_('Bookmark this page')}}</span>
+                </button>
+                <button id="lilyBookmarks" class="toolbarButton" title="{{_('Bookmarks')}}" aria-label="{{_('Bookmarks')}}" aria-expanded="false" aria-controls="lilyBookmarksPanel" tabindex="43" hidden>
+                  <span>{{_('Bookmarks')}}</span>
+                </button>
 
                 <button id="secondaryToolbarToggle" class="toolbarButton" title="Tools" tabindex="43" data-l10n-id="pdfjs-tools-button" aria-expanded="false" aria-controls="secondaryToolbar">
                   <span data-l10n-id="pdfjs-tools-button-label">Tools</span>
@@ -535,7 +551,9 @@ See https://github.com/adobe-type-tools/cmap-resources
     </div> <!-- outerContainer -->
     <div id="printContainer"></div>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% include 'reader_bookmark_status.html' %}
     <script src="{{ url_for('static', filename='js/reading/progress-sync.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/reading/bookmarks.js') }}"></script>
     <script>
     // Reading position: cfi "page:N" (1-based) and the fraction read, synced across devices.
     (function () {
@@ -547,6 +565,7 @@ See https://github.com/adobe-type-tools/cmap-resources
             enabled: {{ current_user.is_authenticated | tojson }}
         });
         var restored = false;
+        var bookmarks = null;
         window.addEventListener("webviewerloaded", function () {
             var app = window.PDFViewerApplication;
             if (!app || !app.initializedPromise) {
@@ -554,6 +573,28 @@ See https://github.com/adobe-type-tools/cmap-resources
             }
             app.initializedPromise.then(function () {
                 app.eventBus.on("pagesinit", function () {
+                    {% if current_user.is_authenticated %}
+                    // Bookmarked pages ("page:N"): the toolbar's bookmark button marks the page
+                    // on screen; the list sits in a doorhanger like pdf.js' Tools menu.
+                    if (!bookmarks) {
+                        var panel = document.getElementById("lilyBookmarksPanel");
+                        bookmarks = LilyBookmarks.paged({
+                            url: "{{ url_for('web.reader_bookmarks', book_id=pdffile, book_format='PDF') }}",
+                            noticeEl: document.getElementById("bookmark-status"),
+                            toggle: document.getElementById("lilyBookmark"),
+                            listButton: document.getElementById("lilyBookmarks"),
+                            panel: panel,
+                            list: document.getElementById("lilyBookmarksList"),
+                            empty: document.getElementById("lilyBookmarksEmpty"),
+                            classes: {jump: "secondaryToolbarButton lilyBookmarkJump",
+                                      remove: "toolbarButton lilyBookmarkRemove",
+                                      removeGlyph: false, toggled: true},
+                            showPanel: function (open) { panel.classList.toggle("hidden", !open); },
+                            goTo: function (page) { app.page = page; }
+                        });
+                    }
+                    bookmarks.setPage(app.page);
+                    {% endif %}
                     progress.load().then(function (saved) {
                         var page = saved ? LilyProgress.parseTagged(saved.cfi, "page") : null;
                         if (page !== null && page >= 1 && page <= app.pagesCount) {
@@ -564,6 +605,9 @@ See https://github.com/adobe-type-tools/cmap-resources
                     });
                 });
                 app.eventBus.on("pagechanging", function (evt) {
+                    if (bookmarks) {
+                        bookmarks.setPage(evt.pageNumber);
+                    }
                     if (restored && app.pagesCount) {
                         progress.save("page:" + evt.pageNumber, evt.pageNumber / app.pagesCount);
                     }

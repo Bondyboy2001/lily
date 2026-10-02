@@ -587,6 +587,17 @@ Sidebar tabs and settings options are chips with `aria-pressed`.
 The EPUB page theme follows the app's Light/Dark choice (Light → Light, Dark →
 Dark) until one is picked in the reader's settings; only a pick is saved
 (`localStorage["lily-reader-theme"]`).
+Bookmarks: any number per book, kept per user on the server
+(`/ajax/bookmarks/<id>/<FORMAT>`, keyed like the position sync: a CFI or
+`page:N`; `bookmarks.js`). Every reader's bookmark button marks the page on
+screen and is pressed (`aria-pressed`) on a bookmarked page. EPUB lists them
+in the sidebar's Bookmarks tab in book order, each the chapter (a heading)
+over the page's first words, with a `.icon-btn.is-danger` trash button. DjVu
+adds a list button (`aria-expanded`) that opens a Menu (§5.6) of pages; the
+PDF toolbar gets the same two as pdf.js `toolbarButton`s (pressed is
+`.toggled`) and the list as a doorhanger beside Tools. A failed bookmark
+request says so in one quiet line at the foot of the page (`#bookmark-status`,
+`role=status`), never in an `alert()`.
 
 ---
 

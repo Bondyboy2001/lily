@@ -42,7 +42,9 @@
             <ul id="searchResults"></ul>
         </div>
         <div id="bookmarksView" class="view">
-            <ul id="bookmarks"></ul>
+            <ul id="bookmarks" data-untitled="{{_('Bookmark')}}" data-remove="{{_('Remove bookmark: %(name)s', name='%(name)s')}}"
+                data-remove-title="{{_('Remove bookmark')}}"></ul>
+            <p id="bookmarks-empty" class="reader-bookmarks-empty" hidden>{{_('Mark the page you are on with the bookmark button at the top.')}}</p>
         </div>
     </div>
     <div id="sidebar-scrim" aria-hidden="true"></div>
@@ -59,7 +61,8 @@
 	            <span id="chapter-title"></span>
 	        </div>
 	        <div id="title-controls">
-	            <button type="button" id="bookmark" class="reader-btn icon-bookmark-empty" aria-label="{{_('Bookmark this page')}}" title="{{_('Bookmark this page')}}" aria-pressed="false"><span class="glyphicon glyphicon-bookmark" aria-hidden="true"></span></button>
+	            <button type="button" id="bookmark" class="reader-btn icon-bookmark-empty" aria-label="{{_('Bookmark this page')}}" title="{{_('Bookmark this page')}}" aria-pressed="false"
+	                    data-add-label="{{_('Bookmark this page')}}" data-remove-label="{{_('Remove the bookmark on this page')}}"><span class="glyphicon glyphicon-bookmark" aria-hidden="true"></span></button>
 	            <button type="button" id="setting" class="reader-btn icon-cog" aria-label="{{_('Reader settings')}}" title="{{_('Reader settings')}}" aria-controls="settings-modal"><span class="glyphicon glyphicon-cog" aria-hidden="true"></span></button>
 	            <button type="button" id="fullscreen" class="reader-btn icon-resize-full" aria-label="{{_('Fullscreen')}}" title="{{_('Fullscreen')}}"><span class="glyphicon glyphicon-fullscreen" aria-hidden="true"></span></button>
 	        </div>
@@ -75,6 +78,7 @@
 	    <div id="progress-sync-status" role="status" aria-live="polite" class="lily-progress-status"
          data-pending-text="{{ _('Saved on this device; waiting to sync') }}"
 	         data-synced-text="{{ _('Synced') }}"></div>
+	    {% include 'reader_bookmark_status.html' %}
 	    <div id="loader"><img src="{{ url_for('static', filename='img/loader.gif') }}" alt="{{_('Loading...')}}"></div>
 	</div>
     <div class="modal md-effect-1" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -136,10 +140,10 @@
         window.calibre = {
             filePath: "{{ url_for('static', filename='js/libs/') }}",
             cssPath: "{{ url_for('static', filename='css/') }}",
-            bookmarkUrl: "{{ url_for('web.set_bookmark', book_id=bookid, book_format=book_format|upper) }}",
+            // The signed-in user's bookmarks (GET list, POST add, DELETE <url>/<id>).
+            bookmarksUrl: "{{ url_for('web.reader_bookmarks', book_id=bookid, book_format=book_format|upper) }}",
             bookUrl: "{{ url_for('web.serve_book', book_id=bookid, book_format=book_format, anyname='file.epub') }}",
-            bookmark: "{{ bookmark.bookmark_key if bookmark != None }}",
-            useBookmarks: "{{ current_user.is_authenticated | tojson }}",
+            useBookmarks: {{ current_user.is_authenticated | tojson }},
             // Reading position sync (GET/POST {cfi, percent}); only for signed-in users.
             progressUrl: "{{ progress_url }}",
             progressKey: "{{ progress_key }}",
@@ -288,6 +292,8 @@
       <script src="{{ url_for('static', filename='js/libs/screenfull.min.js') }}"></script>
       <script src="{{ url_for('static', filename='js/libs/reader.min.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/epub.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/reading/bookmarks.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/reading/epub-bookmarks.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/progress-sync.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/epub-progress.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/epub-search.js') }}"></script>
