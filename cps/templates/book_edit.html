@@ -28,7 +28,10 @@
         <div class="form-group">
           <label class="btn btn-default btn-block btn-file" for="btn-upload-cover">{{ _('Upload from disk') }}</label>
           <div class="upload-cover-input-text" id="upload-cover"></div>
-          <input id="btn-upload-cover" name="btn-upload-cover" type="file" accept=".jpg, .jpeg, .png, .webp">
+          {# The element must never render as a native "Choose file" input, whatever stylesheets
+             load: Bootstrap's `input[type=file] { display: block }` beats the hidden attribute,
+             so the inline style carries the hiding and the label opens the picker. #}
+          <input id="btn-upload-cover" name="btn-upload-cover" type="file" accept=".jpg, .jpeg, .png, .webp" hidden style="display: none;">
         </div>
         <div class="form-group">
           <label for="cover_url" class="sr-only">{{_('Cover URL')}}</label>

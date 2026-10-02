@@ -103,7 +103,7 @@
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <span class="icon-btn btn-file" title="{{_('Upload books')}}"><span class="glyphicon glyphicon-upload" aria-hidden="true"></span><input id="btn-upload" name="btn-upload" aria-label="{{_('Upload books')}}"
                 type="file" accept="{% for format in accept %}.{% if format != ''%}{{format}}{% else %}*{% endif %}{{ ',' if not loop.last }}{% endfor %}" multiple></span>
-              <input class="hide" id="btn-upload2" name="btn-upload2" type="file" accept="{% for format in accept %}.{% if format != ''%}{{format}}{% else %}*{% endif %}{{ ',' if not loop.last }}{% endfor %}">
+              <input hidden style="display: none;" id="btn-upload2" name="btn-upload2" type="file" accept="{% for format in accept %}.{% if format != ''%}{{format}}{% else %}*{% endif %}{{ ',' if not loop.last }}{% endfor %}">
             </form>
             {% endif %}
             {% if current_user.role_admin() %}

@@ -443,6 +443,19 @@ def test_editor_save_panel_starts_with_read():
     assert "reader_list=helper.check_read_formats(book)" in read(REPO_ROOT / "cps/editbooks.py")
 
 
+def test_native_file_inputs_hide_at_the_element():
+    # §9: hidden things leave the tab order. The Replace Cover and top-bar spare file inputs
+    # must hide at the element, so whatever stylesheets load they can never render as a
+    # native "Choose file" input; the label (or the .btn-file overlay) opens the picker.
+    # The inline style is load-bearing: Bootstrap's `input[type=file] { display: block }`
+    # would otherwise beat the hidden attribute.
+    cover = re.search(r'<input [^>]*id="btn-upload-cover"[^>]*>', read(TEMPLATES / "book_edit.html")).group(0)
+    assert " hidden" in cover and 'style="display: none;"' in cover
+    assert "#btn-upload-cover" not in re.sub(r"/\*.*?\*/", "", read(CSS / "style.css"), flags=re.S)
+    spare = re.search(r'<input [^>]*id="btn-upload2"[^>]*>', read(TEMPLATES / "layout.html")).group(0)
+    assert " hidden" in spare and 'style="display: none;"' in spare and 'class="hide"' not in spare
+
+
 def test_delete_dialog_names_the_book_and_promises_no_restore():
     dialogs = read(TEMPLATES / "modal_dialogs.html")
     assert "administrator to restore" not in dialogs and "Are You Sure?" not in dialogs

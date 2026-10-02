@@ -236,9 +236,6 @@ table .bg-primary:hover {
 .upload-cover-input-text {
   display: initial;
 }
-#btn-upload-cover {
-  display: none;
-}
 
 .editable-buttons {
   display: inline-block;
