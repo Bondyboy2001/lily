@@ -39,24 +39,13 @@ class MetaRecord:
     languages: Optional[List[str]] = dataclasses.field(default_factory=list)
     tags: Optional[List[str]] = dataclasses.field(default_factory=list)
     format: Optional[str] = None
-    confidence_score: Optional[float] = None
-    match_reason: Optional[str] = ""
 
 
 class Metadata:
     __name__ = "Generic"
     __id__ = "generic"
-    # Whether the provider is on when the admin hasn't switched it either way
-    default_enabled = True
-    # Identifier types search_identifiers can look up; a typed identifier of one of
-    # these types is sent to the provider even when the user switched it off
+    # Identifier types search_identifiers can look up
     identifier_types: frozenset = frozenset()
-
-    def __init__(self):
-        self.active = True
-
-    def is_globally_enabled(self, enabled_map: Dict[str, bool]) -> bool:
-        return bool(enabled_map.get(self.__id__, self.default_enabled))
 
     @abc.abstractmethod
     def search(

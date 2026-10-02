@@ -1,4 +1,3 @@
-"""
 # -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
@@ -7,84 +6,16 @@
 # See CONTRIBUTORS for full list of authors.
 
 # Version from AutoCaliWeb - Optimized by - gelbphoenix & UsamaFoad
-
-# Hardcover api document: https://Hardcover.gamespot.com/api/documentation
-"""
-from typing import Dict, List, Optional, Union
+# Hardcover API: https://docs.hardcover.app/api/getting-started/
+import json
+from os import getenv
+from typing import Dict, List, Optional
 
 import requests
-from os import getenv
 
-# Try importing from full app; if unavailable (CLI), use light fallbacks
-try:  # pragma: no cover - normal app path
-    from cps import logger, config, constants  # type: ignore
-    from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata  # type: ignore
-    from cps.isoLanguages import get_language_name  # type: ignore
-    from ..cw_login import current_user  # type: ignore
-except Exception:  # pragma: no cover - CLI/testing path
-    import logging as _logging
-    from dataclasses import dataclass, field
-
-    class _FallbackLogger:
-        @staticmethod
-        def create():
-            _log = _logging.getLogger("hardcover")
-            if not _log.handlers:
-                _h = _logging.StreamHandler()
-                _h.setFormatter(_logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
-                _log.addHandler(_h)
-                _log.setLevel(_logging.INFO)
-            return _log
-
-    logger = _FallbackLogger()  # type: ignore
-
-    class _FallbackConfig:
-        config_hardcover_token: Optional[str] = None
-
-    config = _FallbackConfig()  # type: ignore
-
-    class _FallbackConstants:
-        USER_AGENT = "Lily/HardcoverTest"
-
-    constants = _FallbackConstants()  # type: ignore
-
-    # Minimal stand-ins for CLI runs
-    @dataclass
-    class MetaSourceInfo:  # type: ignore
-        id: str
-        description: str
-        link: str
-
-    @dataclass
-    class MetaRecord:  # type: ignore
-        id: Union[str, int]
-        title: str
-        authors: List[str]
-        url: str
-        source: MetaSourceInfo
-        cover: str = ""
-        description: Optional[str] = ""
-        series: Optional[str] = None
-        series_index: Optional[Union[int, float]] = 0
-        identifiers: Dict[str, Union[str, int]] = field(default_factory=dict)
-        publisher: Optional[str] = None
-        publishedDate: Optional[str] = None
-        rating: Optional[int] = 0
-        languages: Optional[List[str]] = field(default_factory=list)
-        tags: Optional[List[str]] = field(default_factory=list)
-        format: Optional[str] = None
-
-    class Metadata:  # type: ignore
-        def __init__(self):
-            self.active = True
-
-    def get_language_name(locale: str, code3: str) -> str:  # type: ignore
-        return code3 or ""
-
-    class _DummyUser:
-        hardcover_token: Optional[str] = None
-
-    current_user = _DummyUser()  # type: ignore
+from cps import config, constants, logger
+from cps.isoLanguages import get_language_name
+from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata
 
 log = logger.create()
 
@@ -131,7 +62,7 @@ class Hardcover(Metadata):
     ) -> List[MetaRecord]:
         """A Hardcover book id: that book's editions."""
         book_id = str(identifiers.get("hardcover-id", "")).strip()
-        if not self.active or not book_id.isdigit():
+        if not book_id.isdigit():
             return []
         data = self._query(Hardcover.EDITION_QUERY, int(book_id))
         try:
@@ -145,8 +76,6 @@ class Hardcover(Metadata):
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
     ) -> Optional[List[MetaRecord]]:
-        if not self.active:
-            return []
         data = self._query(Hardcover.SEARCH_QUERY, query)
         if not data:
             return []
@@ -154,9 +83,8 @@ class Hardcover(Metadata):
         try:
             raw_results = self._safe_get(data, "data", "search", "results", default=[])
             if isinstance(raw_results, str):
-                import json as _json
                 try:
-                    parsed = _json.loads(raw_results)
+                    parsed = json.loads(raw_results)
                 except Exception:
                     parsed = []
             else:
@@ -172,21 +100,19 @@ class Hardcover(Metadata):
         return val
 
     def _query(self, gql: str, variable) -> Optional[Dict]:
-        """Runs a GraphQL query with the user's or the global token. None on any failure."""
-        token = (
-            getattr(current_user, "hardcover_token", None)
-            or getattr(config, "config_hardcover_token", None)
-            or getenv("HARDCOVER_TOKEN")
-        )
+        """Runs a GraphQL query. None on any failure, and without a token (Hardcover
+        is off until HARDCOVER_TOKEN is set), quietly: a library rebuild asks once a book."""
+        token = getattr(config, "config_hardcover_token", None) or getenv("HARDCOVER_TOKEN")
         if not token:
-            log.warning("Hardcover token missing; set a user token or global token to enable results.")
+            log.debug("Hardcover skipped: no HARDCOVER_TOKEN")
             return None
+        # Its own headers: the class's are shared by every search running at once
+        headers = dict(Hardcover.HEADERS, Authorization="Bearer " + token.replace("Bearer ", ""))
         try:
-            Hardcover.HEADERS["Authorization"] = "Bearer %s" % token.replace("Bearer ", "")
             resp = requests.post(
                 Hardcover.BASE_URL,
                 json={"query": gql, "variables": {"query": variable}},
-                headers=Hardcover.HEADERS,
+                headers=headers,
                 timeout=15,
             )
             resp.raise_for_status()
@@ -337,8 +263,7 @@ class Hardcover(Metadata):
             # If it's a string, try to json-decode, otherwise treat as single tag
             if isinstance(cached_tags, str):
                 try:
-                    import json as _json
-                    decoded = _json.loads(cached_tags)
+                    decoded = json.loads(cached_tags)
                     cached_tags = decoded
                 except Exception:
                     cached_tags = [cached_tags] if cached_tags else []
@@ -381,58 +306,3 @@ class Hardcover(Metadata):
             return data
         except (TypeError, KeyError):
             return default
-
-
-if __name__ == "__main__":
-    # Lightweight CLI for manual testing of Hardcover searches
-    import argparse
-    import json
-    try:
-        from dataclasses import asdict, is_dataclass
-    except Exception:  # pragma: no cover
-        asdict = None
-        is_dataclass = None
-
-    parser = argparse.ArgumentParser(description="Test Hardcover metadata provider")
-    parser.add_argument("query", help="Search text or 'hardcover-id:ID' to fetch editions")
-    parser.add_argument("--token", dest="token", help="Hardcover API token (or set HARDCOVER_TOKEN)")
-    parser.add_argument("--locale", default="en", help="Locale for language names (default: en)")
-    parser.add_argument("--cover", dest="generic_cover", default="", help="Generic cover URL fallback")
-    args = parser.parse_args()
-
-    token = args.token or getenv("HARDCOVER_TOKEN")
-    if token:
-        try:
-            setattr(config, "config_hardcover_token", token)
-        except Exception:
-            pass
-
-    class _DummyUser:
-        hardcover_token = None
-
-    try:
-        globals()["current_user"] = _DummyUser()
-    except Exception:
-        pass
-
-    provider = Hardcover()
-    from cps.services.identifiers import parse_identifier
-    typed = parse_identifier(args.query)
-    if "hardcover-id" in typed:
-        results = provider.search_identifiers(typed, generic_cover=args.generic_cover, locale=args.locale)
-    else:
-        results = provider.search(args.query, generic_cover=args.generic_cover, locale=args.locale) or []
-
-    def _to_dict(obj):
-        try:
-            if is_dataclass and is_dataclass(obj):
-                return asdict(obj)
-        except Exception:
-            pass
-        if isinstance(obj, (list, tuple)):
-            return [_to_dict(x) for x in obj]
-        if isinstance(obj, dict):
-            return {k: _to_dict(v) for k, v in obj.items()}
-        return obj
-
-    print(json.dumps([_to_dict(r) for r in results], ensure_ascii=False, indent=2))

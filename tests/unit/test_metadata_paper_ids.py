@@ -19,8 +19,13 @@ arXiv:1706.03762v7  [cs.CL]  2 Aug 2023"""
     ("1706.03762v7", "", {"arxiv": "1706.03762"}),
     ("arXiv:hep-th/9901001v1  1 Jan 1999", "", {"arxiv": "hep-th/9901001"}),
     ("Untitled", ARXIV_PAGE, {"arxiv": "1706.03762"}),
-    ("Copula models", "Ann. Appl. Stat. doi: 10.1214/10-AOAS397.\narXiv:1108.1680v1 [stat.AP]",
+    ("Copula models", "Ann. Appl. Stat. doi: 10.1214/10-AOAS397.\narXiv:1108.1680v1  [stat.AP]  8 Aug 2011",
      {"arxiv": "1108.1680", "doi": "10.1214/10-AOAS397"}),
+    # Another paper cited in the abstract: no version and date, so not this paper's stamp
+    ("Graphs", "We extend the transformer of Vaswani et al. (arXiv:1706.03762) to graphs", {}),
+    # arXiv's own DOI names the arXiv id
+    ("Untitled", "https://doi.org/10.48550/arXiv.2601.22106", {"doi": "10.48550/arXiv.2601.22106",
+                                                                "arxiv": "2601.22106"}),
     ("A journal paper", "Nature 529, 484 (2016) https://doi.org/10.1038/nature16961)",
      {"doi": "10.1038/nature16961"}),
     ("Dune", "In the week before their departure to Arrakis", {}),
@@ -47,20 +52,18 @@ def _setup(monkeypatch, providers, page=""):
     from cps import metadata_helper
     applied = []
     monkeypatch.setattr(metadata_helper, "metadata_providers", providers)
-    settings = {"auto_metadata_fetch_enabled": 1,
-                "metadata_provider_hierarchy": '["google", "googlescholar"]'}
+    settings = {"auto_metadata_fetch_enabled": 1}
     monkeypatch.setattr(metadata_helper, "CWA_DB", lambda: SimpleNamespace(get_cwa_settings=lambda: settings))
     monkeypatch.setattr(metadata_helper, "pdf_first_page_text", lambda book: page)
-    monkeypatch.setattr(metadata_helper, "_apply_metadata_to_book",
-                        lambda book, record, db: applied.append(record.title) or True)
+    monkeypatch.setattr(metadata_helper, "_apply_record",
+                        lambda cdb, book, record, cover: applied.append(record.title) or True)
     return metadata_helper, applied
 
 
 def _provider(pid, id_types, by_id=(), by_text=(), calls=None):
     calls = calls if calls is not None else []
     return SimpleNamespace(
-        __id__=pid, __name__=pid, active=True, identifier_types=frozenset(id_types),
-        is_globally_enabled=lambda enabled: True,
+        __id__=pid, __name__=pid, identifier_types=frozenset(id_types),
         search_identifiers=lambda ids, *a: calls.append((pid, "ids", ids)) or list(by_id),
         search=lambda q, *a: calls.append((pid, "text", q)) or list(by_text))
 

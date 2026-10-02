@@ -36,8 +36,7 @@ ARXIV_NS = "{http://arxiv.org/schemas/atom}"
 
 
 class google_scholar(Metadata):
-    # The id is kept from the old Google Scholar provider so saved
-    # provider settings and hierarchies keep working.
+    # The old Google Scholar provider's id: the edit page knows papers by it (get_meta.js)
     __name__ = "Scholar"
     __id__ = "googlescholar"
     identifier_types = frozenset({"doi", "arxiv"})
@@ -55,7 +54,7 @@ class google_scholar(Metadata):
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
     ) -> Optional[List[MetaRecord]]:
-        if not self.active or not query.strip():
+        if not query.strip():
             return []
         # A bare arXiv id means nothing to Crossref's text search
         if ARXIV_ID_RE.fullmatch(query.strip()):
@@ -77,8 +76,6 @@ class google_scholar(Metadata):
     def search_identifiers(
         self, identifiers: Dict[str, str], generic_cover: str = "", locale: str = "en"
     ) -> List[MetaRecord]:
-        if not self.active:
-            return []
         lookups = []
         doi = DOI_RE.search(identifiers.get("doi", ""))
         doi = doi.group(0) if doi else ""

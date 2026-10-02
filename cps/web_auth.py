@@ -210,10 +210,6 @@ def change_profile(translations, languages):
             current_user.default_language = to_save["default_language"]
         if "locale" in to_save:
             current_user.locale = to_save["locale"]
-        if "hardcover_token" in to_save:
-            current_user.hardcover_token = to_save["hardcover_token"].replace("Bearer ", "") or None
-        if "auto_metadata_fetch" in to_save:
-            current_user.auto_metadata_fetch = to_save.get("auto_metadata_fetch") == "on"
 
         # OPDS root order
         opds_order_raw = to_save.get("opds_root_order", "").strip()

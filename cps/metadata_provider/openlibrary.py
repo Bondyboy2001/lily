@@ -35,7 +35,7 @@ class OpenLibrary(Metadata):
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
     ) -> Optional[List[MetaRecord]]:
-        if not self.active or not query.strip():
+        if not query.strip():
             return []
         docs = self._search_docs({"q": query, "limit": self.MAX_RESULTS})
         records = [self._parse_doc(d, generic_cover, locale) for d in docs]
@@ -47,7 +47,7 @@ class OpenLibrary(Metadata):
         self, identifiers: Dict[str, str], generic_cover: str = "", locale: str = "en"
     ) -> List[MetaRecord]:
         isbn = identifiers.get("isbn")
-        if not self.active or not isbn:
+        if not isbn:
             return []
         # The work (authors, subjects) and the edition (publisher, date) come separately
         with ThreadPoolExecutor(max_workers=2) as pool:

@@ -81,6 +81,11 @@ def test_rebuild_route_queues_one_task_for_admins(env, monkeypatch):
     from cps.services.worker import STAT_CANCELLED
     assert c.post("/cwa-settings/rebuild-metadata/stop").get_json() == {"success": True, "stopped": 1}
     assert queued[0].stat == STAT_CANCELLED
+    # Still on its last book: no second rebuild beside it until it has finished
+    assert c.post("/cwa-settings/rebuild-metadata").get_json() == {"success": True, "running": True}
+    queued[0].finished = True
+    assert c.post("/cwa-settings/rebuild-metadata").get_json()["task_id"] == str(queued[1].id)
+    queued.pop()
 
     env.add_user("reader", password="pw")
     resp = _login(env, "reader", "pw").post("/cwa-settings/rebuild-metadata")
@@ -91,11 +96,11 @@ def test_rebuild_route_queues_one_task_for_admins(env, monkeypatch):
 def test_forced_lookup_runs_with_auto_fetch_off_and_skips_unknown_author(env, monkeypatch):
     from cps import metadata_helper
     queries = []
-    provider = SimpleNamespace(__id__="google", __name__="Google", active=True,
-                               is_globally_enabled=lambda enabled: True,
+    provider = SimpleNamespace(__id__="google", __name__="Google", identifier_types=frozenset(),
                                search=lambda q, *a: queries.append(q) or [])
     monkeypatch.setattr(metadata_helper, "metadata_providers", [provider])
-    settings = {"auto_metadata_fetch_enabled": 0, "metadata_provider_hierarchy": '["google"]'}
+    monkeypatch.setattr(metadata_helper, "pdf_first_page_text", lambda book: "")
+    settings = {"auto_metadata_fetch_enabled": 0}
     monkeypatch.setattr(metadata_helper, "CWA_DB", lambda: SimpleNamespace(get_cwa_settings=lambda: settings))
     book_id = env.add_book("Abstract Algebra", author="Unknown")
 
@@ -114,25 +119,26 @@ def test_settings_page_offers_the_rebuild(env):
 
 def _provider_returning(**found):
     record = SimpleNamespace(title="", authors=[], description="", publisher="", tags=[], series="",
-                             publishedDate=None, rating=None, identifiers={}, cover=None)
+                             series_index=0, publishedDate=None, identifiers={}, cover=None,
+                             source=SimpleNamespace(description="Google Books"))
     record.__dict__.update(found)
-    return SimpleNamespace(__id__="google", __name__="Google", active=True,
-                           is_globally_enabled=lambda enabled: True, search=lambda q, *a: [record])
+    return SimpleNamespace(__id__="google", __name__="Google", identifier_types=frozenset(),
+                           search=lambda q, *a: [record])
 
 
 @pytest.mark.unit
 def test_rebuilt_book_moves_folder_sorts_author_and_queues_the_file_write(env, monkeypatch, tmp_path):
     from cps import metadata_helper
     from cps.tasks import metadata_rebuild
-    settings = {"auto_metadata_fetch_enabled": 0, "metadata_provider_hierarchy": '["google"]',
-                "auto_metadata_enforcement": 1}
+    settings = {"auto_metadata_fetch_enabled": 0, "auto_metadata_enforcement": 1}
     monkeypatch.setattr(metadata_helper, "CWA_DB", lambda: SimpleNamespace(get_cwa_settings=lambda: settings))
     monkeypatch.setattr(metadata_helper, "metadata_providers",
                         [_provider_returning(title="Abstract Algebra", authors=["Alexander Paulin"])])
-    monkeypatch.setattr(metadata_rebuild, "_cwa_settings", lambda: settings)
+    monkeypatch.setattr(metadata_helper, "pdf_first_page_text", lambda book: "")
+    monkeypatch.setattr(metadata_rebuild, "tidy_library_tags", lambda session: (0, 0))
     logs = tmp_path / "change_logs"
     logs.mkdir()
-    monkeypatch.setattr(metadata_rebuild, "CHANGE_LOGS_DIR", str(logs))
+    monkeypatch.setattr(metadata_helper, "CHANGE_LOGS_DIR", str(logs))
     monkeypatch.setattr("cps.duplicate_index.mark_duplicate_index_pending", lambda reason=None: None)
     book_id = env.add_book("Abstract Algebra", author="Unknown")
     old_dir = env.library_dir / "Unknown" / "Abstract Algebra"

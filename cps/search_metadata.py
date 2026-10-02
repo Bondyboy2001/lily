@@ -8,18 +8,19 @@
 """Loads the metadata providers and serves the metadata search used when editing a book."""
 
 import concurrent.futures
-import importlib
-import inspect
 import json
-import os
 import sys
+from dataclasses import asdict
 
 from flask import Blueprint, request, url_for, make_response, jsonify, copy_current_request_context
 from flask_babel import get_locale
 
-from cps.services.Metadata import Metadata
+from cps.metadata_provider.google import Google
+from cps.metadata_provider.hardcover import Hardcover
+from cps.metadata_provider.openlibrary import OpenLibrary
+from cps.metadata_provider.scholar import google_scholar
 from cps.services.identifiers import normalise_identifiers, parse_identifier
-from . import constants, logger, web_server
+from . import logger
 from .usermanagement import user_login_required
 
 
@@ -27,93 +28,23 @@ meta = Blueprint("metadata", __name__)
 
 log = logger.create()
 
-try:
-    from dataclasses import asdict
-except ImportError:
-    log.info('*** "dataclasses" is needed for calibre-web automated to run. Please install it using pip: "pip install dataclasses" ***')
-    print('*** "dataclasses" is needed for calibre-web automated to run. Please install it using pip: "pip install dataclasses" ***')
-    web_server.stop(True)
-    sys.exit(6)
-
-new_list = list()
-meta_dir = os.path.join(constants.BASE_DIR, "cps", "metadata_provider")
-modules = os.listdir(os.path.join(constants.BASE_DIR, "cps", "metadata_provider"))
-for f in modules:
-    if os.path.isfile(os.path.join(meta_dir, f)) and not f.endswith("__init__.py"):
-        a = os.path.basename(f)[:-3]
-        try:
-            importlib.import_module("cps.metadata_provider." + a)
-            new_list.append(a)
-        except (IndentationError, SyntaxError) as e:
-            log.error("Syntax error for metadata source: {} - {}".format(a, e))
-        except ImportError as e:
-            log.debug("Import error for metadata source: {} - {}".format(a, e))
+# Every provider, in the order an import's lookups try them: books, then papers
+cl = [Google(), OpenLibrary(), Hardcover(), google_scholar()]
 
 
-def list_classes(provider_list):
-    classes = list()
-    for element in provider_list:
-        for name, obj in inspect.getmembers(
-            sys.modules["cps.metadata_provider." + element]
-        ):
-            if (
-                inspect.isclass(obj)
-                and name != "Metadata"
-                and issubclass(obj, Metadata)
-            ):
-                classes.append(obj())
-    return classes
-
-
-cl = list_classes(new_list)
-# Alphabetises the list of Metadata providers
-cl.sort(key=lambda x: x.__class__.__name__)
-
-
-# Helper to load global provider enablement map from CWA settings
-def _get_global_provider_enabled_map() -> dict:
-    try:
-        # Import here to avoid circular import issues and keep startup fast
-        scripts = '/app/calibre-web-automated/scripts/'
-        if scripts not in sys.path:
-            sys.path.insert(1, scripts)
-        from cwa_db import CWA_DB  # type: ignore
-        with CWA_DB() as cwa_db:
-            settings = cwa_db.cwa_settings
-
-        if not settings:
-            log.warning("Could not get CWA settings for provider enabled map")
-            return {}
-
-        from cps.cwa_functions import parse_metadata_providers_enabled
-        return parse_metadata_providers_enabled(
-            settings.get('metadata_providers_enabled', '{}')
-        )
-    except Exception as e:
-        # On any failure, treat as all enabled (empty dict = all default to enabled)
-        log.warning(f"Error loading provider enabled map: {e}")
-        return {}
-
-
-def _enabled_providers():
-    """The providers the admin hasn't switched off."""
-    global_enabled = _get_global_provider_enabled_map()
-    return [c for c in cl if c.is_globally_enabled(global_enabled)]
-
-
-def _providers_to_ask(typed, enabled):
+def _providers_to_ask(typed, providers=cl):
     """The providers to search: for a typed identifier, those that can look up its
-    type, otherwise every enabled one."""
+    type, otherwise all of them."""
     if typed:
-        return [c for c in enabled if c.identifier_types & typed.keys()]
-    return list(enabled)
+        return [c for c in providers if c.identifier_types & typed.keys()]
+    return list(providers)
 
 
 @meta.route("/metadata/provider")
 @user_login_required
 def metadata_provider():
     """The ids of the providers to search for `query`."""
-    ask = _providers_to_ask(parse_identifier(request.args.get("query")), _enabled_providers())
+    ask = _providers_to_ask(parse_identifier(request.args.get("query")))
     return make_response(jsonify([c.__id__ for c in ask]))
 
 
@@ -181,7 +112,6 @@ def _scorer(form, query=""):
     scripts/metadata_suggestions.py. The book's title is often a file name, so the
     typed text counts as much; how closely the record's title matches it breaks
     ties, since an author-less score is capped."""
-    import sys
     if '/app/calibre-web-automated/scripts/' not in sys.path:
         sys.path.insert(1, '/app/calibre-web-automated/scripts/')
     from metadata_suggestions import match_score, title_similarity
@@ -237,7 +167,7 @@ def metadata_search():
     form = request.form.to_dict()
     query = (form.get("query") or "").strip()
     typed = parse_identifier(query)
-    provider = next((c for c in _providers_to_ask(typed, _enabled_providers())
+    provider = next((c for c in _providers_to_ask(typed)
                      if c.__id__ == form.get("provider")), None)
     if provider is None or not query:
         # Not one to search for this query (the page's provider list is out of date)

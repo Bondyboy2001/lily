@@ -364,9 +364,6 @@ def _handle_edit_user(to_save, content, languages, translations):
             elif value not in val and content.check_visibility(value):
                 content.sidebar_view &= ~value
 
-    if "auto_metadata_fetch" in to_save:
-        content.auto_metadata_fetch = to_save.get("auto_metadata_fetch") == "on"
-
     # OPDS root order
     opds_order_raw = to_save.get("opds_root_order", "").strip()
     if "opds_root_order" not in to_save:

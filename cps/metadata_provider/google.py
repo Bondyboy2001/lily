@@ -32,8 +32,6 @@ class Google(Metadata):
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
     ) -> Optional[List[MetaRecord]]:
-        if not self.active:
-            return []
         title_tokens = list(self.get_title_tokens(query, strip_joiners=False))
         if title_tokens:
             query = " ".join(title_tokens)
@@ -43,7 +41,7 @@ class Google(Metadata):
         self, identifiers: Dict[str, str], generic_cover: str = "", locale: str = "en"
     ) -> List[MetaRecord]:
         isbn = identifiers.get("isbn")
-        if not self.active or not isbn:
+        if not isbn:
             return []
         return self._fetch("isbn:" + isbn, generic_cover, locale)
 
@@ -96,11 +94,7 @@ class Google(Metadata):
         match.description = volume_info.get("description", "")
         match.languages = self._parse_languages(result=result, locale=locale)
         match.publisher = volume_info.get("publisher", "")
-        try:
-            datetime.strptime(volume_info.get("publishedDate", ""), "%Y-%m-%d")
-            match.publishedDate = volume_info.get("publishedDate", "")
-        except ValueError:
-            match.publishedDate = ""
+        match.publishedDate = self._parse_date(volume_info.get("publishedDate", ""))
         match.rating = volume_info.get("averageRating", 0)
         match.series, match.series_index = "", 1
         match.tags = volume_info.get("categories", [])
@@ -108,6 +102,17 @@ class Google(Metadata):
         match.identifiers = {"google": match.id}
         match = self._parse_isbn(result=result, match=match)
         return match
+
+    @staticmethod
+    def _parse_date(raw: str) -> str:
+        """Google gives "2016-05-03", "2016-05" or "2016"; anything else is dropped."""
+        for fmt in ("%Y-%m-%d", "%Y-%m", "%Y"):
+            try:
+                datetime.strptime(raw, fmt)
+                return raw
+            except ValueError:
+                continue
+        return ""
 
     @staticmethod
     def _parse_isbn(result: Dict, match: MetaRecord) -> MetaRecord:

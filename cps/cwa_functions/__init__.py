@@ -27,8 +27,7 @@ from .ingest import (_duplicate_full_scan_running, get_ingest_dir, get_ingest_st
                      cwa_internal_queue_duplicate_scan, cwa_internal_run_duplicate_scan,
                      cwa_internal_duplicate_scan_status, queue_debounced_duplicate_scan,
                      duplicate_scan_debounce_pending, cwa_internal_reconnect_db)
-from .settings import (parse_metadata_providers_enabled, validate_and_cleanup_provider_enabled_map,
-                       set_cwa_settings)
+from .settings import set_cwa_settings
 
 # The imports above are the package's public facade, not local use. Keep them
 # listed so linters treat them as intentional re-exports.
@@ -45,6 +44,5 @@ __all__ = [
     "queue_debounced_duplicate_scan", "duplicate_scan_debounce_pending",
     "cwa_internal_reconnect_db",
     # settings
-    "parse_metadata_providers_enabled", "validate_and_cleanup_provider_enabled_map",
     "set_cwa_settings",
 ]

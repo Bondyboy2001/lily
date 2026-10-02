@@ -7,13 +7,11 @@
 It first clears tags that are not subjects (ISBNs, publisher lines, shop listing scraps), and
 after each lookup centres a PDF's page-render cover on what is printed (cps/pdf_cover.py).
 
-A book that gets new details is kept in step like an edit is: its folder follows a new title or
-first author, and with "Write edits into book files" on, the change is queued for the files."""
+A book that gets new details is kept in step like an edit is (metadata_helper does it): its folder
+follows a new title or first author, and with "Write edits into book files" on, the change is
+queued for the files."""
 
-import json
-import os
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
-from datetime import datetime
 
 from flask_babel import lazy_gettext as N_
 
@@ -26,10 +24,6 @@ log = logger.create()
 
 # Books looked up at once: a lookup is mostly waiting on the providers, a few seconds a book
 WORKERS = 4
-# The metadata-change-detector service hands each log here to cover_enforcer.py
-CHANGE_LOGS_DIR = "/app/calibre-web-automated/metadata_change_logs"
-# The formats cover_enforcer.py can write metadata into
-ENFORCED_FORMATS = {"EPUB", "AZW3"}
 
 
 class TaskRebuildMetadata(CalibreTask):
@@ -39,7 +33,8 @@ class TaskRebuildMetadata(CalibreTask):
         self.checked = 0
         self.updated = 0
         self.covers = 0
-        self.write_files = False
+        # Stopping marks the task ended at once, but it finishes the books under way first
+        self.finished = False
 
     @property
     def name(self):
@@ -56,12 +51,11 @@ class TaskRebuildMetadata(CalibreTask):
         from cps.metadata_helper import fetch_and_apply_metadata, library_lock
         try:
             init_db_thread()
-        except Exception:
-            pass
+        except Exception as ex:
+            log.debug("Rebuild: no user database for this thread: %s", ex)
         # A session of this thread's own: the rebuild runs beside web requests
         cdb = db.CalibreDB(expire_on_commit=False, init=True)
         try:
-            self.write_files = bool(_cwa_settings().get('auto_metadata_enforcement'))
             with library_lock:
                 self._tidy_tags(cdb)
                 book_ids = [row[0] for row in cdb.session.query(db.Books.id).order_by(db.Books.id).all()]
@@ -74,13 +68,7 @@ class TaskRebuildMetadata(CalibreTask):
                         self._finish(cdb, running, total)
                     if self._stopped():
                         break
-                    with library_lock:
-                        before = _title_and_author(cdb, book_id)
-                        cover = _cover_paths(cdb, book_id) if before and centre_covers else None
-                    if before:
-                        running[pool.submit(_look_up, fetch_and_apply_metadata, book_id, cover)] = (book_id, before)
-                    else:
-                        self._count(total)
+                    running[pool.submit(_look_up, fetch_and_apply_metadata, book_id, centre_covers)] = book_id
                 # A stop lets the books under way finish
                 while running:
                     self._finish(cdb, running, total)
@@ -91,6 +79,7 @@ class TaskRebuildMetadata(CalibreTask):
         finally:
             with library_lock:
                 cdb.session.close()
+            self.finished = True
             if self.updated:
                 try:
                     from cps.duplicate_index import mark_duplicate_index_pending
@@ -107,16 +96,14 @@ class TaskRebuildMetadata(CalibreTask):
         self._handleSuccess()
 
     def _finish(self, cdb, running, total):
-        """Wait for a lookup to end, then keep its book in step."""
+        """Wait for a lookup to end and count it; record a centred cover."""
         from cps.metadata_helper import library_lock
         done, __ = wait(running, return_when=FIRST_COMPLETED)
         for future in done:
-            book_id, before = running.pop(future)
+            book_id = running.pop(future)
             updated, centred = future.result()
             if updated:
                 self.updated += 1
-                with library_lock:
-                    self._follow_up(cdb, book_id, before)
             if centred:
                 with library_lock:
                     self._cover_changed(cdb, book_id)
@@ -153,64 +140,26 @@ class TaskRebuildMetadata(CalibreTask):
         self.covers += 1
         helper.replace_cover_thumbnail_cache(book_id)
 
-    def _follow_up(self, cdb, book_id, before):
-        """Move the folder after a new title or first author, then queue the file write."""
-        cdb.session.expire_all()
-        book = cdb.session.get(db.Books, book_id)
-        if book is None:
-            return
-        after = _title_and_author(cdb, book_id)
-        if after != before:
-            try:
-                error = helper.update_dir_structure(book_id, config.get_book_path(), after[1], book=book)
-                if error:
-                    raise RuntimeError(error)
-                cdb.session.commit()
-            except Exception as ex:
-                cdb.session.rollback()
-                log.error("Rebuild: could not move the folder of book %s: %s", book_id, ex)
-        if self.write_files and {d.format.upper() for d in book.data} & ENFORCED_FORMATS:
-            _write_change_log(book)
 
-
-def _look_up(fetch, book_id, cover):
+def _look_up(fetch, book_id, centre_covers):
     """One book's work in the pool: the lookup, then centring a PDF's cover on its print.
 
     The cover comes second so a cover the provider just set is never cropped: it no longer
-    looks like the page render, so recentre_cover leaves it."""
+    looks like the page render, so recentre_cover leaves it. Its paths are read after the
+    lookup, which moves the book's folder when the title or first author changes."""
+    from cps.metadata_helper import library_lock
     updated = fetch(book_id, force=True)
+    if not centre_covers:
+        return updated, False
+    with library_lock:
+        cdb = db.CalibreDB(expire_on_commit=False, init=True)
+        try:
+            cover = _cover_paths(cdb, book_id)
+        finally:
+            cdb.session.close()
     return updated, pdf_cover.try_recentre_cover(cover, book_id)
 
 
 def _cover_paths(cdb, book_id):
     book = cdb.session.get(db.Books, book_id)
     return pdf_cover.cover_paths(book, config.get_book_path()) if book else None
-
-
-def _cwa_settings():
-    from cwa_db import CWA_DB
-    return CWA_DB().get_cwa_settings()
-
-
-def _title_and_author(cdb, book_id):
-    """(title, first author) as calibre orders them, or None for a book that has gone."""
-    book = cdb.session.get(db.Books, book_id)
-    if book is None:
-        return None
-    authors = cdb.order_authors([book]) if book.authors else []
-    return book.title, authors[0].name if authors else None
-
-
-def _write_change_log(book):
-    """The same log an edit writes; cover_enforcer.py reads the book's metadata back from the library."""
-    payload = {
-        'title': book.title,
-        'authors': ' & '.join(author.name for author in book.authors),
-        '_cwa_meta': {'source': 'metadata rebuild', 'timestamp': datetime.now().isoformat()},
-    }
-    path = os.path.join(CHANGE_LOGS_DIR, "%s-%s.json" % (datetime.now().strftime("%Y%m%d%H%M%S"), book.id))
-    try:
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(payload, f, indent=4, ensure_ascii=False)
-    except OSError as ex:
-        log.error("Rebuild: could not queue the file write for book %s: %s", book.id, ex)

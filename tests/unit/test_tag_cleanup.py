@@ -36,6 +36,10 @@ SUBJECTS = [
     "Reproducing kernel Hilbert space (RKHS)", "Hammersley–Clifford", "Multivariate analysis -- Bibliography",
     "Kendall's tau correlation matrix", "Space–Time", "poincaré bundle", "Literature",
     "Computers and Society", "Distributed, Parallel, and Cluster Computing", "High Energy Physics - Theory",
+    # Subjects with numbers or publishing words in them, and a reader's own tag
+    "20th Century", "19th-century fiction", "World War 2", "Python 3", "Windows 10", "H2O", "MP3",
+    "History, 1914-1918", "To Read 2024", "Publishing", "Electronic publishing", "Government publications",
+    "Association football", "Press freedom",
 ]
 
 
@@ -115,13 +119,14 @@ def test_new_import_keeps_only_subjects(env):
 @pytest.mark.unit
 def test_lookup_adds_only_subject_tags(env, monkeypatch):
     from cps import metadata_helper
-    settings = {"auto_metadata_fetch_enabled": 1, "metadata_provider_hierarchy": '["google"]'}
+    settings = {"auto_metadata_fetch_enabled": 1}
     monkeypatch.setattr(metadata_helper, "CWA_DB", lambda: SimpleNamespace(get_cwa_settings=lambda: settings))
     record = SimpleNamespace(title="Abstract Algebra", authors=["Test Author"], description="", publisher="",
                              tags=["Mathematics", "Springer 2011", "Abstract Algebra", "ISBN-13:"], series="",
-                             publishedDate=None, rating=None, identifiers={}, cover=None)
+                             series_index=0, publishedDate=None, identifiers={}, cover=None,
+                             source=SimpleNamespace(description="Google Books"))
     monkeypatch.setattr(metadata_helper, "metadata_providers", [SimpleNamespace(
-        __id__="google", __name__="Google", active=True, is_globally_enabled=lambda enabled: True,
+        __id__="google", __name__="Google", identifier_types=frozenset(),
         search=lambda q, *a: [record])])
     book = env.add_book("Abstract Algebra")
     assert metadata_helper.fetch_and_apply_metadata(book)
