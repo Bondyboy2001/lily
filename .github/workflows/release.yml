@@ -10,9 +10,10 @@ name: Release
 # v4.4.0-3-gabc1234 for the third commit after v4.4.0.
 #
 # Each platform builds natively on its own runner (no QEMU), in parallel with the
-# checks, and pushes by digest only. Nothing is tagged until the publish job, which
-# waits for the checks and the smoke test and then ties the two digests together
-# under the tags. A failed run leaves an untagged digest that no tag points at.
+# checks, and pushes by digest only; the amd64 job then pulls that digest and runs
+# the /health smoke test on it. Nothing is tagged until the publish job, which waits
+# for the checks and both builds and then ties the two digests together under the
+# tags. A failed run leaves an untagged digest that no tag points at.
 on:
   push:
     branches: [main]
@@ -99,61 +100,6 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/scripts
         run: pytest -m "smoke or unit" -n auto --tb=short
 
-  image-smoke:
-    name: Build image and check /health
-    runs-on: ubuntu-latest
-    needs: [on-main]
-    timeout-minutes: 45
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Build date
-        id: date
-        run: echo "value=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$GITHUB_OUTPUT"
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Build amd64 image (no push)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: false
-          load: true
-          tags: lily:release-smoke
-          build-args: |
-            VERSION=${{ needs.on-main.outputs.version }}
-            BUILD_DATE=${{ steps.date.outputs.value }}
-          cache-from: type=gha,scope=lily-image
-          cache-to: type=gha,scope=lily-image,mode=max
-
-      - name: Smoke test (container starts, /health returns 200 and this version)
-        env:
-          EXPECTED: Lily/${{ needs.on-main.outputs.version }}
-        run: |
-          mkdir -p smoke/config smoke/ingest smoke/library
-          chmod -R 777 smoke
-          docker run -d --name lily-smoke -e PUID="$(id -u)" -e PGID="$(id -g)" \
-            -v "$PWD/smoke/config:/config" -v "$PWD/smoke/ingest:/cwa-book-ingest" \
-            -v "$PWD/smoke/library:/calibre-library" -p 8083:8083 \
-            lily:release-smoke
-          for i in $(seq 1 60); do
-            if body=$(curl -fs http://localhost:8083/health); then
-              echo "healthy after ~$((i * 5))s: $body"
-              version=$(echo "$body" | jq -r .version)
-              if [ "$version" != "$EXPECTED" ]; then
-                echo "::error::/health reports '$version', expected '$EXPECTED'"
-                exit 1
-              fi
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "::error::/health never returned 200"
-          docker logs lily-smoke
-          exit 1
-
   build:
     name: Build ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
@@ -166,14 +112,14 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          # amd64 reads main's "lily-image" scope, which image-smoke (and tests.yml) save.
-          # arm64 has no other writer, so it saves its own scope on main pushes; without
-          # that every arm64 build started cold. Tag runs only read: a tag can restore
-          # caches saved on main but never ones saved on an earlier tag.
+          # Each platform saves its cache scope on main pushes (tests.yml also saves
+          # "lily-image"), so the next build only redoes what changed. Tag runs only
+          # read: a tag can restore caches saved on main but never ones saved on an
+          # earlier tag.
           - platform: linux/amd64
             runner: ubuntu-latest
             cache_scope: lily-image
-            save_cache: false
+            save_cache: true
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
             cache_scope: lily-image-arm64
@@ -236,6 +182,38 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.cache_scope }}
           cache-to: ${{ matrix.save_cache && github.ref == 'refs/heads/main' && format('type=gha,scope={0},mode=max', matrix.cache_scope) || '' }}
 
+      # Checks the exact image that was just pushed: pulling it by digest is quicker
+      # than a second build, and the tags only go on once this passes.
+      - name: Smoke test (container starts, /health returns 200 and this version)
+        if: matrix.platform == 'linux/amd64'
+        env:
+          EXPECTED: Lily/${{ needs.on-main.outputs.version }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}@$DIGEST"
+          docker pull -q "$image"
+          mkdir -p smoke/config smoke/ingest smoke/library
+          chmod -R 777 smoke
+          docker run -d --name lily-smoke -e PUID="$(id -u)" -e PGID="$(id -g)" \
+            -v "$PWD/smoke/config:/config" -v "$PWD/smoke/ingest:/cwa-book-ingest" \
+            -v "$PWD/smoke/library:/calibre-library" -p 8083:8083 \
+            "$image"
+          for i in $(seq 1 60); do
+            if body=$(curl -fs http://localhost:8083/health); then
+              echo "healthy after ~$((i * 5))s: $body"
+              version=$(echo "$body" | jq -r .version)
+              if [ "$version" != "$EXPECTED" ]; then
+                echo "::error::/health reports '$version', expected '$EXPECTED'"
+                exit 1
+              fi
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::/health never returned 200"
+          docker logs lily-smoke
+          exit 1
+
       - name: Export digest
         run: |
           mkdir -p "$RUNNER_TEMP/digests"
@@ -253,7 +231,7 @@ jobs:
   publish:
     name: Publish multi-arch tags
     runs-on: ubuntu-latest
-    needs: [checks, image-smoke, build]
+    needs: [checks, build]
     timeout-minutes: 15
     permissions:
       contents: read
