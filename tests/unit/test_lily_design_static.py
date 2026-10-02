@@ -434,7 +434,7 @@ def test_phone_drawer_moves_focus_in_and_back_and_makes_the_page_inert():
     # docs/design.md §6.1: opening the drawer focuses its first link and makes .lily-main inert;
     # every way of closing it (Escape, scrim, toggle, ⌘B) returns focus to the toggle.
     shell = _shell_block(read(JS / "lily.js"))
-    set_open = shell[shell.index("function setOpen("):shell.index("function setCollapsed(")]
+    set_open = shell[shell.index("function setOpen("):shell.index("toggle.addEventListener(")]
     assert "main.inert = open" in set_open
     assert 'sidebar.querySelector(".lily-nav a[href]")' in set_open and "first.focus()" in set_open
     assert "toggle.focus()" in set_open
@@ -446,31 +446,28 @@ def test_phone_drawer_moves_focus_in_and_back_and_makes_the_page_inert():
     assert re.search(r"function widthChanged\(\) \{[^}]*setOpen\(false, false\)", shell)
 
 
-def test_drawer_toggle_shows_at_every_width_and_names_the_sidebar_state():
-    # docs/design.md §6.1: the toggle is the top bar's first control on desktop too, so a
-    # collapsed sidebar (⌘B) has a visible way back.
+def test_drawer_toggle_is_for_the_phone_drawer_only_and_names_its_state():
+    # docs/design.md §6.1: wider screens always show the sidebar, so the toggle shows on phones only
+    # and there is no remembered collapse for it to undo.
     rules = css_rules(read(CSS / "lily-shell.css"))
-    for selector, body in rules:
-        if ".lily-drawer-toggle" in selector:
-            assert "display: none" not in body, selector
+    assert [b for s, b in rules if s == ".lily-drawer-toggle"] == [" display: none; "]
+    assert "sidebar-collapsed" not in read(CSS / "lily-shell.css")
     layout = read(TEMPLATES / "layout.html")
+    assert "sidebar-collapsed" not in layout
     bar = layout[layout.index('class="navbar lily-topbar"'):layout.index("</header>")]
     toggle = re.search(r'<button[^>]*class="icon-btn lily-drawer-toggle"[^>]*>', bar, flags=re.S).group(0)
     assert bar.index("lily-drawer-toggle") < bar.index("lily-page-title")
-    assert 'aria-controls="lily-sidebar"' in toggle and 'aria-expanded="true"' in toggle
+    assert 'aria-controls="lily-sidebar"' in toggle and 'aria-expanded="false"' in toggle
     assert "data-label-hide=\"{{_('Hide sidebar')}}\"" in toggle
     assert "data-label-show=\"{{_('Show sidebar')}}\"" in toggle
-    assert "title=\"{{_('Hide sidebar')}} (⌘B)\"" in toggle
+    assert "title=\"{{_('Show sidebar')}} (⌘B)\"" in toggle
     shell = _shell_block(read(JS / "lily.js"))
     sync = shell[shell.index("function sync()"):shell.index("function setOpen(")]
-    assert '"sidebar-collapsed"' in sync and '"drawer-open"' in sync
+    assert '"drawer-open"' in sync
     assert 'toggle.setAttribute("aria-expanded"' in sync and "toggle.title = label" in sync
-    # The click works at every width: the drawer on phones, the remembered collapse wider.
-    assert 'toggle.addEventListener("click", flip)' in shell
-    assert 'localStorage.setItem("lily-sidebar-collapsed"' in shell
-    # Expanded is its resting state on desktop, so it doesn't wear the pressed tint.
-    resting = [b for s, b in rules if s == '.lily-drawer-toggle[aria-expanded="true"]:not(:hover):not(:focus)']
-    assert resting and "background: transparent" in resting[0]
+    assert "sidebar-collapsed" not in shell and "localStorage" not in shell
+    # ⌘B opens the drawer on phones and leaves the key alone wider.
+    assert re.search(r'phone\.matches && \(e\.metaKey \|\| e\.ctrlKey\)', shell)
 
 
 def test_upload_button_shows_its_focus_ring_and_keeps_its_touch_area():

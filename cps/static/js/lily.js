@@ -1,7 +1,7 @@
 /*
  * Lily shell behaviour (templates/layout.html, css/lily-shell.css).
- * .lily-drawer-toggle and Cmd/Ctrl+B show and hide the sidebar: on phones it is a drawer
- * (closed by the scrim or Escape), on wider screens a remembered collapse.
+ * On phones the sidebar is a drawer that .lily-drawer-toggle and Cmd/Ctrl+B open and close
+ * (the scrim and Escape close it too); wider screens always show it and hide the toggle.
  * While the drawer is open the page behind it is inert and focus sits in the drawer;
  * closing it puts focus back on the toggle.
  * Plain DOM APIs only, so it does not depend on the jQuery version.
@@ -21,10 +21,9 @@
     // The tooltip names the shortcut with ⌘; other platforms use Ctrl.
     var shortcut = /Mac|iPhone|iPad/.test(navigator.platform || "") ? "⌘B" : "Ctrl+B";
 
-    // aria-expanded and the label follow whichever sidebar this width has.
+    // aria-expanded and the label follow the drawer.
     function sync() {
-      var shown = phone.matches ? app.classList.contains("drawer-open")
-                                : !app.classList.contains("sidebar-collapsed");
+      var shown = app.classList.contains("drawer-open");
       var label = shown ? toggle.getAttribute("data-label-hide") : toggle.getAttribute("data-label-show");
       toggle.setAttribute("aria-expanded", shown ? "true" : "false");
       if (label) {
@@ -46,21 +45,7 @@
       }
     }
 
-    function setCollapsed(collapsed) {
-      app.classList.toggle("sidebar-collapsed", collapsed);
-      try { localStorage.setItem("lily-sidebar-collapsed", collapsed ? "1" : "0"); } catch (err) {}
-      sync();
-    }
-
-    function flip() {
-      if (phone.matches) {
-        setOpen(!app.classList.contains("drawer-open"));
-      } else {
-        setCollapsed(!app.classList.contains("sidebar-collapsed"));
-      }
-    }
-
-    toggle.addEventListener("click", flip);
+    toggle.addEventListener("click", function () { setOpen(!app.classList.contains("drawer-open")); });
 
     if (scrim) {
       scrim.addEventListener("click", function () { setOpen(false); });
@@ -75,10 +60,10 @@
     sync();
 
     document.addEventListener("keydown", function (e) {
-      if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === "b" || e.key === "B")) {
+      if (phone.matches && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === "b" || e.key === "B")) {
         if (e.target && e.target.isContentEditable) { return; }
         e.preventDefault();
-        flip();
+        setOpen(!app.classList.contains("drawer-open"));
         return;
       }
       if (e.key === "Escape" && app.classList.contains("drawer-open")) {

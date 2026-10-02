@@ -439,18 +439,16 @@ glyph (`glyphicon-ok-circle`), the same mark as the sidebar's Finished row.
 
 - **Sidebar:** 232px (`--sidebar-width`), `--sunk`, 1px `--line` on its right
   edge, sticky full height. Groups "Browse" and "Shelves", each headed by a
-  `.nav-head` heading. Collapsible on desktop (⌘/Ctrl+B or the drawer toggle,
-  remembered); on phones it is an off-canvas drawer with an ink-30% scrim, closed
-  by the scrim or Escape, and `visibility: hidden` while closed so its links
+  `.nav-head` heading. Always shown from 768px up; on phones it is an off-canvas
+  drawer with an ink-30% scrim, closed by the scrim or Escape, and `visibility: hidden` while closed so its links
   leave the tab order. Opening the drawer moves focus to its first link and
   makes `.lily-main` inert; every way of closing it returns focus to the toggle.
-- **Drawer toggle:** a large icon button, first in the top bar at every width.
-  `aria-expanded` follows the sidebar (the drawer on phones, the collapse
-  wider), and so do its name and tooltip: "Hide sidebar (⌘B)" / "Show sidebar
-  (⌘B)". It keeps the resting icon-button look when expanded; the sidebar
-  shows its own state.
+- **Drawer toggle:** a large icon button, first in the top bar on phones only
+  (hidden from 768px up, where nothing hides the sidebar). It and ⌘/Ctrl+B open
+  and close the drawer; `aria-expanded`, its name and tooltip follow it: "Show
+  sidebar (⌘B)" / "Hide sidebar (⌘B)".
 - **Top bar:** 60px (`--topbar-height`), sticky, `--paper`, no border, padding
-  0 24. Order: drawer toggle · page title · `page_title_actions` · search ·
+  0 24. Order: drawer toggle (phones) · page title · `page_title_actions` · search ·
   advanced search · actions (upload, refresh, theme, settings). Actions are
   large icon buttons, 2px apart.
 - **Page title lives in the top bar**, not in the content. Content starts with

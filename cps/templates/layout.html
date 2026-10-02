@@ -45,7 +45,6 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% set show_sidebar = current_user.is_authenticated or g.allow_anonymous %}
     <div class="lily-app">
-      <script>try { if (localStorage.getItem("lily-sidebar-collapsed") === "1") { document.currentScript.parentNode.classList.add("sidebar-collapsed"); } } catch (e) {}</script>
       {% if show_sidebar %}
       <aside class="lily-sidebar" id="lily-sidebar" aria-label="{{_('Browse')}}">
         <a class="lily-brand" href="{{url_for('web.index')}}">{{instance}}<img src="{{ url_for('static', filename='lily-mark.svg') }}" alt="" width="52" height="66"></a>
@@ -80,10 +79,11 @@
       <div class="lily-main">
         <header class="navbar lily-topbar">
           {% if show_sidebar %}
-          {# Shows and hides the sidebar at every width; lily.js keeps aria-expanded and the label in step #}
-          <button type="button" class="icon-btn lily-drawer-toggle" aria-controls="lily-sidebar" aria-expanded="true"
+          {# Opens the phone drawer; wider screens always show the sidebar and hide this.
+             lily.js keeps aria-expanded and the label in step #}
+          <button type="button" class="icon-btn lily-drawer-toggle" aria-controls="lily-sidebar" aria-expanded="false"
                   data-label-hide="{{_('Hide sidebar')}}" data-label-show="{{_('Show sidebar')}}"
-                  aria-label="{{_('Hide sidebar')}}" title="{{_('Hide sidebar')}} (⌘B)"><span class="glyphicon glyphicon-menu-hamburger" aria-hidden="true"></span></button>
+                  aria-label="{{_('Show sidebar')}}" title="{{_('Show sidebar')}} (⌘B)"><span class="glyphicon glyphicon-menu-hamburger" aria-hidden="true"></span></button>
           {% else %}
           <a class="lily-brand" href="{{url_for('web.index')}}"><img src="{{ url_for('static', filename='icon.svg') }}" alt="" width="44" height="44">{{instance}}</a>
           {% endif %}

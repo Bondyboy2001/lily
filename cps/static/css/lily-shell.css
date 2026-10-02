@@ -334,11 +334,9 @@ label.lily-upload-btn { margin-bottom: 0; cursor: pointer; }
     }
 }
 
-/* The drawer toggle shows at every width. It reports the sidebar's state through aria-expanded
-   but keeps the plain icon-button look: the sidebar itself shows whether it is open. */
-.lily-drawer-toggle[aria-expanded="true"]:not(:hover):not(:focus) {
-    background: transparent;
-    color: var(--muted);
+/* The drawer toggle only opens the phone drawer; wider screens always show the sidebar. */
+@media (min-width: 768px) {
+    .lily-drawer-toggle { display: none; }
 }
 
 /* ---- Flash messages (layout.html and scripts insert them after .navbar) ---- */
@@ -473,11 +471,6 @@ label.lily-upload-btn { margin-bottom: 0; cursor: pointer; }
 }
 
 .lily-scrim { display: none; }
-
-/* Cmd/Ctrl+B hides the sidebar on wider screens (lily.js). */
-@media (min-width: 768px) {
-    .lily-app.sidebar-collapsed .lily-sidebar { display: none; }
-}
 
 /* ---- Phone: sidebar becomes a drawer ---- */
 @media (max-width: 767px) {
