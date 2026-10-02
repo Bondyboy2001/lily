@@ -11,6 +11,7 @@ import unicodedata
 from difflib import SequenceMatcher
 
 from cps import logger, db, constants
+from cps.helper import get_sorted_author
 from cps.search_metadata import cl as metadata_providers
 import sys
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
@@ -221,9 +222,11 @@ def _apply_metadata_to_book(book, metadata, calibre_db_instance) -> bool:
                 if author_name and author_name.strip():
                     author = calibre_db_instance.get_author_by_name(author_name.strip())
                     if not author:
-                        author = db.Authors(author_name.strip(), author_name.strip())
+                        author = db.Authors(author_name.strip(), get_sorted_author(author_name.strip()))
                         calibre_db_instance.session.add(author)
                     book.authors.append(author)
+            # "Surname, Forename & …" in the new order: author sorting and calibre's first author read it
+            book.author_sort = ' & '.join(author.sort for author in book.authors)
             updated = True
 
         # Update description - only if enabled in settings

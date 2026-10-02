@@ -25,6 +25,8 @@
                 data-url="{{ url_for('cwa_settings.rebuild_metadata') }}" data-status-url="{{ url_for('web.get_email_status_json') }}">
           <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> {{ _('Rebuild') }}
         </button>
+        <button type="button" class="btn btn-default" id="rebuild_metadata_stop" hidden
+                data-url="{{ url_for('cwa_settings.stop_rebuild_metadata') }}">{{ _('Stop') }}</button>
       {% endcall %}
     {% endcall %}
 

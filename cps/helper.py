@@ -362,9 +362,10 @@ def rename_author_path(first_author, old_author_dir, renamed_author, calibre_pat
     return new_authordir
 
 # Moves files in file storage during author/title rename, or from temp dir to file storage
-def update_dir_structure_file(book_id, calibre_path, original_filepath, new_author, db_filename):
-    # get book database entry from id, if original path overwrite source with original_filepath
-    local_book = calibre_db.get_book(book_id)
+def update_dir_structure_file(book_id, calibre_path, original_filepath, new_author, db_filename, book=None):
+    # get book database entry from id (or take the caller's, from its own session),
+    # if original path overwrite source with original_filepath
+    local_book = book or calibre_db.get_book(book_id)
     if original_filepath:
         path = original_filepath
     else:
@@ -540,12 +541,14 @@ def update_dir_structure(book_id,
                          calibre_path,
                          first_author=None,     # change author of book to this author
                          original_filepath=None,
-                         db_filename=None):
+                         db_filename=None,
+                         book=None):            # the book row, when the caller has its own session
     return update_dir_structure_file(book_id,
                                      calibre_path,
                                      original_filepath,
                                      first_author,
-                                     db_filename)
+                                     db_filename,
+                                     book)
 
 
 def delete_book(book, calibrepath, book_format):

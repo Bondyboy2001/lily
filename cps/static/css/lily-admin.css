@@ -246,6 +246,7 @@ ul.lp-help li { margin: 2px 0; }
 .lp-control > textarea { flex: 1 1 0; width: auto; min-width: 0; margin: 0; }
 
 .lp-control > .btn { flex: none; margin: 0; }
+.lp-control > [hidden] { display: none; }  /* .btn's display would beat the attribute */
 
 /* Extras a plugin appends inside a control (password rules, test results) take their own line. */
 .lp-control > .error-list,

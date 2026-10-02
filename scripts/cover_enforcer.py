@@ -687,10 +687,23 @@ class Enforcer:
 
     def check_for_other_logs(self, processed_book_ids: set | None = None):
         processed_book_ids = processed_book_ids or set()
-        log_files = [os.path.join(dirpath, f)
-                     for (dirpath, _, filenames) in os.walk(change_logs_dir)
-                     for f in filenames if f.endswith('.json')]
+        # Logs written while a pass runs had their own run cancelled by the lock (a library-wide
+        # metadata rebuild writes one a second), so pass again until none are left. Each pass
+        # deletes what it reads; a log that can't be deleted is not read twice.
+        seen: set[str] = set()
+        while True:
+            log_files = [os.path.join(dirpath, f)
+                         for (dirpath, _, filenames) in os.walk(change_logs_dir)
+                         for f in filenames if f.endswith('.json')]
+            log_files = [log for log in log_files if log not in seen]
+            if not log_files:
+                return
+            seen.update(log_files)
+            self._process_logs(log_files, processed_book_ids)
+            # Later logs are newer than anything this run has enforced
+            processed_book_ids = set()
 
+    def _process_logs(self, log_files: list, processed_book_ids: set):
         if len(log_files) > 0:
             print(f"[cover-metadata-enforcer] {len(log_files)} Additional metadata changes detected, processing now..", flush=True)
 
@@ -824,6 +837,8 @@ def main():
                     print(f"[cover-metadata-enforcer] Metadata for '{log_info['title']}' not successfully enforced")
                     enforcer.record_failed_enforcement(log_info, "No supported files or enforcement failed")
                     enforcer.delete_log()
+                    # The logs waiting behind this one still need their turn
+                    enforcer.check_for_other_logs(processed_book_ids={str(log_info.get('book_id', '')).strip()})
                     sys.exit(1)
                 for book in book_objects:
                     book.log_info = log_info

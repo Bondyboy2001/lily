@@ -134,12 +134,30 @@ def set_cwa_settings():
 @login_required_if_no_ano
 @admin_required
 def rebuild_metadata():
-    """Queue a lookup of every book with the metadata providers; one at a time."""
+    """Start a lookup of every book with the metadata providers, one at a time. It runs on its
+    own thread, so covers and duplicate scans don't wait behind it."""
     from ..services.worker import WorkerThread
     from ..tasks.metadata_rebuild import TaskRebuildMetadata
-    worker = WorkerThread.get_instance()
-    if worker.has_active_task_of_type(TaskRebuildMetadata.__name__):
+    if _running_rebuilds():
         return jsonify({"success": True, "running": True})
     task = TaskRebuildMetadata()
-    WorkerThread.add(current_user.name, task)
+    WorkerThread.add_parallel(current_user.name, task)
     return jsonify({"success": True, "task_id": str(task.id)})
+
+
+@cwa_settings.route("/cwa-settings/rebuild-metadata/stop", methods=["POST"])
+@login_required_if_no_ano
+@admin_required
+def stop_rebuild_metadata():
+    """Stop a running rebuild after the book it is on; what it changed so far stays."""
+    from ..services.worker import WorkerThread
+    running = _running_rebuilds()
+    for task in running:
+        WorkerThread.get_instance().end_task(task.id)
+    return jsonify({"success": True, "stopped": len(running)})
+
+
+def _running_rebuilds():
+    from ..services.worker import WorkerThread, STAT_WAITING, STAT_STARTED
+    return [task for __, __, __, task, __ in WorkerThread.get_instance().tasks
+            if type(task).__name__ == "TaskRebuildMetadata" and task.stat in (STAT_WAITING, STAT_STARTED)]

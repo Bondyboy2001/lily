@@ -88,6 +88,19 @@ class WorkerThread(threading.Thread):
             hidden=hidden
         ))
 
+    @classmethod
+    def add_parallel(cls, user, task):
+        """Run a long task on its own thread so the queue keeps moving, listed with the others."""
+        ins = cls.get_instance()
+        with ins.doLock:
+            ins.num += 1
+            ins.dequeued.append(QueuedTask(num=ins.num, user=user if user is not None else 'System',
+                                           added=datetime.now(), task=task, hidden=False))
+        log.debug("Start parallel task for user: {} - {}".format(user, task))
+        thread = threading.Thread(target=task.start, args=(ins,), name="task-%s" % task.id, daemon=True)
+        thread.start()
+        return thread
+
     @property
     def tasks(self):
         with self.doLock:
