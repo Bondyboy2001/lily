@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from .lily_env import lily_env
-from .metadata_fakes import FakeProvider
+from .metadata_fakes import lookup_setup as _setup, recording_provider as _provider
 
 pytestmark = pytest.mark.unit
 
@@ -128,27 +128,6 @@ def test_two_different_books_starting_the_same_are_neither():
 def env(tmp_path, temp_cwa_db):
     with lily_env(tmp_path) as env:
         yield env
-
-
-def _setup(monkeypatch, providers, first="", front=""):
-    from cps import metadata_helper
-    applied = []
-    monkeypatch.setattr(metadata_helper, "metadata_providers", providers)
-    settings = {"auto_metadata_fetch_enabled": 1}
-    monkeypatch.setattr(metadata_helper, "CWA_DB", lambda: SimpleNamespace(get_cwa_settings=lambda: settings))
-    monkeypatch.setattr(metadata_helper, "pdf_first_page_text", lambda book: first)
-    monkeypatch.setattr(metadata_helper, "pdf_front_matter_text", lambda book: front)
-    monkeypatch.setattr(metadata_helper, "_apply_record",
-                        lambda cdb, book, record, cover, **kw: applied.append(record.title) or True)
-    return metadata_helper, applied
-
-
-def _provider(pid, id_types=("isbn",), by_id=(), by_text=(), calls=None):
-    calls = calls if calls is not None else []
-    return FakeProvider(
-        __id__=pid, __name__=pid, identifier_types=frozenset(id_types),
-        search_identifiers=lambda ids, *a: calls.append((pid, "ids", ids)) or list(by_id),
-        search=lambda q, *a: calls.append((pid, "text", q)) or list(by_text))
 
 
 def test_a_book_with_a_cut_title_is_found_by_how_it_starts(env, monkeypatch):

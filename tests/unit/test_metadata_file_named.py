@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from .lily_env import lily_env
-from .metadata_fakes import FakeProvider
+from .metadata_fakes import lookup_setup, recording_provider as _provider
 
 pytestmark = pytest.mark.unit
 
@@ -33,25 +33,8 @@ def env(tmp_path, temp_cwa_db):
 
 
 def _setup(monkeypatch, providers, front=FRONT_MATTER):
-    from cps import metadata_helper
-    applied = []
-    monkeypatch.setattr(metadata_helper, "metadata_providers", providers)
-    settings = {"auto_metadata_fetch_enabled": 1}
-    monkeypatch.setattr(metadata_helper, "CWA_DB", lambda: SimpleNamespace(get_cwa_settings=lambda: settings))
     # The cover is an image: no text on the first page
-    monkeypatch.setattr(metadata_helper, "pdf_first_page_text", lambda book: "")
-    monkeypatch.setattr(metadata_helper, "pdf_front_matter_text", lambda book: front)
-    monkeypatch.setattr(metadata_helper, "_apply_record",
-                        lambda cdb, book, record, cover, **kw: applied.append(record.title) or True)
-    return metadata_helper, applied
-
-
-def _provider(pid, id_types, by_id=(), by_text=(), calls=None):
-    calls = calls if calls is not None else []
-    return FakeProvider(
-        __id__=pid, __name__=pid, identifier_types=frozenset(id_types),
-        search_identifiers=lambda ids, *a: calls.append((pid, "ids", ids)) or list(by_id),
-        search=lambda q, *a: calls.append((pid, "text", q)) or list(by_text))
+    return lookup_setup(monkeypatch, providers, front=front)
 
 
 @pytest.mark.parametrize("title, expected", [

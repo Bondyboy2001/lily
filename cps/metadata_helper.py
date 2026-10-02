@@ -255,10 +255,16 @@ def _squash(text: str) -> str:
     return re.sub(r'[\W_]+', '', _normalise(text))
 
 
+@functools.lru_cache(maxsize=16)
+def _squashed_pages(page_text: str) -> str:
+    """_squash of pages' text, kept: one lookup asks whether many titles are on the same pages."""
+    return _squash(page_text)
+
+
 def title_on_page(title: str, page_text: str) -> bool:
     """Whether the title appears in the page's text, spacing and punctuation aside."""
     title = _squash(title)
-    return bool(title) and title in _squash(page_text)
+    return bool(title) and title in _squashed_pages(page_text or "")
 
 
 def _main_title(title: str) -> str:
@@ -290,17 +296,15 @@ def found_by_id_is_this_book(record, ids: dict, title: str, authors, page_text: 
     if named_isbn or named_by_file(title):
         # Its title says nothing about it, but its title page does
         return _on_pages(record, page_text)
-    return _same_title(title, record) and _authors_agree(authors, record)
+    return _same_book(title, authors, record)
 
 
-def _same_title(title: str, record) -> bool:
-    """The same title, subtitle aside, or the record's as a file's name left it."""
+def _same_book(title: str, authors, record) -> bool:
+    """The same title (subtitle aside, or the record's as a file's name left it) and no
+    other author: authors differ only when both sides name some and they share no surname."""
     main = _main_title(title)
-    return bool(main) and main == _main_title(record.title) or loosely_titled(title, record)
-
-
-def _authors_agree(authors, record) -> bool:
-    """False only when both name authors and share no surname."""
+    if not (main and main == _main_title(record.title) or loosely_titled(title, record)):
+        return False
     book_surnames, record_surnames = surnames(authors), surnames(getattr(record, 'authors', None))
     return not (book_surnames and record_surnames and not book_surnames & record_surnames)
 
@@ -309,7 +313,7 @@ def printed_isbn_is_this_book(record, title: str, authors, page_text: str) -> bo
     """Whether the record found by the ISBN a book's copyright page prints is that book: its
     title is on those pages too, or is the book's own with no other author. (The pages can
     print another book's ISBN: the set a volume belongs to, the hardback of a reprint.)"""
-    return _on_pages(record, page_text) or (_same_title(title, record) and _authors_agree(authors, record))
+    return _on_pages(record, page_text) or _same_book(title, authors, record)
 
 
 # A book's title page and copyright page come within its first few pages, after its cover
@@ -349,8 +353,10 @@ def _read_pages(path: str, mtime: float, first: int, last: int) -> str:
     pypdf_log.setLevel(logging.ERROR)
     try:
         from pypdf import PdfReader
-        pages = PdfReader(path).pages[first:last]
-        return "\n".join(page.extract_text() or "" for page in pages)
+        # The open file, not its path: given a path, pypdf reads the whole file into memory first
+        with open(path, "rb") as pdf:
+            pages = PdfReader(pdf).pages[first:last]
+            return "\n".join(page.extract_text() or "" for page in pages)
     except Exception as e:
         log.debug(f"Could not read the first page of {path}: {e}")
         return ""
@@ -535,7 +541,7 @@ def _lookup_order():
 def _file_if_from_arxiv(book_id, record):
     """Put a paper whose record arXiv gave on the arXiv shelf; a failure there is logged,
     never the lookup's."""
-    if not arxiv_shelf.from_arxiv(getattr(record, 'identifiers', None)):
+    if "arxiv" not in normalise_identifiers(getattr(record, 'identifiers', None) or {}):
         return
     try:
         if arxiv_shelf.file_on_shelf([book_id]):
@@ -571,17 +577,15 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
     the first when called. Google Books is asked last (see _lookup_order). Providers that
     fail to answer are added to `unanswered`."""
     lookup_ids = find_paper_identifiers(title, page_text, own_ids)
-    if own_ids.get('isbn'):
-        lookup_ids['isbn'] = own_ids['isbn']
-    elif isbn_in_title(title):
-        lookup_ids['isbn'] = isbn_in_title(title)
-    elif named_by_file(title) and isbn_on_pages(page_text):
-        lookup_ids['isbn'] = isbn_on_pages(page_text)
+    named_isbn = isbn_in_title(title)
+    isbn = own_ids.get('isbn') or named_isbn or (isbn_on_pages(page_text) if named_by_file(title) else '')
+    if isbn:
+        lookup_ids['isbn'] = isbn
     record = _find_by_identifiers(lookup_ids, unanswered, lambda found, ids: found_by_id_is_this_book(
         found, ids, title, authors, page_text, own_ids))
     if record is not None:
         return record
-    if named_by_file(title) or isbn_in_title(title):
+    if named_by_file(title) or named_isbn:
         # No provider has a book called "427551_Print.indd"
         log.info(f"No identifier found for '{title}'; keeping its details")
         return None
@@ -677,15 +681,22 @@ def _named(cdb, model, lookup, name, *extra):
     return row
 
 
-def _only(book, attr, row, dropped) -> bool:
-    """Make row the book's one publisher or series; False when it already is. The rows it
-    replaces are added to `dropped`."""
+def _only(book, attr, rows, dropped) -> bool:
+    """Make rows the book's only tags, or its one publisher or series; False when they
+    already are. The rows they replace are added to `dropped`."""
     current = getattr(book, attr)
-    if [r.name for r in current] == [row.name]:
+    if {r.name for r in current} == {r.name for r in rows}:
         return False
-    dropped.extend(r for r in current if r is not row)
-    setattr(book, attr, [row])
+    dropped.extend(r for r in current if r not in rows)
+    setattr(book, attr, rows)
     return True
+
+
+def _unused(session, row) -> bool:
+    """Whether no book has the author, tag, publisher or series any more. Asked of the
+    library, as row.books would load every book that has it: thousands, for a common tag."""
+    model = type(row)
+    return session.query(model.id).filter(model.id == row.id, model.books.any()).first() is None
 
 
 def _apply_record(cdb, book, record, cover, replace_tags=False):
@@ -739,7 +750,7 @@ def _apply_record(cdb, book, record, cover, replace_tags=False):
         publisher = (record.publisher or '').strip()
         if publisher:
             row = _named(cdb, db.Publishers, cdb.get_publisher_by_name, publisher, publisher)
-            changed |= _only(book, 'publishers', row, dropped)
+            changed |= _only(book, 'publishers', [row], dropped)
 
         # Only subjects: a provider's tags can be shop categories or the book's own title
         tags = []
@@ -752,10 +763,7 @@ def _apply_record(cdb, book, record, cover, replace_tags=False):
                 tags.append(tag)
         if replace_tags and tags:
             # A record with no subjects leaves the book's alone
-            if {t.name for t in tags} != {t.name for t in book.tags}:
-                dropped += [t for t in book.tags if t not in tags]
-                book.tags = tags
-                changed = True
+            changed |= _only(book, 'tags', tags, dropped)
         else:
             for tag in tags:
                 if tag not in book.tags:
@@ -765,7 +773,7 @@ def _apply_record(cdb, book, record, cover, replace_tags=False):
         series = (record.series or '').strip()
         if series:
             row = _named(cdb, db.Series, cdb.get_series_by_name, series, series)
-            new_series = _only(book, 'series', row, dropped)
+            new_series = _only(book, 'series', [row], dropped)
             changed |= new_series
             # A new series starts at the record's index, or 1; the same one takes the record's
             index = _index(record.series_index) or (1.0 if new_series else None)
@@ -798,7 +806,7 @@ def _apply_record(cdb, book, record, cover, replace_tags=False):
     try:
         session.flush()
         for row in dropped:
-            if not row.books:  # nothing else uses it, as a normal edit does
+            if _unused(session, row):  # as a normal edit does
                 session.delete(row)
         session.commit()
     except Exception:

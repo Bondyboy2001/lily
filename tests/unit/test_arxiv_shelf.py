@@ -35,20 +35,6 @@ def _shelved(env):
             for s in ub.session.query(ub.Shelf)}
 
 
-@pytest.mark.parametrize("ids, expected", [
-    ({"arxiv": "2401.00001"}, True),
-    ({"ARXIV": "2401.00001", "doi": "10.48550/arXiv.2401.00001"}, True),
-    ({"doi": "10.1214/aos/1176344136"}, False),     # a paper, but not arXiv's
-    ({"isbn": "9780262046305"}, False),
-    ({"arxiv": " "}, False),
-    ({}, False),
-    (None, False),
-])
-def test_a_record_from_arxiv_carries_an_arxiv_id(ids, expected):
-    from cps.services.arxiv_shelf import from_arxiv
-    assert from_arxiv(ids) is expected
-
-
 def test_filing_makes_one_public_arxiv_shelf_and_adds_each_book_once(env):
     from cps.services import arxiv_shelf
     a, b = env.add_book("A Paper"), env.add_book("B Paper")
@@ -103,7 +89,7 @@ def _record(title, source_id, **kw):
 def test_an_automatic_fetch_from_arxiv_files_the_paper(env, monkeypatch):
     book = env.add_book("Attention Is All You Need")
     helper = _fetch_setup(monkeypatch, _record("Attention Is All You Need", "googlescholar",
-                                               identifiers={"arxiv": "1706.03762"}))
+                                               identifiers={"ARXIV": "1706.03762"}))
     helper.fetch_and_apply_metadata(book)
     assert _shelved(env) == {"arXiv": (1, env.admin().id, [book])}
 

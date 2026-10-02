@@ -8,6 +8,7 @@ took every paper: a one-time pass at startup puts the library's arXiv papers on 
 shelf and removes the Papers shelf."""
 
 import os
+from contextlib import contextmanager
 from datetime import datetime, timezone
 
 from sqlalchemy import func
@@ -20,12 +21,6 @@ log = logger.create()
 ARXIV_SHELF = "arXiv"
 # The shelf this one replaced
 _PAPERS_SHELF = "Papers"
-
-
-def from_arxiv(identifiers):
-    """True for a record arXiv gave: it carries the paper's arXiv id."""
-    return any(str(kind).lower() == "arxiv" and str(val or "").strip()
-               for kind, val in (identifiers or {}).items())
 
 
 def _shelf_named(session, name):
@@ -66,29 +61,25 @@ def add_to_shelf(session, shelf, book_ids):
     return added
 
 
+@contextmanager
 def _app_session():
-    """A session on app.db of its own, with its engine: imports run in a process with no app
-    session, Rebuild metadata on a worker thread."""
+    """A session on app.db of its own, committed at the end: imports run in a process with
+    no app session, Rebuild metadata on a worker thread."""
     if not ub.app_DB_path:
         raise RuntimeError("app.db path is not set")
     engine = ub._create_app_db_engine(ub.app_DB_path)
-    return Session(engine), engine
+    try:
+        with Session(engine) as session, session.begin():
+            yield session
+    finally:
+        engine.dispose()
 
 
 def file_on_shelf(book_ids):
     """Put the books on the arXiv shelf; how many were added."""
-    session, engine = _app_session()
-    try:
+    with _app_session() as session:
         shelf = arxiv_shelf(session)
-        added = add_to_shelf(session, shelf, book_ids) if shelf else 0
-        session.commit()
-        return added
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
-        engine.dispose()
+        return add_to_shelf(session, shelf, book_ids) if shelf else 0
 
 
 def arxiv_book_ids():
@@ -109,8 +100,7 @@ def replace_papers_shelf_once(marker_path):
     if os.path.exists(marker_path) or not db.CalibreDB.session_factory:
         return 0
     book_ids = arxiv_book_ids()
-    session, engine = _app_session()
-    try:
+    with _app_session() as session:
         shelf = arxiv_shelf(session) if book_ids else None
         added = add_to_shelf(session, shelf, book_ids) if shelf else 0
         papers = _shelf_named(session, _PAPERS_SHELF)
@@ -118,13 +108,6 @@ def replace_papers_shelf_once(marker_path):
         if removed:
             session.query(ub.BookShelf).filter(ub.BookShelf.shelf == papers.id).delete()
             session.delete(papers)
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
-        engine.dispose()
     os.makedirs(os.path.dirname(marker_path), exist_ok=True)
     with open(marker_path, "w", encoding="utf-8") as marker:
         marker.write(datetime.now(timezone.utc).isoformat())
