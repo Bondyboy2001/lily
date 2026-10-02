@@ -800,7 +800,7 @@ def render_author_books(page, author_id, order):
                                                         db.books_series_link.c.book == db.Books.id,
                                                         db.Series, cards_only=True)
     if entries is None or (not len(entries) and not list_filters.active_filters()):
-        flash(_("Oops! Selected book is unavailable. File does not exist or is not accessible"),
+        flash(_("That author has no books in your library any more."),
               category="error")
         return redirect(url_for("web.index"))
     if sqlalchemy_version2:
@@ -1016,7 +1016,7 @@ def render_read_books(page, are_read, as_xml=False, order=None):
         except (KeyError, AttributeError, IndexError):
             log.error("Custom Column No.{} does not exist in calibre database".format(config.config_read_column))
             if not as_xml:
-                flash(_("Custom Column No.%(column)d does not exist in calibre database",
+                flash(_("Custom column %(column)d is missing from your library, so read status can't be shown.",
                         column=config.config_read_column),
                       category="error")
                 return redirect(url_for("web.index"))
@@ -1113,10 +1113,12 @@ def health_check():
 @web.route('/page/<int:page>')
 @login_required_if_no_ano
 def index(page):
-    if current_user.is_authenticated and current_user.role_admin():
+    # Warn once per session: the architecture can't change, so repeating it on every visit is noise
+    if current_user.is_authenticated and current_user.role_admin() and not flask_session.get('arch_warning_shown'):
         arch_warning = helper.check_architecture()
         if arch_warning:
             flash(arch_warning, category="cwa_arch_warning")
+        flask_session['arch_warning_shown'] = True
 
     sort_param = (request.args.get('sort') or 'stored').lower()
     return render_books_list("newest", sort_param, 1, page)
@@ -1249,7 +1251,7 @@ def read_book(book_id, book_format):
     book = calibre_db.get_filtered_book(book_id)
 
     if not book:
-        flash(_("Oops! Selected book is unavailable. File does not exist or is not accessible"),
+        flash(_("That book isn't in your library any more, or its file can't be read."),
               category="error")
         log.debug("Selected book is unavailable. File does not exist or is not accessible")
         return redirect(url_for("web.index"))
@@ -1298,7 +1300,7 @@ def read_book(book_id, book_format):
                 return render_title_template('listenmp3.html', mp3file=book_id, audioformat=book_format.lower(),
                                              entry=entries, bookmark=bookmark, **progress_args)
         log.debug("Selected book is unavailable. File does not exist or is not accessible")
-        flash(_("Oops! Selected book is unavailable. File does not exist or is not accessible"),
+        flash(_("That book isn't in your library any more, or its file can't be read."),
               category="error")
         return redirect(url_for("web.index"))
 
@@ -1372,7 +1374,7 @@ def show_book(book_id):
                                      page="book")
     else:
         log.debug("Selected book is unavailable. File does not exist or is not accessible")
-        flash(_("Oops! Selected book is unavailable. File does not exist or is not accessible"),
+        flash(_("That book isn't in your library any more, or its file can't be read."),
               category="error")
         return redirect(url_for("web.index"))
 

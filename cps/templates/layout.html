@@ -66,7 +66,7 @@
             {% for shelf in g.shelves_access %}
               {% set book_count = (g.shelf_book_counts or {}).get(shelf.id, 0) %}
               {% set shelf_active = page in ('shelf', 'shelforder', 'shelfedit') and current_shelf_id == shelf.id %}
-              <li{% if shelf_active %} class="active"{% endif %}><a href="{{url_for('shelf.show_shelf', shelf_id=shelf.id)}}"{% if shelf_active %} aria-current="page"{% endif %} title="{{shelf.name}} ({{book_count}})"><span class="glyphicon glyphicon-list shelf" aria-hidden="true"></span><span class="nav-name">{{shelf.name|shortentitle(40)}}{% if shelf.is_public == 1 %} {{_('(Public)')}}{% endif %}</span>{% if book_count %}<span class="nav-count">{{book_count}}</span>{% endif %}</a></li>
+              <li{% if shelf_active %} class="active"{% endif %}><a href="{{url_for('shelf.show_shelf', shelf_id=shelf.id)}}"{% if shelf_active %} aria-current="page"{% endif %} title="{{shelf.name}} ({{book_count}})"><span class="glyphicon glyphicon-list shelf" aria-hidden="true"></span><span class="nav-name">{{shelf.name|shortentitle(40)}}</span>{% if book_count %}<span class="nav-count">{{book_count}}</span>{% endif %}</a></li>
             {% endfor %}
             {% if not current_user.is_anonymous %}
               <li id="nav_createshelf" class="create-shelf"><a href="{{url_for('shelf.create_shelf')}}"><span class="glyphicon glyphicon-plus" aria-hidden="true"></span><span class="nav-name">{{_('Create shelf')}}</span></a></li>
@@ -180,7 +180,7 @@
       </div>
       {% elif category == "cwa_arch_warning" %}
       <div class="row-fluid">
-        <div class="alert alert-danger alert-cwa" role="alert">
+        <div class="alert alert-warning alert-cwa" role="status">
           {{ text }}
           <button type="button" class="close" data-dismiss="alert" aria-label="{{_('Close')}}">
             <span aria-hidden="true">&times;</span>

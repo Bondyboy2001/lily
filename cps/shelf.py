@@ -46,13 +46,15 @@ def delete_shelf(shelf_id):
     cur_shelf = ub.session.query(ub.Shelf).filter(ub.Shelf.id == shelf_id).first()
     try:
         if not delete_shelf_helper(cur_shelf):
-            flash(_("Error deleting Shelf"), category="error")
+            flash(_("Couldn't delete the shelf. Try again; if it keeps failing, check Logs in Settings."),
+                  category="error")
         else:
             flash(_("Shelf successfully deleted"), category="success")
     except InvalidRequestError as e:
         ub.session.rollback()
         log.error_or_exception("Settings Database error: {}".format(e))
-        flash(_("Oops! Database Error: %(error)s.", error=e.orig), category="error")
+        flash(_("Couldn't delete the shelf. Try again; if it keeps failing, check Logs in Settings."),
+              category="error")
     return redirect(url_for('web.index'))
 
 
@@ -83,7 +85,8 @@ def order_shelf(shelf_id):
             except (OperationalError, InvalidRequestError) as e:
                 ub.session.rollback()
                 log.error_or_exception("Settings Database error: {}".format(e))
-                flash(_("Oops! Database Error: %(error)s.", error=e.orig), category="error")
+                flash(_("Couldn't save the shelf order. Try again; if it keeps failing, check Logs in Settings."),
+                      category="error")
 
         result = list()
         if shelf:
@@ -149,11 +152,13 @@ def create_edit_shelf(shelf, page_title, page, shelf_id=False):
                 ub.session.rollback()
                 log.error_or_exception(ex)
                 log.error_or_exception("Settings Database error: {}".format(ex))
-                flash(_("Oops! Database Error: %(error)s.", error=ex.orig), category="error")
+                flash(_("Couldn't save the shelf. Try again; if it keeps failing, check Logs in Settings."),
+                      category="error")
             except Exception as ex:
                 ub.session.rollback()
                 log.error_or_exception(ex)
-                flash(_("There was an error"), category="error")
+                flash(_("Couldn't save the shelf. Try again; if it keeps failing, check Logs in Settings."),
+                      category="error")
     book_count = ub.session.query(ub.BookShelf).filter(ub.BookShelf.shelf == shelf_id).count() if shelf_id else 0
     return render_title_template('shelf_edit.html',
                                  shelf=shelf,
@@ -267,7 +272,8 @@ def render_show_shelf(shelf_id, page_no, sort_param):
             except (OperationalError, InvalidRequestError) as e:
                 ub.session.rollback()
                 log.error_or_exception("Settings Database error: {}".format(e))
-                flash(_("Oops! Database Error: %(error)s.", error=e.orig), category="error")
+                flash(_("Couldn't tidy up books missing from this shelf. If it keeps failing, check Logs in Settings."),
+                      category="error")
 
         return render_title_template("shelf.html",
                                      entries=result,

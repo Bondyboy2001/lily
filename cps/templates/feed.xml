@@ -82,11 +82,7 @@
   {% endif %}
   {% for entry in listelements %}
   <entry>
-    {% if entry.__class__.__name__ == 'Shelf' and entry.is_public == 1 %}
-    <title>{{entry.name}} {{_('(Public)')}}</title>
-    {% else %}
     <title>{{entry.name}}</title>
-    {% endif %}
     {% set entry_href = entry.opds_url|default('') %}
     {% if not entry_href %}
       {% set entry_href = url_for(folder, book_id=entry.id) %}

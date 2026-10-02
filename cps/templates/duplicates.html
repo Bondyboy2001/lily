@@ -110,11 +110,11 @@
             {% for book in group.books %}
             <div class="book-item" data-book-id="{{ book.id }}">
               <input type="checkbox" class="book-checkbox" value="{{ book.id }}" data-title="{{ book.title }}" data-authors="{{ book.author_names }}"
-                     aria-label="{{_('Select')}} {{ book.title }} ({{ book.id }})">
+                     aria-label="{{ _('Select %(title)s (%(id)s)', title=book.title, id=book.id) }}">
 
               <div class="book-cover">
                 <a href="{{ url_for('web.show_book', book_id=book.id) }}" title="{{_('View book details')}}">
-                  <img src="{{ book.cover_url }}" alt="{{_('Cover for')}} {{ book.title }}" loading="lazy" onerror="this.src='/static/generic_cover.svg'">
+                  <img src="{{ book.cover_url }}" alt="{{ _('Cover for %(title)s', title=book.title) }}" loading="lazy" onerror="this.src='/static/generic_cover.svg'">
                 </a>
               </div>
 

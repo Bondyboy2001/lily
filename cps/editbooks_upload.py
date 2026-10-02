@@ -165,7 +165,7 @@ def upload():
             _ensure_ingest_dir_writable(allow_create=True, check_write=False)
         except PermissionError as e:
             log.error_or_exception("Ingest directory not writable: %s", e)
-            flash(_("Ingest folder is not writable. Check your /cwa-book-ingest volume permissions."),
+            flash(_("Lily can't write to the import folder, so the upload wasn't saved. Check that folder's permissions."),
                   category="error")
             return Response(json.dumps({"location": url_for("web.index")}), mimetype='application/json')
         raw_book_id = request.form.get('book_id', -1)
@@ -224,7 +224,7 @@ def upload():
             _ensure_ingest_dir_writable(allow_create=True, check_write=False)
         except PermissionError as e:
             log.error_or_exception("Ingest directory not writable: %s", e)
-            flash(_("Ingest folder is not writable. Check your /cwa-book-ingest volume permissions."),
+            flash(_("Lily can't write to the import folder, so the upload wasn't saved. Check that folder's permissions."),
                   category="error")
             return Response(json.dumps({"location": url_for("web.index")}), mimetype='application/json')
         queued = []

@@ -537,7 +537,8 @@ def _update_shelves(book_id, to_save):
     except (OperationalError, InvalidRequestError) as e:
         ub.session.rollback()
         log.error_or_exception("Could not update shelves for book %s: %s", book_id, e)
-        flash(_("Oops! Database Error: %(error)s.", error=e), category="error")
+        flash(_("Couldn't update this book's shelves. Try again; if it keeps failing, check Logs in Settings."),
+              category="error")
 
 
 def do_edit_book(book_id, upload_formats=None):
@@ -553,7 +554,7 @@ def do_edit_book(book_id, upload_formats=None):
     book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
     # Book not found
     if not book:
-        flash(_("Oops! Selected book is unavailable. File does not exist or is not accessible"),
+        flash(_("That book isn't in your library any more, or its file can't be read."),
               category="error")
         return redirect(url_for("web.index"))
 
@@ -616,7 +617,8 @@ def do_edit_book(book_id, upload_formats=None):
         input_identifiers = identifier_list(to_save, book)
         modification, warning = modify_identifiers(input_identifiers, book.identifiers, calibre_db.session)
         if warning:
-            flash(_("Identifiers are not Case Sensitive, Overwriting Old Identifier"), category="warning")
+            flash(_("Identifiers ignore case, so an existing identifier of the same type was replaced."),
+                  category="warning")
         modify_date |= modification
 
         modify_date |= edit_book_tags(to_save.get('tags'), book)
@@ -748,12 +750,14 @@ def do_edit_book(book_id, upload_formats=None):
     except (ValueError, OperationalError, IntegrityError, StaleDataError, InterfaceError, InvalidRequestError) as e:
         log.error_or_exception("Database or Value error: {}".format(e))
         calibre_db.session.rollback()
-        flash(_("Oops! Database Error: %(error)s.", error=e.orig if hasattr(e, "orig") else e), category="error")
+        flash(_("Couldn't save your changes to this book. Try again; if it keeps failing, check Logs in Settings."),
+              category="error")
         return redirect(url_for('web.show_book', book_id=book.id))
     except Exception as ex:
         log.error_or_exception(ex)
         calibre_db.session.rollback()
-        flash(_("Error editing book: {}".format(ex)), category="error")
+        flash(_("Couldn't save your changes to this book. Try again; if it keeps failing, check Logs in Settings."),
+              category="error")
         return redirect(url_for('web.show_book', book_id=book.id))
 
 
@@ -855,9 +859,9 @@ def render_delete_book_result(book_format, json_response, warning, book_id, loca
             return json.dumps([warning, {"location": url_for("edit-book.show_edit_book", book_id=book_id),
                                          "type": "success",
                                          "format": book_format,
-                                         "message": _('Book Format Successfully Deleted')}])
+                                         "message": _('Format deleted')}])
         else:
-            flash(_('Book Format Successfully Deleted'), category="success")
+            flash(_('Format deleted'), category="success")
             return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
     else:
         if json_response:
@@ -1084,7 +1088,7 @@ def render_edit_book(book_id):
     cc = calibre_db.session.query(db.CustomColumns).filter(db.CustomColumns.datatype.notin_(db.cc_exceptions)).all()
     book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
     if not book:
-        flash(_("Oops! Selected book is unavailable. File does not exist or is not accessible"),
+        flash(_("That book isn't in your library any more, or its file can't be read."),
               category="error")
         return redirect(url_for("web.index"))
 
@@ -1152,7 +1156,8 @@ def edit_book_series_index(series_index, book):
         modify_date = False
         series_index = series_index or '1'
         if not series_index.replace('.', '', 1).isdigit():
-            flash(_("Seriesindex: %(seriesindex)s is not a valid number, skipping", seriesindex=series_index), category="warning")
+            flash(_("Series number %(seriesindex)s isn't a number, so it wasn't saved. Enter a number such as 1 or 2.5.",
+                    seriesindex=series_index), category="warning")
             return False
         if str(book.series_index) != series_index:
             book.series_index = series_index
@@ -1397,7 +1402,8 @@ def upload_book_formats(requested_files, book, book_id, no_cover=True):
                 except (OperationalError, IntegrityError, StaleDataError) as e:
                     calibre_db.session.rollback()
                     log.error_or_exception("Database error: {}".format(e))
-                    flash(_("Oops! Database Error: %(error)s.", error=e.orig if hasattr(e, "orig") else e),
+                    flash(_("Couldn't add the %(format)s file to this book. Try again; if it keeps failing, "
+                            "check Logs in Settings.", format=file_ext.upper()),
                           category="error")
                     error = True
                     continue

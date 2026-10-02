@@ -139,7 +139,7 @@ def adv_search_read_status(read_status):
                 db_filter = db.cc_classes[config.config_read_column].value == bool(read_status == "True")
         except (KeyError, AttributeError, IndexError):
             log.error("Custom Column No.{} does not exist in calibre database".format(config.config_read_column))
-            flash(_("Custom Column No.%(column)d does not exist in calibre database",
+            flash(_("Custom column %(column)d is missing from your library, so read status can't be filtered.",
                     column=config.config_read_column),
                   category="error")
             return true()
@@ -339,7 +339,7 @@ def render_adv_search_results(term, offset=None, order=None, limit=None):
             q = adv_search_custom_columns(cc, term, q)
         except AttributeError as ex:
             log.debug_or_exception(ex)
-            flash(_("Error on search for custom columns, please restart Calibre-Web"), category="error")
+            flash(_("Couldn't search custom columns. Restart Lily and try again."), category="error")
 
     q = q.order_by(*sort)
     flask_session['query'] = json.dumps(term)

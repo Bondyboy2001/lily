@@ -153,7 +153,7 @@
             {% if shelves %}
                 <div class="shelves">
                     <dt>{{ _('Shelves') }}</dt>
-                    <dd>{% for shelf in shelves %}<a href="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}">{{ shelf.name }}{% if shelf.is_public == 1 %} {{ _('(Public)') }}{% endif %}</a>{% if not loop.last %}, {% endif %}{% endfor %}</dd>
+                    <dd>{% for shelf in shelves %}<a href="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}">{{ shelf.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</dd>
                 </div>
             {% endif %}
             {# An arXiv paper shows its id, linked to the abstract page #}

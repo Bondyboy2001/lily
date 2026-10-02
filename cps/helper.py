@@ -911,8 +911,10 @@ def do_download_file(book, book_format, data, headers):
 
 def check_architecture():
     arch = platform.machine()
-    if arch not in ['x86_64', 'aarch64']:
-        return _("Unsupported architecture detected: %(arch)s. Lily is optimized for x86_64 and aarch64.", arch=arch)
+    # amd64/arm64 are the Windows/macOS names for the same two architectures
+    if arch.lower() not in ['x86_64', 'amd64', 'aarch64', 'arm64']:
+        return _("Lily is built for x86_64 and ARM64, but this machine is %(arch)s. If book imports "
+                 "fail, run Lily on an x86_64 or ARM64 machine.", arch=arch)
     return None
 
 

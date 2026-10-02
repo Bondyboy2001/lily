@@ -89,7 +89,7 @@
                        [(_('Clear filters'), list_filters.url(format=None, lang=None, status=None, tag=None), True)]) }}
   {% elif not entries[0] and page == 'newest' %}
   {% call image.empty_state('glyphicon-book', _('Add Your First Book'),
-                            _('Add books by dropping files into the ingest folder (%(folder)s in Docker). Lily imports them automatically.', folder='/cwa-book-ingest')) %}
+                            _('Upload a book to start your library, or drop files into the import folder and Lily adds them automatically.')) %}
     {% if current_user.role_upload() and g.allow_upload %}
     {# Opens the same file picker as the top bar's Upload button #}
     <label for="btn-upload" class="btn btn-primary lily-upload-btn"><span class="glyphicon glyphicon-upload" aria-hidden="true"></span>{{_('Upload books')}}</label>

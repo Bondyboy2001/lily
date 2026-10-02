@@ -39,7 +39,8 @@ from .web import web, log
 def handle_login_user(user, remember, message, category, next_url=None):
     login_user(user, remember=remember)
 
-    flash(message, category=category)
+    if message:
+        flash(message, category=category)
     [limiter.limiter.storage.clear(k.key) for k in limiter.current_limits]
 
     # Clear login redirect count on successful login
@@ -56,7 +57,7 @@ def render_login(username="", password=""):
     if redirect_count > 3:
         flask_session.pop('_login_redirect_count', None)
         log.warning("Authentication redirect loop detected from IP: %s", request.remote_addr)
-        flash(_("Authentication loop detected. If you're experiencing login issues, please contact your administrator."), category="error")
+        flash(_("Signing in kept sending you back here. Clear this site's cookies and sign in again."), category="error")
     else:
         flask_session['_login_redirect_count'] = redirect_count + 1
 
@@ -94,10 +95,7 @@ def login_post():
     if user and check_password_hash(str(user.password), form.get('password', '')) and user.name != "Guest":
         config.config_is_initial = False
         log.debug(u"You are now logged in as: '{}'".format(user.name))
-        return handle_login_user(user,
-                                 remember_me,
-                                 _(u"You are now logged in as: '%(nickname)s'", nickname=user.name),
-                                 "success")
+        return handle_login_user(user, remember_me, None, "success")
     else:
         log.warning('Login failed for user "{}" IP-address: {}'.format(username, ip_address))
 
@@ -295,12 +293,13 @@ def change_profile(translations, languages):
         return redirect(url_for('web.profile'))
     except IntegrityError:
         ub.session.rollback()
-        flash(_("Oops! An account already exists for this Email."), category="error")
+        flash(_("Another user already has that email. Use a different one."), category="error")
         log.debug("Found an existing account for this Email")
     except OperationalError as e:
         ub.session.rollback()
-        log.error("Database error: %s", e)
-        flash(_("Oops! Database Error: %(error)s.", error=e), category="error")
+        log.error_or_exception("Database error: {}".format(e))
+        flash(_("Couldn't save your profile. Try again; if it keeps failing, check Logs in Settings."),
+              category="error")
 
 
 @web.route("/me", methods=["GET", "POST"])

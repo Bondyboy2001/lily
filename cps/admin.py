@@ -279,7 +279,7 @@ def _handle_new_user(to_save, content, languages, translations):
     try:
         if not to_save["name"] or not to_save["email"] or not to_save["password"]:
             log.info("Missing entries on new user")
-            raise Exception(_("Oops! Please complete all fields."))
+            raise Exception(_("Fill in the name, email and password to add a user."))
         content.password = generate_password_hash(helper.valid_password(to_save.get("password", "")))
         content.email = check_email(to_save["email"])
         # Query username, if not existing, change
@@ -307,11 +307,12 @@ def _handle_new_user(to_save, content, languages, translations):
     except IntegrityError:
         ub.session.rollback()
         log.error("Found an existing account for {} or {}".format(content.name, content.email))
-        flash(_("Oops! An account already exists for this Email. or name."), category="error")
+        flash(_("A user with that name or email already exists. Choose a different one."), category="error")
     except OperationalError as e:
         ub.session.rollback()
         log.error_or_exception("Settings Database error: {}".format(e))
-        flash(_("Oops! Database Error: %(error)s.", error=e.orig), category="error")
+        flash(_("Couldn't add the user. Try again; if it keeps failing, check Logs in Settings."),
+              category="error")
 
 
 def _delete_user(content):
@@ -450,9 +451,11 @@ def _handle_edit_user(to_save, content, languages, translations):
     except IntegrityError as ex:
         ub.session.rollback()
         log.error("An unknown error occurred while changing user: {}".format(str(ex)))
-        flash(_("Oops! An unknown error occurred. Please try again later."), category="error")
+        flash(_("Couldn't save the user. Try again; if it keeps failing, check Logs in Settings."),
+              category="error")
     except OperationalError as e:
         ub.session.rollback()
         log.error_or_exception("Settings Database error: {}".format(e))
-        flash(_("Oops! Database Error: %(error)s.", error=e.orig), category="error")
+        flash(_("Couldn't save the user. Try again; if it keeps failing, check Logs in Settings."),
+              category="error")
     return ""
