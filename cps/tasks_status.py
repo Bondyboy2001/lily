@@ -15,7 +15,7 @@ from babel.units import format_unit
 
 from . import logger
 from .services.worker import STAT_WAITING, STAT_FAIL, STAT_STARTED, STAT_FINISH_SUCCESS, STAT_ENDED, \
-    STAT_CANCELLED
+    STAT_CANCELLED, STAT_STOPPING
 
 log = logger.create()
 
@@ -45,6 +45,8 @@ def render_task_status(tasklist):
                     ret['status'] = _('Ended')
                 elif task.stat == STAT_CANCELLED:
                     ret['status'] = _('Cancelled')
+                elif task.stat == STAT_STOPPING:
+                    ret['status'] = _('Stopping')
                 else:
                     ret['status'] = _('Unknown Status')
 

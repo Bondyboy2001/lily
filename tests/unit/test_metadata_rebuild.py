@@ -82,14 +82,15 @@ def test_rebuild_route_queues_one_task_for_admins(env, monkeypatch):
     status = "/cwa-settings/rebuild-metadata/status"
     assert c.get(status).get_json() == {"state": "running", "message": "Waiting to start…", "resume": ""}
 
-    from cps.services.worker import STAT_CANCELLED
+    from cps.services.worker import STAT_ENDED, STAT_STARTED, STAT_STOPPING
+    queued[0].stat = STAT_STARTED
     assert c.post("/cwa-settings/rebuild-metadata/stop").get_json() == {"success": True, "stopped": 1}
-    assert queued[0].stat == STAT_CANCELLED
+    assert queued[0].stat == STAT_STOPPING
     # Still on its last book: no second rebuild beside it until it has finished, and the
     # page keeps following it rather than offering Rebuild again
     assert c.post("/cwa-settings/rebuild-metadata").get_json() == {"success": True, "running": True}
     assert c.get(status).get_json()["state"] == "stopping"
-    queued[0].finished = True
+    queued[0].stat = STAT_ENDED  # as when its run() returns
     assert c.get(status).get_json()["state"] == "stopped"
     assert c.post("/cwa-settings/rebuild-metadata").get_json()["task_id"] == str(queued[1].id)
     queued.pop()
@@ -243,10 +244,12 @@ def test_stop_finishes_the_books_under_way_and_reports_it(env, monkeypatch):
     thread = threading.Thread(target=run)
     thread.start()
     assert started.wait(5)
-    task.stat = STAT_ENDED  # what WorkerThread.end_task does to a running task
+    task.stop()
+    # At work until the book under way is done: not yet ended, nor to be cleared from the list
+    assert task.state == "stopping" and not task.dead
     release.set()
     thread.join(5)
-    assert task.finished and task.stat == STAT_ENDED
+    assert task.state == "stopped" and task.stat == STAT_ENDED and task.dead
     assert str(task.message) == "Stopped: 1 of 3 books checked, 0 updated"
 
 
@@ -275,7 +278,6 @@ def _run_rebuild(env, monkeypatch, stop_after=None, fail=None, **options):
     """Runs a rebuild with a stand-in lookup; returns (task, the book ids looked up). With
     stop_after, Stop is pressed while that book is being looked up."""
     from cps import metadata_helper
-    from cps.services.worker import STAT_ENDED
     from cps.tasks.metadata_rebuild import TaskRebuildMetadata
     task = TaskRebuildMetadata(workers=1, **options)
     looked_up = []
@@ -283,7 +285,7 @@ def _run_rebuild(env, monkeypatch, stop_after=None, fail=None, **options):
     def fake_fetch(book_id, force=False, unanswered=None):
         looked_up.append(book_id)
         if book_id == stop_after:
-            task.stat = STAT_ENDED
+            task.stop()
         if fail and book_id in fail:
             unanswered.update(fail[book_id])
         return True

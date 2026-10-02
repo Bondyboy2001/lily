@@ -30,6 +30,9 @@ STAT_STARTED = 2
 STAT_FINISH_SUCCESS = 3
 STAT_ENDED = 4
 STAT_CANCELLED = 5
+# Told to stop while running, and still finishing what it had under way. Not a final status:
+# the task is ended once its run() returns (CalibreTask.start)
+STAT_STOPPING = 6
 
 # Only retain this many tasks in dequeued list
 TASK_CLEANUP_TRIGGER = 20
@@ -159,10 +162,11 @@ class WorkerThread(threading.Thread):
             self.queue.task_done()
 
     def end_task(self, task_id):
+        """Ask a cancellable task to stop (CalibreTask.stop)."""
         ins = self.get_instance()
         for __, __, __, task, __ in ins.tasks:
             if str(task.id) == str(task_id) and task.is_cancellable:
-                task.stat = STAT_CANCELLED if task.stat == STAT_WAITING else STAT_ENDED
+                task.stop()
 
     def cancel_tasks_for_book(self, book_id):
         """Cancel all pending tasks associated with a specific book ID
@@ -261,10 +265,27 @@ class CalibreTask:
 
     @abc.abstractmethod
     def is_cancellable(self):
-        """Does this task gracefully handle being cancelled (STAT_ENDED, STAT_CANCELLED)?"""
+        """Does this task gracefully handle being stopped (it checks stop_requested as it runs)?"""
         raise NotImplementedError
 
+    def stop(self):
+        """Ask the task to stop. One still waiting is cancelled and never runs. A running one is
+        marked stopping and counts as at work (not `dead`) until its run() returns, when it is
+        ended; one already over keeps the status it finished with."""
+        if self.stat == STAT_WAITING:
+            self.stat = STAT_CANCELLED
+        elif self.stat == STAT_STARTED:
+            self.stat = STAT_STOPPING
+
+    @property
+    def stop_requested(self):
+        """True once the task was told to stop: run() checks it between pieces of work."""
+        return self.stat in (STAT_CANCELLED, STAT_STOPPING, STAT_ENDED)
+
     def start(self, *args):
+        if self.stat == STAT_CANCELLED:
+            # Cancelled while waiting; a task on a thread of its own is started regardless
+            return
         self.start_time = datetime.now()
         self.stat = STAT_STARTED
 
@@ -275,6 +296,8 @@ class CalibreTask:
             self._handleError(str(ex))
             log.error_or_exception(ex)
 
+        if self.stat == STAT_STOPPING:
+            self.stat = STAT_ENDED
         self.end_time = datetime.now()
 
     @property

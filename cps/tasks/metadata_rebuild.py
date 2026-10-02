@@ -22,8 +22,8 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from flask_babel import lazy_gettext as N_
 
 from cps import config, db, helper, logger, pdf_cover
-from cps.services.worker import (CalibreTask, STAT_CANCELLED, STAT_ENDED, STAT_FAIL, STAT_FINISH_SUCCESS,
-                                 STAT_STARTED, STAT_WAITING)
+from cps.services.worker import (CalibreTask, STAT_FAIL, STAT_FINISH_SUCCESS, STAT_STARTED, STAT_STOPPING,
+                                 STAT_WAITING)
 from cps.tag_cleanup import tidy_library_tags
 from cps.ub import init_db_thread
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
@@ -61,8 +61,6 @@ class TaskRebuildMetadata(CalibreTask):
         self._store = None
         # The first book not yet handed out; with the books under way, where a later run carries on
         self._unsubmitted = None
-        # Stopping marks the task ended at once, but it finishes the books under way first
-        self.finished = False
 
     @property
     def name(self):
@@ -72,20 +70,19 @@ class TaskRebuildMetadata(CalibreTask):
     def is_cancellable(self):
         return True
 
-    def _stopped(self):
-        return self.stat in (STAT_CANCELLED, STAT_ENDED)
-
     @property
     def state(self):
-        """running, stopping (stopped, but finishing the books under way), stopped, done or
-        failed. Stop marks the task ended at once, so `stat` alone can't tell the middle two."""
+        """running, stopping (told to stop, finishing the books under way), stopped, done or
+        failed: the task's status in the settings page's words."""
         if self.stat in (STAT_WAITING, STAT_STARTED):
             return "running"
+        if self.stat == STAT_STOPPING:
+            return "stopping"
         if self.stat == STAT_FAIL:
             return "failed"
         if self.stat == STAT_FINISH_SUCCESS:
             return "done"
-        return "stopped" if self.finished else "stopping"
+        return "stopped"
 
     @property
     def status_line(self):
@@ -128,7 +125,7 @@ class TaskRebuildMetadata(CalibreTask):
                     self._unsubmitted = book_id
                     while len(running) >= self.workers:
                         self._finish(cdb, running)
-                    if self._stopped():
+                    if self.stop_requested:
                         break
                     running[pool.submit(_look_up, fetch_and_apply_metadata, book_id, centre_covers)] = book_id
                 else:
@@ -137,7 +134,7 @@ class TaskRebuildMetadata(CalibreTask):
                 while running:
                     self._finish(cdb, running)
             self._save_progress(running)
-            if self._stopped():
+            if self.stop_requested:
                 self.message = N_('Stopped: %(checked)s of %(total)s books checked, %(updated)s updated%(unanswered)s',
                                   **self._counts())
                 return
@@ -146,7 +143,6 @@ class TaskRebuildMetadata(CalibreTask):
                 cdb.session.close()
             if self._store:
                 self._store.close()
-            self.finished = True
             if self.updated:
                 try:
                     from cps.duplicate_index import mark_duplicate_index_pending

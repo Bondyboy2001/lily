@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 from .. import constants
 from cps import config, db, fs, logger, ub
-from cps.services.worker import CalibreTask, STAT_CANCELLED, STAT_ENDED
+from cps.services.worker import CalibreTask
 from sqlalchemy import func, text, or_
 from flask_babel import lazy_gettext as N_
 try:
@@ -76,7 +76,7 @@ class TaskGenerateCoverThumbnails(CalibreTask):
 
     def run(self, worker_thread):
         try:
-            if use_IM and self.stat != STAT_CANCELLED and self.stat != STAT_ENDED:
+            if use_IM and not self.stop_requested:
                 self.message = 'Scanning Books'
                 books_with_covers = self.get_cover_sources()
                 count = len(books_with_covers)
@@ -94,13 +94,8 @@ class TaskGenerateCoverThumbnails(CalibreTask):
                         total_generated += generated
                         self.message = N_('Generated %(count)s cover thumbnails', count=total_generated)
 
-                    # Check if job has been cancelled or ended
-                    if self.stat == STAT_CANCELLED:
-                        self.log.info('GenerateCoverThumbnails task has been cancelled.')
-                        return
-
-                    if self.stat == STAT_ENDED:
-                        self.log.info('GenerateCoverThumbnails task has been ended.')
+                    if self.stop_requested:
+                        self.log.info('GenerateCoverThumbnails task has been stopped.')
                         return
 
                 if total_generated == 0:
@@ -274,7 +269,7 @@ class TaskGenerateSeriesThumbnails(CalibreTask):
         ]
 
     def run(self, worker_thread):
-        if self.calibre_db.session and use_IM and self.stat != STAT_CANCELLED and self.stat != STAT_ENDED:
+        if self.calibre_db.session and use_IM and not self.stop_requested:
             self.message = 'Scanning Series'
             all_series = self.get_series_with_four_plus_books()
             count = len(all_series)
@@ -309,13 +304,8 @@ class TaskGenerateSeriesThumbnails(CalibreTask):
                     total_generated += generated
                     self.message = N_('Generated {0} series thumbnails').format(total_generated)
 
-                # Check if job has been cancelled or ended
-                if self.stat == STAT_CANCELLED:
-                    self.log.info('GenerateSeriesThumbnails task has been cancelled.')
-                    return
-
-                if self.stat == STAT_ENDED:
-                    self.log.info('GenerateSeriesThumbnails task has been ended.')
+                if self.stop_requested:
+                    self.log.info('GenerateSeriesThumbnails task has been stopped.')
                     return
 
             if total_generated == 0:

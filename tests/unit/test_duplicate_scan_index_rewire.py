@@ -41,6 +41,8 @@ class _Logger:
 
 
 class _CalibreTask:
+    stop_requested = False
+
     def __init__(self, message):
         self.id = "task-id"
         self.message = message

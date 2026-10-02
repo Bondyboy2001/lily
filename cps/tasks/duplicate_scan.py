@@ -22,7 +22,7 @@ from cps.duplicate_index import (
     merge_affected_groups_into_cache,
     rebuild_duplicate_index,
 )
-from cps.services.worker import CalibreTask, STAT_CANCELLED, STAT_ENDED
+from cps.services.worker import CalibreTask
 from cps.ub import init_db_thread
 
 # Access CWA DB (scripts path)
@@ -68,13 +68,13 @@ class TaskDuplicateScan(CalibreTask):
             # Ensure calibre DB session is ready in this thread
             calibre_db.ensure_session()
 
-            if self.stat in (STAT_CANCELLED, STAT_ENDED):
+            if self.stop_requested:
                 return
 
             cwa_db = CWA_DB()
             cache_data = cwa_db.get_duplicate_cache() or {}
 
-            if self.stat in (STAT_CANCELLED, STAT_ENDED):
+            if self.stop_requested:
                 return
 
             if self.full_scan and self.trigger_type != 'manual' and ingest_batch_follow_up_pending():
@@ -92,7 +92,7 @@ class TaskDuplicateScan(CalibreTask):
                 self.message = N_('Building duplicate index')
 
                 def update_rebuild_progress(processed, total):
-                    if self.stat in (STAT_CANCELLED, STAT_ENDED):
+                    if self.stop_requested:
                         return
                     if total:
                         self.progress = 0.05 + (0.75 * (processed / total))
@@ -118,7 +118,7 @@ class TaskDuplicateScan(CalibreTask):
                 # Store the duplicate groups for passing to auto-resolution
                 self.found_duplicate_groups = duplicate_groups
 
-                if self.stat in (STAT_CANCELLED, STAT_ENDED):
+                if self.stop_requested:
                     return
 
                 # Update cache with full results (including dismissed groups)
