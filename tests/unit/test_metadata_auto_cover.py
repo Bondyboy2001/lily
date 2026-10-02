@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from .lily_env import lily_env
+from .metadata_fakes import FakeProvider
 
 pytestmark = pytest.mark.unit
 
@@ -45,9 +46,10 @@ def _fetch(env, monkeypatch, cover, has_cover, old=None, largest=0):
     from cps import metadata_helper
     record = SimpleNamespace(title="Dune", authors=["Frank Herbert"], description="", publisher="",
                              tags=[], series="", series_index=0, publishedDate="", identifiers={},
-                             cover=cover, source=SimpleNamespace(id="google", description="Google Books"))
-    monkeypatch.setattr(metadata_helper, "metadata_providers", [SimpleNamespace(
-        __id__="google", __name__="Google", identifier_types=frozenset(), COVER_MAX_PIXELS=largest,
+                             cover=cover, cover_max_pixels=largest,
+                             source=SimpleNamespace(description="Google Books"))
+    monkeypatch.setattr(metadata_helper, "metadata_providers", [FakeProvider(
+        __id__="google", __name__="Google", identifier_types=frozenset(),
         search=lambda q, *a: [record])])
     book_id = env.add_book("Dune", author="Frank Herbert")
     con = sqlite3.connect(env.library_dir / "metadata.db")

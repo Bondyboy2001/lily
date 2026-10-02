@@ -35,10 +35,15 @@
     return { "X-CSRFToken": token ? token.value : "", Accept: "application/json" };
   }
 
+  function json(r) {
+    if (!r.ok) { throw new Error(r.status); }
+    return r.json();
+  }
+
   function post(url, data) {
     return fetch(url, { method: "POST", credentials: "same-origin", headers: csrfHeaders(),
                         body: data ? new URLSearchParams(data) : undefined })
-      .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.json(); });
+      .then(json);
   }
 
   function busy(on) {
@@ -70,7 +75,7 @@
 
   function poll() {
     fetch(btn.dataset.statusUrl, { credentials: "same-origin", headers: { Accept: "application/json" } })
-      .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.json(); })
+      .then(json)
       .then(show)
       .catch(function () { /* the next tick tries again */ });
   }

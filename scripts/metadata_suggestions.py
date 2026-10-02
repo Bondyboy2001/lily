@@ -33,9 +33,9 @@ def title_forms(record) -> list[str]:
     "Sapiens: A Brief History of Humankind" is also "Sapiens"; a book called either is that book."""
     title = getattr(record, "title", "") or ""
     subtitle = getattr(record, "subtitle", "") or ""
-    if subtitle and title.endswith(": " + subtitle):
-        return [title, title[:-len(subtitle) - 2]]
-    return [title]
+    # Whatever the provider joined them with
+    main = title[:-len(subtitle)].rstrip(" :-–—") if subtitle and title.endswith(subtitle) else ""
+    return [title, main] if main else [title]
 
 
 def _tokens(text: str) -> set[str]:
@@ -49,6 +49,11 @@ def surname(author: str) -> str:
     if words == ["unknown"]:
         return ""  # Calibre's placeholder: no author at all
     return words[-1] if words else ""
+
+
+def surnames(authors) -> set[str]:
+    """The surnames of the authors who have one."""
+    return {name for name in map(surname, authors or []) if name}
 
 
 def title_similarity(a: str, b: str) -> float:
@@ -71,17 +76,16 @@ def title_similarity(a: str, b: str) -> float:
 
 def author_similarity(book_authors: list[str], record_authors: list[str]) -> float:
     """Share of the book's authors whose surname appears among the record's."""
-    wanted = {s for s in map(surname, book_authors) if s}
+    wanted = surnames(book_authors)
     if not wanted:
         return 0.0
-    have = {s for s in map(surname, record_authors) if s}
-    return len(wanted & have) / len(wanted)
+    return len(wanted & surnames(record_authors)) / len(wanted)
 
 
 def match_score(book_title: str, book_authors: list[str], rec_title: str, rec_authors: list[str]) -> float:
     """0..1 confidence that the record is the same book. Without any author on the
     book the title alone decides, capped so an author-less guess is never 'high'."""
     title = title_similarity(book_title, rec_title)
-    if not any(surname(a) for a in book_authors):
+    if not surnames(book_authors):
         return min(title, HIGH_CONFIDENCE - 0.01)
     return round(TITLE_WEIGHT * title + (1 - TITLE_WEIGHT) * author_similarity(book_authors, rec_authors), 4)

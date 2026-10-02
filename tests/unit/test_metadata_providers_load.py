@@ -8,6 +8,8 @@ import requests
 
 from cps.services.Metadata import CoolOff, ProviderBusy, ProviderError
 
+from .metadata_fakes import FakeProvider
+
 pytestmark = pytest.mark.unit
 
 
@@ -92,7 +94,7 @@ def _open_library(monkeypatch):
         if url.endswith("/search.json"):
             return _Response(payload={"docs": docs})
         return _Response(payload={"description": {"value": "About " + asked[-1]}})
-    monkeypatch.setattr(module.requests, "get", get)
+    monkeypatch.setattr("requests.get", get)
     return module.OpenLibrary(), asked
 
 
@@ -117,19 +119,30 @@ def test_a_lookup_asks_open_library_for_one_description(monkeypatch):
     assert asked == ["search.json"]
 
 
-def test_a_provider_without_the_lighter_search_is_searched_as_before(monkeypatch):
+def test_a_provider_with_nothing_to_leave_out_is_searched_as_ever(monkeypatch):
     from cps import metadata_helper
     record = SimpleNamespace(title="Dune", authors=["Frank Herbert"])
-    provider = SimpleNamespace(__id__="x", __name__="X", identifier_types=frozenset(),
-                               search=lambda q, *a: [record])
+    provider = FakeProvider(__id__="x", __name__="X", identifier_types=frozenset(),
+                            search=lambda q, *a: [record])
     monkeypatch.setattr(metadata_helper, "metadata_providers", [provider])
     assert metadata_helper._find_record("Dune", ["Frank Herbert"], {}, "") is record
 
 
+def test_a_retried_request_waits_once_when_the_service_is_busy(monkeypatch):
+    from cps.services.Metadata import get_patiently
+    answers, waits = [_Response(429), _Response(200)], []
+    monkeypatch.setattr("requests.get", lambda url, **kw: answers.pop(0))
+    monkeypatch.setattr("time.sleep", waits.append)
+    assert get_patiently("https://example.org", pause=2).status_code == 200 and waits == [2]
+    # Still busy the second time: the answer is the caller's to deal with
+    answers[:] = [_Response(429), _Response(429)]
+    assert get_patiently("https://example.org").status_code == 429 and waits == [2, 1.5]
+
+
 def test_a_failed_open_library_search_is_raised_but_a_missing_description_is_not(monkeypatch):
     from cps.metadata_provider import openlibrary as module
-    monkeypatch.setattr(module.time, "sleep", lambda s: None)
-    monkeypatch.setattr(module.requests, "get", lambda url, **kw: _Response(503))
+    monkeypatch.setattr("time.sleep", lambda s: None)
+    monkeypatch.setattr("requests.get", lambda url, **kw: _Response(503))
     with pytest.raises(requests.HTTPError):
         module.OpenLibrary().search("Dune")
 
@@ -137,7 +150,7 @@ def test_a_failed_open_library_search_is_raised_but_a_missing_description_is_not
         if url.endswith("/search.json"):
             return _Response(payload={"docs": [{"key": "/works/OL1W", "title": "Dune"}]})
         return _Response(503)
-    monkeypatch.setattr(module.requests, "get", get)
+    monkeypatch.setattr("requests.get", get)
     assert [(r.title, r.description) for r in module.OpenLibrary().search("Dune")] == [("Dune", "")]
 
 
@@ -164,12 +177,12 @@ def test_a_lookup_names_the_providers_that_did_not_answer(monkeypatch):
         return search
     record = SimpleNamespace(title="Dune", authors=["Frank Herbert"])
     providers = [
-        SimpleNamespace(__id__="google", __name__="Google", identifier_types=frozenset({"isbn"}),
-                        search_identifiers=failing(ProviderBusy("out of quota")),
-                        search=failing(ProviderBusy("out of quota"))),
-        SimpleNamespace(__id__="openlibrary", __name__="Open Library", identifier_types=frozenset(),
-                        search=failing(requests.Timeout())),
-        SimpleNamespace(__id__="x", __name__="Other", identifier_types=frozenset(), search=lambda q, *a: [record]),
+        FakeProvider(__id__="google", __name__="Google", identifier_types=frozenset({"isbn"}),
+                     search_identifiers=failing(ProviderBusy("out of quota")),
+                     search=failing(ProviderBusy("out of quota"))),
+        FakeProvider(__id__="openlibrary", __name__="Open Library", identifier_types=frozenset(),
+                     search=failing(requests.Timeout())),
+        FakeProvider(__id__="x", __name__="Other", identifier_types=frozenset(), search=lambda q, *a: [record]),
     ]
     monkeypatch.setattr(metadata_helper, "metadata_providers", providers)
     unanswered = set()

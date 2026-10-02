@@ -28,7 +28,7 @@ class Google(Metadata):
     BOOK_URL = "https://books.google.com/books?id="
     SEARCH_URL = "https://www.googleapis.com/books/v1/volumes"
     ISBN_TYPE = "ISBN_13"
-    # _parse_cover asks for a cover within 800x900: a book whose own is larger keeps it unseen
+    # _parse_cover asks for a cover within 800x900
     COVER_MAX_PIXELS = 800 * 900
 
     def __init__(self):
@@ -103,6 +103,7 @@ class Google(Metadata):
         )
 
         match.subtitle = subtitle
+        match.cover_max_pixels = Google.COVER_MAX_PIXELS
         match.cover = self._parse_cover(result=result, generic_cover=generic_cover)
         match.description = volume_info.get("description", "")
         match.languages = self._parse_languages(result=result, locale=locale)

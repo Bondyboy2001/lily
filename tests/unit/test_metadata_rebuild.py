@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from .lily_env import lily_env, ADMIN_PASSWORD
+from .metadata_fakes import FakeProvider
 
 
 @pytest.fixture
@@ -102,8 +103,8 @@ def test_rebuild_route_queues_one_task_for_admins(env, monkeypatch):
 def test_forced_lookup_runs_with_auto_fetch_off_and_skips_unknown_author(env, monkeypatch):
     from cps import metadata_helper
     queries = []
-    provider = SimpleNamespace(__id__="google", __name__="Google", identifier_types=frozenset(),
-                               search=lambda q, *a: queries.append(q) or [])
+    provider = FakeProvider(__id__="google", __name__="Google", identifier_types=frozenset(),
+                            search=lambda q, *a: queries.append(q) or [])
     monkeypatch.setattr(metadata_helper, "metadata_providers", [provider])
     monkeypatch.setattr(metadata_helper, "pdf_first_page_text", lambda book: "")
     settings = {"auto_metadata_fetch_enabled": 0}
@@ -156,7 +157,7 @@ def _provider_returning(**found):
                              series_index=0, publishedDate=None, identifiers={}, cover=None,
                              source=SimpleNamespace(description="Google Books"))
     record.__dict__.update(found)
-    return SimpleNamespace(__id__="google", __name__="Google", identifier_types=frozenset(),
+    return FakeProvider(__id__="google", __name__="Google", identifier_types=frozenset(),
                            search=lambda q, *a: [record])
 
 

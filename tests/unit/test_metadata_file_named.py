@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from .lily_env import lily_env
+from .metadata_fakes import FakeProvider
 
 pytestmark = pytest.mark.unit
 
@@ -47,7 +48,7 @@ def _setup(monkeypatch, providers, front=FRONT_MATTER):
 
 def _provider(pid, id_types, by_id=(), by_text=(), calls=None):
     calls = calls if calls is not None else []
-    return SimpleNamespace(
+    return FakeProvider(
         __id__=pid, __name__=pid, identifier_types=frozenset(id_types),
         search_identifiers=lambda ids, *a: calls.append((pid, "ids", ids)) or list(by_id),
         search=lambda q, *a: calls.append((pid, "text", q)) or list(by_text))

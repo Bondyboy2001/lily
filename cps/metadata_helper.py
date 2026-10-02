@@ -29,7 +29,7 @@ from cps.services.identifiers import (ARXIV_ID, DOI_RE, ISBN_RE, arxiv_id_from_d
 from cps.tag_cleanup import clean_tags
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB  # noqa: E402
-from metadata_suggestions import normalise_title, surname, title_forms  # noqa: E402
+from metadata_suggestions import normalise_title, surnames, title_forms  # noqa: E402
 
 log = logger.create()
 
@@ -46,11 +46,6 @@ ENFORCED_FORMATS = {"EPUB", "AZW3"}
 # One normalisation for imports and Fetch metadata's ranking, so a full score there
 # means the title an import would accept
 _normalise = normalise_title
-
-
-def _surnames(authors) -> set:
-    """The authors' surnames, by the rule Fetch metadata ranks with."""
-    return {name for name in map(surname, authors or []) if name}
 
 
 def titles_match(a: str, b: str) -> bool:
@@ -73,12 +68,12 @@ def best_metadata_match(title: str, authors, results):
     and, when both sides list authors, they must share a surname. A result naming the
     authors wins over one that names none.
     """
-    book_surnames = _surnames(authors)
+    book_surnames = surnames(authors)
     title_only = None
     for result in results or []:
         if matched_title(title, result) is None:
             continue
-        result_surnames = _surnames(getattr(result, 'authors', None))
+        result_surnames = surnames(getattr(result, 'authors', None))
         if book_surnames and result_surnames:
             if book_surnames & result_surnames:
                 return result
@@ -198,7 +193,7 @@ def found_by_id_is_this_book(record, ids: dict, title: str, authors, page_text: 
         return any(title_on_page(form, page_text) for form in title_forms(record))
     if not _main_title(title) or _main_title(title) != _main_title(record.title):
         return False
-    book_surnames, record_surnames = _surnames(authors), _surnames(record.authors)
+    book_surnames, record_surnames = surnames(authors), surnames(record.authors)
     return not (book_surnames and record_surnames and not book_surnames & record_surnames)
 
 
@@ -252,7 +247,8 @@ def _image_area(path: str) -> int:
     """Width times height of an image file; 0 when it can't be read."""
     try:
         from wand.image import Image
-        with Image(filename=path) as img:
+        # The header alone says the size (Wand before 0.5.6 has no ping and reads it all)
+        with getattr(Image, 'ping', Image)(filename=path) as img:
             return img.width * img.height
     except Exception as e:
         log.debug(f"Could not measure {path}: {e}")
@@ -303,33 +299,26 @@ def _cover_state(path) -> str:
     return f"{stat.st_size}:{stat.st_mtime_ns}"
 
 
-def _largest_cover(record) -> int:
-    """The most pixels the record's cover can have, when its provider says (0 when not)."""
-    source = getattr(getattr(record, 'source', None), 'id', None)
-    provider = next((p for p in metadata_providers if source and getattr(p, '__id__', None) == source), None)
-    return getattr(provider, 'COVER_MAX_PIXELS', 0)
-
-
-def _cover_worth_fetching(store, book_id, record, current) -> bool:
-    """Whether to download the record's cover to weigh it against the book's (see _cover_wins).
-    Not when it can't be larger, or when this very cover was already weighed against the
-    one the book still has: a rebuild would download every matched book's cover again."""
+def _cover_worth_fetching(store, book_id, url, largest, current) -> bool:
+    """Whether to download the cover at url to weigh it against the book's (see _cover_wins).
+    Not when it can't be larger (`largest` is the most pixels it can have, 0 for unknown), or
+    when this very cover was already weighed against the one the book still has: a rebuild
+    would download every matched book's cover again."""
     if current is None:
         return True
-    largest = _largest_cover(record)
     if largest and _image_area(current) >= largest:
         return False
     try:
-        return store.get_cover_check(book_id) != (record.cover, _cover_state(current))
+        return store.get_cover_check(book_id) != (url, _cover_state(current))
     except Exception as e:
         log.debug(f"No cover check to read for book {book_id}: {e}")
         return True
 
 
-def _remember_cover(store, book_id, url, current) -> None:
-    """Note that the cover at url was weighed against the book's, as it now is."""
+def _remember_cover(store, book_id, url, state) -> None:
+    """Note that the cover at url was weighed against the book's, in the state it is now."""
     try:
-        store.save_cover_check(book_id, url, _cover_state(current))
+        store.save_cover_check(book_id, url, state)
     except Exception as e:
         log.debug(f"Could not note the cover check of book {book_id}: {e}")
 
@@ -375,20 +364,20 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
         url = getattr(record, 'cover', '') or ''
         with tempfile.TemporaryDirectory() as tmp:
             cover = None
-            if _cover_worth_fetching(store, book_id, record, current_cover):
+            if _cover_worth_fetching(store, book_id, url, getattr(record, 'cover_max_pixels', 0), current_cover):
                 cover = _download_cover(url, tmp)
             with library_lock:
                 before = _title_and_author(cdb, book)
                 changed = _apply_record(cdb, book, record, cover)
-                if cover:
-                    # Weighed, whichever won: the same cover need not be fetched to compare again
-                    _remember_cover(store, book_id, url, _cover_path(book))
-                if not changed:
-                    return False
-                source = getattr(getattr(record, 'source', None), 'description', 'a provider')
-                log.info(f"Applied metadata from {source} to book {book_id}")
-                _follow_up(cdb, book_id, before, bool(settings.get('auto_metadata_enforcement')))
-        return True
+                cover_state = _cover_state(_cover_path(book))
+                if changed:
+                    source = getattr(getattr(record, 'source', None), 'description', 'a provider')
+                    log.info(f"Applied metadata from {source} to book {book_id}")
+                    _follow_up(cdb, book_id, before, bool(settings.get('auto_metadata_enforcement')))
+        if cover:
+            # Weighed, whichever won: the same cover need not be fetched to compare again
+            _remember_cover(store, book_id, url, cover_state)
+        return changed
     except Exception as e:
         log.error(f"Metadata lookup for book {book_id} failed: {e}", exc_info=True)
         with library_lock:
@@ -445,12 +434,10 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None):
         return None
     query = " ".join([title] + authors)
     for provider in metadata_providers:
-        # Without the details a provider fetches per result, when it can leave them out
-        # (services/Metadata.py): only the record applied needs them
-        search = getattr(provider, 'search_titles', provider.search)
         try:
-            record = best_metadata_match(title, authors, search(query, "", "en") or [])
-            if record is not None and hasattr(provider, 'complete'):
+            # Only the record applied needs the details a provider fetches per result
+            record = best_metadata_match(title, authors, provider.search_titles(query, "", "en") or [])
+            if record is not None:
                 record = provider.complete(record)
         except Exception as e:
             _no_answer(provider, f"Searching for '{query}'", e, unanswered)
@@ -501,9 +488,15 @@ def _named(cdb, model, lookup, name, *extra):
     return row
 
 
-def _same_rows(a, b) -> bool:
-    """The same library rows in any order. Rows compare by name and can't be hashed."""
-    return len(a) == len(b) and all(any(x is y for y in b) for x in a)
+def _only(book, attr, row, dropped) -> bool:
+    """Make row the book's one publisher or series; False when it already is. The rows it
+    replaces are added to `dropped`."""
+    current = getattr(book, attr)
+    if [r.name for r in current] == [row.name]:
+        return False
+    dropped.extend(r for r in current if r is not row)
+    setattr(book, attr, [row])
+    return True
 
 
 def _apply_record(cdb, book, record, cover):
@@ -535,9 +528,9 @@ def _apply_record(cdb, book, record, cover):
                     authors.append(author)
             # "Surname, Forename & …": author sorting and calibre's first author read it
             author_sort = ' & '.join(a.sort for a in authors)
-            # Compared as rows and their order, not as text: the library finds a name whatever
-            # its case, so the same author spelt in another case is no change
-            if not _same_rows(authors, book.authors) or author_sort != book.author_sort:
+            # Compared as the rows found, not as the record spells them: the library finds a
+            # name whatever its case, so the same author in another case is no change
+            if {a.name for a in authors} != {a.name for a in book.authors} or author_sort != book.author_sort:
                 dropped += [a for a in book.authors if a not in authors]
                 book.authors = authors
                 book.author_sort = author_sort
@@ -556,10 +549,7 @@ def _apply_record(cdb, book, record, cover):
         publisher = (record.publisher or '').strip()
         if publisher:
             row = _named(cdb, db.Publishers, cdb.get_publisher_by_name, publisher, publisher)
-            if not _same_rows(book.publishers, [row]):
-                dropped += [p for p in book.publishers if p is not row]
-                book.publishers = [row]
-                changed = True
+            changed |= _only(book, 'publishers', row, dropped)
 
         # Only subjects: a provider's tags can be shop categories or the book's own title
         for name in clean_tags(record.tags or [], title=book.title,
@@ -574,11 +564,8 @@ def _apply_record(cdb, book, record, cover):
         series = (record.series or '').strip()
         if series:
             row = _named(cdb, db.Series, cdb.get_series_by_name, series, series)
-            new_series = not _same_rows(book.series, [row])
-            if new_series:
-                dropped += [s for s in book.series if s is not row]
-                book.series = [row]
-                changed = True
+            new_series = _only(book, 'series', row, dropped)
+            changed |= new_series
             # A new series starts at the record's index, or 1; the same one takes the record's
             index = _index(record.series_index) or (1.0 if new_series else None)
             if index and index != _index(book.series_index):

@@ -104,3 +104,10 @@ def test_a_record_with_a_subtitle_matches_with_or_without_it(title, applied):
     from cps.metadata_helper import matched_title
     assert matched_title(title, SAPIENS) == applied
     assert (best_metadata_match(title, ["Yuval Noah Harari"], [SAPIENS]) is SAPIENS) is (applied is not None)
+
+
+@pytest.mark.parametrize("full", ["Sapiens: A Brief History", "Sapiens - A Brief History", "Sapiens A Brief History"])
+def test_the_title_without_its_subtitle_is_found_however_they_are_joined(full):
+    from cps.metadata_helper import matched_title
+    found = SimpleNamespace(title=full, subtitle="A Brief History", authors=[])
+    assert matched_title("sapiens", found) == "Sapiens"

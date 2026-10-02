@@ -10,6 +10,8 @@ import dataclasses
 import os
 import re
 import time
+
+import requests
 from typing import Dict, Generator, List, Optional, Union
 
 from cps import constants
@@ -43,6 +45,9 @@ class MetaRecord:
     tags: Optional[List[str]] = dataclasses.field(default_factory=list)
     format: Optional[str] = None
     subtitle: Optional[str] = None
+    # The most pixels the cover can have, when the provider knows: a book whose own cover is
+    # at least that large keeps it without the provider's being downloaded to compare
+    cover_max_pixels: int = 0
 
 
 class ProviderError(Exception):
@@ -74,15 +79,20 @@ class CoolOff:
         self._until = time.monotonic() + seconds
 
 
+def get_patiently(url, pause: float = 1.5, **kwargs):
+    """requests.get, asking once more after a pause when the service says it's busy (429)."""
+    response = requests.get(url, **kwargs)
+    if response.status_code == 429:
+        time.sleep(pause)
+        response = requests.get(url, **kwargs)
+    return response
+
+
 class Metadata:
     __name__ = "Generic"
     __id__ = "generic"
     # Identifier types search_identifiers can look up
     identifier_types: frozenset = frozenset()
-    # A provider whose search makes a request per result to fill in details can also offer
-    # search_titles(query, generic_cover, locale), the same search without them, and
-    # complete(record), which fetches them for one record. Lookups that apply a single exact
-    # match (imports, Rebuild metadata) use the pair; see OpenLibrary.
 
     @abc.abstractmethod
     def search(
@@ -97,6 +107,19 @@ class Metadata:
         {"isbn": ..., "doi": ..., "arxiv": ...}). Providers that can't look up by id
         return nothing."""
         return []
+
+    def search_titles(
+        self, query: str, generic_cover: str = "", locale: str = "en"
+    ) -> Optional[List[MetaRecord]]:
+        """search() for a lookup that applies a single exact match (imports, Rebuild metadata):
+        it picks by title and authors, then calls complete() on that record alone. A provider
+        whose search makes a request per result to fill in details leaves them out here and
+        fetches them there; see OpenLibrary."""
+        return self.search(query, generic_cover, locale)
+
+    def complete(self, record: MetaRecord) -> MetaRecord:
+        """The record with the details search_titles left out."""
+        return record
 
     @staticmethod
     def get_title_tokens(

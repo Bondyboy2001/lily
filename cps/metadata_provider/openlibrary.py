@@ -7,16 +7,14 @@
 
 # Open Library: free, no key. https://openlibrary.org/developers/api
 import re
-import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Dict, List, Optional
 
-import requests
 
 from cps import logger
 from cps.isoLanguages import get_language_name
-from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata
+from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata, get_patiently
 
 log = logger.create()
 
@@ -79,14 +77,8 @@ class OpenLibrary(Metadata):
         return [record]
 
     def _request(self, path: str, params: Optional[Dict] = None) -> Dict:
-        for attempt in range(2):
-            response = requests.get(
-                self.BASE_URL + path, params=params, headers=self.HEADERS, timeout=15
-            )
-            # Busy (Rebuild metadata asks for several books at once): ask once more after a pause
-            if response.status_code != 429 or attempt:
-                break
-            time.sleep(2)
+        # Busy is likely: Rebuild metadata asks for several books at once
+        response = get_patiently(self.BASE_URL + path, pause=2, params=params, headers=self.HEADERS, timeout=15)
         response.raise_for_status()
         return response.json()
 
@@ -100,7 +92,7 @@ class OpenLibrary(Metadata):
 
     def _search_docs(self, params: Dict) -> List[Dict]:
         """The search itself: a failure is raised, not passed off as no results."""
-        return (self._request("/search.json", dict(params, fields=SEARCH_FIELDS)) or {}).get("docs", [])
+        return self._request("/search.json", dict(params, fields=SEARCH_FIELDS)).get("docs", [])
 
     def _parse_doc(self, doc: Dict, generic_cover: str, locale: str) -> Optional[MetaRecord]:
         title = doc.get("title")

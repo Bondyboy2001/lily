@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from .lily_env import lily_env
+from .metadata_fakes import FakeProvider
 
 pytestmark = pytest.mark.unit
 
@@ -30,9 +31,9 @@ def _setup(monkeypatch, record=None, by_id=(), id_types=(), page="", settings=No
     settings = settings or {"auto_metadata_fetch_enabled": 1}
     monkeypatch.setattr(metadata_helper, "CWA_DB", lambda: SimpleNamespace(get_cwa_settings=lambda: settings))
     monkeypatch.setattr(metadata_helper, "pdf_first_page_text", lambda book: page)
-    provider = SimpleNamespace(__id__="google", __name__="Google", identifier_types=frozenset(id_types),
-                               search_identifiers=lambda ids, *a: list(by_id),
-                               search=lambda q, *a: [record] if record else [])
+    provider = FakeProvider(__id__="google", __name__="Google", identifier_types=frozenset(id_types),
+                            search_identifiers=lambda ids, *a: list(by_id),
+                            search=lambda q, *a: [record] if record else [])
     monkeypatch.setattr(metadata_helper, "metadata_providers", [provider])
     return metadata_helper
 

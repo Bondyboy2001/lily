@@ -16,7 +16,6 @@
 # Crossref API: https://api.crossref.org/swagger-ui/index.html
 import re
 import html
-import time
 from concurrent.futures import ThreadPoolExecutor
 from html.parser import HTMLParser
 from os import getenv
@@ -26,7 +25,7 @@ from xml.etree import ElementTree
 import requests
 
 from cps import logger
-from cps.services.Metadata import CoolOff, MetaRecord, MetaSourceInfo, Metadata
+from cps.services.Metadata import CoolOff, MetaRecord, MetaSourceInfo, Metadata, get_patiently
 from cps.services.identifiers import ARXIV_DOI_PREFIX, ARXIV_ID_RE, DOI_RE, arxiv_id_from_doi
 
 log = logger.create()
@@ -143,8 +142,8 @@ class google_scholar(Metadata):
 
     def _fetch_datacite_doi(self, arxiv_id: str) -> List[MetaRecord]:
         """The paper from DataCite's record of arXiv's DOI; empty when it has none."""
-        response = _get(self.DATACITE_URL + "/" + ARXIV_DOI_PREFIX + arxiv_id,
-                        headers=self.HEADERS, timeout=10)
+        response = get_patiently(self.DATACITE_URL + "/" + ARXIV_DOI_PREFIX + arxiv_id,
+                                 headers=self.HEADERS, timeout=10)
         if response.status_code == 404:
             return []
         response.raise_for_status()
@@ -231,7 +230,7 @@ class google_scholar(Metadata):
             "sort": "relevance",
             "page[size]": self.MAX_RESULTS,
         }
-        response = _get(self.DATACITE_URL, params=params, headers=self.HEADERS, timeout=15)
+        response = get_patiently(self.DATACITE_URL, params=params, headers=self.HEADERS, timeout=15)
         response.raise_for_status()
         hits = response.json().get("data", [])
         return [r for r in (self._parse_datacite_hit(h) for h in hits) if r]
@@ -299,7 +298,7 @@ class google_scholar(Metadata):
         if key:
             headers["x-api-key"] = key
         params = {"query": query, "fields": self.S2_FIELDS}
-        response = _get(self.S2_MATCH_URL, params=params, headers=headers, timeout=10)
+        response = get_patiently(self.S2_MATCH_URL, params=params, headers=headers, timeout=10)
         if response.status_code == 404:
             return []
         if response.status_code == 429:
@@ -350,7 +349,7 @@ class google_scholar(Metadata):
         # A contact address moves the requests to Crossref's less crowded "polite" pool
         if getenv("CROSSREF_MAILTO"):
             params["mailto"] = getenv("CROSSREF_MAILTO")
-        response = _get(self.CROSSREF_URL, params=params, headers=self.HEADERS, timeout=15)
+        response = get_patiently(self.CROSSREF_URL, params=params, headers=self.HEADERS, timeout=15)
         response.raise_for_status()
         items = response.json().get("message", {}).get("items", [])
         return [r for r in (self._parse_crossref_item(i) for i in items) if r]
@@ -390,15 +389,6 @@ class google_scholar(Metadata):
         match.tags = item.get("subject", [])
         match.identifiers = {"doi": doi}
         return match
-
-
-def _get(url, **kwargs):
-    """requests.get, asking once more after a pause when the service says it's busy (429)."""
-    response = requests.get(url, **kwargs)
-    if response.status_code == 429:
-        time.sleep(1.5)
-        response = requests.get(url, **kwargs)
-    return response
 
 
 def _subject_names(subjects) -> List[str]:

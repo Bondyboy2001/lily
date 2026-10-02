@@ -94,43 +94,33 @@ def stop_rebuild_metadata():
 @admin_required
 def rebuild_metadata_status():
     """The latest rebuild, for the settings page's status line. `state` is idle (none since the
-    server started), running, stopping (stopped, finishing the books under way), stopped, done
-    or failed. `resume` says how far an unfinished rebuild got, when the next can carry on."""
-    from ..services.worker import WorkerThread, STAT_WAITING, STAT_STARTED, STAT_FAIL, STAT_FINISH_SUCCESS
+    server started) or the task's own (TaskRebuildMetadata.state). `resume` says how far an
+    unfinished rebuild got, when the next can carry on."""
     from ..tasks.metadata_rebuild import saved_progress
-    rebuilds = [task for __, __, __, task, __ in WorkerThread.get_instance().tasks
-                if type(task).__name__ == "TaskRebuildMetadata"]
+    rebuilds = _rebuilds()
+    task = rebuilds[-1] if rebuilds else None
     resume = ""
-    if not _running_rebuilds(including_stopping=True):
+    if task is None or task.state not in ("running", "stopping"):
         progress = saved_progress()
         if progress:
             resume = _("The last rebuild stopped after %(checked)s of %(total)s books.",
                        checked=progress["checked"], total=progress["total"])
-    if not rebuilds:
+    if task is None:
         # None since the server started: one cut short by the restart shows as stopped
         return jsonify({"state": "idle", "message": resume, "resume": resume})
-    task = rebuilds[-1]
-    message = str(task.message)
-    if task.stat == STAT_WAITING:
-        state, message = "running", _("Waiting to start…")
-    elif task.stat == STAT_STARTED:
-        state = "running"
-    elif task.stat == STAT_FAIL:
-        state, message = "failed", _("The rebuild failed: %(error)s", error=task.error or _("see the logs"))
-    elif task.stat == STAT_FINISH_SUCCESS:
-        state = "done"
-    elif getattr(task, "finished", True):
-        state = "stopped"
-    else:
-        state, message = "stopping", _("Stopping after the books under way…")
-    return jsonify({"state": state, "message": message, "resume": resume})
+    return jsonify({"state": task.state, "message": str(task.status_line), "resume": resume})
+
+
+def _rebuilds():
+    """Every rebuild task the worker still lists, oldest first."""
+    from ..services.worker import WorkerThread
+    from ..tasks.metadata_rebuild import TaskRebuildMetadata
+    return [task for __, __, __, task, __ in WorkerThread.get_instance().tasks
+            if isinstance(task, TaskRebuildMetadata)]
 
 
 def _running_rebuilds(including_stopping=False):
     """Rebuild tasks still to finish; with including_stopping, also those stopped but still on
     their last book, so a new rebuild never runs beside one."""
-    from ..services.worker import WorkerThread, STAT_WAITING, STAT_STARTED
-    return [task for __, __, __, task, __ in WorkerThread.get_instance().tasks
-            if type(task).__name__ == "TaskRebuildMetadata"
-            and (task.stat in (STAT_WAITING, STAT_STARTED)
-                 or (including_stopping and not getattr(task, "finished", True)))]
+    return [task for task in _rebuilds()
+            if task.state == "running" or (including_stopping and task.state == "stopping")]

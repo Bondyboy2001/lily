@@ -279,7 +279,7 @@ def test_semantic_scholar_without_a_match_is_no_result(monkeypatch):
 def test_semantic_scholar_is_retried_once_when_busy(monkeypatch):
     answers = [_Response(429), _Response(text=json.dumps(S2_MATCH))]
     monkeypatch.setattr(scholar_module.requests, "get", lambda url, **kw: answers.pop(0))
-    monkeypatch.setattr(scholar_module.time, "sleep", lambda s: None)
+    monkeypatch.setattr("time.sleep", lambda s: None)
     assert len(google_scholar()._search_semantic_scholar("Mastering the game of Go")) == 1
 
 
@@ -300,7 +300,7 @@ def test_semantic_scholar_sends_the_api_key_when_set(monkeypatch):
 def test_crossref_is_retried_once_when_busy(monkeypatch):
     answers = [_Response(429), _Response(text=json.dumps({"message": {"items": []}}))]
     monkeypatch.setattr(scholar_module.requests, "get", lambda url, **kw: answers.pop(0))
-    monkeypatch.setattr(scholar_module.time, "sleep", lambda s: None)
+    monkeypatch.setattr("time.sleep", lambda s: None)
     assert google_scholar()._search_crossref("anything") == [] and answers == []
 
 
@@ -327,7 +327,7 @@ def test_semantic_scholar_still_busy_is_left_out_for_a_while(monkeypatch):
         asked.append(url)
         return _Response(429)
     monkeypatch.setattr(scholar_module.requests, "get", get)
-    monkeypatch.setattr(scholar_module.time, "sleep", lambda s: None)
+    monkeypatch.setattr("time.sleep", lambda s: None)
     scholar = google_scholar()
     with pytest.raises(requests.HTTPError):
         scholar._search_semantic_scholar("Mastering the game of Go")

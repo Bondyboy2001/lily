@@ -7,6 +7,7 @@ import pytest
 from cps.tag_cleanup import clean_tags, is_junk_tag
 
 from .lily_env import lily_env
+from .metadata_fakes import FakeProvider
 
 # Real tags calibre made from PDF Keywords fields
 JUNK = [
@@ -125,7 +126,7 @@ def test_lookup_adds_only_subject_tags(env, monkeypatch):
                              tags=["Mathematics", "Springer 2011", "Abstract Algebra", "ISBN-13:"], series="",
                              series_index=0, publishedDate=None, identifiers={}, cover=None,
                              source=SimpleNamespace(description="Google Books"))
-    monkeypatch.setattr(metadata_helper, "metadata_providers", [SimpleNamespace(
+    monkeypatch.setattr(metadata_helper, "metadata_providers", [FakeProvider(
         __id__="google", __name__="Google", identifier_types=frozenset(),
         search=lambda q, *a: [record])])
     book = env.add_book("Abstract Algebra")
