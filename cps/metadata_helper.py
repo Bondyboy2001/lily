@@ -94,6 +94,30 @@ def find_paper_identifiers(title: str, page_text: str = "", identifiers=None) ->
     return found
 
 
+def _squash(text: str) -> str:
+    """Letters and digits only: PDF text often loses or adds spaces and hyphens."""
+    return re.sub(r'[\W_]+', '', _normalise(text))
+
+
+def found_by_id_is_this_book(record, ids: dict, title: str, authors, page_text: str = "",
+                             own_ids=None) -> bool:
+    """Whether a record an identifier lookup returned is this book. The arXiv id
+    (from the paper's own stamp or file name) and the book's own DOI are trusted;
+    otherwise the title must match exactly or an author be shared (an ISBN can be
+    a placeholder or another book's), or for a DOI read off the first page, which
+    may be a citation, the record's title must be on that page too."""
+    record_ids = normalise_identifiers(getattr(record, 'identifiers', None) or {})
+    own_ids = own_ids or {}
+    if ids.get('arxiv') and record_ids.get('arxiv') == ids['arxiv']:
+        return True
+    if ids.get('doi') and ids['doi'].lower() == own_ids.get('doi', '').lower():
+        return True
+    if titles_match(title, record.title) or _surnames(authors) & _surnames(record.authors):
+        return True
+    rec_title = _squash(record.title)
+    return bool(ids.get('doi') and rec_title) and rec_title in _squash(page_text)
+
+
 def _pdf_first_page_text(book) -> str:
     """The text of the book's PDF's first page; empty without a PDF or text layer."""
     from cps import config
@@ -185,15 +209,18 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
 
         metadata_found = False
         matched = False
-        # A paper is looked up exactly by its arXiv id or DOI first: its title is
-        # often the file name, which no title search matches
-        paper_ids = find_paper_identifiers(
-            book.title, _pdf_first_page_text(book),
-            {i.type: i.val for i in book.identifiers or []})
-        if paper_ids:
-            log.info(f"Looking up '{book.title}' by {paper_ids}")
+        # A book is looked up exactly by its identifiers first: a paper by its arXiv
+        # id or DOI, as its title is often the file name, which no title search
+        # matches; a book by its ISBN
+        own_ids = normalise_identifiers({i.type: i.val for i in book.identifiers or []})
+        page_text = _pdf_first_page_text(book)
+        lookup_ids = find_paper_identifiers(book.title, page_text, own_ids)
+        if own_ids.get('isbn'):
+            lookup_ids['isbn'] = own_ids['isbn']
+        if lookup_ids:
+            log.info(f"Looking up '{book.title}' by {lookup_ids}")
         for provider in providers:
-            ids = {k: v for k, v in paper_ids.items() if k in provider.identifier_types}
+            ids = {k: v for k, v in lookup_ids.items() if k in provider.identifier_types}
             if not ids:
                 continue
             try:
@@ -201,10 +228,12 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
             except Exception as e:
                 log.warning(f"Error looking up {ids} with provider {provider.__id__}: {e}")
                 continue
-            if not results:
+            record = next((r for r in results or [] if found_by_id_is_this_book(
+                r, ids, book.title, author_names, page_text, own_ids)), None)
+            if record is None:
                 continue
             matched = True
-            if _apply_metadata_to_book(book, results[0], calibre_db_instance):
+            if _apply_metadata_to_book(book, record, calibre_db_instance):
                 log.info(f"Applied metadata from {provider.__name__} found by {ids} for book: {book.title}")
                 metadata_found = True
                 break
