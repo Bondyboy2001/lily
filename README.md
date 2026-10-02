@@ -69,7 +69,8 @@ EPUB, PDF, DjVu and audiobooks open in the browser. Lily saves your place, and
 <td valign="top">
 
 ### Papers are first-class
-arXiv and DOI links on the book page, and citation counts from OpenAlex.
+arXiv and DOI links on the book page, and citation counts from OpenAlex. Every paper
+whose metadata is fetched lands on a shared **Papers** shelf.
 
 </td>
 </tr>

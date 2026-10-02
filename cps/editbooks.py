@@ -31,6 +31,7 @@ from sqlalchemy.sql.expression import func, or_
 from . import logger, isoLanguages, uploader, helper, constants
 from .clean_html import clean_string
 from . import config, ub, db, calibre_db
+from .services.papers_shelf import PAPERS_SHELF, papers_shelf
 from .services.worker import WorkerThread
 from .tasks.upload import TaskUpload
 from .render_template import render_title_template
@@ -464,9 +465,6 @@ def _queue_duplicate_scan_after_change(book_ids=None):
         log.error("Failed to queue duplicate scan after change: %s", str(e))
 
 
-PAPERS_SHELF = "Papers"
-
-
 def _editable_shelves():
     return [shelf for shelf in ub.session.query(ub.Shelf).filter(
                 or_(ub.Shelf.is_public == 1, ub.Shelf.user_id == current_user.id)).order_by(ub.Shelf.name)
@@ -497,7 +495,7 @@ def _shelf_names(raw):
 def _update_shelves(book_id, to_save):
     """Put the book on exactly the shelves named in the edit form's Shelves chips. Names that
     match none of the user's editable shelves are ignored (shelves are created from the
-    sidebar), except Papers, which Fetch Metadata creates the first time it files a paper."""
+    sidebar), except Papers, the shared shelf Fetch Metadata files papers on (papers_shelf)."""
     try:
         shelves = _editable_shelves()
         if not to_save.get("shelves_present"):
@@ -511,9 +509,10 @@ def _update_shelves(book_id, to_save):
             if not shelf:
                 if name.lower() != PAPERS_SHELF.lower():
                     continue
-                shelf = ub.Shelf(name=PAPERS_SHELF, is_public=0, user_id=current_user.id)
-                ub.session.add(shelf)
-                ub.session.flush()
+                # The one shared Papers shelf, made public the first time
+                shelf = papers_shelf(ub.session, create=current_user.role_edit_shelfs())
+                if not shelf or not check_shelf_edit_permissions(shelf):
+                    continue
                 shelves.append(shelf)
             wanted.add(shelf.id)
 

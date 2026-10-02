@@ -8,8 +8,9 @@
 """Registers the nightly and scheduled background tasks (backups, mirror, cleanup, scans)."""
 
 import datetime
+import os
 
-from . import config, constants
+from . import config, constants, logger
 from .services.background_scheduler import BackgroundScheduler, CronTrigger
 # Re-exported: cps.admin reads the feature flag as `schedule.use_APScheduler`.
 from .services.background_scheduler import use_APScheduler  # noqa: F401
@@ -19,6 +20,9 @@ from .tasks.thumbnail import TaskGenerateCoverThumbnails, TaskGenerateSeriesThum
 from .tasks.thumbnail_migration import check_and_migrate_thumbnails
 from .services.worker import WorkerThread
 from .tasks.metadata_backup import TaskBackupMetadata
+
+log = logger.create()
+
 
 def get_scheduled_tasks(reconnect=True):
     tasks = list()
@@ -94,6 +98,13 @@ def register_startup_tasks():
         except Exception:
             # Don't let migration failures stop the application
             pass
+
+        # File the papers already in the library on the Papers shelf (one-time operation)
+        try:
+            from .services.papers_shelf import backfill_once
+            backfill_once(os.path.join(constants.CONFIG_DIR, ".cwa_migrations", "papers_shelf_v1"))
+        except Exception as e:
+            log.warning("Could not file the library's papers on the Papers shelf: %s", e)
 
         # Run scheduled tasks immediately for development and testing
         # Ignore tasks that should currently be running, as these will be added when registering scheduled tasks

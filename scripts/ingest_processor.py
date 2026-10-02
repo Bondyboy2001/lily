@@ -263,6 +263,8 @@ def _load_optional_cps_modules() -> None:
             from cps import ub as loaded_ub
             from cps.calibre_init import init_calibre_db_from_app_db
             init_calibre_db_from_app_db(get_app_db_path())
+            # Filing a paper on the Papers shelf opens app.db by this path
+            loaded_ub.app_DB_path = loaded_ub.app_DB_path or get_app_db_path()
             fetch_and_apply_metadata = loaded_fetch_and_apply_metadata
             tidy_new_book_tags = loaded_tidy_new_book_tags
             tidy_new_book_authors = loaded_tidy_new_book_authors

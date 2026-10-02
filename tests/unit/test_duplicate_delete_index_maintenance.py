@@ -191,6 +191,7 @@ def _load_editbooks_module(delete_key_calls):
     _install_stub("cps.clean_html", {"clean_string": lambda value: value})
     _install_stub("cps.services")
     _install_stub("cps.services.worker", {"WorkerThread": SimpleNamespace(get_instance=lambda: None)})
+    _install_stub("cps.services.papers_shelf", {"PAPERS_SHELF": "Papers", "papers_shelf": lambda *a, **k: None})
     _install_stub("cps.tasks")
     _install_stub("cps.tasks.upload", {"TaskUpload": object})
     _install_stub("cps.render_template", {"render_title_template": lambda *args, **kwargs: ""})

@@ -23,6 +23,7 @@ from cps import logger, db, constants, helper
 from cps.clean_html import clean_string
 from cps.helper import get_sorted_author
 from cps.search_metadata import cl as metadata_providers
+from cps.services import papers_shelf
 from cps.services.Metadata import ProviderBusy
 from cps.services.identifiers import (ARXIV_ID, DOI_RE, ISBN_RE, arxiv_id_from_doi, compact_isbn,
                                       normalise_identifiers, parse_identifier)
@@ -360,6 +361,7 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
             current_cover = _cover_path(book)
         record = _find_record(title, authors, own_ids, page_text, unanswered)
         if record is None:
+            _file_if_paper(book_id, own_ids)
             return False
         url = getattr(record, 'cover', '') or ''
         with tempfile.TemporaryDirectory() as tmp:
@@ -377,6 +379,8 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
         if cover:
             # Weighed, whichever won: the same cover need not be fetched to compare again
             _remember_cover(store, book_id, url, cover_state)
+        _file_if_paper(book_id, {**own_ids, **(getattr(record, 'identifiers', None) or {})},
+                       getattr(getattr(record, 'source', None), 'id', None))
         return changed
     except Exception as e:
         log.error(f"Metadata lookup for book {book_id} failed: {e}", exc_info=True)
@@ -386,6 +390,17 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
     finally:
         with library_lock:
             cdb.session.close()
+
+
+def _file_if_paper(book_id, identifiers, source_id=None):
+    """Put a paper on the Papers shelf; a failure there is logged, never the lookup's."""
+    if not papers_shelf.is_paper(identifiers, source_id):
+        return
+    try:
+        if papers_shelf.file_papers([book_id]):
+            log.info(f"Filed book {book_id} on the Papers shelf")
+    except Exception as e:
+        log.warning(f"Could not file book {book_id} on the Papers shelf: {e}")
 
 
 def _rollback(cdb):
