@@ -39,7 +39,7 @@ def test_library_templates_have_no_inline_style_blocks():
 def test_detail_page_has_no_inline_styles_and_one_primary():
     html = read(TEMPLATES / "detail.html")
     assert 'style="' not in html
-    # Actions are labelled buttons; Read is the one Primary.
+    # Actions are icon buttons; Read is the one Primary.
     # The reader always opens in a new tab.
     m = re.search(r"<a id=\"readbtn\"[^>]*>.*?</a>", html, flags=re.S)
     assert m, "readbtn anchor missing"
@@ -48,7 +48,8 @@ def test_detail_page_has_no_inline_styles_and_one_primary():
     # So does the read button on a grid cover.
     assert 'window.open(url, "_blank", "noopener")' in read(JS / "lily.js")
 
-    assert 'class="btn btn-primary"' in read_btn
+    assert 'class="btn btn-primary is-icon"' in read_btn
+    assert 'class="book-action-label sr-only"' in read_btn
     assert "url_for('web.read_book'" in read_btn
     assert "{{ _('Read') }}" in read_btn
     # A book in progress offers to continue, with how far in it is.
@@ -65,8 +66,13 @@ def test_detail_edit_and_read_state_are_named_icon_buttons():
     toggle = re.search(r'<button[^>]*id="toggle-read-btn"[^>]*>(.*?)</button>', html, flags=re.S)
     assert toggle and 'class="btn is-icon' in toggle.group(0)
     assert 'class="book-action-label sr-only"' in toggle.group(1)
+    # Download is an icon too, its name hidden like the rest.
+    for download in re.findall(r'<(?:a|button)[^>]*id="download(?:btn|Menu)"[^>]*>(.*?)</(?:a|button)>', html, flags=re.S):
+        assert 'class="book-action-label sr-only"' in download
+    assert "caret" not in html
     css = read(CSS / "lily-library.css")
-    assert "width: 36px" in _rules_by_selector(css, ".book-action-bar > .btn.is-icon")[".book-action-bar > .btn.is-icon"]
+    square = re.search(r"\.book-action-bar > \.btn\.is-icon,\s*\.book-action-bar > \.dropdown > \.btn\.is-icon \{([^}]*)\}", css)
+    assert square and "width: 36px" in square.group(1)
 
 
 def test_detail_rare_actions_are_icon_buttons_not_a_menu():

@@ -42,33 +42,34 @@
         </div>
 
         <div class="book-detail-actions">
-            {# Read is the one Primary and Download keeps its label. Everything else (read state,
-               edit, archive, delete) is a square icon button named by its title. #}
+            {# Every action is a square icon button named by its title and a hidden label;
+               Read is the one Primary. #}
             <div class="book-action-bar" role="toolbar" aria-label="{{ _('Book actions') }}">
                 {% set can_read = entry.reader_list and current_user.role_viewer() %}
                 {% set can_download = current_user.role_download() and entry.data|length %}
                 {% set can_archive = not current_user.is_anonymous and current_user.check_visibility(32768) %}
                 {% set can_delete = current_user.role_edit() and current_user.role_delete_books() %}
                 {% if can_read %}
-                    {# A book in progress reads "Continue · 33%" and opens the format it was last read in, in a new tab. #}
-                    <a id="readbtn" class="btn btn-primary" target="_blank" rel="noopener" data-reader-link=""
-                       href="{{ url_for('web.read_book', book_id=entry.id, book_format=(resume and resume.format) or entry.reader_list[0]) }}">
-                        <span class="glyphicon glyphicon-book" aria-hidden="true"></span>{% if resume %}{{ _('Continue') }}<span class="book-resume-percent">· {{ resume.percent }}%</span>{% else %}{{ _('Read') }}{% endif %}
+                    {# A book in progress is named "Continue · 33%" and opens the format it was last read in, in a new tab. #}
+                    {% set read_name = resume and (_('Continue') ~ ' · ' ~ resume.percent ~ '%') or _('Read') %}
+                    <a id="readbtn" class="btn btn-primary is-icon" target="_blank" rel="noopener" data-reader-link=""
+                       href="{{ url_for('web.read_book', book_id=entry.id, book_format=(resume and resume.format) or entry.reader_list[0]) }}" title="{{ read_name }}">
+                        <span class="glyphicon glyphicon-book" aria-hidden="true"></span><span class="book-action-label sr-only">{% if resume %}{{ _('Continue') }} · {{ resume.percent }}%{% else %}{{ _('Read') }}{% endif %}</span>
                     </a>
                 {% endif %}
                 {% if can_download %}
                     {% if entry.data|length < 2 %}
                         {% for format in entry.data %}
                             <a href="{{ url_for('web.download_link', book_id=entry.id, book_format=format.format|lower, anyname=entry.id|string+'.'+format.format|lower|replace('kepub', 'kepub.epub')) }}"
-                               class="btn" id="downloadbtn">
-                                <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span>{{ _('Download') }}
+                               class="btn is-icon" id="downloadbtn" title="{{ _('Download') }}">
+                                <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span><span class="book-action-label sr-only">{{ _('Download') }}</span>
                             </a>
                         {% endfor %}
                     {% else %}
                         <span class="dropdown">
-                            <button id="downloadMenu" type="button" class="btn dropdown-toggle"
-                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span>{{ _('Download') }}<span class="caret"></span>
+                            <button id="downloadMenu" type="button" class="btn is-icon dropdown-toggle"
+                                    data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="{{ _('Download') }}">
+                                <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span><span class="book-action-label sr-only">{{ _('Download') }}</span>
                             </button>
                             <ul class="dropdown-menu" aria-labelledby="downloadMenu">
                                 {% for format in entry.data %}

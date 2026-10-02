@@ -200,7 +200,7 @@ The book-page cover is a spine shape: `4px 8px 8px 4px`.
 | Chip | 30 tall, 14 side padding | 15px, 500; count 11px mono |
 | Icon button | 30 × 30, 16px glyph | — |
 | Large icon button (top bar, list toolbar) | 38 × 38, 21px glyph | — |
-| Book action bar button | 36 tall (44 on coarse pointers), 15 side padding, 14px glyph | 15px |
+| Book action bar button | 36 square (44 on coarse pointers), 14px glyph, no visible label | — |
 | Field | 30 tall, 10 inner padding | 15px |
 | Switch | 34 × 20, 16px thumb | — |
 | Checkbox / radio | 14 × 14, `accent-color` | — |
@@ -512,9 +512,11 @@ content (grid, panel, rows)
   description sits under the actions in the second column.
 - **≤767px:** the cover becomes a 108px thumbnail beside the title; actions,
   description and facts go full-width, facts last. Reset row sizing here. The
-  primary action takes a full line; the rest share the next.
-- The Primary reads "Continue · 33%" for a book in progress (the share at 500)
-  and opens the reader in a new tab at the format last read.
+  action icons share one line in equal widths.
+- Every book action, Read and Download included, is a square icon button named by
+  its `title` and a hidden label; Read is the Primary. For a book in progress it is
+  named "Continue · 33%" and opens the reader in a new tab at the format last read.
+  Read state, once on, is the tick in `--success` on a 34% `--success` tint.
 - Description: `--font-body` 18px, line-height 1.68, `--ink-soft`, no measure
   cap: it fills the width it is given.
 - Every fact is one line; a long value ends in an ellipsis, never wraps.

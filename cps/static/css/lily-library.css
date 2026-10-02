@@ -1207,7 +1207,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     margin-top: 2px;
 }
 
-/* Labelled buttons: Read is the one Primary, the rest are Quiet. */
+/* Square icon buttons: Read is the one Primary, the rest are Quiet. */
 .book-action-bar {
     display: flex;
     flex-wrap: wrap;
@@ -1231,10 +1231,9 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     font-size: 14px;
 }
 
-.book-action-bar .btn .caret { margin-left: 2px; }
-
-/* Read state and Edit are square icon buttons in the same Quiet style. */
-.book-action-bar > .btn.is-icon {
+/* Every action is a square glyph, menus (Download, Shelves) included. */
+.book-action-bar > .btn.is-icon,
+.book-action-bar > .dropdown > .btn.is-icon {
     justify-content: center;
     width: 36px;
     padding: 0;
@@ -1250,20 +1249,14 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     .book-action-bar .btn.is-icon { width: 44px; }
 }
 
-/* "Continue · 33%": the share read is quieter than the verb. */
-.book-action-bar .book-resume-percent {
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-}
-
-/* Read state: a tick in a circle, green on a green tint once read. */
+/* Read state: a tick in a circle, green on a clearly green tint once read. */
 .book-action-bar #toggle-read-btn.is-on,
 .book-action-bar #toggle-read-btn.is-on:focus {
-    background: color-mix(in srgb, var(--success) 12%, transparent);
+    background: color-mix(in srgb, var(--success) 34%, transparent);
 }
 
 .book-action-bar #toggle-read-btn.is-on:hover {
-    background: color-mix(in srgb, var(--success) 17%, transparent);
+    background: color-mix(in srgb, var(--success) 42%, transparent);
 }
 
 .book-action-bar #toggle-read-btn.is-on .glyphicon { color: var(--success); }
@@ -1377,11 +1370,10 @@ dl.book-metadata:not(:has(> div)) { display: none; }
     .book-detail-meta h1#title { font-size: 23px; }
     .book-detail-meta .author { margin-top: 2px; font-size: 16px; }
 
-    /* Read takes the whole first line; the rest share the line below. */
-    .book-action-bar > .btn-primary { flex: 1 0 100%; justify-content: center; }
-    .book-action-bar > .btn:not(.btn-primary) { flex: 1 1 0; width: auto; justify-content: center; }
+    /* The icons share one line, each growing to an equal share of it. */
+    .book-action-bar > .btn.is-icon { flex: 1 1 0; width: auto; }
     .book-action-bar > .dropdown { flex: 1 1 0; }
-    .book-action-bar > .dropdown > .btn { width: 100%; justify-content: center; }
+    .book-action-bar > .dropdown > .btn.is-icon { width: 100%; }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1494,6 +1486,16 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 
 /* Date pickers: a Field with its clear glyph inside the same row. */
 .input-group .form-control:first-child { border-radius: 7px; }
+
+/* The localised date laid over the ISO field (edit_books.js) takes the field's shape and
+   stops short of the clear glyph's cell (30px button + 4px gap). It sits between the two,
+   so it has to outrank Bootstrap's square-cornered middle child. */
+.input-group .form-control.fake-input:not(:first-child) {
+    left: 0;
+    right: 34px;
+    width: auto;
+    border-radius: 7px;
+}
 
 .input-group-btn:last-child > .btn.datepicker_delete {
     margin-left: 4px;
