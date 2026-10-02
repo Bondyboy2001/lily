@@ -22,11 +22,14 @@
             {% endif %}
             {# The page's one h1: the top bar leaves its title out on this page (layout.html) #}
             <h1 id="title">{{ entry.title }}</h1>
+            {% set authors = entry.ordered_authors|named_authors %}
+            {% if authors %}
             <p class="author">
-                {% for author in entry.ordered_authors %}
+                {% for author in authors %}
                     <a href="{{ url_for('web.books_list',  data='author', sort_param='stored', book_id=author.id ) }}">{{ author.name.replace('|',',') }}</a>{% if not loop.last %} &amp; {% endif %}
                 {% endfor %}
             </p>
+            {% endif %}
             {% set current_rating = (entry.ratings[0].rating / 2)|int if entry.ratings|length > 0 else 0 %}
             {% if current_rating > 0 %}
             <div class="rating" id="detail-rating-block" title="{{ current_rating }} / 5">

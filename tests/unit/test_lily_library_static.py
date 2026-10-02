@@ -434,3 +434,8 @@ def test_read_and_archive_toggles_flip_their_label_without_aria_pressed():
     lily = css_rules(read(CSS / "lily.css"))
     assert any(".btn.is-on" in s and "var(--accent-soft)" in b for s, b in lily)
     assert any(".icon-btn.is-on" in s and "var(--control-tint-strong)" in b for s, b in lily)
+
+
+def test_book_views_hide_the_unknown_author_placeholder():
+    for name in ["detail.html", "image.html", "index.html", "listenmp3.html", "shelf_order.html"]:
+        assert "|named_authors" in read(TEMPLATES / name), name

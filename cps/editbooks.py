@@ -27,7 +27,7 @@ from sqlalchemy.exc import OperationalError, IntegrityError, InterfaceError, Inv
 from sqlalchemy.orm.exc import StaleDataError
 from sqlalchemy.sql.expression import func, or_
 
-from . import logger, isoLanguages, uploader, helper
+from . import logger, isoLanguages, uploader, helper, constants
 from .clean_html import clean_string
 from . import config, ub, db, calibre_db
 from .services.worker import WorkerThread
@@ -809,7 +809,7 @@ def prepare_authors(authr, calibre_path):
 
     # we have all author names now
     if input_authors == ['']:
-        input_authors = [_('Unknown')]  # prevent empty Author
+        input_authors = [constants.UNKNOWN_AUTHOR]  # calibre needs an author; it is never shown
 
     for in_aut in input_authors:
         renamed_author = calibre_db.session.query(db.Authors).filter(func.lower(db.Authors.name).ilike(in_aut)).first()
@@ -1097,9 +1097,11 @@ def render_edit_book(book_id):
 
     book.authors = calibre_db.order_authors([book])
 
+    # calibre's "Unknown" stand-in shows as an empty author field
     author_names = []
     for authr in book.authors:
-        author_names.append(authr.name.replace('|', ','))
+        if not constants.is_unknown_author(authr.name):
+            author_names.append(authr.name.replace('|', ','))
 
     return render_title_template('book_edit.html', book=book, authors=author_names, cc=cc,
                                  shelf_ids_editable=[shelf.id for shelf in _editable_shelves()],

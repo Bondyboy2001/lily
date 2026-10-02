@@ -182,7 +182,7 @@
           <p title="{{ book.title }}" class="title">{{ book.title }}</p>
         </a>
         <p class="author">
-          {% for author in book.authors %}
+          {% for author in book.authors|named_authors %}
             {% if loop.index > authors_max and authors_max != 0 %}
               {% if not loop.first %}<span class="author-hidden-divider">&amp;</span>{% endif %}
               <a class="author-name author-hidden" href="{{ url_for('web.books_list', data='author', sort_param='stored', book_id=author.id) }}">{{ author.name.replace('|',',')|shortentitle(30) }}</a>

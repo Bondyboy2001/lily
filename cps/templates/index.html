@@ -55,8 +55,9 @@
         <a href="{{ url_for('web.show_book', book_id=book.id) }}">
           <p title="{{ book.title }}" class="title">{{ book.title }}</p>
         </a>
-        {% if book.authors %}
-        <p class="author">{{ book.authors[0].name.replace('|',',')|shortentitle(30) }}</p>
+        {% set authors = book.authors|named_authors %}
+        {% if authors %}
+        <p class="author">{{ authors[0].name.replace('|',',')|shortentitle(30) }}</p>
         {% endif %}
         {% if item.progress is not none %}
         <p class="continue-reading-percent">{{ _('%(percent)s%% read', percent=item.progress|round|int) }}</p>

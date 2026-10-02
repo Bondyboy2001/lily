@@ -218,6 +218,12 @@ def filesizeformat_binary(num_bytes):
         return f"{formatted} {units[unit_index]}"
 
 
+# a book's authors without calibre's "Unknown" stand-in, so a book with no author shows none
+@jinjia.app_template_filter('named_authors')
+def named_authors_filter(authors):
+    return [author for author in authors or [] if not constants.is_unknown_author(author.name)]
+
+
 @jinjia.app_template_filter('music')
 def contains_music(book_formats):
     result = False

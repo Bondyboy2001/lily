@@ -11,7 +11,9 @@ import os
 # Add the parent directory to the path so we can import cps modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from cps.jinjia import flatten_breaks_filter as flatten_breaks, formatfloat
+from types import SimpleNamespace
+
+from cps.jinjia import flatten_breaks_filter as flatten_breaks, formatfloat, named_authors_filter
 
 
 class TestFormatFloatFilter:
@@ -103,3 +105,15 @@ class TestFlattenBreaksFilter:
     def test_none_and_empty(self):
         assert flatten_breaks(None) == ''
         assert flatten_breaks('') == ''
+
+
+class TestNamedAuthorsFilter:
+    """calibre's "Unknown" stand-in is hidden, so a book with no author shows none"""
+
+    def test_drops_the_unknown_placeholder(self):
+        authors = [SimpleNamespace(name="Unknown"), SimpleNamespace(name="Alexander Paulin")]
+        assert [a.name for a in named_authors_filter(authors)] == ["Alexander Paulin"]
+
+    def test_only_unknown_leaves_nothing(self):
+        assert named_authors_filter([SimpleNamespace(name="unknown")]) == []
+        assert named_authors_filter(None) == []

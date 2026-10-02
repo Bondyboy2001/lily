@@ -124,6 +124,14 @@ EXTENSIONS_AUDIO = {'mp3', 'mp4', 'ogg', 'opus', 'wav', 'flac', 'm4a', 'm4b'}
 EXTENSIONS_BOOK = {'epub', 'pdf', 'djvu', 'djv'}
 EXTENSIONS_UPLOAD = EXTENSIONS_BOOK | EXTENSIONS_AUDIO
 
+# Calibre gives every book at least one author and files a book without one under this name.
+# It stays in the library (calibre and the folder layout need it) but is never shown.
+UNKNOWN_AUTHOR = 'Unknown'
+
+
+def is_unknown_author(name):
+    return (name or '').strip().lower() == UNKNOWN_AUTHOR.lower()
+
 _extension = ""
 if sys.platform == "win32":
     _extension = ".exe"

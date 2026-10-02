@@ -36,6 +36,7 @@ def author_list():
             order_no = 1
         entries = calibre_db.session.query(db.Authors, func.count('books_authors_link.book').label('count')) \
             .join(db.books_authors_link).join(db.Books).filter(calibre_db.common_filters()) \
+            .filter(func.lower(db.Authors.name) != constants.UNKNOWN_AUTHOR.lower()) \
             .group_by(text('books_authors_link.author')).order_by(order).all()
         # No initials filter on the authors page: the list is sorted, so the letter menu only adds noise
         return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=[],

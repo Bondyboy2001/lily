@@ -32,7 +32,7 @@
       <div class="lily-audio-meta">
         <h1 class="lily-audio-title">{{ entry.title }}</h1>
         <p class="lily-audio-author">
-          {% for author in entry.ordered_authors %}
+          {% for author in entry.ordered_authors|named_authors %}
             <a href="{{ url_for('web.books_list', data='author', sort_param='stored', book_id=author.id) }}">{{ author.name.replace('|', ',') }}</a>{% if not loop.last %} &amp; {% endif %}
           {% endfor %}
         </p>

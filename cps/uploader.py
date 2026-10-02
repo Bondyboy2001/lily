@@ -6,9 +6,9 @@
 # See CONTRIBUTORS for full list of authors.
 
 import os
-from flask_babel import gettext as _
 
 from . import logger, isoLanguages
+from . import constants
 from .constants import BookMeta
 from .helper import split_authors
 from .string_helper import strip_whitespaces
@@ -75,8 +75,8 @@ def process(tmp_file_path, original_file_name, original_file_extension, no_cover
 
     if not strip_whitespaces(meta.title):
         meta = meta._replace(title=original_file_name)
-    if not strip_whitespaces(meta.author) or meta.author.lower() == 'unknown':
-        meta = meta._replace(author=_('Unknown'))
+    if not strip_whitespaces(meta.author) or constants.is_unknown_author(meta.author):
+        meta = meta._replace(author=constants.UNKNOWN_AUTHOR)
     return meta
 
 
@@ -85,7 +85,7 @@ def default_meta(tmp_file_path, original_file_name, original_file_extension):
         file_path=tmp_file_path,
         extension=original_file_extension,
         title=original_file_name,
-        author=_('Unknown'),
+        author=constants.UNKNOWN_AUTHOR,
         cover=None,
         description="",
         tags="",
