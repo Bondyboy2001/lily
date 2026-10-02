@@ -583,3 +583,9 @@ def test_small_copy_fixes_stay_fixed():
     readpdf = read(TEMPLATES / "readpdf.html")
     assert "app.setTitle = function () { document.title = {{ title|tojson }}; };" in readpdf
     assert 'data.url && data.count > 0' in read(TEMPLATES / "detail.html")
+
+
+def test_the_book_table_is_reachable_from_the_view_switch():
+    # /table (bulk shelve, mark read, delete) had no link anywhere
+    switch = read(TEMPLATES / "image.html").split("{% macro view_switch", 1)[1].split("{%- endmacro %}", 1)[0]
+    assert "url_for('web.books_table')" in switch and "Edit many books at once" in switch
