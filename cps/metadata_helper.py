@@ -22,6 +22,7 @@ sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB
 from metadata_suggestions import normalise_title
 from cps.services.identifiers import ARXIV_ID, DOI_RE, normalise_identifiers, parse_identifier
+from cps.tag_cleanup import clean_tags
 
 log = logger.create()
 
@@ -421,15 +422,20 @@ def _apply_metadata_to_book(book, metadata, calibre_db_instance) -> bool:
         # Update tags if available and enabled in settings
         if (cwa_settings.get('auto_metadata_update_tags', True) and
             hasattr(metadata, 'tags') and metadata.tags):
-            for tag_name in metadata.tags:
-                if tag_name and tag_name.strip():
-                    tag = calibre_db_instance.get_tag_by_name(tag_name.strip())
-                    if not tag:
-                        tag = db.Tags(name=tag_name.strip())
-                        calibre_db_instance.session.add(tag)
-                    if tag not in book.tags:
-                        book.tags.append(tag)
-            updated = True
+            # Only subjects: a provider's tags can be shop categories or the book's own title
+            tag_names = clean_tags(metadata.tags,
+                                   title=book.title,
+                                   authors=[author.name for author in book.authors],
+                                   publishers=[publisher.name for publisher in book.publishers],
+                                   series=[serie.name for serie in book.series])
+            for tag_name in tag_names:
+                tag = calibre_db_instance.get_tag_by_name(tag_name)
+                if not tag:
+                    tag = db.Tags(name=tag_name)
+                    calibre_db_instance.session.add(tag)
+                if tag not in book.tags:
+                    book.tags.append(tag)
+                    updated = True
 
         # Update series if available and enabled in settings
         if (cwa_settings.get('auto_metadata_update_series', True) and

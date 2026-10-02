@@ -4,6 +4,8 @@
 
 """Task that looks every book up again with the metadata providers (Import & Metadata → Rebuild).
 
+It first clears tags that are not subjects (ISBNs, publisher lines, shop listing scraps).
+
 A book that gets new details is kept in step like an edit is: its folder follows a new title or
 first author, and with "Write edits into book files" on, the change is queued for the files."""
 
@@ -16,6 +18,7 @@ from flask_babel import lazy_gettext as N_
 
 from cps import config, db, helper, logger
 from cps.services.worker import CalibreTask, STAT_CANCELLED, STAT_ENDED
+from cps.tag_cleanup import tidy_library_tags
 from cps.ub import init_db_thread
 
 log = logger.create()
@@ -57,6 +60,7 @@ class TaskRebuildMetadata(CalibreTask):
         cdb = db.CalibreDB(expire_on_commit=False, init=True)
         try:
             self.write_files = bool(_cwa_settings().get('auto_metadata_enforcement'))
+            self._tidy_tags(cdb)
             book_ids = [row[0] for row in cdb.session.query(db.Books.id).order_by(db.Books.id).all()]
             total = len(book_ids)
             for book_id in book_ids:
@@ -85,6 +89,16 @@ class TaskRebuildMetadata(CalibreTask):
         self.message = N_('Done: %(total)s books checked, %(updated)s updated', total=total, updated=self.updated)
         log.info("Metadata rebuild finished: %s books checked, %s updated", total, self.updated)
         self._handleSuccess()
+
+    def _tidy_tags(self, cdb):
+        """Clear out tags that are not subjects first: it takes seconds, the lookups take hours."""
+        self.message = N_('Tidying tags')
+        try:
+            changed, removed = tidy_library_tags(cdb.session)
+            log.info("Rebuild: tidied the tags of %s books, removed %s unused tags", changed, removed)
+        except Exception as ex:
+            cdb.session.rollback()
+            log.error("Rebuild: could not tidy tags: %s", ex)
 
     def _follow_up(self, cdb, book_id, before):
         """Move the folder after a new title or first author, then queue the file write."""

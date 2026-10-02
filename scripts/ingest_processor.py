@@ -38,6 +38,7 @@ import title_card  # stdlib only at import time; Wand loads when a card is drawn
 _CPS_AVAILABLE = False
 _cps_config = None
 fetch_and_apply_metadata = None
+tidy_new_book_tags = None
 _ub = None
 CWA_DB = None
 audiobook = None
@@ -219,7 +220,7 @@ def _load_runtime_dependencies() -> None:
 
 
 def _load_optional_cps_modules() -> None:
-    global _CPS_AVAILABLE, _cps_config, fetch_and_apply_metadata, _ub
+    global _CPS_AVAILABLE, _cps_config, fetch_and_apply_metadata, tidy_new_book_tags, _ub
 
     if _CPS_AVAILABLE:
         return
@@ -239,16 +240,19 @@ def _load_optional_cps_modules() -> None:
         # Import metadata functionality
         try:
             from cps.metadata_helper import fetch_and_apply_metadata as loaded_fetch_and_apply_metadata
+            from cps.tag_cleanup import tidy_new_book_tags as loaded_tidy_new_book_tags
             from cps import ub as loaded_ub
             from cps.calibre_init import init_calibre_db_from_app_db
             init_calibre_db_from_app_db(get_app_db_path())
             fetch_and_apply_metadata = loaded_fetch_and_apply_metadata
+            tidy_new_book_tags = loaded_tidy_new_book_tags
             _ub = loaded_ub
             _CPS_AVAILABLE = True
             print("[ingest-processor] Metadata functionality available", flush=True)
         except ImportError as e:
             print(f"[ingest-processor] Metadata functionality not available: {e}", flush=True)
             fetch_and_apply_metadata = None
+            tidy_new_book_tags = None
             _ub = None
             _CPS_AVAILABLE = False
 
@@ -860,6 +864,9 @@ class NewBookProcessor:
 
             mark_ingest_batch_dirty()
 
+            # calibre turns a PDF's Keywords into tags: keep only the subjects
+            self.tidy_tags(self.last_added_book_ids or [])
+
             # Fetch metadata if enabled, prefer exact book id from calibredb
             if self.last_added_book_id is not None:
                 self.fetch_metadata_if_enabled(book_id=self.last_added_book_id)
@@ -973,6 +980,16 @@ class NewBookProcessor:
                 os.remove(staged_path)
         return added
 
+
+    def tidy_tags(self, book_ids) -> None:
+        if not _CPS_AVAILABLE or tidy_new_book_tags is None:
+            return
+        for book_id in book_ids:
+            try:
+                if tidy_new_book_tags(int(book_id)):
+                    print(f"[ingest-processor] Removed tags that are not subjects from book id={book_id}", flush=True)
+            except Exception as e:
+                print(f"[ingest-processor] WARN: Could not tidy the tags of book id={book_id}: {e}", flush=True)
 
     def fetch_metadata_if_enabled(self, book_title: str | None = None, book_id: int | None = None) -> None:
         """Fetch and apply metadata for newly ingested books if enabled"""
