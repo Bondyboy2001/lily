@@ -79,6 +79,31 @@ def test_recentre_cover_with_imagemagick(tmp_path):
     assert not pdf_cover.recentre_cover(pdf, cover)       # already centred
 
 
+@pytest.mark.unit
+def test_replace_cover_with_imagemagick(tmp_path):
+    wand_image = pytest.importorskip("wand.image", exc_type=ImportError)
+    from wand.color import Color
+    from wand.exceptions import WandException
+    pdf, cover = str(tmp_path / "book.pdf"), str(tmp_path / "cover.jpg")
+    with wand_image.Image(width=1275, height=1650, background=Color("white"), resolution=150) as img:
+        try:
+            img.save(filename=pdf)
+        except WandException as ex:
+            pytest.skip("ImageMagick cannot write PDFs here: %s" % ex)
+    # A provider's cover: dark and book shaped
+    with wand_image.Image(width=400, height=600, background=Color("navy")) as art:
+        art.format = "jpeg"
+        art.save(filename=cover)
+    try:
+        assert not pdf_cover.recentre_cover(pdf, cover)        # kept without replace
+    except WandException as ex:
+        pytest.skip("ImageMagick cannot read PDFs here: %s" % ex)
+    assert pdf_cover.recentre_cover(pdf, cover, replace=True)
+    with wand_image.Image(filename=cover) as done:
+        assert abs(done.width / done.height - 1275 / 1650) < 0.01
+    assert not pdf_cover.recentre_cover(pdf, cover, replace=True)   # already page 1
+
+
 def _fix_cover_world(tmp_path, monkeypatch, cover=None):
     """A book folder with a PDF and maybe a cover.jpg; rendering and centring are recorded."""
     pdf, path = tmp_path / "book.pdf", tmp_path / "cover.jpg"
@@ -87,7 +112,8 @@ def _fix_cover_world(tmp_path, monkeypatch, cover=None):
         path.write_bytes(cover)
     calls = []
     monkeypatch.setattr(pdf_cover, "save_page_cover", lambda p, c: calls.append("page"))
-    monkeypatch.setattr(pdf_cover, "recentre_cover", lambda p, c: calls.append("centre") or False)
+    monkeypatch.setattr(pdf_cover, "recentre_cover",
+                        lambda p, c, replace=False: calls.append("replace" if replace else "centre") or False)
     return str(pdf), str(path), calls
 
 
@@ -120,6 +146,16 @@ def test_a_cover_file_the_book_lost_its_flag_for_is_shown_again_as_it_is(tmp_pat
     # Flagged already: only centring is tried, and it found nothing to do
     assert not pdf_cover.fix_cover(pdf, cover, True)
     assert calls == ["centre"]
+
+
+@pytest.mark.unit
+def test_replace_hands_any_cover_to_page_one(tmp_path, monkeypatch):
+    pdf, cover, calls = _fix_cover_world(tmp_path, monkeypatch, cover=b"provider cover")
+    assert not pdf_cover.fix_cover(pdf, cover, True, replace=True)
+    assert calls == ["replace"]
+    # Unflagged: shown again, whatever the replace found
+    assert pdf_cover.fix_cover(pdf, cover, False, replace=True)
+    assert calls == ["replace", "replace"]
 
 
 @pytest.mark.unit
@@ -171,7 +207,7 @@ def test_rebuild_centres_pdf_covers_after_the_lookup(env, monkeypatch):
                         lambda book_id, force=False, unanswered=None: order.append(("lookup", book_id)) or False)
     monkeypatch.setattr(pdf_cover, "available", lambda: True)
 
-    def fake_fix(pdf_path, cover_path, has_cover):
+    def fake_fix(pdf_path, cover_path, has_cover, replace=False):
         order.append(("cover", pdf_path, cover_path))
         return True
     monkeypatch.setattr(pdf_cover, "fix_cover", fake_fix)
@@ -200,7 +236,7 @@ def test_rebuild_flags_a_pdf_that_had_no_cover(env, monkeypatch):
     monkeypatch.setattr(metadata_helper, "fetch_and_apply_metadata",
                         lambda book_id, force=False, unanswered=None: False)
     monkeypatch.setattr(pdf_cover, "available", lambda: True)
-    monkeypatch.setattr(pdf_cover, "fix_cover", lambda p, c, has_cover: seen.append(has_cover) or True)
+    monkeypatch.setattr(pdf_cover, "fix_cover", lambda p, c, has_cover, replace=False: seen.append(has_cover) or True)
     monkeypatch.setattr(helper, "replace_cover_thumbnail_cache", refreshed.append)
     monkeypatch.setattr("cps.duplicate_index.mark_duplicate_index_pending", lambda reason=None: None)
 
@@ -212,3 +248,23 @@ def test_rebuild_flags_a_pdf_that_had_no_cover(env, monkeypatch):
     has_cover = con.execute("SELECT has_cover FROM books WHERE id = ?", (pdf,)).fetchone()[0]
     con.close()
     assert seen == [False] and has_cover == 1 and refreshed == [pdf] and task.covers == 1
+
+
+@pytest.mark.unit
+def test_cover_job_replaces_only_a_pdf_only_books_cover_not_picked_by_hand(env):
+    from cps import db
+    from cwa_db import CWA_DB
+    paper = env.add_book("Paper", fmt="PDF")
+    picked = env.add_book("Picked", fmt="PDF")
+    novel = env.add_book("Novel", fmt="EPUB")
+    con = sqlite3.connect(env.library_dir / "metadata.db")
+    con.execute("INSERT INTO data (book, format, uncompressed_size, name) VALUES (?, 'PDF', 1, 'Novel')", (novel,))
+    con.commit()
+    con.close()
+    CWA_DB().save_hand_cover(picked)
+    cdb = db.CalibreDB(expire_on_commit=False, init=True)
+    try:
+        jobs = {i: pdf_cover.cover_job(cdb.get_book(i), str(env.library_dir)) for i in (paper, picked, novel)}
+    finally:
+        cdb.session.close()
+    assert jobs[paper][3] and not jobs[picked][3] and not jobs[novel][3]

@@ -68,6 +68,8 @@ $(function () {
     if (typeof metaSelectionCache !== "object" || metaSelectionCache === null) {
       metaSelectionCache = {};
     }
+    // The cover starts unticked every time: it is chosen per book, never remembered
+    delete metaSelectionCache.cover;
     return metaSelectionCache;
   }
 
@@ -366,6 +368,7 @@ $(function () {
   // ---- Events ----
 
   $(document).on("change", '#meta-info input[type="checkbox"][data-meta-value]', function () {
+    if (this.dataset.metaValue === "cover") { return; }
     var change = {};
     change[this.dataset.metaValue] = this.checked;
     saveMetaSelections(change);

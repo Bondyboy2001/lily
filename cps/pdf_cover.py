@@ -5,10 +5,13 @@
 """Gives a PDF book a cover of its first page, centred on what is printed there.
 
 A PDF's cover is a render of page 1, and many papers sit off-centre on the page (set for A4,
-printed on US Letter), so the grid showed a wide white band down one side. recentre_book_cover
+printed on US Letter), so the grid showed a wide white band down one side. recentre_cover
 renders page 1 again, trims the side margins to match (arXiv's stamp down the left margin
-counts as print) and saves that as cover.jpg. It only replaces a cover that is still that
-plain render: a provider's or an uploaded cover never looks like page 1, so it is kept.
+counts as print) and saves that as cover.jpg.
+
+A book whose only files are PDFs always shows page 1: a provider's cover on it is replaced.
+One chosen by hand (ticked in Fetch metadata, or uploaded) is kept, and so is any cover of a
+book with an EPUB or other file beside its PDF.
 
 A PDF book with no cover.jpg, or only the "Cover not available" card the old import wrote
 for PDFs it could not render, gets page 1 as its cover (fix_cover), and one whose cover.jpg
@@ -175,51 +178,76 @@ def save_page_cover(pdf_path, cover_path):
                 _save_jpeg(centred, cover_path)
 
 
-def recentre_cover(pdf_path, cover_path):
-    """Replace cover_path with a centred render of the PDF's first page; True when it did.
+def _looks_like(cover, page):
+    """True when the cover image shows the page render, at its proportions."""
+    if abs(cover.width / cover.height - page.width / page.height) > SAME_SHAPE:
+        return False
+    return same_page(_gray(page, COMPARE_SIZE), _gray(cover, COMPARE_SIZE))
 
-    Leaves the cover alone when it is not the plain page render (a provider's or an uploaded
-    cover, or one already centred) or when the page is already even."""
+
+def recentre_cover(pdf_path, cover_path, replace=False):
+    """Make cover_path the PDF's first page, centred on its print; True when it changed.
+
+    A cover that is still the plain page render is centred. Any other cover (a provider's or an
+    uploaded one) is replaced only with `replace`; one already centred is left as it is."""
     from wand.image import Image
     if not (os.path.isfile(pdf_path) and os.path.isfile(cover_path)):
         return False
     with render_first_page(pdf_path) as page, Image(filename=cover_path) as cover:
-        # A centred cover is narrower than the page, so a second pass leaves it be
-        if abs(cover.width / cover.height - page.width / page.height) > SAME_SHAPE:
-            return False
-        if not same_page(_gray(page, COMPARE_SIZE), _gray(cover, COMPARE_SIZE)):
-            return False
         centred = centred_page(page)
-        if centred is None:
-            return False
-        with centred:
-            _save_jpeg(centred, cover_path)
+        try:
+            target = centred if centred is not None else page
+            # A centred cover is narrower than the page, so a second pass leaves it be
+            if _looks_like(cover, target):
+                return False
+            if not (replace or _looks_like(cover, page)):
+                return False
+            _save_jpeg(target, cover_path)
+        finally:
+            if centred is not None:
+                centred.close()
     return True
 
 
-def fix_cover(pdf_path, cover_path, has_cover):
+def fix_cover(pdf_path, cover_path, has_cover, replace=False):
     """Make sure a PDF book has a cover it shows; True when cover.jpg or the book's flag must change.
 
-    No cover.jpg, or only the placeholder card: page 1 becomes the cover. A cover.jpg the book
-    isn't flagged as having is shown again as it is. Otherwise the cover is centred when it is
-    still the plain page render (recentre_cover)."""
+    No cover.jpg, or only the placeholder card: page 1 becomes the cover. With `replace`, any
+    other cover becomes page 1 too. Without it, a cover.jpg the book isn't flagged as having is
+    shown again as it is, and a flagged one is centred when it is still the plain page render
+    (recentre_cover)."""
     if not os.path.isfile(pdf_path):
         return False
     if not os.path.isfile(cover_path) or is_placeholder(cover_path):
         save_page_cover(pdf_path, cover_path)
         return True
-    if not has_cover:
+    if not (has_cover or replace):
         return True
-    return recentre_cover(pdf_path, cover_path)
+    return recentre_cover(pdf_path, cover_path, replace) or not has_cover
+
+
+def _hand_cover(book_id):
+    """True when the book's cover was chosen by hand, or when that cannot be told (keep it)."""
+    try:
+        from cwa_db import CWA_DB
+        return CWA_DB().has_hand_cover(book_id)
+    except Exception as e:
+        log.debug("Could not tell whether book %s has a hand-picked cover: %s", book_id, e)
+        return True
 
 
 def cover_job(book, library_path):
-    """(PDF path, cover.jpg path, has a cover) of a PDF book, or None for a book with no PDF."""
+    """(PDF path, cover.jpg path, has a cover, replace its cover) of a PDF book, or None for a
+    book with no PDF. The cover is replaced by page 1 when PDFs are the book's only files and
+    nobody chose its cover by hand."""
     pdf = next((d for d in book.data if d.format.upper() == 'PDF'), None)
     if pdf is None:
         return None
     folder = os.path.join(library_path, book.path)
-    return os.path.join(folder, pdf.name + '.pdf'), os.path.join(folder, 'cover.jpg'), bool(book.has_cover)
+    only_pdf = all(d.format.upper() == 'PDF' for d in book.data)
+    replace = only_pdf and not _hand_cover(book.id)
+    return (os.path.join(folder, pdf.name + '.pdf'), os.path.join(folder, 'cover.jpg'),
+            bool(book.has_cover), replace)
 
 
 def try_fix_cover(job, book_id=None):

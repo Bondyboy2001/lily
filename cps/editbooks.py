@@ -591,6 +591,8 @@ def do_edit_book(book_id, upload_formats=None):
         if cover_upload_success or to_save.get("format_cover"):
             book.has_cover = 1
             modify_date = True
+        if cover_upload_success:
+            _note_hand_cover(book.id)
 
         if to_save.get("cover_url"):
             if not current_user.role_edit():
@@ -606,6 +608,7 @@ def do_edit_book(book_id, upload_formats=None):
                     book.has_cover = 1
                     modify_date = True
                     refresh_cover_thumbnail_after_commit = True
+                    _note_hand_cover(book.id)
                     log.debug("[edit_book] cover saved book_id=%s duration=%.3fs", book.id, time.monotonic() - cover_start)
                 else:
                     log.warning("[edit_book] cover save failed book_id=%s duration=%.3fs error=%s", book.id, time.monotonic() - cover_start, error)
@@ -1126,6 +1129,15 @@ def _note_matched(book_id, source):
         CWA_DB().save_metadata_lookup(book_id, "matched", source[:100])
     except Exception as e:
         log.debug("Could not note book %s as matched: %s", book_id, e)
+
+
+def _note_hand_cover(book_id):
+    """The book's cover was chosen by hand: Rebuild metadata keeps it over a PDF's first page."""
+    try:
+        from cwa_db import CWA_DB
+        CWA_DB().save_hand_cover(book_id)
+    except Exception as e:
+        log.debug("Could not note book %s's cover as chosen by hand: %s", book_id, e)
 
 
 def edit_book_ratings(to_save, book):

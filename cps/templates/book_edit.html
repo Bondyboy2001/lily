@@ -299,7 +299,8 @@
           src="<%- safeUrl(book.cover) %>"
           alt="<%- book.title ? 'Cover of ' + book.title : 'Cover' %>"
         >
-        <input type="checkbox" data-meta-value="cover" aria-label="{{_('Use this cover')}}" checked>
+        {# Unticked: a PDF keeps its first page unless this cover is chosen here #}
+        <input type="checkbox" data-meta-value="cover" aria-label="{{_('Use this cover')}}">
       </div>
       <% } else { %>
       <div class="meta-no-cover">{{_('No cover')}}</div>

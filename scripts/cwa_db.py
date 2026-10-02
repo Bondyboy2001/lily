@@ -824,6 +824,15 @@ class CWA_DB:
                          (book_id, url, cover))
         self.con.commit()
 
+    def save_hand_cover(self, book_id: int) -> None:
+        """Note that the book's cover was chosen by hand, so it is kept over the PDF's first page."""
+        self.cur.execute("INSERT OR IGNORE INTO hand_covers (book_id) VALUES (?)", (book_id,))
+        self.con.commit()
+
+    def has_hand_cover(self, book_id: int) -> bool:
+        return self.cur.execute("SELECT 1 FROM hand_covers WHERE book_id = ?",
+                                (book_id,)).fetchone() is not None
+
     def save_metadata_lookup(self, book_id: int, status: str, source: str = '') -> None:
         """Note what a metadata lookup of the book found: matched, nomatch or failed."""
         self.cur.execute("INSERT OR REPLACE INTO metadata_lookups (book_id, status, source, checked_at) "

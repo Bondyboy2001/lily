@@ -41,7 +41,7 @@ def env(tmp_path, temp_cwa_db, monkeypatch):
         yield env
 
 
-def _fetch(env, monkeypatch, cover, has_cover, old=None, largest=0):
+def _fetch(env, monkeypatch, cover, has_cover, old=None, largest=0, fmt="EPUB"):
     """Looks up a book (with a cover.jpg holding old, when given) and returns (changed, cover bytes)."""
     from cps import metadata_helper
     record = SimpleNamespace(title="Dune", authors=["Frank Herbert"], description="", publisher="",
@@ -51,7 +51,7 @@ def _fetch(env, monkeypatch, cover, has_cover, old=None, largest=0):
     monkeypatch.setattr(metadata_helper, "metadata_providers", [FakeProvider(
         __id__="google", __name__="Google", identifier_types=frozenset(),
         search=lambda q, *a: [record])])
-    book_id = env.add_book("Dune", author="Frank Herbert")
+    book_id = env.add_book("Dune", author="Frank Herbert", fmt=fmt)
     con = sqlite3.connect(env.library_dir / "metadata.db")
     con.create_function("title_sort", 1, lambda t: t)
     con.execute("UPDATE books SET has_cover=? WHERE id=?", (has_cover, book_id))
@@ -134,3 +134,12 @@ def test_a_cover_that_cannot_be_larger_is_not_downloaded(env, monkeypatch):
 def test_a_book_without_a_cover_always_gets_the_providers(env, monkeypatch):
     changed, cover = _fetch(env, monkeypatch, "https://covers.example/g.jpg", 0, largest=800 * 900)
     assert changed and cover.startswith(b"new:")
+
+
+def test_a_pdf_keeps_its_first_page_and_no_providers_cover_is_fetched(env, monkeypatch):
+    # Its cover is page 1 (cps/pdf_cover.py); a provider's is only taken by hand in Fetch metadata
+    from cps import pdf_cover
+    monkeypatch.setattr(pdf_cover, "available", lambda: True)
+    env.sizes.update({b"old!": 100 * 150, b"new:": 600 * 900})
+    changed, cover = _fetch(env, monkeypatch, "https://covers.example/big.jpg", 1, old=b"old!", fmt="PDF")
+    assert cover == b"old!" and env.downloads == []

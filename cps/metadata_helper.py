@@ -400,6 +400,14 @@ def _cover_path(book):
     return path if book.has_cover and os.path.isfile(path) else None
 
 
+def _keeps_page_cover(book) -> bool:
+    """True for a book whose only files are PDFs, when page 1 can be rendered as its cover
+    (cps/pdf_cover.py): no provider's cover is applied to it automatically."""
+    from cps import pdf_cover
+    formats = [d.format.upper() for d in book.data or []]
+    return bool(formats) and all(f == 'PDF' for f in formats) and pdf_cover.available()
+
+
 def _cover_wins(book, new_cover: str) -> bool:
     """A provider's cover replaces the book's only when the book has none or it is
     larger: a provider's cover is often a small thumbnail, worse than the one the file
@@ -481,6 +489,7 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
                 # What it is shows on its title page, and its ISBN on the copyright page
                 page_text = "\n".join((page_text, pdf_front_matter_text(book)))
             current_cover = _cover_path(book)
+            page_cover = _keeps_page_cover(book)
         missed = set()
         # The pages after the first are read only when the searches find nothing, and not
         # while holding the library
@@ -492,7 +501,8 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
             # A provider that didn't answer might have it: worth asking again
             _note_lookup(store, book_id, 'failed' if missed else 'nomatch')
             return False
-        url = getattr(record, 'cover', '') or ''
+        # A PDF's cover is its first page; a provider's is only taken by hand, in Fetch metadata
+        url = '' if page_cover else getattr(record, 'cover', '') or ''
         with tempfile.TemporaryDirectory() as tmp:
             cover = None
             if _cover_worth_fetching(store, book_id, url, getattr(record, 'cover_max_pixels', 0), current_cover):

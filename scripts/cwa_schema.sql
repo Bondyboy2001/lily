@@ -158,6 +158,12 @@ CREATE TABLE IF NOT EXISTS metadata_cover_checks(
     cover TEXT NOT NULL  -- the book's cover.jpg once weighed, as "size:mtime"
 );
 
+-- Books whose cover was chosen by hand (ticked in Fetch metadata, or uploaded): a PDF's cover
+-- is otherwise always its first page (cps/pdf_cover.py)
+CREATE TABLE IF NOT EXISTS hand_covers(
+    book_id INTEGER PRIMARY KEY
+);
+
 -- What the last metadata lookup of each book found, for the library's Metadata filter and Retry failed
 CREATE TABLE IF NOT EXISTS metadata_lookups(
     book_id INTEGER PRIMARY KEY,
