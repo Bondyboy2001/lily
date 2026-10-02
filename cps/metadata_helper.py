@@ -10,9 +10,12 @@ import json
 import logging
 import os
 import re
+import shutil
+import tempfile
 import unicodedata
+from datetime import datetime, timezone
 
-from cps import logger, db, constants
+from cps import logger, db, constants, helper
 from cps.helper import get_sorted_author
 from cps.search_metadata import cl as metadata_providers
 import sys
@@ -154,6 +157,46 @@ def _read_first_page(path: str, mtime: float) -> str:
         return ""
     finally:
         pypdf_log.setLevel(level)
+
+
+def _image_area(path: str) -> int:
+    """Width times height of an image file; 0 when it can't be read."""
+    try:
+        from wand.image import Image
+        with Image(filename=path) as img:
+            return img.width * img.height
+    except Exception as e:
+        log.debug(f"Could not measure {path}: {e}")
+        return 0
+
+
+def _apply_cover(book, url: str) -> bool:
+    """Saves a provider's cover for the book when it has none, or when the new one
+    is larger: a provider's cover is often a small thumbnail, worse than the one
+    the file came with. Any doubt keeps the current cover."""
+    if not (url or '').startswith(('http://', 'https://')):
+        return False  # none, or the generic placeholder
+    from cps import config
+    book_dir = os.path.join(config.get_book_path(), book.path)
+    current = os.path.join(book_dir, 'cover.jpg')
+    with tempfile.TemporaryDirectory() as tmp:
+        # save_cover_from_url joins its path onto the library's; an absolute one
+        # lands here, so the current cover stays until the new one wins
+        saved, error = helper.save_cover_from_url(url, tmp)
+        fetched = os.path.join(tmp, 'cover.jpg')
+        if not saved or not os.path.isfile(fetched):
+            log.debug(f"Cover {url} not saved: {error}")
+            return False
+        if book.has_cover and os.path.isfile(current):
+            new_area, old_area = _image_area(fetched), _image_area(current)
+            if not new_area or not old_area or new_area <= old_area:
+                return False
+        os.makedirs(book_dir, exist_ok=True)
+        shutil.move(fetched, current)
+    book.has_cover = 1
+    helper.replace_cover_thumbnail_cache(book.id)
+    log.info(f"Saved the cover from {url} for book {book.id}")
+    return True
 
 
 def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
@@ -416,7 +459,6 @@ def _apply_metadata_to_book(book, metadata, calibre_db_instance) -> bool:
         if (cwa_settings.get('auto_metadata_update_published_date', True) and
             hasattr(metadata, 'publishedDate') and metadata.publishedDate):
             try:
-                from datetime import datetime
                 if isinstance(metadata.publishedDate, str):
                     # Try to parse various date formats
                     for fmt in ['%Y-%m-%d', '%Y-%m', '%Y']:
@@ -468,12 +510,10 @@ def _apply_metadata_to_book(book, metadata, calibre_db_instance) -> bool:
 
         # Handle cover image - only if enabled in settings
         if (cwa_settings.get('auto_metadata_update_cover', True) and
-            hasattr(metadata, 'cover') and metadata.cover):
-            # TODO: Implement cover resolution checking for smart mode
-            # For now, just apply the cover in normal mode
-            if not use_smart_application:
-                # Apply cover (implementation depends on how covers are handled in Calibre-Web)
-                pass
+                _apply_cover(book, getattr(metadata, 'cover', ''))):
+            # A new cover-URL cache key, so browsers fetch the new cover
+            book.last_modified = datetime.now(timezone.utc)
+            updated = True
 
         if updated:
             calibre_db_instance.session.commit()
