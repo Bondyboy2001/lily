@@ -47,6 +47,7 @@ def test_detail_page_has_no_inline_styles_and_one_primary():
     assert 'target="_blank" rel="noopener"' in read_btn
     # So does the read button on a grid cover.
     assert 'window.open(url, "_blank", "noopener")' in read(JS / "lily.js")
+
     assert 'class="btn btn-primary"' in read_btn
     assert "url_for('web.read_book'" in read_btn
     assert "{{ _('Read') }}" in read_btn
@@ -442,3 +443,18 @@ def test_read_and_archive_toggles_flip_their_label_without_aria_pressed():
 def test_book_views_hide_the_unknown_author_placeholder():
     for name in ["detail.html", "image.html", "index.html", "listenmp3.html", "shelf_order.html"]:
         assert "|named_authors" in read(TEMPLATES / name), name
+
+
+def test_installed_app_opens_the_reader_in_place():
+    # §6.7: a new tab would leave an installed (standalone) app for the browser.
+    js = read(JS / "lily.js")
+    assert 'matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true' in js
+    assert '$("a[data-reader-link]")' in js and 'this.removeAttribute("target")' in js
+    handler = js[js.index('".lily-cover-actions .lily-read-now"'):]
+    assert handler.index("window.location.href = url") < handler.index('window.open(url, "_blank", "noopener")')
+    for name, needle in (("detail.html", 'id="readbtn"'), ("book_edit.html", 'id="readbtn"'),
+                         ("index.html", 'class="book-cover-link"')):
+        html = read(TEMPLATES / name)
+        start = html.rindex("<a", 0, html.index(needle))
+        tag = html[start:html.index(">", html.index(needle))]
+        assert "data-reader-link=" in tag, name

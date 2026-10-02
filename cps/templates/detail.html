@@ -50,7 +50,7 @@
                 {% set can_delete = current_user.role_edit() and current_user.role_delete_books() %}
                 {% if can_read %}
                     {# A book in progress reads "Continue · 33%" and opens the format it was last read in, in a new tab. #}
-                    <a id="readbtn" class="btn btn-primary" target="_blank" rel="noopener"
+                    <a id="readbtn" class="btn btn-primary" target="_blank" rel="noopener" data-reader-link=""
                        href="{{ url_for('web.read_book', book_id=entry.id, book_format=(resume and resume.format) or entry.reader_list[0]) }}">
                         <span class="glyphicon glyphicon-book" aria-hidden="true"></span>{% if resume %}{{ _('Continue') }}<span class="book-resume-percent">· {{ resume.percent }}%</span>{% else %}{{ _('Read') }}{% endif %}
                     </a>

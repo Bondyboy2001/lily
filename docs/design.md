@@ -558,7 +558,10 @@ use `.lily-standalone` with max-width 560.
 ### 6.7 Reader
 
 Every way into the reader (Read/Continue, a cover's read button, Continue
-Reading) opens it in a new tab, so the library stays where it was.
+Reading) opens it in a new tab, so the library stays where it was. The
+exception is Lily installed as an app (`display-mode: standalone`), where a new
+tab would leave the app for the browser: there `lily.js` opens the reader in
+place (links carry `data-reader-link`) and the reader's Back link returns.
 
 `lily-reader.css` styles the reader **chrome** (title bar, sidebar, settings
 sheet, audio player) with tokens. The page zoom is reset to 1, and the chrome

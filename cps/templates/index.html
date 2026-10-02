@@ -38,7 +38,8 @@
         <a href="{% if resume_format %}{{ url_for('web.read_book', book_id=book.id, book_format=resume_format) }}{% else %}{{ url_for('web.show_book', book_id=book.id) }}{% endif %}"
            data-book-id="{{ book.id }}"
            data-book-formats="{% for format in book.data %}{{ format.format.lower() }}{% if not loop.last %},{% endif %}{% endfor %}"
-           {% if resume_format %}target="_blank" rel="noopener" aria-label="{{ _('Continue reading %(title)s (opens in a new tab)', title=book.title) }}"{% endif %}
+           {% if resume_format %}target="_blank" rel="noopener" aria-label="{{ _('Continue reading %(title)s (opens in a new tab)', title=book.title) }}"
+           data-reader-link="{{ _('Continue reading %(title)s', title=book.title) }}"{% endif %}
            class="book-cover-link">
           <span class="img">
             {{ image.book_cover(book) }}

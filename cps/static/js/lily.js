@@ -182,11 +182,25 @@
       });
     });
 
+    // Books open in a new tab, so the library stays where it was. Installed as an app (added
+    // to the home screen), a new tab would leave the app for the browser, so there the reader
+    // opens in place and its Back link returns to the book.
+    var installedApp = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    if (installedApp) {
+      $("a[data-reader-link]").each(function () {
+        this.removeAttribute("target");
+        var label = this.getAttribute("data-reader-link");
+        if (label) { this.setAttribute("aria-label", label); }
+      });
+    }
+
     // Quick actions under grid covers (image.html cover_actions).
     $(document).on("click", ".lily-cover-actions .lily-read-now", function () {
-      // Books always open in a new tab, so the library stays where it was.
       var url = this.getAttribute("data-reader-url");
-      if (url) {
+      if (!url) { return; }
+      if (installedApp) {
+        window.location.href = url;
+      } else {
         window.open(url, "_blank", "noopener");
       }
     });
