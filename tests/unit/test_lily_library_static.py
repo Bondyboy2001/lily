@@ -585,3 +585,10 @@ def test_the_book_table_is_reachable_from_the_view_switch():
     # /table (bulk shelve, mark read, delete) had no link anywhere
     switch = read(TEMPLATES / "image.html").split("{% macro view_switch", 1)[1].split("{%- endmacro %}", 1)[0]
     assert "url_for('web.books_table')" in switch and "Edit many books at once" in switch
+
+
+def test_duplicate_scan_notice_does_not_show_the_tasks_progress_line():
+    # "Duplicate scan: Building duplicate index: 17836/17836 books" repeated the bar in words
+    js = read(JS / "duplicates.js")
+    notice = js[js.index("function setDuplicateScanNotice"):js.index("function showDuplicateScanFinishedNotice")]
+    assert "taskMessage" not in notice

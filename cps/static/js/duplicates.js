@@ -424,7 +424,6 @@ $(document).ready(function() {
 
     function setDuplicateScanNotice(task) {
         var progress = parseTaskProgress(task);
-        var message = task.taskMessage || 'Duplicate scan is running in the background.';
         window.CWADuplicateScanActive = true;
         if (window.CWADuplicates && window.CWADuplicates.updateBadge) {
             window.CWADuplicates.updateBadge(0);
@@ -434,7 +433,8 @@ $(document).ready(function() {
         $('#no_duplicate_books_message').hide();
         $('#duplicate_scan_results_status').addClass('is-active');
         $('#duplicate_scan_task_title').text('Duplicate Scan Running');
-        $('#duplicate_scan_task_message').text(message);
+        // The bar shows how far it got; the task's own line ("Building duplicate index: n/N books") isn't shown
+        $('#duplicate_scan_task_message').text('You can keep using Lily while it runs.');
         $('#duplicate_scan_task_progress_container').show();
         $('#duplicate_scan_task_link').hide();
         $('#duplicate_scan_task_progress')
