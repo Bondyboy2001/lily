@@ -1123,9 +1123,11 @@ class CalibreDB:
                         ids.remove(r.id)
                     continue
                 results = self.session.query(Authors).filter(Authors.sort == auth).all()
-                # ToDo: How to handle not found author name
+                # The book's author sort can drift from the author's own (calibre keeps both):
+                # harmless, the rest keep their stored order. Logged quietly, as it comes up on
+                # every page that lists the book and buried real errors in the log.
                 if not len(results):
-                    log.error("Author '{}' not found to display name in right order".format(auth))
+                    log.debug("Author '{}' not found to display name in right order".format(auth))
                     break
                 for r in results:
                     if r.id in ids:

@@ -291,8 +291,8 @@ def render_show_shelf(shelf_id, page_no, sort_param):
 @shelf.route("/shelf/<int:shelf_id>/book/<int:book_id>", methods=["POST"])
 @user_login_required
 def set_book_on_shelf(shelf_id, book_id):
-    """Put one book on a shelf or take it off: JSON {"on": true|false}. Used by the book page's
-    Shelves menu and the remove button on shelf pages. Answers {"on": bool, "count": int}."""
+    """Put one book on a shelf or take it off: JSON {"on": true|false}. Used by the remove
+    button on shelf pages. Answers {"on": bool, "count": int}."""
     data = request.get_json(silent=True) or {}
     if not isinstance(data.get("on"), bool):
         return jsonify({"message": _("Say whether the book goes on the shelf or comes off it.")}), 400

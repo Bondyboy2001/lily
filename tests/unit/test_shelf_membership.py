@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""One book on or off one shelf (shelf.set_book_on_shelf): the book page's Shelves menu and the
-remove button on shelf pages."""
+"""One book on or off one shelf (shelf.set_book_on_shelf): the remove button on shelf pages."""
 
 import re
 

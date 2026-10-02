@@ -30,7 +30,7 @@
   </div>
   {% if not entries %}
   {{ image.empty_state('glyphicon-list', _('This Shelf Is Empty'),
-                       _('Add a book from its page: open the Shelves menu and tick this shelf.'),
+                       _('To add a book, open it, choose Edit metadata and add this shelf under Shelves.'),
                        [(_('Browse books'), url_for('web.index'), True)]) }}
   {% endif %}
 </div>

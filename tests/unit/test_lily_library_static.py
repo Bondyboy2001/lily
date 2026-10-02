@@ -543,3 +543,11 @@ def test_editor_keeps_the_authors_in_the_books_own_order():
     assert "localeCompare" not in edit_js and "opts.sort" not in edit_js
     authors = edit_js.split('field: $("#authors")', 1)[1].split("});", 1)[0]
     assert "sort" not in authors
+
+
+def test_empty_shelf_says_how_books_get_there_now():
+    # The book page's Shelves menu is gone (shelves change on the edit page); the empty
+    # state sent people to it
+    template = read(TEMPLATES / "shelf.html")
+    assert "Shelves menu" not in template
+    assert "choose Edit metadata and add this shelf under Shelves" in template
