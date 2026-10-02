@@ -183,6 +183,22 @@ CREATE TABLE IF NOT EXISTS cwa_duplicate_book_keys (
 CREATE INDEX IF NOT EXISTS idx_cwa_duplicate_book_keys_key
     ON cwa_duplicate_book_keys(criteria_fingerprint, duplicate_key);
 
+-- Content hashes of files that share a format and exact byte size with another
+-- book's file. Books with the same hash are duplicates whatever their metadata
+CREATE TABLE IF NOT EXISTS cwa_duplicate_file_keys (
+    book_id INTEGER NOT NULL,
+    format TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    file_mtime_ns INTEGER NOT NULL,
+    content_hash TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_cwa_duplicate_file_keys_file
+    ON cwa_duplicate_file_keys(book_id, format);
+
+CREATE INDEX IF NOT EXISTS idx_cwa_duplicate_file_keys_hash
+    ON cwa_duplicate_file_keys(content_hash);
+
 -- Auto-resolution audit log
 CREATE TABLE IF NOT EXISTS cwa_duplicate_resolutions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -63,10 +63,24 @@ def _load_duplicate_index_module():
         series = object()
         publishers = object()
 
-    db = _install_stub("cps.db", {"Books": _Books})
+    class _DataColumn:
+        def __init__(self, name):
+            self.name = name
+
+        def __eq__(self, value):
+            return ("data_eq", self.name, value)
+
+    class _Data:
+        book = _DataColumn("book")
+        format = _DataColumn("format")
+        uncompressed_size = _DataColumn("uncompressed_size")
+
+    db = _install_stub("cps.db", {"Books": _Books, "Data": _Data})
     calibre_db = _install_stub("cps.calibre_db", {"session": None, "order_authors": lambda books: books[0].authors})
+    config = _install_stub("cps.config", {"get_book_path": lambda: "/library"})
     cps.db = db
     cps.calibre_db = calibre_db
+    cps.config = config
     cps.logger = logger
 
     def _normalize_title(title, primary_author=None):
@@ -141,6 +155,14 @@ class _FakeCwaDB:
             );
             CREATE INDEX idx_cwa_duplicate_book_keys_key
                 ON cwa_duplicate_book_keys(criteria_fingerprint, duplicate_key);
+            CREATE TABLE cwa_duplicate_file_keys (
+                book_id INTEGER NOT NULL,
+                format TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                file_mtime_ns INTEGER NOT NULL,
+                content_hash TEXT NOT NULL
+            );
+            CREATE UNIQUE INDEX idx_cwa_duplicate_file_keys_file ON cwa_duplicate_file_keys(book_id, format);
             CREATE TABLE cwa_duplicate_cache (
                 id INTEGER PRIMARY KEY CHECK (id = 1),
                 scan_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -194,25 +216,35 @@ class _FakeCwaDB:
 
 
 class _Query:
-    def __init__(self, books, scalar_value=None):
+    def __init__(self, books, scalar_value=None, data_rows=False):
         self.books = list(books)
         self.scalar_value = scalar_value
+        # A query on Data.book returns one (book id,) row per matching book
+        self.data_rows = data_rows
 
     def options(self, *args):
         return self
 
-    def filter(self, expression):
-        if isinstance(expression, tuple) and expression[0] == "book_id_in":
-            wanted = set(expression[1])
-            self.books = [book for book in self.books if book.id in wanted]
-        elif isinstance(expression, tuple) and expression[0] == "exclude_ids":
-            self.books = [book for book in self.books if book.id not in expression[1]]
+    def filter(self, *expressions):
+        for expression in expressions:
+            if isinstance(expression, tuple) and expression[0] == "book_id_in":
+                wanted = set(expression[1])
+                self.books = [book for book in self.books if book.id in wanted]
+            elif isinstance(expression, tuple) and expression[0] == "exclude_ids":
+                self.books = [book for book in self.books if book.id not in expression[1]]
+            elif isinstance(expression, tuple) and expression[0] == "data_eq":
+                _kind, field, value = expression
+                self.books = [book for book in self.books if any(
+                    (data.format.upper() if field == "format" else getattr(data, field)) == value
+                    for data in book.data)]
         return self
 
     def order_by(self, *args):
         return self
 
     def all(self):
+        if self.data_rows:
+            return [(book.id,) for book in self.books]
         return list(self.books)
 
     def scalar(self):
@@ -229,6 +261,8 @@ class _Session:
             return _Query([], max([book.id for book in self.books], default=0))
         if "count" in subject_text:
             return _Query([], len(self.books))
+        if isinstance(subject, tuple) or getattr(subject, "name", None) == "book":
+            return _Query(self.books, data_rows=True)
         return _Query(self.books)
 
 
@@ -249,7 +283,8 @@ def _book(
         languages=[SimpleNamespace(lang_code=language)] if language is not None else [],
         series=[SimpleNamespace(name=series)] if series is not None else [],
         publishers=[SimpleNamespace(name=publisher)] if publisher is not None else [],
-        data=[SimpleNamespace(format=fmt) for fmt in (formats or [])],
+        data=[SimpleNamespace(format=fmt, uncompressed_size=0, name=title) for fmt in (formats or [])],
+        path=f"Author/Book ({book_id})",
         timestamp=timestamp or datetime(2024, 1, book_id, tzinfo=timezone.utc),
         has_cover=False,
     )
@@ -268,6 +303,7 @@ def duplicate_index(monkeypatch):
         "cps.duplicate_rules",
         "cps.duplicate_detection",
         "cps.calibre_db",
+        "cps.config",
         "cps.db",
         "cps.logger",
         "cps",
@@ -720,3 +756,111 @@ def test_schema_contains_duplicate_book_key_table():
 
     assert table == ("cwa_duplicate_book_keys",)
     assert index == ("idx_cwa_duplicate_book_keys_key",)
+
+
+def _book_with_file(library, book_id, title, author, content, fmt="PDF"):
+    """A book whose one `fmt` file holds `content`, stored under `library` the way calibre lays it out."""
+    book = _book(book_id, title, author, formats=[fmt])
+    folder = library / book.path
+    folder.mkdir(parents=True)
+    (folder / f"{title}.{fmt.lower()}").write_bytes(content)
+    book.data[0].uncompressed_size = len(content)
+    return book
+
+
+@pytest.fixture
+def library(duplicate_index, tmp_path, monkeypatch):
+    monkeypatch.setattr(duplicate_index.config, "get_book_path", lambda: str(tmp_path))
+    return tmp_path
+
+
+TITLE_AUTHOR = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+
+
+def test_byte_identical_files_are_duplicates_whatever_their_metadata(duplicate_index, library):
+    books = [
+        _book_with_file(library, 1, "Generalized Tate Cohomology", "Greenlees", b"same pdf bytes"),
+        _book_with_file(library, 2, "Generalized Tate Cohomolog", "Greenless", b"same pdf bytes"),
+        # Same format and byte size by chance, different content: not a duplicate
+        _book_with_file(library, 3, "Morrey Spaces", "Adams", b"other pdf byte"),
+    ]
+    duplicate_index.calibre_db.session = _Session(books)
+
+    duplicate_index.rebuild_duplicate_index(TITLE_AUTHOR)
+    groups = duplicate_index.get_duplicate_groups_from_index(TITLE_AUTHOR, include_dismissed=True)
+
+    assert [sorted(book.id for book in group["books"]) for group in groups] == [[1, 2]]
+    assert groups[0]["same_file"] is True
+
+
+def test_a_book_matched_by_metadata_and_by_file_joins_one_group(duplicate_index, library):
+    books = [
+        _book_with_file(library, 1, "Dune", "Frank Herbert", b"first edition"),
+        _book_with_file(library, 2, "Dune", "Frank Herbert", b"second printing"),
+        _book_with_file(library, 3, "Dune (Unknown)", "Unknown", b"second printing"),
+    ]
+    duplicate_index.calibre_db.session = _Session(books)
+
+    duplicate_index.rebuild_duplicate_index(TITLE_AUTHOR)
+    groups = duplicate_index.get_duplicate_groups_from_index(TITLE_AUTHOR, include_dismissed=True)
+
+    assert [sorted(book.id for book in group["books"]) for group in groups] == [[1, 2, 3]]
+
+
+def test_metadata_only_groups_are_not_marked_identical(duplicate_index, library):
+    books = [_book_with_file(library, 1, "Dune", "Frank Herbert", b"one"),
+             _book_with_file(library, 2, "Dune", "Frank Herbert", b"three")]
+    duplicate_index.calibre_db.session = _Session(books)
+
+    duplicate_index.rebuild_duplicate_index(TITLE_AUTHOR)
+
+    assert duplicate_index.get_duplicate_groups_from_index(TITLE_AUTHOR, include_dismissed=True)[0]["same_file"] is False
+
+
+def test_an_imported_copy_of_an_existing_file_is_found_incrementally(duplicate_index, library):
+    old = _book_with_file(library, 1, "Knots and Links", "Cromwell", b"knots pdf")
+    duplicate_index.calibre_db.session = _Session([old])
+    duplicate_index.rebuild_duplicate_index(TITLE_AUTHOR)
+    duplicate_index._write_duplicate_cache_groups(_FakeCwaDB(), [], 1)
+
+    new = _book_with_file(library, 2, "Knots and Links and", "Cromwell", b"knots pdf")
+    duplicate_index.calibre_db.session = _Session([old, new])
+    duplicate_index.merge_affected_groups_into_cache({2}, TITLE_AUTHOR)
+
+    cached = _FakeCwaDB().get_duplicate_cache()["duplicate_groups"]
+    assert [sorted(group["book_ids"]) for group in cached] == [[1, 2]]
+
+
+def test_unchanged_files_keep_their_stored_hash(duplicate_index, library, monkeypatch):
+    books = [_book_with_file(library, 1, "A", "X", b"same"), _book_with_file(library, 2, "B", "Y", b"same")]
+    duplicate_index.calibre_db.session = _Session(books)
+    duplicate_index.rebuild_duplicate_index(TITLE_AUTHOR)
+
+    hashed = []
+    real_hash = duplicate_index._hash_file
+    monkeypatch.setattr(duplicate_index, "_hash_file", lambda path: hashed.append(path) or real_hash(path))
+    duplicate_index.rebuild_duplicate_index(TITLE_AUTHOR)
+
+    assert hashed == []
+    assert len(duplicate_index.get_duplicate_groups_from_index(TITLE_AUTHOR, include_dismissed=True)) == 1
+
+
+def test_deleting_a_book_drops_its_file_key(duplicate_index, library):
+    books = [_book_with_file(library, 1, "A", "X", b"same"), _book_with_file(library, 2, "B", "Y", b"same")]
+    duplicate_index.calibre_db.session = _Session(books)
+    duplicate_index.rebuild_duplicate_index(TITLE_AUTHOR)
+
+    duplicate_index.delete_book_keys({2})
+
+    assert duplicate_index.get_duplicate_groups_from_index(TITLE_AUTHOR, include_dismissed=True) == []
+
+
+def test_identical_copies_imported_in_one_batch_find_each_other(duplicate_index, library):
+    books = [_book_with_file(library, 1, "Lecture Notes Week 1", "Unknown", b"notes"),
+             _book_with_file(library, 2, "MATH101 handout", "Unknown", b"notes")]
+    duplicate_index.calibre_db.session = _Session(books)
+
+    duplicate_index.merge_affected_groups_into_cache({1, 2}, TITLE_AUTHOR)
+
+    cached = _FakeCwaDB().get_duplicate_cache()["duplicate_groups"]
+    assert [sorted(group["book_ids"]) for group in cached] == [[1, 2]]

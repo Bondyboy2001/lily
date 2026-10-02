@@ -158,6 +158,7 @@ class CWA_DB:
             "cwa_user_activity",
             "cwa_duplicate_cache",
             "cwa_duplicate_book_keys",
+            "cwa_duplicate_file_keys",
             "cwa_duplicate_resolutions",
             "cwa_operation_jobs",
         ]

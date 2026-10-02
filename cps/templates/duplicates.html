@@ -92,6 +92,7 @@
               <div class="duplicate-author">
                 {{ group.author }}
                 <span class="duplicate-count">{{ group.count }} {{ _('copies') if group.count > 1 else _('copy') }}</span>
+                {% if group.same_file %}<span class="label label-info" title="{{_('At least two of these books hold byte-identical files')}}">{{_('Identical files')}}</span>{% endif %}
               </div>
             </div>
             <div class="duplicate-group-actions">
@@ -131,7 +132,7 @@
                     <span>{% for series in book.series %}{{ series.name }}{% if book.series_index %} ({{ book.series_index }}){% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</span>
                   {% endif %}
                   {% if book.data %}
-                    <span class="dup-mono">{% for data in book.data %}{{ data.format }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+                    <span class="dup-mono">{% for data in book.data %}{{ data.format }} {{ data.uncompressed_size|filesizeformat_binary }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
                   {% endif %}
                 </div>
               </div>
