@@ -61,7 +61,7 @@
       <input type="text" class="form-control" name="title" id="title" value="{{book.title}}">
     </div>
     {# One row per author over the hidden #authors field, which the server reads as an
-       " & "-separated list; kept sorted alphabetically (edit_books.js) #}
+       " & "-separated list, in the book's own order: never sorted (edit_books.js) #}
     <div id="author_div" class="form-group">
       <label id="authors-label">{{_('Authors')}}</label>
       <ol class="lily-edit-rows" id="author-rows" aria-labelledby="authors-label"

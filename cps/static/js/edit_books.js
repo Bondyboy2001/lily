@@ -152,7 +152,6 @@ var authors = new Bloodhound({
    opts.accept, if given, maps a typed value to the one to keep, or null to refuse it: refused
    rows stay on screen marked invalid and are left out of the field. Values that arrive through
    the field are always kept.
-   opts.sort keeps the saved value alphabetical always, and the rows once focus leaves the list.
    opts.fixed is for values that are not added by hand (tags): there is no Add button, and
    Enter and the split key add no row; the rows there are can be corrected or removed. */
 function lilyRowEditor(opts) {
@@ -166,13 +165,6 @@ function lilyRowEditor(opts) {
     var fromField = [];
 
     function same(a, b) { return a.toLowerCase() === b.toLowerCase(); }
-
-    function sortValues(values) {
-        if (!opts.sort) { return values; }
-        return values.sort(function (a, b) {
-            return a.localeCompare(b, undefined, {sensitivity: "base"});
-        });
-    }
 
     function inputs() {
         return $rows.find(INPUT);
@@ -198,7 +190,7 @@ function lilyRowEditor(opts) {
                     .attr({"aria-invalid": refused ? "true" : null, title: refused ? invalidLabel : null});
             }
         });
-        $field.val(opts.write(sortValues(values)));
+        $field.val(opts.write(values));
     }
 
     function makeRow(value) {
@@ -219,7 +211,7 @@ function lilyRowEditor(opts) {
 
     function render() {
         $rows.empty();
-        var values = sortValues(opts.read($field.val()));
+        var values = opts.read($field.val());
         fromField = values.slice();
         values.forEach(function (value) { $rows.append(makeRow(value)); });
     }
@@ -275,15 +267,11 @@ function lilyRowEditor(opts) {
     // Keep focus in the input when pressing ×, so the tidy-up below can't swallow the click
     $rows.on("mousedown", ".icon-btn", function (e) { e.preventDefault(); });
 
-    // Once focus leaves the list: drop blank rows, flag refused ones, and re-sort if sorted
+    // Once focus leaves the list: drop blank rows and flag refused ones
     $rows.on("focusout", function () {
         setTimeout(function () {
             if ($.contains($rows[0], document.activeElement)) { return; }
             sync(true);
-            if (opts.sort) {
-                render();
-                return;
-            }
             inputs().each(function () {
                 if (!$(this).typeahead("val").trim()) {
                     $(this).closest(".lily-edit-row").remove();
@@ -296,12 +284,12 @@ function lilyRowEditor(opts) {
     render();
 }
 
-/* Authors: the hidden #authors field is the " & "-separated list the server reads,
-   kept in alphabetical order. */
+/* Authors: the hidden #authors field is the " & "-separated list the server reads, in the
+   book's own order: the first is the book's author (its folder, "Bond et al."), so the rows
+   are never sorted. */
 lilyRowEditor({
     field: $("#authors"), rows: $("#author-rows"), add: $("#author-add"),
     name: "authors", display: "name", source: authors, minLength: 1,
-    sort: true,
     split: function (raw) {
         return raw.split("&").map(function (a) { return a.trim(); })
             .filter(function (a) { return a.length > 0; });

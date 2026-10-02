@@ -520,3 +520,12 @@ def test_book_row_series_number_is_not_a_hidden_author_line():
     assert 'class="related-number"' in row and 'class="author"' not in row
     css = read(CSS / "lily-library.css")
     assert ".continue-reading-item .meta .continue-reading-percent,\n.continue-reading-item .meta .related-number {" in css
+
+
+def test_editor_keeps_the_authors_in_the_books_own_order():
+    # The first author names the book and its folder; sorting the rows A-Z on any edit made
+    # "Bond, Gauthier, Strokorb" save as "Gauthier, Bond, Strokorb" and moved the folder
+    edit_js = read(JS / "edit_books.js")
+    assert "localeCompare" not in edit_js and "opts.sort" not in edit_js
+    authors = edit_js.split('field: $("#authors")', 1)[1].split("});", 1)[0]
+    assert "sort" not in authors
