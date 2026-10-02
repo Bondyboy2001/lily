@@ -615,11 +615,14 @@ def test_reader_chrome_is_legible_in_every_page_theme():
 
 
 @pytest.mark.unit
-def test_book_page_offers_a_lookup_when_the_description_is_missing(client, temp_cwa_db):
+def test_book_page_offers_a_lookup_until_one_has_run(client, temp_cwa_db):
     env, c, book_id = client
     html = c.get(f"/book/{book_id}").get_data(as_text=True)
     assert 'id="book-fetch-prompt"' in html
     assert f"/admin/book/{book_id}?fetch=1" in html
+    # Any lookup, by hand or by the importer and whatever it found, retires the prompt
+    temp_cwa_db.save_metadata_lookup(book_id, "nomatch", "")
+    assert 'id="book-fetch-prompt"' not in c.get(f"/book/{book_id}").get_data(as_text=True)
     # The edit page takes the flag and the lookup button it opens is there
     edit = c.get(f"/admin/book/{book_id}?fetch=1").get_data(as_text=True)
     assert 'id="get_meta"' in edit
