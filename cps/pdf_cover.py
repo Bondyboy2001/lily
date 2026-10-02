@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Centres a PDF's cover on what is printed on its first page.
+"""Gives a PDF book a cover of its first page, centred on what is printed there.
 
 A PDF's cover is a render of page 1, and many papers sit off-centre on the page (set for A4,
 printed on US Letter), so the grid showed a wide white band down one side. recentre_book_cover
@@ -10,9 +10,14 @@ renders page 1 again, trims the side margins to match (arXiv's stamp down the le
 counts as print) and saves that as cover.jpg. It only replaces a cover that is still that
 plain render: a provider's or an uploaded cover never looks like page 1, so it is kept.
 
+A PDF book with no cover.jpg, or only the "Cover not available" card the old import wrote
+for PDFs it could not render, gets page 1 as its cover (fix_cover), and one whose cover.jpg
+is there but not flagged in the library shows it again.
+
 Imports and Rebuild metadata call it. The margin maths is plain Python; Wand only reads,
 crops and writes the images."""
 
+import hashlib
 import os
 import threading
 from datetime import datetime, timezone
@@ -39,6 +44,9 @@ MEASURE_WIDTH = 400
 COMPARE_SIZE = (24, 32)
 SAME_PAGE = 18.0
 SAME_SHAPE = 0.01
+# The old import's "Cover not available" card (282x400 JPEG): a book whose cover is this has none
+PLACEHOLDER_SIZE = 19501
+PLACEHOLDER_MD5 = '9173cbd4f0e3c7757e27fa5ec5a982dd'
 # Ghostscript may run inside ImageMagick's process, so one render at a time
 _render_lock = threading.Lock()
 
@@ -131,6 +139,42 @@ def centred_page(page):
     return centred
 
 
+def _save_jpeg(img, path):
+    """Write img as a JPEG at path, leaving no half-written file in the book's folder."""
+    tmp_path = path + '.centring'
+    try:
+        img.format = 'jpeg'
+        img.compression_quality = 88
+        img.save(filename=tmp_path)
+        os.replace(tmp_path, path)
+    except Exception:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise
+
+
+def is_placeholder(cover_path):
+    """True when the file is the old import's "Cover not available" card."""
+    try:
+        if os.path.getsize(cover_path) != PLACEHOLDER_SIZE:
+            return False
+        with open(cover_path, 'rb') as f:
+            return hashlib.md5(f.read()).hexdigest() == PLACEHOLDER_MD5
+    except OSError:
+        return False
+
+
+def save_page_cover(pdf_path, cover_path):
+    """Write the PDF's first page, centred on its print, as cover_path."""
+    with render_first_page(pdf_path) as page:
+        centred = centred_page(page)
+        if centred is None:
+            _save_jpeg(page, cover_path)
+        else:
+            with centred:
+                _save_jpeg(centred, cover_path)
+
+
 def recentre_cover(pdf_path, cover_path):
     """Replace cover_path with a centred render of the PDF's first page; True when it did.
 
@@ -148,51 +192,57 @@ def recentre_cover(pdf_path, cover_path):
         centred = centred_page(page)
         if centred is None:
             return False
-        tmp_path = cover_path + '.centring'
-        try:
-            with centred:
-                centred.format = 'jpeg'
-                centred.compression_quality = 88
-                centred.save(filename=tmp_path)
-            os.replace(tmp_path, cover_path)
-        except Exception:
-            # No half-written file left in the book's folder
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
-            raise
+        with centred:
+            _save_jpeg(centred, cover_path)
     return True
 
 
-def cover_paths(book, library_path):
-    """(PDF, cover.jpg) paths of a PDF book with a cover, or None."""
-    if not book.has_cover:
-        return None
+def fix_cover(pdf_path, cover_path, has_cover):
+    """Make sure a PDF book has a cover it shows; True when cover.jpg or the book's flag must change.
+
+    No cover.jpg, or only the placeholder card: page 1 becomes the cover. A cover.jpg the book
+    isn't flagged as having is shown again as it is. Otherwise the cover is centred when it is
+    still the plain page render (recentre_cover)."""
+    if not os.path.isfile(pdf_path):
+        return False
+    if not os.path.isfile(cover_path) or is_placeholder(cover_path):
+        save_page_cover(pdf_path, cover_path)
+        return True
+    if not has_cover:
+        return True
+    return recentre_cover(pdf_path, cover_path)
+
+
+def cover_job(book, library_path):
+    """(PDF path, cover.jpg path, has a cover) of a PDF book, or None for a book with no PDF."""
     pdf = next((d for d in book.data if d.format.upper() == 'PDF'), None)
     if pdf is None:
         return None
     folder = os.path.join(library_path, book.path)
-    return os.path.join(folder, pdf.name + '.pdf'), os.path.join(folder, 'cover.jpg')
+    return os.path.join(folder, pdf.name + '.pdf'), os.path.join(folder, 'cover.jpg'), bool(book.has_cover)
 
 
-def try_recentre_cover(paths, book_id=None):
-    """recentre_cover that logs a failure instead of raising (one bad PDF must not stop a run)."""
-    if not paths:
+def try_fix_cover(job, book_id=None):
+    """fix_cover that logs a failure instead of raising (one bad PDF must not stop a run)."""
+    if not job:
         return False
     try:
-        return recentre_cover(*paths)
+        return fix_cover(*job)
     except Exception as ex:
-        log.warning("Could not centre the cover of book %s: %s", book_id, ex)
+        log.warning("Could not make or centre the cover of book %s: %s", book_id, ex)
         return False
 
 
 def mark_cover_changed(book):
-    """Bump last_modified: cover URLs and cached thumbnails are keyed on it. The caller commits."""
+    """Flag the book as having a cover and bump last_modified: cover URLs and cached thumbnails
+    are keyed on it. The caller commits."""
+    book.has_cover = 1
     book.last_modified = datetime.now(timezone.utc)
 
 
-def recentre_book_cover(book, library_path):
-    """Centre a PDF book's cover in its folder; True when cover.jpg changed. The caller commits."""
-    if not try_recentre_cover(cover_paths(book, library_path), book.id):
+def fix_book_cover(book, library_path):
+    """Make or centre a PDF book's cover in its folder; True when it changed. The caller commits."""
+    if not try_fix_cover(cover_job(book, library_path), book.id):
         return False
     mark_cover_changed(book)
     return True
@@ -208,14 +258,14 @@ def available():
 
 
 def recentre_new_book_cover(book_id, library_path):
-    """Centre a newly imported PDF's cover; True when cover.jpg changed."""
+    """Make or centre a newly imported PDF's cover; True when it changed."""
     from cps import db
     if not available():
         return False
     cdb = db.CalibreDB(expire_on_commit=False, init=True)
     try:
         book = cdb.get_book(book_id)
-        if book is None or not recentre_book_cover(book, library_path):
+        if book is None or not fix_book_cover(book, library_path):
             return False
         cdb.session.commit()
         return True

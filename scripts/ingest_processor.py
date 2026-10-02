@@ -1017,9 +1017,9 @@ class NewBookProcessor:
         for book_id in book_ids:
             try:
                 if recentre_new_book_cover(int(book_id), self.library_dir):
-                    print(f"[ingest-processor] Centred the cover of book id={book_id}", flush=True)
+                    print(f"[ingest-processor] Made or centred the cover of book id={book_id}", flush=True)
             except Exception as e:
-                print(f"[ingest-processor] WARN: Could not centre the cover of book id={book_id}: {e}", flush=True)
+                print(f"[ingest-processor] WARN: Could not make or centre the cover of book id={book_id}: {e}", flush=True)
 
     def fetch_metadata_if_enabled(self, book_title: str | None = None, book_id: int | None = None) -> None:
         """Fetch and apply metadata for newly ingested books if enabled"""

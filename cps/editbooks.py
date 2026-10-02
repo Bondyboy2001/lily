@@ -17,6 +17,7 @@ import json
 
 from markupsafe import escape, Markup  # dependency of flask
 from functools import wraps
+from urllib.parse import urlsplit
 
 from flask import Blueprint, request, flash, redirect, url_for, abort, Response
 from flask_babel import gettext as _
@@ -541,6 +542,12 @@ def _update_shelves(book_id, to_save):
               category="error")
 
 
+def is_generic_cover(url):
+    """True for Lily's placeholder cover, which a provider with no cover hands back (with the
+    cache-busting ?q= the static URL carries)."""
+    return urlsplit(url.strip()).path.endswith('/static/generic_cover.svg')
+
+
 def do_edit_book(book_id, upload_formats=None):
     request_start = time.monotonic()
     log.debug("[edit_book] start book_id=%s user=%s upload_formats=%s", book_id, getattr(current_user, "name", "unknown"), bool(upload_formats))
@@ -595,8 +602,9 @@ def do_edit_book(book_id, upload_formats=None):
             if not current_user.role_edit():
                 edit_error = True
                 flash(_("User has no rights to upload cover"), category="error")
-            elif to_save["cover_url"].endswith('/static/generic_cover.svg'):
-                book.has_cover = 0
+            elif is_generic_cover(to_save["cover_url"]):
+                # A provider with no cover: keep the book's own
+                pass
             else:
                 cover_start = time.monotonic()
                 result, error = helper.save_cover_from_url(to_save["cover_url"].strip(), book.path)

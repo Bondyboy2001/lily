@@ -5,7 +5,8 @@
 """Task that looks every book up again with the metadata providers (Import & Metadata → Rebuild).
 
 It first clears tags that are not subjects (ISBNs, publisher lines, shop listing scraps), and
-after each lookup centres a PDF's page-render cover on what is printed (cps/pdf_cover.py).
+after each lookup gives a PDF with no cover its first page, or centres a page-render cover on
+what is printed (cps/pdf_cover.py).
 
 A book that gets new details is kept in step like an edit is (metadata_helper does it): its folder
 follows a new title or first author, and with "Write edits into book files" on, the change is
@@ -153,16 +154,16 @@ class TaskRebuildMetadata(CalibreTask):
                 except Exception as ex:
                     log.debug("Could not mark the duplicate index pending: %s", ex)
         if self.covers:
-            self.message = N_('Done: %(total)s books checked, %(updated)s updated, %(covers)s covers centred%(unanswered)s',
+            self.message = N_('Done: %(total)s books checked, %(updated)s updated, %(covers)s covers made or centred%(unanswered)s',
                               **self._counts())
         else:
             self.message = N_('Done: %(total)s books checked, %(updated)s updated%(unanswered)s', **self._counts())
-        log.info("Metadata rebuild finished: %s books checked, %s updated, %s covers centred, no answer: %s",
+        log.info("Metadata rebuild finished: %s books checked, %s updated, %s covers made or centred, no answer: %s",
                  self.total, self.updated, self.covers, dict(self.unanswered) or "none")
         self._handleSuccess()
 
     def _finish(self, cdb, running):
-        """Wait for a lookup to end and count it; record a centred cover."""
+        """Wait for a lookup to end and count it; record a made or centred cover."""
         from cps.metadata_helper import library_lock
         done, __ = wait(running, return_when=FIRST_COMPLETED)
         for future in done:
@@ -227,7 +228,7 @@ class TaskRebuildMetadata(CalibreTask):
             log.error("Rebuild: could not tidy tags: %s", ex)
 
     def _cover_changed(self, cdb, book_id):
-        """Record a centred cover so its URL and thumbnails change with it."""
+        """Record a made or centred cover so its URL and thumbnails change with it."""
         cdb.session.expire_all()
         book = cdb.session.get(db.Books, book_id)
         if book is None:
@@ -244,12 +245,12 @@ class TaskRebuildMetadata(CalibreTask):
 
 
 def _look_up(fetch, book_id, centre_covers):
-    """One book's work in the pool: the lookup, then centring a PDF's cover on its print.
-    Returns (updated, cover centred, providers that failed to answer).
+    """One book's work in the pool: the lookup, then making or centring a PDF's cover.
+    Returns (updated, cover changed, providers that failed to answer).
 
-    The cover comes second so a cover the provider just set is never cropped: it no longer
-    looks like the page render, so recentre_cover leaves it. Its paths are read after the
-    lookup, which moves the book's folder when the title or first author changes."""
+    The cover comes second so a cover the provider just set is neither replaced nor cropped:
+    it no longer looks like the page render, so recentre_cover leaves it. Its paths are read
+    after the lookup, which moves the book's folder when the title or first author changes."""
     from cps.metadata_helper import library_lock
     unanswered = set()
     updated = fetch(book_id, force=True, unanswered=unanswered)
@@ -258,12 +259,12 @@ def _look_up(fetch, book_id, centre_covers):
     with library_lock:
         cdb = db.CalibreDB(expire_on_commit=False, init=True)
         try:
-            cover = _cover_paths(cdb, book_id)
+            cover = _cover_job(cdb, book_id)
         finally:
             cdb.session.close()
-    return updated, pdf_cover.try_recentre_cover(cover, book_id), unanswered
+    return updated, pdf_cover.try_fix_cover(cover, book_id), unanswered
 
 
-def _cover_paths(cdb, book_id):
+def _cover_job(cdb, book_id):
     book = cdb.session.get(db.Books, book_id)
-    return pdf_cover.cover_paths(book, config.get_book_path()) if book else None
+    return pdf_cover.cover_job(book, config.get_book_path()) if book else None

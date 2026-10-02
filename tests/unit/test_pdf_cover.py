@@ -1,4 +1,5 @@
-"""A PDF's cover is centred on what page 1 prints (cps/pdf_cover.py)."""
+"""A PDF's cover is page 1, centred on what it prints (cps/pdf_cover.py)."""
+import hashlib
 import sqlite3
 
 import pytest
@@ -78,6 +79,76 @@ def test_recentre_cover_with_imagemagick(tmp_path):
     assert not pdf_cover.recentre_cover(pdf, cover)       # already centred
 
 
+def _fix_cover_world(tmp_path, monkeypatch, cover=None):
+    """A book folder with a PDF and maybe a cover.jpg; rendering and centring are recorded."""
+    pdf, path = tmp_path / "book.pdf", tmp_path / "cover.jpg"
+    pdf.write_bytes(b"%PDF")
+    if cover is not None:
+        path.write_bytes(cover)
+    calls = []
+    monkeypatch.setattr(pdf_cover, "save_page_cover", lambda p, c: calls.append("page"))
+    monkeypatch.setattr(pdf_cover, "recentre_cover", lambda p, c: calls.append("centre") or False)
+    return str(pdf), str(path), calls
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("has_cover", [True, False])
+def test_a_pdf_with_no_cover_file_gets_its_first_page(tmp_path, monkeypatch, has_cover):
+    pdf, cover, calls = _fix_cover_world(tmp_path, monkeypatch)
+    assert pdf_cover.fix_cover(pdf, cover, has_cover)
+    assert calls == ["page"]
+
+
+@pytest.mark.unit
+def test_the_old_imports_placeholder_card_is_replaced_by_the_first_page(tmp_path, monkeypatch):
+    card = b"x" * pdf_cover.PLACEHOLDER_SIZE
+    monkeypatch.setattr(pdf_cover, "PLACEHOLDER_MD5", hashlib.md5(card).hexdigest())
+    pdf, cover, calls = _fix_cover_world(tmp_path, monkeypatch, cover=card)
+    assert pdf_cover.is_placeholder(cover)
+    assert pdf_cover.fix_cover(pdf, cover, True)
+    assert calls == ["page"]
+    # Same size, other bytes: a real cover
+    pdf, cover, calls = _fix_cover_world(tmp_path, monkeypatch, cover=b"y" * pdf_cover.PLACEHOLDER_SIZE)
+    assert not pdf_cover.is_placeholder(cover)
+
+
+@pytest.mark.unit
+def test_a_cover_file_the_book_lost_its_flag_for_is_shown_again_as_it_is(tmp_path, monkeypatch):
+    pdf, cover, calls = _fix_cover_world(tmp_path, monkeypatch, cover=b"real cover")
+    assert pdf_cover.fix_cover(pdf, cover, False)
+    assert calls == []
+    # Flagged already: only centring is tried, and it found nothing to do
+    assert not pdf_cover.fix_cover(pdf, cover, True)
+    assert calls == ["centre"]
+
+
+@pytest.mark.unit
+def test_a_book_whose_pdf_is_missing_is_left_alone(tmp_path, monkeypatch):
+    pdf, cover, calls = _fix_cover_world(tmp_path, monkeypatch)
+    (tmp_path / "book.pdf").unlink()
+    assert not pdf_cover.fix_cover(pdf, cover, False)
+    assert calls == []
+
+
+@pytest.mark.unit
+def test_save_page_cover_with_imagemagick(tmp_path):
+    wand_image = pytest.importorskip("wand.image", exc_type=ImportError)
+    from wand.color import Color
+    from wand.exceptions import WandException
+    pdf, cover = str(tmp_path / "book.pdf"), str(tmp_path / "cover.jpg")
+    with wand_image.Image(width=1275, height=1650, background=Color("white"), resolution=150) as img:
+        try:
+            img.save(filename=pdf)
+        except WandException as ex:
+            pytest.skip("ImageMagick cannot write PDFs here: %s" % ex)
+    try:
+        pdf_cover.save_page_cover(pdf, cover)
+    except WandException as ex:
+        pytest.skip("ImageMagick cannot read PDFs here: %s" % ex)
+    with wand_image.Image(filename=cover) as done:
+        assert done.format == "JPEG" and abs(done.width / done.height - 1275 / 1650) < 0.01
+
+
 @pytest.fixture
 def env(tmp_path, temp_cwa_db):
     with lily_env(tmp_path) as env:
@@ -100,10 +171,10 @@ def test_rebuild_centres_pdf_covers_after_the_lookup(env, monkeypatch):
                         lambda book_id, force=False, unanswered=None: order.append(("lookup", book_id)) or False)
     monkeypatch.setattr(pdf_cover, "available", lambda: True)
 
-    def fake_recentre(pdf_path, cover_path):
+    def fake_fix(pdf_path, cover_path, has_cover):
         order.append(("cover", pdf_path, cover_path))
         return True
-    monkeypatch.setattr(pdf_cover, "recentre_cover", fake_recentre)
+    monkeypatch.setattr(pdf_cover, "fix_cover", fake_fix)
     monkeypatch.setattr(helper, "replace_cover_thumbnail_cache", refreshed.append)
     monkeypatch.setattr("cps.duplicate_index.mark_duplicate_index_pending", lambda reason=None: None)
 
@@ -114,7 +185,30 @@ def test_rebuild_centres_pdf_covers_after_the_lookup(env, monkeypatch):
     folder = str(env.library_dir / "Test Author" / "Paper")
     assert order == [("lookup", pdf), ("cover", folder + "/Paper.pdf", folder + "/cover.jpg"), ("lookup", epub)]
     assert refreshed == [pdf] and task.covers == 1
-    assert str(task.message) == "Done: 2 books checked, 0 updated, 1 covers centred"
+    assert str(task.message) == "Done: 2 books checked, 0 updated, 1 covers made or centred"
     after = dict(con.execute("SELECT id, last_modified FROM books"))
     con.close()
     assert after[pdf] != before[pdf] and after[epub] == before[epub]
+
+
+@pytest.mark.unit
+def test_rebuild_flags_a_pdf_that_had_no_cover(env, monkeypatch):
+    from cps import helper, metadata_helper
+    from cps.tasks.metadata_rebuild import TaskRebuildMetadata
+    pdf = env.add_book("Paper", fmt="PDF")
+    seen, refreshed = [], []
+    monkeypatch.setattr(metadata_helper, "fetch_and_apply_metadata",
+                        lambda book_id, force=False, unanswered=None: False)
+    monkeypatch.setattr(pdf_cover, "available", lambda: True)
+    monkeypatch.setattr(pdf_cover, "fix_cover", lambda p, c, has_cover: seen.append(has_cover) or True)
+    monkeypatch.setattr(helper, "replace_cover_thumbnail_cache", refreshed.append)
+    monkeypatch.setattr("cps.duplicate_index.mark_duplicate_index_pending", lambda reason=None: None)
+
+    task = TaskRebuildMetadata(workers=1)
+    with env.app.test_request_context():
+        task.start(None)
+
+    con = sqlite3.connect(env.library_dir / "metadata.db")
+    has_cover = con.execute("SELECT has_cover FROM books WHERE id = ?", (pdf,)).fetchone()[0]
+    con.close()
+    assert seen == [False] and has_cover == 1 and refreshed == [pdf] and task.covers == 1

@@ -193,7 +193,8 @@ $(function () {
       var $star = $("input[name='rating'][value='" + Math.round(book.rating) + "']");
       ($star.length ? $star : $("#rating-none")).prop("checked", true);
     }
-    if (updateItems.cover && book.cover && $("#cover_url").length) {
+    // A provider with no cover sends Lily's placeholder; that leaves the book's own cover alone.
+    if (updateItems.cover && book.cover && !/\/generic_cover\.svg(\?|$)/.test(book.cover) && $("#cover_url").length) {
       $(".cover img").attr("src", book.cover);
       $("#cover_url").val(book.cover);
     }
