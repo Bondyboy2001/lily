@@ -10,7 +10,6 @@ import logging
 import os
 import re
 import unicodedata
-from difflib import SequenceMatcher
 
 from cps import logger, db, constants
 from cps.helper import get_sorted_author
@@ -22,23 +21,13 @@ from cps.services.identifiers import ARXIV_ID, DOI_RE, normalise_identifiers, pa
 
 log = logger.create()
 
-# Minimum SequenceMatcher ratio between normalised titles for a provider result to be
-# treated as the same book. "Tide Tables for Beginners" vs "Tide tables and charts" scores ~0.60.
-TITLE_MATCH_THRESHOLD = 0.85
-
 _QUOTES = str.maketrans({'\u2018': "'", '\u2019': "'", '\u201c': '"', '\u201d': '"'})
-_ARTICLE = re.compile(r'^(the|a|an) ')
 
 
 def _normalise(text: str) -> str:
     text = unicodedata.normalize('NFKD', (text or '').translate(_QUOTES).casefold())
     text = ''.join(c for c in text if not unicodedata.combining(c)).replace("'", '')
     return ' '.join(re.sub(r'[^\w\s]|_', ' ', text).split())
-
-
-def _title_variants(title: str) -> set:
-    variants = {_normalise(title), _normalise((title or '').split(':')[0])}
-    return {_ARTICLE.sub('', v) for v in variants if v} - {''}
 
 
 def _surnames(authors) -> set:
@@ -52,28 +41,33 @@ def _surnames(authors) -> set:
     return names
 
 
-def title_similarity(a: str, b: str) -> float:
-    return max((SequenceMatcher(None, x, y).ratio()
-                for x in _title_variants(a) for y in _title_variants(b)), default=0.0)
+def titles_match(a: str, b: str) -> bool:
+    """The same title, ignoring only case, accents, punctuation and spacing. A subtitle or a
+    leading "The" makes it a different title."""
+    a = _normalise(a)
+    return bool(a) and a == _normalise(b)
 
 
 def best_metadata_match(title: str, authors, results):
-    """Return the result most likely to be the same book, or None if none is close enough.
+    """Return the result that is exactly this book, or None.
 
-    A result must have a title at least TITLE_MATCH_THRESHOLD similar and, when both
-    sides list authors, share at least one surname.
+    The title must match exactly (see titles_match) and, when both sides list authors, they
+    must share a surname. A result naming the authors wins over one that names none.
     """
     book_surnames = _surnames(authors)
-    best, best_score = None, 0.0
+    title_only = None
     for result in results or []:
-        score = title_similarity(title, getattr(result, 'title', ''))
-        if score < TITLE_MATCH_THRESHOLD or score <= best_score:
+        if not titles_match(title, getattr(result, 'title', '')):
             continue
         result_surnames = _surnames(getattr(result, 'authors', None))
-        if book_surnames and result_surnames and not book_surnames & result_surnames:
-            continue
-        best, best_score = result, score
-    return best
+        if book_surnames and result_surnames:
+            if book_surnames & result_surnames:
+                return result
+        elif result_surnames or not book_surnames:
+            return result
+        elif title_only is None:
+            title_only = result
+    return title_only
 
 
 # arXiv stamps its id down the first page's margin: "arXiv:1706.03762v7 [cs.CL] 2 Aug 2023"
@@ -225,7 +219,7 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
                 if not results or len(results) == 0:
                     continue
 
-                # Only accept a result that is recognisably the same book
+                # Only accept a result that is exactly this book
                 metadata = best_metadata_match(book.title, author_names, results)
                 if metadata is None:
                     log.debug(f"No result from {provider.__name__} matches '{book.title}'")
@@ -243,7 +237,7 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
                 continue
 
         if not matched:
-            log.info(f"No confident metadata match for '{book.title}'; keeping the file's metadata")
+            log.info(f"No exact metadata match for '{book.title}'; keeping the file's metadata")
         calibre_db_instance.session.close()
         return metadata_found
 
