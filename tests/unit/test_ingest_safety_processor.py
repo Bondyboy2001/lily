@@ -256,12 +256,12 @@ def _patch_jobs(monkeypatch, created=None, finished=None, create_error=None):
     monkeypatch.setattr(automation_jobs, "create_job",
                         create_error or (lambda *a, **k: (created.append(k), "job-7")[1]))
     monkeypatch.setattr(automation_jobs, "finish_job",
-                        lambda *a: finished.append(a))
+                        lambda *a, **k: finished.append(a))
     try:
         import scripts.automation_jobs as saj
         monkeypatch.setattr(saj, "create_job",
                             create_error or (lambda *a, **k: (created.append(k), "job-7")[1]))
-        monkeypatch.setattr(saj, "finish_job", lambda *a: finished.append(a))
+        monkeypatch.setattr(saj, "finish_job", lambda *a, **k: finished.append(a))
     except ImportError:
         pass
 
