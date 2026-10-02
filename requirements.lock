@@ -10,7 +10,7 @@
 #
 # Versions were taken from the tested dev venv (also CPython 3.13) and resolved with:
 #   pip list --format=freeze > /tmp/venv.txt
-#   uv pip compile requirements.txt optional-requirements.txt -c /tmp/venv.txt \
+#   uv pip compile requirements.txt -c /tmp/venv.txt \
 #       --python-version 3.13 --python-platform x86_64-manylinux_2_28 \
 #       --no-header --annotation-style line -o requirements.lock
 # then this header was prepended and the "-c /tmp/venv.txt" annotations stripped.
@@ -53,7 +53,7 @@ pycparser==3.0            # via cffi
 pygments==2.21.0          # via rich
 pypdf==6.19.0             # via -r requirements.txt
 python-magic==0.4.27      # via -r requirements.txt
-pytz==2026.4              # via flask-babel, -r requirements.txt
+pytz==2026.4              # via flask-babel
 regex==2026.9.10          # via -r requirements.txt
 requests==2.34.2          # via -r requirements.txt
 rich==13.9.4              # via flask-limiter

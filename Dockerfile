@@ -121,7 +121,7 @@ FROM build-base AS python-deps
 # Copy only requirements files so code changes don't invalidate the pip layer.
 # requirements.txt holds the allowed ranges; requirements.lock pins every package
 # (transitive deps included) so rebuilding the same commit gives the same image.
-COPY requirements.txt optional-requirements.txt requirements.lock /tmp/requirements/
+COPY requirements.txt requirements.lock /tmp/requirements/
 
 # Packages come from linuxserver's Ubuntu wheel index first: precompiled wheels for
 # the popular C/C++ packages on x86_64, armv7l and aarch64 (https://realpython.com/python-wheels/).
@@ -132,7 +132,7 @@ RUN \
   python3.13 -m venv /lsiopy && \
   /lsiopy/bin/pip install -U pip wheel && \
   /lsiopy/bin/pip install -U --find-links https://wheel-index.linuxserver.io/ubuntu/ \
-  -r /tmp/requirements/requirements.txt -r /tmp/requirements/optional-requirements.txt \
+  -r /tmp/requirements/requirements.txt \
   -c /tmp/requirements/requirements.lock && \
   /lsiopy/bin/python -m pip uninstall -y pip wheel
 

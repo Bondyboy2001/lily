@@ -27,7 +27,7 @@ if not importlib:
         pkgresources = False
 
 
-def load_dependencies(optional=False):
+def load_dependencies():
     deps = list()
     if getattr(sys, 'frozen', False):
         pip_installed = os.path.join(BASE_DIR, ".pip_installed")
@@ -37,10 +37,7 @@ def load_dependencies(optional=False):
         else:
             return deps
     if importlib or pkgresources:
-        if optional:
-            req_path = os.path.join(BASE_DIR, "optional-requirements.txt")
-        else:
-            req_path = os.path.join(BASE_DIR, "requirements.txt")
+        req_path = os.path.join(BASE_DIR, "requirements.txt")
         if os.path.exists(req_path):
             with open(req_path, 'r') as f:
                 for line in f:
@@ -71,18 +68,16 @@ def load_dependencies(optional=False):
                                 else:
                                     dep_version = pkg_resources.get_distribution(res.group(1)).version
                         except (ImportNotFound, KeyError):
-                            if optional:
-                                continue
                             dep_version = "not installed"
                         deps.append([dep_version, res.group(1), res.group(2), res.group(3), res.group(4), res.group(5)])
     return deps
 
 
-def dependency_check(optional=False):
+def dependency_check():
     d = list()
     dep_version_int = None
     low_check = None
-    deps = load_dependencies(optional)
+    deps = load_dependencies()
     for dep in deps:
         try:
             dep_version_int = [int(x) if x.isnumeric() else 0 for x in dep[0].split('.')[:3]]

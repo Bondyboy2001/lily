@@ -153,7 +153,7 @@ def create_app():
             print("*** " + message + " ***")
             web_server.stop(True)
             sys.exit(8)
-    for res in requirements + dependency_check(True):
+    for res in requirements:
         log.info('*** "{}" version does not meet the requirements. '
                  'Should: {}, Found: {}, please consider installing required version ***'
                  .format(res['name'],

@@ -66,12 +66,7 @@ def _lock_pins():
 
 def _image_requirements():
     from packaging.requirements import Requirement
-    lines = _requirement_lines()
-    optional = REPO / "optional-requirements.txt"
-    if optional.exists():
-        lines += [line.strip() for line in optional.read_text().splitlines()
-                  if line.strip() and not line.lstrip().startswith("#")]
-    reqs = [Requirement(line) for line in lines]
+    reqs = [Requirement(line) for line in _requirement_lines()]
     return [r for r in reqs if r.marker is None or r.marker.evaluate(_IMAGE_ENV)]
 
 
