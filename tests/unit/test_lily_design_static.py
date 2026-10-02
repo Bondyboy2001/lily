@@ -285,6 +285,12 @@ def test_library_refresh_notice_is_a_temporary_toast():
     assert re.search(r"bottom\s*:", toast[0]) and not re.search(r"\btop\s*:", toast[0])
     js = read(REPO_ROOT / "cps/static/js/lily.js")
     assert "TOAST_MS" in js
+    # Errors stay until closed; news leaves by itself.
+    assert "FLASH_ERROR_MS" not in js and '.is(".alert-cwa, .alert-danger")' in js
+    flashes = layout[layout.index('id="flash_danger"'):]
+    assert 'class="close" data-dismiss="alert"' in flashes[:flashes.index("</div>")]
+    # A single imported book links to itself; a failure gives the ingest's reason when it reads well.
+    assert "data-book-url=" in layout and "book_id" in js and "importFailureReason" in js
     # An inline top on top of the CSS bottom would stretch the toast down the whole screen.
     assert "box.style.top" not in js
 

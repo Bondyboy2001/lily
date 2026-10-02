@@ -159,6 +159,7 @@ class CWA_DB:
             "cwa_duplicate_cache",
             "cwa_duplicate_book_keys",
             "cwa_duplicate_resolutions",
+            "cwa_operation_jobs",
         ]
         self.tables, self.schema = _read_schema_file(self.schema_path)
         self.cwa_default_settings = self.get_cwa_default_settings()

@@ -268,7 +268,10 @@ def upload_status():
         except Exception as e:
             log.warning("could not read the ingest job for %s: %s", name, e)
             job = None
-        files.append({"file": name,
-                      "state": job["state"] if job else "queued",
-                      "error": (job["error"] or "") if job else ""})
+        entry = {"file": name,
+                 "state": job["state"] if job else "queued",
+                 "error": (job["error"] or "") if job else ""}
+        if job and job["state"] == "succeeded" and job.get("book_id"):
+            entry["book_id"] = int(job["book_id"])
+        files.append(entry)
     return Response(json.dumps({"files": files}), mimetype='application/json')

@@ -75,8 +75,13 @@
     $("#flash_danger, #flash_success").closest(".row-fluid").remove();
     var $row = $("<div class='row-fluid'></div>");
     var $alert = $("<div></div>").attr({ id: "flash_" + tone, "class": "alert alert-" + tone }).text(message).appendTo($row);
-    // #messageContainer (layout.html) is the page's polite live region; errors also interrupt.
-    if (tone === "danger") { $alert.attr("role", "alert"); }
+    // #messageContainer (layout.html) is the page's polite live region; errors also interrupt,
+    // and stay until they are closed so there is time to read what went wrong.
+    if (tone === "danger") {
+      $alert.attr("role", "alert");
+      $("<button type='button' class='close' data-dismiss='alert'><span aria-hidden='true'>&times;</span></button>")
+        .attr("aria-label", "Close").appendTo($alert);
+    }
     var $region = $("#messageContainer");
     if ($region.length) { $region.append($row); } else { $(".navbar").first().after($row); }
   }
@@ -84,16 +89,16 @@
   // Exposed so other scripts (e.g. table.js) can report failures the same way.
   window.lilyFlash = flash;
 
-  // Flash messages step aside by themselves: a short while for news, a little longer for
-  // errors. Notices with their own close button (update, setup) stay until dismissed.
-  var FLASH_MS = 3000, FLASH_ERROR_MS = 5000;
+  // News steps aside by itself after a while. Errors and notices with their own close button
+  // (update, setup) stay until dismissed.
+  var FLASH_MS = 5000;
   function autoHide(el) {
-    if (el.dataset.lilyAutoHide || $(el).is(".alert-cwa") || $(el).find(".close").length) { return; }
+    if (el.dataset.lilyAutoHide || $(el).is(".alert-cwa, .alert-danger") || $(el).find(".close").length) { return; }
     el.dataset.lilyAutoHide = "1";
     setTimeout(function () {
       var $row = $(el).closest(".row-fluid");
       ($row.length ? $row : $(el)).remove();
-    }, $(el).is(".alert-danger") ? FLASH_ERROR_MS : FLASH_MS);
+    }, FLASH_MS);
   }
   function hideFlashes() {
     $("[id^='flash_'].alert").each(function () { autoHide(this); });
@@ -209,7 +214,7 @@
     try { return window.localStorage.getItem(jobStorageKey); } catch (e) { return null; }
   }
 
-  var TOAST_MS = 2500; // how long a finished result stays up
+  var TOAST_MS = 6000; // how long a finished result stays up: long enough to reach its link
   var hideTimer = null;
 
   function toast() { return document.getElementById("message_library_refresh"); }
@@ -431,6 +436,15 @@
     try { window.sessionStorage.removeItem(UPLOAD_KEY); } catch (e) { /* storage optional */ }
   }
 
+  // The ingest's reason, when it reads as a sentence for people (not a tool's stderr dump).
+  function importFailureReason(files, name) {
+    var file = files.filter(function (f) { return f.file === name; })[0];
+    var reason = file && String(file.error || "").trim();
+    if (!reason || reason.length > 160 || /calibredb|traceback|exited with|errno|\.py\b/i.test(reason)) { return ""; }
+    reason = reason.charAt(0).toUpperCase() + reason.slice(1);
+    return /[.!?]$/.test(reason) ? reason : reason + ".";
+  }
+
   function uploadText(key, uploads) {
     var box = toast();
     var many = uploads.length > 1;
@@ -468,10 +482,16 @@
           return files.some(function (f) { return f.file === u.file && f.state !== "succeeded"; });
         });
         if (failed.length) {
-          showMessage(uploadText("importFailed", failed), "error");
+          var lines = [uploadText("importFailed", failed)];
+          var reason = failed.length === 1 && importFailureReason(files, failed[0].file);
+          if (reason) { lines.push(reason); }
+          showMessage(lines, "error");
         } else {
+          // One new book: open it. Several: the library, newest first.
+          var added = pending.uploads.length === 1 && files[0] && files[0].book_id;
           showMessage(uploadText("imported", pending.uploads), "done",
-                      box ? [box.dataset.libraryUrl, box.dataset.libraryLabel] : null);
+                      !box ? null : added ? [box.dataset.bookUrl.replace(/0$/, String(added)), box.dataset.bookLabel]
+                                          : [box.dataset.libraryUrl, box.dataset.libraryLabel]);
         }
       })
       .catch(function () { setTimeout(watchUploads, POLL_MS * 2); });

@@ -133,8 +133,10 @@
          data-imported="{{ _('Added %(name)s to the library', name='{name}') }}"
          data-imported-many="{{ _('Added %(count)s books to the library', count='{count}') }}"
          data-import-failed="{{ _('Couldn\'t import %(name)s', name='{name}') }}"
-         data-library-url="{{ url_for('web.index') }}"
-         data-library-label="{{ _('Show') }}">
+         data-library-url="{{ url_for('web.books_list', data='newest', sort_param='new') }}"
+         data-library-label="{{ _('Show') }}"
+         data-book-url="{{ url_for('web.show_book', book_id=0) }}"
+         data-book-label="{{ _('Open') }}">
       <span class="glyphicon glyphicon-refresh lily-refresh-toast-icon" aria-hidden="true"></span>
       <p id="library_refresh_message"></p>
       <button id="refresh_message_dismiss_btn" type="button" class="icon-btn lily-refresh-toast-close" onclick="dismissLibraryRefreshMessage()" title="{{_('Close')}}" aria-label="{{_('Close')}}">
@@ -148,7 +150,9 @@
     {% for category, text in get_flashed_messages(with_categories=True) %}
       {% if category == "error" %}
       <div class="row-fluid">
-        <div id="flash_danger" class="alert alert-danger" role="alert">{{ text }}</div>
+        <div id="flash_danger" class="alert alert-danger" role="alert">{{ text }}
+          <button type="button" class="close" data-dismiss="alert" aria-label="{{_('Close')}}"><span aria-hidden="true">&times;</span></button>
+        </div>
       </div>
       {% elif category == "info" %}
       <div class="row-fluid">

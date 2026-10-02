@@ -212,7 +212,8 @@ CREATE TABLE IF NOT EXISTS cwa_operation_jobs (
     started_utc TEXT NOT NULL,
     finished_utc TEXT,
     error TEXT DEFAULT '',
-    pid INTEGER NOT NULL
+    pid INTEGER NOT NULL,
+    book_id INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_cwa_operation_jobs_started

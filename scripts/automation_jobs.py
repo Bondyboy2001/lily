@@ -44,14 +44,20 @@ def _insert(c, job_id, kind, user_id, filename, parent_id):
     c.con.commit()
 
 
-def finish_job(job_id, state, error="", db=None):
-    """Mark a job finished; state must be a terminal one."""
+def finish_job(job_id, state, error="", db=None, book_id=None):
+    """Mark a job finished; state must be a terminal one. An ingest that added a book
+    records its id, so the upload toast can link straight to it."""
     if state not in TERMINAL_STATES:
         raise ValueError("not a terminal job state: %r" % state)
     with _connect() as c:
         c.cur.execute(
             "UPDATE cwa_operation_jobs SET state=?, finished_utc=?, error=? WHERE id=?",
             (state, _now(), str(error or "")[:2000], job_id))
+        if book_id is not None:
+            try:
+                c.cur.execute("UPDATE cwa_operation_jobs SET book_id=? WHERE id=?", (int(book_id), job_id))
+            except (sqlite3.OperationalError, TypeError, ValueError):
+                pass  # a cwa.db without the column yet: the link just falls back to the library
         c.con.commit()
 
 
@@ -72,11 +78,13 @@ def latest_job_for_file(kind, filename):
     """The newest job of this kind for one ingest file name, or None before it starts."""
     with _connect() as c:
         mark_stale_interrupted(db=c)
-        c.cur.execute(
-            "SELECT id, kind, user_id, filename, parent_id, state, started_utc, "
-            "finished_utc, error, pid FROM cwa_operation_jobs WHERE kind=? AND filename=? "
-            "ORDER BY started_utc DESC LIMIT 1",
-            (kind, filename))
+        query = ("SELECT id, kind, user_id, filename, parent_id, state, started_utc, "
+                 "finished_utc, error, pid{} FROM cwa_operation_jobs WHERE kind=? AND filename=? "
+                 "ORDER BY started_utc DESC LIMIT 1")
+        try:
+            c.cur.execute(query.format(", book_id"), (kind, filename))
+        except sqlite3.OperationalError:
+            c.cur.execute(query.format(""), (kind, filename))
         row = c.cur.fetchone()
     return _job_dict(row) if row else None
 
@@ -84,7 +92,8 @@ def latest_job_for_file(kind, filename):
 def _job_dict(row):
     return {"id": row[0], "kind": row[1], "user_id": row[2], "filename": row[3],
             "parent_id": row[4], "state": row[5], "started_utc": row[6],
-            "finished_utc": row[7], "error": row[8], "pid": row[9]}
+            "finished_utc": row[7], "error": row[8], "pid": row[9],
+            "book_id": row[10] if len(row) > 10 else None}
 
 
 def _pid_alive(pid):

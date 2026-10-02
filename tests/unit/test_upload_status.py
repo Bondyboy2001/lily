@@ -34,6 +34,15 @@ class TestUploadStatus:
         assert resp.status_code == 200
         assert resp.get_json() == {"files": [{"file": name, "state": "queued", "error": ""}]}
 
+    def test_a_finished_import_names_its_book(self, env):
+        import automation_jobs as aj
+        client = _login(env)
+        uid = env.admin().id
+        name = f"new_{uid}_20261002_082501_450561_Salt.epub"
+        aj.finish_job(aj.create_job("ingest", filename=name), "succeeded", book_id=7)
+        assert client.get("/upload/status", query_string={"file": name}).get_json() == {
+            "files": [{"file": name, "state": "succeeded", "error": "", "book_id": 7}]}
+
     def test_names_outside_the_upload_pattern_are_refused(self, env):
         client = _login(env)
         uid = env.admin().id

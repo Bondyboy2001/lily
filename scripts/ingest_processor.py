@@ -57,12 +57,12 @@ def _bounded_reason(text: str, limit: int = 800) -> str:
     return text[:limit]
 
 
-def _record_job(job_id, state, error=""):
+def _record_job(job_id, state, error="", book_id=None):
     if not job_id:
         return
     try:
         from automation_jobs import finish_job
-        finish_job(job_id, state, error)
+        finish_job(job_id, state, error, book_id=book_id)
     except Exception as e:
         print(f"[ingest-processor] WARN: could not record job {job_id}: {e}", flush=True)
 
@@ -1194,7 +1194,7 @@ def main(filepath=None):
                     print(f"[ingest-processor] Skipping delete for ignored/temporary file: {nbp.filename}", flush=True)
                     _record_job(job_id, "skipped", "file kept in place (ignored or not ready)")
                 elif source_outcome == "delete":
-                    _record_job(job_id, "succeeded")
+                    _record_job(job_id, "succeeded", book_id=getattr(nbp, "last_added_book_id", None))
                     nbp.delete_current_file()
                 else:
                     _record_job(job_id, "failed",

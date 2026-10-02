@@ -30,6 +30,29 @@ class TestOperationJobs:
         assert job["state"] == "failed" and job["error"] == "boom"
         assert job["finished_utc"]
 
+    def test_ingest_success_records_the_new_book(self, jobs_db):
+        aj, db = jobs_db
+        jid = aj.create_job("ingest", filename="new_1_20261002_082501_450561_Salt.epub")
+        aj.finish_job(jid, "succeeded", book_id=42)
+        job = aj.latest_job_for_file("ingest", "new_1_20261002_082501_450561_Salt.epub")
+        assert job["state"] == "succeeded" and job["book_id"] == 42
+
+    def test_an_older_cwa_db_gains_the_book_id_column(self, tmp_path, monkeypatch):
+        import sqlite3
+        from cwa_db import CWA_DB
+        old = tmp_path / "old"
+        old.mkdir()
+        monkeypatch.setenv("CWA_DB_PATH", str(old))
+        con = sqlite3.connect(old / "cwa.db")
+        con.execute("CREATE TABLE cwa_operation_jobs (id TEXT PRIMARY KEY NOT NULL, kind TEXT NOT NULL, "
+                    "user_id INTEGER, filename TEXT, parent_id TEXT, state TEXT NOT NULL, "
+                    "started_utc TEXT NOT NULL, finished_utc TEXT, error TEXT DEFAULT '', pid INTEGER NOT NULL)")
+        con.commit()
+        con.close()
+        db = CWA_DB()
+        columns = [row[1] for row in db.cur.execute("PRAGMA table_info('cwa_operation_jobs')")]
+        assert "book_id" in columns
+
     def test_finish_rejects_bad_state(self, jobs_db):
         aj, _ = jobs_db
         jid = aj.create_job("refresh")
