@@ -191,7 +191,8 @@ test("rewritten log replaces the output", async () => {
     await flush();
     assert.equal(output.textContent, "rotated\n");
     assert.equal(output.appended, 0);
-    assert.equal(els["#logs_status"]._text, "Showing the most recent entries only.");
+    // A long log is cut to its newest lines without a note saying so
+    assert.equal(els["#logs_status"]._text, "");
 });
 
 test("scrolled-up reader is not dragged to the bottom", async () => {

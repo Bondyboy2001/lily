@@ -33,7 +33,6 @@ $(document).ready(function () {
     var RETRY_MS = 10000;
     var version = "";
     var shown = null;
-    var truncated = false;
     var inFlight = false;
     var timer = null;
     var $copy = $("#log_copy");
@@ -99,10 +98,9 @@ $(document).ready(function () {
             }
             version = payload.version || "";
             if (!payload.unchanged) {
-                truncated = !!payload.truncated;
                 render(payload.text || "");
             }
-            setStatus(copyNote || (truncated ? "Showing the most recent entries only." : ""), !!copyNote);
+            setStatus(copyNote, !!copyNote);
         }).catch(function (err) {
             delay = RETRY_MS;
             setStatus("Couldn't load new lines (" + err.message + "). Trying again shortly.", true);
@@ -169,7 +167,7 @@ $(document).ready(function () {
                 $copyIcon.toggleClass("glyphicon-copy", true);
                 if (copyNote) {
                     copyNote = "";
-                    setStatus(truncated ? "Showing the most recent entries only." : "", false);
+                    setStatus("", false);
                 }
             }, copyNote ? 8000 : 2000);
         });
