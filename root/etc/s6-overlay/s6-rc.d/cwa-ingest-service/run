@@ -59,7 +59,7 @@ ATTEMPTS_FILE="${QUEUE_FILE}.attempts"
 # How often (seconds) queued busy files are retried even if no new files arrive
 RETRY_QUEUE_INTERVAL=${CWA_INGEST_RETRY_INTERVAL:-30}
 [[ "$RETRY_QUEUE_INTERVAL" =~ ^[0-9]+$ ]] && [ "$RETRY_QUEUE_INTERVAL" -ge 1 ] || RETRY_QUEUE_INTERVAL=30
-SUPPORTED_EXT_REGEX='(epub|mobi|azw3|azw|pdf|txt|rtf|cbz|cbr|cb7|cbc|fb2|fbz|docx|html|htmlz|lit|lrf|odt|prc|pdb|pml|rb|snb|tcr|txtz|kepub|m4b|m4a|mp4|acsm|kfx|kfx-zip)$'
+SUPPORTED_EXT_REGEX='(epub|djvu|djv|mobi|azw3|azw|pdf|txt|rtf|cbz|cbr|cb7|cbc|fb2|fbz|docx|html|htmlz|lit|lrf|odt|prc|pdb|pml|rb|snb|tcr|txtz|kepub|m4b|m4a|mp4|acsm|kfx|kfx-zip)$'
 TEMP_SUFFIXES='crdownload download part uploading'
 PROCESSING_DIR="${CWA_INGEST_PROCESSING_DIR:-/tmp/cwa_ingest_processing}"
 RECENT_DIR="${CWA_INGEST_RECENT_DIR:-/tmp/cwa_ingest_recent}"

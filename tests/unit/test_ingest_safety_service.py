@@ -179,3 +179,18 @@ def test_busy_count_resets_after_success(svc):
     attempts = Path(str(svc["queue"]) + ".attempts")
     assert not attempts.exists() or str(book) not in attempts.read_text()
     assert book.exists()  # the stub processor doesn't consume the file
+
+
+def test_watcher_passes_every_format_the_processor_imports():
+    """A format the processor imports but the watcher filters out sits in the ingest
+    folder for ever (DjVu did, and its browser upload said "Importing…" until it gave up)."""
+    import re
+    regex = re.search(r"^SUPPORTED_EXT_REGEX='([^']+)'", RUN_SCRIPT.read_text(), re.M).group(1)
+    source = (REPO_ROOT / "scripts/ingest_processor.py").read_text()
+    formats = set()
+    for name in ("supported_book_formats", "supported_audiobook_formats"):
+        found = re.search(r"self\.%s = \{([^}]*)\}" % name, source).group(1)
+        formats |= set(re.findall(r"'([a-z0-9]+)'", found))
+    assert {"epub", "pdf", "djvu", "djv"} <= formats
+    for ext in sorted(formats):
+        assert re.search(regex, "/cwa-book-ingest/Some Book." + ext), ext
