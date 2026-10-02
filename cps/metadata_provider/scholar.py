@@ -6,8 +6,11 @@
 # See CONTRIBUTORS for full list of authors.
 
 # Academic paper metadata. Google Scholar has no API and answers server-side
-# scraping with a captcha, so this queries arXiv and Crossref instead.
+# scraping with a captcha, so this queries arXiv and Crossref instead. arXiv
+# papers are searched by title through DataCite, which registers arXiv's DOIs:
+# the arXiv API rate-limits and times out, and Crossref doesn't index preprints.
 # arXiv API: https://info.arxiv.org/help/api/user-manual.html
+# DataCite API: https://support.datacite.org/docs/api-queries
 # Crossref API: https://api.crossref.org/swagger-ui/index.html
 import re
 import html
@@ -36,6 +39,7 @@ class google_scholar(Metadata):
     identifier_types = frozenset({"doi", "arxiv"})
     ARXIV_URL = "https://export.arxiv.org/api/query"
     ARXIV_ABS_URL = "https://arxiv.org/abs/"
+    DATACITE_URL = "https://api.datacite.org/dois"
     CROSSREF_URL = "https://api.crossref.org/works"
     # arXiv answers 406 when brotli/zstd are offered, which requests does
     # whenever those packages are installed
@@ -103,23 +107,15 @@ class google_scholar(Metadata):
     def _search_arxiv(self, query: str) -> List[MetaRecord]:
         """arXiv papers for an id or text; raises when arXiv can't be reached."""
         arxiv_id = ARXIV_ID_RE.search(query)
-        if arxiv_id:
-            # The abstract page answers even when the API is slow or down
-            try:
-                return self._fetch_arxiv_abs(arxiv_id)
-            except Exception as e:
-                log.warning("arXiv abstract page lookup failed, trying the API: %s", e)
-            params = {"id_list": arxiv_id.group(0)}
-        else:
-            words = re.findall(r"\w+", query)
-            if not words:
-                return []
-            params = {
-                "search_query": " AND ".join("all:" + w for w in words),
-                "max_results": self.MAX_RESULTS,
-            }
+        if not arxiv_id:
+            return self._search_datacite(query)
+        # The abstract page answers even when the API is slow or down
+        try:
+            return self._fetch_arxiv_abs(arxiv_id)
+        except Exception as e:
+            log.warning("arXiv abstract page lookup failed, trying the API: %s", e)
         response = requests.get(
-            self.ARXIV_URL, params=params, headers=self.HEADERS, timeout=15
+            self.ARXIV_URL, params={"id_list": arxiv_id.group(0)}, headers=self.HEADERS, timeout=15
         )
         response.raise_for_status()
         feed = ElementTree.fromstring(response.content)
@@ -198,6 +194,77 @@ class google_scholar(Metadata):
         match.identifiers = {"arxiv": arxiv_id}
         # The journal's DOI once published, otherwise arXiv's own
         match.identifiers["doi"] = entry.findtext(ARXIV_NS + "doi") or ARXIV_DOI_PREFIX + arxiv_id
+        return match
+
+    def _search_datacite(self, query: str) -> List[MetaRecord]:
+        """arXiv papers whose title matches the text, best first."""
+        if not re.search(r"\w", query):
+            return []
+        params = {
+            "query": self._datacite_query(query),
+            "client-id": "arxiv.content",
+            "sort": "relevance",
+            "page[size]": self.MAX_RESULTS,
+        }
+        response = requests.get(
+            self.DATACITE_URL, params=params, headers=self.HEADERS, timeout=15
+        )
+        response.raise_for_status()
+        hits = response.json().get("data", [])
+        return [r for r in (self._parse_datacite_hit(h) for h in hits) if r]
+
+    @staticmethod
+    def _datacite_query(query: str) -> str:
+        """A title search ranking the typed title as a phrase first, then titles
+        holding every word in any order."""
+        phrase = " ".join(query.split()).replace("\\", "\\\\").replace('"', '\\"')
+        # Lower case, so a typed "and" or "not" isn't read as an operator
+        words = " AND ".join(w.lower() for w in re.findall(r"\w+", query))
+        return 'titles.title:"{}"^5 OR titles.title:({})'.format(phrase, words)
+
+    def _parse_datacite_hit(self, hit: Dict) -> Optional[MetaRecord]:
+        attrs = hit.get("attributes", {})
+        title = " ".join(((attrs.get("titles") or [{}])[0].get("title") or "").split())
+        arxiv_id = next((i.get("identifier") for i in attrs.get("identifiers", [])
+                         if i.get("identifierType") == "arXiv"), None)
+        arxiv_id = arxiv_id or arxiv_id_from_doi(attrs.get("doi"))
+        if not title or not arxiv_id:
+            return None
+        authors = []
+        for creator in attrs.get("creators", []):
+            name = " ".join(
+                p for p in (creator.get("givenName"), creator.get("familyName")) if p
+            ) or creator.get("name")
+            if name:
+                authors.append(name)
+        match = MetaRecord(
+            id=arxiv_id,
+            title=title,
+            authors=authors,
+            url="https://arxiv.org/abs/" + arxiv_id,
+            source=MetaSourceInfo(
+                id=self.__id__, description="arXiv", link="https://arxiv.org/"
+            ),
+        )
+        match.cover = ""
+        abstract = next((d.get("description") or "" for d in attrs.get("descriptions", [])
+                         if d.get("descriptionType") == "Abstract"), "")
+        match.description = " ".join(abstract.split())
+        match.publisher = "arXiv"
+        # The first version's submission, as the arXiv API's "published"
+        submitted = sorted(d.get("date") or "" for d in attrs.get("dates", [])
+                           if d.get("dateType") == "Submitted")
+        match.publishedDate = submitted[0][:10] if submitted else str(attrs.get("publicationYear") or "")
+        # "Applications (stat.AP)" -> the API's category term
+        match.tags = [t.group(1) for t in (
+            re.search(r"\(([a-z-]+(?:\.[A-Za-z-]+)?)\)$", s.get("subject") or "")
+            for s in attrs.get("subjects", []) if s.get("subjectScheme") == "arXiv") if t]
+        match.identifiers = {"arxiv": arxiv_id}
+        # The journal's DOI once published, otherwise arXiv's own
+        journal_doi = next((r.get("relatedIdentifier") for r in attrs.get("relatedIdentifiers", [])
+                            if r.get("relationType") == "IsVersionOf"
+                            and r.get("relatedIdentifierType") == "DOI"), None)
+        match.identifiers["doi"] = journal_doi or ARXIV_DOI_PREFIX + arxiv_id
         return match
 
     def _search_crossref(self, query: str) -> List[MetaRecord]:

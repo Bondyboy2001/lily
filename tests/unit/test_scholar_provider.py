@@ -1,5 +1,8 @@
-"""The Scholar provider: arXiv ids looked up from the abstract page, and outages
-reported as failures rather than as no results."""
+"""The Scholar provider: arXiv ids looked up from the abstract page, titles
+searched through DataCite, and outages reported as failures rather than as no
+results."""
+
+import json
 
 import pytest
 import requests
@@ -23,20 +26,66 @@ ABS_PAGE = """<html><head>
 </tr></table></body></html>"""
 
 
+# Trimmed from api.datacite.org/dois?client-id=arxiv.content
+DATACITE_HIT = {
+    "id": "10.48550/arxiv.1108.1680",
+    "attributes": {
+        "doi": "10.48550/arxiv.1108.1680",
+        "identifiers": [{"identifier": "1108.1680", "identifierType": "arXiv"}],
+        "creators": [
+            {"name": "Dobra, Adrian", "nameType": "Personal",
+             "givenName": "Adrian", "familyName": "Dobra"},
+            {"name": "Lenkoski, Alex", "nameType": "Personal",
+             "givenName": "Alex", "familyName": "Lenkoski"},
+        ],
+        "titles": [{"title": "Copula Gaussian graphical models and their\n  application "
+                             "to modeling functional disability data"}],
+        "publisher": "arXiv",
+        "publicationYear": 2011,
+        "subjects": [
+            {"subject": "Applications (stat.AP)", "subjectScheme": "arXiv"},
+            {"subject": "Methodology (stat.ME)", "subjectScheme": "arXiv"},
+            {"subject": "FOS: Mathematics",
+             "subjectScheme": "Fields of Science and Technology (FOS)"},
+        ],
+        "dates": [
+            {"date": "2011-08-11T12:00:00Z", "dateType": "Updated"},
+            {"date": "2011-08-08T19:45:12Z", "dateType": "Submitted", "dateInformation": "v1"},
+            {"date": "2011", "dateType": "Issued"},
+        ],
+        "relatedIdentifiers": [{"relationType": "IsVersionOf",
+                                "relatedIdentifier": "10.1214/10-aoas397",
+                                "relatedIdentifierType": "DOI"}],
+        "descriptions": [
+            {"description": "We propose a  Bayesian approach & more.",
+             "descriptionType": "Abstract"},
+            {"description": "Published in the Annals of Applied Statistics",
+             "descriptionType": "Other"},
+        ],
+    },
+}
+
+
 class _Response:
     def __init__(self, status_code=200, text=""):
         self.status_code = status_code
         self.text = text
         self.content = text.encode()
 
+    def json(self):
+        return json.loads(self.text)
+
     def raise_for_status(self):
         if self.status_code >= 400:
             raise requests.HTTPError(str(self.status_code))
 
 
-def _fake_get(routes):
-    """requests.get answering by URL prefix; a route that's an exception is raised."""
+def _fake_get(routes, calls=None):
+    """requests.get answering by URL prefix; a route that's an exception is raised.
+    Each request's url and params are appended to `calls` when given."""
     def get(url, **kwargs):
+        if calls is not None:
+            calls.append((url, kwargs.get("params")))
         for prefix, answer in routes.items():
             if url.startswith(prefix):
                 if isinstance(answer, Exception):
@@ -104,3 +153,43 @@ def test_versioned_id_keeps_the_bare_id(monkeypatch):
     }))
     records = google_scholar()._fetch_arxiv_abs(ARXIV_ID_RE.search("1108.1680v1"))
     assert records[0].id == "1108.1680"
+
+
+def test_title_is_searched_in_datacite_not_the_arxiv_api(monkeypatch):
+    # The arXiv API rate-limits and times out, so a typed title found nothing
+    calls = []
+    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+        "https://api.datacite.org/dois": _Response(text=json.dumps({"data": [DATACITE_HIT]})),
+    }, calls))
+    records = google_scholar()._search_arxiv("Copula Gaussian graphical models")
+    assert [r.id for r in records] == ["1108.1680"]
+    (url, params), = calls
+    assert params["client-id"] == "arxiv.content"
+    assert params["sort"] == "relevance"
+
+
+def test_datacite_query_prefers_the_exact_title():
+    query = google_scholar._datacite_query('Adam: A "Method"  for  Optimization')
+    assert query == ('titles.title:"Adam: A \\"Method\\" for Optimization"^5'
+                     ' OR titles.title:(adam AND a AND method AND for AND optimization)')
+
+
+def test_datacite_record_reads_like_the_abstract_page():
+    record = google_scholar()._parse_datacite_hit(DATACITE_HIT)
+    assert record.id == "1108.1680"
+    assert record.title == ("Copula Gaussian graphical models and their application "
+                            "to modeling functional disability data")
+    assert record.authors == ["Adrian Dobra", "Alex Lenkoski"]
+    assert record.description == "We propose a Bayesian approach & more."
+    assert record.publishedDate == "2011-08-08"
+    assert record.publisher == "arXiv"
+    assert record.url == "https://arxiv.org/abs/1108.1680"
+    assert record.tags == ["stat.AP", "stat.ME"]
+    assert record.identifiers == {"arxiv": "1108.1680", "doi": "10.1214/10-aoas397"}
+
+
+def test_datacite_record_without_a_journal_keeps_the_arxiv_doi():
+    hit = json.loads(json.dumps(DATACITE_HIT))
+    hit["attributes"]["relatedIdentifiers"] = []
+    record = google_scholar()._parse_datacite_hit(hit)
+    assert record.identifiers["doi"] == "10.48550/arXiv.1108.1680"
