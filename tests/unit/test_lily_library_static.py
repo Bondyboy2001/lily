@@ -208,14 +208,15 @@ def test_page_numbers_sit_in_the_toolbar_after_sort():
             assert toolbar.index("image.sort_menu(") < toolbar.index("image.pager("), name
     rules = dict(css_rules(read(CSS / "lily-library.css")))
     assert "flex-direction: row" in rules[".lily-list-toolbar:has(> .pagination)"]
-    assert "height: 38px" in rules[".lily-list-toolbar .pagination > li > a"]
+    chips = [body for sel, body in css_rules(read(CSS / "lily-library.css"))
+             if sel == ".lily-list-toolbar .pagination > li > a"]
+    assert any("height: 38px" in body for body in chips)
+    assert any("min-width: 38px" in body for body in chips)
     # phones keep only the arrows; the links stay named by aria-label
     macro = read(TEMPLATES / "image.html")
     assert macro.count('<span class="page-step-word">') == 2
     assert 'rel="prev" aria-label=' in macro and 'rel="next" aria-label=' in macro
-    css = read(CSS / "lily-library.css")
-    phone = css[css.index("@media (max-width: 767px) {\n    .pagination .page-step-word"):]
-    assert "display: none" in phone[:phone.index("}")]
+    assert ".pagination .page-step-word { display: none; }" in read(CSS / "lily-library.css")
 
 
 def test_advanced_search_pickers_are_fields():
@@ -419,6 +420,15 @@ def test_fetch_metadata_search_is_a_field_and_a_separate_button():
     assert "input-group" not in form
     css = read(CSS / "lily-library.css")
     assert "#metaModal #meta-search { order: 3; flex: 1 0 100%; display: flex; gap: 8px;" in css
+
+
+def test_fetch_metadata_opens_beside_the_cover():
+    js = read(JS / "get_meta.js")
+    assert "cover.getBoundingClientRect().right / zoom + 24" in js
+    assert 'dialog.classList.toggle("meta-beside-cover", fits);' in js
+    css = read(CSS / "lily-library.css")
+    assert "#metaModal .modal-dialog.meta-beside-cover {" in css
+    assert "margin-left: var(--meta-left);" in css
 
 
 def test_editor_save_panel_starts_with_read():

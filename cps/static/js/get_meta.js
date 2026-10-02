@@ -401,9 +401,29 @@ $(function () {
     runSearch(text);
   });
 
+  // The dialog opens beside the cover, not over it, so results can be compared with
+  // the book's own cover. Only when at least 600px is left for it; otherwise centred.
+  // Rects and innerWidth are in window pixels, margins in CSS pixels under the page
+  // zoom (lily.css), so divide by it.
+  function placeBesideCover() {
+    var dialog = $("#metaModal .modal-dialog")[0];
+    var cover = $(".editbook-cover-section .cover")[0];
+    var zoom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--page-zoom")) || 1;
+    var left = cover ? Math.round(cover.getBoundingClientRect().right / zoom + 24) : 0;
+    var room = Math.floor(window.innerWidth / zoom - left - 24);
+    var fits = left > 0 && room >= 600;
+    dialog.classList.toggle("meta-beside-cover", fits);
+    dialog.style.setProperty("--meta-left", fits ? left + "px" : "");
+    dialog.style.setProperty("--meta-room", fits ? room + "px" : "");
+  }
+
   $("#metaModal").on("show.bs.modal", function (e) {
+    placeBesideCover();
     $(e.relatedTarget).one("focus", function () {
       $(this).blur();
     });
+  });
+  $(window).on("resize", function () {
+    if ($("#metaModal").hasClass("in")) { placeBesideCover(); }
   });
 });
