@@ -2022,6 +2022,20 @@ body.book_table .pagination {
     line-height: 38px;
 }
 
+/* Page numbers (image.pager) follow Sort on the same row, wrapping under it when narrow */
+.lily-list-toolbar:has(> .pagination) {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.lily-list-toolbar > .pagination { margin: 0; }
+
+.lily-list-toolbar .pagination > li > a {
+    height: 38px;
+    line-height: 38px;
+}
+
 .lily-sort > .btn.lily-chip {
     display: inline-flex;
     align-items: center;

@@ -81,6 +81,7 @@
     {% elif page == 'series' %}{% set sort_fields = ['added', 'read', 'title', 'author', 'published', 'series'] %}
     {% else %}{% set sort_fields = ['added', 'read', 'title', 'author', 'published'] %}{% endif %}
     {{ image.sort_menu(order, url_for('web.books_list', data=page, book_id=id, sort_param='SORT_PARAM', **(list_filters.args if list_filters else {})), sort_fields) }}
+    {{ image.pager(pagination) }}
   </div>
 
   {% if entries %}{{ image.list_head() }}{% endif %}

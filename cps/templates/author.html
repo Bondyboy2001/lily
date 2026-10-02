@@ -9,6 +9,7 @@
     {# Grid/List icons, pinned to the toolbar's top right #}
     {{ self.view_switch() }}
     {{ image.sort_menu(order, url_for('web.books_list', data='author', book_id=id, sort_param='SORT_PARAM', **(list_filters.args if list_filters else {})), ['added', 'read', 'title', 'published']) }}
+    {{ image.pager(pagination) }}
   </div>
   {% if entries %}{{ image.list_head() }}{% endif %}
   <div class="row display-flex lily-grid">

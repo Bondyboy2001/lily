@@ -21,6 +21,7 @@
         {# Grid/List icons, pinned to the toolbar's top right #}
         {{ self.view_switch() }}
       {{ image.sort_menu(order, url_for('web.books_list', data=page, sort_param='SORT_PARAM', query=query), ['added', 'title', 'author', 'published']) }}
+      {{ image.pager(pagination) }}
       </div>
   {% endif %}
 

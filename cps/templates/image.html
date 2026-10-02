@@ -71,6 +71,43 @@
     </div>
 {%- endmacro %}
 
+{# Page numbers for a paginated book list; they sit in the list's toolbar, after Sort. #}
+{% macro pager(pagination) -%}
+    {% if pagination and (pagination.has_next or pagination.has_prev) %}
+      <ul class="pagination" role="navigation" aria-label="{{_('Pagination')}}">
+        {% if pagination.has_prev %}
+        <li class="page-item page-previous"><a class="page-link previous" rel="prev" aria-label="{{_('Previous page')}}" href="{{ (pagination.page - 1)|url_for_other_page }}">&laquo; {{_('Previous')}}</a></li>
+        {% endif %}
+      {% for page in pagination.iter_pages() %}
+        {% if page %}
+          {% if page != pagination.page %}
+            <li class="page-item"><a class="page-link" aria-label="{{_('Go to page %(page)s', page=page)}}" href="{{ (page)|url_for_other_page }}">{{ page }}</a></li>
+          {% else %}
+            <li class="page-item active"><a class="page-link" aria-current="page" aria-label="{{_('Current page, page %(page)s', page=page)}}" href="{{ (page)|url_for_other_page }}">{{ page }}</a></li>
+          {% endif %}
+        {% else %}
+          {# Compact "…" separator: opens a small jump-to-page box instead of listing every page #}
+          <li class="page-item page-last-separator page-jump dropdown">
+            <a class="page-link dropdown-toggle" href="#" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false" aria-label="{{_('Go to page')}}">…</a>
+            <div class="dropdown-menu page-jump-menu">
+              {# sentinel goes through a variable: a literal would be constant-folded by Jinja at compile time, outside this request #}
+              {% set jump_sentinel = 987654321 %}
+              <form class="page-jump-form" data-url-template="{{ jump_sentinel|url_for_other_page }}" data-placeholder="{{ jump_sentinel }}">
+                <label class="sr-only" for="page-jump-{{ loop.index }}">{{_('Go to page')}}</label>
+                <input id="page-jump-{{ loop.index }}" class="form-control input-sm" type="number" min="1" max="{{ pagination.pages }}" placeholder="1–{{ pagination.pages }}" required>
+                <button type="submit" class="btn btn-default btn-sm">{{_('Go')}}</button>
+              </form>
+            </div>
+          </li>
+        {% endif %}
+      {% endfor %}
+      {% if pagination.has_next %}
+        <li class="page-item page-next"><a class="page-link next" rel="next" aria-label="{{_('Next page')}}" href="{{ (pagination.page + 1)|url_for_other_page }}">{{_('Next')}} &raquo;</a></li>
+      {% endif %}
+      </ul>
+    {% endif %}
+{%- endmacro %}
+
 {# The same Sort / direction pair as sort_menu, for name lists (categories, authors, series…).
    filter_list.js / filter_grid.js sort and filter the rows in place, so the options are buttons
    keyed by id, not links. `chars` is the list of initials: the letter filter only appears when a

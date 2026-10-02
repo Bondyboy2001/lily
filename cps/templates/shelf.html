@@ -19,6 +19,7 @@
   {% if can_edit and entries.__len__() %}
   {{ image.sort_menu(order, url_for('shelf.show_shelf', shelf_id=shelf.id, sort_param='SORT_PARAM'), ['added', 'title', 'author', 'published', 'shelf']) }}
   {% endif %}
+  {{ image.pager(pagination) }}
   </div>
   {% if entries %}{{ image.list_head() }}{% endif %}
   <div class="row display-flex lily-grid">

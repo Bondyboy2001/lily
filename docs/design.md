@@ -497,7 +497,9 @@ content (grid, panel, rows)
   (large icon buttons) top-right, margin-bottom 22. Toolbar chips are 38 tall
   so they sit level with the view switch. The direction chip shows only its
   arrow (38 square, the word kept for screen readers and the tooltip naming
-  the next order).
+  the next order). Page numbers (`image.pager`) sit after the sort chips on
+  the same row, 38 tall, wrapping under them when narrow; lists have no pager
+  at the bottom.
 
 ### 6.4 Book page ("Shelf" layout)
 

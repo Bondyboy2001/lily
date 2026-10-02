@@ -197,6 +197,20 @@ def test_sort_bars_are_dropdowns_not_solid_buttons():
     assert "var(--accent-soft)" in chosen and "var(--accent)" in chosen
 
 
+def test_page_numbers_sit_in_the_toolbar_after_sort():
+    assert 'class="pagination"' not in read(TEMPLATES / "layout.html")
+    for name in ("index.html", "author.html", "search.html", "shelf.html"):
+        html = read(TEMPLATES / name)
+        toolbar = html[html.index('<div class="lily-list-toolbar">'):]
+        toolbar = toolbar[:toolbar.index("image.list_head()")]
+        assert "image.pager(pagination)" in toolbar, name
+        if "image.sort_menu(" in toolbar:
+            assert toolbar.index("image.sort_menu(") < toolbar.index("image.pager("), name
+    rules = dict(css_rules(read(CSS / "lily-library.css")))
+    assert "flex-direction: row" in rules[".lily-list-toolbar:has(> .pagination)"]
+    assert "height: 38px" in rules[".lily-list-toolbar .pagination > li > a"]
+
+
 def test_advanced_search_pickers_are_fields():
     html = read(TEMPLATES / "search_form.html")
     assert 'data-style="btn-primary"' not in html and 'data-style="btn-danger"' not in html
