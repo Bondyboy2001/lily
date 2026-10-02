@@ -20,6 +20,16 @@ function makeEl(id) {
             if (v === undefined) return el._attrs[n];
             el._attrs[n] = v; return el;
         },
+        prop(n, v) {
+            el._props = el._props || {};
+            if (v === undefined) return el._props[n];
+            el._props[n] = v; return el;
+        },
+        find(sel) {
+            el._found = el._found || {};
+            return el._found[sel] || (el._found[sel] = makeEl(sel));
+        },
+        on(ev, fn) { (el._handlers = el._handlers || {})[ev] = fn; return el; },
         toggleClass(name, on) { el.classes[name] = on; },
         appendChild(node) {
             el.textContent += node.data;
