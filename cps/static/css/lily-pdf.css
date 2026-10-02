@@ -12,6 +12,17 @@
 @media (min-width: 1400px) { :root { --pdf-chrome-zoom: 1.375; } }
 @media (min-width: 1700px) { :root { --pdf-chrome-zoom: 1.5; } }
 
+/* Phones: pdf.js' narrow layout has no room for Lily's Back and bookmark buttons, so the
+   zoom buttons (pinch zooms) and the drawing tools give way, and the bar is drawn larger:
+   28px buttons become 35 in a 40px bar, as large as fits one row on a 360px phone. */
+@media (max-width: 600px) {
+    :root { --pdf-chrome-zoom: 1.25; }
+
+    #toolbarViewerMiddle,
+    #editorModeButtons,
+    #editorModeSeparator { display: none; }
+}
+
 /* The doorhangers sit at top: 32px, which the same zoom scales to the bar's height. */
 .toolbar,
 #toolbarSidebar,

@@ -606,7 +606,9 @@ reader (pdf.js `viewer.css`) is outside the system; `lily-pdf.css` only zooms
 its toolbars (1.25× base, times the site zoom, from 1100px) to the site's
 control size and keeps the pages unzoomed. Its toolbar starts with a "Back to
 book" link (`#backToBook`, a pdf.js `toolbarButton` with its own chevron), and
-at 600px and below PDFs open at page width instead of 150%.
+at 600px and below PDFs open at page width instead of 150%. There the bar is drawn
+at 1.25× too (35px buttons) and keeps to one row: the zoom buttons (pinch zooms)
+and the drawing tools are hidden to make room for Back and the bookmark buttons.
 The DjVu reader uses the epub title bar (`#titlebar`: Back, title, controls),
 the pdf reader's page box ("3 of 120") and zoom list as Fields, and the epub
 side arrows in 88/56px gutters. The vendored viewer's own toolbar and status

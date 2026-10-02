@@ -556,3 +556,13 @@ def test_phone_tap_strips_sit_above_the_book():
     # ...which is above #viewer's own
     viewer = read(CSS / "main.css").split("#viewer {", 1)[1].split("}", 1)[0]
     assert "z-index: 2;" in viewer
+
+
+def test_phone_pdf_toolbar_keeps_to_one_row_with_larger_buttons():
+    # At 390px pdf.js' bar plus Lily's Back and bookmark buttons wrapped: zoom "+" sat on the page
+    css = read(CSS / "lily-pdf.css")
+    phone = css.split("@media (max-width: 600px) {", 1)[1].split("\n}\n", 1)[0]
+    assert ":root { --pdf-chrome-zoom: 1.25; }" in phone
+    hidden = phone.split("{ display: none; }", 1)[0]
+    for selector in ("#toolbarViewerMiddle", "#editorModeButtons", "#editorModeSeparator"):
+        assert selector in hidden
