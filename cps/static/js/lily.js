@@ -760,10 +760,8 @@ window.lilyToggleSortDir = function (btn) {
 })();
 
 /*
- * Wide covers (docs/design.md §5.15): the tile is A4 (1 : 1.414) and fills with a crop. A
- * cover more than 5% wider than that gets .cover-wide and is shown whole on bands instead.
- * Load events do not bubble, so one capturing listener catches every cover, including ones
- * added later; covers that loaded before this script ran are checked on DOMContentLoaded.
+ * Covers more than 5% wider than the A4 tile get .cover-wide (docs/design.md §5.15). Load
+ * does not bubble, so a capturing listener catches every cover; earlier loads are swept up.
  */
 (function () {
   "use strict";
@@ -771,7 +769,6 @@ window.lilyToggleSortDir = function (btn) {
   var WIDEST = (1 / 1.414) * 1.05;
 
   function mark(img) {
-    if (!img.naturalWidth || !img.naturalHeight) { return; }
     img.classList.toggle("cover-wide", img.naturalWidth / img.naturalHeight > WIDEST);
   }
 
