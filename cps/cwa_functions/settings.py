@@ -6,10 +6,11 @@
 
 """Import & Metadata settings page (/cwa-settings) and metadata-provider settings helpers."""
 
-from flask import redirect, flash, url_for, request
+from flask import redirect, flash, url_for, request, jsonify
 from flask_babel import gettext as _
 
 from .. import config
+from ..cw_login import current_user
 from ..usermanagement import login_required_if_no_ano
 from ..admin import admin_required
 from ..render_template import render_title_template
@@ -127,3 +128,18 @@ def set_cwa_settings():
 
     return render_title_template("cwa_settings.html", title=_("Import & Metadata"), page="cwa-settings",
                                  cwa_settings=cwa_db.get_cwa_settings(), config=config)
+
+
+@cwa_settings.route("/cwa-settings/rebuild-metadata", methods=["POST"])
+@login_required_if_no_ano
+@admin_required
+def rebuild_metadata():
+    """Queue a lookup of every book with the metadata providers; one at a time."""
+    from ..services.worker import WorkerThread
+    from ..tasks.metadata_rebuild import TaskRebuildMetadata
+    worker = WorkerThread.get_instance()
+    if worker.has_active_task_of_type(TaskRebuildMetadata.__name__):
+        return jsonify({"success": True, "running": True})
+    task = TaskRebuildMetadata()
+    WorkerThread.add(current_user.name, task)
+    return jsonify({"success": True, "task_id": str(task.id)})

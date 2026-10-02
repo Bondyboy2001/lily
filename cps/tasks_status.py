@@ -54,6 +54,7 @@ def render_task_status(tasklist):
 
             # Hidden fields
             ret['task_id'] = task.id
+            ret['kind'] = type(task).__name__
             ret['stat'] = task.stat
             ret['is_cancellable'] = task.is_cancellable
             ret['error'] = task.error

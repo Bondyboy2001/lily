@@ -19,6 +19,13 @@
          help=_('Edits are saved into the EPUB file too, not just the library.')) }}
       {{ f.input('config_google_books_api_key', _('Google Books API key'), config.config_google_books_api_key, type='password',
          help=_('Optional. Raises the Google Books rate limit.')) }}
+      {# lily-metadata-rebuild.js: confirms, queues the task and shows its progress in the help line #}
+      {% call f.row(_('Rebuild metadata'), help=_('Look up every book again and use the best match.')) %}
+        <button type="button" class="btn btn-default" id="rebuild_metadata"
+                data-url="{{ url_for('cwa_settings.rebuild_metadata') }}" data-status-url="{{ url_for('web.get_email_status_json') }}">
+          <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> {{ _('Rebuild') }}
+        </button>
+      {% endcall %}
     {% endcall %}
 
     <div class="lp-actions is-save">
@@ -27,4 +34,24 @@
     </div>
   </form>
 </div>
+
+<div class="modal fade" id="rebuildMetadataModal" tabindex="-1" role="dialog" aria-modal="true"
+     aria-labelledby="rebuildMetadataTitle" aria-describedby="rebuildMetadataText">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header"><h4 class="modal-title" id="rebuildMetadataTitle">{{ _('Rebuild Metadata?') }}</h4></div>
+      <div class="modal-body">
+        <p id="rebuildMetadataText">{{ _('Every book is looked up again and its title, authors, description and other details are replaced with the best match. Books without a confident match keep theirs. This can take a while.') }}</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">{{ _('Cancel') }}</button>
+        <button type="button" class="btn btn-danger" id="rebuild_metadata_confirm">{{ _('Rebuild') }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/lily-metadata-rebuild.js') }}" defer></script>
 {% endblock %}

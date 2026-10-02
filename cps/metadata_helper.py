@@ -10,7 +10,7 @@ import re
 import unicodedata
 from difflib import SequenceMatcher
 
-from cps import logger, db
+from cps import logger, db, constants
 from cps.search_metadata import cl as metadata_providers
 import sys
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
@@ -72,12 +72,13 @@ def best_metadata_match(title: str, authors, results):
     return best
 
 
-def fetch_and_apply_metadata(book_id: int) -> bool:
+def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
     """
     Fetch metadata for a newly ingested book and apply it if settings allow.
 
     Args:
         book_id: The ID of the book to fetch metadata for
+        force: Look it up even when "Fetch metadata for new books" is off (Rebuild metadata)
 
     Returns:
         bool: True if metadata was successfully fetched and applied, False otherwise
@@ -91,7 +92,7 @@ def fetch_and_apply_metadata(book_id: int) -> bool:
         cwa_db = CWA_DB()
         cwa_settings = cwa_db.get_cwa_settings()
 
-        if not cwa_settings.get('auto_metadata_fetch_enabled', False):
+        if not force and not cwa_settings.get('auto_metadata_fetch_enabled', False):
             log.debug("Auto metadata fetch disabled by administrator")
             return False
 
@@ -104,7 +105,9 @@ def fetch_and_apply_metadata(book_id: int) -> bool:
 
         # Create search query from book title and author
         search_query = book.title
-        author_names = [author.name for author in book.authors] if book.authors else []
+        # calibre's "Unknown" stand-in is not a name to search for
+        author_names = [author.name for author in book.authors or []
+                        if not constants.is_unknown_author(author.name)]
         if author_names:
             search_query += " " + " ".join(author_names)
 
