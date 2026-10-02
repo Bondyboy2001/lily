@@ -40,6 +40,12 @@ See https://github.com/adobe-type-tools/cmap-resources
 	  <script src="{{ url_for('static', filename='js/libs/pdf.mjs') }}" type="module"></script>
 
     <script type="text/javascript">
+    // A zoom picked in this book is kept per book on this device (phones separately) and put
+    // back once the pages exist; pdf.js' own start-up zoom doesn't hold it reliably.
+    window.lilyPdfZoomKey = function () {
+        var phone = window.matchMedia("(max-width: 600px)").matches;
+        return "lily-pdf-zoom:" + (phone ? "phone:" : "") + {{ progress_key|tojson }};
+    };
     window.addEventListener('webviewerloaded', function() {
         PDFViewerApplicationOptions.set('disableAutoFetch', true);
         PDFViewerApplicationOptions.set('disableRange', false);
@@ -572,6 +578,16 @@ See https://github.com/adobe-type-tools/cmap-resources
                 return;
             }
             app.initializedPromise.then(function () {
+                // documentinit follows pdf.js' start-up view, which would undo a zoom set sooner.
+                app.eventBus.on("documentinit", function () {
+                    var savedZoom = null;
+                    try {
+                        savedZoom = window.localStorage.getItem(window.lilyPdfZoomKey());
+                    } catch (e) { /* storage optional */ }
+                    if (savedZoom) {
+                        app.pdfViewer.currentScaleValue = savedZoom;
+                    }
+                });
                 app.eventBus.on("pagesinit", function () {
                     {% if current_user.is_authenticated %}
                     // Bookmarked pages ("page:N"): the toolbar's bookmark button marks the page
@@ -603,6 +619,16 @@ See https://github.com/adobe-type-tools/cmap-resources
                     }).catch(function () {}).then(function () {
                         restored = true;
                     });
+                });
+                // Remember the zoom for this book: a preset ("page-width") or a scale ("1.25").
+                app.eventBus.on("scalechanging", function (evt) {
+                    if (!restored) {
+                        return;
+                    }
+                    var value = evt.presetValue || String(Math.round(evt.scale * 100) / 100);
+                    try {
+                        window.localStorage.setItem(window.lilyPdfZoomKey(), value);
+                    } catch (e) { /* storage optional */ }
                 });
                 app.eventBus.on("pagechanging", function (evt) {
                     if (bookmarks) {

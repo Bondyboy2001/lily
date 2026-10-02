@@ -495,3 +495,16 @@ def test_a_book_with_no_author_shows_none(client, temp_cwa_db):
     assert 'name="authors" id="authors" value=""' in edit
     authors = c.get("/author").get_data(as_text=True)
     assert "Test Author" in authors and "Unknown" not in authors
+
+
+def test_pdf_reader_remembers_the_zoom_per_book():
+    html = read(TEMPLATES / "readpdf.html")
+    assert '"lily-pdf-zoom:" + (phone ? "phone:" : "") + {{ progress_key|tojson }}' in html
+    # Put back after pdf.js' start-up view (which would undo it); the phone/desktop default
+    # stays pdf.js' start-up zoom.
+    init = html[html.index('app.eventBus.on("documentinit"'):]
+    assert init.index("app.pdfViewer.currentScaleValue = savedZoom") < init.index('app.eventBus.on("pagesinit"')
+    assert 'app.eventBus.on("scalechanging"' in html and "evt.presetValue ||" in html
+    # Saving waits for the saved page to be restored, so the opening zoom isn't recorded.
+    handler = html[html.index('app.eventBus.on("scalechanging"'):]
+    assert handler.index("if (!restored)") < handler.index("localStorage.setItem")
