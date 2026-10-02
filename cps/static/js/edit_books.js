@@ -153,7 +153,9 @@ var authors = new Bloodhound({
    rows stay on screen marked invalid and are left out of the field. Values that arrive through
    the field are always kept.
    opts.sort keeps the saved value alphabetical always, and the rows once focus leaves the list.
-   opts.minRows is how many rows to show when there are no values (0 or 1). */
+   opts.minRows is how many rows to show when there are no values (0 or 1).
+   opts.fixed is for values that are not added by hand (tags): there is no Add button, and
+   Enter and the split key add no row; the rows there are can be corrected or removed. */
 function lilyRowEditor(opts) {
     var $field = opts.field, $rows = opts.rows;
     if (!$field.length || !$rows.length) { return; }
@@ -250,7 +252,7 @@ function lilyRowEditor(opts) {
     $rows.on("keydown", INPUT, function (e) {
         if (e.key === "Enter" || (opts.splitKey && e.key === opts.splitKey)) {
             e.preventDefault();
-            addAfter($(this).closest(".lily-edit-row"), "");
+            if (!opts.fixed) { addAfter($(this).closest(".lily-edit-row"), ""); }
         } else if (e.key === "Backspace" && !$(this).val() && inputs().length > minRows) {
             e.preventDefault();
             removeRow($(this).closest(".lily-edit-row"));
@@ -261,7 +263,7 @@ function lilyRowEditor(opts) {
     $rows.on("paste", INPUT, function (e) {
         var text = (e.originalEvent.clipboardData || window.clipboardData).getData("text");
         var values = opts.split(text || "");
-        if (values.length < 2) { return; }
+        if (values.length < 2 || opts.fixed) { return; }
         e.preventDefault();
         var $row = $(this).closest(".lily-edit-row");
         $(this).typeahead("val", values.shift());
@@ -365,7 +367,7 @@ var tags = new Bloodhound({
 
 /* Tags: the hidden #tags field is the comma-separated list the server reads. */
 lilyRowEditor({
-    field: $("#tags"), rows: $("#tag-rows"), add: $("#tag-add"),
+    field: $("#tags"), rows: $("#tag-rows"), add: $(), fixed: true,
     name: "tags", display: "name", source: tags, splitKey: ",",
     split: function (raw) {
         return raw.split(",").map(function (t) { return t.trim(); })
@@ -496,32 +498,22 @@ $("#book_edit_frm").on("submit", function () {
 });
 
 
-/* Optional fields (series, publisher, date, language, rating) are hidden while empty.
-   An Add button shows one; Fetch Metadata fires "lily:reveal-filled" after filling the
-   form, which shows every field that now has a value. */
+/* Only the title and authors are added by hand. Every other field (series, publisher, date,
+   language, rating, tags, description) is hidden while empty. Fetch Metadata fires
+   "lily:reveal-filled" after filling the form, which shows each field that now has a value,
+   and the section it is in. */
 (function () {
     var $form = $("#book_edit_frm");
-    var $add = $form.find(".editbook-add-fields");
-    if (!$add.length) { return; }
-
-    function show(key) {
-        $form.find('[data-optional="' + key + '"]').prop("hidden", false);
-        $add.find('[data-optional-add="' + key + '"]').prop("hidden", true);
-        $add.prop("hidden", !$add.find("[data-optional-add]:not([hidden])").length);
-    }
-
-    $add.on("click", "[data-optional-add]", function () {
-        var key = this.dataset.optionalAdd;
-        show(key);
-        // A radio group (the rating) takes focus on its checked radio, as Tab would.
-        $form.find('[data-optional="' + key + '"]').find("input:not(:radio):visible, input:radio:checked").first().trigger("focus");
-    });
 
     $form.on("lily:reveal-filled", function () {
         $form.find("[data-optional][hidden]").each(function () {
-            var $value = $(this).find("[data-optional-value]");
+            // typeahead puts a copy of its input (the hint) in front of it
+            var $value = $(this).find("[data-optional-value]").not(".tt-hint");
             var value = $.trim(($value.is(":radio") ? $value.filter(":checked").val() : $value.val()) || "");
-            if (value !== "" && value !== "0") { show(this.dataset.optional); }
+            if (value === "" || value === "0") { return; }
+            $(this).prop("hidden", false).closest("section[hidden]").prop("hidden", false);
+            // The description box fits its text, which it could not measure while hidden
+            $(this).find("textarea").trigger("input");
         });
     });
 })();

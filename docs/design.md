@@ -531,10 +531,13 @@ content (grid, panel, rows)
   DOI isn't shown. Other identifiers (a non-arXiv paper's DOI included) stay as
   named links in one Identifiers row. A Citations row fills in after load from OpenAlex
   and stays hidden when the paper isn't found.
-- **Editor** (`book_edit.html`): Title, authors, tags, shelves and description
-  always show. Series, publisher, published date, language and rating show only
-  when the book has a value; the rest wait behind small "Add …" buttons at the
-  end of Details, and Fetch Metadata reveals any field it fills.
+- **Editor** (`book_edit.html`): Title, authors and shelves always show, and are
+  the only things added by hand. Series, publisher, published date, language,
+  rating, tags and description show only when the book has a value, which Fetch
+  Metadata or the file gave; a value can be corrected or cleared, but there are
+  no "Add …" buttons for them. A section with nothing to show (Details, Tags,
+  Description) is hidden with its heading, and Fetch Metadata reveals any field
+  it fills.
   The description box fits its text (no drag handle), padding 14/16 and
   line-height 1.68 like the book page.
   The Save panel starts with a secondary Read (new tab) when the book has a

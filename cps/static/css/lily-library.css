@@ -1908,16 +1908,8 @@ dl.book-metadata:not(:has(> div)) { display: none; }
     column-gap: 16px;
 }
 
-.editbook-section [data-optional][hidden],
-.editbook-add-fields[hidden],
-.editbook-add-fields .btn[hidden] { display: none; }
-
-.editbook-add-fields {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 15px;
-}
+.editbook-section[hidden],
+.editbook-section [data-optional][hidden] { display: none; }
 
 .editbook-section .row { margin-left: -8px; margin-right: -8px; }
 .editbook-section .row > [class*="col-"] { padding-left: 8px; padding-right: 8px; }

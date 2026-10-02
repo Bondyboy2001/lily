@@ -39,14 +39,19 @@
     </div>
   </div>
 
-  {# Optional fields show only when the book has a value for them #}
+  {# Only the title and authors are added by hand. Every other field shows only when the book
+     has a value for it, which Fetch Metadata (or the file itself) gave; it can then be
+     corrected or cleared, and Fetch Metadata reveals any field it fills (edit_books.js) #}
   {% set shown = {
     'series': book.series|length > 0,
     'publisher': book.publishers|length > 0,
     'pubdate': book.pubdate and (book.pubdate|formatdateinput) != '',
     'languages': book.languages|length > 0,
     'rating': (book.ratings|length > 0 and book.ratings[0].rating > 0),
+    'tags': book.tags|length > 0,
+    'comments': (book.comments|length > 0 and book.comments[0].text|trim != ''),
   } %}
+  {% set details_shown = shown.publisher or shown.pubdate or shown.languages or shown.rating %}
   {# Middle: every section has a heading; fields under it carry plain labels #}
   <div class="editbook-form">
     <section class="editbook-section">
@@ -78,7 +83,7 @@
     </div>
     </section>
 
-    <section class="editbook-section">
+    <section class="editbook-section"{% if not details_shown %} hidden{% endif %}>
     <h3>{{_('Details')}}</h3>
     <div class="editbook-fields">
       <div class="form-group" data-optional="publisher"{% if not shown.publisher %} hidden{% endif %}>
@@ -104,31 +109,23 @@
         {{ image.rating_input('rating', (book.ratings[0].rating / 2)|int if book.ratings else 0, labelledby='rating-label', input_attrs='data-optional-value') }}
       </div>
     </div>
-    {# An empty field stays out of the way until it's wanted: its Add button shows it,
-       and Fetch Metadata shows any it fills (edit_books.js) #}
-    <div class="editbook-add-fields"{% if not shown.values()|reject|list %} hidden{% endif %}>
-      {% for key, label in [('series', _('Add series')), ('publisher', _('Add publisher')), ('pubdate', _('Add published date')), ('languages', _('Add language')), ('rating', _('Add rating'))] %}
-      <button type="button" class="btn btn-default btn-sm" data-optional-add="{{ key }}"{% if shown[key] %} hidden{% endif %}>
-        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> {{ label }}
-      </button>
-      {% endfor %}
-    </div>
     </section>
 
     {% set editable_shelves = g.shelves_access|selectattr('id', 'in', shelf_ids_editable)|list %}
-    <section class="editbook-section">
-    <h3>{{_('Tags & Shelves')}}</h3>
     {# One row per tag over the hidden #tags field, which the server reads as a
-       comma-separated list (edit_books.js) #}
+       comma-separated list (edit_books.js). The tags a book has can be corrected or removed;
+       there is no adding one by hand #}
+    <section class="editbook-section" data-optional="tags"{% if not shown.tags %} hidden{% endif %}>
+    <h3 id="tags-label">{{_('Tags')}}</h3>
     <div class="form-group" id="tag-editor">
-      <label id="tags-label">{{_('Tags')}}</label>
       <ol class="lily-edit-rows" id="tag-rows" aria-labelledby="tags-label"
           data-placeholder="{{_('Tag')}}" data-remove-label="{{_('Remove tag')}}"></ol>
-      <button type="button" class="btn btn-default btn-sm" id="tag-add">
-        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> {{_('Add tag')}}
-      </button>
-      <input type="hidden" name="tags" id="tags" value="{% for tag in book.tags %}{{tag.name.strip()}}{% if not loop.last %}, {% endif %}{% endfor %}">
+      <input type="hidden" name="tags" id="tags" data-optional-value value="{% for tag in book.tags %}{{tag.name.strip()}}{% if not loop.last %}, {% endif %}{% endfor %}">
     </div>
+    </section>
+
+    <section class="editbook-section">
+    <h3 id="shelves-label">{{_('Shelves')}}</h3>
     {# Identifiers (ISBN, Amazon…) aren't edited here, but stay in the form: saving drops any
        identifier missing from it, and Fetch Metadata adds rows to this table. #}
     <table class="table" id="identifier-table" hidden><tbody>
@@ -143,7 +140,6 @@
     {# One row per shelf over the hidden #shelves field, a JSON list of names; saving puts the
        book on exactly those shelves (editbooks._update_shelves). Only existing shelves can be added. #}
     <div class="form-group" id="shelf-editor">
-      <label id="shelves-label">{{_('Shelves')}}</label>
       <ol class="lily-edit-rows" id="shelf-rows" aria-labelledby="shelves-label"
           data-placeholder="{{_('Shelf name')}}" data-remove-label="{{_('Remove from shelf')}}"
           data-invalid-label="{{_('No shelf with this name')}}"
@@ -160,10 +156,10 @@
     </div>
     </section>
 
-    <section class="editbook-section">
+    <section class="editbook-section" data-optional="comments"{% if not shown.comments %} hidden{% endif %}>
     <h3><label for="comments">{{_('Description')}}</label></h3>
     <div class="form-group">
-      <textarea class="form-control lily-description" name="comments" id="comments" rows="3">{% if book.comments %}{{book.comments[0].text}}{%endif%}</textarea>
+      <textarea class="form-control lily-description" name="comments" id="comments" data-optional-value rows="3">{% if book.comments %}{{book.comments[0].text}}{%endif%}</textarea>
     </div>
     </section>
 

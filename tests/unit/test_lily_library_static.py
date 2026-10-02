@@ -370,16 +370,25 @@ def test_cover_quick_actions_are_floating_round_buttons():
     assert "--cover-tint" not in read(JS / "lily.js")
 
 
-def test_editor_hides_empty_optional_fields_until_added_or_fetched():
+def test_editor_adds_only_title_and_authors_by_hand_and_shows_other_fields_once_fetched():
     template = read(TEMPLATES / "book_edit.html")
-    for key in ("series", "publisher", "pubdate", "languages", "rating"):
+    for key in ("series", "publisher", "pubdate", "languages", "rating", "tags", "comments"):
         assert f'data-optional="{key}"{{% if not shown.{key} %}} hidden{{% endif %}}' in template
-        assert f"('{key}', _('Add " in template
-    # Title, authors, tags, shelves and description always show
-    for always in ('id="title"', 'id="author-rows"', 'id="tag-rows"', 'id="shelf-rows"', 'id="comments"'):
+    # No "Add …" for any of them: only authors and shelves have an Add button
+    assert "data-optional-add" not in template and "editbook-add-fields" not in template
+    assert 'id="tag-add"' not in template
+    assert re.findall(r'<button type="button" class="btn btn-default btn-sm" id="([^"]+)"', template) == [
+        "author-add", "shelf-add"]
+    # Title, authors and shelves always show; Details hides with its heading when it is empty
+    for always in ('id="title"', 'id="author-rows"', 'id="shelf-rows"'):
         assert always in template
+    assert '<section class="editbook-section"{% if not details_shown %} hidden{% endif %}>' in template
     edit_js = read(JS / "edit_books.js")
     assert '$form.on("lily:reveal-filled", function () {' in edit_js
+    assert '.closest("section[hidden]").prop("hidden", false)' in edit_js
+    assert 'add: $(), fixed: true' in edit_js and "data-optional-add" not in edit_js
+    css = read(CSS / "lily-library.css")
+    assert ".editbook-section[hidden]" in css and "editbook-add-fields" not in css
     assert '$("#book_edit_frm").trigger("lily:reveal-filled");' in read(JS / "get_meta.js")
 
 

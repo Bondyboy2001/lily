@@ -345,13 +345,14 @@ def test_book_editor_shows_only_the_optional_fields_with_values(client):
     resp = c.get(f"/admin/book/{book_id}")
     assert resp.status_code == 200, resp.data[:300]
     html = resp.get_data(as_text=True)
-    # The fixture book has a language and a publish date, but no series, publisher or rating
-    for key in ("languages", "pubdate"):
+    # The fixture book has a language, a publish date and a tag, but no series, publisher,
+    # rating or description: those stay hidden, and nothing offers to add them by hand
+    for key in ("languages", "pubdate", "tags"):
         assert f'data-optional="{key}">' in html, key
-        assert f'data-optional-add="{key}" hidden>' in html, key
-    for key in ("series", "publisher", "rating"):
+    for key in ("series", "publisher", "rating", "comments"):
         assert f'data-optional="{key}" hidden>' in html, key
-        assert f'data-optional-add="{key}">' in html, key
+    assert "data-optional-add" not in html and 'id="tag-add"' not in html
+    assert 'id="author-add"' in html and 'id="title"' in html
     # The rating is a star radio group named by its visible label; "none" is chosen.
     group = re.search(r'<div class="lily-stars" role="radiogroup"[^>]*>(.*?)</div>', html, flags=re.S)
     assert group and 'aria-labelledby="rating-label"' in group.group(0)
