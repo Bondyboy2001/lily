@@ -1100,6 +1100,7 @@ def render_edit_book(book_id):
     return render_title_template('book_edit.html', book=book, authors=author_names, cc=cc,
                                  shelf_ids_editable=[shelf.id for shelf in _editable_shelves()],
                                  book_shelf_ids=_book_shelf_ids(book.id),
+                                 reader_list=helper.check_read_formats(book),
                                  title=_("Edit Metadata"), page="editbook",
                                  config=config)
 

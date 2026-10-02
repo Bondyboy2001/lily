@@ -498,6 +498,8 @@ content (grid, panel, rows)
   end of Details, and Fetch Metadata reveals any field it fills.
   The description box fits its text (no drag handle), padding 14/16 and
   line-height 1.68 like the book page.
+  The Save panel starts with a secondary Read (new tab) when the book has a
+  readable format; Save stays the one Primary.
 - **Fetch Metadata results** are compact cards: a 128px cover column with
   Apply under it, fields in 14px, a description clamped to six lines. The match
   score is a bare 24px number ("21%") in the card's top right; an exact match

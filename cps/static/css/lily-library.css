@@ -1919,6 +1919,8 @@ dl.book-metadata:not(:has(> div)) { display: none; }
         background: var(--paper);
     }
     .editbook-actions .btn { width: auto; }
+    /* The row runs right to left, so Read goes to the far left, away from Save */
+    .editbook-actions .editbook-read { order: 1; margin-right: auto; }
 }
 
 .lily-table-actions { margin-bottom: 14px; }

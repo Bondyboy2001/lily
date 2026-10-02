@@ -245,6 +245,10 @@
   </div>
 
   <aside class="editbook-actions" aria-label="{{_('Save changes')}}">
+    {# Read opens the book in a new tab, like the book page's Read #}
+    {% if reader_list and current_user.role_viewer() %}
+    <a id="readbtn" class="btn btn-default editbook-read" target="_blank" rel="noopener" href="{{ url_for('web.read_book', book_id=book.id, book_format=reader_list[0]) }}"><span class="glyphicon glyphicon-book" aria-hidden="true"></span> {{_('Read')}}</a>
+    {% endif %}
     <button type="submit" id="submit" class="btn btn-primary">{{_('Save')}}</button>
     <a href="{{ url_for('web.show_book', book_id=book.id) }}" id="edit_cancel" class="btn btn-default">{{_('Cancel')}}</a>
     {# Saving always returns to the book page #}

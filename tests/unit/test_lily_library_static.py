@@ -361,6 +361,14 @@ def test_editor_hides_empty_optional_fields_until_added_or_fetched():
     assert '$("#book_edit_frm").trigger("lily:reveal-filled");' in read(JS / "get_meta.js")
 
 
+def test_editor_save_panel_starts_with_read():
+    template = read(TEMPLATES / "book_edit.html")
+    panel = template.split('<aside class="editbook-actions"', 1)[1].split("</aside>", 1)[0]
+    assert panel.index('class="btn btn-default editbook-read"') < panel.index('id="submit"')
+    assert "url_for('web.read_book', book_id=book.id, book_format=reader_list[0])" in panel
+    assert "reader_list=helper.check_read_formats(book)" in read(REPO_ROOT / "cps/editbooks.py")
+
+
 def test_delete_dialog_names_the_book_and_promises_no_restore():
     dialogs = read(TEMPLATES / "modal_dialogs.html")
     assert "administrator to restore" not in dialogs and "Are You Sure?" not in dialogs
