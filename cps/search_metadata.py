@@ -147,18 +147,25 @@ def _form_identifiers(raw_json):
     return normalise_identifiers(raw) if isinstance(raw, dict) else {}
 
 
-def _scorer(form):
+def _scorer(form, query=""):
     """How well a record matches the book being edited (title and authors from the
-    edit form), scored by scripts/metadata_suggestions.py."""
+    edit form) or the typed text as its title, scored by
+    scripts/metadata_suggestions.py. The book's title is often a file name, so the
+    typed text counts as much; how closely the record's title matches it breaks
+    ties, since an author-less score is capped."""
     import sys
     if '/app/calibre-web-automated/scripts/' not in sys.path:
         sys.path.insert(1, '/app/calibre-web-automated/scripts/')
-    from metadata_suggestions import match_score
+    from metadata_suggestions import match_score, title_similarity
     title = form.get("title") or ""
     authors = [a.strip() for a in (form.get("authors") or "").split("&") if a.strip()]
 
     def score(record):
-        return match_score(title, authors, record.title or "", record.authors or [])
+        rec_title, rec_authors = record.title or "", record.authors or []
+        best = match_score(title, authors, rec_title, rec_authors)
+        if query:
+            best = max(best, match_score(query, authors, rec_title, rec_authors))
+        return 0.99 * best + 0.01 * title_similarity(query or title, rec_title)
     return score
 
 
@@ -208,7 +215,7 @@ def metadata_search():
         return make_response(jsonify({"results": [], "status": "skipped"}))
     records, status = _run_search(provider, "" if typed else query,
                                   typed or _form_identifiers(form.get("identifiers")))
-    score = _scorer(form)
+    score = _scorer(form, "" if typed else query)
     data, seen = [], set()
     for record, exact in records:
         key = (record.source.description, str(record.id))

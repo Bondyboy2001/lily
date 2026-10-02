@@ -82,3 +82,30 @@ def test_arxiv_entry_without_journal_doi_gets_arxivs_doi():
 def test_a_text_search_asks_every_enabled_provider():
     from cps.search_metadata import _providers_to_ask, cl
     assert _providers_to_ask({}, cl) == list(cl)
+
+
+def _record(title, authors=()):
+    from types import SimpleNamespace
+    return SimpleNamespace(title=title, authors=list(authors))
+
+
+def test_typed_title_ranks_results_when_the_book_title_is_a_filename():
+    # A PDF imported as "1706.03762v7" scores every result zero against its own title
+    from cps.search_metadata import _scorer
+    score = _scorer({"title": "1706.03762v7", "authors": "Unknown"}, "Attention Is All You Need")
+    exact = score(_record("Attention Is All You Need"))
+    longer = score(_record("Not All Attention Is All You Need"))
+    assert exact > longer > score(_record("Deep Residual Learning"))
+
+
+def test_typed_title_does_not_outrank_the_books_author():
+    from cps.search_metadata import _scorer
+    score = _scorer({"title": "Dune", "authors": "Frank Herbert"}, "Dune")
+    assert score(_record("Dune", ["Frank Herbert"])) > score(_record("Dune", ["Someone Else"]))
+
+
+def test_exact_title_beats_a_subtitled_one_when_both_hit_the_authorless_cap():
+    from cps.search_metadata import _scorer
+    title = "Deep Residual Learning for Image Recognition in Very Large Networks"
+    score = _scorer({"title": title, "authors": ""}, title)
+    assert score(_record(title)) > score(_record(title + ": A Survey"))
