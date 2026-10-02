@@ -317,3 +317,20 @@ def test_crossref_gets_the_contact_address_when_set(monkeypatch):
     monkeypatch.delenv("CROSSREF_MAILTO")
     google_scholar()._search_crossref("anything")
     assert sent[0]["mailto"] == "me@example.org" and "mailto" not in sent[1]
+
+
+def test_semantic_scholar_still_busy_is_left_out_for_a_while(monkeypatch):
+    # A rebuild asks once a book: without the pause each waited for two refusals
+    asked = []
+
+    def get(url, **kw):
+        asked.append(url)
+        return _Response(429)
+    monkeypatch.setattr(scholar_module.requests, "get", get)
+    monkeypatch.setattr(scholar_module.time, "sleep", lambda s: None)
+    scholar = google_scholar()
+    with pytest.raises(requests.HTTPError):
+        scholar._search_semantic_scholar("Mastering the game of Go")
+    assert len(asked) == 2
+    assert scholar._search_semantic_scholar("Attention Is All You Need") == []
+    assert len(asked) == 2

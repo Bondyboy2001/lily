@@ -14,7 +14,7 @@ import requests
 
 from cps import config, logger
 from cps.isoLanguages import get_lang3, get_language_name
-from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata
+from cps.services.Metadata import CoolOff, MetaRecord, MetaSourceInfo, Metadata
 
 log = logger.create()
 
@@ -28,6 +28,10 @@ class Google(Metadata):
     BOOK_URL = "https://books.google.com/books?id="
     SEARCH_URL = "https://www.googleapis.com/books/v1/volumes"
     ISBN_TYPE = "ISBN_13"
+
+    def __init__(self):
+        # Set when Google answers 429: without a key the shared quota is soon used up
+        self._busy = CoolOff()
 
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
@@ -55,12 +59,16 @@ class Google(Metadata):
         key = self._api_key()
         if key:
             params["key"] = key
+        if self._busy.active():
+            return []
         try:
             results = requests.get(Google.SEARCH_URL, params=params, timeout=15)
             results.raise_for_status()
         except Exception as e:
             # Don't log the URL: it carries the API key
             status = getattr(getattr(e, "response", None), "status_code", None)
+            if status == 429:
+                self._busy.start(e.response)
             log.warning("Google Books search failed%s%s", f" ({status})" if status else "",
                         "" if key else "; set a Google Books API key to avoid the shared quota")
             return []

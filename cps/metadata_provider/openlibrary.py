@@ -35,13 +35,24 @@ class OpenLibrary(Metadata):
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
     ) -> Optional[List[MetaRecord]]:
+        records = self.search_titles(query, generic_cover, locale)
+        self._add_descriptions(records)
+        return records
+
+    def search_titles(
+        self, query: str, generic_cover: str = "", locale: str = "en"
+    ) -> List[MetaRecord]:
+        """search() without the descriptions, which are a request each: a lookup that applies
+        one exact match finds it by title and authors, then calls complete() on it alone."""
         if not query.strip():
             return []
         docs = self._search_docs({"q": query, "limit": self.MAX_RESULTS})
         records = [self._parse_doc(d, generic_cover, locale) for d in docs]
-        records = [r for r in records if r]
-        self._add_descriptions(records)
-        return records
+        return [r for r in records if r]
+
+    def complete(self, record: MetaRecord) -> MetaRecord:
+        self._add_descriptions([record])
+        return record
 
     def search_identifiers(
         self, identifiers: Dict[str, str], generic_cover: str = "", locale: str = "en"

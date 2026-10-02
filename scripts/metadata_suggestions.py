@@ -32,14 +32,12 @@ def _tokens(text: str) -> set[str]:
     return {t for t in _WORD.findall(normalise_title(text)) if t not in _STOPWORDS}
 
 
-def _surname(author: str) -> str:
-    """'Le Guin, Ursula K.' / 'Ursula K. Le Guin' -> 'guin' (last word of the family name)."""
-    author = (author or "").strip()
-    if author.casefold() == "unknown":
+def surname(author: str) -> str:
+    """'Le Guin, Ursula K.' / 'Ursula K. Le Guin' -> 'guin' (last word of the family name),
+    without accents. Imports match authors on it too (metadata_helper.best_metadata_match)."""
+    words = normalise_title((author or "").split(",", 1)[0]).split()
+    if words == ["unknown"]:
         return ""  # Calibre's placeholder: no author at all
-    if "," in author:
-        author = author.split(",", 1)[0]
-    words = _WORD.findall(author.casefold())
     return words[-1] if words else ""
 
 
@@ -63,10 +61,10 @@ def title_similarity(a: str, b: str) -> float:
 
 def author_similarity(book_authors: list[str], record_authors: list[str]) -> float:
     """Share of the book's authors whose surname appears among the record's."""
-    wanted = {s for s in map(_surname, book_authors) if s}
+    wanted = {s for s in map(surname, book_authors) if s}
     if not wanted:
         return 0.0
-    have = {s for s in map(_surname, record_authors) if s}
+    have = {s for s in map(surname, record_authors) if s}
     return len(wanted & have) / len(wanted)
 
 
@@ -74,6 +72,6 @@ def match_score(book_title: str, book_authors: list[str], rec_title: str, rec_au
     """0..1 confidence that the record is the same book. Without any author on the
     book the title alone decides, capped so an author-less guess is never 'high'."""
     title = title_similarity(book_title, rec_title)
-    if not any(_surname(a) for a in book_authors):
+    if not any(surname(a) for a in book_authors):
         return min(title, HIGH_CONFIDENCE - 0.01)
     return round(TITLE_WEIGHT * title + (1 - TITLE_WEIGHT) * author_similarity(book_authors, rec_authors), 4)

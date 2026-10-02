@@ -78,3 +78,13 @@ def test_result_naming_the_author_beats_one_naming_none():
 
 def test_no_results():
     assert best_metadata_match("Tide Tables for Beginners", ["Marian Hollis"], []) is None
+
+
+@pytest.mark.parametrize("book_author, found_author", [
+    ("Le Guin, Ursula K.", "Ursula K. Le Guin"),      # the family name's last word, either way round
+    ("Ursula K. Le Guin", "Le Guin, Ursula"),
+    ("García Márquez, Gabriel", "Gabriel Garcia Marquez"),
+])
+def test_an_author_is_the_same_surname_first_or_last(book_author, found_author):
+    result = record("The Dispossessed", [found_author])
+    assert best_metadata_match("The Dispossessed", [book_author], [result]) is result

@@ -119,8 +119,9 @@ def test_import_process_config_knows_the_library_paths(tmp_path, monkeypatch):
     app_db = tmp_path / "app.db"
     con = sqlite3.connect(app_db)
     con.execute("CREATE TABLE settings (config_calibre_dir TEXT, config_certfile TEXT, config_keyfile TEXT, "
-                "config_calibre_split BOOLEAN, config_calibre_split_dir TEXT, config_unicode_filename BOOLEAN)")
-    con.execute("INSERT INTO settings VALUES ('/calibre-library', NULL, NULL, 0, NULL, 1)")
+                "config_calibre_split BOOLEAN, config_calibre_split_dir TEXT, config_unicode_filename BOOLEAN, "
+                "config_google_books_api_key TEXT, config_hardcover_token TEXT)")
+    con.execute("INSERT INTO settings VALUES ('/calibre-library', NULL, NULL, 0, NULL, 1, 'g-key', NULL)")
     con.commit()
     con.close()
     bare = ConfigSQL()
@@ -131,3 +132,8 @@ def test_import_process_config_knows_the_library_paths(tmp_path, monkeypatch):
     ingest_processor._load_cps_settings_from_app_db()
     assert bare.get_book_path() == "/calibre-library"
     assert bare.config_unicode_filename == 1
+    # A new book's lookup uses the key from the settings page, not Google's shared quota
+    from cps.metadata_provider.google import Google
+    monkeypatch.setattr("cps.metadata_provider.google.config", bare)
+    monkeypatch.delenv("GOOGLE_BOOKS_API_KEY", raising=False)
+    assert Google._api_key() == "g-key"

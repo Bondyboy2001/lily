@@ -20,6 +20,7 @@ import threading
 from datetime import datetime, timezone
 
 from cps import logger, db, constants, helper
+from cps.clean_html import clean_string
 from cps.helper import get_sorted_author
 from cps.search_metadata import cl as metadata_providers
 from cps.services.identifiers import (ARXIV_ID, DOI_RE, arxiv_id_from_doi, normalise_identifiers,
@@ -27,7 +28,7 @@ from cps.services.identifiers import (ARXIV_ID, DOI_RE, arxiv_id_from_doi, norma
 from cps.tag_cleanup import clean_tags
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB  # noqa: E402
-from metadata_suggestions import normalise_title  # noqa: E402
+from metadata_suggestions import normalise_title, surname  # noqa: E402
 
 log = logger.create()
 
@@ -47,14 +48,8 @@ _normalise = normalise_title
 
 
 def _surnames(authors) -> set:
-    names = set()
-    for name in authors or []:
-        # Calibre sort form "Surname, Forename" puts the surname first
-        surname, comma, _ = (name or '').partition(',')
-        parts = _normalise(surname).split()
-        if parts and parts != ['unknown']:  # Calibre's placeholder author
-            names.add(parts[0] if comma else parts[-1])
-    return names
+    """The authors' surnames, by the rule Fetch metadata ranks with."""
+    return {name for name in map(surname, authors or []) if name}
 
 
 def titles_match(a: str, b: str) -> bool:
@@ -250,8 +245,9 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
             if not book:
                 log.error(f"Book with ID {book_id} not found")
                 return False
-            # calibre's "Unknown" stand-in is not a name to search for
-            authors = [a.name for a in book.authors or [] if not constants.is_unknown_author(a.name)]
+            # calibre's "Unknown" stand-in is not a name to search for; it keeps a name's comma as "|"
+            authors = [a.name.replace('|', ',') for a in book.authors or []
+                       if not constants.is_unknown_author(a.name)]
             own_ids = normalise_identifiers({i.type: i.val for i in book.identifiers or []})
             page_text = pdf_first_page_text(book)
             title = book.title
@@ -307,8 +303,13 @@ def _find_record(title, authors, own_ids, page_text):
             return record
     query = " ".join([title] + authors)
     for provider in metadata_providers:
+        # Without the details a provider fetches per result, when it can leave them out
+        # (services/Metadata.py): only the record applied needs them
+        search = getattr(provider, 'search_titles', provider.search)
         try:
-            record = best_metadata_match(title, authors, provider.search(query, "", "en") or [])
+            record = best_metadata_match(title, authors, search(query, "", "en") or [])
+            if record is not None and hasattr(provider, 'complete'):
+                record = provider.complete(record)
         except Exception as e:
             log.warning(f"Searching {provider.__name__} for '{query}' failed: {e}")
             continue
@@ -328,6 +329,27 @@ def _parse_date(value):
     return None
 
 
+def _has_date(current, published) -> bool:
+    """Whether the book's date already says what the provider's does. A provider that knows
+    only the year (or month) gives its first day, so a book dated within it is that date,
+    known more exactly, and keeps its own."""
+    if not current:
+        return False
+    if current.date() == published.date():
+        return True
+    if published.day != 1 or current.year != published.year:
+        return False
+    return published.month in (1, current.month)
+
+
+def _index(value):
+    """A series index as a number, or None when there is none (providers give 0 or '')."""
+    try:
+        return float(value) or None
+    except (TypeError, ValueError):
+        return None
+
+
 def _named(cdb, model, lookup, name, *extra):
     """The row called name, or a new one."""
     row = lookup(name)
@@ -335,6 +357,11 @@ def _named(cdb, model, lookup, name, *extra):
         row = model(name, *extra)
         cdb.session.add(row)
     return row
+
+
+def _same_rows(a, b) -> bool:
+    """The same library rows in any order. Rows compare by name and can't be hashed."""
+    return len(a) == len(b) and all(any(x is y for y in b) for x in a)
 
 
 def _apply_record(cdb, book, record, cover):
@@ -350,20 +377,32 @@ def _apply_record(cdb, book, record, cover):
             book.title = title
             changed = True
 
-        names = list(dict.fromkeys(n.strip() for n in record.authors or [] if n and n.strip()))
-        if names and names != [a.name for a in book.authors]:
+        # calibre keeps a name's comma as "|"; names differing only in case are one author
+        names = {}
+        for name in record.authors or []:
+            name = (name or '').strip().replace(',', '|')
+            if name:
+                names.setdefault(name.casefold(), name)
+        if names:
             authors = []
-            for name in names:
-                author = _named(cdb, db.Authors, cdb.get_author_by_name, name, get_sorted_author(name))
+            for name in names.values():
+                author = _named(cdb, db.Authors, cdb.get_author_by_name, name,
+                                get_sorted_author(name.replace('|', ',')))
                 if author not in authors:
                     authors.append(author)
-            dropped += [a for a in book.authors if a not in authors]
-            book.authors = authors
             # "Surname, Forename & …": author sorting and calibre's first author read it
-            book.author_sort = ' & '.join(a.sort for a in authors)
-            changed = True
+            author_sort = ' & '.join(a.sort for a in authors)
+            # Compared as rows and their order, not as text: the library finds a name whatever
+            # its case, so the same author spelt in another case is no change
+            if not _same_rows(authors, book.authors) or author_sort != book.author_sort:
+                dropped += [a for a in book.authors if a not in authors]
+                book.authors = authors
+                book.author_sort = author_sort
+                changed = True
 
+        # Cleaned like an edit's: a description is shown as HTML, and a provider's can be anyone's
         description = (record.description or '').strip()
+        description = clean_string(description, book.id) if description else ''
         if description and description != (book.comments[0].text if book.comments else ''):
             if book.comments:
                 book.comments[0].text = description
@@ -372,10 +411,12 @@ def _apply_record(cdb, book, record, cover):
             changed = True
 
         publisher = (record.publisher or '').strip()
-        if publisher and [p.name for p in book.publishers] != [publisher]:
-            dropped += list(book.publishers)
-            book.publishers = [_named(cdb, db.Publishers, cdb.get_publisher_by_name, publisher, publisher)]
-            changed = True
+        if publisher:
+            row = _named(cdb, db.Publishers, cdb.get_publisher_by_name, publisher, publisher)
+            if not _same_rows(book.publishers, [row]):
+                dropped += [p for p in book.publishers if p is not row]
+                book.publishers = [row]
+                changed = True
 
         # Only subjects: a provider's tags can be shop categories or the book's own title
         for name in clean_tags(record.tags or [], title=book.title,
@@ -389,22 +430,20 @@ def _apply_record(cdb, book, record, cover):
 
         series = (record.series or '').strip()
         if series:
-            try:
-                index = str(float(record.series_index)) if record.series_index else '1.0'
-            except (TypeError, ValueError):
-                index = '1.0'
-            new_series = [s.name for s in book.series] != [series]
+            row = _named(cdb, db.Series, cdb.get_series_by_name, series, series)
+            new_series = not _same_rows(book.series, [row])
             if new_series:
-                dropped += list(book.series)
-                book.series = [_named(cdb, db.Series, cdb.get_series_by_name, series, series)]
+                dropped += [s for s in book.series if s is not row]
+                book.series = [row]
                 changed = True
             # A new series starts at the record's index, or 1; the same one takes the record's
-            if (new_series or record.series_index) and index != book.series_index:
-                book.series_index = index
+            index = _index(record.series_index) or (1.0 if new_series else None)
+            if index and index != _index(book.series_index):
+                book.series_index = str(index)
                 changed = True
 
         published = _parse_date(record.publishedDate)
-        if published and (not book.pubdate or book.pubdate.date() != published.date()):
+        if published and not _has_date(book.pubdate, published):
             book.pubdate = published
             changed = True
 

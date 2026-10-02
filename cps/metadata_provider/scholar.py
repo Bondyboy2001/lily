@@ -26,7 +26,7 @@ from xml.etree import ElementTree
 import requests
 
 from cps import logger
-from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata
+from cps.services.Metadata import CoolOff, MetaRecord, MetaSourceInfo, Metadata
 from cps.services.identifiers import ARXIV_DOI_PREFIX, ARXIV_ID_RE, DOI_RE, arxiv_id_from_doi
 
 log = logger.create()
@@ -50,6 +50,10 @@ class google_scholar(Metadata):
     # whenever those packages are installed
     HEADERS = {"User-Agent": "Lily/1.0 (metadata lookup)", "Accept-Encoding": "gzip"}
     MAX_RESULTS = 5
+
+    def __init__(self):
+        # Set when Semantic Scholar stays busy: its keyless pool often is
+        self._s2_busy = CoolOff()
 
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
@@ -285,7 +289,10 @@ class google_scholar(Metadata):
         return match
 
     def _search_semantic_scholar(self, query: str) -> List[MetaRecord]:
-        """Semantic Scholar's closest title match, if it has one."""
+        """Semantic Scholar's closest title match, if it has one. Still busy after the second
+        try, it is left out of the searches of the next minute."""
+        if self._s2_busy.active():
+            return []
         headers = dict(self.HEADERS)
         # Without a key every caller shares one pool, which is often busy
         key = getenv("SEMANTIC_SCHOLAR_API_KEY")
@@ -295,6 +302,8 @@ class google_scholar(Metadata):
         response = _get(self.S2_MATCH_URL, params=params, headers=headers, timeout=10)
         if response.status_code == 404:
             return []
+        if response.status_code == 429:
+            self._s2_busy.start(response)
         response.raise_for_status()
         hits = response.json().get("data", [])
         return [r for r in (self._parse_semantic_scholar(h) for h in hits) if r]

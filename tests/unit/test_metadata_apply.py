@@ -228,3 +228,85 @@ def test_an_imported_book_that_changes_moves_its_folder_and_queues_the_file_writ
     assert (env.library_dir / path).is_dir() and not old_dir.exists()
     [log] = list(logs.iterdir())
     assert '"title": "Attention Is All You Need"' in log.read_text()
+
+
+def _applies_once(env, helper, book_id):
+    """The record changes the book once; looking it up again is no update and touches nothing."""
+    assert helper.fetch_and_apply_metadata(book_id) is True
+    before = _q(env, "SELECT title, author_sort, series_index, pubdate, last_modified FROM books")
+    assert helper.fetch_and_apply_metadata(book_id) is False
+    assert _q(env, "SELECT title, author_sort, series_index, pubdate, last_modified FROM books") == before
+
+
+def test_authors_in_another_order_are_reordered_once(env, monkeypatch):
+    # The link table keeps its own order: comparing names in that order made every rebuild an update
+    book = env.add_book("Good Omens", author="Neil Gaiman")
+    _sql(env, ("INSERT INTO authors (name, sort) VALUES ('Terry Pratchett', 'Pratchett, Terry')", ()),
+         ("INSERT INTO books_authors_link (book, author) SELECT ?, id FROM authors WHERE name='Terry Pratchett'",
+          (book,)))
+    helper = _setup(monkeypatch, _record(title="Good Omens", authors=["Terry Pratchett", "Neil Gaiman"]))
+    _applies_once(env, helper, book)
+    assert _q(env, "SELECT author_sort FROM books") == [("Pratchett, Terry & Neil Gaiman",)]
+
+
+def test_a_name_in_another_case_is_the_same_author_and_publisher(env, monkeypatch):
+    # The library finds names whatever their case, so there is nothing to write
+    book = env.add_book("Dune", author="frank herbert")
+    _sql(env, ("INSERT INTO publishers (name, sort) VALUES ('Ace', 'Ace')", ()),
+         ("INSERT INTO books_publishers_link (book, publisher) SELECT ?, id FROM publishers", (book,)))
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], publisher="ACE"))
+    assert helper.fetch_and_apply_metadata(book) is False
+    assert _q(env, "SELECT name FROM authors") == [("frank herbert",)]
+    assert _q(env, "SELECT name FROM publishers") == [("Ace",)]
+
+
+def test_a_series_and_its_index_are_set_once(env, monkeypatch):
+    # The library stores the index as a number; compared as text it never matched
+    book = env.add_book("Dune Messiah", author="Frank Herbert")
+    helper = _setup(monkeypatch, _record(title="Dune Messiah", authors=["Frank Herbert"],
+                                         series="Dune Chronicles", series_index=2))
+    _applies_once(env, helper, book)
+    assert _q(env, "SELECT series_index FROM books") == [(2.0,)]
+
+
+def test_an_author_with_a_comma_is_stored_as_the_library_stores_them(env, monkeypatch):
+    book = env.add_book("Dune", author="Unknown")
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Herbert, Frank"]))
+    _applies_once(env, helper, book)
+    assert _q(env, "SELECT name, sort FROM authors") == [("Herbert| Frank", "Herbert, Frank")]
+
+
+@pytest.mark.parametrize("found, kept", [
+    ("2019", True),            # the year alone: the book's day in that year is more exact
+    ("2019-06", True),
+    ("2019-06-04", True),
+    ("2019-07", False),
+    ("1965", False),
+    ("2019-06-05", False),
+])
+def test_a_less_exact_date_keeps_the_books_own(env, monkeypatch, found, kept):
+    book = env.add_book("Dune", author="Frank Herbert")
+    _sql(env, ("UPDATE books SET pubdate='2019-06-04 00:00:00+00:00' WHERE id=?", (book,)))
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], publishedDate=found))
+    assert helper.fetch_and_apply_metadata(book) is not kept
+    assert _q(env, "SELECT pubdate FROM books")[0][0].startswith("2019-06-04") is kept
+
+
+def test_a_description_is_cleaned_like_an_edits(env, monkeypatch):
+    # It is shown as HTML, and Open Library's and Hardcover's are written by anyone
+    book = env.add_book("Dune", author="Frank Herbert")
+    helper = _setup(monkeypatch, _record(
+        title="Dune", authors=["Frank Herbert"],
+        description='<p onclick="x()">Spice & sand.</p><script>alert(1)</script><img src=x onerror=alert(1)>'))
+    _applies_once(env, helper, book)
+    text = _q(env, "SELECT text FROM comments")[0][0]
+    assert "<p>Spice &amp; sand.</p>" in text
+    assert "<script" not in text and "onclick" not in text and "<img" not in text
+
+
+def test_a_library_author_kept_with_a_bar_matches_the_providers(env, monkeypatch):
+    # calibre stores "Herbert, Frank" as "Herbert| Frank"
+    book = env.add_book("Dune", author="Herbert| Frank")
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice."))
+    assert helper.fetch_and_apply_metadata(book) is True
+    assert _q(env, "SELECT text FROM comments") == [("Spice.",)]

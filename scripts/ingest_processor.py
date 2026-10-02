@@ -178,8 +178,9 @@ def get_app_db_path() -> str:
 
 def _load_cps_settings_from_app_db() -> None:
     """Load the CPS settings this process uses: the internal HTTPS certificates, and the library
-    paths and file naming that metadata lookups need (config.get_book_path() reads the split
-    library settings; moving a renamed book's folder reads config_unicode_filename)."""
+    paths, file naming and provider keys that metadata lookups need (config.get_book_path() reads
+    the split library settings; moving a renamed book's folder reads config_unicode_filename;
+    without the Google Books key a new book's lookup uses the shared quota, which is soon spent)."""
     if not _cps_config:
         return
     # The web app loads these from app.db at start; this process only has a bare ConfigSQL
@@ -204,7 +205,8 @@ def _load_cps_settings_from_app_db() -> None:
             if row[2]:
                 _cps_config.config_keyfile = row[2]
             columns = {r[1] for r in cur.execute("PRAGMA table_info(settings)")}
-            for name in ("config_calibre_split", "config_calibre_split_dir", "config_unicode_filename"):
+            for name in ("config_calibre_split", "config_calibre_split_dir", "config_unicode_filename",
+                         "config_google_books_api_key", "config_hardcover_token"):
                 if name in columns:
                     value = cur.execute(f"SELECT {name} FROM settings LIMIT 1").fetchone()[0]
                     if value is not None:

@@ -9,6 +9,7 @@ import abc
 import dataclasses
 import os
 import re
+import time
 from typing import Dict, Generator, List, Optional, Union
 
 from cps import constants
@@ -41,11 +42,34 @@ class MetaRecord:
     format: Optional[str] = None
 
 
+class CoolOff:
+    """Leaves a service alone for a while after it answers 429 (too many requests), so a
+    library rebuild doesn't ask it again, and wait for the refusal, for every book."""
+
+    def __init__(self, seconds: float = 60, longest: float = 600):
+        self.seconds = seconds
+        self.longest = longest
+        self._until = 0.0
+
+    def active(self) -> bool:
+        return time.monotonic() < self._until
+
+    def start(self, response=None) -> None:
+        """Begin the pause: as long as the response's Retry-After asks, within `longest`."""
+        wait = (getattr(response, "headers", None) or {}).get("Retry-After", "")
+        seconds = min(float(wait), self.longest) if str(wait).isdigit() else self.seconds
+        self._until = time.monotonic() + seconds
+
+
 class Metadata:
     __name__ = "Generic"
     __id__ = "generic"
     # Identifier types search_identifiers can look up
     identifier_types: frozenset = frozenset()
+    # A provider whose search makes a request per result to fill in details can also offer
+    # search_titles(query, generic_cover, locale), the same search without them, and
+    # complete(record), which fetches them for one record. Lookups that apply a single exact
+    # match (imports, Rebuild metadata) use the pair; see OpenLibrary.
 
     @abc.abstractmethod
     def search(
