@@ -2054,8 +2054,7 @@ body.book_table .pagination {
 }
 
 /* Phones: the page numbers take their own line under Sort, so they may run under the
-   Grid/List icons' room too; Previous / Next show only their arrows (the links keep their
-   aria-label) and every chip is at least 38 square. */
+   Grid/List icons' room too, and every chip is at least 38 square. */
 @media (max-width: 767px) {
     .lily-list-toolbar > .pagination { margin-right: calc(-1 * var(--toolbar-end-room, 0px)); }
 
@@ -2064,8 +2063,6 @@ body.book_table .pagination {
         min-width: 38px;
         padding: 0 10px;
     }
-
-    .pagination .page-step-word { display: none; }
 }
 
 .lily-sort > .btn.lily-chip {

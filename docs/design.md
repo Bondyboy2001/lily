@@ -505,7 +505,8 @@ content (grid, panel, rows)
   arrow (38 square, the word kept for screen readers and the tooltip naming
   the next order). Page numbers (`image.pager`) sit after the sort chips on
   the same row, 38 tall, wrapping under them when narrow; lists have no pager
-  at the bottom. On phones Previous and Next show only « and ».
+  at the bottom. The pager is page numbers only, with "…" opening a jump-to-page
+  box: no Previous or Next.
 - **Metadata filter** (`?metadata=matched|nomatch|failed|unchecked`): reached
   from the Import & Metadata page's lookup rows. While it is on, its four chips
   (`image.metadata_chips`) lead the toolbar; the chosen one turns it off.

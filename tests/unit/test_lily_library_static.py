@@ -212,11 +212,13 @@ def test_page_numbers_sit_in_the_toolbar_after_sort():
              if sel == ".lily-list-toolbar .pagination > li > a"]
     assert any("height: 38px" in body for body in chips)
     assert any("min-width: 38px" in body for body in chips)
-    # phones keep only the arrows; the links stay named by aria-label
+    # page numbers only: no Previous or Next
     macro = read(TEMPLATES / "image.html")
-    assert macro.count('<span class="page-step-word">') == 2
-    assert 'rel="prev" aria-label=' in macro and 'rel="next" aria-label=' in macro
-    assert ".pagination .page-step-word { display: none; }" in read(CSS / "lily-library.css")
+    macro = macro[macro.index("{% macro pager("):]
+    macro = macro[:macro.index("{%- endmacro %}")]
+    for gone in ("page-previous", "page-next", 'rel="prev"', 'rel="next"', "page-step-word"):
+        assert gone not in macro, gone
+    assert "page-step-word" not in read(CSS / "lily-library.css")
 
 
 def test_advanced_search_pickers_are_fields():
