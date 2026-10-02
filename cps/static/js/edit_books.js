@@ -513,12 +513,14 @@ $("#book_edit_frm").on("submit", function () {
     $add.on("click", "[data-optional-add]", function () {
         var key = this.dataset.optionalAdd;
         show(key);
-        $form.find('[data-optional="' + key + '"] input:visible').first().trigger("focus");
+        // A radio group (the rating) takes focus on its checked radio, as Tab would.
+        $form.find('[data-optional="' + key + '"]').find("input:not(:radio):visible, input:radio:checked").first().trigger("focus");
     });
 
     $form.on("lily:reveal-filled", function () {
         $form.find("[data-optional][hidden]").each(function () {
-            var value = $.trim($(this).find("[data-optional-value]").val() || "");
+            var $value = $(this).find("[data-optional-value]");
+            var value = $.trim(($value.is(":radio") ? $value.filter(":checked").val() : $value.val()) || "");
             if (value !== "" && value !== "0") { show(this.dataset.optional); }
         });
     });

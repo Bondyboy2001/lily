@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
 {% import "lily_form.html" as f with context %}
+{% import "image.html" as image %}
 
 {#- A "from / to" pair of date fields; edit_books.js wires .datepicker and .datepicker_delete. -#}
 {% macro date_field(name, label) -%}
@@ -54,11 +55,11 @@
           <option value="False">{{_('No')}}</option>
         </select>
       {% endcall %}
-      {% call f.row(_('Rating above'), for_id='ratinghigh') %}
-        <input type="number" name="ratinghigh" id="ratinghigh" class="rating" data-clearable="" data-clearable-icon="glyphicon-trash">
+      {% call f.row(_('Rating above')) %}
+        {{ image.rating_input('ratinghigh', label=_('Rating above'), none_label=_('Any rating')) }}
       {% endcall %}
-      {% call f.row(_('Rating below'), for_id='ratinglow') %}
-        <input type="number" name="ratinglow" id="ratinglow" class="rating" data-clearable="" data-clearable-icon="glyphicon-trash">
+      {% call f.row(_('Rating below')) %}
+        {{ image.rating_input('ratinglow', label=_('Rating below'), none_label=_('Any rating')) }}
       {% endcall %}
     {% endcall %}
 
@@ -126,7 +127,6 @@
 {% if not current_user.locale == 'en' %}
 <script src="{{ url_for('static', filename='js/libs/bootstrap-datepicker/locales/bootstrap-datepicker.' + current_user.locale + '.min.js') }}" charset="UTF-8"></script>
 {% endif %}
-<script src="{{ url_for('static', filename='js/libs/bootstrap-rating-input.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/libs/typeahead.bundle.js') }}"></script>
 <script src="{{ url_for('static', filename='js/edit_books.js') }}"></script>
 <script src="{{ url_for('static', filename='js/libs/bootstrap-select.min.js')}}"></script>

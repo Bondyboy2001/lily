@@ -263,7 +263,8 @@ get the Lily component:
 | A destructive action that isn't the page's job | Quiet button + `.is-danger` |
 | An action that is only a glyph | Icon button (`.icon-btn`), with `title` and `aria-label` |
 | To narrow a list, pick one of a few, or switch views | Chips (`.btn.lily-chip` via `image.chip()`) |
-| A two-state button | Quiet button with `aria-pressed` |
+| A two-state button | Quiet button with `aria-pressed` and a label that stays put |
+| A two-state button whose label names the next action ("Mark as read" ↔ "Mark as unread") | Quiet or icon button with `.is-on` and no `aria-pressed`, which would contradict the label |
 | To turn a setting on or off | Switch (`lily_form.toggle`) |
 | To include or exclude a row | Checkbox |
 | To show a small fact | Pill |
@@ -274,11 +275,11 @@ get the Lily component:
 | Kind | Rest | Hover | Pressed / on |
 | --- | --- | --- | --- |
 | Primary | `--accent` fill, `--on-accent` label, 600 | brightness 1.08 | brightness 0.94 |
-| Quiet | `--control-tint`, `--ink-soft`, 500 | `--control-tint-strong`, `--ink` | `aria-pressed="true"`: `--accent-soft`, `--accent` |
+| Quiet | `--control-tint`, `--ink-soft`, 500 | `--control-tint-strong`, `--ink` | `aria-pressed="true"` or `.is-on`: `--accent-soft`, `--accent` |
 | Destructive confirm (`.btn-danger`) | Same as Primary (accent, not red) | as Primary | as Primary |
 | Quiet danger (`.btn.is-danger`, `.icon-btn.is-danger`) | `--control-tint` (icon: no fill), `--accent` label | `--danger` 12%, `--danger` label | — |
 | Link (`.btn-link`) | transparent, `--accent` | underline | — |
-| Icon (`.icon-btn`) | bare glyph, `--muted`, no fill | `--control-tint`, `--accent` | `aria-pressed`/`aria-expanded`: `--control-tint-strong`, `--ink` |
+| Icon (`.icon-btn`) | bare glyph, `--muted`, no fill | `--control-tint`, `--accent` | `aria-pressed`/`.is-on`/`aria-expanded`: `--control-tint-strong`, `--ink` |
 
 - No border in any state (tested). Disabled is `opacity: .4` on the whole
   control, never a colour change.
@@ -406,7 +407,14 @@ rather than describe a void ("Add your first book", not "No books").
 ### 5.14 Ratings
 
 Stars are icons: filled `--accent`, empty `--line-strong`. Sizes: 11px in cards,
-12px in list rows, 16px on the book page, 27px in the editor's rating input.
+12px in list rows, 16px on the book page, 27px in a rating input.
+
+A rating input (`image.rating_input`, `.lily-stars`: the editor and advanced
+search) is a radio group: one radio per star (each named "3 stars") and a
+"none" option drawn as the trash glyph, which shows once there is a rating to
+clear. The radios are out of sight but keep the keyboard (Tab in, arrow keys
+to pick); each star label wears its radio's focus ring. Stars up to the chosen
+one fill, and hovering previews a rating. It posts "1"…"5", or "" for none.
 
 ### 5.15 Book cover
 
@@ -424,15 +432,24 @@ glyph (`glyphicon-ok-circle`), the same mark as the sidebar's Finished row.
 
 - **Sidebar:** 232px (`--sidebar-width`), `--sunk`, 1px `--line` on its right
   edge, sticky full height. Groups "Browse" and "Shelves", each headed by a
-  `.nav-head` heading. Collapsible on desktop (⌘/Ctrl+B, remembered); on phones
-  it is an off-canvas drawer with an ink-30% scrim, closed by the scrim or
-  Escape, and `visibility: hidden` while closed so its links leave the tab order.
+  `.nav-head` heading. Collapsible on desktop (⌘/Ctrl+B or the drawer toggle,
+  remembered); on phones it is an off-canvas drawer with an ink-30% scrim, closed
+  by the scrim or Escape, and `visibility: hidden` while closed so its links
+  leave the tab order. Opening the drawer moves focus to its first link and
+  makes `.lily-main` inert; every way of closing it returns focus to the toggle.
+- **Drawer toggle:** a large icon button, first in the top bar at every width.
+  `aria-expanded` follows the sidebar (the drawer on phones, the collapse
+  wider), and so do its name and tooltip: "Hide sidebar (⌘B)" / "Show sidebar
+  (⌘B)". It keeps the resting icon-button look when expanded; the sidebar
+  shows its own state.
 - **Top bar:** 60px (`--topbar-height`), sticky, `--paper`, no border, padding
   0 24. Order: drawer toggle · page title · `page_title_actions` · search ·
   advanced search · actions (upload, refresh, theme, settings). Actions are
   large icon buttons, 2px apart.
 - **Page title lives in the top bar**, not in the content. Content starts with
-  sections. The settings pane heading is the one in-content page title.
+  sections. The settings pane heading is the one in-content page title. The
+  book page is the exception: its book title (§3.1) is the page's `h1`, so the
+  top bar renders no title there, not even an empty one.
 - **Content:** `main#lily-content`, padding 24 (16 on phones), no max-width.
   A skip link targets it.
 
@@ -618,10 +635,20 @@ transitions are turned off in `lily.js`.
   edge; chosen chips a 2px `Highlight` outline. Icons opt out of colour
   adjustment.
 - **Contrast:** §2.2 rules, enforced by tests.
-- **Touch:** 44px minimum hit area on coarse pointers.
+- **Touch:** 44px minimum hit area on coarse pointers. Nothing clips that
+  area: a control that hides a native input inside it (the upload button)
+  spreads the input over the whole 44px.
+- **Hidden native inputs** (the upload button's file input, a rating's radios)
+  keep the keyboard, and the control drawn for them wears their focus ring
+  (`:has(input:focus-visible)`, or `input:focus-visible + label`).
 - **Structure:** one skip link to `#lily-content`; one live region for
   messages; current navigation marked with `aria-current="page"`; toggles use
-  `aria-pressed`; menus `aria-expanded`.
+  `aria-pressed`, unless their label flips to name the next action (then
+  `.is-on`, §5.1); menus `aria-expanded`. Repeated controls name their object:
+  a grid cover's quick actions read "Read Quiet Machines", "Mark Quiet
+  Machines as read", "Edit Quiet Machines".
+- **Floating messages wait:** a toast that dismisses itself holds while the
+  pointer or keyboard focus is on it.
 - **Hidden things leave the tab order** (`visibility: hidden` or `hidden`),
   never just off-screen.
 

@@ -343,14 +343,19 @@ button:disabled {
     box-shadow: none;
 }
 
-/* A toggle button that is on reads as a chosen chip (§5 Chips). */
+/* A toggle button that is on reads as a chosen chip (§5 Chips). A toggle whose label flips
+   to name the next action ("Mark as read" / "Mark as unread") shows the state with .is-on
+   instead, since aria-pressed would contradict its label (§5.1). */
 .btn[aria-pressed="true"],
-.btn[aria-pressed="true"]:focus {
+.btn[aria-pressed="true"]:focus,
+.btn.is-on,
+.btn.is-on:focus {
     background: var(--accent-soft);
     color: var(--accent);
 }
 
-.btn[aria-pressed="true"]:hover { background: var(--selected); color: var(--accent); }
+.btn[aria-pressed="true"]:hover,
+.btn.is-on:hover { background: var(--selected); color: var(--accent); }
 
 /* Icon button: bare glyph, a tint only under the pointer. */
 .icon-btn {
@@ -380,6 +385,7 @@ button:disabled {
 }
 
 .icon-btn[aria-pressed="true"],
+.icon-btn.is-on,
 .icon-btn[aria-expanded="true"] {
     background: var(--control-tint-strong);
     color: var(--ink);

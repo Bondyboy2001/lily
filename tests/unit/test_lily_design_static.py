@@ -420,3 +420,78 @@ def test_destructive_controls_turn_red_on_hover():
     library = (REPO_ROOT / "cps/static/css/lily-library.css").read_text(encoding="utf-8")
     # The book page's accent override must not win over the red hover.
     assert ".book-action-bar > .btn.is-danger:not(:hover):not(:focus-visible)" in library
+
+
+JS = REPO_ROOT / "cps/static/js"
+
+
+def _shell_block(js):
+    """The shell (drawer/sidebar) IIFE at the top of lily.js."""
+    return js[:js.index("})();") + len("})();")]
+
+
+def test_phone_drawer_moves_focus_in_and_back_and_makes_the_page_inert():
+    # docs/design.md §6.1: opening the drawer focuses its first link and makes .lily-main inert;
+    # every way of closing it (Escape, scrim, toggle, ⌘B) returns focus to the toggle.
+    shell = _shell_block(read(JS / "lily.js"))
+    set_open = shell[shell.index("function setOpen("):shell.index("function setCollapsed(")]
+    assert "main.inert = open" in set_open
+    assert 'sidebar.querySelector(".lily-nav a[href]")' in set_open and "first.focus()" in set_open
+    assert "toggle.focus()" in set_open
+    # Escape and the scrim close through setOpen, so they restore focus too.
+    assert 'scrim.addEventListener("click", function () { setOpen(false); })' in shell
+    assert re.search(r'e\.key === "Escape"[^}]*\{\s*setOpen\(false\);\s*\}', shell)
+    # Growing out of phone width with the drawer open must not leave the page inert.
+    assert 'phone.addEventListener("change", widthChanged)' in shell
+    assert re.search(r"function widthChanged\(\) \{[^}]*setOpen\(false, false\)", shell)
+
+
+def test_drawer_toggle_shows_at_every_width_and_names_the_sidebar_state():
+    # docs/design.md §6.1: the toggle is the top bar's first control on desktop too, so a
+    # collapsed sidebar (⌘B) has a visible way back.
+    rules = css_rules(read(CSS / "lily-shell.css"))
+    for selector, body in rules:
+        if ".lily-drawer-toggle" in selector:
+            assert "display: none" not in body, selector
+    layout = read(TEMPLATES / "layout.html")
+    bar = layout[layout.index('class="navbar lily-topbar"'):layout.index("</header>")]
+    toggle = re.search(r'<button[^>]*class="icon-btn lily-drawer-toggle"[^>]*>', bar, flags=re.S).group(0)
+    assert bar.index("lily-drawer-toggle") < bar.index("lily-page-title")
+    assert 'aria-controls="lily-sidebar"' in toggle and 'aria-expanded="true"' in toggle
+    assert "data-label-hide=\"{{_('Hide sidebar')}}\"" in toggle
+    assert "data-label-show=\"{{_('Show sidebar')}}\"" in toggle
+    assert "title=\"{{_('Hide sidebar')}} (⌘B)\"" in toggle
+    shell = _shell_block(read(JS / "lily.js"))
+    sync = shell[shell.index("function sync()"):shell.index("function setOpen(")]
+    assert '"sidebar-collapsed"' in sync and '"drawer-open"' in sync
+    assert 'toggle.setAttribute("aria-expanded"' in sync and "toggle.title = label" in sync
+    # The click works at every width: the drawer on phones, the remembered collapse wider.
+    assert 'toggle.addEventListener("click", flip)' in shell
+    assert 'localStorage.setItem("lily-sidebar-collapsed"' in shell
+    # Expanded is its resting state on desktop, so it doesn't wear the pressed tint.
+    resting = [b for s, b in rules if s == '.lily-drawer-toggle[aria-expanded="true"]:not(:hover):not(:focus)']
+    assert resting and "background: transparent" in resting[0]
+
+
+def test_upload_button_shows_its_focus_ring_and_keeps_its_touch_area():
+    # docs/design.md §9: nothing clips the 44px hit area, and the icon button wears the
+    # hidden file input's keyboard focus ring.
+    rules = css_rules(read(CSS / "lily-shell.css"))
+    btn = [b for s, b in rules if s == ".btn-file"]
+    assert btn and "overflow: hidden" not in btn[0]
+    ring = [b for s, b in rules if s == ".btn-file:has(input:focus-visible)"]
+    assert ring and "outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent)" in ring[0]
+    field = [b for s, b in rules if s == '.btn-file input[type="file"]']
+    assert field and "z-index: 1" in field[0]
+    css = re.sub(r"/\*.*?\*/", "", read(CSS / "lily-shell.css"), flags=re.S)
+    assert re.search(r'@media \(pointer: coarse\) \{\s*\.icon-btn\.btn-file input\[type="file"\] \{[^}]*inset: -7px', css)
+
+
+def test_refresh_toast_holds_while_it_has_focus():
+    # docs/design.md §9: the toast's "Show" link must be reachable before it leaves.
+    js = read(JS / "lily.js")
+    assert 'box.addEventListener("focusin", cancelHide)' in js
+    assert 'box.addEventListener("mouseenter", cancelHide)' in js
+    assert re.search(r'box\.addEventListener\("focusout", function \(e\) \{ resume\(e\.relatedTarget\); \}\)', js)
+    resume = js[js.index("var resume = function"):js.index('box.addEventListener("mouseenter"')]
+    assert 'box.matches(":hover")' in resume and "box.contains(next || document.activeElement)" in resume

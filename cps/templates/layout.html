@@ -79,12 +79,15 @@
       <div class="lily-main">
         <header class="navbar lily-topbar">
           {% if show_sidebar %}
-          <button type="button" class="icon-btn lily-drawer-toggle" aria-controls="lily-sidebar" aria-expanded="false" aria-label="{{_('Show or hide sidebar')}}" title="{{_('Show or hide sidebar (⌘B)')}}"><span class="glyphicon glyphicon-menu-hamburger" aria-hidden="true"></span></button>
+          {# Shows and hides the sidebar at every width; lily.js keeps aria-expanded and the label in step #}
+          <button type="button" class="icon-btn lily-drawer-toggle" aria-controls="lily-sidebar" aria-expanded="true"
+                  data-label-hide="{{_('Hide sidebar')}}" data-label-show="{{_('Show sidebar')}}"
+                  aria-label="{{_('Hide sidebar')}}" title="{{_('Hide sidebar')}} (⌘B)"><span class="glyphicon glyphicon-menu-hamburger" aria-hidden="true"></span></button>
           {% else %}
           <a class="lily-brand" href="{{url_for('web.index')}}"><img src="{{ url_for('static', filename='icon.svg') }}" alt="" width="44" height="44">{{instance}}</a>
           {% endif %}
-          {# The book page shows its title as the page heading, so the top bar leaves it out #}
-          <h1 class="lily-page-title">{% block page_title %}{% if page != 'book' %}{{ title }}{% endif %}{% endblock %}</h1>
+          {# The book page's own title is its h1, so the top bar has none there #}
+          {% if page != 'book' %}<h1 class="lily-page-title">{% block page_title %}{{ title }}{% endblock %}</h1>{% endif %}
           {% block page_title_actions %}{% endblock %}
           {% if show_sidebar %}
           <form class="lily-search" role="search" action="{{url_for('search.simple_search')}}" method="GET">

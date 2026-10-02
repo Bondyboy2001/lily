@@ -376,9 +376,9 @@
 .lily-cover-actions .icon-btn .glyphicon { font-size: 15px; }
 
 /* Read: the tick's disc fills green, and the cover gets a green edge. */
-.lily-cover-actions .icon-btn[aria-pressed="true"],
-.lily-cover-actions .icon-btn[aria-pressed="true"]:hover,
-.lily-cover-actions .icon-btn[aria-pressed="true"]:focus {
+.lily-cover-actions .icon-btn.is-on,
+.lily-cover-actions .icon-btn.is-on:hover,
+.lily-cover-actions .icon-btn.is-on:focus {
     border-color: var(--success);
     background: var(--success);
     color: var(--surface);
@@ -641,9 +641,9 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     border-radius: 50%;
 }
 
-body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read[aria-pressed="true"],
-body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read[aria-pressed="true"]:hover,
-body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read[aria-pressed="true"]:focus {
+body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read.is-on,
+body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read.is-on:hover,
+body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read.is-on:focus {
     width: calc(var(--btn-size) - 4px);
     height: calc(var(--btn-size) - 4px);
     margin: 2px;
@@ -1155,7 +1155,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     padding-top: 14px;
 }
 
-.book-detail-meta h2#title {
+.book-detail-meta h1#title {
     margin: 0;
     font-family: var(--font-body);
     font-size: 40px;
@@ -1241,16 +1241,16 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 }
 
 /* Read state: a tick in a circle, green on a green tint once read. */
-.book-action-bar #toggle-read-btn[aria-pressed="true"],
-.book-action-bar #toggle-read-btn[aria-pressed="true"]:focus {
+.book-action-bar #toggle-read-btn.is-on,
+.book-action-bar #toggle-read-btn.is-on:focus {
     background: color-mix(in srgb, var(--success) 12%, transparent);
 }
 
-.book-action-bar #toggle-read-btn[aria-pressed="true"]:hover {
+.book-action-bar #toggle-read-btn.is-on:hover {
     background: color-mix(in srgb, var(--success) 17%, transparent);
 }
 
-.book-action-bar #toggle-read-btn[aria-pressed="true"] .glyphicon { color: var(--success); }
+.book-action-bar #toggle-read-btn.is-on .glyphicon { color: var(--success); }
 
 /* Archived reads as a chosen chip like any pressed toggle; delete takes the accent, red on hover. */
 .book-action-bar > .btn.is-danger:not(:hover):not(:focus-visible) { color: var(--accent); }
@@ -1357,7 +1357,7 @@ dl.book-metadata:not(:has(> div)) { display: none; }
     .book-detail-extra { grid-row: 3; grid-column: 1 / -1; padding-top: 0; }
     dl.book-metadata { grid-row: 4; grid-column: 1 / -1; padding: 14px 16px; }
 
-    .book-detail-meta h2#title { font-size: 23px; }
+    .book-detail-meta h1#title { font-size: 23px; }
     .book-detail-meta .author { margin-top: 2px; font-size: 16px; }
 
     /* Read takes the whole first line; the rest share the line below. */
@@ -1395,10 +1395,7 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 
 .lily-search-page .lp-control > .input-group .form-control { min-width: 0; }
 
-.lily-search-page .lp-control .rating-input {
-    margin-right: auto;
-    font-size: 18px;
-}
+.lily-search-page .lp-control .lily-stars { margin-right: auto; }
 
 @media (max-width: 767px) {
     .lily-search-page .lp-row { grid-template-columns: minmax(0, 1fr); }
@@ -1533,9 +1530,67 @@ dl.book-metadata:not(:has(> div)) { display: none; }
     color: var(--ink);
 }
 
-/* Rating input (bootstrap-rating-input) */
-.rating-input .glyphicon-star { color: var(--accent); }
-.rating-input .glyphicon-star-empty { color: var(--line-strong); }
+/* Rating input (image.rating_input, design §5.14): a radio group drawn as 27px stars. The
+   radios stay in the tab order (the arrow keys pick a rating) but out of sight, and each
+   label wears its radio's focus ring. Stars up to the chosen one fill; hovering previews. */
+.lily-stars {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+}
+
+.lily-stars-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.lily-stars label {
+    margin: 0;
+    font-weight: 400;
+    cursor: pointer;
+}
+
+/* 27px stars, 8px apart (the padding), each its own click target. */
+.lily-stars .lily-star {
+    display: inline-flex;
+    padding: 4px;
+    border-radius: var(--control-radius);
+    font-size: 27px;
+    line-height: 1;
+}
+
+.lily-star .glyphicon { top: 0; }
+.lily-star .glyphicon-star { color: var(--accent); }
+.lily-star .glyphicon-star-empty { display: none; color: var(--line-strong); }
+
+/* Stars after the chosen one, and all of them while none is chosen, are empty. */
+.lily-stars-input:checked + .lily-star ~ .lily-star .glyphicon-star,
+.lily-stars:has(.lily-stars-none:checked) .lily-star .glyphicon-star { display: none; }
+
+.lily-stars-input:checked + .lily-star ~ .lily-star .glyphicon-star-empty,
+.lily-stars:has(.lily-stars-none:checked) .lily-star .glyphicon-star-empty { display: inline-block; }
+
+@media (hover: hover) {
+    .lily-stars:has(.lily-star:hover) .lily-star .glyphicon-star { display: inline-block; }
+    .lily-stars:has(.lily-star:hover) .lily-star .glyphicon-star-empty { display: none; }
+    .lily-stars .lily-star:hover ~ .lily-star .glyphicon-star { display: none; }
+    .lily-stars .lily-star:hover ~ .lily-star .glyphicon-star-empty { display: inline-block; }
+}
+
+.lily-stars-input:focus-visible + label {
+    outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+    outline-offset: 0;
+}
+
+/* "No rating" (a trash glyph) shows once there is a rating to clear, or while it has focus. */
+.lily-stars .lily-stars-clear { margin-left: 4px; }
+
+.lily-stars-none:checked:not(:focus-visible) + .lily-stars-clear { visibility: hidden; }
 
 /* Pushes the following items in a flex row to the far end. */
 .lily-spacer { flex: 1; }
@@ -1774,7 +1829,7 @@ dl.book-metadata:not(:has(> div)) { display: none; }
    same trash glyph in the same 30px square, muted until hovered, then danger red. */
 .icon-btn.lily-edit-remove,
 .btn.datepicker_delete,
-.rating-input .rating-clear {
+.lily-stars .lily-stars-clear {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1791,7 +1846,7 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 
 .icon-btn.lily-edit-remove .glyphicon,
 .btn.datepicker_delete .glyphicon,
-.rating-input .rating-clear .glyphicon {
+.lily-stars-clear .glyphicon {
     margin: 0;
     font-size: 16px;
     color: inherit;
@@ -1801,8 +1856,8 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 .icon-btn.lily-edit-remove:focus,
 .btn.datepicker_delete:hover,
 .btn.datepicker_delete:focus,
-.rating-input .rating-clear:hover,
-.rating-input .rating-clear:focus {
+.lily-stars .lily-stars-clear:hover,
+.lily-stars-input:focus-visible + .lily-stars-clear {
     background: color-mix(in srgb, var(--danger) 12%, transparent);
     color: var(--danger);
     text-decoration: none;
@@ -1944,21 +1999,6 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 body.book_table .pagination {
     position: static;
     margin-top: 8px;
-}
-
-/* bootstrap-rating-input copies .input-lg onto its star row, which pads and sizes it like a field. */
-.rating-input.input-lg {
-    height: auto;
-    padding: 0;
-    border: 0;
-    font-size: 27px;
-    line-height: 1;
-}
-
-/* Book page stars (editable and read-only): larger, with room between them */
-.rating-input > .glyphicon {
-    font-size: 27px;
-    margin-right: 8px;
 }
 
 #detail-rating-block .glyphicon { top: 0; font-size: 16px; }

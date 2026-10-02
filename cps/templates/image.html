@@ -135,20 +135,23 @@
     {%- set readable = book|readable_formats -%}
     <div class="lily-cover-actions" data-book-id="{{ book.id }}" data-book-formats="{{ readable|join(',') }}">
       {% if readable and user.role_viewer() %}
-      <button type="button" class="icon-btn lily-read-now" aria-label="{{ _('Read in browser') }}"
+      <button type="button" class="icon-btn lily-read-now" aria-label="{{ _('Read %(name)s', name=book.title) }}"
               data-reader-url="{{ url_for('web.read_book', book_id=book.id, book_format=readable[0]) }}"><span class="glyphicon glyphicon-book" aria-hidden="true"></span></button>
       {% elif formats and user.role_download() %}
       {% set first = book.data[0] %}
       <a class="icon-btn" href="{{ url_for('web.download_link', book_id=book.id, book_format=first.format|lower, anyname=book.id|string+'.'+first.format|lower|replace('kepub', 'kepub.epub')) }}"
-         aria-label="{{ _('Download') }}"><span class="glyphicon glyphicon-download" aria-hidden="true"></span></a>
+         aria-label="{{ _('Download %(name)s', name=book.title) }}"><span class="glyphicon glyphicon-download" aria-hidden="true"></span></a>
       {% endif %}
       {% if not user.is_anonymous %}
-      {% set read_label = _('Mark as unread') if is_read else _('Mark as read') %}
-      <button type="button" class="icon-btn lily-toggle-read" aria-pressed="{{ 'true' if is_read else 'false' }}" aria-label="{{ read_label }}"
-              data-label-read="{{ _('Mark as unread') }}" data-label-unread="{{ _('Mark as read') }}"><span class="glyphicon glyphicon-ok-circle" aria-hidden="true"></span></button>
+      {# Each button names its book, so a list of them makes sense out of context. The read toggle's
+         label names the action and flips; its state shows through .is-on, not aria-pressed (§5.1). #}
+      {% set label_read = _('Mark %(name)s as unread', name=book.title) %}
+      {% set label_unread = _('Mark %(name)s as read', name=book.title) %}
+      <button type="button" class="icon-btn lily-toggle-read{{ ' is-on' if is_read }}" aria-label="{{ label_read if is_read else label_unread }}"
+              data-label-read="{{ label_read }}" data-label-unread="{{ label_unread }}"><span class="glyphicon glyphicon-ok-circle" aria-hidden="true"></span></button>
       {% endif %}
       {% if user.role_edit() %}
-      <a class="icon-btn" href="{{ url_for('edit-book.show_edit_book', book_id=book.id) }}" aria-label="{{ _('Edit metadata') }}"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></span></a>
+      <a class="icon-btn" href="{{ url_for('edit-book.show_edit_book', book_id=book.id) }}" aria-label="{{ _('Edit %(name)s', name=book.title) }}"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></span></a>
       {% endif %}
     </div>
 {%- endmacro %}
@@ -236,4 +239,20 @@
     </p>
     {% endif %}
   </div>
+{%- endmacro %}
+
+{# A star rating field (docs/design.md §5.14): a radio group of 1–5 stars and a "none" option, so
+   the arrow keys pick a rating and every star has a name. Posts `name` as "1"…"5", or "" for none.
+   Name the group with `labelledby` (id of a visible label) or `label`. `input_attrs` goes on each radio. #}
+{% macro rating_input(name, value=0, labelledby=None, label=None, none_label=None, input_attrs='') -%}
+    {%- set current = value|int -%}
+    {%- set none_text = none_label or _('No rating') -%}
+    <div class="lily-stars" role="radiogroup"{% if labelledby %} aria-labelledby="{{ labelledby }}"{% elif label %} aria-label="{{ label }}"{% endif %}>
+      {%- for n in range(1, 6) %}
+      <input type="radio" class="lily-stars-input" name="{{ name }}" id="{{ name }}-{{ n }}" value="{{ n }}"{% if current == n %} checked{% endif %} {{ input_attrs|safe }}>
+      <label for="{{ name }}-{{ n }}" class="lily-star"><span class="glyphicon glyphicon-star" aria-hidden="true"></span><span class="glyphicon glyphicon-star-empty" aria-hidden="true"></span><span class="sr-only">{{ ngettext('%(num)s star', '%(num)s stars', n) }}</span></label>
+      {%- endfor %}
+      <input type="radio" class="lily-stars-input lily-stars-none" name="{{ name }}" id="{{ name }}-none" value=""{% if current < 1 or current > 5 %} checked{% endif %} {{ input_attrs|safe }}>
+      <label for="{{ name }}-none" class="lily-stars-clear" title="{{ none_text }}"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span><span class="sr-only">{{ none_text }}</span></label>
+    </div>
 {%- endmacro %}

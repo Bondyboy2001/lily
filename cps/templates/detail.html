@@ -20,7 +20,8 @@
             {% if entry.series|length > 0 %}
                 <p id="book_of">{{ _("Book %(index)s of %(range)s", index=entry.series_index|formatfloat(2), range=(url_for('web.books_list', data='series', sort_param='stored', book_id=entry.series[0].id)|escapedlink(entry.series[0].name))|safe) }}</p>
             {% endif %}
-            <h2 id="title">{{ entry.title }}</h2>
+            {# The page's one h1: the top bar leaves its title out on this page (layout.html) #}
+            <h1 id="title">{{ entry.title }}</h1>
             <p class="author">
                 {% for author in entry.ordered_authors %}
                     <a href="{{ url_for('web.books_list',  data='author', sort_param='stored', book_id=author.id ) }}">{{ author.name.replace('|',',') }}</a>{% if not loop.last %} &amp; {% endif %}
@@ -76,10 +77,10 @@
                     {% endif %}
                 {% endif %}
                 {% if not current_user.is_anonymous %}
-                    {# A tick in a circle, green once read (styled off aria-pressed); the hidden label is the button's name. #}
+                    {# A tick in a circle, green once read (styled off .is-on); the hidden label is the button's name.
+                       The label names the action and flips, so there is no aria-pressed (design §5.1). #}
                     {% set read_label = entry.read_status and _('Mark as unread') or _('Mark as read') %}
-                    <button type="button" class="btn is-icon" id="toggle-read-btn" title="{{ read_label }}"
-                            aria-pressed="{{ 'true' if entry.read_status else 'false' }}">
+                    <button type="button" class="btn is-icon{{ ' is-on' if entry.read_status }}" id="toggle-read-btn" title="{{ read_label }}">
                         <span id="read-icon" class="glyphicon glyphicon-ok-circle" aria-hidden="true"></span><span class="book-action-label sr-only">{{ read_label }}</span>
                     </button>
                 {% endif %}
@@ -91,8 +92,7 @@
                 {% endif %}
                 {% if can_archive %}
                     {% set archive_label = entry.is_archived and _('Restore from archive') or _('Add to archive') %}
-                    <button type="button" class="btn is-icon" id="toggle-archive-btn" title="{{ archive_label }}"
-                            aria-pressed="{{ 'true' if entry.is_archived else 'false' }}">
+                    <button type="button" class="btn is-icon{{ ' is-on' if entry.is_archived }}" id="toggle-archive-btn" title="{{ archive_label }}">
                         <span id="archive-icon" class="glyphicon {{ entry.is_archived and 'glyphicon-folder-open' or 'glyphicon-folder-close' }}" aria-hidden="true"></span><span class="book-action-label sr-only">{{ archive_label }}</span>
                     </button>
                 {% endif %}
@@ -291,7 +291,7 @@
                     var isRead = $cb.prop("checked");
                     var $btn = $("#toggle-read-btn");
                     var label = isRead ? $cb.data("checked") : $cb.data("unchecked");
-                    $btn.attr({ "aria-pressed": isRead ? "true" : "false", title: label })
+                    $btn.toggleClass("is-on", isRead).attr("title", label)
                         .find(".book-action-label").text(label);
                 },
                 error: function () {
@@ -322,7 +322,7 @@
                         .toggleClass("glyphicon-folder-close", !isArchived);
                     var $btn = $("#toggle-archive-btn");
                     var label = isArchived ? $cb.data("checked") : $cb.data("unchecked");
-                    $btn.attr({ "aria-pressed": isArchived ? "true" : "false", title: label })
+                    $btn.toggleClass("is-on", isArchived).attr("title", label)
                         .find(".book-action-label").text(label);
                 },
                 error: function () {

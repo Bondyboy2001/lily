@@ -123,7 +123,7 @@ $(function () {
     return {
       title: $("#title").val(), authors: $("#authors").val(), publisher: $("#publisher").val(),
       pubdate: $("#pubdate").val(), series: $("#series").val(), seriesIndex: $("#series_index").val(),
-      rating: $("#rating").val(), description: htmlToText($("#comments").val()),
+      rating: $("input[name='rating']:checked").val(), description: htmlToText($("#comments").val()),
       tags: $("#tags").val(), languages: $("#languages").val(), ids: currentIdentifiers(),
     };
   }
@@ -189,12 +189,9 @@ $(function () {
       $("#title").val(book.title);
     }
     if (updateItems.rating) {
-      var roundedRating = Math.round(book.rating);
-      var ratingWidget = $("#rating").data("rating");
-      if (ratingWidget && typeof ratingWidget.setValue === "function") {
-        ratingWidget.setValue(roundedRating);
-      }
-      $("#rating").val(roundedRating);
+      // The rating is a radio group (image.html rating_input): check the matching star, or none.
+      var $star = $("input[name='rating'][value='" + Math.round(book.rating) + "']");
+      ($star.length ? $star : $("#rating-none")).prop("checked", true);
     }
     if (updateItems.cover && book.cover && $("#cover_url").length) {
       $(".cover img").attr("src", book.cover);

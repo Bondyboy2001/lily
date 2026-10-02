@@ -62,7 +62,7 @@ def test_detail_edit_and_read_state_are_named_icon_buttons():
     assert edit, "Edit Metadata icon button missing"
     assert "aria-label=\"{{ _('Edit metadata') }}\"" in edit.group(0)
     toggle = re.search(r'<button[^>]*id="toggle-read-btn"[^>]*>(.*?)</button>', html, flags=re.S)
-    assert toggle and 'class="btn is-icon"' in toggle.group(0)
+    assert toggle and 'class="btn is-icon' in toggle.group(0)
     assert 'class="book-action-label sr-only"' in toggle.group(1)
     css = read(CSS / "lily-library.css")
     assert "width: 36px" in _rules_by_selector(css, ".book-action-bar > .btn.is-icon")[".book-action-bar > .btn.is-icon"]
@@ -78,7 +78,7 @@ def test_detail_rare_actions_are_icon_buttons_not_a_menu():
         assert btn, needle
         assert "aria-label=\"{{ _('" + label + "') }}\"" in btn.group(0)
     archive = re.search(r'<button[^>]*id="toggle-archive-btn"[^>]*>(.*?)</button>', html, flags=re.S)
-    assert archive and 'class="btn is-icon"' in archive.group(0)
+    assert archive and 'class="btn is-icon' in archive.group(0)
     assert 'class="book-action-label sr-only"' in archive.group(1)
 
 
@@ -145,7 +145,7 @@ def _rules_by_selector(css_text, prefix):
 
 
 def test_detail_read_toggle_shows_state_without_a_disc():
-    sel = '.book-action-bar #toggle-read-btn[aria-pressed="true"] .glyphicon'
+    sel = '.book-action-bar #toggle-read-btn.is-on .glyphicon'
     parts = _rules_by_selector(read(CSS / "lily-library.css"), ".book-action-bar #toggle-read-btn")
     assert "color: var(--success)" in parts[sel]
     for body in parts.values():
@@ -273,7 +273,7 @@ def test_site_has_no_horizontal_separator_borders():
 
 def test_edit_shelf_is_beside_page_heading_not_in_actions_menu():
     layout = read(TEMPLATES / "layout.html")
-    assert re.search(r'</h1>\s*{% block page_title_actions %}', layout)
+    assert re.search(r'</h1>(?:{% endif %})?\s*{% block page_title_actions %}', layout)
     shelf = read(TEMPLATES / "shelf.html")
     actions = re.search(r'{% block page_title_actions %}(.*?){% endblock %}', shelf, flags=re.S)
     assert actions and 'id="edit_shelf"' in actions.group(1)
@@ -379,3 +379,58 @@ def test_delete_dialog_names_the_book_and_promises_no_restore():
             assert "data-delete-title=" in opener, (name, opener)
     js = read(REPO_ROOT / "cps/static/js/main.js")
     assert 'data("delete-title")' in js
+
+
+def test_book_title_is_the_page_h1_and_the_top_bar_has_none():
+    # docs/design.md §6.1: the book title is the book page's h1; the top bar renders no
+    # (empty) h1 there. The title keeps its 40px/700 content look (§3.1).
+    html = read(TEMPLATES / "detail.html")
+    assert re.search(r'<h1 id="title">{{ entry.title }}</h1>', html)
+    assert '<h2 id="title">' not in html
+    layout = read(TEMPLATES / "layout.html")
+    assert ("{% if page != 'book' %}<h1 class=\"lily-page-title\">{% block page_title %}{{ title }}"
+            "{% endblock %}</h1>{% endif %}") in layout
+    css = read(CSS / "lily-library.css")
+    assert "h2#title" not in css
+    title = [b for s, b in css_rules(css) if s == ".book-detail-meta h1#title"]
+    assert title and "font-size: 40px" in title[0] and "font-weight: 700" in title[0]
+    assert "font-size: 23px" in "".join(title[1:])  # phone size
+
+
+def test_grid_quick_actions_name_their_book():
+    # docs/design.md §9: "Read Quiet Machines", not five identical "Read in browser" buttons.
+    image = read(TEMPLATES / "image.html")
+    actions = re.search(r"{% macro cover_actions.*?{%- endmacro %}", image, flags=re.S).group(0)
+    for msgid in ("Read %(name)s", "Download %(name)s", "Mark %(name)s as unread",
+                  "Mark %(name)s as read", "Edit %(name)s"):
+        assert "_('%s', name=book.title)" % msgid in actions, msgid
+    assert "Read in browser" not in actions and "_('Edit metadata')" not in actions
+
+
+def test_read_and_archive_toggles_flip_their_label_without_aria_pressed():
+    # docs/design.md §5.1: a label that names the next action and aria-pressed contradict each
+    # other ("Mark as unread, pressed"), so these toggles show their state with .is-on.
+    html = read(TEMPLATES / "detail.html")
+    for btn_id, state in (("toggle-read-btn", "entry.read_status"), ("toggle-archive-btn", "entry.is_archived")):
+        tag = re.search(r'<button[^>]*id="%s"[^>]*>' % btn_id, html, flags=re.S).group(0)
+        assert "aria-pressed" not in tag, btn_id
+        assert "class=\"btn is-icon{{ ' is-on' if %s }}\"" % state in tag, btn_id
+    assert '"aria-pressed"' not in html
+    assert '$btn.toggleClass("is-on", isRead)' in html and '$btn.toggleClass("is-on", isArchived)' in html
+    image = read(TEMPLATES / "image.html")
+    toggle = re.search(r'<button[^>]*lily-toggle-read[^>]*>', image, flags=re.S).group(0)
+    assert "aria-pressed" not in toggle and "is-on" in toggle
+    js = read(JS / "lily.js")
+    handler = js[js.index('".lily-cover-actions .lily-toggle-read"'):]
+    handler = handler[:handler.index("}).fail(")]
+    assert "aria-pressed" not in handler and '$btn.toggleClass("is-on", nowRead)' in handler
+    # The read look (success disc on the cover, success tint on the book page) and the archive
+    # look (chosen chip) hang off .is-on now.
+    library = read(CSS / "lily-library.css")
+    assert "toggle-read-btn[aria-pressed" not in library and "lily-toggle-read[aria-pressed" not in library
+    assert ".lily-cover-actions .icon-btn[aria-pressed" not in library
+    disc = [b for s, b in css_rules(library) if s.startswith(".lily-cover-actions .icon-btn.is-on")]
+    assert disc and "background: var(--success)" in disc[0] and "color: var(--surface)" in disc[0]
+    lily = css_rules(read(CSS / "lily.css"))
+    assert any(".btn.is-on" in s and "var(--accent-soft)" in b for s, b in lily)
+    assert any(".icon-btn.is-on" in s and "var(--control-tint-strong)" in b for s, b in lily)

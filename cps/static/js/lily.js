@@ -1,7 +1,9 @@
 /*
  * Lily shell behaviour (templates/layout.html, css/lily-shell.css).
- * Phone widths: the sidebar is a drawer opened by .lily-drawer-toggle and closed by the scrim or Escape.
- * Cmd/Ctrl+B toggles the sidebar: the drawer on phones, a remembered collapse on wider screens.
+ * .lily-drawer-toggle and Cmd/Ctrl+B show and hide the sidebar: on phones it is a drawer
+ * (closed by the scrim or Escape), on wider screens a remembered collapse.
+ * While the drawer is open the page behind it is inert and focus sits in the drawer;
+ * closing it puts focus back on the toggle.
  * Plain DOM APIs only, so it does not depend on the jQuery version.
  */
 (function () {
@@ -11,43 +13,76 @@
     var app = document.querySelector(".lily-app");
     var toggle = document.querySelector(".lily-drawer-toggle");
     var scrim = document.querySelector(".lily-scrim");
+    var sidebar = document.getElementById("lily-sidebar");
+    var main = document.querySelector(".lily-main");
     if (!app || !toggle) { return; }
 
+    var phone = window.matchMedia("(max-width: 767px)");
     // The tooltip names the shortcut with ⌘; other platforms use Ctrl.
-    if (!/Mac|iPhone|iPad/.test(navigator.platform || "")) {
-      toggle.title = toggle.title.replace("⌘", "Ctrl+");
+    var shortcut = /Mac|iPhone|iPad/.test(navigator.platform || "") ? "⌘B" : "Ctrl+B";
+
+    // aria-expanded and the label follow whichever sidebar this width has.
+    function sync() {
+      var shown = phone.matches ? app.classList.contains("drawer-open")
+                                : !app.classList.contains("sidebar-collapsed");
+      var label = shown ? toggle.getAttribute("data-label-hide") : toggle.getAttribute("data-label-show");
+      toggle.setAttribute("aria-expanded", shown ? "true" : "false");
+      if (label) {
+        toggle.setAttribute("aria-label", label);
+        toggle.title = label + " (" + shortcut + ")";
+      }
     }
 
-    function setOpen(open) {
+    function setOpen(open, restoreFocus) {
+      var wasOpen = app.classList.contains("drawer-open");
       app.classList.toggle("drawer-open", open);
-      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      if (main) { main.inert = open; }
+      sync();
+      if (open && !wasOpen && sidebar) {
+        var first = sidebar.querySelector(".lily-nav a[href]") || sidebar.querySelector("a[href]");
+        if (first) { first.focus(); }
+      } else if (!open && wasOpen && restoreFocus !== false) {
+        toggle.focus();
+      }
     }
 
-    toggle.addEventListener("click", function () {
-      setOpen(!app.classList.contains("drawer-open"));
-    });
+    function setCollapsed(collapsed) {
+      app.classList.toggle("sidebar-collapsed", collapsed);
+      try { localStorage.setItem("lily-sidebar-collapsed", collapsed ? "1" : "0"); } catch (err) {}
+      sync();
+    }
+
+    function flip() {
+      if (phone.matches) {
+        setOpen(!app.classList.contains("drawer-open"));
+      } else {
+        setCollapsed(!app.classList.contains("sidebar-collapsed"));
+      }
+    }
+
+    toggle.addEventListener("click", flip);
 
     if (scrim) {
       scrim.addEventListener("click", function () { setOpen(false); });
     }
 
-    var phone = window.matchMedia("(max-width: 767px)");
+    // Leaving phone width with the drawer open would leave the page inert.
+    function widthChanged() {
+      if (!phone.matches && app.classList.contains("drawer-open")) { setOpen(false, false); }
+      sync();
+    }
+    if (phone.addEventListener) { phone.addEventListener("change", widthChanged); } else if (phone.addListener) { phone.addListener(widthChanged); }
+    sync();
 
     document.addEventListener("keydown", function (e) {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && (e.key === "b" || e.key === "B")) {
         if (e.target && e.target.isContentEditable) { return; }
         e.preventDefault();
-        if (phone.matches) {
-          setOpen(!app.classList.contains("drawer-open"));
-        } else {
-          var collapsed = app.classList.toggle("sidebar-collapsed");
-          try { localStorage.setItem("lily-sidebar-collapsed", collapsed ? "1" : "0"); } catch (err) {}
-        }
+        flip();
         return;
       }
       if (e.key === "Escape" && app.classList.contains("drawer-open")) {
         setOpen(false);
-        toggle.focus();
       }
     });
   });
@@ -167,9 +202,10 @@
         data: { csrf_token: csrfToken() },
         headers: { "X-Requested-With": "XMLHttpRequest" }
       }).done(function () {
-        var nowRead = $btn.attr("aria-pressed") !== "true";
-        $btn.attr("aria-pressed", nowRead ? "true" : "false");
-        setLabel($btn, nowRead ? $btn.data("label-read") : $btn.data("label-unread"));
+        // The label names the next action and flips, so the state is a class (design §5.1).
+        var nowRead = !$btn.hasClass("is-on");
+        $btn.toggleClass("is-on", nowRead);
+        setLabel($btn, $btn.attr(nowRead ? "data-label-read" : "data-label-unread"));
         $book.toggleClass("is-read", nowRead);
         var $img = $book.find(".cover .img");
         $img.find(".badge.read").remove();
@@ -238,7 +274,7 @@
   }
 
   // state: "busy" while the refresh runs (stays up), "done" or "error" once it has finished
-  // (leaves by itself after TOAST_MS, but not while the pointer is over it).
+  // (leaves by itself after TOAST_MS, but not while the pointer or focus is on it).
   // link, when given, is [href, label] and follows the text.
   function showMessage(messages, state, link) {
     var box = toast();
@@ -281,10 +317,16 @@
     if (state === "done") { scheduleHide(); }
     if (!box.dataset.hoverWired) {
       box.dataset.hoverWired = "1";
+      // The pointer or keyboard focus on the toast (its "Show" link, Close) holds it up.
+      var resume = function (next) {
+        if (box.hidden || !box.classList.contains("is-done")) { return; }
+        if (box.matches(":hover") || box.contains(next || document.activeElement)) { return; }
+        scheduleHide();
+      };
       box.addEventListener("mouseenter", cancelHide);
-      box.addEventListener("mouseleave", function () {
-        if (!box.hidden && box.classList.contains("is-done")) { scheduleHide(); }
-      });
+      box.addEventListener("focusin", cancelHide);
+      box.addEventListener("mouseleave", function () { resume(); });
+      box.addEventListener("focusout", function (e) { resume(e.relatedTarget); });
     }
   }
 

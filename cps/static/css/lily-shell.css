@@ -307,21 +307,39 @@ body { margin: 0; }
 
 label.lily-upload-btn { margin-bottom: 0; cursor: pointer; }
 
-.btn-file {
-    position: relative;
-    overflow: hidden;
-}
+/* Nothing clips the button, so its 44px touch area (.icon-btn::after) survives; the input sits
+   on top of that area and takes the tap, and the button wears the input's keyboard focus ring. */
+.btn-file { position: relative; }
 
 .btn-file input[type="file"] {
     position: absolute;
     inset: 0;
+    z-index: 1;
     width: 100%;
     height: 100%;
     opacity: 0;
     cursor: pointer;
 }
 
-.lily-drawer-toggle { display: none; }
+.btn-file:has(input:focus-visible) {
+    outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+    outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+    .icon-btn.btn-file input[type="file"] {
+        inset: -7px;
+        width: calc(100% + 14px);
+        height: calc(100% + 14px);
+    }
+}
+
+/* The drawer toggle shows at every width. It reports the sidebar's state through aria-expanded
+   but keeps the plain icon-button look: the sidebar itself shows whether it is open. */
+.lily-drawer-toggle[aria-expanded="true"]:not(:hover):not(:focus) {
+    background: transparent;
+    color: var(--muted);
+}
 
 /* ---- Flash messages (layout.html and scripts insert them after .navbar) ---- */
 /* Spacing sits on the notice, so a row with nothing visible in it adds none. */
@@ -475,9 +493,12 @@ label.lily-upload-btn { margin-bottom: 0; cursor: pointer; }
         transition: transform .12s ease-out, visibility .12s;
     }
 
+    /* Visible at once on opening (lily.js moves focus into it straight away); hidden only
+       once the slide out has finished. */
     .lily-app.drawer-open .lily-sidebar {
         visibility: visible;
         transform: none;
+        transition: transform .12s ease-out, visibility 0s;
     }
 
     .lily-app.drawer-open .lily-scrim {
@@ -487,8 +508,6 @@ label.lily-upload-btn { margin-bottom: 0; cursor: pointer; }
         z-index: 30;
         background: color-mix(in srgb, var(--ink) 30%, transparent);
     }
-
-    .lily-drawer-toggle { display: inline-flex; }
 
     .navbar.lily-topbar {
         flex-wrap: wrap;
