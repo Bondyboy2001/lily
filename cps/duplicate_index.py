@@ -173,7 +173,8 @@ def _book_query(book_ids=None):
 def _load_books_by_ids(book_ids=None, user_id=None):
     query = _book_query(book_ids)
     if user_id is not None:
-        query = query.filter(get_common_filters(user_id=user_id))
+        # Archiving only hides a book from the user's shelf; the file is still a duplicate.
+        query = query.filter(get_common_filters(user_id=user_id, allow_show_archived=True))
     return query.order_by(db.Books.title, db.Books.timestamp.desc()).all()
 
 
@@ -405,6 +406,17 @@ def get_duplicate_groups_from_index(settings, include_dismissed=False, user_id=N
     if not include_dismissed:
         duplicate_groups = filter_dismissed_groups(duplicate_groups, user_id=user_id)
     return duplicate_groups
+
+
+def visible_cached_groups(cached_groups, user_id=None):
+    """Keep the cached groups in which `user_id` can see at least two books, as the Duplicates page does."""
+    if not cached_groups or user_id is None:
+        return cached_groups
+    cached_ids = set()
+    for group in cached_groups:
+        cached_ids.update(_cached_group_book_ids(group))
+    visible_ids = {int(book.id) for book in _load_books_by_ids(cached_ids, user_id=user_id)}
+    return [group for group in cached_groups if len(_cached_group_book_ids(group) & visible_ids) > 1]
 
 
 def _cached_group_book_ids(group):

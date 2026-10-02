@@ -252,10 +252,14 @@ def get_duplicate_status():
             duplicate_groups = cache_data['duplicate_groups']
 
             # Filter out dismissed groups for this user
-            duplicate_groups = filter_dismissed_groups(
-                duplicate_groups,
-                current_user.id if current_user and current_user.id else None
-            )
+            user_id = current_user.id if current_user and current_user.id else None
+            duplicate_groups = filter_dismissed_groups(duplicate_groups, user_id)
+            # Count only groups the page will show this user, or the banner never clears
+            try:
+                from cps.duplicate_index import visible_cached_groups
+                duplicate_groups = visible_cached_groups(duplicate_groups, user_id)
+            except Exception as visibility_ex:
+                log.warning("[cwa-duplicates] Could not apply book visibility to duplicate count: %s", str(visibility_ex))
 
             count = len(duplicate_groups)
 
