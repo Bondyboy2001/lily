@@ -133,7 +133,11 @@ def edit_user_table():
     all_user = ub.session.query(ub.User)
     if not config.config_anonbrowse:
         all_user = all_user.filter(ub.User.role.op('&')(constants.ROLE_ANONYMOUS) != constants.ROLE_ANONYMOUS)
-    return render_title_template("user_table.html", users=all_user.order_by(ub.User.name).all(),
+    users = all_user.order_by(ub.User.name).all()
+    # Each card says how many of the editor's permission boxes are ticked.
+    granted = {user.id: sum(1 for role in constants.ALL_ROLES.values() if user.role & role) for user in users}
+    return render_title_template("user_table.html", users=users, granted=granted,
+                                 permission_count=len(constants.ALL_ROLES),
                                  title=_("Users"), page="usertable")
 
 

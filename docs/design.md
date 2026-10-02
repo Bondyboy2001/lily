@@ -376,7 +376,7 @@ is ink 12% with `--ink-soft`. If it does something, it's a chip.
 
 | Kind | Recipe | Use |
 | --- | --- | --- |
-| **Panel** | `--surface`, 1px `--line`, radius 10, padding 22 (dense: 14), no shadow | Any boxed group of content: `.panel`, `.well`, duplicate cards |
+| **Panel** | `--surface`, 1px `--line`, radius 10, padding 22 (dense: 14), no shadow | Any boxed group of content: `.panel`, `.well`, duplicate cards, user cards |
 | **Side panel** | `--surface`, no border, radius 10, padding 20×22 | A compact group of facts beside content |
 | **Stage** | `--sunk`, no border, radius 10, padding 40 (24 below 1100, 24×16 on phones) | The book page's top band (`.book-detail-main`), and only that |
 | **Group card** | ink 2.5% into `--paper`, 1px `--line-soft`, radius 12, padding 0 16 | Settings rows (`.lp-list`) and only that |
@@ -611,6 +611,15 @@ Build every settings page from the macros. Never hand-write rows.
   (max 52ch). **No hairlines between rows.**
 - Save bar `.lp-actions.is-save`: sticky to the bottom on `--paper`, Primary
   last on the right; hidden until the form is dirty (visible without JS).
+- **Users** (`user_table.html`) is the one settings page without rows: People cards
+  (`.lp-people`), `repeat(auto-fill, minmax(260px, 1fr))`, gap 22. Each user is a
+  Panel link: a 48px `--accent-soft` monogram, the role pill ("Admin" or "Guest",
+  `.label-primary`) and a neutral "You" pill top right, the name 15/600 and email
+  13px, then "All 8 permissions" / "3 of 8 permissions" in `--muted` with the
+  chevron. Hover is `--hover` over `--surface`. "Add user" is the next grid slot:
+  a `--control-tint` tile (radius 10) with a `+` on an `--accent-soft` disc and an
+  accent label, not a Primary button. Under 760px it is one column, and the tile
+  becomes a short row.
 - A form page outside the frame (the shelf editor) is the same groups and
   bar, capped at 640px. A short field like a name is a wide row, label
   above the field. Its quiet `.is-danger` delete sits at the left of the bar,

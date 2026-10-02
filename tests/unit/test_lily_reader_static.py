@@ -203,6 +203,16 @@ def test_reader_pages_render(client, fmt, marker):
 
 
 @pytest.mark.unit
+def test_users_page_renders_people_cards(client):
+    env, c, _ = client
+    resp = c.get("/admin/usertable")
+    assert resp.status_code == 200, resp.data[:300]
+    html = resp.get_data(as_text=True)
+    assert 'class="lp-person"' in html and 'id="add_user"' in html
+    assert "All 8 permissions" in html and ">You</span>" in html
+
+
+@pytest.mark.unit
 @pytest.mark.parametrize("fmt", ["cbz", "txt"])
 def test_unsupported_formats_have_no_reader(client, fmt):
     env, c, book_id = client

@@ -291,6 +291,95 @@ a.lp-row:focus-visible { background: var(--hover); color: inherit; text-decorati
 
 .lp-chevron { flex: none; font-size: 11px; color: var(--faint); }
 
+/* ---- People cards (Users): one Panel per user, then the Add user tile in the next slot ---- */
+.lp-people {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 22px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.lp-people > li { display: flex; min-width: 0; }
+
+.lp-person,
+.lp-person-add {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    padding: 22px;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: background .12s ease-out;
+}
+
+.lp-person {
+    gap: 14px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+}
+
+.lp-person:hover,
+.lp-person:focus-visible { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--ink); text-decoration: none; }
+.lp-person:hover .lp-chevron,
+.lp-person:focus-visible .lp-chevron { color: var(--accent); }
+
+.lp-person-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+
+.lp-monogram {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.lp-person-pills { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.lp-person-pills .label { font-size: 11px; }
+
+.lp-person-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lp-person-name { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.lp-person-email { font-size: 13px; color: var(--ink-soft); overflow-wrap: anywhere; }
+
+.lp-person-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
+.lp-person-access { font-size: 13px; color: var(--muted); }
+
+.lp-person-add {
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 190px;
+    background: var(--control-tint);
+    color: var(--accent);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.lp-person-add:hover,
+.lp-person-add:focus-visible { background: var(--control-tint-strong); color: var(--accent); text-decoration: none; }
+
+.lp-person-plus {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    font-size: 18px;
+}
+
+.lp-person-add:hover .lp-person-plus,
+.lp-person-add:focus-visible .lp-person-plus { background: var(--selected); }
+
 /* ---- Switch (§5): 999 track, round thumb, accent when on ---- */
 input[type="checkbox"].lp-switch {
     -webkit-appearance: none;
@@ -405,6 +494,10 @@ input[type="checkbox"].lp-switch:disabled { opacity: .4; cursor: not-allowed; }
     .lp-rail-item:focus { background: var(--accent-soft); color: var(--ink); }
     .lp-rail-list > li.active > .lp-rail-item,
     .lp-rail-item[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+    /* One card per line; the Add user tile shrinks to a short row under the last one. */
+    .lp-people { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .lp-person-add { flex-direction: row; min-height: 0; padding: 14px 22px; }
+    .lp-person-plus { width: 30px; height: 30px; font-size: 14px; }
 }
 
 @media (max-width: 600px) {

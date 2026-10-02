@@ -73,6 +73,19 @@ def test_settings_frame_loads_its_shell_script():
     assert "lily-settings-shell.js" in read(TEMPLATES / "settings_layout.html")
 
 
+def test_users_page_is_people_cards_with_an_add_tile():
+    html = read(TEMPLATES / "user_table.html")
+    assert 'class="lp-people"' in html and 'class="lp-person"' in html
+    assert 'class="lp-monogram"' in html and "_('You')" in html
+    # Add user is the next slot in the grid, not a Primary button floating under it.
+    assert 'class="lp-person-add" id="add_user"' in html
+    assert "btn-primary" not in html and "lp-actions" not in html
+    css = read(CSS / "lily-admin.css")
+    assert re.search(r"\.lp-people \{[^}]*minmax\(260px, 1fr\)[^}]*gap: 22px", css)
+    assert re.search(r"@container lp-settings \(max-width: 760px\) \{.*\.lp-people \{ grid-template-columns: minmax\(0, 1fr\)",
+                     css, flags=re.S)
+
+
 def test_settings_rail_signout_is_a_quiet_button():
     html = read(TEMPLATES / "settings_layout.html")
     assert "lp-rail-sep" not in html

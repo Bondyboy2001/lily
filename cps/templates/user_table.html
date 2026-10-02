@@ -1,16 +1,42 @@
 {% extends "settings_layout.html" %}
-{% import "lily_form.html" as f with context %}
+{#- People cards (docs/design.md §6.5): one card per user, then the Add user tile
+    in the next slot, where the new user will appear. -#}
 {% block settings %}
 <div class="lp">
-  {% call f.group(None, id='users') %}
+  <ul class="lp-people" id="users">
     {% for user in users %}
-      {{ f.link(url_for('admin.edit_user', user_id=user.id), user.name, help=user.email,
-                value=(_('Admin') if user.role_admin() else (_('Guest') if user.role_anonymous() else None))) }}
+      {% set role = _('Admin') if user.role_admin() else (_('Guest') if user.role_anonymous() else None) %}
+      {% set count = granted[user.id] %}
+      <li>
+        <a class="lp-person" href="{{ url_for('admin.edit_user', user_id=user.id) }}">
+          <span class="lp-person-top">
+            <span class="lp-monogram" aria-hidden="true">{{ user.name[:1]|upper }}</span>
+            <span class="lp-person-pills">
+              {% if role %}<span class="label label-primary">{{ role }}</span>{% endif %}
+              {% if user.id == current_user.id %}<span class="label label-default">{{ _('You') }}</span>{% endif %}
+            </span>
+          </span>
+          <span class="lp-person-who">
+            <span class="lp-person-name">{{ user.name }}</span>
+            {% if user.email %}<span class="lp-person-email">{{ user.email }}</span>{% endif %}
+          </span>
+          <span class="lp-person-foot">
+            <span class="lp-person-access">
+              {%- if count == permission_count %}{{ _('All %(count)s permissions', count=count) }}
+              {%- elif count %}{{ _('%(count)s of %(total)s permissions', count=count, total=permission_count) }}
+              {%- else %}{{ _('No permissions') }}{% endif -%}
+            </span>
+            <span class="lp-chevron glyphicon glyphicon-chevron-right" aria-hidden="true"></span>
+          </span>
+        </a>
+      </li>
     {% endfor %}
-  {% endcall %}
-  <div class="lp-actions">
-    <span class="lp-spacer"></span>
-    <a class="btn btn-primary" id="add_user" href="{{ url_for('admin.new_user') }}">{{ _('Add user') }}</a>
-  </div>
+    <li>
+      <a class="lp-person-add" id="add_user" href="{{ url_for('admin.new_user') }}">
+        <span class="lp-person-plus glyphicon glyphicon-plus" aria-hidden="true"></span>
+        <span>{{ _('Add user') }}</span>
+      </a>
+    </li>
+  </ul>
 </div>
 {% endblock %}
