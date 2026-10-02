@@ -471,3 +471,14 @@ def test_readers_render_their_bookmarks_url(client, fmt):
     html = c.get(f"/read/{book_id}/{fmt}").get_data(as_text=True)
     assert f"/ajax/bookmarks/{book_id}/{fmt.upper()}" in html
     assert 'id="bookmark-status"' in html
+
+
+@pytest.mark.unit
+def test_delete_dialog_renders_its_placeholders_as_markup(client, temp_cwa_db):
+    # The translated sentence wraps empty spans that main.js fills with the title and format;
+    # escaped, they would show up as literal "<span …>" text in the dialog.
+    env, c, book_id = client
+    html = c.get(f"/book/{book_id}").get_data(as_text=True)
+    assert '<span class="delete-title"></span> will be deleted from the library' in html
+    assert 'The <span class="delete-format"></span> file of <span class="delete-title"></span>' in html
+    assert "&lt;span" not in html
