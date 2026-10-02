@@ -13,7 +13,7 @@ One container runs several [s6](https://skarnet.org/software/s6-overlay/) servic
 | `svc-calibre-web-automated` | The web app (`cps.py` → `cps/`). |
 | `cwa-ingest-service` | Watches the ingest folder and runs `scripts/ingest_processor.py` on new files. |
 | `metadata-change-detector` | Notices metadata changes and runs `scripts/cover_enforcer.py`. |
-| `cwa-auto-library`, `cwa-auto-zipper`, `cwa-process-recovery`, `cwa-init` | First-start library setup, archive zipping, crash recovery, initialisation. |
+| `cwa-auto-library`, `cwa-process-recovery`, `cwa-init` | First-start library setup, crash recovery, initialisation. |
 
 The ingest and enforcement processes call back into the web app over internal endpoints
 guarded by `cps/internal_api.py` (`@internal_only`, shared secret from

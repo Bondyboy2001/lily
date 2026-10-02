@@ -11,7 +11,7 @@ import os
 import json
 from functools import wraps
 
-from flask import Blueprint, flash, redirect, url_for, abort, request, g, jsonify
+from flask import Blueprint, flash, redirect, url_for, abort, request, g
 from .cw_login import current_user
 from flask_babel import gettext as _
 from sqlalchemy.orm.attributes import flag_modified
@@ -23,7 +23,6 @@ from werkzeug.security import generate_password_hash
 from .helper import check_email, valid_email, check_username
 from .render_template import render_title_template, get_sidebar_config
 from .usermanagement import user_login_required
-from .cw_babel import get_available_locale
 
 log = logger.create()
 
@@ -127,40 +126,6 @@ def reconnect():
         abort(404)
 
 
-@admi.route("/ajax/updateThumbnails", methods=['POST'])
-@user_login_required
-@admin_required
-def update_thumbnails():
-    # Always allow manual thumbnail cache updates
-    log.info("Update of Cover cache requested")
-
-    try:
-        from .tasks.thumbnail import TaskGenerateCoverThumbnails
-        task_id = helper.update_thumbnail_cache()
-
-        # Check if there are any books to process
-        books_with_covers = TaskGenerateCoverThumbnails.get_books_with_covers()
-        book_count = len(books_with_covers)
-
-        if book_count > 0:
-            message = _('Thumbnail cache refresh started for {} book(s). This may take a few minutes.').format(book_count)
-        else:
-            message = _('No books with covers found to process.')
-
-        return jsonify({
-            'success': True,
-            'message': message,
-            'book_count': book_count,
-            'task_id': str(task_id) if task_id else None
-        })
-    except Exception as e:
-        log.error(f"Error starting thumbnail refresh: {e}")
-        return jsonify({
-            'success': False,
-            'message': _('Failed to start thumbnail refresh: {}').format(str(e))
-        })
-
-
 @admi.route("/admin/usertable")
 @user_login_required
 @admin_required
@@ -194,10 +159,9 @@ def load_dialogtexts(element_id):
 def new_user():
     content = ub.User()
     languages = calibre_db.speaking_language()
-    translations = get_available_locale()
     if request.method == "POST":
         to_save = request.form.to_dict()
-        _handle_new_user(to_save, content, languages, translations)
+        _handle_new_user(to_save, content, languages)
     else:
         content.role = config.config_default_role
         content.sidebar_view = config.config_default_show
@@ -205,7 +169,7 @@ def new_user():
         content.default_language = config.config_default_language
     opds_context = _build_opds_context(content)
     return render_title_template("user_edit.html", new_user=1, content=content,
-                                 config=config, translations=translations,
+                                 config=config,
                                  languages=languages, title=_("Add New User"), page="newuser",
                                  opds_root_order_string=opds_context["opds_root_order_string"],
                                  opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
@@ -247,16 +211,14 @@ def edit_user(user_id):
         flash(_("User not found"), category="error")
         return redirect(url_for('admin.edit_user_table'))
     languages = calibre_db.speaking_language(return_all_languages=True)
-    translations = get_available_locale()
 
     if request.method == "POST":
         to_save = request.form.to_dict()
-        resp = _handle_edit_user(to_save, content, languages, translations)
+        resp = _handle_edit_user(to_save, content, languages)
         if resp:
             return resp
     opds_context = _build_opds_context(content)
     return render_title_template("user_edit.html",
-                                 translations=translations,
                                  languages=languages,
                                  new_user=0,
                                  content=content,
@@ -268,9 +230,8 @@ def edit_user(user_id):
                                  page="edituser")
 
 
-def _handle_new_user(to_save, content, languages, translations):
+def _handle_new_user(to_save, content, languages):
     content.default_language = to_save.get("default_language", config.config_default_language)
-    content.locale = to_save.get("locale", content.locale)
 
     shown = [int(key[5:]) for key in to_save if key.startswith('show_')]
     content.sidebar_view = sum(shown) if shown else config.config_default_show
@@ -289,7 +250,6 @@ def _handle_new_user(to_save, content, languages, translations):
         opds_context = _build_opds_context(content)
         return render_title_template("user_edit.html", new_user=1, content=content,
                                      config=config,
-                                     translations=translations,
                                      languages=languages, title=_("Add New User"), page="newuser",
                                      opds_root_order_string=opds_context["opds_root_order_string"],
                                      opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
@@ -338,7 +298,7 @@ def _delete_user(content):
         raise Exception(_("No admin user remaining, can't delete user"))
 
 
-def _handle_edit_user(to_save, content, languages, translations):
+def _handle_edit_user(to_save, content, languages):
     if to_save.get("delete"):
         try:
             flash(_delete_user(content), category="success")
@@ -403,8 +363,6 @@ def _handle_edit_user(to_save, content, languages, translations):
 
     if to_save.get("default_language"):
         content.default_language = to_save["default_language"]
-    if to_save.get("locale"):
-        content.locale = to_save["locale"]
     try:
         anonymous = content.is_anonymous
         content.role = constants.selected_roles(to_save)
@@ -431,7 +389,6 @@ def _handle_edit_user(to_save, content, languages, translations):
         flash(str(ex), category="error")
         opds_context = _build_opds_context(content)
         return render_title_template("user_edit.html",
-                                     translations=translations,
                                      languages=languages,
                                      new_user=0,
                                      content=content,

@@ -21,11 +21,8 @@ from .common import (library_refresh,
                      log, DIRS_JSON)
 # Import order mirrors the old single module (web, scheduler, worker, tasks) to keep
 # circular-import behaviour the same.
-from .ingest import (_duplicate_full_scan_running, get_ingest_dir, get_ingest_status, _coerce_book_ids,
-                     get_ingest_queue_size, refresh_library, cwa_library_refresh,
-                     get_library_refresh_messages,
-                     cwa_internal_queue_duplicate_scan, cwa_internal_run_duplicate_scan,
-                     cwa_internal_duplicate_scan_status, queue_debounced_duplicate_scan,
+from .ingest import (get_ingest_dir, _coerce_book_ids, refresh_library, cwa_library_refresh,
+                     cwa_internal_queue_duplicate_scan, queue_debounced_duplicate_scan,
                      duplicate_scan_debounce_pending, cwa_internal_reconnect_db)
 from .settings import set_cwa_settings
 
@@ -36,11 +33,8 @@ __all__ = [
     "library_refresh", "cwa_settings",
     "cwa_internal", "log", "DIRS_JSON",
     # ingest
-    "_duplicate_full_scan_running", "get_ingest_dir", "get_ingest_status",
-    "_coerce_book_ids", "get_ingest_queue_size", "refresh_library",
-    "cwa_library_refresh", "get_library_refresh_messages",
+    "get_ingest_dir", "_coerce_book_ids", "refresh_library", "cwa_library_refresh",
     "cwa_internal_queue_duplicate_scan",
-    "cwa_internal_run_duplicate_scan", "cwa_internal_duplicate_scan_status",
     "queue_debounced_duplicate_scan", "duplicate_scan_debounce_pending",
     "cwa_internal_reconnect_db",
     # settings

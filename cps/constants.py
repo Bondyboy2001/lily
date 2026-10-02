@@ -71,33 +71,12 @@ SIDEBAR_AUTHOR          = 1 <<  6
 SIDEBAR_BEST_RATED      = 1 <<  7
 SIDEBAR_READ_AND_UNREAD = 1 <<  8
 SIDEBAR_RECENT          = 1 <<  9
-SIDEBAR_SORTED          = 1 << 10
 SIDEBAR_PUBLISHER       = 1 << 12
 SIDEBAR_RATING          = 1 << 13
 SIDEBAR_FORMAT          = 1 << 14
 SIDEBAR_DOWNLOAD        = 1 << 16
 SIDEBAR_LIST            = 1 << 17
 SIDEBAR_DUPLICATES      = 1 << 18
-
-sidebar_settings = {
-                "detail_random": DETAIL_RANDOM,
-                "sidebar_language": SIDEBAR_LANGUAGE,
-                "sidebar_series": SIDEBAR_SERIES,
-                "sidebar_category": SIDEBAR_CATEGORY,
-                "sidebar_random": SIDEBAR_RANDOM,
-                "sidebar_author": SIDEBAR_AUTHOR,
-                "sidebar_best_rated": SIDEBAR_BEST_RATED,
-                "sidebar_read_and_unread": SIDEBAR_READ_AND_UNREAD,
-                "sidebar_recent": SIDEBAR_RECENT,
-                "sidebar_sorted": SIDEBAR_SORTED,
-                "sidebar_publisher": SIDEBAR_PUBLISHER,
-                "sidebar_rating": SIDEBAR_RATING,
-                "sidebar_format": SIDEBAR_FORMAT,
-                "sidebar_download": SIDEBAR_DOWNLOAD,
-                "sidebar_list": SIDEBAR_LIST,
-                "sidebar_duplicates": SIDEBAR_DUPLICATES,
-            }
-
 
 ADMIN_USER_ROLES        = sum(r for r in ALL_ROLES.values()) & ~ROLE_ANONYMOUS
 # Lily's default sidebar: the core browse views only. The other entries stay available

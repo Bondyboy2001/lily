@@ -37,7 +37,7 @@ def test_no_os_system_or_shell_true_in_python_code():
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("service", ["metadata-change-detector", "cwa-auto-zipper"])
+@pytest.mark.parametrize("service", ["metadata-change-detector"])
 def test_python_services_drop_root(service):
     run = (REPO / "root/etc/s6-overlay/s6-rc.d" / service / "run").read_text()
     for line in run.splitlines():

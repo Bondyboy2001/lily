@@ -78,7 +78,6 @@ RUN \
   python3.13 \
   sqlite3 \
   zip \
-  gettext \
   libasound2t64 \
   libxtst6 \
   libxrandr2 \
@@ -230,7 +229,7 @@ RUN \
   # s6 service definitions and other rootfs overlays live in ./root
   cp -R root/* / && \
   rm -R root/ && \
-  # Makes required dirs, sets script permissions, adds CLI aliases, compiles translations
+  # Makes required dirs, sets script permissions, adds CLI aliases
   bash scripts/setup-cwa.sh && \
   # The install stays owned by the build-time abc, so when PUID differs abc can't
   # write bytecode caches next to the code; compile them here instead

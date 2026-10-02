@@ -93,7 +93,7 @@ class TestDataEndpoint:
     def test_retained_service_dirs_get_readable_names(self, clients, tmp_path, monkeypatch):
         from cps import logs
         _, _, _, admin = clients
-        for service in ("cwa-auto-zipper", "cwa-ingest-service", "svc-calibre-web-automated"):
+        for service in ("cwa-auto-library", "cwa-ingest-service", "svc-calibre-web-automated"):
             sub = tmp_path / "retained" / service
             sub.mkdir(parents=True)
             (sub / "current").write_text(service + " now\n", encoding="utf-8")
@@ -102,10 +102,10 @@ class TestDataEndpoint:
         monkeypatch.setattr(logs, "RETAINED_LOG_DIR", str(tmp_path / "retained"))
         monkeypatch.setattr(logs, "_configured_log_files", lambda: [])
         text = admin.get("/logs/data").get_json()["text"]
-        for label in ("Auto zipper (current)", "Ingest service (current)", "Lily web app (current)"):
+        for label in ("Auto library (current)", "Ingest service (current)", "Lily web app (current)"):
             assert "===== %s =====" % label in text
-        assert "cwa-auto-zipper" + " (current)" not in text
-        assert text.index("cwa-auto-zipper before") < text.index("cwa-auto-zipper now")
+        assert "cwa-auto-library" + " (current)" not in text
+        assert text.index("cwa-auto-library before") < text.index("cwa-auto-library now")
 
     def test_source_param_is_ignored(self, clients, tmp_path, monkeypatch):
         _, _, _, admin = clients

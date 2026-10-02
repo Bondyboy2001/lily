@@ -361,12 +361,12 @@ class TestContinueReadingWebSource:
         session.commit()
 
     def test_web_progress_orders_the_row(self, session):
-        from cps.web import get_continue_reading_progress
+        from .test_continue_reading import continue_reading_progress
         self._reading(session, 10, 1, web=(0.6, 5))
         self._reading(session, 11, 8)                  # no progress, but touched most recently
         self._reading(session, 12, 1, web=(0.1, 20))   # web position is the newest activity
         self._reading(session, 13, 4)
-        result = get_continue_reading_progress(session, 1)
+        result = continue_reading_progress(session, 1)
         assert [book_id for book_id, __ in result] == [12, 11, 10, 13]
         progress = dict(result)
         assert progress[10] == pytest.approx(60.0)

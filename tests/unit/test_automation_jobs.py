@@ -142,8 +142,6 @@ class TestRefreshRoute:
             status = client.get(status_url).get_json()
             assert status["job_id"] == body["job_id"]
             assert status["state"] == "succeeded"
-            legacy_msgs = env.app.config.get("library_refresh_messages", [])
-            assert any("complete" in str(m) or "refreshed" in str(m) for m in legacy_msgs)
             again = client.get(status_url).get_json()
             assert again["job_id"] == body["job_id"] and again["state"] == status["state"]
             assert client.get("/cwa-library-refresh/jobs/nothex").status_code == 404
@@ -260,14 +258,6 @@ class TestRefreshRouteFailures:
             assert resp.status_code == 404
         finally:
             env.__exit__(None, None, None)
-
-    def test_messages_requires_admin(self, tmp_path, temp_cwa_db, monkeypatch):
-        ctx, client, env = self._env(tmp_path, temp_cwa_db, monkeypatch)
-        ctx.add_user("plain", password="pw")
-        reader = ctx.app.test_client()
-        reader.post("/login", data={"username": "plain", "password": "pw"})
-        assert reader.get("/cwa-library-refresh/messages").status_code in (302, 403)
-        env.__exit__(None, None, None)
 
     def test_failed_children_fail_parent(self, tmp_path, temp_cwa_db, monkeypatch):
         ctx, client, env = self._env(tmp_path, temp_cwa_db, monkeypatch)

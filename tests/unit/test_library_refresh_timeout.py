@@ -13,7 +13,7 @@ from flask import Flask
 
 
 @pytest.mark.unit
-def test_refresh_library_handles_timeout(monkeypatch):
+def test_refresh_library_handles_timeout(monkeypatch, capsys):
     from cps.cwa_functions import ingest
 
     seen = {}
@@ -30,8 +30,7 @@ def test_refresh_library_handles_timeout(monkeypatch):
     Babel(app)
     ingest.refresh_library(app)
     assert seen["timeout"] == 12
-    with app.test_request_context():
-        assert "took too long" in str(app.config["library_refresh_messages"][-1])
+    assert "[library-refresh] The ingest process took too long" in capsys.readouterr().out
 
 
 @pytest.mark.unit

@@ -35,16 +35,6 @@ _duplicate_scan_lock = Lock()
 _duplicate_scan_book_ids = set()
 
 
-def _duplicate_full_scan_running():
-    try:
-        return WorkerThread.get_instance().has_active_task_of_type(
-            "TaskDuplicateScan",
-            extra_check=lambda task: getattr(task, "full_scan", False),
-        )
-    except Exception as ex:
-        log.debug("[cwa-duplicates] Could not check duplicate full-scan worker state: %s", str(ex))
-    return False
-
 ##————————————————————————————————————————————————————————————————————————————##
 ##                                                                            ##
 ##                             CWA LIBRARY REFRESH                            ##
@@ -55,25 +45,6 @@ def get_ingest_dir():
     with open(DIRS_JSON, 'r') as f:
         dirs = json.load(f)
         return dirs['ingest_folder']
-
-def get_ingest_status():
-    """Read the current ingest service status"""
-    try:
-        with open('/config/cwa_ingest_status', 'r') as f:
-            status_line = f.read().strip()
-            if ':' in status_line:
-                parts = status_line.split(':')
-                return {
-                    'state': parts[0],
-                    'filename': parts[1] if len(parts) > 1 else '',
-                    'timestamp': parts[2] if len(parts) > 2 else '',
-                    'detail': parts[3] if len(parts) > 3 else ''
-                }
-            else:
-                return {'state': status_line, 'filename': '', 'timestamp': '', 'detail': ''}
-    except (FileNotFoundError, IOError):
-        return {'state': 'unknown', 'filename': '', 'timestamp': '', 'detail': ''}
-
 
 def _coerce_book_ids(raw_book_ids):
     if raw_book_ids is None:
@@ -89,14 +60,6 @@ def _coerce_book_ids(raw_book_ids):
         if book_id > 0:
             book_ids.append(book_id)
     return list(dict.fromkeys(book_ids))
-
-def get_ingest_queue_size():
-    """Get the number of files in the retry queue"""
-    try:
-        with open('/config/cwa_ingest_retry_queue', 'r') as f:
-            return len([line for line in f if line.strip()])
-    except (FileNotFoundError, IOError):
-        return 0
 
 def _library_refresh_timeout() -> int:
     """Seconds a manual library refresh may run (CWA_LIBRARY_REFRESH_TIMEOUT, default 2h).
@@ -142,9 +105,6 @@ def _finish_refresh_job(finish_job, job_id, return_code, app, failed_children=No
     else:
         outcome_message = _l("Library Refresh 🔄 An unexpected error occurred, check the logs ⛔")
 
-    if "library_refresh_messages" not in app.config:
-        app.config["library_refresh_messages"] = []
-    app.config["library_refresh_messages"].append(outcome_message)
     # Print result to docker log (force English by casting within temporary locale guard if desired)
     print(str(outcome_message).replace('Library Refresh 🔄', '[library-refresh]'), flush=True)
 
@@ -210,7 +170,6 @@ def cwa_library_refresh():
             from automation_jobs import claim_job, finish_job
         job_id, created = claim_job("refresh", user_id=int(current_user.id))
         if created:
-            app.config["library_refresh_messages"] = []
             library_refresh_thread = Thread(target=refresh_library, args=(app, job_id))
             try:
                 library_refresh_thread.start()
@@ -255,15 +214,6 @@ def library_refresh_job(job_id):
                     "finished_utc": job["finished_utc"]})
 
 
-@library_refresh.route("/cwa-library-refresh/messages", methods=["GET"])
-@login_required_if_no_ano
-@admin_required
-def get_library_refresh_messages():
-    # Non-consuming: every admin client sees the latest message until the next run.
-    messages = current_app.config.get("library_refresh_messages", [])
-    rendered = [str(m) for m in messages]
-    return jsonify({"messages": rendered})
-
 ##————————————————————————————————————————————————————————————————————————————##
 ##                                                                            ##
 ##                           CWA INTERNAL ENDPOINTS                           ##
@@ -288,59 +238,6 @@ def cwa_internal_queue_duplicate_scan():
         return jsonify(result), 200
     except Exception as e:
         log.error("[cwa-duplicates] Failed to schedule debounced duplicate scan: %s", str(e))
-        return jsonify({"success": False, "error": 'Internal error; see server log for details'}), 500
-
-
-@csrf.exempt
-@cwa_internal.route('/cwa-internal/run-duplicate-scan', methods=["POST"])
-@internal_only
-def cwa_internal_run_duplicate_scan():
-    """Run a bounded incremental duplicate scan synchronously in the web process.
-
-    Security: CWA's own processes only (@internal_only).
-    Payload JSON: {book_ids:[int]}
-    """
-    try:
-        data = request.get_json(force=True, silent=True) or {}
-        book_ids = _coerce_book_ids(data.get('book_ids'))
-        if not book_ids:
-            return jsonify({"success": True, "skipped": True, "reason": "no_book_ids"}), 200
-
-        db = CWA_DB()
-        enabled = bool(db.cwa_settings.get('duplicate_scan_enabled', 0))
-        frequency = db.cwa_settings.get('duplicate_scan_frequency', 'manual')
-        if not enabled or frequency != 'after_import':
-            return jsonify({"success": True, "skipped": True, "reason": "disabled_or_manual"}), 200
-
-        from ..tasks.duplicate_scan import TaskDuplicateScan
-        task = TaskDuplicateScan(
-            full_scan=False,
-            trigger_type='after_import',
-            book_ids=book_ids,
-        )
-        task.run(None)
-        return jsonify({
-            "success": True,
-            "result_count": task.result_count,
-            "message": str(getattr(task, "message", "")),
-        }), 200
-    except Exception as e:
-        log.error("[cwa-duplicates] Failed to run synchronous duplicate scan: %s", str(e))
-        return jsonify({"success": False, "error": 'Internal error; see server log for details'}), 500
-
-
-@csrf.exempt
-@cwa_internal.route('/cwa-internal/duplicate-scan-status', methods=["GET", "POST"])
-@internal_only
-def cwa_internal_duplicate_scan_status():
-    """Expose duplicate scan worker state to localhost-only ingest helpers."""
-    try:
-        return jsonify({
-            "success": True,
-            "full_scan_running": _duplicate_full_scan_running(),
-        }), 200
-    except Exception as e:
-        log.error("[cwa-duplicates] Failed to read duplicate scan status: %s", str(e))
         return jsonify({"success": False, "error": 'Internal error; see server log for details'}), 500
 
 

@@ -22,10 +22,7 @@ _.google_site_verification
 _.allow_upload
 
 # Per-user / per-task attributes assigned dynamically and read elsewhere
-_.auto_metadata_fetch
-_.reader_list
 _.config_is_initial
-_.last_added_book_ids
 _.illegal_characters
 _.flask_httpauth_user
 _.last_time_started_reading
@@ -35,20 +32,7 @@ _._lily_cwa_db
 _.atom_timestamp
 _.custom_extra_fill
 _.downloads
-_.created
 _.dismissed_at
-_.record_title
-_.record_url
-# Review-queue tables whose pages were removed; the tables stay in existing app.db files
-HardcoverMatchQueue
-_.hardcover_results
-_.confidence_scores
-_.created_at
-_.selected_result_id
-_.review_action
-_.reviewed_at
-_.reviewed_by
-_.fill
 logged_in
 
 # SQLAlchemy event listeners + Flask-Login callbacks (invoked by the framework)
@@ -67,10 +51,6 @@ _.previous_offset
 _.has_prev
 _.has_next
 _.iter_pages
-
-# Metadata provider classes discovered through the provider registry
-OpenLibrary
-google_scholar
 
 # Conditional-import fallbacks (the "advocate not installed" path)
 advocate
@@ -95,20 +75,16 @@ _.text_antialias
 _.format_request
 _.disabled
 
-# Dataclass fields on cps/services/Metadata.py
-confidence_score
-match_reason
-
 # Route parameters required by the URL rule signature
 anyname
 
 _.isolation_level
-
-delete_book
-get_continue_reading_progress
 
 # Book page template reads entry.paper_doi (detail.html)
 _.paper_doi
 
 # CalibreTask.run(worker_thread) interface parameter; WorkerThread passes itself
 worker_thread
+
+# HTMLParser calls it for each tag (scholar._CitationTags)
+_.handle_starttag

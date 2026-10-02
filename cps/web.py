@@ -778,18 +778,6 @@ def _book_resume(user_id, book_id, reader_list):
         return None
 
 
-def get_continue_reading_progress(session, user_id, limit=CONTINUE_READING_LIMIT,
-                                  library_uuid=None):
-    """Return [(book_id, progress_percent or None), ...] for books the user is currently reading.
-
-    ReadBook.read_status == STATUS_IN_PROGRESS is the source of truth; the percentage is
-    the newest saved position. Scoped reader_position rows win; the legacy
-    web_reader_progress row is the fallback. Most recently touched first.
-    """
-    return [(book_id, percent) for book_id, percent, _fmt in
-            _continue_reading_rows(session, user_id, limit, library_uuid)]
-
-
 def get_continue_reading_entries(limit=CONTINUE_READING_LIMIT):
     """Books the current user is reading, as index-style entries plus a 'progress' percentage."""
     if current_user.is_anonymous or not current_user.is_authenticated:

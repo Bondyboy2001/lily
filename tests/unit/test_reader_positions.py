@@ -19,6 +19,14 @@ def _login(env, name=None, password=ADMIN_PASSWORD):
     client.post("/login", data={"username": name or env.admin().name, "password": password})
     return client
 
+
+def continue_reading_progress(session, user_id, limit=None, library_uuid=None):
+    """[(book_id, percent)] from the Continue Reading query (web._continue_reading_rows)."""
+    from cps.web import CONTINUE_READING_LIMIT, _continue_reading_rows
+    return [(book_id, percent) for book_id, percent, __ in
+            _continue_reading_rows(session, user_id, limit or CONTINUE_READING_LIMIT, library_uuid)]
+
+
 def _library_uuid(env):
     import sqlite3
     con = sqlite3.connect(env.library_dir / "metadata.db")
@@ -193,7 +201,7 @@ class TestReaderPositionApi:
 @pytest.mark.unit
 class TestContinueReadingPositions:
     def test_scoped_position_wins_and_supplies_format(self, env):
-        from cps import ub, web
+        from cps import ub
         admin = env.admin()
         bid = env.add_book("Multi", fmt="EPUB")
         from cps import calibre_db, db
@@ -209,8 +217,8 @@ class TestContinueReadingPositions:
                                          book_id=bid, format="pdf",
                                          cfi="page:9", percent=0.9))
         ub.session_commit()
-        rows = web.get_continue_reading_progress(ub.session, admin.id,
-                                                 library_uuid=lib)
+        rows = continue_reading_progress(ub.session, admin.id,
+                                         library_uuid=lib)
         assert rows == [(bid, pytest.approx(90.0))]
         html = _login(env).get("/").get_data(as_text=True)
         assert f"/read/{bid}/pdf" in html
@@ -230,7 +238,7 @@ class TestContinueReadingPositions:
         assert f'href="/book/{bid}"' in html
 
     def test_other_library_positions_ignored(self, env):
-        from cps import ub, web
+        from cps import ub
         admin = env.admin()
         bid = env.add_book("Elsewhere", fmt="EPUB")
         ub.session.add(ub.ReadBook(user_id=admin.id, book_id=bid,
@@ -239,13 +247,13 @@ class TestContinueReadingPositions:
                                          book_id=bid, format="epub",
                                          cfi="epubcfi(/5)", percent=0.5))
         ub.session_commit()
-        rows = web.get_continue_reading_progress(ub.session, admin.id,
-                                                 library_uuid=_library_uuid(env))
+        rows = continue_reading_progress(ub.session, admin.id,
+                                         library_uuid=_library_uuid(env))
         assert rows == [(bid, None)]
 
     def test_scoped_position_recency_outranks_older_books(self, env):
         from datetime import datetime, timedelta, timezone
-        from cps import ub, web
+        from cps import ub
         admin = env.admin()
         lib = _library_uuid(env)
         old = datetime.now(timezone.utc) - timedelta(days=30)
@@ -263,8 +271,8 @@ class TestContinueReadingPositions:
                                          cfi="epubcfi(/8)", percent=0.8,
                                          last_modified=datetime.now(timezone.utc)))
         ub.session_commit()
-        rows = web.get_continue_reading_progress(ub.session, admin.id,
-                                                 library_uuid=lib)
+        rows = continue_reading_progress(ub.session, admin.id,
+                                         library_uuid=lib)
         assert rows[0][0] == fresh
         assert rows[0][1] == pytest.approx(80.0)
 

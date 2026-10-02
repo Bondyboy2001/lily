@@ -56,13 +56,6 @@ from .embed_helper import do_calibre_export
 log = logger.create()
 
 
-def _directory_contains_only_nfs_placeholders(path):
-    try:
-        entries = os.listdir(path)
-    except OSError:
-        return False
-    return bool(entries) and all(entry.startswith(".nfs") for entry in entries)
-
 try:
     from wand.image import Image
     from wand.exceptions import MissingDelegateError, BlobError
@@ -226,52 +219,6 @@ def edit_book_read_status(book_id, read_status=None):
             return _("Read status could not set: {}".format(ex.orig))
     return ""
 
-
-# Deletes a book from the local filestorage, returns True if deleting is successful, otherwise false
-def delete_book_file(book, calibrepath, book_format=None):
-    # check that path is 2 elements deep, check that target path has no sub folders
-    if book.path.count('/') == 1:
-        path = os.path.join(calibrepath, book.path)
-        if book_format:
-            for file in os.listdir(path):
-                if file.upper().endswith("."+book_format):
-                    os.remove(os.path.join(path, file))
-            return True, None
-        else:
-            if os.path.isdir(path):
-                try:
-                    for root, folders, files in os.walk(path):
-                        for f in files:
-                            os.unlink(os.path.join(root, f))
-                        if len(folders):
-                            log.warning("Deleting book {} failed, path {} has subfolders: {}".format(book.id,
-                                        book.path, folders))
-                            return True, _("Deleting bookfolder for book %(id)s failed, path has subfolders: %(path)s",
-                                           id=book.id,
-                                           path=book.path)
-                    shutil.rmtree(path)
-                except (IOError, OSError) as ex:
-                    if _directory_contains_only_nfs_placeholders(path):
-                        log.warning(
-                            "Deleting book %s left NFS placeholder files in %s; continuing database cleanup",
-                            book.id, path,
-                        )
-                        return True, None
-                    log.error("Deleting book %s failed: %s", book.id, ex)
-                    return False, _("Deleting book %(id)s failed: %(message)s", id=book.id, message=ex)
-                authorpath = os.path.join(calibrepath, os.path.split(book.path)[0])
-                if not os.listdir(authorpath):
-                    try:
-                        shutil.rmtree(authorpath)
-                    except (IOError, OSError) as ex:
-                        log.error("Deleting authorpath for book %s failed: %s", book.id, ex)
-                return True, None
-
-    log.error("Deleting book %s from database only, book path in database not valid: %s",
-              book.id, book.path)
-    return True, _("Deleting book %(id)s from database only, book path in database not valid: %(path)s",
-                   id=book.id,
-                   path=book.path)
 
 def rename_all_files_on_change(one_book, new_path, old_path, all_new_name):
     for file_format in one_book.data:
@@ -535,13 +482,6 @@ def update_dir_structure(book_id,
                                      first_author,
                                      db_filename,
                                      book)
-
-
-def delete_book(book, calibrepath, book_format):
-    if not book_format:
-        clear_cover_thumbnail_cache(book.id)  # here it breaks
-        calibre_db.delete_dirty_metadata(book.id)
-    return delete_book_file(book, calibrepath, book_format)
 
 
 def get_cover_on_failure():
@@ -991,14 +931,6 @@ def replace_cover_thumbnail_cache(book_id, book_path=None, last_modified=None):
         _pending_thumbnail_books.add(book_id)
     except Exception as e:
         log.error(f'Failed to queue thumbnail generation for book {book_id}: {e}')
-
-
-def update_thumbnail_cache():
-    # Always allow manual thumbnail cache updates
-    task = TaskGenerateCoverThumbnails()
-    WorkerThread.add(None, task)
-    # Return task ID for tracking
-    return task.id
 
 
 def get_internal_api_url(path):

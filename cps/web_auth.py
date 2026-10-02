@@ -25,7 +25,6 @@ from .helper import check_email, check_username, \
     valid_email, \
     valid_password
 from .redirect import get_redirect_location
-from .cw_babel import get_available_locale
 from .render_template import render_title_template
 from . import limiter
 from .usermanagement import user_login_required
@@ -190,7 +189,7 @@ def change_password():
 
 
 # ################################### Users own configuration #########################################################
-def change_profile(translations, languages):
+def change_profile(languages):
     to_save = request.form.to_dict()
     try:
         if current_user.role_passwd() or current_user.role_admin():
@@ -208,8 +207,6 @@ def change_profile(translations, languages):
         # The profile form only shows account fields; anything it doesn't send keeps its value.
         if "default_language" in to_save:
             current_user.default_language = to_save["default_language"]
-        if "locale" in to_save:
-            current_user.locale = to_save["locale"]
 
         # OPDS root order
         opds_order_raw = to_save.get("opds_root_order", "").strip()
@@ -273,7 +270,6 @@ def change_profile(translations, languages):
         return render_title_template("user_edit.html",
                                      content=current_user,
                                      config=config,
-                                     translations=translations,
                                      profile=1,
                                      languages=languages,
                                      opds_root_order_string=opds_root_order_string,
@@ -302,9 +298,8 @@ def change_profile(translations, languages):
 @user_login_required
 def profile():
     languages = calibre_db.speaking_language()
-    translations = get_available_locale()
     if request.method == "POST":
-        return change_profile(translations, languages)
+        return change_profile(languages)
 
     from .opds import get_opds_root_order_for_user, get_opds_hidden_entries_for_user, OPDS_ROOT_ENTRY_DEFS, OPDS_ROOT_ORDER_DEFAULT
     opds_root_order = get_opds_root_order_for_user(current_user)
@@ -321,7 +316,6 @@ def profile():
     ]
 
     return render_title_template("user_edit.html",
-                                 translations=translations,
                                  profile=1,
                                  languages=languages,
                                  content=current_user,

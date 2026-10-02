@@ -61,7 +61,7 @@
     <div id="batch-results" class="lily-batch-results" aria-live="polite"></div>
     <div>
       <table id="books-table" class="table table-no-bordered table-striped"
-        data-url="{{url_for('web.list_books')}}" data-locale="{{ current_user.locale }}" data-classes="table table-no-bordered table-hover">
+        data-url="{{url_for('web.list_books')}}" data-locale="en-US" data-classes="table table-no-bordered table-hover">
         <thead>
           <tr>
             {% if current_user.role_edit() %}
@@ -287,9 +287,6 @@
 <script src="{{ url_for('static', filename='js/libs/bootstrap-table/bootstrap-table-locale-all.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/libs/bootstrap-table/bootstrap-table-editable.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/libs/bootstrap-table/bootstrap-editable.min.js') }}"></script>
-{% if not current_user.locale == 'en' %}
-<script src="{{ url_for('static', filename='js/libs/bootstrap-table/locale/bootstrap-table-' + current_user.locale + '.min.js') }}" charset="UTF-8"></script>
-{% endif %}
 <script src="{{ url_for('static', filename='js/libs/wysihtml5-0.3.0.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/libs/bootstrap-wysihtml5-0.0.3.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/libs/wysihtml5-0.0.3.js') }}"></script>

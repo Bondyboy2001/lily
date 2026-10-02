@@ -95,7 +95,7 @@ SERVICE_NAMES = {'svc-calibre-web-automated': 'Lily web app'}
 
 
 def _service_name(dir_name):
-    """'cwa-auto-zipper' -> 'Auto zipper'; the web app's own dir gets its real name."""
+    """'cwa-auto-library' -> 'Auto library'; the web app's own dir gets its real name."""
     if dir_name in SERVICE_NAMES:
         return _(SERVICE_NAMES[dir_name])
     name = re.sub(r'^(cwa|lily|svc)[-_]', '', dir_name).replace('-', ' ').replace('_', ' ').strip()

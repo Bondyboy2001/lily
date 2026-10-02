@@ -51,7 +51,6 @@ dependencies = [
     "charset-normalizer>=3.5.1",
     "idna>=3.7",
     "tabulate>=0.9.0",
-    "polib>=1.2.0",
 ]
 dynamic = ["version"]
 
@@ -88,10 +87,10 @@ version = {attr = "cps.constants.STABLE_VERSION"}
 
 # Dead-code detection (see vulture_whitelist.py for the indirect references).
 # Runs alongside ruff in CI. cps/cw_advocate and cps/cw_login are vendored
-# third-party code; cps/static and cps/translations are generated/vendored.
+# third-party code; cps/static is generated/vendored.
 [tool.vulture]
 paths = ["cps", "scripts", "vulture_whitelist.py"]
-exclude = ["cps/static", "cps/translations", "cps/cw_advocate", "cps/cw_login",
+exclude = ["cps/static", "cps/cw_advocate", "cps/cw_login",
            "cps/iso_language_names.py"]
 min_confidence = 60
 ignore_decorators = [
@@ -103,7 +102,7 @@ ignore_decorators = [
 
 [tool.ruff]
 target-version = "py313"
-extend-exclude = ["cps/static", "cps/translations"]
+extend-exclude = ["cps/static"]
 
 [tool.ruff.lint]
 # E9/F63/F7/F82/F811/F601/F523/B020: bug-catching rules (syntax errors, undefined

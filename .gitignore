@@ -25,7 +25,6 @@ docs/*
 !docs/deployment.md
 !docs/architecture.md
 !docs/design.md
-!docs/screenshot.jpg
 !docs/assets/
 .venv-activate.sh
 test_venv

@@ -30,7 +30,6 @@ BOOKS = [
     (5200, "metamorphosis", "Franz Kafka", ["epub", "kindle", "txt"]),
     (46, "christmas_carol", "Charles Dickens", ["epub", "kindle", "txt"]),
     (1661, "sherlock_holmes", "Arthur Conan Doyle", ["epub", "kindle"]),
-    (1342, "pride_and_prejudice", "Jane Austen", ["epub", "kindle"]),
 ]
 
 # Expected file sizes (approximate, for validation)

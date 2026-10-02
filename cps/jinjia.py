@@ -93,19 +93,6 @@ def format_date_input(val):
     return '' if input_date == "0101-01-01" else input_date
 
 
-@jinjia.app_template_filter('strftime')
-def timestamptodate(date, fmt=None):
-    date = datetime.datetime.fromtimestamp(
-        int(date)/1000
-    )
-    native = date.replace(tzinfo=None)
-    if fmt:
-        time_format = fmt
-    else:
-        time_format = '%d %m %Y - %H:%S'
-    return native.strftime(time_format)
-
-
 @jinjia.app_template_filter('yesno')
 def yesno(value, yes, no):
     return yes if value else no

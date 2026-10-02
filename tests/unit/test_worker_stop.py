@@ -3,7 +3,7 @@ and counts as at work, until its run() returns."""
 import pytest
 
 from cps.services.worker import (CalibreTask, WorkerThread, STAT_CANCELLED, STAT_ENDED, STAT_FAIL,
-                                 STAT_FINISH_SUCCESS, STAT_STARTED, STAT_STOPPING, STAT_WAITING)
+                                 STAT_FINISH_SUCCESS, STAT_STOPPING, STAT_WAITING)
 
 pytestmark = pytest.mark.unit
 
@@ -65,16 +65,6 @@ def test_a_running_task_is_stopping_until_its_run_returns(end_task):
     # While it finished its work: told to stop, but still counted as at work
     assert task.seen == [(STAT_STOPPING, True, False)]
     assert task.stat == STAT_ENDED and task.dead and task.end_time is not None
-
-
-def test_a_stopping_task_is_still_an_active_task(end_task):
-    task = _Task()
-    task.stat = STAT_STARTED
-    worker = end_task(task, target=task)
-    assert task.stat == STAT_STOPPING
-    assert worker.has_active_task_of_type("_Task")
-    task.stat = STAT_ENDED
-    assert not worker.has_active_task_of_type("_Task")
 
 
 @pytest.mark.parametrize("finished_as", [STAT_FINISH_SUCCESS, STAT_FAIL, STAT_ENDED])

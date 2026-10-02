@@ -48,7 +48,6 @@ natsort==8.4.0            # via -r requirements.txt
 netifaces-plus==0.12.5    # via -r requirements.txt
 ordered-set==4.1.0        # via flask-limiter
 packaging==26.3           # via limits
-polib==1.2.0              # via -r requirements.txt
 pycountry==24.6.1         # via -r requirements.txt
 pycparser==3.0            # via cffi
 pygments==2.21.0          # via rich

@@ -8,7 +8,7 @@ the global cps singletons (ub.session, config, calibre_db) and a throwaway Flask
 the production blueprints registered.
 
 Everything that is swapped in is restored on teardown so other unit tests see the same
-(uninitialised) globals they always did. Used by the Kobo sync, OPDS and KOSync tests.
+(uninitialised) globals they always did. Used by most page and route tests.
 """
 
 import os

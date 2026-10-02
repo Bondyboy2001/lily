@@ -1,12 +1,4 @@
 
-@font-face {
-  font-family: "Grand Hotel";
-  font-style: normal;
-  font-weight: 400;
-  src: local("Grand Hotel"), local("GrandHotel-Regular"),
-    url("fonts/GrandHotel-Regular.ttf") format("truetype");
-}
-
 html.http-error {
   margin: 0;
   height: 100%;

@@ -939,15 +939,6 @@ class CalibreDB:
         if not self.session.query(Metadata_Dirtied).filter(Metadata_Dirtied.book == book_id).one_or_none():
             self.session.add(Metadata_Dirtied(book_id))
 
-    def delete_dirty_metadata(self, book_id):
-        self.ensure_session()
-        try:
-            self.session.query(Metadata_Dirtied).filter(Metadata_Dirtied.book == book_id).delete()
-            self.session.commit()
-        except (OperationalError) as e:
-            self.session.rollback()
-            log.error("Database error: {}".format(e))
-
     # Language and content filters for displaying in the UI
     def common_filters(self, return_all_languages=False, viewing_tag_id=None):
         if current_user.filter_language() == "all" or return_all_languages:

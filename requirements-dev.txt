@@ -14,18 +14,8 @@ testcontainers>=3.7.0
 docker>=7,<8                  # Required for testcontainers DockerCompose; explicit pin avoids CI cache issues
 requests>=2.31.0
 requests-mock>=1.11.0
-freezegun>=1.4.0
-
-# Database testing
-factory-boy>=3.3.0
-faker>=40.39.0
 
 # Code quality
 ruff>=0.1.0                  # Fast Python linter
 vulture>=2.16                # Dead-code detection (config in pyproject.toml)
-black>=23.0.0                # Code formatter
-isort>=9.0.1                # Import sorting
-
-# Optional: E2E testing (Phase 3)
-# playwright>=1.40.0         # Uncomment for browser automation tests
 mypy>=1.10

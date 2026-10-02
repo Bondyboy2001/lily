@@ -60,7 +60,6 @@ class _SettingsCwaDB:
         "duplicate_scan_enabled": 1,
         "duplicate_scan_frequency": "after_import",
         "duplicate_scan_debounce_seconds": 60,
-        "koreader_sync_enabled": 0,
     }
 
     def __init__(self):

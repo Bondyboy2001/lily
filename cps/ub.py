@@ -474,64 +474,6 @@ class ReaderLegacyLibrary(Base):
     library_uuid = Column(String, nullable=False)
 
 
-class ArchivedBook(Base):
-    """Books a user once archived. Nothing writes or reads it any more; the model keeps
-    the table in existing app.db files mapped."""
-    __tablename__ = 'archived_book'
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('user.id'))
-    book_id = Column(Integer)
-    is_archived = Column(Boolean, unique=False)
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-
-
-class HardcoverMatchQueue(Base):
-    """Ambiguous Hardcover matches once queued for manual review. Nothing writes or
-    reads it any more; the model keeps the table in existing app.db files mapped."""
-    __tablename__ = 'hardcover_match_queue'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    book_id = Column(Integer, nullable=False)
-    book_title = Column(String, nullable=False)
-    book_authors = Column(String, nullable=False)
-    search_query = Column(String, nullable=False)
-    hardcover_results = Column(String, nullable=False)  # JSON array of MetaRecord candidates
-    confidence_scores = Column(String, nullable=False)  # JSON array of [score, reason] tuples
-    created_at = Column(String, nullable=False)
-    reviewed = Column(Integer, default=0, nullable=False)  # 0=pending, 1=reviewed
-    selected_result_id = Column(String, default=None)  # Hardcover ID if manually selected
-    review_action = Column(String, default=None)  # 'accept', 'reject', 'skip'
-    reviewed_at = Column(String, default=None)
-    reviewed_by = Column(String, default=None)
-
-    def __repr__(self):
-        return f'<HardcoverMatchQueue book_id={self.book_id} title="{self.book_title}" reviewed={bool(self.reviewed)}>'
-
-
-class MetadataSuggestion(Base):
-    """A provider record that would have filled gaps in one book, once queued for an
-    admin to accept or reject. The review page is gone; the model keeps the table in
-    existing app.db files mapped."""
-    __tablename__ = 'metadata_suggestion'
-    __table_args__ = (Index('ix_metadata_suggestion_status_book', 'status', 'book_id'),)
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    book_id = Column(Integer, nullable=False)
-    book_title = Column(String, nullable=False)
-    book_authors = Column(String, nullable=False)
-    provider = Column(String, nullable=False)          # provider id, e.g. 'openlibrary'
-    record_title = Column(String, nullable=False)
-    record_authors = Column(String, nullable=False)
-    record_url = Column(String, default="")
-    score = Column(Float, nullable=False)
-    fill = Column(String, nullable=False)              # JSON: {'description': str, 'identifiers': {type: value}}
-    status = Column(String, default='pending', nullable=False)  # pending / accepted / rejected
-    created_at = Column(String, nullable=False)
-    reviewed_at = Column(String, default=None)
-    reviewed_by = Column(String, default=None)
-
-
 @event.listens_for(Session, 'before_flush')
 def receive_before_flush(session, flush_context, instances):
     # Maintain the last_modified_bit for the Shelf table.
@@ -618,8 +560,6 @@ def add_missing_tables(engine, _session):
         ReaderPosition.__table__.create(bind=engine, checkfirst=True)
     if not engine.dialect.has_table(engine.connect(), "reader_legacy_library"):
         ReaderLegacyLibrary.__table__.create(bind=engine, checkfirst=True)
-    if not engine.dialect.has_table(engine.connect(), "metadata_suggestion"):
-        MetadataSuggestion.__table__.create(bind=engine, checkfirst=True)
 
 
 def migrate_user_session_table(engine, _session):

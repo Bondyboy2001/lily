@@ -164,7 +164,7 @@ def _load_editbooks_module(delete_key_calls):
 
     cps = _install_stub("cps")
     logger = _install_stub("cps.logger", {"create": lambda: _Logger()})
-    helper = _install_stub("cps.helper", {"delete_book": lambda *args, **kwargs: (True, None)})
+    helper = _install_stub("cps.helper", {})
     config = _install_stub("cps.config", {"get_book_path": lambda: "/library"})
     calls = []
     calibre_db = _install_stub(
@@ -274,7 +274,7 @@ def _load_duplicates_module(delete_key_calls):
             "session": session,
         },
     )
-    helper = _install_stub("cps.helper", {"delete_book": lambda *args, **kwargs: (True, None)})
+    helper = _install_stub("cps.helper", {})
     config = _install_stub(
         "cps.config",
         {"config_calibre_dir": "/library", "get_book_path": lambda: "/library"},
