@@ -79,7 +79,7 @@
     {%- set chosen = list_filters.active.get('metadata') -%}
     {%- set labels = {'matched': (_('Matched'), _('A provider had the book and its details were applied')),
                       'nomatch': (_('No match'), _('Every provider answered, but none has the book')),
-                      'failed': (_('Lookup failed'), _('A provider didn’t answer; Retry failed asks again')),
+                      'failed': (_('Lookup failed'), _('A provider didn’t answer; a rebuild asks again')),
                       'unchecked': (_('Not looked up'), _('Not looked up since lookups were recorded'))} -%}
     <div class="lily-chips filterheader" role="group" aria-label="{{ _('Metadata') }}">
       {%- for choice in list_filters.metadata_choices %}

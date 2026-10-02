@@ -27,15 +27,11 @@
         </button>
         <button type="button" class="btn btn-default" id="rebuild_metadata_stop" hidden
                 data-url="{{ url_for('cwa_settings.stop_rebuild_metadata') }}">{{ _('Stop') }}</button>
-        {% if lookups.get('failed') %}
-        {# Looks up again only the books a provider didn't answer for #}
-        <button type="button" class="btn btn-default" id="retry_failed_lookups">{{ _('Retry failed') }}</button>
-        {% endif %}
       {% endcall %}
       {# What each book's last lookup found; the library's Metadata filter lists them #}
       {% if lookups.get('failed') %}
       {{ f.link(url_for('web.index', metadata='failed'), _('Lookup failed'),
-         help=_('A provider didn’t answer, often Google’s daily limit. Retry failed asks again.'),
+         help=_('A provider didn’t answer, often Google’s daily limit. Rebuild asks again.'),
          value=lookups['failed'], id='lookups_failed') }}
       {% endif %}
       {% if lookups.get('nomatch') %}

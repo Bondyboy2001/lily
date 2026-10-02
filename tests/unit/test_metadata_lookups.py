@@ -1,6 +1,6 @@
 """What each book's metadata lookup found (cwa.db's metadata_lookups): noted by the lookup,
-listed by the library's Metadata filter and the Import & Metadata page, shown on the book
-page, and looked up again by Retry failed. Google Books is asked last."""
+listed by the library's Metadata filter and the Import & Metadata page, and shown on the book
+page. Google Books is asked last."""
 import re
 from types import SimpleNamespace
 
@@ -121,7 +121,7 @@ def test_library_metadata_filter_lists_books_by_what_their_lookup_found(env):
     assert len(names) == 3 and 'id="metadata_failed"' not in html
 
 
-def test_settings_page_counts_lookups_and_offers_retry(env):
+def test_settings_page_counts_lookups(env):
     failed = env.add_book("Failed Book")
     nomatch = env.add_book("Nomatch Book")
     store = _store()
@@ -129,31 +129,15 @@ def test_settings_page_counts_lookups_and_offers_retry(env):
     store.save_metadata_lookup(nomatch, "nomatch")
     store.save_metadata_lookup(9999, "failed")  # deleted since: not counted
     html = _login(env).get("/cwa-settings").get_data(as_text=True)
-    assert 'id="retry_failed_lookups"' in html
+    assert 'id="retry_failed_lookups"' not in html
     row = re.search(r'<a class="lp-row" href="([^"]+)" id="lookups_failed".*?</a>', html, flags=re.S)
     assert row and "metadata=failed" in row.group(1) and '<span class="lp-value">1</span>' in row.group(0)
     assert 'id="lookups_nomatch"' in html
 
 
-def test_settings_page_hides_retry_when_nothing_failed(env):
+def test_settings_page_hides_failed_row_when_nothing_failed(env):
     html = _login(env).get("/cwa-settings").get_data(as_text=True)
-    assert 'id="retry_failed_lookups"' not in html and 'id="lookups_failed"' not in html
-
-
-def test_retry_route_queues_a_run_of_the_failed_books(env, monkeypatch):
-    from cps.services.worker import WorkerThread
-    queued = []
-    monkeypatch.setattr(WorkerThread, "add_parallel", classmethod(lambda cls, user, task: queued.append(task)))
-    monkeypatch.setattr(WorkerThread, "tasks", property(lambda self: []))
-    client = _login(env)
-    assert client.post("/cwa-settings/rebuild-metadata", data={"failed": "1"}).get_json() == \
-        {"success": True, "none": True}
-    store = _store()
-    store.save_metadata_lookup(7, "failed")
-    store.save_metadata_lookup(3, "failed")
-    store.save_metadata_lookup(5, "nomatch")
-    client.post("/cwa-settings/rebuild-metadata", data={"failed": "1"})
-    assert queued[0].book_ids == [3, 7] and queued[0].name == "Retry failed lookups"
+    assert 'id="lookups_failed"' not in html
 
 
 def test_retry_looks_up_only_those_books_and_keeps_a_rebuilds_progress(env, monkeypatch):
