@@ -8,7 +8,8 @@
     {# Lily has one theme; the field stays so the form posts what it always has. #}
     {% if not content.role_anonymous() %}<input type="hidden" name="theme" id="theme" value="1">{% endif %}
 
-    {% call f.group(_('Account')) %}
+    {# Your own profile is one group under the page title, so it needs no heading of its own. #}
+    {% call f.group(None if profile else _('Account'), id='section-account') %}
       {% if new_user or ( current_user and content.name != "Guest" and current_user.role_admin() ) %}
         {{ f.input('name', _('Username'), content.name) }}
       {% endif %}
