@@ -759,6 +759,35 @@ window.lilyToggleSortDir = function (btn) {
   });
 })();
 
+/*
+ * Wide covers (docs/design.md §5.15): the tile is A4 (1 : 1.414) and fills with a crop. A
+ * cover more than 5% wider than that gets .cover-wide and is shown whole on bands instead.
+ * Load events do not bubble, so one capturing listener catches every cover, including ones
+ * added later; covers that loaded before this script ran are checked on DOMContentLoaded.
+ */
+(function () {
+  "use strict";
+  var COVERS = ".lily-book .cover img, .continue-reading-item .cover img, .lily-order-cover";
+  var WIDEST = (1 / 1.414) * 1.05;
+
+  function mark(img) {
+    if (!img.naturalWidth || !img.naturalHeight) { return; }
+    img.classList.toggle("cover-wide", img.naturalWidth / img.naturalHeight > WIDEST);
+  }
+
+  document.addEventListener("load", function (e) {
+    var img = e.target;
+    if (img.tagName === "IMG" && img.matches(COVERS)) { mark(img); }
+  }, true);
+
+  document.addEventListener("DOMContentLoaded", function () {
+    var imgs = document.querySelectorAll(COVERS);
+    for (var i = 0; i < imgs.length; i++) {
+      if (imgs[i].complete) { mark(imgs[i]); }
+    }
+  });
+})();
+
 /* Stagger index for the cover grid's entrance animation (lily-library.css reads --i). */
 (function () {
   "use strict";

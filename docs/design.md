@@ -425,7 +425,9 @@ stamp), `--sunk` behind, a 1px
 `--line-soft` inset hairline (`outline-offset: -1px`), no shadow. A PDF whose cover is
 its first page has that page cropped to even side margins around the print on import and
 on Rebuild metadata (`cps/pdf_cover.py`), no wider than the tile, so the anchor rarely
-trims those. Read state is a 3px `--success` inset outline plus a corner tick badge titled "Finished" on grid
+trims those. A cover more than 5% wider than A4 (a publisher's 3:4 front prints its title
+and author near the edge) is marked `.cover-wide` by `lily.js` and shown whole with
+`object-fit: contain`, centred on the `--sunk` bands, rather than losing words. Read state is a 3px `--success` inset outline plus a corner tick badge titled "Finished" on grid
 covers, and a green dot in list view. Mark-as-read controls use the tick-in-a-circle
 glyph (`glyphicon-ok-circle`), the same mark as the sidebar's Finished row.
 
@@ -502,9 +504,10 @@ content (grid, panel, rows)
 ### 6.4 Book page ("Shelf" layout)
 
 - **≥1500px:** three columns: cover | heading and actions | facts side panel
-  (§5.10). The description sits under the cover and runs across the cover and
-  middle columns, stopping at the panel. Heading and action rows are
-  `min-content` and a `1fr` row takes the cover's extra height.
+  (§5.10). The panel sits beside the cover's rows only; the description sits
+  under the cover and runs the full width, under the panel too (a panel taller
+  than the cover pushes it down). Heading and action rows are `min-content`
+  and a `1fr` row takes the cover's extra height.
 - **768–1499px:** two columns; the facts panel stacks under the cover and the
   description sits under the actions in the second column.
 - **≤767px:** the cover becomes a 108px thumbnail beside the title; actions,
@@ -512,7 +515,8 @@ content (grid, panel, rows)
   primary action takes a full line; the rest share the next.
 - The Primary reads "Continue · 33%" for a book in progress (the share at 500)
   and opens the reader in a new tab at the format last read.
-- Description: `--font-body` 18px, line-height 1.68, max 78ch, `--ink-soft`.
+- Description: `--font-body` 18px, line-height 1.68, `--ink-soft`, no measure
+  cap: it fills the width it is given.
 - Every fact is one line; a long value ends in an ellipsis, never wraps.
 - Shelves and tags are plain rows in the facts panel: names as comma-separated
   `--accent` links, no chip or icon.

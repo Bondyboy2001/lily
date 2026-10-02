@@ -243,13 +243,15 @@ def test_detail_rows_keep_metadata_in_a_side_panel():
     # The middle column fits its content, so the panel fills the space a short title leaves.
     assert "grid-template-columns: clamp(220px, 17vw, 300px) minmax(min(100%, 420px), max-content) minmax(260px, 1fr)" in main_rules[0]
     assert "grid-template-rows: min-content min-content 1fr auto" in main_rules[0]
-    # Wide: the description runs under the cover, up to the panel.
+    # Wide: the panel sits beside the cover only; the description runs the full width under both.
     extra = next(body for selector, body in css_rules(css) if selector == ".book-detail-extra")
-    assert "grid-row: 4" in extra and "grid-column: 1 / 3" in extra
+    assert "grid-row: 4" in extra and "grid-column: 1 / -1" in extra
+    description = next(body for selector, body in css_rules(css) if selector == ".book-detail-description .comments")
+    assert "max-width" not in description
     # Phone: row sizing is reset.
     assert "grid-template-rows: auto" in main_rules[-1]
     metadata = next(body for selector, body in css_rules(css) if selector == "dl.book-metadata")
-    for declaration in ("grid-column: 3", "padding: 20px 22px", "border: 0", "border-radius: 10px",
+    for declaration in ("grid-row: 1 / 4", "grid-column: 3", "padding: 20px 22px", "border: 0", "border-radius: 10px",
                         "background: var(--surface)", "margin: 0"):
         assert declaration in metadata
     html = read(TEMPLATES / "detail.html")
@@ -468,6 +470,16 @@ def test_wide_page_covers_keep_their_left_margin():
     assert grid and "object-fit: cover" in grid[0] and "object-position: left center" in grid[0]
     order = [b for s, b in css_rules(css) if s == ".lily-order-cover"]
     assert order and "object-position: left center" in order[0]
+
+
+def test_covers_much_wider_than_a4_are_shown_whole():
+    # §5.15: a 3:4 publisher cover prints words near its edge; a fill crop cut them off.
+    css = read(CSS / "lily-library.css")
+    wide = [b for s, b in css_rules(css) if ".lily-book .cover img.cover-wide" in s]
+    assert wide and "object-fit: contain" in wide[0]
+    js = read(JS / "lily.js")
+    assert '"cover-wide"' in js and "(1 / 1.414) * 1.05" in js
+    assert 'document.addEventListener("load"' in js
 
 
 def test_book_row_series_number_is_not_a_hidden_author_line():

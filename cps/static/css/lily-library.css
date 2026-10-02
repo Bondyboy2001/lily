@@ -202,6 +202,16 @@
     box-shadow: none;
 }
 
+/* A cover well over A4's width (a publisher's 3:4 front, say) prints its title and author
+   near the edge, so a fill would cut words off. lily.js marks it and it sits whole on
+   --sunk bands instead. PDF pages are cropped to the tile on import, so they still fill. */
+.container-fluid .lily-book .cover img.cover-wide,
+.continue-reading-item .cover img.cover-wide,
+.lily-order-cover.cover-wide {
+    object-fit: contain;
+    object-position: center;
+}
+
 /* A hairline so pale covers do not melt into the paper. */
 .lily-book .cover::after,
 .continue-reading-item .cover::after {
@@ -1036,8 +1046,8 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
    and the third row takes up the cover's extra height, so a tall cover never spreads them out. */
 .book-detail-main {
     display: grid;
-    /* The middle column is only as wide as its content (the description, spanning the cover
-       and this column, stops at 78ch), so the facts panel takes the space that is left. */
+    /* The middle column is only as wide as the heading and actions, so the facts panel takes
+       the space that is left. */
     grid-template-columns: clamp(220px, 17vw, 300px) minmax(min(100%, 420px), max-content) minmax(260px, 1fr);
     grid-template-rows: min-content min-content 1fr auto;
     gap: 22px clamp(40px, 4vw, 72px);
@@ -1157,7 +1167,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     align-items: flex-start;
     gap: 22px;
     grid-row: 4;
-    grid-column: 1 / 3;
+    grid-column: 1 / -1;
     min-width: 0;
 }
 
@@ -1265,7 +1275,9 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
    line per fact with the label on the left and the value on the right. */
 dl.book-metadata {
     display: grid;
-    grid-row: 1 / -1;
+    /* Beside the cover only: the description runs the full width under both. A panel taller
+       than the cover pushes the description down below it. */
+    grid-row: 1 / 4;
     grid-column: 3;
     /* A wide panel lays its facts out in columns rather than stretching each row across;
        a panel narrower than one column (the cover column at high zoom) keeps a single one. */
@@ -1320,7 +1332,6 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 .book-detail-description { align-self: stretch; }
 
 .book-detail-description .comments {
-    max-width: 78ch;
     font-family: var(--font-body);
     font-size: 18px;
     line-height: 1.68;
