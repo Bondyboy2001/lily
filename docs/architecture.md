@@ -68,7 +68,7 @@ mirror, thumbnails, duplicate scan, ...).
 
 Logic that needs no Flask or database lives in Flask-free modules so it can be tested
 alone: `scripts/db_backup.py`, `scripts/library_mirror.py`,
-`scripts/ingest_failures.py`, `scripts/metadata_suggestions.py`, `cps/duplicate_rules.py`.
+`scripts/metadata_suggestions.py`, `cps/duplicate_rules.py`.
 The ones under `scripts/` are importable from both the web app and the ingest process;
 the type-checked set is listed in `pyproject.toml` (`[tool.mypy]`).
 

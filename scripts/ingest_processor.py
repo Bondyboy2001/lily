@@ -562,7 +562,7 @@ class NewBookProcessor:
 
         # Track the last added Calibre book id(s) from calibredb output
         self.last_added_book_id: int | None = None
-        # Short reason recorded on the failed-file sidecar when import fails
+        # Short reason recorded on the ingest job when import fails
         self.failure_reason = ""
         self.last_added_book_ids: list[int] = []
         self._title_sort_regex = self._get_title_sort_regex()
@@ -697,7 +697,7 @@ class NewBookProcessor:
             # Never let backups crash ingest; just log the problem
             print(f"[ingest-processor]: ERROR - Failed to backup '{input_file}' to '{output_path}': {e}")
 
-    def move_to_failed(self, job_id=None) -> bool:
+    def move_to_failed(self) -> bool:
         """Move the ingest source into processed_books/failed under a unique name.
 
         Returns True once the source is safely out of the ingest folder. If the move
@@ -712,13 +712,6 @@ class NewBookProcessor:
             destination = unique_failed_path(failed_dir, self.filename)
             shutil.move(self.filepath, destination)
             print(f"[ingest-processor] Moved {self.filename} to failed backups: {destination}", flush=True)
-            try:
-                from ingest_failures import write_failure
-                write_failure(destination,
-                              getattr(self, "failure_reason", "") or "Import failed; check logs",
-                              job_id=job_id)
-            except Exception as e:
-                print(f"[ingest-processor] WARN: could not record failure reason: {e}", flush=True)
             return True
         except Exception as e:
             print(
@@ -894,9 +887,6 @@ class NewBookProcessor:
 
             if self.cwa_settings['auto_backup_imports']:
                 self.backup(str(staged_path), backup_type="imported")
-
-            self.db.import_add_entry(staged_path.stem,
-                                    str(self.cwa_settings["auto_backup_imports"]))
 
             mark_ingest_batch_dirty()
 
@@ -1133,8 +1123,7 @@ def main(filepath=None):
         allowed_len = MAX_LENGTH - len(ext)
 
         # Ignore sidecar manifests entirely (handled when the real file is processed)
-        if filename.endswith(".cwa.json") or filename.endswith(".cwa.failed.json") \
-                or filename.endswith(".failure.json"):
+        if filename.endswith(".cwa.json") or filename.endswith(".cwa.failed.json"):
             print(f"[ingest-processor] Skipping sidecar manifest file: {filename}", flush=True)
             return 0
 
@@ -1276,7 +1265,7 @@ def main(filepath=None):
                 else:
                     _record_job(job_id, "failed",
                                 getattr(nbp, "failure_reason", "") or "Import failed; check logs")
-                    nbp.move_to_failed(job_id=job_id)
+                    nbp.move_to_failed()
             except Exception as e:
                 print(f"[ingest-processor] Error handling source file during cleanup (left in place): {e}", flush=True)
 

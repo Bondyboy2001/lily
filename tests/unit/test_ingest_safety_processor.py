@@ -266,13 +266,12 @@ def _patch_jobs(monkeypatch, created=None, finished=None, create_error=None):
         pass
 
 
-def _failure_reason(env):
-    import json
-    sidecars = sorted(env["failed_dir"].glob(".*.failure.json"))
-    return json.loads(sidecars[0].read_text()) if sidecars else None
+def _failure_reason(finished):
+    failed = [call for call in finished if call[1] == "failed"]
+    return failed[0][2] if failed else None
 
 
-def test_ingest_job_and_sidecar_reason(ingest_processor, env, monkeypatch):
+def test_ingest_job_records_why_it_failed(ingest_processor, env, monkeypatch):
     created, finished = [], []
     _patch_jobs(monkeypatch, created, finished)
     env["import_result"] = False
@@ -283,29 +282,30 @@ def test_ingest_job_and_sidecar_reason(ingest_processor, env, monkeypatch):
 
     assert created == [{"filename": "book.epub", "parent_id": None}]
     assert finished[0][:2] == ("job-7", "failed")
-    item = _failure_reason(env)
-    assert item and item["reason"] and item["job_id"] == "job-7"
+    assert _failure_reason(finished)
+    assert list(env["failed_dir"].iterdir())
 
 
-def test_unsupported_format_reason_on_sidecar(ingest_processor, env, monkeypatch):
-    _patch_jobs(monkeypatch, [], [])
+def test_unsupported_format_reason_on_job(ingest_processor, env, monkeypatch):
+    finished = []
+    _patch_jobs(monkeypatch, [], finished)
     src = env["ingest_dir"] / "notes.xyz"
     src.write_bytes(b"data")
     assert ingest_processor.main(str(src)) == 0
-    item = _failure_reason(env)
-    assert "not a known ebook format" in item["reason"]
+    assert "not a known ebook format" in _failure_reason(finished)
 
 
 def test_called_process_error_stderr_bounded(ingest_processor, env, monkeypatch):
-    _patch_jobs(monkeypatch, [], [])
+    finished = []
+    _patch_jobs(monkeypatch, [], finished)
     err = subprocess.CalledProcessError(1, "calibredb", stderr="x" * 5000)
     env["import_result"] = err
     src = env["ingest_dir"] / "big.epub"
     src.write_bytes(b"data")
     with pytest.raises(subprocess.CalledProcessError):
         ingest_processor.main(str(src))
-    item = _failure_reason(env)
-    assert item and len(item["reason"]) <= 800 and "xxx" in item["reason"]
+    reason = _failure_reason(finished)
+    assert reason and len(reason) <= 800 and "xxx" in reason
 
 
 def test_add_format_bad_manifest_reason(ingest_processor, env, monkeypatch):
@@ -316,8 +316,8 @@ def test_add_format_bad_manifest_reason(ingest_processor, env, monkeypatch):
     (env["ingest_dir"] / "extra.epub.cwa.json").write_text(
         '{"action": "add_format", "book_id": -1}')
     assert ingest_processor.main(str(src)) == 0
-    item = _failure_reason(env)
-    assert item and "manifest" in item["reason"]
+    reason = _failure_reason(finished)
+    assert reason and "manifest" in reason
     assert (env["ingest_dir"] / "extra.epub.cwa.failed.json").exists()
 
 

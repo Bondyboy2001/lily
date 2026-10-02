@@ -7,12 +7,6 @@ CREATE TABLE IF NOT EXISTS cwa_enforcement(
     file_path TEXT NOT NULL, 
     trigger_type TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS cwa_import(
-    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-    timestamp TEXT NOT NULL,
-    filename TEXT NOT NULL,
-    original_backed_up TEXT NOT NULL
-);
 CREATE TABLE IF NOT EXISTS cwa_settings(
     default_settings SMALLINT DEFAULT 1 NOT NULL,
     auto_backup_imports SMALLINT DEFAULT 1 NOT NULL,

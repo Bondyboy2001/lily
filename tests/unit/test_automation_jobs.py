@@ -1,9 +1,8 @@
 # Calibre-Web Automated – fork of Calibre-Web
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Durable cwa_operation_jobs helper, refresh job lifecycle and failure sidecars."""
+"""Durable cwa_operation_jobs helper, refresh job lifecycle."""
 
-import json
 import os
 import threading
 
@@ -83,18 +82,6 @@ class TestOperationJobs:
     def test_get_job_unknown(self, jobs_db):
         aj, _ = jobs_db
         assert aj.get_job("not-a-job") is None
-
-@pytest.mark.unit
-class TestFailureSidecars:
-    def test_write_failure_sidecar(self, tmp_path):
-        import ingest_failures
-        failed = tmp_path / "failed"
-        failed.mkdir()
-        f = failed / "bad.epub"
-        f.write_bytes(b"x")
-        ingest_failures.write_failure(str(f), "Not a known ebook format", job_id="j9")
-        sidecar = json.loads((failed / ".bad.epub.failure.json").read_text())
-        assert sidecar == {"reason": "Not a known ebook format", "job_id": "j9"}
 
 @pytest.mark.unit
 class TestRefreshRoute:

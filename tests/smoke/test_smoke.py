@@ -87,7 +87,6 @@ class TestDatabaseAccess:
         """Verify CWA database has all required tables."""
         expected_tables = [
             'cwa_enforcement',
-            'cwa_import',
             'cwa_settings'
         ]
 

@@ -267,11 +267,6 @@ $("#deleteModal").on("show.bs.modal", function(e) {
 });
 
 $(function() {
-    // Allow ajax prefilters to be added/removed dynamically
-    // eslint-disable-next-line new-cap
-    var preFilters = $.Callbacks();
-    $.ajaxPrefilter(preFilters.fire);
-
     // equip all post requests with csrf_token
     var csrftoken = $("input[name='csrf_token']").val();
     $.ajaxSetup({
@@ -330,29 +325,6 @@ $(function() {
     $("input[data-control]").trigger("change");
     $("select[data-control]").trigger("change");
     $("select[data-controlall]").trigger("change");
-
-    $("#bookDetailsModal")
-        .on("show.bs.modal", function(e) {
-            $("#flash_danger").remove();
-            $("#flash_success").remove();
-            var $modalBody = $(this).find(".modal-body");
-
-            // Prevent static assets from loading multiple times
-            var useCache = function(options) {
-                options.async = true;
-                options.cache = true;
-            };
-            preFilters.add(useCache);
-
-            $.get(e.relatedTarget.href).done(function(content) {
-                $modalBody.html(content);
-                preFilters.remove(useCache);
-                $("#back").remove();
-            });
-        })
-        .on("hidden.bs.modal", function() {
-            $(this).find(".modal-body").html("...");
-        });
 
     $("#btndeluser").click(function() {
         confirmDialog(

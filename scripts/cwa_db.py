@@ -123,8 +123,8 @@ def parse_schema_columns(tables: list[str]) -> dict[str, dict[str, str]]:
 #
 # Example:
 #   def _m2_rename_foo(cur):
-#       cur.execute("ALTER TABLE cwa_import RENAME COLUMN foo TO bar")
-#   MIGRATIONS = [(2, "rename cwa_import.foo to bar", _m2_rename_foo)]
+#       cur.execute("ALTER TABLE cwa_enforcement RENAME COLUMN foo TO bar")
+#   MIGRATIONS = [(2, "rename cwa_enforcement.foo to bar", _m2_rename_foo)]
 def _columns(cur, table) -> set:
     return {row[1] for row in cur.execute(f"PRAGMA table_info('{table}')").fetchall()}
 
@@ -181,9 +181,15 @@ def _m3_drop_removed_features(cur) -> None:
             cur.execute(f"ALTER TABLE cwa_settings DROP COLUMN {setting}")
 
 
+def _m4_drop_import_log(cur) -> None:
+    # One row per import, kept for the Statistics page; nothing has read it since
+    cur.execute("DROP TABLE IF EXISTS cwa_import")
+
+
 MIGRATIONS: list = [(1, "always detect duplicates, no Hardcover auto-fetch", _m1_settings_page_defaults),
                     (2, "drop exact-hash duplicate file keys", _m2_drop_duplicate_file_keys),
-                    (3, "drop the settings and tables of removed features", _m3_drop_removed_features)]
+                    (3, "drop the settings and tables of removed features", _m3_drop_removed_features),
+                    (4, "drop the unread import log", _m4_drop_import_log)]
 SCHEMA_MIGRATIONS_TABLE = "cwa_schema_migrations"
 
 
@@ -207,7 +213,6 @@ class CWA_DB:
         self.schema_path = os.path.join(script_dir, "cwa_schema.sql")
         self.stats_tables = [
             "cwa_enforcement",
-            "cwa_import",
             "cwa_duplicate_cache",
             "cwa_duplicate_book_keys",
             "cwa_duplicate_file_matches",
@@ -793,18 +798,6 @@ class CWA_DB:
             else:
                 print(f"\n{tabulate(newest_ten, headers=headers, tablefmt='rounded_grid')}\n")
 
-
-    def import_add_entry(self, filename, original_backed_up):
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self.cur.execute("INSERT INTO cwa_import(timestamp, filename, original_backed_up) VALUES (?, ?, ?);", (timestamp, filename, original_backed_up))
-        self.con.commit()
-
-
-    # ==============================
-    # Scheduled Jobs (Auto-Send)
-    # ==============================
-
-
     def get_rebuild_progress(self) -> dict | None:
         """How far an unfinished Rebuild metadata run got, or None when the last one finished."""
         row = self.cur.execute("SELECT next_book_id, checked, updated, covers, total "
@@ -950,7 +943,7 @@ class CWA_DB:
             # Explicit local timestamp: the column's schema DEFAULT CURRENT_TIMESTAMP is
             # UTC, but duplicate_scan.py's cooldown check compares against datetime.now()
             # (local). Passing it explicitly keeps this table consistent with every other
-            # stats table (cwa_import, cwa_enforcement, etc.), which all stamp local time.
+            # stats table (cwa_enforcement, etc.), which all stamp local time.
             timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             self.cur.execute("""
                 INSERT INTO cwa_duplicate_resolutions

@@ -26,7 +26,7 @@ _tests_dir = Path(__file__).parent.parent
 if str(_tests_dir) not in sys.path:
     sys.path.insert(0, str(_tests_dir))
 
-# Import volume_copy from conftest - works in both modes
+# volume_copy and get_db_path also work when files have to go in with docker cp
 from conftest import volume_copy, get_db_path
 
 
@@ -390,50 +390,6 @@ class TestMetadataAndDatabase:
                 print(f"✅ Book has author: {author[0]}")
             else:
                 print("ℹ️  Book has no author (minimal test file)")
-
-    def test_cwa_db_tracks_import(self, ingest_folder, test_volumes, sample_ebook_path, tmp_path, cwa_container):
-        """
-        Verify that CWA database logs the import.
-
-        The cwa.db should have an entry in cwa_import table.
-        """
-        # Skip in Docker volume mode - config directory not in a volume
-        import os
-        if os.getenv('USE_DOCKER_VOLUMES', 'false').lower() == 'true':
-            pytest.skip("cwa.db access requires config volume (not available in DinD mode)")
-
-        dest_file = ingest_folder / sample_ebook_path.name
-        volume_copy(sample_ebook_path, dest_file)
-
-        # Wait for import
-        max_wait = 60
-        start_time = time.time()
-        while dest_file.exists() and time.time() - start_time < max_wait:
-            time.sleep(2)
-
-        # Give container extra time to write to DB after file processing
-        time.sleep(10)
-
-        # Check cwa.db - should exist after processing first file
-        cwa_db = test_volumes["config"] / "cwa.db"
-
-        assert cwa_db.exists(), \
-            "cwa.db should have been created after processing first import"
-
-        with sqlite3.connect(str(get_db_path(cwa_db, tmp_path)), timeout=30) as con:
-            cur = con.cursor()
-
-            # Check if cwa_import table exists
-            tables = cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='cwa_import'").fetchone()
-
-            assert tables is not None, \
-                "cwa_import table should exist after first import"
-
-            # Check for import records
-            imports = cur.execute("SELECT COUNT(*) FROM cwa_import").fetchone()
-            import_count = imports[0] if imports else 0
-
-            print(f"✅ CWA DB has {import_count} import record(s)")
 
 
 @pytest.mark.docker_integration

@@ -14,14 +14,6 @@ import pytest
 pytestmark = pytest.mark.unit
 
 
-class StubImportDb:
-    def __init__(self):
-        self.entries = []
-
-    def import_add_entry(self, title, backup_enabled):
-        self.entries.append((title, backup_enabled))
-
-
 def build_processor(ingest_processor, tmp_path):
     processor = object.__new__(ingest_processor.NewBookProcessor)
     processor.cwa_settings = {
@@ -34,7 +26,6 @@ def build_processor(ingest_processor, tmp_path):
     processor.library_dir = str(tmp_path / "library")
     processor.last_added_book_id = None
     processor.last_added_book_ids = []
-    processor.db = StubImportDb()
     processor.filepath = str(tmp_path / "source.epub")
     processor.tmp_conversion_dir = str(tmp_path / "conversion")
     Path(processor.staging_dir).mkdir()
@@ -70,7 +61,6 @@ def test_successful_import_marks_batch_dirty_without_hot_loop_http_calls(monkeyp
 
     assert run_mock.call_args.args[0][:2] == ["calibredb", "add"]
     assert (tmp_path / "batch_dirty").exists()
-    assert processor.db.entries == [("source", "False")]
 
     called_urls = [call.args[0] for call in requests_mock.post.call_args_list if call.args]
     assert not any("/cwa-internal/reconnect-db" in url for url in called_urls)

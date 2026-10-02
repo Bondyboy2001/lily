@@ -29,7 +29,6 @@ class TestCWADBInitialization:
         """Verify all required tables are created."""
         expected_tables = {
             'cwa_enforcement',
-            'cwa_import',
             'cwa_settings'
         }
 
@@ -92,41 +91,6 @@ class TestCWADBEnforcementLogging:
         assert result is not None
         assert result[3] == 'Test Book'  # Column 3 is book_title
         assert result[2] == 1  # Column 2 is book_id
-
-
-@pytest.mark.unit
-class TestCWADBImportLogging:
-    """Test book import operation logging."""
-
-    def test_can_insert_import_log(self, temp_cwa_db):
-        """Verify import operations can be logged."""
-        temp_cwa_db.import_add_entry(
-            filename="book.epub",
-            original_backed_up="true"
-        )
-
-        # Verify entry exists
-        temp_cwa_db.cur.execute("SELECT * FROM cwa_import WHERE filename='book.epub'")
-        result = temp_cwa_db.cur.fetchone()
-        assert result is not None
-        assert result[2] == 'book.epub'  # filename column
-        assert result[3] == 'true'  # original_backed_up column
-
-    def test_import_log_includes_metadata(self, temp_cwa_db):
-        """Verify import logs capture key metadata."""
-        temp_cwa_db.import_add_entry(
-            filename="test_book.mobi",
-            original_backed_up="false"
-        )
-
-        # Verify entry with timestamp
-        temp_cwa_db.cur.execute("SELECT * FROM cwa_import WHERE filename='test_book.mobi'")
-        result = temp_cwa_db.cur.fetchone()
-
-        assert result is not None
-        assert result[1] is not None  # timestamp column
-        assert result[2] == "test_book.mobi"  # filename
-        assert result[3] == "false"  # original_backed_up
 
 
 @pytest.mark.unit

@@ -39,5 +39,3 @@ cd tests/e2e && npm install --no-save playwright && BASE_URL=http://localhost:80
 - **Integration Tests** (pushes to `main`, or a manual run with `run_integration`): `pytest tests/integration`.
 
 `.github/workflows/release.yml` repeats lint, the smoke and unit tests and a container `/health` check before it publishes the image.
-
-To run the integration tests from inside a container (Docker-in-Docker), see `DOCKER_VOLUMES.md`.

@@ -4,16 +4,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""
-Shared pytest fixtures and configuration for CWA tests.
+"""Shared pytest fixtures and configuration for Lily tests.
 
-This module contains common fixtures that are automatically available
-to all tests without needing to import them explicitly.
-
-Environment Variables:
-    USE_DOCKER_VOLUMES: Set to 'true' to use Docker volumes instead of bind mounts.
-                       Required for Docker-in-Docker test environments.
-                       Example: USE_DOCKER_VOLUMES=true pytest tests/integration/
+The integration fixtures bind-mount temp folders into a test container. Where the
+container can't see them (a remote Docker daemon), files go in with `docker cp`.
 """
 
 import os
@@ -36,9 +30,7 @@ if str(scripts_dir) not in sys.path:
     sys.path.insert(0, str(scripts_dir))
 
 
-# Check if we should use Docker volumes (for DinD environments)
-USE_DOCKER_VOLUMES = os.getenv('USE_DOCKER_VOLUMES', 'false').lower() == 'true'
-AUTO_DOCKER_VOLUMES = False  # Auto-fallback when bind mounts are not visible to the container
+AUTO_DOCKER_VOLUMES = False  # Set when bind mounts are not visible to the container: use docker cp
 
 
 def _get_test_uid_gid() -> tuple[str, str]:
@@ -57,113 +49,105 @@ def _get_test_uid_gid() -> tuple[str, str]:
 
     return "1000", "1000"
 
-# Import volume_copy helper if in volume mode (available to all tests)
-if USE_DOCKER_VOLUMES:
-    print("\n🔄 Docker Volume mode enabled (USE_DOCKER_VOLUMES=true)")
-    print("   Using Docker volumes instead of bind mounts for DinD compatibility\n")
-    from conftest_volumes import volume_copy, VolumePath
-else:
-    # Bind mode by default, but support auto-fallback copying via docker cp
-    class DockerPath:
-        """Represents a path inside a running docker container for auto-fallback mode."""
-        def __init__(self, container: str, container_path: str):
-            self.container = container
-            self.container_path = container_path
+class DockerPath:
+    """Represents a path inside a running docker container for auto-fallback mode."""
+    def __init__(self, container: str, container_path: str):
+        self.container = container
+        self.container_path = container_path
 
-        def __truediv__(self, name: str):
-            return DockerPath(self.container, f"{self.container_path.rstrip('/')}/{name}")
+    def __truediv__(self, name: str):
+        return DockerPath(self.container, f"{self.container_path.rstrip('/')}/{name}")
 
-        def exists(self) -> bool:
-            try:
-                res = subprocess.run(
-                    ["docker", "exec", self.container, "test", "-e", self.container_path],
-                    check=False,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                return res.returncode == 0
-            except Exception:
-                return False
+    def exists(self) -> bool:
+        try:
+            res = subprocess.run(
+                ["docker", "exec", self.container, "test", "-e", self.container_path],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return res.returncode == 0
+        except Exception:
+            return False
 
-        def is_dir(self) -> bool:
-            try:
-                res = subprocess.run(
-                    ["docker", "exec", self.container, "test", "-d", self.container_path],
-                    check=False,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                return res.returncode == 0
-            except Exception:
-                return False
+    def is_dir(self) -> bool:
+        try:
+            res = subprocess.run(
+                ["docker", "exec", self.container, "test", "-d", self.container_path],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            return res.returncode == 0
+        except Exception:
+            return False
 
-        @property
-        def name(self) -> str:
-            return os.path.basename(self.container_path.rstrip('/'))
+    @property
+    def name(self) -> str:
+        return os.path.basename(self.container_path.rstrip('/'))
 
-        def __str__(self) -> str:
-            return self.container_path
+    def __str__(self) -> str:
+        return self.container_path
 
-        @property
-        def _parent(self) -> str:
-            return os.path.dirname(self.container_path.rstrip('/')) or '/'
+    @property
+    def _parent(self) -> str:
+        return os.path.dirname(self.container_path.rstrip('/')) or '/'
 
-        def iterdir(self):
-            """Iterate immediate children of this directory inside the container."""
-            try:
-                res = subprocess.run(
-                    [
-                        "docker", "exec", self.container, "sh", "-lc",
-                        f"ls -1A {self.container_path} 2>/dev/null"
-                    ],
-                    check=False, capture_output=True, text=True
-                )
-                if res.returncode != 0:
-                    return iter(())
-                entries = [e for e in res.stdout.splitlines() if e.strip()]
-                for name in entries:
-                    yield DockerPath(self.container, f"{self.container_path.rstrip('/')}/{name}")
-            except Exception:
+    def iterdir(self):
+        """Iterate immediate children of this directory inside the container."""
+        try:
+            res = subprocess.run(
+                [
+                    "docker", "exec", self.container, "sh", "-lc",
+                    f"ls -1A {self.container_path} 2>/dev/null"
+                ],
+                check=False, capture_output=True, text=True
+            )
+            if res.returncode != 0:
                 return iter(())
+            entries = [e for e in res.stdout.splitlines() if e.strip()]
+            for name in entries:
+                yield DockerPath(self.container, f"{self.container_path.rstrip('/')}/{name}")
+        except Exception:
+            return iter(())
 
-        def glob(self, pattern: str):
-            """Yield paths matching the glob pattern under this directory."""
-            # Use busybox/ash globbing via sh -lc to expand matches
-            try:
-                res = subprocess.run(
-                    [
-                        "docker", "exec", self.container, "sh", "-lc",
-                        f"set -o noglob; for f in {self.container_path.rstrip('/')}/{pattern}; do echo \"$f\"; done"
-                    ],
-                    check=False, capture_output=True, text=True
-                )
-                if res.returncode != 0:
-                    return iter(())
-                for line in res.stdout.splitlines():
-                    p = line.strip()
-                    if p:
-                        yield DockerPath(self.container, p)
-            except Exception:
+    def glob(self, pattern: str):
+        """Yield paths matching the glob pattern under this directory."""
+        # Use busybox/ash globbing via sh -lc to expand matches
+        try:
+            res = subprocess.run(
+                [
+                    "docker", "exec", self.container, "sh", "-lc",
+                    f"set -o noglob; for f in {self.container_path.rstrip('/')}/{pattern}; do echo \"$f\"; done"
+                ],
+                check=False, capture_output=True, text=True
+            )
+            if res.returncode != 0:
                 return iter(())
+            for line in res.stdout.splitlines():
+                p = line.strip()
+                if p:
+                    yield DockerPath(self.container, p)
+        except Exception:
+            return iter(())
 
-    VolumePath = DockerPath  # For isinstance checks in get_db_path auto mode
 
-    def volume_copy(src, dest):
-        """Copy file into ingest folder.
+def volume_copy(src, dest):
+    """Copy file into ingest folder.
 
-        - In normal bind mode: shutil.copy2 to host path
-        - In auto-fallback mode and dest is DockerPath: docker cp to container
-        """
-        if AUTO_DOCKER_VOLUMES and isinstance(dest, DockerPath):
-            # Ensure parent exists inside container (best-effort)
-            parent = os.path.dirname(dest.container_path)
-            subprocess.run(["docker", "exec", dest.container, "mkdir", "-p", parent], check=False)
-            # docker cp requires <src> <container>:<path>
-            target = f"{dest.container}:{dest.container_path}"
-            # docker cp copies into existing directory; ensure parent exists and target filename honored
-            return subprocess.run(["docker", "cp", str(src), target], check=True)
-        else:
-            return shutil.copy2(src, dest)
+    - In normal bind mode: shutil.copy2 to host path
+    - In auto-fallback mode and dest is DockerPath: docker cp to container
+    """
+    if AUTO_DOCKER_VOLUMES and isinstance(dest, DockerPath):
+        # Ensure parent exists inside container (best-effort)
+        parent = os.path.dirname(dest.container_path)
+        subprocess.run(["docker", "exec", dest.container, "mkdir", "-p", parent], check=False)
+        # docker cp requires <src> <container>:<path>
+        target = f"{dest.container}:{dest.container_path}"
+        # docker cp copies into existing directory; ensure parent exists and target filename honored
+        return subprocess.run(["docker", "cp", str(src), target], check=True)
+    else:
+        return shutil.copy2(src, dest)
 
 
 # ---------------------------------------------------------------------------
@@ -259,23 +243,15 @@ def isolated_sys_modules():
 
 
 def get_db_path(db_path, tmp_path=None):
-    """
-    Get a local filesystem path for database access.
+    """A local path to read a test container's database from.
 
-    In bind mount mode: Returns the path directly
-    In volume mode: Extracts DB to temp location and returns local path
-
-    Args:
-        db_path: Path or VolumePath to database file
-        tmp_path: Temporary directory (required in volume mode)
-
-    Returns:
-        Path: Local filesystem path to database file
+    A bind-mounted path is returned as is; a DockerPath (docker cp mode) is copied
+    out into tmp_path first.
     """
     # Auto-fallback mode: copy out from container path
-    if AUTO_DOCKER_VOLUMES and isinstance(db_path, VolumePath):
+    if AUTO_DOCKER_VOLUMES and isinstance(db_path, DockerPath):
         if tmp_path is None:
-            raise ValueError("tmp_path required for database access in auto volume mode")
+            raise ValueError("tmp_path required to copy a database out of the container")
         local_path = tmp_path / os.path.basename(str(db_path))
         base_container_path = db_path.container_path
         container = db_path.container
@@ -290,12 +266,6 @@ def get_db_path(db_path, tmp_path=None):
                 if suffix == "":
                     raise RuntimeError(f"Failed to copy DB from container: {src}")
         return local_path
-
-    # Explicit volume mode (DinD): delegate to conftest_volumes VolumePath
-    if USE_DOCKER_VOLUMES and VolumePath and isinstance(db_path, VolumePath):
-        if tmp_path is None:
-            raise ValueError("tmp_path required for database access in volume mode")
-        return db_path.read_to_local(tmp_path)
 
     # Bind mode: use path directly
     return db_path
@@ -568,8 +538,6 @@ services:
                 print("⚠️  Bind mounts not visible in container. Enabling auto volume fallback (docker cp mode).")
                 global AUTO_DOCKER_VOLUMES
                 AUTO_DOCKER_VOLUMES = True
-                # Ensure tests that branch on USE_DOCKER_VOLUMES adapt to auto-fallback
-                os.environ['USE_DOCKER_VOLUMES'] = 'true'
             else:
                 print("✅ Bind mounts are visible to container.")
         except Exception as e:
@@ -602,20 +570,7 @@ services:
 
 @pytest.fixture(scope="session")
 def container_name(cwa_container) -> str:
-    """
-    Get the container name string for use in docker commands.
-
-    Handles both CI mode (DockerCompose object) and Docker-in-Docker mode (string).
-
-    Returns:
-        str: The container name that can be used with docker exec/logs commands
-    """
-    # In Docker-in-Docker mode, cwa_container is already a string (container name)
-    if isinstance(cwa_container, str):
-        return cwa_container
-
-    # In CI mode, cwa_container is a DockerCompose object
-    # Container name is hardcoded in the docker-compose override
+    """The test container's name for docker exec/cp (set in the compose override)."""
     return "cwa-test-container"
 
 
@@ -652,7 +607,7 @@ def ingest_folder(test_volumes: dict, container_name: str) -> Path:
     Tests can drop files here to trigger ingest processing.
     """
     if AUTO_DOCKER_VOLUMES:
-        return VolumePath(container_name, "/cwa-book-ingest")
+        return DockerPath(container_name, "/cwa-book-ingest")
     return test_volumes["ingest"]
 
 
@@ -664,40 +619,5 @@ def library_folder(test_volumes: dict, container_name: str) -> Path:
     Tests can check this folder for imported books.
     """
     if AUTO_DOCKER_VOLUMES:
-        return VolumePath(container_name, "/calibre-library")
+        return DockerPath(container_name, "/calibre-library")
     return test_volumes["library"]
-
-
-# ============================================================================
-# Docker Volume Mode Support (for Docker-in-Docker environments)
-# ============================================================================
-
-if USE_DOCKER_VOLUMES:
-    # Import volume-based fixtures
-    from conftest_volumes import (  # noqa: F401 - pytest resolves the fixtures by name
-        test_volumes_dind,
-        cwa_container_dind,
-        ingest_folder_dind,
-        library_folder_dind,
-        VolumeHelper
-    )
-
-    # Override fixtures to use volume versions
-    @pytest.fixture(scope="session")
-    def cwa_container(cwa_container_dind):  # noqa: F811 - pytest injects the imported fixture
-        """Redirect to Docker volume container implementation."""
-        yield cwa_container_dind
-
-    @pytest.fixture(scope="session")
-    def ingest_folder(ingest_folder_dind):  # noqa: F811 - pytest injects the imported fixture
-        """Redirect to VolumeHelper for ingest folder."""
-        return ingest_folder_dind
-
-    @pytest.fixture(scope="session")
-    def library_folder(library_folder_dind):  # noqa: F811 - pytest injects the imported fixture
-        """Redirect to VolumeHelper for library folder."""
-        return library_folder_dind
-
-    print("✅ Docker Volume fixtures loaded successfully\n")
-
-

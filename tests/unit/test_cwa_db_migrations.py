@@ -69,10 +69,11 @@ def test_missing_columns_are_added(cwa_dir):
     db_file = str(cwa_dir / "cwa.db")
     con = sqlite3.connect(db_file)
     con.execute("ALTER TABLE cwa_settings DROP COLUMN db_backup_keep_count")
-    # Old cwa_import without original_backed_up
-    con.execute("DROP TABLE cwa_import")
-    con.execute("CREATE TABLE cwa_import(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, "
-                "timestamp TEXT NOT NULL, filename TEXT NOT NULL)")
+    # Old cwa_enforcement without trigger_type
+    con.execute("DROP TABLE cwa_enforcement")
+    con.execute("CREATE TABLE cwa_enforcement(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, "
+                "timestamp TEXT NOT NULL, book_id INTEGER NOT NULL, book_title TEXT NOT NULL, "
+                "author TEXT NOT NULL, file_path TEXT NOT NULL)")
     con.commit()
     con.close()
 
@@ -80,7 +81,7 @@ def test_missing_columns_are_added(cwa_dir):
     try:
         assert "db_backup_keep_count" in _columns(db_file, "cwa_settings")
         assert db.cwa_settings["db_backup_keep_count"] == 7
-        assert "original_backed_up" in _columns(db_file, "cwa_import")
+        assert "trigger_type" in _columns(db_file, "cwa_enforcement")
     finally:
         db.close()
 
@@ -92,20 +93,37 @@ def test_no_positional_rename(cwa_dir):
     CWA_DB().close()
     db_file = str(cwa_dir / "cwa.db")
     con = sqlite3.connect(db_file)
-    con.execute("DROP TABLE cwa_import")
-    con.execute("CREATE TABLE cwa_import(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, "
-                "timestamp TEXT NOT NULL, filename TEXT NOT NULL, legacy_name TEXT NOT NULL DEFAULT '')")
-    con.execute("INSERT INTO cwa_import(timestamp, filename, legacy_name) VALUES ('t', 'f', 'precious')")
+    con.execute("DROP TABLE cwa_enforcement")
+    con.execute("CREATE TABLE cwa_enforcement(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, "
+                "timestamp TEXT NOT NULL, book_id INTEGER NOT NULL, book_title TEXT NOT NULL, "
+                "author TEXT NOT NULL, file_path TEXT NOT NULL, legacy_name TEXT NOT NULL DEFAULT '')")
+    con.execute("INSERT INTO cwa_enforcement(timestamp, book_id, book_title, author, file_path, legacy_name) "
+                "VALUES ('t', 1, 'b', 'a', 'f', 'precious')")
     con.commit()
     con.close()
 
     _reopen(cwa_dir).close()
-    cols = _columns(db_file, "cwa_import")
+    cols = _columns(db_file, "cwa_enforcement")
     assert "legacy_name" in cols
-    assert "original_backed_up" in cols  # added, not renamed into
+    assert "trigger_type" in cols  # added, not renamed into
     con = sqlite3.connect(db_file)
     try:
-        assert con.execute("SELECT legacy_name FROM cwa_import").fetchone()[0] == "precious"
+        assert con.execute("SELECT legacy_name FROM cwa_enforcement").fetchone()[0] == "precious"
+    finally:
+        con.close()
+
+
+@pytest.mark.unit
+def test_the_old_import_log_is_dropped(cwa_dir):
+    con = sqlite3.connect(cwa_dir / "cwa.db")
+    con.execute("CREATE TABLE cwa_import(id INTEGER PRIMARY KEY, timestamp TEXT, filename TEXT)")
+    con.commit()
+    con.close()
+
+    CWA_DB().close()
+    con = sqlite3.connect(cwa_dir / "cwa.db")
+    try:
+        assert con.execute("SELECT name FROM sqlite_master WHERE name = 'cwa_import'").fetchone() is None
     finally:
         con.close()
 
@@ -132,14 +150,14 @@ def test_explicit_migrations_run_once_in_order(cwa_dir, monkeypatch):
     calls = []
     migrations = [
         (2, "second", lambda cur: calls.append(2)),
-        (1, "first", lambda cur: (calls.append(1), cur.execute("ALTER TABLE cwa_import ADD COLUMN m1 TEXT"))),
+        (1, "first", lambda cur: (calls.append(1), cur.execute("ALTER TABLE cwa_enforcement ADD COLUMN m1 TEXT"))),
     ]
     monkeypatch.setattr(cwa_db_module, "MIGRATIONS", migrations)
     CWA_DB().close()
     _reopen(cwa_dir).close()
     assert calls == [1, 2]
     db_file = str(cwa_dir / "cwa.db")
-    assert "m1" in _columns(db_file, "cwa_import")
+    assert "m1" in _columns(db_file, "cwa_enforcement")
     con = sqlite3.connect(db_file)
     try:
         assert [r[0] for r in con.execute("SELECT version FROM cwa_schema_migrations ORDER BY version")] == [1, 2]
@@ -150,14 +168,14 @@ def test_explicit_migrations_run_once_in_order(cwa_dir, monkeypatch):
 @pytest.mark.unit
 def test_failed_migration_rolls_back_and_stops(cwa_dir, monkeypatch):
     def boom(cur):
-        cur.execute("ALTER TABLE cwa_import ADD COLUMN half_done TEXT")
+        cur.execute("ALTER TABLE cwa_enforcement ADD COLUMN half_done TEXT")
         raise RuntimeError("fail")
 
     later = []
     monkeypatch.setattr(cwa_db_module, "MIGRATIONS", [(1, "boom", boom), (2, "later", lambda cur: later.append(1))])
     CWA_DB().close()
     db_file = str(cwa_dir / "cwa.db")
-    assert "half_done" not in _columns(db_file, "cwa_import")
+    assert "half_done" not in _columns(db_file, "cwa_enforcement")
     assert later == []
     con = sqlite3.connect(db_file)
     try:
@@ -219,7 +237,8 @@ def test_migration_3_drops_the_settings_and_tables_of_removed_features(cwa_dir):
     finally:
         db.close()
     # The cwa.db from before is kept beside it
-    assert (cwa_dir / "cwa.db.before-migration-3").exists()
+    # The copy is named after the newest migration that was pending
+    assert list(cwa_dir.glob("cwa.db.before-migration-*"))
 
 
 @pytest.mark.unit
