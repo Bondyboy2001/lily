@@ -660,18 +660,47 @@ def render_books_list(data, sort_param, book_id, page):
             title = _('Books (%(count)s)', count=cwa_get_num_books_in_library())
 
         continue_reading = []
+        offline_auto = None
         if website == "newest" and page == 1 and not list_filters.active_filters():
             continue_reading = get_continue_reading_entries()
+            # The full Continue Reading list, so the service worker can keep these books offline
+            # and let go of ones that left it (offline.js; empty means "none in progress").
+            offline_auto = []
+            for item in continue_reading:
+                book = item['entry'].Books
+                fmt = (item.get('format') or '').lower()
+                if fmt and fmt in {d.format.lower() for d in book.data}:
+                    spec = offline_book_spec(book, fmt)
+                    if spec:
+                        offline_auto.append(spec)
 
         return render_title_template('index.html', entries=entries, pagination=pagination,
                                      title=title, page=website, order=order[1],
                                      continue_reading=continue_reading,
+                                     offline_auto=offline_auto,
                                      list_filters=list_filters.filter_context(),
                                      setup_checklist=(setup_checklist() if website == "newest" and page == 1
                                                       else None))
 
 
 CONTINUE_READING_LIMIT = 12
+
+# Formats the service worker can keep for reading offline (audio streams stay online-only).
+OFFLINE_FORMATS = ("epub", "kepub", "pdf", "djvu", "djv")
+
+
+def offline_book_spec(book, fmt):
+    """What offline.js hands the service worker to keep one book: its reader, page and cover URLs
+    (the worker finds the file and assets in the reader page), or None for a format it can't keep."""
+    fmt = (fmt or "").lower()
+    if fmt not in OFFLINE_FORMATS:
+        return None
+    authors = [a.name.replace('|', ',') for a in book.authors if not constants.is_unknown_author(a.name)]
+    return {"id": book.id, "title": book.title, "author": authors[0] if authors else "", "format": fmt,
+            "reader": url_for('web.read_book', book_id=book.id, book_format=fmt),
+            "page": url_for('web.show_book', book_id=book.id),
+            "cover": url_for('web.get_cover', book_id=book.id, resolution='md',
+                             c=str(int(book.last_modified.timestamp())))}
 
 
 def _latest_reader_positions(session, user_id, library_uuid, book_ids=None):
@@ -1506,6 +1535,10 @@ def show_book(book_id):
         cwa_db = CWA_DB()
         cwa_settings = cwa_db.cwa_settings
 
+        offline_book = None
+        if current_user.is_authenticated and entry.reader_list:
+            offline_book = offline_book_spec(entry, (resume and resume['format']) or entry.reader_list[0])
+
         try:
             related = _related_books(entry)
         except Exception as e:
@@ -1515,6 +1548,7 @@ def show_book(book_id):
         return render_title_template('detail.html',
                                      entry=entry,
                                      related=related,
+                                     offline_book=offline_book,
                                      resume=resume,
                                      cc=cc,
                                      is_xhr=request.headers.get('X-Requested-With') == 'XMLHttpRequest',

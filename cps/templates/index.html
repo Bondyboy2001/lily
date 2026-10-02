@@ -26,6 +26,10 @@
   </ul>
 </section>
 {% endif %}
+{% if offline_auto is defined and offline_auto is not none %}
+{# Continue Reading for the service worker, which keeps these books for offline reading (offline.js). #}
+<script type="application/json" id="lily-offline-auto">{{ offline_auto|tojson }}</script>
+{% endif %}
 {% if continue_reading %}
 <section class="continue-reading" aria-labelledby="continue-reading-heading">
   <h2 id="continue-reading-heading">{{_('Continue Reading')}}</h2>

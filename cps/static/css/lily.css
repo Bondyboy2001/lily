@@ -940,6 +940,10 @@ input[type="radio"] {
     margin-top: 22px;
 }
 
+/* Busy (§5.12): a control waiting on its own request fades and takes no clicks. */
+.icon-btn.is-busy,
+.btn.is-busy { opacity: .4; pointer-events: none; }
+
 /* Busy icons (duplicates.js: "glyphicon-refresh glyphicon-spin"). Reduced motion stops it below. */
 .glyphicon-spin {
     display: inline-block;

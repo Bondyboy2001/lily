@@ -387,7 +387,6 @@
     color: var(--surface);
 }
 
-.lily-cover-actions .icon-btn.is-busy { opacity: .4; pointer-events: none; }
 
 @media (hover: hover) {
     .lily-cover-actions {

@@ -30,6 +30,7 @@ ICONS = {
     "chevron-right": "caret-right",
     "collapse-down": "caret-down",
     "cog": "gear",
+    "cloud-download": "cloud-arrow-down",
     "collapse-up": "caret-up",
     "copy": "copy",
     "dashboard": "gauge",

@@ -141,9 +141,10 @@ def _build_app():
     from cps.search_metadata import meta
     from cps.duplicates import duplicates
     from cps.logs import logs
+    from cps.offline import offline
     for bp in (library_refresh, cwa_settings, cwa_internal,
                admi, jinjia, web, opds, shelf, search, meta, editbook,
-               duplicates, logs):
+               duplicates, logs, offline):
         app.register_blueprint(bp)
 
     @app.teardown_appcontext

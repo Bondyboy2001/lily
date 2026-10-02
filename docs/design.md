@@ -616,6 +616,21 @@ PDF toolbar gets the same two as pdf.js `toolbarButton`s (pressed is
 request says so in one quiet line at the foot of the page (`#bookmark-status`,
 `role=status`), never in an `alert()`.
 
+### 6.8 Offline reading (`offline.py`, `templates/sw.js`, `offline.js`)
+
+- Only where the browser runs a service worker: HTTPS or localhost. Over plain
+  `http://host:port` the controls stay hidden and nothing changes.
+- **Keep offline** is an icon button in the book page's action bar
+  (`glyphicon-cloud-download`, a two-state button with `aria-pressed`, `.is-busy`
+  while saving). Books in Continue Reading are kept automatically and let go when
+  they leave it, unless they were picked; un-keeping one in progress sticks.
+- With no network, a page that was kept opens from the device; anything else opens
+  the **Offline** page (`/offline`, a `.lily-standalone` page): the kept books as
+  rows (44px cover, title, author · format · size, a quiet Read, a trash
+  `.icon-btn.is-danger`), or an empty state that says how to keep one.
+- Reading positions save on the device and sync when the connection is back
+  (`progress-sync.js`); CSRF tokens last the session so a cached reader can still save.
+
 ---
 
 ## 7. Motion

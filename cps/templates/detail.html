@@ -80,6 +80,17 @@
                         </span>
                     {% endif %}
                 {% endif %}
+                {% if offline_book %}
+                    {# Keep offline: a two-state button (aria-pressed, §5.1). offline.js reveals it only
+                       where the browser runs Lily's service worker (HTTPS), and the worker does the saving. #}
+                    <button type="button" class="btn is-icon" id="keep-offline-btn" aria-pressed="false" hidden
+                            title="{{ _('Keep offline') }}" data-book="{{ offline_book|tojson|forceescape }}"
+                            data-label-keep="{{ _('Keep offline') }}" data-label-kept="{{ _('Kept offline on this device') }}"
+                            data-keep-failed="{{ _('Couldn’t save this book for offline reading. Check your connection and the space on this device, then try again.') }}"
+                            data-drop-failed="{{ _('Couldn’t remove this book from the device. Try again.') }}">
+                        <span class="glyphicon glyphicon-cloud-download" aria-hidden="true"></span><span class="book-action-label sr-only">{{ _('Keep offline') }}</span>
+                    </button>
+                {% endif %}
                 {% if not current_user.is_anonymous %}
                     {# A tick in a circle, green once read (styled off .is-on); the hidden label is the button's name.
                        The label names the action and flips, so there is no aria-pressed (design §5.1). #}
