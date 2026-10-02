@@ -31,13 +31,13 @@ def _identifiers(env, book_id):
 ])
 def test_the_same_form_saved_twice_keeps_the_identifier_it_added(env, tmp_path, title, authors):
     from cps import calibre_db
-    from cps.services import papers_shelf
+    from cps.services import arxiv_shelf
     book_id = env.add_book("Dune", author="Frank Herbert")
     (env.library_dir / "Frank Herbert" / "Dune").mkdir(parents=True, exist_ok=True)
-    # As at startup: the app's session is the one its thread is handed, and the Papers pass runs
+    # As at startup: the app's session is the one its thread is handed, and the arXiv shelf's pass runs
     calibre_db.session = calibre_db.session_factory()
     calibre_db.session.expire_on_commit = True
-    papers_shelf.backfill_once(str(tmp_path / "papers_shelf_v1"))
+    arxiv_shelf.replace_papers_shelf_once(str(tmp_path / "arxiv_shelf_v1"))
     client = env.app.test_client()
     client.post("/login", data={"username": env.admin().name, "password": ADMIN_PASSWORD})
     # Fetch Metadata added an identifier row to the form; the form was then sent twice

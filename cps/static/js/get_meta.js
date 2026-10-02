@@ -24,7 +24,6 @@ $(function () {
   var msg = i18nMsg;
   var metaSelectionKey = "cwa.metaSelection";
   var metaSelectionCache = null;
-  var SCHOLAR = "googlescholar";
   var FAILED = { error: true, timeout: true };
 
   var status = {};      // provider id -> "loading" | "ok" | "skipped" | "error" | "timeout"
@@ -223,14 +222,14 @@ $(function () {
         setIdentifier(key, String(value));
       }
     });
-    // Scholar results (arXiv/Crossref) are papers: add a Papers chip to the Shelves
+    // A result from arXiv carries the paper's arXiv id: add an arXiv chip to the Shelves
     // editor, which the save turns into the shelf
     var $shelves = $("#shelves");
-    if (book.source && book.source.id === SCHOLAR && $shelves.length) {
+    if (book.identifiers && book.identifiers.arxiv && $shelves.length) {
       var names;
       try { names = JSON.parse($shelves.val() || "[]"); } catch (e) { names = []; }
-      if (!names.some(function (n) { return n.toLowerCase() === "papers"; })) {
-        names.push("Papers");
+      if (!names.some(function (n) { return n.toLowerCase() === "arxiv"; })) {
+        names.push("arXiv");
         $shelves.val(JSON.stringify(names)).trigger("change");
       }
     }

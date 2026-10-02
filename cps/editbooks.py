@@ -31,7 +31,7 @@ from sqlalchemy.sql.expression import func, or_
 from . import logger, isoLanguages, uploader, helper, constants
 from .clean_html import clean_string
 from . import config, ub, db, calibre_db
-from .services.papers_shelf import PAPERS_SHELF, papers_shelf
+from .services.arxiv_shelf import ARXIV_SHELF, arxiv_shelf
 from .services.worker import WorkerThread
 from .tasks.upload import TaskUpload
 from .render_template import render_title_template
@@ -495,7 +495,7 @@ def _shelf_names(raw):
 def _update_shelves(book_id, to_save):
     """Put the book on exactly the shelves named in the edit form's Shelves chips. Names that
     match none of the user's editable shelves are ignored (shelves are created from the
-    sidebar), except Papers, the shared shelf Fetch Metadata files papers on (papers_shelf)."""
+    sidebar), except arXiv, the shared shelf Fetch Metadata files arXiv's papers on (arxiv_shelf)."""
     try:
         shelves = _editable_shelves()
         if not to_save.get("shelves_present"):
@@ -507,10 +507,10 @@ def _update_shelves(book_id, to_save):
             shelf = next((m for m in matches if m.user_id == current_user.id), None) or \
                 next(iter(matches), None)
             if not shelf:
-                if name.lower() != PAPERS_SHELF.lower():
+                if name.lower() != ARXIV_SHELF.lower():
                     continue
-                # The one shared Papers shelf, made public the first time
-                shelf = papers_shelf(ub.session, create=current_user.role_edit_shelfs())
+                # The one shared arXiv shelf, made public the first time
+                shelf = arxiv_shelf(ub.session, create=current_user.role_edit_shelfs())
                 if not shelf or not check_shelf_edit_permissions(shelf):
                     continue
                 shelves.append(shelf)

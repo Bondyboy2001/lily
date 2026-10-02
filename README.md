@@ -70,7 +70,7 @@ EPUB, PDF, DjVu and audiobooks open in the browser. Lily saves your place, and
 
 ### Papers are first-class
 arXiv and DOI links on the book page, and citation counts from OpenAlex. Every paper
-whose metadata is fetched lands on a shared **Papers** shelf.
+whose metadata is fetched from arXiv lands on a shared **arXiv** shelf.
 
 </td>
 </tr>

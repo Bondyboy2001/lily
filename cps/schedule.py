@@ -99,12 +99,12 @@ def register_startup_tasks():
             # Don't let migration failures stop the application
             pass
 
-        # File the papers already in the library on the Papers shelf (one-time operation)
+        # The arXiv shelf takes over from the Papers shelf (one-time operation)
         try:
-            from .services.papers_shelf import backfill_once
-            backfill_once(os.path.join(constants.CONFIG_DIR, ".cwa_migrations", "papers_shelf_v1"))
+            from .services.arxiv_shelf import replace_papers_shelf_once
+            replace_papers_shelf_once(os.path.join(constants.CONFIG_DIR, ".cwa_migrations", "arxiv_shelf_v1"))
         except Exception as e:
-            log.warning("Could not file the library's papers on the Papers shelf: %s", e)
+            log.warning("Could not replace the Papers shelf with the arXiv shelf: %s", e)
 
         # Run scheduled tasks immediately for development and testing
         # Ignore tasks that should currently be running, as these will be added when registering scheduled tasks
