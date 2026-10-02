@@ -1067,10 +1067,30 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     grid-template-rows: auto;
     gap: 40px;
     align-items: center;
+    position: relative;
     padding: 40px;
     border-radius: 10px;
     background: var(--sunk);
 }
+
+/* Date added and Last edited: two quiet right-aligned lines in the stage's top-right corner. */
+dl.book-dates {
+    position: absolute;
+    top: 14px;
+    right: 20px;
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 2px 8px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.book-dates > div { display: contents; }
+.book-dates dt { font-weight: 400; }
+.book-dates dd { margin: 0; color: var(--ink-soft); }
 
 /* The plate: the cover on a --surface mount, flat like every panel. Every plate is the
    grid's A4 tile (§5.15), so one deformed cover cannot stretch the stage; a cover whose
@@ -1392,6 +1412,8 @@ dl.book-record {
     }
 
     .book-detail-cover { width: 196px; padding: 8px; }
+    dl.book-dates { position: static; order: 1; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; }
+    .book-dates > div { display: flex; gap: 4px; }
     .book-detail-head { align-items: center; width: 100%; }
     .book-detail-meta { align-items: center; }
     dl.book-metadata { justify-content: center; }

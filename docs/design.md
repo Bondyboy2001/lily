@@ -555,7 +555,10 @@ content (grid, panel, rows)
 - **Lookup line** (`dl.book-record`, editors only): one 13px `--muted` line under the
   description, aligned with its text, saying what the last metadata lookup found
   ("From Open Library", "No match" or "Lookup failed", with the date in its tooltip).
-  Date added and Last edited are not shown on the book page.
+- **Dates** (`dl.book-dates`): Date added and Last edited, two right-aligned 13px lines
+  ("Added ‹date›", "Edited ‹date›"; label `--muted`, date `--ink-soft`) pinned in the
+  stage's top-right corner, 14 from the top and 20 from the right. On phones they drop
+  into the flow under the actions, centred on one line.
 - Tags and shelves are not shown on the book page; both stay editable on the
   edit page.
 - The action bar is Read, Download, Mark as read, Fetch metadata (the magnifying glass,

@@ -287,15 +287,18 @@ def test_detail_page_is_a_frontispiece_stage():
     assert extra.index('class="book-detail-description"') < extra.index('<dl class="book-record">') \
         < extra.index("related-author-heading")
     assert "book-metadata-lookup" in extra and "book-metadata-lookup" not in stage
-    # Date added and Last edited aren't shown on the book page.
-    for name in ("book-date-added", "book-last-modified", "_('Date added')", "_('Last edited')"):
-        assert name not in html
+    # Date added and Last edited sit quietly in the stage's top-right corner.
+    assert '<dl class="book-dates">' in stage
+    assert "entry.timestamp|formatdate" in stage and "entry.last_modified|formatdate" in stage
+    dates = next(body for selector, body in rules if selector == "dl.book-dates")
+    assert "position: absolute" in dates and "right:" in dates and "var(--muted)" in dates
 
 
 def test_detail_fact_tags_are_file_arxiv_and_date_only():
     # Design §6.4: each file, an arXiv paper's link, the date, and nothing else.
     html = read(TEMPLATES / "detail.html")
-    facts = html[html.index('<dl class="book-metadata">'):html.index("</dl>")]
+    start = html.index('<dl class="book-metadata">')
+    facts = html[start:html.index("</dl>", start)]
     kinds = re.findall(r'<div class="book-fact ([\w-]+)"', facts)
     assert kinds == ["formats", "arxiv", "publishing-date"]
     assert 'href="https://arxiv.org/abs/{{ entry.arxiv_id }}"' in facts

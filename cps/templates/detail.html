@@ -13,6 +13,17 @@
     {# "Frontispiece" (design §6.4): a stage with the cover as a mounted plate beside the title,
        byline, fact tags and actions; below it the description, the lookup line and what to read next. #}
     <div class="book-detail-main">
+        {# When the book came in and was last changed, quiet in the stage's top-right corner (design §6.4) #}
+        <dl class="book-dates">
+            <div class="book-date-added">
+                <dt>{{ _('Added') }}</dt>
+                <dd>{{ entry.timestamp|formatdate }}</dd>
+            </div>
+            <div class="book-last-modified">
+                <dt>{{ _('Edited') }}</dt>
+                <dd>{{ entry.last_modified|formatdate }}</dd>
+            </div>
+        </dl>
         <div class="book-detail-cover">
             <div class="book-detail-cover-art cover">
                 <img id="detailcover" alt="{{ entry.title }}"
