@@ -161,6 +161,12 @@ def _load_cwa_functions(monkeypatch, request):
         },
     )
 
+    _install_stub("cps.recent_imports", {
+        "added_summary": lambda *args, **kwargs: "",
+        "books_added_after": lambda *args, **kwargs: [],
+        "newest_book_id": lambda *args, **kwargs: 0,
+    })
+
     # cps.cwa_functions is a package; its submodules are imported through its __path__.
     package_dir = pathlib.Path(__file__).resolve().parents[2] / "cps" / "cwa_functions"
     spec = importlib.util.spec_from_file_location(
