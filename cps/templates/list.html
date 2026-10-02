@@ -15,13 +15,10 @@ See CONTRIBUTORS for full list of authors. -->
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   {{ image.list_menu(order, data, charlist|map(attribute=0)|list) }}
 </div>
+{# One list; CSS columns flow it into as many ~300px columns as fit, so counts sit beside their names. #}
 <div class="lily-list-columns" id="{{_(title)}}">
-  <div id="{{_(title)}}_list" class="lily-list list-container">
+  <div id="{{_(title)}}_list" class="lily-list list-container{% if entries|length <= 12 %} is-short{% endif %}">
   {% for entry in entries %}
-    {% if loop.index0 == (loop.length/2+loop.length%2)|int and loop.length > 20 %}
-  </div>
-  <div id="second" class="lily-list">
-    {% endif %}
     <div class="row lily-list-row" id="{{_(title)}}_row" {% if entry[0].sort %}data-name="{{entry[0].name}}"{% endif %} data-id="{% if page == "authorlist" %}{{entry[0].name}}{% elif entry[0].sort %}{{entry[0].sort}}{% else %}{% if entry[0].format %}{{entry[0].format}}{% else %}{% if entry[0].rating %}{{entry[0].rating}}{% else %}{{entry[0].name}}{% endif %}{% endif %}{% endif %}">
       <a id="list_{{loop.index0}}" href="{% if entry.format %}{{url_for('web.books_list', data=data, sort_param='stored', book_id=entry.format )}}{% else %}{{url_for('web.books_list', data=data, sort_param='stored', book_id=entry[0].id )}}{% endif %}">
         {%- if entry.name -%}

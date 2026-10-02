@@ -459,6 +459,10 @@ content (grid, panel, rows)
   22 apart, so it doesn't follow the 190/26 card grid.
 - **List view ("ledger"):** one shared `--ledger-cols` track list for header and
   rows; rows radius 6, alternate ink 3%, hover `--hover`; read state is a dot.
+- **Browse lists** (`list.html`: categories, authors, publishers…): one
+  `.lily-list` flowed into 300px CSS columns, gap 22, so each count sits
+  beside its name; lists of 12 or fewer stay one column, max 560. Rows are
+  list rows (§5.11), min-height 40; long names wrap.
 - **Continue Reading** (`.continue-reading-row`): one row that scrolls sideways,
   never wraps, so the library starts on the first screen. Covers are 140px wide
   (112 on phones), 22 apart (14 on phones). The cover opens the reader in a
