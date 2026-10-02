@@ -448,16 +448,6 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None):
     return None
 
 
-def _parse_date(value):
-    """A provider's "2016-05-03", "2016-05" or "2016" as a datetime, or None."""
-    for fmt in ('%Y-%m-%d', '%Y-%m', '%Y'):
-        try:
-            return datetime.strptime(str(value or '').strip(), fmt)
-        except ValueError:
-            continue
-    return None
-
-
 def _has_date(current, published) -> bool:
     """Whether the book's date already says what the provider's does. A provider that knows
     only the year (or month) gives its first day, so a book dated within it is that date,
@@ -572,7 +562,7 @@ def _apply_record(cdb, book, record, cover):
                 book.series_index = str(index)
                 changed = True
 
-        published = _parse_date(record.publishedDate)
+        published = helper.parse_partial_date(record.publishedDate)
         if published and not _has_date(book.pubdate, published):
             book.pubdate = published
             changed = True

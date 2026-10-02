@@ -915,6 +915,17 @@ def tags_filters():
     return and_(pos_content_tags_filter, ~neg_content_tags_filter)
 
 
+def parse_partial_date(value):
+    """A "2016-05-03", "2016-05" or "2016" as a datetime (a year or month begins on its first
+    day), or None. Providers often know only the year a book came out."""
+    for fmt in ('%Y-%m-%d', '%Y-%m', '%Y'):
+        try:
+            return datetime.strptime(str(value or '').strip(), fmt)
+        except ValueError:
+            continue
+    return None
+
+
 def get_download_link(book_id, book_format):
     book_format = book_format.split(".")[0]
     # Try filtered view first to respect user restrictions

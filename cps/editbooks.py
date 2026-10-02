@@ -641,11 +641,14 @@ def do_edit_book(book_id, upload_formats=None):
         modify_date |= edit_all_cc_data(book_id, book, to_save)
 
         if to_save.get("pubdate"):
-            try:
-                book.pubdate = datetime.strptime(to_save["pubdate"], "%Y-%m-%d")
-            except ValueError as e:
-                book.pubdate = db.Books.DEFAULT_PUBDATE
-                flash(str(e), category="error")
+            # A result from Fetch Metadata may give only the year, or the year and month
+            pubdate = helper.parse_partial_date(to_save["pubdate"])
+            if pubdate:
+                book.pubdate = pubdate
+            else:
+                # The book keeps the date it had
+                flash(_("'%(date)s' is not a date. Write it as year-month-day, like 1965-08-01.",
+                        date=to_save["pubdate"]), category="error")
                 edit_error = True
         else:
             book.pubdate = db.Books.DEFAULT_PUBDATE

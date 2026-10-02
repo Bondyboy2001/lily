@@ -41,6 +41,14 @@ $(function () {
     return /^https?:\/\//i.test(String(url || "")) ? String(url) : "";
   }
 
+  // A provider often knows only the year or the month a book came out ("1965", "1965-08"):
+  // the date field takes a whole date, so those begin on their first day
+  function fullDate(date) {
+    var parts = /^(\d{4})(?:-(\d{1,2}))?$/.exec($.trim(String(date || "")));
+    if (!parts) { return date; }
+    return parts[1] + "-" + ("0" + (parts[2] || "1")).slice(-2) + "-01";
+  }
+
   function htmlToText(html) {
     // DOMParser documents run no scripts and load no images
     return new DOMParser().parseFromString(String(html || ""), "text/html").body.textContent || "";
@@ -199,7 +207,7 @@ $(function () {
       $("#cover_url").val(book.cover);
     }
     if (updateItems.pubDate) {
-      $("#pubdate").val(book.publishedDate).trigger("change");
+      $("#pubdate").val(fullDate(book.publishedDate)).trigger("change");
     }
     if (updateItems.publisher) {
       $("#publisher").val(book.publisher);
