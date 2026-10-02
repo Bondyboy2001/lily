@@ -458,3 +458,13 @@ def test_installed_app_opens_the_reader_in_place():
         start = html.rindex("<a", 0, html.index(needle))
         tag = html[start:html.index(">", html.index(needle))]
         assert "data-reader-link=" in tag, name
+
+
+def test_wide_page_covers_keep_their_left_margin():
+    # §5.15: Letter pages are wider than the A4 cover box; a centred crop cut arXiv's
+    # left-margin stamp in half, so the trim comes off the right margin instead.
+    css = read(CSS / "lily-library.css")
+    grid = [b for s, b in css_rules(css) if ".continue-reading-item .cover img" in s]
+    assert grid and "object-fit: cover" in grid[0] and "object-position: left center" in grid[0]
+    order = [b for s, b in css_rules(css) if s == ".lily-order-cover"]
+    assert order and "object-position: left center" in order[0]

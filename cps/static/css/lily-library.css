@@ -193,8 +193,11 @@
     width: 100%;
     height: 100%;
     max-height: none;
-    /* Fill the box so Letter and A4 pages tile at the same size; the trim lands in page margins. */
+    /* Fill the box so Letter and A4 pages tile at the same size. A page wider than A4 (US
+       Letter) is anchored left, so the trim comes off its right margin: arXiv prints its id
+       down the left margin, and a centred crop cut it in half. */
     object-fit: cover;
+    object-position: left center;
     border: 0;
     box-shadow: none;
 }
@@ -1007,6 +1010,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     outline-offset: -1px;
     background: var(--sunk);
     object-fit: cover;
+    object-position: left center;
 }
 
 .lily-order-text {
