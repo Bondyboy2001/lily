@@ -33,13 +33,34 @@ def test_rebuild_task_looks_up_every_book(env, monkeypatch):
     monkeypatch.setattr(metadata_helper, "fetch_and_apply_metadata", fake_fetch)
     monkeypatch.setattr("cps.duplicate_index.mark_duplicate_index_pending", lambda reason=None: None)
 
-    task = TaskRebuildMetadata(pause=0)
+    task = TaskRebuildMetadata()
     with env.app.test_request_context():
         task.start(None)
         assert task.stat == STAT_FINISH_SUCCESS and task.progress == 1
-        assert calls == [(i, True) for i in ids]
+        assert sorted(calls) == [(i, True) for i in ids]
         assert (task.checked, task.updated) == (3, 1)
         assert str(task.message) == "Done: 3 books checked, 1 updated"
+
+
+@pytest.mark.unit
+def test_rebuild_looks_several_books_up_at_once(env, monkeypatch):
+    import threading
+    from cps import metadata_helper
+    from cps.tasks.metadata_rebuild import TaskRebuildMetadata
+    for title in ("One", "Two", "Three", "Four"):
+        env.add_book(title)
+    # Each lookup waits for a second one to be under way, which a book-by-book rebuild never has
+    overlap = threading.Barrier(2, timeout=5)
+
+    def fake_fetch(book_id, force=False):
+        overlap.wait()
+        return False
+    monkeypatch.setattr(metadata_helper, "fetch_and_apply_metadata", fake_fetch)
+
+    task = TaskRebuildMetadata(workers=2)
+    with env.app.test_request_context():
+        task.start(None)
+    assert task.checked == 4, task.error
 
 
 @pytest.mark.unit
@@ -118,7 +139,7 @@ def test_rebuilt_book_moves_folder_sorts_author_and_queues_the_file_write(env, m
     old_dir.mkdir(parents=True)
     (old_dir / "Abstract Algebra.epub").write_bytes(b"epub")
 
-    task = metadata_rebuild.TaskRebuildMetadata(pause=0)
+    task = metadata_rebuild.TaskRebuildMetadata()
     with env.app.test_request_context():
         task.start(None)
     assert task.updated == 1, task.error

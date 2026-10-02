@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import tempfile
+import threading
 from datetime import datetime, timezone
 
 from cps import logger, db, constants, helper
@@ -25,6 +26,11 @@ from cps.services.identifiers import ARXIV_ID, DOI_RE, normalise_identifiers, pa
 from cps.tag_cleanup import clean_tags
 
 log = logger.create()
+
+# Calibre's sessions share one SQLite connection (StaticPool), so one thread closing or rolling
+# back its session undoes another's unsaved changes. Rebuild metadata looks several books up at
+# once: each holds this while it reads or writes the library, and only provider lookups overlap.
+library_lock = threading.RLock()
 
 # One normalisation for imports and Fetch metadata's ranking, so a full score there
 # means the title an import would accept
@@ -212,69 +218,74 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
             log.error("CalibreDB not initialized; skipping metadata fetch")
             return False
 
-        # Check global settings (admin-controlled only)
-        cwa_db = CWA_DB()
-        cwa_settings = cwa_db.get_cwa_settings()
+        # The library is read and written under library_lock; only the provider lookups
+        # run beside other books' (Rebuild metadata)
+        with library_lock:
+            # Check global settings (admin-controlled only)
+            cwa_db = CWA_DB()
+            cwa_settings = cwa_db.get_cwa_settings()
 
-        if not force and not cwa_settings.get('auto_metadata_fetch_enabled', False):
-            log.debug("Auto metadata fetch disabled by administrator")
-            return False
+            if not force and not cwa_settings.get('auto_metadata_fetch_enabled', False):
+                log.debug("Auto metadata fetch disabled by administrator")
+                return False
 
-        # Get the book
-        calibre_db_instance = db.CalibreDB(expire_on_commit=False, init=True)
-        book = calibre_db_instance.get_book(book_id)
-        if not book:
-            log.error(f"Book with ID {book_id} not found")
-            return False
+            # Get the book
+            calibre_db_instance = db.CalibreDB(expire_on_commit=False, init=True)
+            book = calibre_db_instance.get_book(book_id)
+            if not book:
+                log.error(f"Book with ID {book_id} not found")
+                return False
 
-        # Create search query from book title and author
-        search_query = book.title
-        # calibre's "Unknown" stand-in is not a name to search for
-        author_names = [author.name for author in book.authors or []
-                        if not constants.is_unknown_author(author.name)]
-        if author_names:
-            search_query += " " + " ".join(author_names)
+            # Create search query from book title and author
+            search_query = book.title
+            # calibre's "Unknown" stand-in is not a name to search for
+            author_names = [author.name for author in book.authors or []
+                            if not constants.is_unknown_author(author.name)]
+            if author_names:
+                search_query += " " + " ".join(author_names)
 
-        log.info(f"Fetching metadata for: {search_query}")
+            log.info(f"Fetching metadata for: {search_query}")
 
-        # Get provider hierarchy
-        try:
-            provider_hierarchy = json.loads(cwa_settings.get('metadata_provider_hierarchy', '["google","openlibrary","hardcover","googlescholar"]'))
-        except (json.JSONDecodeError, TypeError):
-            provider_hierarchy = ["google", "openlibrary", "hardcover", "googlescholar"]
+            # Get provider hierarchy
+            try:
+                provider_hierarchy = json.loads(cwa_settings.get('metadata_provider_hierarchy', '["google","openlibrary","hardcover","googlescholar"]'))
+            except (json.JSONDecodeError, TypeError):
+                provider_hierarchy = ["google", "openlibrary", "hardcover", "googlescholar"]
 
-        # Global provider enablement map
-        enabled_map = _parse_metadata_providers_enabled(
-            cwa_settings.get('metadata_providers_enabled', '{}')
-        )
+            # Global provider enablement map
+            enabled_map = _parse_metadata_providers_enabled(
+                cwa_settings.get('metadata_providers_enabled', '{}')
+            )
 
-        # Saved order first, then any provider it doesn't name (the settings page does the same)
-        available_ids = [p.__id__ for p in metadata_providers]
-        provider_hierarchy = [p for p in provider_hierarchy if p in available_ids] + \
-            [p for p in available_ids if p not in provider_hierarchy]
+            # Saved order first, then any provider it doesn't name (the settings page does the same)
+            available_ids = [p.__id__ for p in metadata_providers]
+            provider_hierarchy = [p for p in provider_hierarchy if p in available_ids] + \
+                [p for p in available_ids if p not in provider_hierarchy]
 
-        providers = []
-        for provider_id in provider_hierarchy:
-            provider = next((p for p in metadata_providers if p.__id__ == provider_id), None)
-            if not provider or not provider.active:
-                continue
-            if not provider.is_globally_enabled(enabled_map):
-                log.debug(f"Provider {provider_id} is globally disabled")
-                continue
-            providers.append(provider)
+            providers = []
+            for provider_id in provider_hierarchy:
+                provider = next((p for p in metadata_providers if p.__id__ == provider_id), None)
+                if not provider or not provider.active:
+                    continue
+                if not provider.is_globally_enabled(enabled_map):
+                    log.debug(f"Provider {provider_id} is globally disabled")
+                    continue
+                providers.append(provider)
+
+            # A book is looked up exactly by its identifiers first: a paper by its arXiv
+            # id or DOI, as its title is often the file name, which no title search
+            # matches; a book by its ISBN
+            own_ids = normalise_identifiers({i.type: i.val for i in book.identifiers or []})
+            page_text = pdf_first_page_text(book)
+            lookup_ids = find_paper_identifiers(book.title, page_text, own_ids)
+            if own_ids.get('isbn'):
+                lookup_ids['isbn'] = own_ids['isbn']
+            title = book.title
 
         metadata_found = False
         matched = False
-        # A book is looked up exactly by its identifiers first: a paper by its arXiv
-        # id or DOI, as its title is often the file name, which no title search
-        # matches; a book by its ISBN
-        own_ids = normalise_identifiers({i.type: i.val for i in book.identifiers or []})
-        page_text = pdf_first_page_text(book)
-        lookup_ids = find_paper_identifiers(book.title, page_text, own_ids)
-        if own_ids.get('isbn'):
-            lookup_ids['isbn'] = own_ids['isbn']
         if lookup_ids:
-            log.info(f"Looking up '{book.title}' by {lookup_ids}")
+            log.info(f"Looking up '{title}' by {lookup_ids}")
         for provider in providers:
             ids = {k: v for k, v in lookup_ids.items() if k in provider.identifier_types}
             if not ids:
@@ -285,12 +296,11 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
                 log.warning(f"Error looking up {ids} with provider {provider.__id__}: {e}")
                 continue
             record = next((r for r in results or [] if found_by_id_is_this_book(
-                r, ids, book.title, author_names, page_text, own_ids)), None)
+                r, ids, title, author_names, page_text, own_ids)), None)
             if record is None:
                 continue
             matched = True
-            if _apply_metadata_to_book(book, record, calibre_db_instance):
-                log.info(f"Applied metadata from {provider.__name__} found by {ids} for book: {book.title}")
+            if _apply_locked(book, record, calibre_db_instance, f"{provider.__name__} found by {ids}"):
                 metadata_found = True
                 break
 
@@ -305,15 +315,14 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
                     continue
 
                 # Only accept a result that is exactly this book
-                metadata = best_metadata_match(book.title, author_names, results)
+                metadata = best_metadata_match(title, author_names, results)
                 if metadata is None:
-                    log.debug(f"No result from {provider.__name__} matches '{book.title}'")
+                    log.debug(f"No result from {provider.__name__} matches '{title}'")
                     continue
                 matched = True
 
                 # Apply metadata to book
-                if _apply_metadata_to_book(book, metadata, calibre_db_instance):
-                    log.info(f"Successfully applied metadata from {provider.__name__} for book: {book.title}")
+                if _apply_locked(book, metadata, calibre_db_instance, provider.__name__):
                     metadata_found = True
                     break
 
@@ -322,13 +331,22 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False) -> bool:
                 continue
 
         if not matched:
-            log.info(f"No exact metadata match for '{book.title}'; keeping the file's metadata")
-        calibre_db_instance.session.close()
+            log.info(f"No exact metadata match for '{title}'; keeping the file's metadata")
+        with library_lock:
+            calibre_db_instance.session.close()
         return metadata_found
 
     except Exception as e:
         log.error(f"Error in fetch_and_apply_metadata: {e}", exc_info=True)
         return False
+
+
+def _apply_locked(book, metadata, calibre_db_instance, source) -> bool:
+    with library_lock:
+        if not _apply_metadata_to_book(book, metadata, calibre_db_instance):
+            return False
+        log.info(f"Applied metadata from {source} for book: {book.title}")
+        return True
 
 
 def _apply_metadata_to_book(book, metadata, calibre_db_instance) -> bool:

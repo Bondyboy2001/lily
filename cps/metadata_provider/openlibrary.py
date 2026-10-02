@@ -7,6 +7,7 @@
 
 # Open Library: free, no key. https://openlibrary.org/developers/api
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -68,9 +69,14 @@ class OpenLibrary(Metadata):
 
     def _get_json(self, path: str, params: Optional[Dict] = None) -> Optional[Dict]:
         try:
-            response = requests.get(
-                self.BASE_URL + path, params=params, headers=self.HEADERS, timeout=15
-            )
+            for attempt in range(2):
+                response = requests.get(
+                    self.BASE_URL + path, params=params, headers=self.HEADERS, timeout=15
+                )
+                # Busy (Rebuild metadata asks for several books at once): ask once more after a pause
+                if response.status_code != 429 or attempt:
+                    break
+                time.sleep(2)
             response.raise_for_status()
             return response.json()
         except Exception as e:

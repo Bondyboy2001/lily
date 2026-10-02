@@ -11,7 +11,7 @@ first author, and with "Write edits into book files" on, the change is queued fo
 
 import json
 import os
-import time
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime
 
 from flask_babel import lazy_gettext as N_
@@ -23,8 +23,8 @@ from cps.ub import init_db_thread
 
 log = logger.create()
 
-# Pause between books so a whole library doesn't trip the providers' rate limits
-PAUSE_SECONDS = 1.0
+# Books looked up at once: a lookup is mostly waiting on the providers, a few seconds a book
+WORKERS = 4
 # The metadata-change-detector service hands each log here to cover_enforcer.py
 CHANGE_LOGS_DIR = "/app/calibre-web-automated/metadata_change_logs"
 # The formats cover_enforcer.py can write metadata into
@@ -32,9 +32,9 @@ ENFORCED_FORMATS = {"EPUB", "AZW3"}
 
 
 class TaskRebuildMetadata(CalibreTask):
-    def __init__(self, pause=PAUSE_SECONDS):
+    def __init__(self, workers=WORKERS):
         super(TaskRebuildMetadata, self).__init__(N_('Rebuilding metadata'))
-        self.pause = pause
+        self.workers = workers
         self.checked = 0
         self.updated = 0
         self.write_files = False
@@ -51,7 +51,7 @@ class TaskRebuildMetadata(CalibreTask):
         return self.stat in (STAT_CANCELLED, STAT_ENDED)
 
     def run(self, worker_thread):
-        from cps.metadata_helper import fetch_and_apply_metadata
+        from cps.metadata_helper import fetch_and_apply_metadata, library_lock
         try:
             init_db_thread()
         except Exception:
@@ -60,26 +60,33 @@ class TaskRebuildMetadata(CalibreTask):
         cdb = db.CalibreDB(expire_on_commit=False, init=True)
         try:
             self.write_files = bool(_cwa_settings().get('auto_metadata_enforcement'))
-            self._tidy_tags(cdb)
-            book_ids = [row[0] for row in cdb.session.query(db.Books.id).order_by(db.Books.id).all()]
+            with library_lock:
+                self._tidy_tags(cdb)
+                book_ids = [row[0] for row in cdb.session.query(db.Books.id).order_by(db.Books.id).all()]
             total = len(book_ids)
-            for book_id in book_ids:
-                if self._stopped():
-                    self.message = N_('Stopped: %(checked)s of %(total)s books checked, %(updated)s updated',
-                                      checked=self.checked, total=total, updated=self.updated)
-                    return
-                before = _title_and_author(cdb, book_id)
-                if before and fetch_and_apply_metadata(book_id, force=True):
-                    self.updated += 1
-                    self._follow_up(cdb, book_id, before)
-                self.checked += 1
-                self.progress = self.checked / total
-                self.message = N_('%(checked)s of %(total)s books checked, %(updated)s updated',
+            running = {}
+            with ThreadPoolExecutor(max_workers=self.workers) as pool:
+                for book_id in book_ids:
+                    while len(running) >= self.workers:
+                        self._finish(cdb, running, total)
+                    if self._stopped():
+                        break
+                    with library_lock:
+                        before = _title_and_author(cdb, book_id)
+                    if before:
+                        running[pool.submit(fetch_and_apply_metadata, book_id, force=True)] = (book_id, before)
+                    else:
+                        self._count(total)
+                # A stop lets the books under way finish
+                while running:
+                    self._finish(cdb, running, total)
+            if self._stopped():
+                self.message = N_('Stopped: %(checked)s of %(total)s books checked, %(updated)s updated',
                                   checked=self.checked, total=total, updated=self.updated)
-                if self.checked < total and self.pause:
-                    time.sleep(self.pause)
+                return
         finally:
-            cdb.session.close()
+            with library_lock:
+                cdb.session.close()
             if self.updated:
                 try:
                     from cps.duplicate_index import mark_duplicate_index_pending
@@ -89,6 +96,24 @@ class TaskRebuildMetadata(CalibreTask):
         self.message = N_('Done: %(total)s books checked, %(updated)s updated', total=total, updated=self.updated)
         log.info("Metadata rebuild finished: %s books checked, %s updated", total, self.updated)
         self._handleSuccess()
+
+    def _finish(self, cdb, running, total):
+        """Wait for a lookup to end, then keep its book in step."""
+        from cps.metadata_helper import library_lock
+        done, __ = wait(running, return_when=FIRST_COMPLETED)
+        for future in done:
+            book_id, before = running.pop(future)
+            if future.result():
+                self.updated += 1
+                with library_lock:
+                    self._follow_up(cdb, book_id, before)
+            self._count(total)
+
+    def _count(self, total):
+        self.checked += 1
+        self.progress = self.checked / total
+        self.message = N_('%(checked)s of %(total)s books checked, %(updated)s updated',
+                          checked=self.checked, total=total, updated=self.updated)
 
     def _tidy_tags(self, cdb):
         """Clear out tags that are not subjects first: it takes seconds, the lookups take hours."""

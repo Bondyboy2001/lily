@@ -92,12 +92,12 @@ def test_rebuild_tidies_every_books_tags_before_the_lookups(env, monkeypatch):
     monkeypatch.setattr("cps.duplicate_index.mark_duplicate_index_pending", lambda reason=None: None)
 
     with env.app.test_request_context():
-        TaskRebuildMetadata(pause=0).start(None)
+        TaskRebuildMetadata().start(None)
 
     by_book, names = _tags(env)
     assert by_book == {first: ["Mathematics"], second: ["functional analysis", "Mathematics"]}
     assert names == {"Mathematics", "functional analysis"}
-    assert seen == [by_book[first], by_book[second]]
+    assert sorted(seen) == sorted([by_book[first], by_book[second]])
 
 
 @pytest.mark.unit
