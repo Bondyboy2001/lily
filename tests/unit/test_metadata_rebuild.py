@@ -78,12 +78,18 @@ def test_rebuild_route_queues_one_task_for_admins(env, monkeypatch):
     assert c.post("/cwa-settings/rebuild-metadata").get_json() == {"success": True, "running": True}
     assert len(queued) == 1
 
+    status = "/cwa-settings/rebuild-metadata/status"
+    assert c.get(status).get_json() == {"state": "running", "message": "Waiting to start…"}
+
     from cps.services.worker import STAT_CANCELLED
     assert c.post("/cwa-settings/rebuild-metadata/stop").get_json() == {"success": True, "stopped": 1}
     assert queued[0].stat == STAT_CANCELLED
-    # Still on its last book: no second rebuild beside it until it has finished
+    # Still on its last book: no second rebuild beside it until it has finished, and the
+    # page keeps following it rather than offering Rebuild again
     assert c.post("/cwa-settings/rebuild-metadata").get_json() == {"success": True, "running": True}
+    assert c.get(status).get_json()["state"] == "stopping"
     queued[0].finished = True
+    assert c.get(status).get_json()["state"] == "stopped"
     assert c.post("/cwa-settings/rebuild-metadata").get_json()["task_id"] == str(queued[1].id)
     queued.pop()
 
@@ -115,6 +121,30 @@ def test_settings_page_offers_the_rebuild(env):
     html = _login(env).get("/cwa-settings").get_data(as_text=True)
     assert 'id="rebuild_metadata"' in html and 'data-url="/cwa-settings/rebuild-metadata"' in html
     assert 'id="rebuildMetadataModal"' in html and "js/lily-metadata-rebuild.js" in html
+    assert 'data-status-url="/cwa-settings/rebuild-metadata/status"' in html
+
+
+@pytest.mark.unit
+def test_status_tells_how_the_last_rebuild_ended(env, monkeypatch):
+    from cps.services.worker import WorkerThread
+    from cps.tasks.metadata_rebuild import TaskRebuildMetadata
+    c = _login(env)
+    status = "/cwa-settings/rebuild-metadata/status"
+    monkeypatch.setattr(WorkerThread, "tasks", property(lambda self: []))
+    assert c.get(status).get_json() == {"state": "idle", "message": ""}
+
+    env.add_book("One")
+    monkeypatch.setattr("cps.metadata_helper.fetch_and_apply_metadata", lambda book_id, force=False: False)
+    task = TaskRebuildMetadata(workers=1)
+    monkeypatch.setattr(WorkerThread, "tasks", property(lambda self: [(1, "admin", None, task, False)]))
+    with env.app.test_request_context():
+        task.start(None)
+    assert c.get(status).get_json() == {"state": "done", "message": "Done: 1 books checked, 0 updated"}
+
+    task._handleError("disk full")
+    assert c.get(status).get_json() == {"state": "failed", "message": "The rebuild failed: disk full"}
+    env.add_user("reader", password="pw")
+    assert _login(env, "reader", "pw").get(status).status_code in (302, 403)
 
 
 def _provider_returning(**found):

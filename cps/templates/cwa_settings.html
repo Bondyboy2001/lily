@@ -22,7 +22,7 @@
       {# lily-metadata-rebuild.js: confirms, queues the task and shows its progress under the label #}
       {% call f.row(_('Rebuild metadata')) %}
         <button type="button" class="btn btn-default" id="rebuild_metadata"
-                data-url="{{ url_for('cwa_settings.rebuild_metadata') }}" data-status-url="{{ url_for('web.get_email_status_json') }}">
+                data-url="{{ url_for('cwa_settings.rebuild_metadata') }}" data-status-url="{{ url_for('cwa_settings.rebuild_metadata_status') }}">
           <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> {{ _('Rebuild') }}
         </button>
         <button type="button" class="btn btn-default" id="rebuild_metadata_stop" hidden

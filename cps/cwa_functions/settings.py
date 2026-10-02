@@ -88,6 +88,35 @@ def stop_rebuild_metadata():
     return jsonify({"success": True, "stopped": len(running)})
 
 
+@cwa_settings.route("/cwa-settings/rebuild-metadata/status")
+@login_required_if_no_ano
+@admin_required
+def rebuild_metadata_status():
+    """The latest rebuild, for the settings page's status line. `state` is idle (none since the
+    server started), running, stopping (stopped, finishing the books under way), stopped, done
+    or failed."""
+    from ..services.worker import WorkerThread, STAT_WAITING, STAT_STARTED, STAT_FAIL, STAT_FINISH_SUCCESS
+    rebuilds = [task for __, __, __, task, __ in WorkerThread.get_instance().tasks
+                if type(task).__name__ == "TaskRebuildMetadata"]
+    if not rebuilds:
+        return jsonify({"state": "idle", "message": ""})
+    task = rebuilds[-1]
+    message = str(task.message)
+    if task.stat == STAT_WAITING:
+        state, message = "running", _("Waiting to start…")
+    elif task.stat == STAT_STARTED:
+        state = "running"
+    elif task.stat == STAT_FAIL:
+        state, message = "failed", _("The rebuild failed: %(error)s", error=task.error or _("see the logs"))
+    elif task.stat == STAT_FINISH_SUCCESS:
+        state = "done"
+    elif getattr(task, "finished", True):
+        state = "stopped"
+    else:
+        state, message = "stopping", _("Stopping after the books under way…")
+    return jsonify({"state": state, "message": message})
+
+
 def _running_rebuilds(including_stopping=False):
     """Rebuild tasks still to finish; with including_stopping, also those stopped but still on
     their last book, so a new rebuild never runs beside one."""
