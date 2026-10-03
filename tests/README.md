@@ -31,11 +31,11 @@ cd tests/e2e && npm install --no-save playwright && BASE_URL=http://localhost:80
 
 ## CI
 
-`.github/workflows/tests.yml` runs on every push:
+`.github/workflows/tests.yml` runs on pushes to branches other than `main`, on pull requests and nightly on `main`:
 
 - **Lint**: ruff, vulture and mypy.
 - **Fast Tests**: `pytest -m "smoke or unit" -n auto` on Python 3.13 with the `requirements.lock` pins.
 - **Docker Build** (pull requests): builds the image, waits for `/health`, then runs `e2e/smoke.mjs`.
-- **Integration Tests** (pushes to `main`, or a manual run with `run_integration`): `pytest tests/integration`.
+- **Integration Tests** (the nightly run, or a manual run with `run_integration`): `pytest tests/integration`.
 
-`.github/workflows/release.yml` repeats lint, the smoke and unit tests and a container `/health` check before it publishes the image.
+`.github/workflows/release.yml` gates every push to `main`: ruff, vulture, mypy, the smoke and unit tests and a container `/health` check, then it publishes the image. `.github/workflows/audit.yml` runs pip-audit weekly.

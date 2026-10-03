@@ -1,6 +1,6 @@
 """Static checks that the duplicates page follows docs/design.md.
 
-Colours live in lily.css only; the page, its stylesheet (lily-stats.css) and its scripts use tokens.
+Colours live in lily.css only; the page, its stylesheet (lily-duplicates.css) and its scripts use tokens.
 """
 import re
 from pathlib import Path
@@ -13,7 +13,7 @@ JS = REPO_ROOT / "cps/static/js"
 TEMPLATES = REPO_ROOT / "cps/templates"
 
 DUPLICATES_TEMPLATES = ["duplicates.html"]
-DUPLICATES_STYLESHEETS = ["lily-stats.css"]
+DUPLICATES_STYLESHEETS = ["lily-duplicates.css"]
 DUPLICATES_SCRIPTS = ["duplicates.js", "duplicate-notifier.js"]
 
 HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
@@ -32,7 +32,7 @@ def strip_comments(text):
 
 @pytest.mark.parametrize("name", DUPLICATES_TEMPLATES)
 def test_duplicates_templates_have_no_inline_style_blocks(name):
-    assert "<style" not in read(TEMPLATES / name), f"{name}: move inline <style> into lily-stats.css"
+    assert "<style" not in read(TEMPLATES / name), f"{name}: move inline <style> into lily-duplicates.css"
 
 
 @pytest.mark.parametrize("name", DUPLICATES_TEMPLATES)
@@ -71,7 +71,7 @@ def test_duplicates_empty_state_follows_the_guide():
     html = read(TEMPLATES / "duplicates.html")
     assert "image.empty_state('glyphicon-ok-circle', _('No Duplicate Books')" in html
     assert "stats-empty" not in html
-    assert ".stats-empty" not in read(CSS / "lily-stats.css")
+    assert ".stats-empty" not in read(CSS / "lily-duplicates.css")
 
 
 def test_duplicates_empty_state_offers_a_scan():

@@ -52,11 +52,8 @@ cleanup_temp_files() {
                 ((cleaned_count++))
             fi
             
-            # Clean up old conversion temp files (older than 1 hour)
+            # Clean up old temp files (older than 1 hour)
             if find "$temp_dir" -name "*.tmp" -mmin +60 -delete 2>/dev/null; then
-                ((cleaned_count++))
-            fi
-            if find "$temp_dir" -name "*_converting_*" -mmin +60 -delete 2>/dev/null; then
                 ((cleaned_count++))
             fi
         fi

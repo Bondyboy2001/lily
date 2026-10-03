@@ -803,7 +803,7 @@ transitions are turned off in `lily.js`.
 | `lily-shell.css` | Sidebar, top bar, flashes, toast, drawer |
 | `lily-library.css` | Grid, list view, toolbar, book page, editor, search, pickers |
 | `lily-admin.css` | Settings frame (`.lp-*`), admin pages, logs, error page |
-| `lily-stats.css` | Duplicates page (the name predates the stats removal; rename to `lily-duplicates.css`) |
+| `lily-duplicates.css` | Duplicates page |
 | `lily-reader.css` | Reader chrome (loaded only by reader templates) |
 | `lily-pdf.css` | pdf.js toolbar sizing (loaded only by `readpdf.html`) |
 | `lily-icons.css` | Generated icons |

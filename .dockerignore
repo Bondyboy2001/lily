@@ -1,44 +1,38 @@
-docs/assets
-docker-compose.yml
+# Repo and editor files
 .git
 .github
 .gitignore
-.github/workflows
 .gitattributes
-**/*.po~
+.editorconfig
+.dockerignore
+Dockerfile
+docker-compose.yml
+docker-compose.yml.dev
+docker-compose.local.yml
 README.md
 LICENSE
-Dockerfile
-.dockerignore
-.history
-docker-compose.yml.dev
-.devcontainer
+AGENTS.md
+vulture_whitelist.py
 
 # Test infrastructure (not needed in production image)
 tests/
 pytest.ini
 requirements-dev.txt
-TEST*.md
-TESTING*.md
 .pytest_cache/
+
 # Local development files (a local .venv alone is ~450MB)
 .venv/
 venv/
 **/__pycache__/
 **/*.pyc
 .ruff_cache/
-docs/
 .playwright-mcp/
 .superpowers/
 .claude/
-docker-compose.local.yml
 
 # Docs, scratch data and caches never needed at runtime
 docs/
 private/
 *.db
-# Local Fernet key left in the tree by a dev run — never bake it into the image
+# Local Fernet key left in the tree by a dev run; never bake it into the image
 .key
-**/__pycache__/
-*.pyc
-messages.pot

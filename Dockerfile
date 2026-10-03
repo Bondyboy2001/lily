@@ -78,7 +78,6 @@ RUN \
   inotify-tools \
   python3.13 \
   sqlite3 \
-  zip \
   libasound2t64 \
   libxtst6 \
   libxrandr2 \
@@ -94,7 +93,6 @@ RUN \
   libxdamage1 \
   libgl1 \
   libglx-mesa0 \
-  xz-utils \
   curl && \
   # Create python3 symlink to point to python3.13
   ln -sf /usr/bin/python3.13 /usr/bin/python3 && \

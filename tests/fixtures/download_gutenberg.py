@@ -27,9 +27,6 @@ BASE_URL = "https://www.gutenberg.org/cache/epub"
 # Format: (gutenberg_id, title, author, formats_to_download)
 BOOKS = [
     (11, "alice_in_wonderland", "Lewis Carroll", ["epub"]),
-    (5200, "metamorphosis", "Franz Kafka", ["epub"]),
-    (46, "christmas_carol", "Charles Dickens", ["epub"]),
-    (1661, "sherlock_holmes", "Arthur Conan Doyle", ["epub"]),
 ]
 
 # Expected file sizes (approximate, for validation)

@@ -323,7 +323,7 @@ def test_detail_fact_tags_are_file_arxiv_and_date_only():
 
 def test_site_has_no_horizontal_separator_borders():
     names = ["style.css", "lily.css", "lily-shell.css", "lily-library.css",
-             "lily-admin.css", "lily-stats.css", "lily-reader.css",
+             "lily-admin.css", "lily-duplicates.css", "lily-reader.css",
              "login.css"]
     rule = r"border-(?:top|bottom):\s*1px solid var\(--line(?:-soft)?\)"
     for name in names:

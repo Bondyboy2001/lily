@@ -2,14 +2,11 @@
 
 ## Sample books
 
-`sample_books/` holds four public-domain EPUBs from [Project Gutenberg](https://www.gutenberg.org/):
+`sample_books/` holds a public-domain EPUB from [Project Gutenberg](https://www.gutenberg.org/):
 
 - `alice_in_wonderland.epub` - "Alice's Adventures in Wonderland", Lewis Carroll (1865)
-- `christmas_carol.epub` - "A Christmas Carol", Charles Dickens (1843)
-- `metamorphosis.epub` - "Metamorphosis", Franz Kafka (1915)
-- `sherlock_holmes.epub` - "The Adventures of Sherlock Holmes", Arthur Conan Doyle (1892)
 
-The integration tests drop one of these into the ingest folder as a real-world book. They are committed, so tests don't need the network. To fetch them again:
+The integration tests drop it into the ingest folder as a real-world book. It is committed, so tests don't need the network. To fetch it again:
 
 ```bash
 cd tests/fixtures && python download_gutenberg.py
