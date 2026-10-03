@@ -306,6 +306,10 @@ def test_detail_page_is_a_frontispiece_stage():
     # A flush corner square, not a ringed disc.
     assert "border-radius: 0 8px 0 6px" in dot and "border:" not in dot
     assert "top: 0" in dot and "right: 0" in dot
+    # On a list row's 28px thumbnail it shrinks to a corner tab instead of covering it.
+    tab = next(body for selector, body in rules
+               if selector == 'body[data-book-view="list"] .lily-grid > .lily-book .cover .lily-fetched')
+    assert "width: 12px" in tab and "height: 12px" in tab and "border-radius: 0 3px 0 3px" in tab
     assert "position: relative" in next(body for selector, body in rules if selector == ".book-detail-cover")
     info = next(body for selector, body in rules if selector == "dl.book-info")
     assert "display: grid" in info and "border" not in info

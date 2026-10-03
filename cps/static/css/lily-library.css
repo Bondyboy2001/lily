@@ -575,6 +575,15 @@ body[data-book-view="list"] .lily-grid > .lily-book .cover .img {
     outline-offset: -1px;
 }
 
+/* The fetched mark shrinks to a 12px corner tab on the 28px thumbnail; at the grid's 26px it
+   would hide the cover. Its corners follow the thumbnail's 3px radius. */
+body[data-book-view="list"] .lily-grid > .lily-book .cover .lily-fetched {
+    width: 12px;
+    height: 12px;
+    border-radius: 0 3px 0 3px;
+    font-size: 7px;
+}
+
 /* The title's dot carries the read state, so the thumbnail keeps no badge. */
 body[data-book-view="list"] .lily-grid > .lily-book .cover .badge.read {
     display: none;

@@ -554,7 +554,8 @@ content (grid, panel, rows)
   square with a `--surface` check and no ring, flush in the cover's top-right corner (outer
   corner radius 8 to follow the cover, inner corner 6), once a metadata
   lookup has matched the book; its tooltip and label say where from and when ("Metadata fetched
-  from Open Library on ‹date›"). Grid cards carry the same mark at 26px.
+  from Open Library on ‹date›"). Grid cards carry the same mark at 26px, and list rows at 12px
+  (radius 0 3 0 3, to fit the 28px thumbnail).
   No dot before a lookup, or after one that found nothing.
 - **Details dialog** (`#bookInfoModal`, §5.7): the info button in the action bar opens
   "Book Details", a two-column `dl.book-info` (label `--muted`, value `--ink`, 15px, rows
