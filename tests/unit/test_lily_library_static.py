@@ -415,6 +415,8 @@ def test_card_quick_actions_are_round_buttons_under_the_title():
     css = read(CSS / "lily-library.css")
     bar = next(body for sel, body in css_rules(css) if sel == ".lily-cover-actions")
     assert "--btn-radius: 50%" in bar and "position: absolute" not in bar
+    # Always shown, on every device: nothing hides them until hover
+    assert not [s for s, b in css_rules(css) if "lily-cover-actions" in s and "opacity" in b]
     assert "--cover-tint" not in css and "--cover-tint" not in read(JS / "lily.js")
     card = re.search(r"{% macro book_card.*?{%- endmacro %}", read(TEMPLATES / "image.html"), flags=re.S).group(0)
     cover = card[card.index('<div class="cover">'):card.index('<div class="meta">')]

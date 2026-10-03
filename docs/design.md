@@ -480,8 +480,8 @@ content (grid, panel, rows)
   two lines (kept two lines tall, so rows line up), and no author line (the book page carries the byline).
   Quick actions are a row of round buttons under the title, 8px below it, 6 apart, never on the
   cover (they would hide its art and be hard to tap on a phone): 32px `--surface` discs with a 1px
-  `--line` edge, no shadow, `--ink` icons, `--accent` on hover. With a pointer they rise and fade in
-  on hover/focus, their row kept so nothing shifts; on touch they stay visible (36px, 8 apart). Read state fills the eye's disc
+  `--line` edge, no shadow, `--ink` icons, `--accent` on hover. Always shown, never revealed on
+  hover, so every device finds them in the same place; on touch they are 36px, 8 apart. Read state fills the eye's disc
   `--success` with a `--surface` eye. No popups over the cover or its buttons (§5.6).
 - **Browse lists** (`list.html`: the authors list): one
   `.lily-list` flowed into 300px CSS columns, gap 22, so each count sits
@@ -745,7 +745,6 @@ request says so in one quiet line at the foot of the page (`#bookmark-status`,
 | Hover lift | 300 ms, `translateY(-5px)` | Grid covers |
 | Toast | 180 ms in, 200 ms out | `.lily-refresh-toast` |
 | Drawer slide | 120 ms `ease-out` | App drawer, reader sidebar |
-| Cover actions rise | 300 ms, same curve as the hover lift | Grid quick actions |
 | Search widen | 400 ms, entrance curve | Top bar search on focus |
 | Refresh spin | 800 ms once on hover | `#refresh-library` |
 | Read-mark draw | 450 ms, entrance curve | An eye just marked read |

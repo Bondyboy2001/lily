@@ -364,9 +364,9 @@
 }
 
 /* Quick actions: a row of round buttons under the title, off the cover so they never hide its
-   art and stay easy to tap on a phone. Where there is a pointer they fade in on hover or
-   keyboard focus; their row is kept, so nothing shifts. Each is a --surface disc with a --line
-   edge, skinned through the --btn-* variables. */
+   art and stay easy to tap on a phone. They are always shown, never revealed on hover, so every
+   device finds them in the same place. Each is a --surface disc with a --line edge, skinned
+   through the --btn-* variables. */
 .lily-cover-actions {
     --btn-size: 32px;
     --btn-bg: var(--surface);
@@ -407,18 +407,8 @@
     color: var(--surface);
 }
 
-@media (hover: hover) {
-    .lily-cover-actions {
-        opacity: 0;
-        transition: opacity .12s ease-out;
-    }
-
-    .lily-book:hover .lily-cover-actions,
-    .lily-book:focus-within .lily-cover-actions { opacity: 1; }
-}
-
-/* Motion: covers fade in one after another on load (lily.js sets --i), lift on hover, and
-   the action buttons rise a little as they fade in. Skipped entirely under reduced motion. */
+/* Motion: covers fade in one after another on load (lily.js sets --i) and lift on hover.
+   Skipped entirely under reduced motion. */
 @media (prefers-reduced-motion: no-preference) {
     .lily-grid > .lily-book {
         animation: lily-card-in .6s cubic-bezier(.25, .46, .45, .94) both;
@@ -433,16 +423,6 @@
     .lily-book .meta .title { transition: color .12s ease-out; }
 
     .lily-book:hover .meta .title { color: var(--accent); }
-
-    @media (hover: hover) {
-        .lily-cover-actions {
-            transform: translateY(4px);
-            transition: transform .3s cubic-bezier(.25, .46, .45, .94), opacity .12s ease-out;
-        }
-
-        .lily-book:hover .lily-cover-actions,
-        .lily-book:focus-within .lily-cover-actions { transform: none; }
-    }
 
     .lily-cover-actions .icon-btn { transition: background-color .12s, color .12s; }
 }
@@ -462,8 +442,8 @@
     from { opacity: 0; transform: translateY(12px); }
 }
 
-/* Touch screens have no hover, so the buttons stay visible, a little larger and further apart
-   (the 44px hit area comes from .icon-btn::after). */
+/* Touch screens get the buttons a little larger and further apart (the 44px hit area comes
+   from .icon-btn::after). */
 @media (hover: none) {
     .lily-cover-actions { --btn-size: 36px; gap: 8px; }
 }
