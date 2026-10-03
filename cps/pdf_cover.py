@@ -6,7 +6,7 @@
 A PDF's cover is a render of page 1, and many papers sit off-centre on the page (set for A4,
 printed on US Letter), so the grid showed a wide white band down one side. recentre_cover
 renders page 1 again, trims the side margins to match (arXiv's stamp down the left margin
-counts as print) and saves that as cover.jpg.
+is cropped off first) and saves that as cover.jpg.
 
 A book whose only files are PDFs always shows page 1: a provider's cover on it is replaced.
 One chosen by hand (ticked in Fetch metadata, or uploaded) is kept, and so is any cover of a
@@ -40,6 +40,16 @@ INK_SHARE = 0.004
 MIN_MARGIN = 0.03
 # Less than this share of the width to trim leaves the cover as it is
 MIN_TRIM = 0.03
+# A left-margin stamp must start in this share of the width, and not on the edge itself
+STAMP_ZONE = 0.12
+# ...be no wider than this share of the width
+STAMP_WIDTH = 0.05
+# ...have this much blank page between it and the print
+STAMP_GAP = 0.03
+# ...and run down at least this share of the height (a small logo is not a stamp)
+STAMP_HEIGHT = 0.25
+# The crop edge lands this share of the width into the blank gap, off the stamp
+STAMP_PAD = 0.01
 # Width the page is scaled to for measuring; the crop is scaled back up
 MEASURE_WIDTH = 400
 # Size and closeness for "this cover is still the plain page render"
@@ -53,33 +63,74 @@ PLACEHOLDER_MD5 = '9173cbd4f0e3c7757e27fa5ec5a982dd'
 _render_lock = threading.Lock()
 
 
-def ink_columns(gray, width, height):
-    """(first, last) column with print in a row-major 8-bit grey image, or None for a blank page."""
-    need = max(2, int(height * INK_SHARE))
+def _ink_counts(gray, width, height):
+    """Per-column print pixel counts of a row-major 8-bit grey image."""
     counts = [0] * width
     for y in range(height):
         row = gray[y * width:(y + 1) * width]
         for x, level in enumerate(row):
             if level < INK_LEVEL:
                 counts[x] += 1
-    columns = [x for x, count in enumerate(counts) if count >= need]
+    return counts
+
+
+def ink_columns(gray, width, height, start=0):
+    """(first, last) column with print in a row-major 8-bit grey image, or None for a blank
+    page. Columns before start are ignored."""
+    need = max(2, int(height * INK_SHARE))
+    counts = _ink_counts(gray, width, height)
+    columns = [x for x in range(start, width) if counts[x] >= need]
     if not columns:
         return None
     return columns[0], columns[-1]
 
 
-def balanced_crop(width, height, first, last):
+def left_stamp(gray, width, height):
+    """(start, end) columns of a stamp down the left margin, or None.
+
+    arXiv prints its id down the left edge of every page: a tall, thin band of print set off
+    from the body by a blank gap. The leftmost cluster of ink columns (gaps under STAMP_GAP
+    joined, as thin glyph strokes can leave a column below the threshold) is a stamp when it
+    sits in the left zone (but off the very edge, where a scan's border runs), is narrow, has
+    more print beyond it, and is tall."""
+    need = max(2, int(height * INK_SHARE))
+    counts = _ink_counts(gray, width, height)
+    columns = [x for x, count in enumerate(counts) if count >= need]
+    if not columns or columns[0] <= 0 or columns[0] > width * STAMP_ZONE:
+        return None
+    start = columns[0]
+    end = start
+    i = 0
+    while i + 1 < len(columns) and columns[i + 1] - end - 1 < width * STAMP_GAP:
+        i += 1
+        end = columns[i]
+    if end - start + 1 > width * STAMP_WIDTH:
+        return None
+    rest = columns[i + 1:]
+    if not rest:
+        return None
+    rows = [y for y in range(height)
+            if min(gray[y * width + start:y * width + end + 1]) < INK_LEVEL]
+    if rows[-1] - rows[0] + 1 < height * STAMP_HEIGHT:
+        return None
+    return start, end
+
+
+def balanced_crop(width, height, first, last, stamp_end=None):
     """(left, right) edges that give the print even side margins, or None to keep the page.
 
     The margins shrink to the narrower of the two, then further if that still leaves the page
-    wider than the A4 grid tile, which would otherwise trim one side again. A print that runs
-    to an edge (a scan's dark border) is left alone."""
+    wider than the A4 grid tile, which would otherwise trim one side again. With stamp_end
+    (the last column of a left-margin stamp) the left edge stays off it, in the blank gap.
+    A print that runs to an edge (a scan's dark border) is left alone."""
     if first <= 0 or last >= width - 1:
         return None
     ink = last - first + 1
     margin = min(first, width - 1 - last)
     fit = (height * TILE_RATIO - ink) / 2
     margin = int(min(margin, max(fit, width * MIN_MARGIN)))
+    if stamp_end is not None:
+        margin = min(margin, first - stamp_end - 1 - int(width * STAMP_PAD))
     left, right = first - margin, last + 1 + margin
     # A few pixels off is not worth rewriting the cover for
     if width - (right - left) < width * MIN_TRIM:
@@ -128,10 +179,15 @@ def centred_page(page):
     width, height = page.width, page.height
     scale = MEASURE_WIDTH / width
     small_size = (MEASURE_WIDTH, max(1, round(height * scale)))
-    found = ink_columns(_gray(page, small_size), *small_size)
+    gray = _gray(page, small_size)
+    stamp = left_stamp(gray, *small_size)
+    if stamp is not None:
+        found = ink_columns(gray, *small_size, start=stamp[1] + 1)
+    else:
+        found = ink_columns(gray, *small_size)
     if found is None:
         return None
-    crop = balanced_crop(*small_size, *found)
+    crop = balanced_crop(*small_size, *found, stamp_end=stamp[1] if stamp else None)
     if crop is None:
         return None
     left, right = max(0, int(crop[0] / scale)), min(width, int(round(crop[1] / scale)))

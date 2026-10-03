@@ -5,7 +5,7 @@ import sqlite3
 import pytest
 
 from cps import pdf_cover
-from cps.pdf_cover import balanced_crop, ink_columns, same_page
+from cps.pdf_cover import balanced_crop, ink_columns, left_stamp, same_page
 
 from .lily_env import lily_env
 
@@ -28,7 +28,7 @@ def test_ink_columns_finds_the_print_and_ignores_a_speck():
 
 @pytest.mark.unit
 def test_lopsided_page_gets_even_margins():
-    # The arXiv paper: Letter page, print from the stamp at 60 to 920 of 1275
+    # A Letter page whose print (60 to 920 of 1275) sits left of centre
     left, right = balanced_crop(1275, 1650, 60, 920)
     assert left == 0 and right == 921 + 60
     # An even page wider than the A4 tile loses a little off both sides instead of one
@@ -41,6 +41,44 @@ def test_pages_that_need_no_crop_are_left_alone():
     assert balanced_crop(1166, 1650, 150, 1015) is None   # already even and A4 shaped
     assert balanced_crop(1275, 1650, 0, 1100) is None     # print runs off the edge: a scan or cover art
     assert balanced_crop(1166, 1650, 140, 1015) is None   # a few pixels out
+
+
+STAMP_PAGE = [(19, 150, 33, 400), (80, 60, 300, 460)]
+
+
+@pytest.mark.unit
+def test_left_stamp_finds_a_tall_thin_band():
+    assert left_stamp(_page(400, 518, STAMP_PAGE), 400, 518) == (19, 32)
+    # Below-threshold columns inside the glyph band do not split it
+    page = _page(400, 518, [(19, 150, 25, 400), (27, 150, 33, 400), (80, 60, 300, 460)])
+    assert left_stamp(page, 400, 518) == (19, 32)
+
+
+@pytest.mark.unit
+def test_left_stamp_leaves_other_left_print_alone():
+    page = _page(400, 518, [(19, 150, 33, 180), (80, 60, 300, 460)])
+    assert left_stamp(page, 400, 518) is None            # a short logo, not a stamp
+    page = _page(400, 518, [(19, 150, 45, 400), (80, 60, 300, 460)])
+    assert left_stamp(page, 400, 518) is None            # wider than 5% of the page
+    page = _page(400, 518, [(19, 150, 33, 400), (33, 60, 300, 460)])
+    assert left_stamp(page, 400, 518) is None            # no blank gap before the print
+    page = _page(400, 518, [(55, 150, 69, 400), (100, 60, 300, 460)])
+    assert left_stamp(page, 400, 518) is None            # starts outside the left zone
+    assert left_stamp(_page(400, 518, [(19, 150, 33, 400)]), 400, 518) is None  # nothing right of it
+    page = _page(400, 518, [(0, 150, 14, 400), (80, 60, 300, 460)])
+    assert left_stamp(page, 400, 518) is None            # a scan border touching the edge
+
+
+@pytest.mark.unit
+def test_ink_columns_with_start_skips_the_stamp():
+    assert ink_columns(_page(400, 518, STAMP_PAGE), 400, 518, start=33) == (80, 299)
+
+
+@pytest.mark.unit
+def test_balanced_crop_crops_the_stamp_out():
+    left, right = balanced_crop(400, 518, 80, 299, stamp_end=32)
+    assert left > 32
+    assert 80 - left == right - 300
 
 
 @pytest.mark.unit
@@ -76,6 +114,40 @@ def test_recentre_cover_with_imagemagick(tmp_path):
     with wand_image.Image(filename=cover) as done:
         # The render's pixel size depends on the PDF's page size; the proportions do not
         assert abs(done.width / done.height - 981 / 1650) < 0.01
+    assert not pdf_cover.recentre_cover(pdf, cover)       # already centred
+
+
+@pytest.mark.unit
+def test_recentre_cover_crops_an_arxiv_stamp(tmp_path):
+    wand_image = pytest.importorskip("wand.image", exc_type=ImportError)
+    from wand.color import Color
+    from wand.drawing import Drawing
+    from wand.exceptions import WandException
+    pdf, cover = str(tmp_path / "stamp.pdf"), str(tmp_path / "cover.jpg")
+    with wand_image.Image(width=1275, height=1650, background=Color("white"), resolution=150) as img, \
+            Drawing() as draw:
+        draw.fill_color = Color("black")
+        draw.rectangle(left=60, top=450, right=105, bottom=1250)    # the stamp down the left margin
+        draw.rectangle(left=250, top=200, right=920, bottom=1400)   # the body print
+        draw(img)
+        try:
+            img.save(filename=pdf)
+        except WandException as ex:
+            pytest.skip("ImageMagick cannot write PDFs here: %s" % ex)
+        img.format = "jpeg"
+        img.save(filename=cover)
+    try:
+        assert pdf_cover.recentre_cover(pdf, cover)
+    except WandException as ex:
+        pytest.skip("ImageMagick cannot read PDFs here: %s" % ex)
+    # The stamp is cropped out: the margins are those of the body print alone, the left one
+    # capped to stay inside the blank gap beside the stamp
+    small_h = round(1650 * pdf_cover.MEASURE_WIDTH / 1275)
+    first, last = round(250 * pdf_cover.MEASURE_WIDTH / 1275), round(920 * pdf_cover.MEASURE_WIDTH / 1275) - 1
+    crop = balanced_crop(pdf_cover.MEASURE_WIDTH, small_h, first, last,
+                         stamp_end=round(105 * pdf_cover.MEASURE_WIDTH / 1275))
+    with wand_image.Image(filename=cover) as done:
+        assert abs(done.width / done.height - (crop[1] - crop[0]) / small_h) < 0.01
     assert not pdf_cover.recentre_cover(pdf, cover)       # already centred
 
 
