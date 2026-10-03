@@ -94,7 +94,7 @@ def test_the_editor_hides_the_field_behind_add_edition_until_there_is_one(env):
     assert 'name="edition" id="edition" value="9"' in html
 
 
-def test_the_book_page_shows_the_edition_on_the_plate_to_everyone(env):
+def test_the_book_page_shows_the_edition_in_the_stage_corner_to_everyone(env):
     book = env.add_book("Probability", author="Robert Hogg")
     assert "book-edition" not in _login(env).get(f"/book/{book}").get_data(as_text=True)
     from cwa_db import CWA_DB
@@ -102,19 +102,21 @@ def test_the_book_page_shows_the_edition_on_the_plate_to_everyone(env):
     env.add_user("reader", password="pw")
     for client in (_login(env), _login(env, "reader", "pw")):
         html = client.get(f"/book/{book}").get_data(as_text=True)
+        stage = html[html.index('<div class="book-detail-main">'):html.index('<div class="book-detail-cover">')]
+        assert re.search(r'<span class="book-edition" id="book-edition" title="9th edition">9th ed\.', stage)
         plate = html[html.index('<div class="book-detail-cover">'):html.index('<div class="book-detail-head">')]
-        pill = re.search(r'<span class="book-edition" id="book-edition" title="9th edition">9th ed\.', plate)
-        assert pill and '<div class="book-plate-marks">' in plate
+        assert "book-edition" not in plate
 
 
-def test_the_edition_and_the_fetched_mark_share_the_corner(env):
+def test_the_fetched_mark_stays_on_the_plate_without_the_edition(env):
     book = env.add_book("Probability", author="Robert Hogg")
     from cwa_db import CWA_DB
     CWA_DB().set_book_edition(book, 2)
     CWA_DB().save_metadata_lookup(book, "matched", "Open Library")
     html = _login(env).get(f"/book/{book}").get_data(as_text=True)
     corner = html[html.index('<div class="book-plate-marks">'):]
-    assert corner.index('id="book-edition"') < corner.index('id="book-fetched-dot"') < corner.index("</div>")
+    corner = corner[:corner.index("</div>")]
+    assert 'id="book-fetched-dot"' in corner and "book-edition" not in corner
 
 
 @pytest.mark.parametrize("title, split", [

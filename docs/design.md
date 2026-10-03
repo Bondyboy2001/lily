@@ -553,12 +553,11 @@ content (grid, panel, rows)
 - **Description:** a pull-quote: `--font-body` 22px italic, line-height 1.6, `--ink-soft`,
   the full width of the page (no measure cap), indented 64 behind a 112px `--accent` opening mark (19px, 40 and 76 on
   phones). There is no "not fetched yet" notice: the fetched dot already says so.
-- **Plate corner** (`.book-plate-marks`, 6 from the cover plate's top-right corner, items 6 apart):
-  the edition pill, then the fetched mark. Either may be missing.
+- **Plate corner** (`.book-plate-marks`, 6 from the cover plate's top-right corner): the fetched mark.
 - **Edition pill** (`.book-edition`, everyone): set in the editor, shown as "9th ed." (full
-  "9th edition" in its tooltip and for screen readers). An opaque `--surface` pill, 26 tall,
-  padding 0 10, a `--line` edge, 12px/600 `--ink`, so it reads over any cover. Grid cards don't
-  show it.
+  "9th edition" in its tooltip and for screen readers) in the stage's top-right corner, 16 in
+  (12 on phones), never on the cover. A `--surface` pill, 26 tall, padding 0 10, a `--line`
+  edge, 12px/600 `--ink`. Grid cards don't show it.
 - **Fetched mark** (`.lily-fetched`, `image.fetched_mark`, editors only): a filled 26px `--success`
   disc with a `--surface` check and ring, once a metadata
   lookup has matched the book; its tooltip and label say where from and when ("Metadata fetched

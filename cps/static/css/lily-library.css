@@ -1093,16 +1093,13 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     background: var(--sunk);
 }
 
-/* Metadata fetched: a filled --success dot in the stage's top-right corner, named by its tooltip. */
-/* The plate's top-right corner (§6.4): the edition pill, then the fetched mark, 6 apart. */
+/* The plate's top-right corner (§6.4): the fetched mark. */
 .book-plate-marks {
     position: absolute;
     top: 6px;
     right: 6px;
     z-index: 1;
     display: flex;
-    align-items: center;
-    gap: 6px;
 }
 
 /* The fetched mark on the plate: the grid's green check, a little larger. */
@@ -1113,8 +1110,11 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     font-size: 13px;
 }
 
-/* The edition: an opaque --surface pill the fetched mark's height, so it reads over any cover. */
+/* The edition: a --surface pill in the stage's top-right corner, 16 in (12 on phones). */
 .book-edition {
+    position: absolute;
+    top: 16px;
+    right: 16px;
     display: inline-flex;
     align-items: center;
     height: 26px;
@@ -1426,6 +1426,7 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 }
 
 @media (max-width: 1099px) {
+    .book-edition { top: 12px; right: 12px; }
     .book-detail-main { padding: 24px; gap: 24px; }
     .book-detail-extra { padding: 0 24px; }
     .book-detail-meta h1#title { font-size: 40px; }
