@@ -68,6 +68,22 @@ class google_scholar(Metadata):
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
     ) -> list[MetaRecord] | None:
+        return self._search(query, covers=True)
+
+    def search_titles(
+        self, query: str, generic_cover: str = "", locale: str = "en"
+    ) -> list[MetaRecord] | None:
+        # A lookup applies one record: complete() fetches its book's cover, not every result's
+        return self._search(query, covers=False)
+
+    def complete(self, record: MetaRecord) -> MetaRecord:
+        isbn = getattr(record, "_cover_isbn", "")
+        if isbn:
+            record.cover = self._book_cover(isbn)
+            record._cover_isbn = ""
+        return record
+
+    def _search(self, query: str, covers: bool) -> list[MetaRecord]:
         if not query.strip():
             return []
         # A bare arXiv id means nothing to Crossref's text search
@@ -75,7 +91,7 @@ class google_scholar(Metadata):
             return self._search_arxiv(query)
         results = self._run([lambda: self._search_arxiv(query),
                              lambda: self._search_semantic_scholar(query),
-                             lambda: self._search_crossref(query)])
+                             lambda: self._search_crossref(query, covers)])
 
         # A paper is often in several sources; keep the first of each title
         seen = set()
@@ -347,7 +363,7 @@ class google_scholar(Metadata):
             match.identifiers["doi"] = doi
         return match
 
-    def _search_crossref(self, query: str) -> list[MetaRecord]:
+    def _search_crossref(self, query: str, covers: bool = True) -> list[MetaRecord]:
         doi = DOI_RE.search(query)
         params = {
             "rows": self.MAX_RESULTS,
@@ -364,8 +380,14 @@ class google_scholar(Metadata):
         response.raise_for_status()
         items = response.json().get("message", {}).get("items", [])
         parsed = [(self._parse_crossref_item(item), _crossref_isbn(item)) for item in items]
-        # Books and chapters have their book's ISBN, and so a cover
-        self._add_book_covers([(record, isbn) for record, isbn in parsed if record and isbn])
+        # Books and chapters have their book's ISBN, and so a cover; without covers, complete()
+        # looks up the one of the record a lookup applies
+        wanted = [(record, isbn) for record, isbn in parsed if record and isbn]
+        if covers:
+            self._add_book_covers(wanted)
+        else:
+            for record, isbn in wanted:
+                record._cover_isbn = isbn
         return [record for record, __ in parsed if record]
 
     def _add_book_covers(self, wanted) -> None:

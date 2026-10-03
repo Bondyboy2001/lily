@@ -180,3 +180,41 @@ def test_a_lookup_names_the_providers_that_did_not_answer(monkeypatch):
     found = metadata_helper._find_record("Dune", ["Frank Herbert"], {"isbn": "9780441172719"}, "", unanswered)
     # The book is still looked up with those that do answer
     assert found is record and unanswered == {"Google", "Open Library"}
+
+
+def test_title_searches_run_at_once_and_the_first_provider_in_order_wins(monkeypatch):
+    # A book none has waited for every provider in turn; now they search together. The first
+    # in order with a match still wins, and Google is asked only when none has one (its quota)
+    import threading
+    from cps import metadata_helper
+    from cps.services.Metadata import MetaRecord, MetaSourceInfo
+
+    def record(source):
+        return MetaRecord(id=source, title="Dune", authors=["Frank Herbert"], url="",
+                          source=MetaSourceInfo(source, source, ""))
+    papers_started, calls = threading.Event(), []
+
+    def open_library(query, *a):
+        # Answers only once the paper search is under way: asked one after the other, it never would be
+        together = papers_started.wait(timeout=5)
+        calls.append(("openlibrary", together))
+        return [record("openlibrary")] if query.startswith("Dune") else []
+
+    def papers(query, *a):
+        papers_started.set()
+        calls.append(("googlescholar", True))
+        return [record("googlescholar")] if query.startswith("Dune") else []
+    providers = [FakeProvider(__id__="google", __name__="Google", identifier_types=frozenset(),
+                              search=lambda q, *a: calls.append(("google", True)) or []),
+                 FakeProvider(__id__="openlibrary", __name__="OpenLibrary", identifier_types=frozenset(),
+                              search=open_library),
+                 FakeProvider(__id__="googlescholar", __name__="Papers", identifier_types=frozenset(),
+                              search=papers)]
+    monkeypatch.setattr(metadata_helper, "metadata_providers", providers)
+    found = metadata_helper._find_record("Dune", ["Frank Herbert"], {}, "")
+    assert found.source.id == "openlibrary" and ("openlibrary", True) in calls
+    assert "google" not in [name for name, __ in calls]
+    # Nobody has it: Google is asked, last
+    del calls[:]
+    assert metadata_helper._find_record("Emma", ["Jane Austen"], {}, "") is None
+    assert calls[-1] == ("google", True)

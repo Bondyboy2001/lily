@@ -173,7 +173,7 @@ def test_text_search_shows_crossref_when_arxiv_is_down(monkeypatch):
     record = scholar._parse_arxiv_abs("1108.1680", ABS_PAGE)
     monkeypatch.setattr(scholar, "_search_arxiv", _down)
     monkeypatch.setattr(scholar, "_search_semantic_scholar", _down)
-    monkeypatch.setattr(scholar, "_search_crossref", lambda q: [record])
+    monkeypatch.setattr(scholar, "_search_crossref", lambda q, covers=True: [record])
     assert scholar.search("copula graphical models") == [record]
 
 
@@ -239,7 +239,7 @@ def test_text_search_lists_arxiv_then_semantic_scholar_then_crossref(monkeypatch
     scholar = google_scholar()
 
     def found(*titles):
-        return lambda q: [SimpleNamespace(title=t) for t in titles]
+        return lambda q, covers=True: [SimpleNamespace(title=t) for t in titles]
     monkeypatch.setattr(scholar, "_search_arxiv", found("A paper"))
     monkeypatch.setattr(scholar, "_search_semantic_scholar", found("A Paper", "Journal paper"))
     monkeypatch.setattr(scholar, "_search_crossref", found("Journal Paper", "Near miss"))
@@ -364,6 +364,28 @@ def test_crossref_book_gets_its_cover_from_open_library_by_isbn(monkeypatch):
     assert article.cover == ""
     assert sorted(url for url, __ in calls if "openlibrary" in url) == [
         "https://openlibrary.org/isbn/9781483197456.json", "https://openlibrary.org/isbn/9789810234027.json"]
+
+
+def test_a_lookup_fetches_only_the_applied_records_cover(monkeypatch):
+    # search_titles (imports, Rebuild metadata) leaves covers out; complete() fetches the one
+    # of the record applied, so a search no longer waits on a cover per result
+    calls = []
+    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+        "https://api.crossref.org/": _crossref(
+            {"DOI": "10.1142/3727", "title": ["Nobel Lectures in Physics 1922 - 1941"], "type": "monograph",
+             "ISBN": ["978-981-02-3402-7"]},
+            {"DOI": "10.1016/b978-1-4831-9745-6.50001-5", "title": ["Nobel Lectures"], "type": "book-chapter",
+             "ISBN": ["9781483197456"]}),
+        "https://openlibrary.org/isbn/": _openlibrary(5254938),
+    }, calls))
+    scholar = google_scholar()
+    book, chapter = scholar._search_crossref("nobel lectures", covers=False)
+    assert not [url for url, __ in calls if "openlibrary" in url]
+    assert scholar.complete(book).cover == "https://covers.openlibrary.org/b/id/5254938-L.jpg"
+    assert [url for url, __ in calls if "openlibrary" in url] == ["https://openlibrary.org/isbn/9789810234027.json"]
+    # Completing again asks nothing more
+    scholar.complete(book)
+    assert len([url for url, __ in calls if "openlibrary" in url]) == 1
 
 
 def test_crossref_book_falls_back_to_google_books_cover(monkeypatch):

@@ -16,6 +16,7 @@ import shutil
 import sys
 import tempfile
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, UTC
 
 from cps import logger, db, constants, helper
@@ -640,21 +641,30 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
         return None
     query = " ".join([search_title(title)] + authors)
     searched = []
-    for provider in _lookup_order():
-        if provider.__id__ == PAPERS and not papers_too:
-            continue
-        try:
-            results = provider.search_titles(query, "", "en") or []
-            # Only the record applied needs the details a provider fetches per result
-            record = best_metadata_match(title, authors, results)
+    providers = [p for p in _lookup_order() if p.__id__ != PAPERS or papers_too]
+    # Every provider but Google is asked at once, and the first in order with a match wins;
+    # Google only when none has one, as its daily quota is soon used up
+    at_once = [p for p in providers if p.__id__ != 'google']
+    pool = ThreadPoolExecutor(max_workers=max(len(at_once), 1))
+    try:
+        asked = {p: pool.submit(p.search_titles, query, "", "en") for p in at_once}
+        for provider in providers:
+            try:
+                results = (asked[provider].result() if provider in asked
+                           else provider.search_titles(query, "", "en")) or []
+                # Only the record applied needs the details a provider fetches per result
+                record = best_metadata_match(title, authors, results)
+                if record is not None:
+                    record = provider.complete(record)
+            except Exception as e:
+                _no_answer(provider, f"Searching for '{query}'", e, unanswered, busy)
+                continue
             if record is not None:
-                record = provider.complete(record)
-        except Exception as e:
-            _no_answer(provider, f"Searching for '{query}'", e, unanswered, busy)
-            continue
-        if record is not None:
-            return record
-        searched.append((provider, results))
+                return record
+            searched.append((provider, results))
+    finally:
+        # A match leaves the slower searches to finish on their own
+        pool.shutdown(wait=False)
     record = _find_loosely(searched, title, authors, page_text, unanswered, busy)
     if record is None and front_matter and 'isbn' not in lookup_ids:
         pages = "\n".join((page_text, front_matter()))
