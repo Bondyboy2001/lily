@@ -140,6 +140,10 @@
                         </button>
                     {% endif %}
                 </div>
+                {# Where the last matched lookup came from (editors only; the date is in the details dialog) #}
+                {% if metadata_lookup and metadata_lookup.status == 'matched' and metadata_lookup.source %}
+                <p class="book-fetched-from">{{ _('Metadata fetched from %(source)s', source=metadata_lookup.source) }}</p>
+                {% endif %}
             </div>
         </div>
     </div>

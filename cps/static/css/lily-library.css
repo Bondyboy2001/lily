@@ -856,6 +856,14 @@ dl.book-info {
 
 .book-detail-actions { min-width: 0; }
 
+/* "Metadata fetched from Open Library", a secondary line under the action bar */
+.book-fetched-from {
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
 /* Under the stage: the description, the lookup line, then what to read next. */
 .book-detail-extra {
     display: flex;

@@ -229,6 +229,20 @@ def test_book_page_shows_the_lookup_to_editors(env):
     assert "book-metadata-lookup" not in html and "book-fetched-dot" not in html
 
 
+def test_book_page_names_the_source_under_the_actions(env):
+    book = env.add_book("Dune")
+    assert "book-fetched-from" not in _login(env).get(f"/book/{book}").get_data(as_text=True)
+    _store().save_metadata_lookup(book, "nomatch")
+    assert "book-fetched-from" not in _login(env).get(f"/book/{book}").get_data(as_text=True)
+    _store().save_metadata_lookup(book, "matched", "Open Library")
+    html = _login(env).get(f"/book/{book}").get_data(as_text=True)
+    actions = html[html.index('<div class="book-detail-actions">'):html.index('<div class="book-detail-extra">')]
+    assert actions.index('role="toolbar"') < actions.index(
+        '<p class="book-fetched-from">Metadata fetched from Open Library</p>')
+    env.add_user("reader", password="pw")
+    assert "book-fetched-from" not in _login(env, "reader", "pw").get(f"/book/{book}").get_data(as_text=True)
+
+
 def test_book_page_shows_no_dot_until_a_lookup_matches(env):
     book = env.add_book("Dune")
     assert "book-fetched-dot" not in _login(env).get(f"/book/{book}").get_data(as_text=True)

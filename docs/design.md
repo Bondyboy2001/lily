@@ -521,7 +521,10 @@ content (grid, panel, rows)
   (`max-height: 160cqw`, `object-fit: cover`), so one deformed cover cannot stretch the
   stage. On the right, centred against it: the heading (the book
   title as a display line (§3.1), the authors as an italic `--accent` byline at 20px),
-  then the action bar, 22 apart. There are no fact tags on the page: the
+  then the action bar, 22 apart. For editors, once a lookup has matched the book, a
+  14px `--muted` line 12 under the bar names the source (`.book-fetched-from`,
+  "Metadata fetched from Open Library"; the date stays in the details dialog).
+  There are no fact tags on the page: the
   file, date and identifiers are in the details dialog. The stage is one
   row, so a tall cover never spreads the heading out.
 - **Under the stage** (`.book-detail-extra`, 40 below it, indented 40 to match the
