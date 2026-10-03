@@ -88,3 +88,17 @@ def test_duplicates_empty_state_offers_a_scan():
     assert "duplicateScanEndpoint('/duplicates/trigger-scan')" in handler
     assert "'X-CSRFToken': csrfToken" in handler
     assert "setInterval(pollDuplicateScanTask" in handler
+
+
+def test_a_rows_trash_deletes_that_copy_on_the_page():
+    template = read(TEMPLATES / "duplicates.html")
+    # A button, not a link off to the book page
+    assert "Open book to delete it" not in template
+    assert '<button type="button" class="icon-btn book-action-btn is-danger dup-delete-book" data-book-id="{{ book.id }}"' in template
+    js = read(JS / "duplicates.js")
+    row = js[js.index("$(document).on('click', '.dup-delete-book'"):]
+    row = row[:row.index("});")]
+    # One book, through the Delete selected confirmation, without touching the selection
+    assert "deleteBookIds = [parseInt(" in row and "$('#delete_selected_modal').modal('show')" in row
+    assert "selectedBooks" not in row
+    assert '"selections": deleteBookIds' in js and "selectedBooks.map" in js

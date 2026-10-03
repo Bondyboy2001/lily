@@ -139,9 +139,11 @@
                 <a href="{{ url_for('edit-book.show_edit_book', book_id=book.id) }}" class="icon-btn book-action-btn" title="{{_('Edit book metadata')}}" aria-label="{{_('Edit book metadata')}}">
                   <span class="glyphicon glyphicon-edit" aria-hidden="true"></span>
                 </a>
-                <a href="{{ url_for('web.show_book', book_id=book.id) }}" class="icon-btn book-action-btn is-danger" title="{{_('Open book to delete it')}}" aria-label="{{_('Open book to delete it')}}">
+                {# Deletes this copy here, through the same confirmation as Delete selected (duplicates.js) #}
+                <button type="button" class="icon-btn book-action-btn is-danger dup-delete-book" data-book-id="{{ book.id }}"
+                        title="{{_('Delete this copy')}}" aria-label="{{ _('Delete %(title)s (%(id)s)', title=book.title, id=book.id) }}">
                   <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
-                </a>
+                </button>
               </div>
             </div>
             {% endfor %}

@@ -21,6 +21,8 @@ $(document).ready(function() {
     var selectedBooks = [];
     // The group whose "Merge selected" opened the merge dialog; merging stays inside it
     var mergeBookIds = [];
+    // The books the delete dialog is about: the selection, or the one row whose trash was clicked
+    var deleteBookIds = [];
 
     // Get CSRF token
     var csrfToken = $('input[name="csrf_token"]').val();
@@ -252,6 +254,7 @@ $(document).ready(function() {
             
             // Convert book IDs to integers
             var bookIds = selectedBooks.map(function(id) { return parseInt(id, 10); });
+            deleteBookIds = bookIds;
             
             // Show list of books to be deleted
             var ajaxData = {"selections": bookIds};
@@ -279,6 +282,16 @@ $(document).ready(function() {
                 }
             });
         }
+    });
+
+    // A row's trash deletes that copy alone, after the same confirmation; the selection is left as it is
+    $(document).on('click', '.dup-delete-book', function() {
+        var row = $(this).closest('.book-item');
+        deleteBookIds = [parseInt($(this).data('book-id'), 10)];
+        $('#display-delete-selected-books').empty().append(
+            $('<div class="dup-modal-item">').text(
+                $.trim(row.find('.book-title-link').text()) + ' (' + deleteBookIds[0] + ')'));
+        $('#delete_selected_modal').modal('show');
     });
 
     // Confirm merge
@@ -321,10 +334,7 @@ $(document).ready(function() {
     $('#delete_selected_confirm').click(function() {
         var deleteUrl = window.location.pathname + "/../ajax/deleteselectedbooks";
         
-        // Convert book IDs to integers
-        var bookIds = selectedBooks.map(function(id) { return parseInt(id, 10); });
-        
-        var deleteData = {"selections": bookIds};
+        var deleteData = {"selections": deleteBookIds};
         
         $.ajax({
             method: "post",
@@ -343,7 +353,7 @@ $(document).ready(function() {
                 var outcome = applyBatchOutcome(response);
                 dropSucceededBooks(outcome.succeeded);
                 if (response && response.success === true) {
-                    notifyAfterReload('Deleted the selected books.');
+                    notifyAfterReload(deleteBookIds.length === 1 ? 'Deleted the book.' : 'Deleted the selected books.');
                 } else {
                     notify('Some books couldn\'t be deleted and are still selected. The reasons are listed above the results.');
                 }
