@@ -163,6 +163,50 @@ def test_simple_search_finds_description_words_and_a_papers_id(env):
     assert found("span") == set() and found("2601") == set()
 
 
+def test_search_words_split_on_spaces_and_commas_and_keep_quoted_phrases():
+    from cps.db import search_words, like_pattern
+    assert search_words("Dune  Herbert") == ["Dune", "Herbert"]
+    assert search_words("Herbert, Frank") == ["Herbert", "Frank"]
+    assert search_words('"Café Society" lee') == ["Café Society", "lee"]
+    assert search_words('"unclosed quote') == ["unclosed", "quote"]
+    assert search_words("dune DUNE") == ["dune"]
+    assert search_words(",") == [","]
+    assert len(search_words(" ".join(f"w{n}" for n in range(100)))) == 20
+    assert like_pattern("10%_\\") == "%10\\%\\_\\\\%"
+
+
+def test_simple_search_matches_every_word_across_fields(env):
+    import sqlite3
+    admin = _client(env, env.admin().name, ADMIN_PASSWORD)
+    dune = env.add_book("Dune", author="Frank Herbert", tags=("Science Fiction",))
+    env.add_book("Dune Messiah Notes", author="Someone Else")
+    env.add_book("Children of Herbert", author="Ann Lee")
+    paper = env.add_book("Graph Growth", author="Sam Poe")
+    con = sqlite3.connect(env.library_dir / "metadata.db")
+    con.execute("INSERT INTO comments (book, text) VALUES (?, ?)",
+                (dune, "<p>A desert planet called Arrakis.</p>"))
+    con.execute("INSERT INTO identifiers (book, type, val) VALUES (?, 'arxiv', '2601.22106')", (paper,))
+    con.commit()
+    con.close()
+
+    def found(query):
+        html = admin.get("/search", query_string={"query": query}, follow_redirects=True).get_data(as_text=True)
+        return {t for t in ("Frank Herbert", "Dune Messiah Notes", "Children of Herbert", "Graph Growth")
+                if t in html}
+
+    assert found("dune herbert") == {"Frank Herbert"}
+    assert found("herbert fiction") == {"Frank Herbert"}  # author + tag
+    assert found("arrakis herbert") == {"Frank Herbert"}  # description + author
+    assert found("dune nosuchword") == set()
+    assert found("growth 2601.22106") == {"Graph Growth"}  # title + identifier
+    assert found("arXiv: 2601.22106") == {"Graph Growth"}  # the whole term is one id
+    # a quoted phrase must appear as it stands
+    assert found('"messiah notes"') == {"Dune Messiah Notes"}
+    assert found('"notes messiah"') == set()
+    # LIKE wildcards typed by the user match literally
+    assert found("d_ne") == set() and found("du%") == set()
+
+
 def test_the_editor_returns_to_the_page_it_was_opened_from(env):
     admin = _client(env, env.admin().name, ADMIN_PASSWORD)
     book = env.add_book("Round Trip", author="Jane Roe")

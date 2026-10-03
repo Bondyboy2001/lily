@@ -1138,19 +1138,15 @@ class CalibreDB:
 
     def search_query(self, term, config, *join):
         self.ensure_session()
-        strip_whitespaces(term).lower()
         self.create_functions()
 
         # lower() is the Python lcase callback here. ilike() would wrap both the column and the
-        # pattern in it again, so lower the pattern once in Python and compare with LIKE
-        # (ASCII case-insensitive, and lcase only ever returns ASCII).
-        def contains(column, value):
-            return func.lower(column).like(lcase("%" + value + "%"))
+        # pattern in it again, so fold the pattern once in Python and compare with LIKE
+        # (ASCII case-insensitive, and lcase only ever returns ASCII). The user's own %, _ and
+        # backslash match literally.
+        def contains(column, word):
+            return func.lower(column).like(like_pattern(word), escape="\\")
 
-        q = list()
-        author_terms = re.split("[, ]+", term)
-        for author_term in author_terms:
-            q.append(Books.authors.any(contains(Authors.name, author_term)))
         query = self.generate_linked_query(config.config_read_column, Books)
         if len(join) == 6:
             query = query.outerjoin(join[0], join[1]).outerjoin(join[2]).outerjoin(join[3], join[4]).outerjoin(join[5])
@@ -1161,28 +1157,38 @@ class CalibreDB:
         elif len(join) == 1:
             query = query.outerjoin(join[0])
 
-        cc = self.get_cc_columns(config, filter_config_custom_read=True)
-        filter_expression = [Books.tags.any(contains(Tags.name, term)),
-                             Books.series.any(contains(Series.name, term)),
-                             Books.authors.any(and_(*q)),
-                             Books.publishers.any(contains(Publishers.name, term)),
-                             contains(Books.title, term)]
-        # Words from a description or abstract (stored as HTML, so not a tag's name), and a
-        # book's own id: "2306.12345", a DOI, or an arXiv link, matched as the id it holds
-        if len(term) >= 4 and term.lower() not in _MARKUP_WORDS:
-            filter_expression.append(Books.comments.any(contains(Comments.text, term)))
-        for value in {term.lower(), *(v.lower() for v in parse_identifier(term).values())}:
-            filter_expression.append(Books.identifiers.any(func.lower(Identifiers.val) == value))
-        for c in cc:
-            if c.datatype not in ["datetime", "rating", "bool", "int", "float"]:
-                filter_expression.append(
-                    getattr(Books,
-                            'custom_column_' + str(c.id)).any(
-                        contains(cc_classes[c.id].value, term)))
+        text_columns = [c for c in self.get_cc_columns(config, filter_config_custom_read=True)
+                        if c.datatype not in ["datetime", "rating", "bool", "int", "float"]]
+
+        def identifier_match(value):
+            # a book's own id: "2306.12345", a DOI, or an arXiv link, matched as the id it holds
+            values = {value.lower(), *(v.lower() for v in parse_identifier(value).values())}
+            return [Books.identifiers.any(func.lower(Identifiers.val) == v) for v in values]
+
+        def word_match(word):
+            folded = lcase(word)
+            matches = [Books.tags.any(contains(Tags.name, folded)),
+                       Books.series.any(contains(Series.name, folded)),
+                       Books.authors.any(contains(Authors.name, folded)),
+                       Books.publishers.any(contains(Publishers.name, folded)),
+                       contains(Books.title, folded)]
+            # Words from a description or abstract (stored as HTML, so not a tag's name)
+            if len(word) >= 4 and word.lower() not in _MARKUP_WORDS:
+                matches.append(Books.comments.any(contains(Comments.text, folded)))
+            matches += identifier_match(word)
+            for c in text_columns:
+                matches.append(getattr(Books, 'custom_column_' + str(c.id)).any(
+                    contains(cc_classes[c.id].value, folded)))
+            return or_(*matches)
+
+        # Every word must match some field (not necessarily the same one), so "dune herbert"
+        # finds Dune by Frank Herbert. The whole term may also be one identifier.
+        filter_expression = or_(and_(*[word_match(word) for word in search_words(term)]),
+                                *identifier_match(strip_whitespaces(term)))
         # Eagerly load the data relationship to prevent session errors. selectinload, so a
         # paginated search isn't wrapped in a subquery (which breaks text ORDER BY clauses)
         query = query.options(selectinload(Books.data))
-        return query.filter(self.common_filters()).filter(or_(*filter_expression))
+        return query.filter(self.common_filters()).filter(filter_expression)
 
     def get_cc_columns(self, config, filter_config_custom_read=False):
         self.ensure_session()
@@ -1373,6 +1379,27 @@ def _connection_setup(dbpath, app_db_path):
             cursor.close()
         _register_functions(dbapi_connection)
     return on_connect
+
+
+_SEARCH_TOKEN = re.compile(r'"([^"]*)"|([^\s,]+)')
+_MAX_SEARCH_WORDS = 20  # each word adds a few subqueries; keep SQLite's expression depth sane
+
+
+def search_words(term):
+    """The words of a simple-search term: split on spaces and commas, a "quoted phrase" kept
+    whole. Duplicates (ignoring case) are dropped; a term with no words (only commas or quotes)
+    is searched as it stands. Only the first _MAX_SEARCH_WORDS words count."""
+    words = []
+    for phrase, word in _SEARCH_TOKEN.findall(term or ''):
+        word = strip_whitespaces(phrase or word.strip('"'))
+        if word and word.lower() not in (w.lower() for w in words):
+            words.append(word)
+    return words[:_MAX_SEARCH_WORDS] or [term or '']
+
+
+def like_pattern(value):
+    """%value% for LIKE with a backslash ESCAPE: the user's own %, _ and backslash match literally."""
+    return "%" + value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
 
 def lcase(s):

@@ -13,7 +13,7 @@ import json
 from flask import request, url_for
 from flask_babel import get_locale
 from sqlalchemy.orm import lazyload, selectinload
-from sqlalchemy.sql.expression import func, not_, or_
+from sqlalchemy.sql.expression import and_, func, not_, or_
 
 from . import isoLanguages
 from . import db
@@ -69,19 +69,25 @@ def get_languages_json():
 @web.route("/get_book_titles_json", methods=['GET'])
 @login_required_if_no_ano
 def get_book_titles_json():
-    # Suggestions for the top bar search box: books whose title or author matches.
+    # Suggestions for the top bar search box: books whose title or authors hold every word of
+    # the query (split like the full search, db.search_words), folding case and accents.
     # common_filters() keeps hidden/archived books out of the suggestions, exactly as the lists do.
     query = strip_whitespaces(request.args.get('q') or '')
     if len(query) < 2:
         return json.dumps([])
-    pattern = "%" + query + "%"
+
+    # lower() is the accent-folding lcase every connection registers (db._connection_setup)
+    def word_match(word):
+        pattern = db.like_pattern(db.lcase(word))
+        return or_(func.lower(db.Books.title).like(pattern, escape="\\"),
+                   db.Books.authors.any(func.lower(db.Authors.name).like(pattern, escape="\\")))
+
     # A suggestion shows the title, authors and cover; leave the other relationships
     # (tags, comments, identifiers, ...) unloaded instead of one query each per keystroke.
     books = calibre_db.session.query(db.Books) \
         .options(lazyload('*'), selectinload(db.Books.authors)) \
         .filter(calibre_db.common_filters()) \
-        .filter(or_(db.Books.title.ilike(pattern),
-                    db.Books.authors.any(db.Authors.name.ilike(pattern)))) \
+        .filter(and_(*[word_match(word) for word in db.search_words(query)])) \
         .order_by(func.lower(db.Books.title)).limit(8).all()
     # Each suggestion carries its small cover thumbnail, cache-busted like the library grid.
     return json.dumps([dict(name=book.title,

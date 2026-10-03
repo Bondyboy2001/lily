@@ -92,3 +92,17 @@ class TestBookTitleSuggestions:
         env.add_book("A Book", author="An Author")
         resp = env.app.test_client().get("/get_book_titles_json", query_string={"q": "Book"})
         assert resp.status_code == 401
+
+    def test_every_word_must_match_title_or_author(self, env):
+        env.add_book("Dune", author="Frank Herbert")
+        env.add_book("Dune Atlas", author="Someone Else")
+        client = _login(env)
+        assert [item["name"] for item in _suggest(client, "dune herbert")] == ["Dune"]
+        assert [item["name"] for item in _suggest(client, "herbert, frank")] == ["Dune"]
+
+    def test_folds_accents_and_matches_wildcards_literally(self, env):
+        env.add_book("Café Society", author="Zoë Ångström")
+        env.add_book("Plain Title", author="Ann Lee")
+        client = _login(env)
+        assert [item["name"] for item in _suggest(client, "cafe angstrom")] == ["Café Society"]
+        assert _suggest(client, "%%") == [] and _suggest(client, "__") == []
