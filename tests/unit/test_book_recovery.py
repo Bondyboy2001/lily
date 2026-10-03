@@ -13,8 +13,8 @@ def env(tmp_path, temp_cwa_db, monkeypatch):
     monkeypatch.setenv("BOOK_RECOVERY_DIR", str(tmp_path / "recovery"))
     from cps.tasks import restore
     monkeypatch.setattr(restore, "SERVICE_LOCKS", tuple(
-        (name, str(tmp_path / filename), existence_lock)
-        for name, filename, existence_lock in restore.SERVICE_LOCKS
+        (name, str(tmp_path / filename))
+        for name, filename in restore.SERVICE_LOCKS
     ))
     with lily_env(tmp_path) as e:
         e.app.jinja_env.globals.setdefault("csrf_token", lambda: "test-token")

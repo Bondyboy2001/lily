@@ -8,6 +8,7 @@
 
 import argparse
 import atexit
+import fcntl
 import json
 import os
 import re
@@ -73,22 +74,87 @@ change_logs_dir = "/app/calibre-web-automated/metadata_change_logs"
 metadata_temp_dir = "/app/calibre-web-automated/metadata_temp"
 
 
-# Creates a lock file unless one already exists meaning an instance of the script is
-# already running, then the script is closed, the user is notified and the program
-# exits with code 2
-try:
-    lock = open(tempfile.gettempdir() + '/cover_enforcer.lock', 'x')
-    lock.close()
-except FileExistsError:
-    print("[cover-metadata-enforcer]: CANCELLING... cover-metadata-enforcer was initiated but is already running")
-    sys.exit(2)
+LOCK_NAME = 'cover_enforcer.lock'
+# --log runs started by the change detector wait this long for another run (a manual
+# -all, or a book delete pausing us) before giving up; their log then stays queued.
+LOCK_WAIT_SECONDS = 600
 
-# Defining function to delete the lock on script exit
+_lock_handle = None
+
+
+def _lock_path() -> str:
+    return os.path.join(tempfile.gettempdir(), LOCK_NAME)
+
+
+def _try_lock(lock_path: str):
+    """One attempt at the flock. Returns the open handle on success, else None."""
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o644)
+    handle = os.fdopen(fd, 'r+', encoding='utf-8')
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        handle.close()
+        return None
+    try:
+        # If the file was removed between our open and our flock (cwa-init clears lock
+        # files), we would hold a lock nobody else can see: try again on the new file.
+        if os.fstat(handle.fileno()).st_ino != os.stat(lock_path).st_ino:
+            handle.close()
+            return None
+    except FileNotFoundError:
+        handle.close()
+        return None
+    return handle
+
+
+def acquire_lock(wait_seconds: float = 0) -> None:
+    """Takes the enforcer lock (flock(2) on cover_enforcer.lock), or exits with code 2 if
+    another process still holds it after `wait_seconds`.
+
+    The kernel drops a flock when its holder dies, so a run that was killed never leaves a
+    stale lock behind (the old "the file exists" lock blocked every later edit until the
+    container restarted). The holder's PID is written into the file for diagnostics, and
+    cps/tasks/restore.py takes the same flock to pause us. The file is never unlinked while
+    held (see ProcessLock in ingest_processor.py). Taken in main() rather than at import so
+    the module can be imported (e.g. by tests)."""
+    global _lock_handle
+    lock_path = _lock_path()
+    deadline = time.monotonic() + wait_seconds
+    announced = False
+    while True:
+        handle = _try_lock(lock_path)
+        if handle is not None:
+            break
+        if time.monotonic() >= deadline:
+            print("[cover-metadata-enforcer]: CANCELLING... cover-metadata-enforcer was initiated but is already running", flush=True)
+            sys.exit(2)
+        if not announced:
+            print("[cover-metadata-enforcer]: another run holds the lock, waiting for it to finish...", flush=True)
+            announced = True
+        time.sleep(1)
+    try:
+        handle.seek(0)
+        handle.truncate()
+        handle.write(str(os.getpid()))
+        handle.flush()
+    except OSError:
+        pass
+    _lock_handle = handle
+    # Released again when the script exits (the kernel does it anyway if we are killed)
+    atexit.register(removeLock)
+
+
 def removeLock():
-    os.remove(tempfile.gettempdir() + '/cover_enforcer.lock')
-
-# Will automatically run when the script exits
-atexit.register(removeLock)
+    """Releases the lock. The file itself stays (unlinking a flocked path is racy)."""
+    global _lock_handle
+    handle, _lock_handle = _lock_handle, None
+    if handle is None:
+        return
+    try:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    except OSError:
+        pass
+    handle.close()
 
 
 # Split-library settings from app.db, read once per process (see Book.get_split_library)
@@ -174,7 +240,13 @@ class Book:
 
 
     def get_new_metadata_path(self) -> str:
-        """Uses the export function of the calibredb utility to export any new metadata for the given book to metadata_temp, and returns the path to the new metadata.opf"""
+        """Exports the book's current metadata with calibredb into a fresh folder of its own
+        under metadata_temp and returns the path of the exported OPF.
+
+        Each export gets its own folder so an OPF left behind by an earlier (killed) run, or
+        exported for another book, can never be picked up and written into this book. The
+        folder is removed again if the export fails; on success enforce_cover empties
+        metadata_temp once the book is done."""
         # Add retry logic with exponential backoff to handle database locks
         global _export_settle_done
         max_retries = 3
@@ -192,23 +264,27 @@ class Book:
                     _export_settle_done = True
                     time.sleep(0.5)
 
-                result = subprocess.run(
-                    ["calibredb", "export", "--with-library", self.calibre_library, "--to-dir", metadata_temp_dir, self.book_id],
-                    env=self.calibre_env, check=False, capture_output=True, text=True, timeout=60
-                )
-
-                if result.returncode == 0:
-                    temp_files = [os.path.join(dirpath,f) for (dirpath, dirnames, filenames) in os.walk(metadata_temp_dir) for f in filenames]
-                    opf_files = [f for f in temp_files if f.endswith('.opf')]
-                    if opf_files:
+                os.makedirs(metadata_temp_dir, exist_ok=True)
+                export_dir = tempfile.mkdtemp(prefix=f"book-{self.book_id}-", dir=metadata_temp_dir)
+                try:
+                    result = subprocess.run(
+                        ["calibredb", "export", "--with-library", self.calibre_library, "--to-dir", export_dir, self.book_id],
+                        env=self.calibre_env, check=False, capture_output=True, text=True, timeout=60
+                    )
+                    if result.returncode == 0:
+                        opf_files = sorted(os.path.join(dirpath, f)
+                                           for (dirpath, _dirnames, filenames) in os.walk(export_dir)
+                                           for f in filenames if f.endswith('.opf'))
+                        if not opf_files:
+                            raise FileNotFoundError("No .opf file found after calibredb export")
                         return opf_files[0]
-                    else:
-                        raise FileNotFoundError("No .opf file found after calibredb export")
-                else:
-                    if attempt < max_retries - 1 and "database is locked" in result.stderr.lower():
-                        continue  # Retry on database lock
-                    else:
-                        raise subprocess.CalledProcessError(result.returncode, result.args, result.stdout, result.stderr)
+                except BaseException:
+                    shutil.rmtree(export_dir, ignore_errors=True)
+                    raise
+                shutil.rmtree(export_dir, ignore_errors=True)
+                if attempt < max_retries - 1 and "database is locked" in result.stderr.lower():
+                    continue  # Retry on database lock
+                raise subprocess.CalledProcessError(result.returncode, result.args, result.stdout, result.stderr)
             except subprocess.TimeoutExpired:
                 if attempt < max_retries - 1:
                     continue
@@ -685,6 +761,17 @@ class Enforcer:
                 continue
 
 
+    def process_queued_logs(self) -> None:
+        """After a manual run: enforce the book edits whose --log runs gave up waiting for
+        our lock (their logs are still queued)."""
+        if not getattr(self, 'enforcer_on', False):
+            return
+        try:
+            self.check_for_other_logs()
+        except Exception as e:
+            print(f"[cover-metadata-enforcer] WARNING: could not process queued change logs: {e}", flush=True)
+
+
     def check_for_other_logs(self, processed_book_ids: set | None = None):
         processed_book_ids = processed_book_ids or set()
         # Logs written while a pass runs had their own run cancelled by the lock (a library-wide
@@ -769,7 +856,14 @@ def main():
     parser.add_argument('-v', '--verbose', action='store_true', dest='verbose', help="Use with history to display entire enforcement history instead of only the most recent 10 entries", default=False)
     args = parser.parse_args()
 
+    # A --log run (one book edit, from the change detector) waits for a manual run or a
+    # book delete to finish instead of giving up at once; if it still gives up, its log
+    # stays queued and the next run picks it up (check_for_other_logs).
+    acquire_lock(wait_seconds=LOCK_WAIT_SECONDS if args.log is not None else 0)
+
     enforcer = Enforcer(args)
+    # We hold the lock, so anything in metadata_temp is left over from a run that was killed
+    enforcer.empty_metadata_temp()
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -796,6 +890,7 @@ def main():
             print("\n[cover-metadata-enforcer]: FAILURE: Supported files found but none we're successfully enforced. See the log above for details.")
         elif n_enforced < n_supported_files:
             print(f"\n[cover-metadata-enforcer]: PARTIAL SUCCESS: Out of {n_supported_files} supported files detected, {n_enforced} were successfully enforced. See log above for details")
+        enforcer.process_queued_logs()
     elif args.log is None and args.dir is not None and args.all is False and args.list is False and args.history is False:
         ### dir passed, no log, not all, no flags
         if args.dir[-1] == '/':
@@ -807,6 +902,7 @@ def main():
                 for book in book_objects:
                     book_dicts.append(book.export_as_dict())
                 enforcer.db.enforce_add_entry_from_dir(book_dicts)
+            enforcer.process_queued_logs()
         else:
             print(f"[cover-metadata-enforcer]: ERROR: '{args.dir}' is not a valid directory")
     elif args.log is not None and args.dir is None and args.all is False and args.list is False and args.history is False:
