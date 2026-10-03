@@ -1897,6 +1897,8 @@ dl.book-info {
     #meta-info #book-list .media .media-image-wrapper,
     #meta-info #book-list .media .media-image .meta-no-cover { width: 56px; flex: none; }
     #meta-info #book-list .media .media-image .meta-no-cover { font-size: 11px; }
+    /* Bootstrap's .media-body is 10000px wide, which the row layout's flex shrink hid */
+    #meta-info #book-list .media .media-body { width: auto; }
     #meta-info #book-list .media .media-body,
     #meta-info #book-list .media .meta-score + .media-body { padding: 10px 14px 14px; }
 }

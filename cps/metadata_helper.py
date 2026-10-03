@@ -758,6 +758,15 @@ def _note_edition(book_id, edition):
         log.debug("Could not note book %s's edition: %s", book_id, e)
 
 
+def poorly_cased(title: str) -> bool:
+    """Whether a title's case is a file's or a catalogue's, not a title's: all capitals, or a
+    word of four letters or more starting in lower case ("The war of the worlds")."""
+    title = (title or '').strip()
+    if title.isupper():
+        return True
+    return any(len(word) > 3 and word[0].islower() for word in re.findall(r"[^\W\d_][\w'-]*", title))
+
+
 # How a match is applied (see lookup_mode)
 REPLACE, FILL, HAND = "replace", "fill", "hand"
 
@@ -838,8 +847,11 @@ def _apply_record(cdb, book, record, cover, replace_tags=False, mode=REPLACE, st
         edition = edition or split_edition(record.title or '')[1]
         if edition and mode != HAND:
             _note_edition(book.id, edition)
-        # Filling, the title only takes the record's spelling of the same title
+        # Filling, the title only takes the record's spelling of the same title. The same title
+        # differing only in case and punctuation is respelled only from a poorly cased one
         title_ok = mode == REPLACE or (mode == FILL and matched is not None)
+        if matched is not None and not poorly_cased(book.title):
+            title_ok = False
         if title and title_ok and title != book.title:
             before['title'] = book.title
             book.title = title
@@ -850,8 +862,9 @@ def _apply_record(cdb, book, record, cover, replace_tags=False, mode=REPLACE, st
         names = {}
         for name in record.authors or []:
             name = (name or '').strip().replace(',', '|')
-            if name:
-                names.setdefault(name.casefold(), name)
+            # "J. LESSLIE HALL" gives way to "J. Lesslie Hall"
+            if name and (name.casefold() not in names or names[name.casefold()].isupper()):
+                names[name.casefold()] = name
         own = [a.name for a in book.authors if not placeholder_author(a.name.replace('|', ','))]
         # Filling, the authors change only from none, or to the same people in another case or order
         authors_ok = mode == REPLACE or (mode == FILL and (not own or {n.casefold() for n in own} == set(names)))

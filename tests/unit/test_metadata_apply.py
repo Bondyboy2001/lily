@@ -487,3 +487,15 @@ def test_undo_puts_back_what_a_lookup_changed(env, monkeypatch):
     # Undone once; the book now counts as edited by hand
     assert metadata_helper.undo_last_change(book) is False
     assert CWA_DB().is_hand_edited(book)
+
+
+@pytest.mark.parametrize("title, found, kept", [
+    ("Beowulf: An Anglo-Saxon Epic Poem", "Beowulf an Anglo-Saxon Epic Poem", "Beowulf: An Anglo-Saxon Epic Poem"),
+    ("The war of the worlds", "The War of the Worlds", "The War of the Worlds"),
+])
+def test_the_same_title_is_respelled_only_from_poor_casing(env, monkeypatch, title, found, kept):
+    book = env.add_book(title, author="Unknown")
+    helper = _setup(monkeypatch, _record(title=found, authors=["J. LESSLIE HALL", "J. Lesslie Hall"], description="An epic."))
+    assert helper.fetch_and_apply_metadata(book, force=True) is True
+    assert _q(env, "SELECT title FROM books") == [(kept,)]
+    assert _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author") == [("J. Lesslie Hall",)]
