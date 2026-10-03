@@ -490,5 +490,5 @@ def test_progress_is_saved_every_few_seconds_not_every_book(env, monkeypatch):
     monkeypatch.setattr(CWA_DB, "save_rebuild_progress", lambda self, *a, **k: saves.append(a[0]) or save(self, *a, **k))
     monkeypatch.setattr(metadata_rebuild, "PROGRESS_EVERY", 3600)
     task, looked_up = _run_rebuild(env, monkeypatch, stop_after=ids[2])
-    # Once at the first book, then when stopped
-    assert looked_up == ids[:3] and saves == [ids[1], ids[3]]
+    # Not after each book: only when stopped
+    assert looked_up == ids[:3] and saves == [ids[3]]

@@ -88,7 +88,7 @@ class TaskRebuildMetadata(CalibreTask):
         self.skipped = 0
         # Books checked above the lowest one still to do, so a carried-on run skips them
         self._done = set()
-        # When the progress was last saved (time.monotonic)
+        # When the progress was last saved (time.monotonic); the run starts the clock
         self._saved_at = 0.0
 
     @property
@@ -164,6 +164,7 @@ class TaskRebuildMetadata(CalibreTask):
                 self.checked, self.updated, self.covers = (progress[k] for k in ("checked", "updated", "covers"))
                 log.info("Rebuild: carrying on after %s books, from book %s", self.checked, progress["next_book_id"])
             self.total = self.checked + len(book_ids)
+            self._saved_at = time.monotonic()
             make_covers = pdf_cover.available()
             running = {}
             with ThreadPoolExecutor(max_workers=self.workers) as pool:
