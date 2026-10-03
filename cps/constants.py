@@ -91,6 +91,10 @@ LEGACY_DEFAULT_PASSWORD = "harry10"  # nosec
 # Set to choose the first admin password on a fresh install instead of a generated one.
 ADMIN_PASSWORD_ENV  = "LILY_ADMIN_PASSWORD"
 DEFAULT_PORT        = 8083
+# Largest request body Lily accepts (Flask's MAX_CONTENT_LENGTH), so oversize uploads get a
+# 413 before they are buffered. It sits below Tornado's 209,700,000-byte max_buffer_size in
+# server.py so Flask, not the socket layer, is what turns a too-large file away.
+MAX_UPLOAD_BYTES    = 200 * 1000 * 1000
 env_CWA_PORT_OVERRIDE = os.environ.get("CWA_PORT_OVERRIDE")
 if env_CWA_PORT_OVERRIDE:
     try:

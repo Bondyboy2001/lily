@@ -17,7 +17,7 @@ from flask_principal import Principal
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from . import logger
-from . import constants  # noqa: F401  # cps.constants must be importable as an attribute
+from . import constants
 from .cli import CliParameter
 from .reverseproxy import ReverseProxied
 from .server import WebServer
@@ -71,6 +71,7 @@ app.config.update(
     SESSION_COOKIE_NAME=os.environ.get('COOKIE_PREFIX', "") + "session",
     REMEMBER_COOKIE_NAME=os.environ.get('COOKIE_PREFIX', "") + "remember_token",
     TEMPLATES_AUTO_RELOAD=os.environ.get('DEVELOP_ON', 'False').lower() == 'true',
+    MAX_CONTENT_LENGTH=constants.MAX_UPLOAD_BYTES,
 )
 
 # Fix for running behind reverse proxy (e.g. nginx, apache, caddy, ...)

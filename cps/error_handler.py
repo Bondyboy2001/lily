@@ -10,7 +10,7 @@
 import secrets
 import traceback
 
-from flask import render_template
+from flask import render_template, request
 from .cw_login import current_user
 from werkzeug.exceptions import default_exceptions
 
@@ -22,6 +22,11 @@ log = logger.create()
 # custom error page
 
 def error_http(error):
+    if error.code == 413 and request.endpoint == "edit-book.upload":
+        # The CSRF check parses the form before the upload view runs, so an oversize
+        # upload usually ends here; give it the same plain message the view would.
+        from .editbooks_upload import upload_too_large_response
+        return upload_too_large_response()
     headers = {'WWW-Authenticate': f'Basic realm="{config.config_calibre_web_title or "lily"}"'} if error.code == 401 else {}
     return render_template('http_error.html',
                            error_code="Error {0}".format(error.code),

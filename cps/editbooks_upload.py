@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from flask import flash
 from flask_babel import gettext as _
 
-from . import config
+from . import config, constants
 from .file_helper import validate_mime_type
 from .cwa_functions import get_ingest_dir
 from werkzeug.utils import secure_filename
@@ -70,6 +70,13 @@ def _upload_response(location, queued):
         body["uploads"] = queued
         body["status_url"] = url_for("edit-book.upload_status")
     return Response(json.dumps(body), mimetype='application/json')
+
+def upload_too_large_response():
+    """Plain-text 413 for an upload over MAX_UPLOAD_BYTES; uploadprogress.js shows the text."""
+    limit_mb = constants.MAX_UPLOAD_BYTES // (1000 * 1000)
+    message = _("This file is larger than the %(size)s MB upload limit. Try a smaller file.", size=limit_mb)
+    return Response(message, status=413, mimetype="text/plain")
+
 
 # Helper to get a unique, prefixed path in the ingest directory
 def _get_ingest_path(uploaded_file, prefix_parts=None):
@@ -150,6 +157,11 @@ def _ensure_ingest_dir_writable(ingest_dir=None, allow_create=False, check_write
 @login_required_if_no_ano
 @upload_required
 def upload():
+    # Turn an oversize body away before anything reads (and buffers) the form
+    if request.content_length is not None and request.content_length > constants.MAX_UPLOAD_BYTES:
+        log.warning("Upload rejected: %s bytes is over the %s-byte limit",
+                    request.content_length, constants.MAX_UPLOAD_BYTES)
+        return upload_too_large_response()
     try:
         log.info(
             "Upload request received: user_agent=%s content_length=%s file_fields=%s",

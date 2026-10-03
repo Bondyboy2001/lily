@@ -71,3 +71,38 @@ class TestUploadValidation:
         with env.app.test_request_context():
             assert _validate_uploaded_file(upload) is False
             assert "'xyz'" in get_flashed_messages()[0]
+
+
+@pytest.mark.unit
+class TestUploadSizeLimit:
+    def test_limit_fits_inside_the_tornado_buffer(self):
+        import re
+        from pathlib import Path
+        from cps import app, constants
+        server = (Path(__file__).resolve().parents[2] / "cps" / "server.py").read_text(encoding="utf-8")
+        buffer = int(re.search(r"max_buffer_size=(\d+)", server).group(1))
+        assert app.config["MAX_CONTENT_LENGTH"] == constants.MAX_UPLOAD_BYTES < buffer
+
+    def test_oversize_upload_gets_an_early_413_with_a_plain_message(self, env, monkeypatch):
+        from cps import constants, editbooks_upload
+        monkeypatch.setattr(constants, "MAX_UPLOAD_BYTES", 1000)
+        saved = []
+        monkeypatch.setattr(editbooks_upload, "_save_to_ingest_atomic_rename",
+                            lambda *a, **k: saved.append(a) or ("", ""))
+        client = _login(env)
+        resp = client.post("/upload", data={"btn-upload": (io.BytesIO(b"x" * 5000), "big.epub")},
+                           content_type="multipart/form-data")
+        assert resp.status_code == 413
+        assert resp.mimetype == "text/plain"
+        assert "upload limit" in resp.get_data(as_text=True)
+        assert saved == []
+
+    def test_flask_413_on_the_upload_route_uses_the_same_message(self, env):
+        # With CSRF on, the form is parsed (and Flask's 413 raised) before the view runs
+        from werkzeug.exceptions import RequestEntityTooLarge
+        from cps.error_handler import error_http
+        with env.app.test_request_context("/upload", method="POST"):
+            resp = error_http(RequestEntityTooLarge())
+        assert resp.status_code == 413
+        assert resp.mimetype == "text/plain"
+        assert "200 MB upload limit" in resp.get_data(as_text=True)

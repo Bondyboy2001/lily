@@ -143,10 +143,10 @@
 
             // Say what broke and what to do next; a plain-text reply from the server is its own explanation.
             var contentType = xhr.getResponseHeader("Content-Type") || "";
-            if (xhr.status === 502 || xhr.status === 0 || xhr.status === 413) {
-                this.$modalMessage.text(this.options.tooLargeMsg);
-            } else if (contentType.indexOf("text/plain") !== -1 && xhr.responseText) {
+            if (contentType.indexOf("text/plain") !== -1 && xhr.responseText) {
                 this.$modalMessage.text(xhr.responseText);
+            } else if (xhr.status === 502 || xhr.status === 0 || xhr.status === 413) {
+                this.$modalMessage.text(this.options.tooLargeMsg);
             } else {
                 this.$modalMessage.text(this.options.failedMsg);
             }

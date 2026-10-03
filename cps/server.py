@@ -225,7 +225,7 @@ class WebServer(object):
             import asyncio
             asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         try:
-            # Max Buffersize set to 200MB
+            # Max Buffersize set to 200MB; keep it above constants.MAX_UPLOAD_BYTES
             http_server = HTTPServer(MyWSGIContainer(self.app),
                                      max_buffer_size=209700000,
                                      ssl_options=self.ssl_args)
