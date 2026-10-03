@@ -408,7 +408,8 @@ def test_book_page_details_dialog(client, temp_cwa_db):
     assert 'aria-labelledby="bookInfoLabel"' in dialog and ">Book Details</h4>" in dialog
     labels = re.findall(r"<dt>([^<]*)</dt>", dialog[:dialog.index("</dl>")])
     assert labels[:2] == ["Date added", "Last edited"] and labels[-1] == "Book ID"
-    assert "Reading" in labels and "%" not in dialog[:dialog.index("</dl>")].replace("%(", "")
+    # No Reading row: the details are about the file, not the reader's progress
+    assert "Reading" not in labels
 
 
 @pytest.mark.unit

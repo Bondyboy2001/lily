@@ -275,12 +275,6 @@
                 <dd class="book-info-id">{% if id_url.startswith('https://') %}<a href="{{ id_url }}" target="_blank" rel="noopener">{{ identifier.val }}</a>{% else %}{{ identifier.val }}{% endif %}</dd>
               </div>
               {% endfor %}
-              {% if not current_user.is_anonymous %}
-              <div>
-                <dt>{{ _('Reading') }}</dt>
-                <dd>{% if entry.read_status %}{{ _('Finished') }}{% elif resume %}{{ _('In progress · %(percent)s%%', percent=resume.percent) }}{% else %}{{ _('Not started') }}{% endif %}</dd>
-              </div>
-              {% endif %}
               {% if metadata_lookup %}
               <div>
                 <dt>{{ _('Metadata') }}</dt>
