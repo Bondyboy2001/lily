@@ -3,7 +3,7 @@
  * rebuild, then show its progress in a help line under the label until it finishes, with Stop
  * beside it meanwhile. A stopped rebuild is followed until the books under way are done.
  * Opening the page while a rebuild runs picks it up again. After a rebuild that was stopped
- * or cut short, the dialog offers to continue from there or start again. Retry failed starts
+ * or cut short, the dialog offers to continue from there. Retry failed starts
  * a run of only the books whose last lookup failed, and the dialog's Full rebuild one that
  * forgets earlier lookups and looks every book up again, both shown the same way.
  */
@@ -14,7 +14,6 @@
   if (!btn) { return; }
   var stopBtn = document.getElementById("rebuild_metadata_stop");
   var confirmBtn = document.getElementById("rebuild_metadata_confirm");
-  var restartBtn = document.getElementById("rebuild_metadata_restart");
   var resumeText = document.getElementById("rebuildMetadataResume");
   var retryBtn = document.getElementById("retry_failed");
   var fullBtn = document.getElementById("rebuild_metadata_full");
@@ -106,12 +105,10 @@
     resumeText.hidden = !resume;
     // The body holds only that line: no empty gap above the buttons without it
     resumeText.parentNode.hidden = !resume;
-    restartBtn.hidden = !resume;
     confirmBtn.textContent = resume ? confirmBtn.dataset.continueLabel : confirmBtn.dataset.label;
     $("#rebuildMetadataModal").modal("show");
   });
   confirmBtn.addEventListener("click", function () { start(resume ? { resume: "1" } : null); });
-  restartBtn.addEventListener("click", function () { start(null); });
   fullBtn.addEventListener("click", function () { start({ full: "1" }); });
   if (retryBtn) {
     retryBtn.addEventListener("click", function () { start({ failed: "1" }); });

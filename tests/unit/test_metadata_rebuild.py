@@ -124,8 +124,8 @@ def test_settings_page_offers_the_rebuild(env):
     assert 'id="rebuild_metadata"' in html and 'data-url="/cwa-settings/rebuild-metadata"' in html
     assert 'id="rebuildMetadataModal"' in html and "js/lily-metadata-rebuild.js" in html
     assert 'data-status-url="/cwa-settings/rebuild-metadata/status"' in html
-    # The dialog can offer to carry on a stopped rebuild or start again
-    assert 'id="rebuild_metadata_restart" hidden' in html and 'data-continue-label="Continue"' in html
+    # The dialog can offer to carry on a stopped rebuild; there is no Start again
+    assert "rebuild_metadata_restart" not in html and 'data-continue-label="Continue"' in html
 
 
 @pytest.mark.unit
