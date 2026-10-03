@@ -253,9 +253,9 @@ def test_rating_inputs_are_keyboard_radio_groups():
     assert 'role="radiogroup"' in macro and 'type="radio"' in macro
     assert "aria-labelledby=" in macro and "aria-label=" in macro
     assert "ngettext('%(num)s star', '%(num)s stars', n)" in macro
-    # Clearing a rating is a delete, so the "none" option is the trash glyph.
+    # Clearing a rating clears one value, so the "none" option is the × glyph (§5.2).
     clear = re.search(r'<label[^>]*class="lily-stars-clear"[^>]*>.*?</label>', macro).group(0)
-    assert "glyphicon-trash" in clear and 'title="{{ none_text }}"' in clear
+    assert "glyphicon-remove" in clear and 'title="{{ none_text }}"' in clear
     for name in ("book_edit.html", "search_form.html"):
         html = read(TEMPLATES / name)
         assert "bootstrap-rating-input" not in html and "data-clearable" not in html, name

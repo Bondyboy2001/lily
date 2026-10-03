@@ -1720,7 +1720,7 @@ dl.book-info {
    back under the cover (a 1fr row keeps the fields' height out of the cover's row). */
 #book_edit_frm {
     display: grid;
-    grid-template-columns: 220px minmax(0, 760px) 220px;
+    grid-template-columns: 220px minmax(0, 640px) 220px;
     grid-template-rows: auto 1fr;
     gap: 0 24px;
     justify-content: center;
@@ -1738,7 +1738,17 @@ dl.book-info {
     outline-offset: -1px;
 }
 
-.editbook-fetch { margin-top: 14px; }
+.editbook-read { margin-top: 14px; }
+
+/* The Book heading with Fetch Metadata at its end: the lookup fills the whole form */
+.editbook-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.editbook-section .editbook-head h3 { margin: 0; }
 
 .editbook-side-group { margin-top: 22px; }
 
@@ -1751,8 +1761,10 @@ dl.book-info {
 
 .editbook-cover-section .form-group { margin-bottom: 8px; }
 
-/* Delete sits under Fetch Metadata, a quiet .is-danger that turns red only on hover. */
-#book_edit_frm .editbook-delete { margin-top: 8px; }
+/* Delete sits last in the cover column, apart from the everyday tools: a quiet
+   .is-danger that turns red only on hover. */
+.editbook-danger { margin-top: 22px; }
+.editbook-danger .btn + .btn { margin-top: 8px; }
 
 .editbook-form { min-width: 0; }
 
@@ -1951,7 +1963,7 @@ dl.book-info {
     #meta-info #book-list .media .meta-score + .media-body { padding: 10px 14px 14px; }
 }
 
-/* Row editor (Edit Metadata authors, tags, shelves): one input per value, × beside it. */
+/* Row editor (Edit Metadata authors and tags): one input per value, × beside it. */
 .lily-edit-rows {
     display: flex;
     flex-direction: column;
@@ -1976,20 +1988,61 @@ dl.book-info {
 }
 
 .lily-edit-field { flex: 1; min-width: 0; }
-.lily-edit-field .twitter-typeahead { display: block !important; }
+.lily-edit-rows:not(#tag-rows) .lily-edit-field .twitter-typeahead { display: block !important; }
 
 /* typeahead copies the input's background onto its read-only hint only when the input is
    already on the page; rows are built detached, so the hint would keep the read-only look */
-.lily-edit-field .tt-hint {
+.lily-edit-rows:not(#tag-rows) .lily-edit-field .tt-hint {
     background: var(--paper) !important;
     opacity: 1;
 }
 
-/* A shelf name that doesn't match any of the user's shelves: the field edge warms (§5.4) */
-.lily-edit-field .lily-edit-input.is-invalid { border-color: color-mix(in srgb, var(--accent) 55%, var(--line-strong)); }
+/* Tags wrap as chips (§5.3): each value sits in a tinted chip with its × inside, and
+   shows its field edge only while it is being corrected */
+#tag-rows {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+#tag-rows .lily-edit-row {
+    gap: 0;
+    padding-right: 2px;
+    border-radius: var(--control-radius);
+    background: var(--control-tint);
+}
+
+#tag-rows .lily-edit-field { flex: none; }
+/* No inline completion hint behind a chip: it would draw its own small box */
+#tag-rows .tt-hint { display: none; }
+
+/* field-sizing fits the text exactly; where it isn't supported the size attribute
+   (edit_books.js fitChip) gives a near width */
+#tag-rows .lily-edit-input {
+    width: auto;
+    field-sizing: content;
+    min-width: 3ch;
+    padding: 0 2px 0 10px;
+    border-color: transparent;
+    background: transparent;
+    color: var(--ink-soft);
+}
+
+#tag-rows .lily-edit-input:focus {
+    border-color: var(--faint);
+    background: var(--paper);
+    color: var(--ink);
+}
+
+#tag-rows .icon-btn.lily-edit-remove {
+    width: 24px;
+    height: 24px;
+    font-size: 13px;
+}
+#tag-rows .icon-btn.lily-edit-remove .glyphicon { font-size: 13px; }
 
 /* Every "remove/clear this value" control (row editor, date clear, rating clear) is the
-   same trash glyph in the same 30px square, muted until hovered, then danger red. */
+   same × glyph in the same 30px square, muted until hovered, then danger red. The trash
+   glyph is kept for deleting the book itself. */
 .icon-btn.lily-edit-remove,
 .btn.datepicker_delete,
 .lily-stars .lily-stars-clear {
@@ -2053,12 +2106,14 @@ dl.book-info {
     overflow: hidden;
 }
 
-/* Details: fields flow two to a row; an empty optional one is hidden (edit_books.js) */
+/* Details: the publisher takes a row, the shorter fields pair up beneath it; an empty
+   optional one is hidden (edit_books.js) */
 .editbook-fields {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    column-gap: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 14px;
 }
+.editbook-fields [data-optional="publisher"] { grid-column: 1 / -1; }
 
 .editbook-section[hidden],
 .editbook-section [data-optional][hidden] { display: none; }
@@ -2105,7 +2160,8 @@ dl.book-info {
         align-items: start;
     }
 
-    .editbook-cover-tools .editbook-fetch { margin-top: 0; }
+    .editbook-cover-tools .editbook-read { margin-top: 0; }
+    .editbook-fields { grid-template-columns: minmax(0, 1fr); }
     .editbook-cover-tools .editbook-side-group { margin-top: 14px; }
 
     /* One column: the fields, then the Save panel as a bar pinned to the bottom of
@@ -2129,8 +2185,6 @@ dl.book-info {
         background: var(--paper);
     }
     .editbook-actions .btn { width: auto; }
-    /* The row runs right to left, so Read goes to the far left, away from Save */
-    .editbook-actions .editbook-read { order: 1; margin-right: auto; }
 }
 
 #detail-rating-block .glyphicon { top: 0; font-size: 16px; }

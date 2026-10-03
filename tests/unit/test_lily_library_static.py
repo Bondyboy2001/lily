@@ -424,14 +424,14 @@ def test_editor_adds_only_title_and_authors_by_hand_and_shows_other_fields_once_
     template = read(TEMPLATES / "book_edit.html")
     for key in ("series", "publisher", "pubdate", "languages", "rating", "tags", "comments"):
         assert f'data-optional="{key}"{{% if not shown.{key} %}} hidden{{% endif %}}' in template
-    # No "Add …" for any of them: only authors and shelves have an Add button
+    # No "Add …" for any of them: only authors have an Add button
     assert "data-optional-add" not in template and "editbook-add-fields" not in template
     assert 'id="tag-add"' not in template
     # The edition and volume are the optional fields with an Add button (design §6.4)
     assert re.findall(r'<button type="button" class="btn btn-default btn-sm" id="([^"]+)"', template) == [
-        "edition-add", "volume-add", "author-add", "shelf-add"]
-    # Title, authors and shelves always show; Details hides with its heading when it is empty
-    for always in ('id="title"', 'id="author-rows"', 'id="shelf-rows"'):
+        "edition-add", "volume-add", "author-add"]
+    # Title and authors always show; Details hides with its heading when it is empty
+    for always in ('id="title"', 'id="author-rows"'):
         assert always in template
     assert '<section class="editbook-section"{% if not details_shown %} hidden{% endif %}>' in template
     edit_js = read(JS / "edit_books.js")
@@ -463,12 +463,36 @@ def test_fetch_metadata_opens_beside_the_cover():
     assert "margin-left: var(--meta-left);" in css
 
 
-def test_editor_save_panel_starts_with_read():
+def test_editor_layout():
+    # Design §6.4: Read under the cover, Delete last in the cover column, Fetch Metadata at
+    # the Book heading, and a Save panel of Save and Cancel only
     template = read(TEMPLATES / "book_edit.html")
-    panel = template.split('<aside class="editbook-actions"', 1)[1].split("</aside>", 1)[0]
-    assert panel.index('class="btn btn-default editbook-read"') < panel.index('id="submit"')
-    assert "url_for('web.read_book', book_id=book.id, book_format=reader_list[0])" in panel
+    side = template.split('<div class="editbook-cover-tools">', 1)[1].split('{# Only the title', 1)[0]
+    assert side.index('class="btn btn-default btn-block editbook-read"') < side.index('id="btn-upload-cover"')
+    assert side.index('id="btn-upload-cover"') < side.index('<div class="editbook-danger">') < side.index('id="delete"')
+    assert "url_for('web.read_book', book_id=book.id, book_format=reader_list[0])" in side
     assert "reader_list=helper.check_read_formats(book)" in read(REPO_ROOT / "cps/editbooks.py")
+    head = template.split('<div class="editbook-head">', 1)[1].split("</div>", 1)[0]
+    assert "<h3>{{_('Book')}}</h3>" in head and 'id="get_meta"' in head
+    panel = template.split('<aside class="editbook-actions"', 1)[1].split("</aside>", 1)[0]
+    assert re.findall(r'class="btn [^"]*"', panel) == ['class="btn btn-primary"', 'class="btn btn-default"']
+    # The × clears a value; the trash is only for deleting the book or a format
+    assert template.count("glyphicon-trash") == 1 and 'glyphicon-trash" aria-hidden="true"></span> {{_("Delete book")}}' in template
+    assert 'glyphicon glyphicon-remove", "aria-hidden": "true"' in read(JS / "edit_books.js")
+    css = read(CSS / "lily-library.css")
+    assert "grid-template-columns: 220px minmax(0, 640px) 220px;" in css
+    assert "#tag-rows {\n    flex-direction: row;\n    flex-wrap: wrap;" in css
+
+
+def test_editor_has_no_shelves_section():
+    # Shelves change from the book page's Shelves menu. The editor keeps only disabled
+    # fields, so a save leaves the shelves alone unless Fetch Metadata files an arXiv paper
+    template = read(TEMPLATES / "book_edit.html")
+    assert "shelf-rows" not in template and "shelf-add" not in template and "shelves-label" not in template
+    assert '<input type="hidden" name="shelves_present" value="1" disabled>' in template
+    assert re.search(r'<input type="hidden" name="shelves" id="shelves" value=\'[^\']*\' disabled>', template)
+    assert "shelf-rows" not in read(JS / "edit_books.js")
+    assert 'set("shelves_present", "1");' in read(JS / "get_meta.js")
 
 
 def test_native_file_inputs_hide_at_the_element():

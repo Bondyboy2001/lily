@@ -296,7 +296,9 @@ get the Lily component:
 - No border in any state (tested). Disabled is `opacity: .4` on the whole
   control, never a colour change.
 - Destructive actions rest in the accent, not red: trash icons are
-  `.icon-btn.is-danger` in `--accent`. On hover and keyboard focus every
+  `.icon-btn.is-danger` in `--accent`. Removing or clearing one value (an author or
+  tag row, a date, a rating) is the × glyph (`glyphicon-remove`), not the trash, which
+  is kept for deleting a thing itself (a book, a format, a bookmark). On hover and keyboard focus every
   destructive control (`.is-danger`, row removers, clear-date buttons) turns red:
   `--danger` at 12% behind a `--danger` label, so the pointer warns before the
   click. Otherwise red is for *failure status*.
@@ -425,7 +427,7 @@ Stars are icons: filled `--accent`, empty `--line-strong`. Sizes: 11px in cards,
 
 A rating input (`image.rating_input`, `.lily-stars`: the editor and advanced
 search) is a radio group: one radio per star (each named "3 stars") and a
-"none" option drawn as the trash glyph, which shows once there is a rating to
+"none" option drawn as the × glyph, which shows once there is a rating to
 clear. The radios are out of sight but keep the keyboard (Tab in, arrow keys
 to pick); each star label wears its radio's focus ring. Stars up to the chosen
 one fill, and hovering previews a rating. It posts "1"…"5", or "" for none.
@@ -574,20 +576,28 @@ content (grid, panel, rows)
   For editors, when an automatic lookup changed the book, the footer holds a secondary
   "Undo lookup" (its tooltip names the source and date) that puts back the details from
   before; otherwise the dialog has no footer.
-- Tags and shelves are not shown on the book page; both stay editable on the
-  edit page.
+- Tags and shelves are not shown on the book page. Tags are edited on the edit
+  page; shelves only through the Shelves menu below.
 - The action bar is Read, Download, Mark as read, Shelves, View details (the info sign), Fetch metadata (the magnifying glass,
   opening the lookup dialog on the book page itself; Apply saves through a hidden form of the
   book's values and reloads the page), Edit metadata and Delete. The editor still takes `?fetch=1`.
   The Shelves icon (`glyphicon-list`) opens a menu of the shelves you may change, each a
   checkbox item (`role=menuitemcheckbox`, a tick when on) that puts the book on or takes
   it off at once, plus "New shelf"; sidebar counts follow without a reload (`shelves.js`).
-  The edit page's Shelves rows change them too. There is no archive and no Keep offline button.
+  The edit page has no Shelves section. There is no archive and no Keep offline button.
   Shelf pages offer no remove action on covers either.
 - Papers: the arXiv id, linked to its abstract page, is in the details dialog with the
   other identifiers.
-- **Editor** (`book_edit.html`): Title, authors and shelves always show, and are
-  the only things added by hand. Series, publisher, published date, language,
+- **Editor** (`book_edit.html`): three columns, centred: the cover column (cover,
+  a quiet Read in a new tab when the book has a readable format, Replace Cover, then
+  Delete book and per-format deletes last, 22px apart from the rest), the fields
+  (at most 640px), and a sticky panel of Save (the one Primary) and Cancel. Fetch
+  Metadata sits at the end of the Book heading, since it fills the whole form.
+  Below 1100px the panel drops under the cover; on phones it is a bar pinned to the
+  bottom of the viewport. Shelves are not edited here (the book page's Shelves menu
+  does that); the form keeps disabled `shelves` fields only so Fetch Metadata can file
+  an arXiv paper on the arXiv shelf.
+  Title and authors always show, and are the only things added by hand. Series, publisher, published date, language,
   rating, tags and description show only when the book has a value, which Fetch
   Metadata or the file gave; a value can be corrected or cleared, but there are
   no "Add …" buttons for them. The exceptions are the edition and volume: "Add edition"
@@ -597,10 +607,13 @@ content (grid, panel, rows)
   in cwa.db (`book_editions`, `book_volumes`), since calibre has no field for them. A section with nothing to show (Details, Tags,
   Description) is hidden with its heading, and Fetch Metadata reveals any field
   it fills.
+  Authors are one field per row with a × beside it. Tags wrap as chips
+  (`#tag-rows`): each value's field is sized to its text inside a `--control-tint`
+  chip with a small × and shows its field edge only while focused. Details puts
+  Publisher on its own row and pairs the shorter fields under it (one column on
+  phones).
   The description box fits its text (no drag handle), padding 14/16 and
   line-height 1.68.
-  The Save panel starts with a secondary Read (new tab) when the book has a
-  readable format; Save stays the one Primary.
 - **Fetch Metadata results** are compact cards: a 128px cover column with
   Apply under it, fields in 14px, a description clamped to six lines. The match
   score is a bare 24px number ("21%") in the card's top right; an exact match

@@ -139,20 +139,16 @@ var authors = new Bloodhound({
    text into values). Enter (or opts.splitKey) adds a row below, Backspace in an empty row
    removes it, and pasting a list spreads it over several rows. Code that sets the field fires
    "change", which redraws the rows (Fetch Metadata does this).
-   opts.accept, if given, maps a typed value to the one to keep, or null to refuse it: refused
-   rows stay on screen marked invalid and are left out of the field. Values that arrive through
-   the field are always kept.
    opts.fixed is for values that are not added by hand (tags): there is no Add button, and
-   Enter and the split key add no row; the rows there are can be corrected or removed. */
+   Enter and the split key add no row; the rows there are can be corrected or removed.
+   opts.chips sizes each input to its value, for rows that wrap as chips (tags). */
 function lilyRowEditor(opts) {
     var $field = opts.field, $rows = opts.rows;
     if (!$field.length || !$rows.length) { return; }
     var placeholder = $rows.data("placeholder") || "";
     var removeLabel = $rows.data("remove-label") || "Remove";
-    var invalidLabel = $rows.data("invalid-label") || "";
     // typeahead copies the input's classes onto its .tt-hint overlay; skip that copy
     var INPUT = "input.lily-edit-input:not(.tt-hint)";
-    var fromField = [];
 
     function same(a, b) { return a.toLowerCase() === b.toLowerCase(); }
 
@@ -160,27 +156,20 @@ function lilyRowEditor(opts) {
         return $rows.find(INPUT);
     }
 
-    function keep(value) {
-        if (fromField.some(function (v) { return same(v, value); })) { return value; }
-        return opts.accept ? opts.accept(value) : value;
-    }
-
-    // Writes the field from the rows; markInvalid also flags refused rows (not while typing)
-    function sync(markInvalid) {
+    // Writes the field from the rows
+    function sync() {
         var values = [];
         inputs().each(function () {
-            var refused = false;
-            opts.split($(this).typeahead("val")).forEach(function (raw) {
-                var value = keep(raw);
-                if (!value) { refused = true; return; }
+            opts.split($(this).typeahead("val")).forEach(function (value) {
                 if (!values.some(function (v) { return same(v, value); })) { values.push(value); }
             });
-            if (markInvalid || !refused) {
-                $(this).toggleClass("is-invalid", refused)
-                    .attr({"aria-invalid": refused ? "true" : null, title: refused ? invalidLabel : null});
-            }
         });
         $field.val(opts.write(values));
+    }
+
+    // A chip's field is as wide as its value (opts.chips)
+    function fitChip($input) {
+        $input.attr("size", Math.max(($input.val() || "").length, 3));
     }
 
     function makeRow(value) {
@@ -188,7 +177,7 @@ function lilyRowEditor(opts) {
             autocomplete: "off", placeholder: placeholder, "aria-label": placeholder});
         var $remove = $("<button>", {type: "button", "class": "icon-btn lily-edit-remove",
             title: removeLabel, "aria-label": removeLabel})
-            .append($("<span>", {"class": "glyphicon glyphicon-trash", "aria-hidden": "true"}));
+            .append($("<span>", {"class": "glyphicon glyphicon-remove", "aria-hidden": "true"}));
         var $row = $("<li>", {"class": "lily-edit-row"}).append(
             $("<div>", {"class": "lily-edit-field"}).append($input), $remove);
         $input.typeahead(
@@ -196,14 +185,13 @@ function lilyRowEditor(opts) {
             {name: opts.name, display: opts.display, source: opts.source}
         );
         $input.typeahead("val", value || "");
+        if (opts.chips) { fitChip($input); }
         return $row;
     }
 
     function render() {
         $rows.empty();
-        var values = opts.read($field.val());
-        fromField = values.slice();
-        values.forEach(function (value) { $rows.append(makeRow(value)); });
+        opts.read($field.val()).forEach(function (value) { $rows.append(makeRow(value)); });
     }
 
     function addAfter($row, value) {
@@ -226,7 +214,10 @@ function lilyRowEditor(opts) {
 
     opts.add.on("click", function () { addAfter(null, ""); });
 
-    $rows.on("input typeahead:select typeahead:autocomplete", INPUT, function () { sync(); });
+    $rows.on("input typeahead:select typeahead:autocomplete", INPUT, function () {
+        if (opts.chips) { fitChip($(this)); }
+        sync();
+    });
 
     $rows.on("keydown", INPUT, function (e) {
         if (e.key === "Enter" || (opts.splitKey && e.key === opts.splitKey)) {
@@ -257,11 +248,11 @@ function lilyRowEditor(opts) {
     // Keep focus in the input when pressing ×, so the tidy-up below can't swallow the click
     $rows.on("mousedown", ".icon-btn", function (e) { e.preventDefault(); });
 
-    // Once focus leaves the list: drop blank rows and flag refused ones
+    // Once focus leaves the list: drop blank rows
     $rows.on("focusout", function () {
         setTimeout(function () {
             if ($.contains($rows[0], document.activeElement)) { return; }
-            sync(true);
+            sync();
             inputs().each(function () {
                 if (!$(this).typeahead("val").trim()) {
                     $(this).closest(".lily-edit-row").remove();
@@ -336,7 +327,7 @@ var tags = new Bloodhound({
 
 /* Tags: the hidden #tags field is the comma-separated list the server reads. */
 lilyRowEditor({
-    field: $("#tags"), rows: $("#tag-rows"), add: $(), fixed: true,
+    field: $("#tags"), rows: $("#tag-rows"), add: $(), fixed: true, chips: true,
     name: "tags", display: "name", source: tags, splitKey: ",",
     split: function (raw) {
         return raw.split(",").map(function (t) { return t.trim(); })
@@ -345,36 +336,6 @@ lilyRowEditor({
     read: function (val) { return this.split(val); },
     write: function (values) { return values.join(", "); }
 });
-
-/* Shelves: the hidden #shelves field is a JSON list of names (shelf names may hold commas).
-   Only the user's existing shelves can be typed in; new shelves come from the sidebar's
-   Create Shelf, so an unknown name is flagged and not saved. */
-(function () {
-    var $rows = $("#shelf-rows");
-    if (!$rows.length) { return; }
-    var known = $rows.data("shelves") || [];
-    var shelfNames = new Bloodhound({
-        datumTokenizer: Bloodhound.tokenizers.whitespace,
-        queryTokenizer: Bloodhound.tokenizers.whitespace,
-        local: known
-    });
-    lilyRowEditor({
-        field: $("#shelves"), rows: $rows, add: $("#shelf-add"),
-        name: "shelves",
-        source: function (query, sync) {
-            if (query) { shelfNames.search(query, sync); } else { sync(shelfNames.all()); }
-        },
-        split: function (raw) { return raw.trim() ? [raw.trim()] : []; },
-        read: function (val) {
-            try { return JSON.parse(val || "[]"); } catch (e) { return []; }
-        },
-        write: function (values) { return JSON.stringify(values); },
-        accept: function (value) {
-            var match = known.filter(function (n) { return n.toLowerCase() === value.toLowerCase(); })[0];
-            return match || null;
-        }
-    });
-})();
 
 var languages = new Bloodhound({
     name: "languages",

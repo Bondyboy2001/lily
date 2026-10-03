@@ -324,7 +324,7 @@
       <label for="{{ name }}-{{ n }}" class="lily-star"><span class="glyphicon glyphicon-star" aria-hidden="true"></span><span class="glyphicon glyphicon-star-empty" aria-hidden="true"></span><span class="sr-only">{{ ngettext('%(num)s star', '%(num)s stars', n) }}</span></label>
       {%- endfor %}
       <input type="radio" class="lily-stars-input lily-stars-none" name="{{ name }}" id="{{ name }}-none" value=""{% if current < 1 or current > 5 %} checked{% endif %} {{ input_attrs|safe }}>
-      <label for="{{ name }}-none" class="lily-stars-clear" title="{{ none_text }}"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span><span class="sr-only">{{ none_text }}</span></label>
+      <label for="{{ name }}-none" class="lily-stars-clear" title="{{ none_text }}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span><span class="sr-only">{{ none_text }}</span></label>
     </div>
 {%- endmacro %}
 
