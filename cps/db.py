@@ -49,14 +49,6 @@ log = logger.create()
 cc_exceptions = ['composite', 'series']
 cc_classes = {}
 
-# Read status rows (app.db), touched on every reader save and read toggle: the "Last read" sort.
-_app_read_book = sql_table('book_read_link',
-                           sql_column('book_id', Integer),
-                           sql_column('user_id', Integer),
-                           sql_column('last_modified', TIMESTAMP),
-                           schema='app_settings')
-
-
 # When each book's metadata was last looked up (cwa.db): the "Last fetched" sort.
 _cwa_lookups = sql_table('metadata_lookups',
                          sql_column('book_id', Integer),
@@ -75,15 +67,6 @@ def last_fetched_order(newest_first=True):
 def _cwa_db_file():
     """Lily's own database, where the lookups are noted (scripts/cwa_db.py)."""
     return os.path.join(os.environ.get("CWA_DB_PATH", "/config"), "cwa.db")
-
-
-def last_read_order(newest_first=True):
-    """ORDER BY term for when the current user last read or marked each book; never-read books last."""
-    last_read = (select(func.max(_app_read_book.c.last_modified))
-                 .where(_app_read_book.c.book_id == Books.id)
-                 .where(_app_read_book.c.user_id == int(current_user.id))
-                 .scalar_subquery())
-    return (last_read.desc() if newest_first else last_read.asc()).nulls_last()
 
 
 Base = declarative_base()

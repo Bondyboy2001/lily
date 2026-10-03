@@ -35,7 +35,7 @@
     {# Grid/List icons, pinned to the toolbar's top right #}
     {{ self.view_switch() }}
     {% if page == 'hot' %}{% set sort_fields = ['downloads'] %}
-    {% else %}{% set sort_fields = ['added', 'read', 'fetched', 'title', 'author', 'published'] %}{% endif %}
+    {% else %}{% set sort_fields = ['added', 'fetched', 'title', 'author', 'published'] %}{% endif %}
     {% if list_filters and list_filters.active.get('metadata') %}{{ image.metadata_chips(list_filters) }}{% endif %}
     {{ image.sort_menu(order, url_for('web.books_list', data=page, book_id=id, sort_param='SORT_PARAM', **(list_filters.args if list_filters else {})), sort_fields) }}
     {{ image.pager(pagination) }}

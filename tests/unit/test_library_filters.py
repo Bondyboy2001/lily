@@ -97,29 +97,11 @@ class TestFilterChips:
         assert '<span class="lily-ribbon lily-ribbon-epub">' in cards["Epub English"]
         assert 'aria-label="PDF"' in cards["Pdf German"] and "lily-ribbon-pdf" in cards["Pdf German"]
 
-    def test_last_read_sort_puts_the_latest_read_first_and_unread_last(self, env):
-        from datetime import datetime, timedelta, timezone
-        self._library(env)
+    def test_there_is_no_last_read_sort(self, env):
+        env.add_book("Book One")
         client = _login(env)
-        from cps import ub, calibre_db, db
-        ids = {b.title: b.id for b in calibre_db.session.query(db.Books).all()}
-        admin = env.admin()
-        now = datetime.now(timezone.utc)
-        for title, age in (("Epub English", 3), ("Pdf German", 1)):
-            ub.session.add(ub.ReadBook(user_id=admin.id, book_id=ids[title], read_status=2,
-                                       last_modified=now - timedelta(days=age)))
-        ub.session.commit()
-
-        def order(html):
-            # The grid only
-            grid = html[html.index('class="lily-list-toolbar"'):]
-            return re.findall(r'<p title="([^"]+)" class="title"', grid)
-
-        newest = order(_get(client, "/newest/readnew/"))
-        assert newest[:2] == ["Pdf German", "Epub English"] and newest[-1] == "Epub German"
-        oldest = order(_get(client, "/newest/readold/"))
-        assert oldest[:2] == ["Epub English", "Pdf German"] and oldest[-1] == "Epub German"
-        assert "Last read" in _get(client, "/newest/stored/")
+        assert "Last read" not in _get(client, "/newest/stored/")
+        assert "Last read" not in _get(client, "/inprogress/stored/")
 
     def test_there_is_no_series_page_or_series_sort(self, env):
         env.add_book("Book One")

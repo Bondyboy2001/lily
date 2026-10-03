@@ -567,14 +567,10 @@ def generate_char_list(entries): # data_colum, db_link):
     return char_list
 
 
-# Lists about reading open with the book last read first, until another order is picked
-DEFAULT_SORTS = {"inprogress": "readnew", "read": "readnew"}
-
-
 def get_sort_function(sort_param, data):
     order = [db.Books.timestamp.desc()]
     if sort_param == 'stored':
-        sort_param = current_user.get_view_property(data, 'stored') or DEFAULT_SORTS.get(data)
+        sort_param = current_user.get_view_property(data, 'stored')
     else:
         current_user.set_view_property(data, 'stored', sort_param)
     if sort_param == 'pubnew':
@@ -589,10 +585,6 @@ def get_sort_function(sort_param, data):
         order = [db.Books.timestamp.desc()]
     if sort_param == 'old':
         order = [db.Books.timestamp]
-    if sort_param == 'readnew':
-        order = [db.last_read_order(newest_first=True), db.Books.timestamp.desc()]
-    if sort_param == 'readold':
-        order = [db.last_read_order(newest_first=False), db.Books.timestamp.desc()]
     if sort_param == 'fetchnew':
         order = [db.last_fetched_order(newest_first=True), db.Books.timestamp.desc()]
     if sort_param == 'fetchold':
