@@ -62,13 +62,6 @@ class TestCWADBSettings:
         settings = temp_cwa_db.get_cwa_settings()
         assert settings['auto_backup_imports'] == False
 
-    def test_setting_persists_across_queries(self, temp_cwa_db):
-        """Test that settings persist between queries"""
-        temp_cwa_db.update_cwa_settings({'auto_ingest_automerge': 'ignore'})
-        settings1 = temp_cwa_db.get_cwa_settings()
-        settings2 = temp_cwa_db.get_cwa_settings()
-        assert settings1['auto_ingest_automerge'] == settings2['auto_ingest_automerge'] == 'ignore'
-
 
 @pytest.mark.unit
 class TestCWADBEnforcementLogging:

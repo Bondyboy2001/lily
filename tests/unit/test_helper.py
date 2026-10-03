@@ -56,22 +56,12 @@ class TestGetValidFilename:
         assert result == "My Book Title"
 
     @patch('cps.helper.config')
-    def test_replace_whitespace_enabled(self, mock_config):
-        """Test whitespace replacement when enabled"""
+    def test_replace_whitespace_switches_the_special_character_swaps(self, mock_config):
+        """Despite its name, replace_whitespace turns the | and ? swaps on and off; spaces always stay"""
         mock_config.config_unicode_filename = False
 
-        result = get_valid_filename("Test   Book", replace_whitespace=True)
-        # Note: replace_whitespace only affects special chars, not regular spaces
-        # Multiple spaces are preserved by the sanitizer
-        assert result == "Test   Book"
-
-    @patch('cps.helper.config')
-    def test_replace_whitespace_disabled(self, mock_config):
-        """Test whitespace preserved when disabled"""
-        mock_config.config_unicode_filename = False
-
-        result = get_valid_filename("Test Book", replace_whitespace=False)
-        assert " " in result or "_" in result  # May be normalized
+        assert get_valid_filename("a|b x?y  z") == "a,b x_y  z"
+        assert get_valid_filename("a|b x?y  z", replace_whitespace=False) == "a|b x?y  z"
 
     @patch('cps.helper.config')
     def test_special_characters_sanitized(self, mock_config):
@@ -108,10 +98,10 @@ class TestGetValidFilename:
         """Test unicode characters in filename"""
         mock_config.config_unicode_filename = True
 
-        result = get_valid_filename("Test äöüß Book")
-        # Should be transliterated or preserved based on config
-        assert result  # Should not raise
-        assert len(result) > 0
+        # config_unicode_filename transliterates to ASCII; off, the letters are kept
+        assert get_valid_filename("Test äöüß Book") == "Test aouss Book"
+        mock_config.config_unicode_filename = False
+        assert get_valid_filename("Test äöüß Book") == "Test äöüß Book"
 
     @patch('cps.helper.config')
     def test_null_bytes_removed(self, mock_config):
@@ -283,12 +273,8 @@ class TestGetSortedAuthor:
         result = get_sorted_author("John William Doe")
         assert result == "Doe, John William"
 
-    def test_error_handling(self):
-        """Test error handling returns original value"""
-        # This should handle errors gracefully
-        result = get_sorted_author("")
-        # Should return empty string or handle gracefully
-        assert result is not None
+    def test_empty_name_stays_empty(self):
+        assert get_sorted_author("") == ""
 
 
 # ============================================================================

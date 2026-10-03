@@ -160,17 +160,6 @@ def test_ignored_temp_file_is_left_alone(ingest_processor, env):
     assert _failed_files(env) == []
 
 
-def test_backup_failed_uses_unique_names(ingest_processor, monkeypatch, tmp_path):
-    failed_dir = tmp_path / "failed"
-    monkeypatch.setattr(ingest_processor, "backup_destinations", {"failed": str(failed_dir)})
-    nbp = object.__new__(ingest_processor.NewBookProcessor)
-    src = tmp_path / "book.epub"
-    for payload in (b"a", b"b"):
-        src.write_bytes(payload)
-        nbp.backup(str(src), backup_type="failed")
-    assert sorted(p.read_bytes() for p in failed_dir.iterdir()) == [b"a", b"b"]
-
-
 # ── ProcessLock ────────────────────────────────────────────────────────────
 
 

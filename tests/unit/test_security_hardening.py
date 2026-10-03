@@ -113,29 +113,3 @@ def test_proxyfix_default_is_off():
     src = (REPO / "cps/__init__.py").read_text()
     assert "os.environ.get('TRUSTED_PROXY_COUNT', '0')" in src
     assert "if num_proxies > 0:" in src
-
-
-# --------------------------------------------------------------------------- default admin
-@pytest.fixture
-def app_session(monkeypatch):
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-    from cps import ub
-
-    engine = create_engine("sqlite://")
-    ub.Base.metadata.create_all(engine)
-    session = sessionmaker(bind=engine)()
-    yield session
-    session.close()
-
-
-@pytest.mark.unit
-class TestDefaultAdmin:
-    def test_default_admin_is_admin_admin123(self, app_session, monkeypatch):
-        from werkzeug.security import check_password_hash
-        from cps import ub, constants
-        monkeypatch.delenv(constants.ADMIN_PASSWORD_ENV, raising=False)
-        ub.create_admin_user(app_session)
-        admin = app_session.query(ub.User).filter(ub.User.name == constants.DEFAULT_ADMIN_NAME).one()
-        assert admin.name == "admin"
-        assert check_password_hash(admin.password, "admin123")

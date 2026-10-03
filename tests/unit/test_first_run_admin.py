@@ -104,3 +104,9 @@ def test_accounts_on_either_default_password_must_change_it(init_db):
         ub.session.commit()
         ub.flag_users_with_default_password(ub.session)
         assert _admin().force_password_change is True, pw
+    other = ub.User(name="other", email="o@example.org", role=_admin().role,
+                    password=generate_password_hash("not-default"))
+    ub.session.add(other)
+    ub.session.commit()
+    ub.flag_users_with_default_password(ub.session)
+    assert not other.force_password_change

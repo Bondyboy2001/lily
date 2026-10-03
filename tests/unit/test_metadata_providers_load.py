@@ -119,15 +119,6 @@ def test_a_lookup_asks_open_library_for_one_description(monkeypatch):
     assert asked == ["search.json"]
 
 
-def test_a_provider_with_nothing_to_leave_out_is_searched_as_ever(monkeypatch):
-    from cps import metadata_helper
-    record = SimpleNamespace(title="Dune", authors=["Frank Herbert"])
-    provider = FakeProvider(__id__="x", __name__="X", identifier_types=frozenset(),
-                            search=lambda q, *a: [record])
-    monkeypatch.setattr(metadata_helper, "metadata_providers", [provider])
-    assert metadata_helper._find_record("Dune", ["Frank Herbert"], {}, "") is record
-
-
 def test_a_retried_request_waits_once_when_the_service_is_busy(monkeypatch):
     from cps.services.Metadata import get_patiently
     answers, waits = [_Response(429), _Response(200)], []

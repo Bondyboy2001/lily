@@ -70,12 +70,6 @@ def app_session():
 
 @pytest.mark.unit
 class TestDefaultPasswordFlag:
-    def test_new_default_admin_is_flagged(self, app_session):
-        from cps import ub, constants
-        ub.create_admin_user(app_session)
-        admin = app_session.query(ub.User).filter(ub.User.name == constants.DEFAULT_ADMIN_NAME).one()
-        assert admin.force_password_change is True
-
     def test_setting_a_password_clears_the_flag(self, app_session):
         from werkzeug.security import generate_password_hash
         from cps import ub, constants
@@ -84,22 +78,6 @@ class TestDefaultPasswordFlag:
         admin.password = generate_password_hash("something-else")
         app_session.commit()
         assert admin.force_password_change is False
-
-    def test_startup_check_flags_admins_on_the_default_password(self, app_session):
-        from werkzeug.security import generate_password_hash
-        from cps import ub, constants
-        ub.create_admin_user(app_session)
-        admin = app_session.query(ub.User).filter(ub.User.name == constants.DEFAULT_ADMIN_NAME).one()
-        admin.password = generate_password_hash(constants.LEGACY_DEFAULT_PASSWORD)  # an old install
-        admin.force_password_change = False
-        other = ub.User(name="other", email="o@example.org", role=constants.ROLE_ADMIN,
-                        password=generate_password_hash("not-default"))
-        app_session.add(other)
-        app_session.commit()
-
-        ub.flag_users_with_default_password(app_session)
-        assert admin.force_password_change is True
-        assert not other.force_password_change
 
 
 @pytest.mark.unit

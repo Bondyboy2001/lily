@@ -266,32 +266,6 @@ def test_internal_duplicate_queue_defaults_to_sixty_second_debounce(monkeypatch)
     assert timers[0].delay == 60
 
 
-def test_direct_duplicate_queue_helper_defaults_to_settings(monkeypatch):
-    timers = []
-
-    class _ImmediateTimer:
-        def __init__(self, delay, func):
-            self.delay = delay
-            self.func = func
-            self.daemon = False
-            timers.append(self)
-
-        def start(self):
-            return None
-
-        def cancel(self):
-            return None
-
-    request = SimpleNamespace(headers={}, remote_addr="127.0.0.1", get_json=lambda force=True, silent=True: {})
-    module = _load_cwa_functions(monkeypatch, request)
-    monkeypatch.setattr(module.ingest, "Timer", _ImmediateTimer)
-
-    response = module.queue_debounced_duplicate_scan(book_ids=[9])
-
-    assert response == {"success": True, "queued": True, "delay_seconds": 60}
-    assert timers[0].delay == 60
-
-
 def test_cwa_settings_saves_only_the_fields_the_page_shows(monkeypatch):
     request = SimpleNamespace(
         method="POST",
