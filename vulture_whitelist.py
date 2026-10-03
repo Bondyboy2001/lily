@@ -80,9 +80,6 @@ anyname
 
 _.isolation_level
 
-# Book page template reads entry.paper_doi (detail.html)
-_.paper_doi
-
 # CalibreTask.run(worker_thread) interface parameter; WorkerThread passes itself
 worker_thread
 
