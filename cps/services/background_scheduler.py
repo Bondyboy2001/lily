@@ -39,9 +39,14 @@ class BackgroundScheduler:
 
         return cls._instance
 
-    def schedule(self, func, trigger, name=None):
+    def schedule(self, func, trigger, name=None, **job_kwargs):
         if use_APScheduler:
-            return self.scheduler.add_job(func=func, trigger=trigger, name=name)
+            # A job that fires late (the app was busy or suspended) still runs within the hour,
+            # missed runs collapse into one, and a slow run is never overlapped by the next.
+            job_kwargs.setdefault("misfire_grace_time", 3600)
+            job_kwargs.setdefault("coalesce", True)
+            job_kwargs.setdefault("max_instances", 1)
+            return self.scheduler.add_job(func=func, trigger=trigger, name=name, **job_kwargs)
 
     # Expects a lambda expression for the task
     def schedule_task(self, task, user=None, name=None, hidden=False, trigger=None):

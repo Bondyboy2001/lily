@@ -96,8 +96,8 @@ def register_startup_tasks():
         try:
             check_and_migrate_thumbnails()
         except Exception:
-            # Don't let migration failures stop the application
-            pass
+            # Don't let migration failures stop the application, but say so
+            log.exception("scheduler: thumbnail migration failed; continuing with startup")
 
         # The arXiv shelf takes over from the Papers shelf (one-time operation)
         try:
@@ -152,8 +152,9 @@ def _schedule_duplicate_scan(scheduler, timezone_info):
         scheduler.schedule_task(lambda: TaskDuplicateScan(full_scan=True, trigger_type='scheduled'),
                                 user='System', trigger=trigger, name='duplicate scan', hidden=False)
     except Exception:
-        # Scheduling is best-effort; never block startup
-        pass
+        # Scheduling is best-effort and never blocks startup, but a job that is missing
+        # must show up in the log
+        log.exception("scheduler: job setup failed; continuing with remaining jobs")
 
 
 def _schedule_db_backup(scheduler, start_hour, timezone_info):
@@ -166,8 +167,9 @@ def _schedule_db_backup(scheduler, start_hour, timezone_info):
                                 trigger=CronTrigger(hour=start_hour, minute=0, timezone=timezone_info),
                                 name='backup databases', hidden=False)
     except Exception:
-        # Scheduling is best-effort; never block startup
-        pass
+        # Scheduling is best-effort and never blocks startup, but a job that is missing
+        # must show up in the log
+        log.exception("scheduler: job setup failed; continuing with remaining jobs")
 
 
 def _schedule_library_mirror(scheduler, start_hour, timezone_info):
@@ -179,8 +181,9 @@ def _schedule_library_mirror(scheduler, start_hour, timezone_info):
                                 trigger=CronTrigger(hour=start_hour, minute=45, timezone=timezone_info),
                                 name='mirror library files', hidden=True)
     except Exception:
-        # Scheduling is best-effort; never block startup
-        pass
+        # Scheduling is best-effort and never blocks startup, but a job that is missing
+        # must show up in the log
+        log.exception("scheduler: job setup failed; continuing with remaining jobs")
 
 
 def _schedule_processed_books_cleanup(scheduler, start_hour, timezone_info):
@@ -192,5 +195,6 @@ def _schedule_processed_books_cleanup(scheduler, start_hour, timezone_info):
                                 trigger=CronTrigger(hour=start_hour, minute=30, timezone=timezone_info),
                                 name='clean processed books', hidden=True)
     except Exception:
-        # Scheduling is best-effort; never block startup
-        pass
+        # Scheduling is best-effort and never blocks startup, but a job that is missing
+        # must show up in the log
+        log.exception("scheduler: job setup failed; continuing with remaining jobs")

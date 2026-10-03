@@ -151,7 +151,7 @@ class WorkerThread(threading.Thread):
                 self.cleanup_tasks()
 
             # sometimes tasks (like Upload) don't actually have work to do and are created as already finished
-            if item.task.stat is STAT_WAITING:
+            if item.task.stat == STAT_WAITING:
                 # CalibreTask.start() should wrap all exceptions in its own error handling
                 item.task.start(self)
 
