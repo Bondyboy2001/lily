@@ -93,3 +93,10 @@ def test_book_edit_has_no_rich_text_editor():
     assert "tinymce" not in template.lower() and "tiny_editor" not in template
     assert "tinymce" not in js.lower()
     assert not (REPO_ROOT / "cps/static/js/libs/tinymce").exists()
+
+
+def test_fetch_metadata_closes_from_its_header_cross_only():
+    from pathlib import Path
+    html = (Path(__file__).resolve().parents[2] / "cps/templates/meta_fetch.html").read_text()
+    assert 'class="close" data-dismiss="modal"' in html
+    assert "modal-footer" not in html and "meta_close" not in html
