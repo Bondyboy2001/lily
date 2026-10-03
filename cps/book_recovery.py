@@ -99,8 +99,10 @@ def recovery_root():
 def _check_root(root):
     abs_root = os.path.abspath(root)
     real_root = os.path.realpath(abs_root)
-    library = config.config_calibre_dir
-    if library:
+    # Both the metadata.db folder and, in a split library, the books folder are off limits
+    for library in {config.config_calibre_dir, config.get_book_path()}:
+        if not library:
+            continue
         real_lib = os.path.realpath(library)
         if real_root == real_lib or real_root.startswith(real_lib + os.sep):
             raise RecoveryError("book_recovery root must not be inside the library")
@@ -150,7 +152,9 @@ def _safe_join(base, rel):
 
 
 def _book_dir(book):
-    library = os.path.abspath(config.config_calibre_dir)
+    # Book folders live under get_book_path(), which differs from config_calibre_dir
+    # (where metadata.db is) in a split library.
+    library = os.path.abspath(config.get_book_path())
     path = os.path.normpath(os.path.join(library, book.path))
     real_path = os.path.realpath(path)
     real_lib = os.path.realpath(library)
@@ -620,12 +624,13 @@ def delete_captured_book(book, book_format="", recovery_id=None):
             raise RecoveryError("recovery archive %s is incomplete" % recovery_id)
         _verify_files(entry_dir, manifest)
 
-        library = os.path.abspath(config.config_calibre_dir)
         book_dir = _book_dir(book)
         fmt = (book_format or "").upper()
-        quar_dir = tempfile.mkdtemp(prefix=".lily_delete_", dir=library)
+        # Quarantine beside the book folders so the moves are renames on one filesystem
+        quar_dir = tempfile.mkdtemp(prefix=".lily_delete_",
+                                    dir=os.path.abspath(config.get_book_path()))
         moved = []
-        meta_db = os.path.join(library, "metadata.db")
+        meta_db = os.path.join(os.path.abspath(config.config_calibre_dir), "metadata.db")
         app_db = os.path.abspath(ub.app_DB_path)
         con = None
         committed = False

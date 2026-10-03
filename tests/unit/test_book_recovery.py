@@ -663,3 +663,32 @@ def test_thumbnail_cache_cleared_only_on_successful_delete(env, monkeypatch):
     with pytest.raises(Exception):
         delete_book_automatic(calibre_db.get_book(bid2))
     assert cleared == [bid]
+
+
+def test_delete_works_in_a_split_library(env, tmp_path, monkeypatch):
+    """In a split library the book folders live apart from metadata.db: capture and
+    delete must find them there, and the recovery root may not sit inside either."""
+    import shutil
+    from cps import calibre_db, config
+    from cps.book_recovery import RecoveryError, _check_root, recovery_root
+    from cps.editbooks import delete_book_automatic
+
+    bid = env.add_book("Split Book", author="Auth", fmt="EPUB")
+    _write_files(env, bid, {"Split Book.epub": b"split-bytes"})
+    book_path = calibre_db.get_book(bid).path
+    books_dir = tmp_path / "split-books"
+    (books_dir / book_path).parent.mkdir(parents=True)
+    shutil.move(str(env.library_dir / book_path), str(books_dir / book_path))
+    monkeypatch.setattr(config, "config_calibre_split", True)
+    monkeypatch.setattr(config, "config_calibre_split_dir", str(books_dir))
+
+    with pytest.raises(RecoveryError, match="inside the library"):
+        _check_root(str(books_dir / "recovery"))
+
+    _warning, rid = delete_book_automatic(calibre_db.get_book(bid))
+    assert _recovery_ids() == [rid]
+    assert calibre_db.get_book(bid) is None
+    assert not (books_dir / book_path).exists()
+    archived = os.path.join(recovery_root(), rid, "files", "Split Book.epub")
+    with open(archived, "rb") as fh:
+        assert fh.read() == b"split-bytes"
