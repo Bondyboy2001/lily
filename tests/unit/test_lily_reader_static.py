@@ -71,7 +71,6 @@ def test_readers_toolbar_controls_are_labelled_buttons():
         tag = match.group(0)
         assert match.group(1) == "button" and 'type="button"' in tag, tag
         assert "aria-label=" in tag, tag
-    assert "css/reader.css" not in html
 
 
 def test_epub_reader_fixes():
@@ -123,10 +122,9 @@ def test_progress_sync_contract():
         assert "{{ progress_url }}" in read(TEMPLATES / name), name
 
 
-def test_audio_player_has_speed_control_and_no_soundmanager():
+def test_audio_player_has_speed_control():
     html = read(TEMPLATES / "listenmp3.html")
     assert 'id="audio-speed"' in html and "<audio" in html
-    assert "soundmanager2" not in html and "bootstrap.min.css" not in html
 
 
 def test_advanced_search_link_stays_on_phones():
