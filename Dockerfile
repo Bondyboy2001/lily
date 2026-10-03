@@ -193,6 +193,32 @@ RUN \
 # ============================================================================
 # Final runtime image
 # ============================================================================
+# --------------------------------------------------------------------------
+# app: the application as it lands on / (code, bytecode, s6 services, versions).
+# Built on runtime-base for the same Python 3.13 and abc user, without calibre or
+# the pip packages; application code changes most often, so it goes last.
+# --------------------------------------------------------------------------
+FROM runtime-base AS app
+
+ARG VERSION
+ARG CALIBRE_RELEASE
+
+COPY --chown=abc:abc . /app/calibre-web-automated/
+
+WORKDIR /app/calibre-web-automated
+
+RUN \
+  # s6 services, writable dirs, permissions and CLI aliases, staged under /out
+  bash scripts/setup-cwa.sh /out && \
+  # The install stays owned by the build-time abc, so when PUID differs abc can't
+  # write bytecode caches next to the code; compile them here instead
+  python3 -m compileall -q -j 0 cps scripts cps.py && \
+  mkdir -p /out/app && \
+  mv /app/calibre-web-automated /out/app/ && \
+  # Versions shown on the About/Admin pages and read by the init scripts
+  echo "$VERSION" > /out/app/CWA_RELEASE && \
+  echo "$CALIBRE_RELEASE" > /out/CALIBRE_RELEASE
+
 FROM runtime-base
 
 # --link copies are independent layers: they don't get redone when an earlier layer changes
@@ -219,23 +245,10 @@ COPY --link --from=lsof /usr/bin/lsof /usr/bin/lsof
 # Python 3.13 itself comes from the deadsnakes package in runtime-base; /lsiopy's venv links to it
 COPY --link --from=python-deps /lsiopy /lsiopy
 
-# Application code changes most often, so it goes last
-COPY --chown=abc:abc . /app/calibre-web-automated/
-
-WORKDIR /app/calibre-web-automated
-
-RUN \
-  # s6 service definitions and other rootfs overlays live in ./root
-  cp -R root/* / && \
-  rm -R root/ && \
-  # Makes required dirs, sets script permissions, adds CLI aliases
-  bash scripts/setup-cwa.sh && \
-  # The install stays owned by the build-time abc, so when PUID differs abc can't
-  # write bytecode caches next to the code; compile them here instead
-  python3 -m compileall -q -j 0 cps scripts cps.py && \
-  # Versions shown on the About/Admin pages and read by the init scripts
-  echo "$VERSION" > /app/CWA_RELEASE && \
-  echo "$CALIBRE_RELEASE" > /CALIBRE_RELEASE
+# The app layer is assembled in the app stage above and lands in one --link copy, so
+# building it never needs this stage's calibre and Python layers: with the layer cache
+# in a registry, a code-only build no longer downloads ~500 MB just to run one step.
+COPY --link --from=app /out/ /
 
 ENV CALIBRE_CONFIG_DIR=/config/.config/calibre
 ENV S6_LOGGING=1
