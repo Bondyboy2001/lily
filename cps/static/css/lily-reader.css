@@ -205,9 +205,6 @@ body.lily-reader {
     bottom: 16px;
 }
 
-.lily-reader dialog .separator,
-.lily-reader .horizontalToolbarSeparator { display: none; }
-
 .lily-reader .reader-error {
     margin: 24px;
     padding: 22px;
@@ -655,8 +652,7 @@ body.lily-reader {
 
 .lily-reader .md-content > .reader-setting:last-of-type { padding-bottom: 24px; }
 
-.lily-reader .reader-setting-label,
-.lily-reader .md-content .item {
+.lily-reader .reader-setting-label {
     flex: 0 0 120px;
     padding: 0;
     color: var(--ink-soft);
@@ -1060,8 +1056,7 @@ html.lily-reader-page:has(> body.lily-djvu),
 
     .lily-reader .md-content h3 { padding-left: 16px; }
 
-    .lily-reader .reader-setting-label,
-    .lily-reader .md-content .item { flex-basis: 100%; }
+    .lily-reader .reader-setting-label { flex-basis: 100%; }
 
     .lily-reader-bar .reader-bar-spacer { width: 40px; }
 

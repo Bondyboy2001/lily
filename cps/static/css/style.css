@@ -1,22 +1,4 @@
 
-html.http-error {
-  margin: 0;
-  height: 100%;
-}
-
-.http-error body {
-  margin: 0;
-  height: 100%;
-  display: table;
-  width: 100%;
-}
-
-.http-error body > div {
-  display: table-cell;
-  vertical-align: middle;
-  text-align: center;
-}
-
 .row.display-flex {
   display: flex;
   flex-wrap: wrap;
@@ -125,17 +107,10 @@ html.http-error {
 .filterheader {
   margin-bottom: 20px;
 }
-.errorlink {
-  margin-top: 20px;
-}
 #detailcover {
   cursor: zoom-in;
 }
 
 .error-list {
   margin-top: 5px;
-}
-
-:root {
-  --color-secondary: var(--accent);
 }

@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""The in-progress books query (web._continue_reading_rows), which orders the Reading list's
+"""The in-progress books query (web._in_progress_rows), which orders the Reading list's
 progress and the offline auto-download list."""
 
 from datetime import datetime, timedelta, timezone
@@ -15,7 +15,7 @@ from sqlalchemy.orm import sessionmaker
 
 from cps import ub
 
-from .lily_env import continue_reading_progress
+from .lily_env import in_progress_rows
 
 
 @pytest.fixture
@@ -51,32 +51,32 @@ def _read(session, user_id, book_id, status, minutes, percent=None, bookmark_min
 
 
 @pytest.mark.unit
-class TestContinueReadingProgress:
+class TestInProgressRows:
     def test_only_in_progress_books_for_user(self, session):
         _read(session, 1, 10, ub.ReadBook.STATUS_IN_PROGRESS, 1)
         _read(session, 1, 11, ub.ReadBook.STATUS_FINISHED, 2)
         _read(session, 1, 12, ub.ReadBook.STATUS_UNREAD, 3)
         _read(session, 2, 13, ub.ReadBook.STATUS_IN_PROGRESS, 4)
-        assert continue_reading_progress(session, 1) == [(10, None)]
+        assert in_progress_rows(session, 1) == [(10, None)]
 
     def test_orders_by_most_recent_activity(self, session):
         _read(session, 1, 10, ub.ReadBook.STATUS_IN_PROGRESS, 1)
         _read(session, 1, 11, ub.ReadBook.STATUS_IN_PROGRESS, 5)
         # older ReadBook row, but its web reader position was updated most recently
         _read(session, 1, 12, ub.ReadBook.STATUS_IN_PROGRESS, 0, percent=42.5, bookmark_minutes=10)
-        ids = [book_id for book_id, __ in continue_reading_progress(session, 1)]
+        ids = [book_id for book_id, __ in in_progress_rows(session, 1)]
         assert ids == [12, 11, 10]
 
     def test_progress_percent_is_clamped(self, session):
         _read(session, 1, 10, ub.ReadBook.STATUS_IN_PROGRESS, 1, percent=150.0)
         _read(session, 1, 11, ub.ReadBook.STATUS_IN_PROGRESS, 2, percent=33.3)
-        result = dict(continue_reading_progress(session, 1))
+        result = dict(in_progress_rows(session, 1))
         assert result[10] == 100.0
         assert result[11] == pytest.approx(33.3)
 
     def test_limit_and_empty(self, session):
-        assert continue_reading_progress(session, 1) == []
+        assert in_progress_rows(session, 1) == []
         for i in range(10):
             _read(session, 1, 100 + i, ub.ReadBook.STATUS_IN_PROGRESS, i)
         # helper over-fetches (3x) so hidden books can be skipped by the caller
-        assert len(continue_reading_progress(session, 1, limit=2)) == 6
+        assert len(in_progress_rows(session, 1, limit=2)) == 6

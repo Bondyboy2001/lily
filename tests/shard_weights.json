@@ -15,7 +15,7 @@
  "tests/unit/test_calibre_init.py": 0.01,
  "tests/unit/test_citations.py": 0.0,
  "tests/unit/test_compression.py": 0.02,
- "tests/unit/test_continue_reading.py": 0.04,
+ "tests/unit/test_in_progress_rows.py": 0.04,
  "tests/unit/test_cover_enforcer.py": 2.7,
  "tests/unit/test_cover_enforcer_logs.py": 0.0,
  "tests/unit/test_csp_headers.py": 1.25,

@@ -688,7 +688,7 @@ def render_books_list(data, sort_param, book_id, page):
             # The books in progress, so the service worker can keep them offline and let go of
             # ones that left the list (offline.js; empty means "none in progress").
             offline_auto = []
-            for item in get_continue_reading_entries():
+            for item in get_in_progress_entries():
                 book = item['entry'].Books
                 fmt = (item.get('format') or '').lower()
                 if fmt and fmt in {d.format.lower() for d in book.data}:
@@ -704,7 +704,7 @@ def render_books_list(data, sort_param, book_id, page):
                                                       else None))
 
 
-CONTINUE_READING_LIMIT = 12
+IN_PROGRESS_LIMIT = 12
 
 # Formats the service worker can keep for reading offline (audio streams stay online-only).
 OFFLINE_FORMATS = ("epub", "pdf", "djvu", "djv")
@@ -745,7 +745,7 @@ def _latest_reader_positions(session, user_id, library_uuid, book_ids=None):
     return positions
 
 
-def _continue_reading_rows(session, user_id, limit, library_uuid):
+def _in_progress_rows(session, user_id, limit, library_uuid):
     """[(book_id, percent, format)] for in-progress books, most recently touched first."""
     rows = (session.query(ub.ReadBook.book_id, ub.ReadBook.last_modified,
                           ub.WebReaderProgress.percent, ub.WebReaderProgress.last_modified)
@@ -786,7 +786,7 @@ def _continue_reading_rows(session, user_id, limit, library_uuid):
 def _book_resume(user_id, book_id, reader_list):
     """{'percent': 0-100, 'format': fmt} for the book page's Continue button, or None.
 
-    The newest scoped position wins, like Continue Reading; the format is only kept
+    The newest scoped position wins, as on the Reading list; the format is only kept
     when the browser can still read it.
     """
     try:
@@ -805,13 +805,13 @@ def _book_resume(user_id, book_id, reader_list):
         return None
 
 
-def get_continue_reading_entries(limit=CONTINUE_READING_LIMIT):
+def get_in_progress_entries(limit=IN_PROGRESS_LIMIT):
     """Books the current user is reading, as index-style entries plus a 'progress' percentage."""
     if current_user.is_anonymous or not current_user.is_authenticated:
         return []
     try:
         library_uuid = _library_uuid()
-        rows = _continue_reading_rows(ub.session, int(current_user.id), limit, library_uuid)
+        rows = _in_progress_rows(ub.session, int(current_user.id), limit, library_uuid)
         if not rows:
             return []
         books = (calibre_db.generate_linked_query(config.config_read_column, db.Books)
@@ -828,7 +828,7 @@ def get_continue_reading_entries(limit=CONTINUE_READING_LIMIT):
                     break
         return entries
     except Exception as ex:
-        log.debug("Could not load continue reading row: %s", ex)
+        log.debug("Could not load the books in progress: %s", ex)
         return []
 
 
@@ -1151,7 +1151,7 @@ def render_read_books(page, are_read, as_xml=False, order=None):
 
 def render_reading_books(page, order):
     """Books the current user has started but not finished (ReadBook in progress, as the
-    "reading" list filter and Continue Reading use)."""
+    "reading" list filter uses)."""
     entries, pagination = calibre_db.fill_indexpage(page, 0, db.Books,
                                                     list_filters.filter_expression({"status": "reading"}),
                                                     order[0], True, config.config_read_column,
@@ -1161,7 +1161,7 @@ def render_reading_books(page, order):
     name = _('Reading') + ' (' + str(pagination.total_count) + ')'
     progress = {}
     try:
-        rows = _continue_reading_rows(ub.session, int(current_user.id), pagination.total_count or 1,
+        rows = _in_progress_rows(ub.session, int(current_user.id), pagination.total_count or 1,
                                       _library_uuid())
         progress = {book_id: percent for book_id, percent, _fmt in rows if percent is not None}
     except Exception as ex:

@@ -216,8 +216,8 @@ def lily_env(tmp_path, **config_overrides):
         config.__dict__.update(saved_config)
 
 
-def continue_reading_progress(session, user_id, limit=None, library_uuid=None):
-    """[(book_id, percent)] from web._continue_reading_rows, the in-progress books query."""
-    from cps.web import CONTINUE_READING_LIMIT, _continue_reading_rows
+def in_progress_rows(session, user_id, limit=None, library_uuid=None):
+    """[(book_id, percent)] from web._in_progress_rows, the in-progress books query."""
+    from cps.web import IN_PROGRESS_LIMIT, _in_progress_rows
     return [(book_id, percent) for book_id, percent, __ in
-            _continue_reading_rows(session, user_id, limit or CONTINUE_READING_LIMIT, library_uuid)]
+            _in_progress_rows(session, user_id, limit or IN_PROGRESS_LIMIT, library_uuid)]

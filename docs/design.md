@@ -822,7 +822,7 @@ transitions are turned off in `lily.js`.
 | `lily-pdf.css` | pdf.js toolbar sizing (loaded only by `readpdf.html`) |
 | `lily-icons.css` | Generated icons |
 | `login.css` | Login and change-password |
-| `style.css`, `upload.css`, `lily-fixes.css` | Legacy. Don't add to them; move rules out when you touch them |
+| `style.css`, `upload.css` | Legacy. Don't add to them; move rules out when you touch them |
 
 Load order: Bootstrap → page libraries → legacy sheets → `lily.css` → page
 sheets → icons. Page sheets scope by wrapper class and consume tokens only.

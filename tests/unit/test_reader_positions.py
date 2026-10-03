@@ -5,7 +5,7 @@
 
 import pytest
 
-from .lily_env import lily_env, ADMIN_PASSWORD, continue_reading_progress
+from .lily_env import lily_env, ADMIN_PASSWORD, in_progress_rows
 
 @pytest.fixture
 def env(tmp_path, temp_cwa_db):
@@ -209,7 +209,7 @@ class TestInProgressReadingPositions:
                                          book_id=bid, format="pdf",
                                          cfi="page:9", percent=0.9))
         ub.session_commit()
-        rows = continue_reading_progress(ub.session, admin.id,
+        rows = in_progress_rows(ub.session, admin.id,
                                          library_uuid=lib)
         assert rows == [(bid, pytest.approx(90.0))]
         html = _login(env).get("/").get_data(as_text=True)
@@ -238,7 +238,7 @@ class TestInProgressReadingPositions:
                                          book_id=bid, format="epub",
                                          cfi="epubcfi(/5)", percent=0.5))
         ub.session_commit()
-        rows = continue_reading_progress(ub.session, admin.id,
+        rows = in_progress_rows(ub.session, admin.id,
                                          library_uuid=_library_uuid(env))
         assert rows == [(bid, None)]
 
@@ -262,7 +262,7 @@ class TestInProgressReadingPositions:
                                          cfi="epubcfi(/8)", percent=0.8,
                                          last_modified=datetime.now(timezone.utc)))
         ub.session_commit()
-        rows = continue_reading_progress(ub.session, admin.id,
+        rows = in_progress_rows(ub.session, admin.id,
                                          library_uuid=lib)
         assert rows[0][0] == fresh
         assert rows[0][1] == pytest.approx(80.0)
@@ -292,7 +292,7 @@ class TestInProgressReadingPositions:
                                          cfi="epubcfi(/9)", percent=0.9,
                                          last_modified=now))
         ub.session_commit()
-        rows = web._continue_reading_rows(ub.session, admin.id, 12, lib)
+        rows = web._in_progress_rows(ub.session, admin.id, 12, lib)
         assert rows == [(bid, pytest.approx(40.0), "pdf")]
 
 

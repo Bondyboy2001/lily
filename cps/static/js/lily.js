@@ -174,7 +174,7 @@
     $(document).on("mouseup", function (e) {
       $(".dropdown-menu:visible").each(function () {
         var $menu = $(this);
-        if ($menu.is(".datepicker") || $menu.closest(".open, .dropdown, .btn-group, .bootstrap-select").length) { return; }
+        if ($menu.is(".datepicker") || $menu.closest(".open, .dropdown, .bootstrap-select").length) { return; }
         if (!$menu.is(e.target) && $menu.has(e.target).length === 0) { $menu.hide(); }
       });
     });
@@ -799,7 +799,7 @@ window.lilyToggleSortDir = function (btn) {
  */
 (function () {
   "use strict";
-  var COVERS = ".lily-book .cover img, .continue-reading-item .cover img, .lily-order-cover";
+  var COVERS = ".lily-book .cover img, .lily-order-cover";
   var WIDEST = (1 / 1.414) * 1.05;
 
   function mark(img) {

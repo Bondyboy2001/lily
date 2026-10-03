@@ -108,7 +108,7 @@ def test_layout_loads_lily_styles_in_order():
     layout = read(TEMPLATES / "layout.html")
     for asset in ("css/lily.css", "css/lily-shell.css"):
         assert asset in layout, asset
-    assert layout.index("css/lily-fixes.css") < layout.index("css/lily.css") < layout.index("css/lily-shell.css")
+    assert layout.index("css/upload.css") < layout.index("css/lily.css") < layout.index("css/lily-shell.css")
 
 
 DARK_PALETTE_BLOCK = ':root[data-theme="dark"]'

@@ -24,8 +24,7 @@
 /* Sections in the content are headed like every other section, not like a page:
    the page title lives in the top bar. */
 .lily-content .discover > h2,
-.lily-content .discover > h3,
-.continue-reading > h2 { font-size: var(--heading-size); line-height: 1.4; }
+.lily-content .discover > h3 { font-size: var(--heading-size); line-height: 1.4; }
 
 /* ------------------------------------------------------------------ */
 /* Toolbars above a list: actions, then sort/filter chips               */
@@ -138,8 +137,7 @@
 }
 
 .container-fluid .lily-book .cover,
-.lily-book .cover,
-.continue-reading-item .cover {
+.lily-book .cover {
     position: relative;
     height: auto;
     margin: 0 0 8px;
@@ -152,17 +150,14 @@
 }
 
 .lily-book .cover > a,
-.lily-book .cover .img,
-.continue-reading-item .cover > a,
-.continue-reading-item .cover .img {
+.lily-book .cover .img {
     display: block;
     width: 100%;
     height: 100%;
 }
 
 .container-fluid .lily-book .cover img,
-.container-fluid .lily-book .cover span img,
-.continue-reading-item .cover img {
+.container-fluid .lily-book .cover span img {
     position: static;
     width: 100%;
     height: 100%;
@@ -179,14 +174,12 @@
 /* A cover well over A4's width (a publisher's 3:4 front, say) still fills the tile, but
    lily.js marks it so the crop comes evenly off both sides rather than all off the right. */
 .container-fluid .lily-book .cover img.cover-wide,
-.continue-reading-item .cover img.cover-wide,
 .lily-order-cover.cover-wide {
     object-position: center;
 }
 
 /* A hairline so pale covers do not melt into the paper. */
-.lily-book .cover::after,
-.continue-reading-item .cover::after {
+.lily-book .cover::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -197,8 +190,7 @@
     pointer-events: none;
 }
 
-.lily-book .cover > a:focus-visible,
-.continue-reading-item .cover > a:focus-visible { outline-offset: -2px; }
+.lily-book .cover > a:focus-visible { outline-offset: -2px; }
 
 /* Read mark: a small pill on the cover's corner. */
 .lily-book .cover .badge,
@@ -230,20 +222,8 @@
     font-size: 13px;
 }
 
-/* Coloured file-type marks (Material Icon Theme), so they keep their colours in both themes. */
-.lily-format {
-    width: 24px;
-    height: 24px;
-    background: center / contain no-repeat;
-}
-
-.lily-format-pdf { background-image: url("../icons/formats/pdf.svg"); }
-.lily-format-epub { background-image: url("../icons/formats/epub.svg"); }
-.lily-format-djvu { background-image: url("../icons/formats/djvu.svg"); }
-.lily-format-other { background-image: url("../icons/formats/file.svg"); }
-
-/* Grid covers hang one ribbon per file type from the top edge: the format's own colour (like
-   the marks above, as palette tokens) with its icon knocked out in --on-format. */
+/* Grid covers hang one ribbon per file type from the top edge: the format's own colour (as
+   palette tokens) with its file-type icon (Material Icon Theme) knocked out in --on-format. */
 .cover .lily-cover-ribbons {
     position: absolute;
     top: 0;
@@ -344,8 +324,7 @@
 .lily-book .meta p { margin: 0; }
 
 .container-fluid .lily-book .meta .title,
-.lily-book .meta .title,
-.continue-reading-item .meta .title {
+.lily-book .meta .title {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
@@ -360,15 +339,12 @@
     white-space: normal;
 }
 
-.lily-book .meta > a,
-.continue-reading-item .meta > a { text-decoration: none; }
+.lily-book .meta > a { text-decoration: none; }
 
-.lily-book .meta > a:hover .title,
-.continue-reading-item .meta > a:hover .title { color: var(--accent); }
+.lily-book .meta > a:hover .title { color: var(--accent); }
 
 .container-fluid .lily-book .meta .author,
-.lily-book .meta .author,
-.continue-reading-item .meta .author {
+.lily-book .meta .author {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
@@ -531,20 +507,11 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Continue reading row and empty library (index.html)                  */
+/* Reading progress and empty library (index.html)                      */
 /* ------------------------------------------------------------------ */
-.continue-reading { margin: 0 0 22px; }
-
-/* One row that scrolls sideways, with covers smaller than the grid's, so the library
-   still starts on the first screen however many books are in progress. */
-
-.continue-reading-item .meta .title { -webkit-line-clamp: 1; }
-.continue-reading-item .meta .author { -webkit-line-clamp: 1; }
-
-/* Progress sits on the cover as a bar along its bottom edge. It takes no clicks, so the
-   cover stays a link. Cards on the Reading list carry it too. */
-.continue-reading-item .cover .continue-reading-progress,
-.lily-grid > .lily-book .cover .continue-reading-progress {
+/* Progress sits on the cover as a bar along its bottom edge, on the Reading list's cards.
+   It takes no clicks, so the cover stays a link. */
+.lily-grid > .lily-book .cover .reading-progress {
     position: absolute;
     right: 0;
     bottom: 0;
@@ -558,14 +525,12 @@
     pointer-events: none;
 }
 
-.continue-reading-item .cover .continue-reading-progress .progress-bar,
-.lily-grid > .lily-book .cover .continue-reading-progress .progress-bar {
+.lily-grid > .lily-book .cover .reading-progress .progress-bar {
     height: 100%;
     border-radius: 0 999px 999px 0;
 }
 
-.lily-grid > .lily-book .meta .continue-reading-percent,
-.continue-reading-item .meta .continue-reading-percent {
+.lily-grid > .lily-book .meta .reading-percent {
     margin: 0;
     color: var(--muted);
     font-size: 14px;

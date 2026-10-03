@@ -216,7 +216,7 @@
         </a>
         {{ cover_actions(book, user, formats, is_read) }}
         {% if progress is not none %}
-        <div class="progress continue-reading-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+        <div class="progress reading-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
              aria-valuenow="{{ progress|round|int }}" aria-label="{{_('Reading progress')}}">
           <div class="progress-bar" style="width: {{ progress|round(1) }}%;"></div>
         </div>
@@ -227,7 +227,7 @@
           <p title="{{ book.title }}" class="title">{{ book.title }}</p>
         </a>
         {% if progress is not none %}
-        <p class="continue-reading-percent">{{ _('%(percent)s%% read', percent=progress|round|int) }}</p>
+        <p class="reading-percent">{{ _('%(percent)s%% read', percent=progress|round|int) }}</p>
         {% endif %}
         <p class="author">
           {% for author in book.authors|named_authors %}
