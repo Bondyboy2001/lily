@@ -570,8 +570,8 @@ content (grid, panel, rows)
 - The action bar is Read, Download, Mark as read, View details (the info sign), Fetch metadata (the magnifying glass,
   opening the editor with the lookup running, `?fetch=1`), Edit metadata and Delete. A book's
   shelves are changed on its edit page (the Shelves rows), never from the book page.
-  There is no archive and no Keep offline button. On a shelf page each cover gets a
-  quiet `.icon-btn.is-danger` remove action (`shelves.js`).
+  There is no archive and no Keep offline button.
+  Shelf pages offer no remove action on covers either.
 - Papers: the arXiv tag shows the id, linked to the abstract page; its DOI isn't
   shown. Other identifiers (a non-arXiv paper's DOI included) are linked tags named by
   their type. The Citations tag fills in after load from OpenAlex and stays hidden when

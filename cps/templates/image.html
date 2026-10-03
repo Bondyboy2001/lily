@@ -185,7 +185,7 @@
 {%- endmacro %}
 
 {# Quick actions on a grid cover: icon bar over the cover's foot, revealed on hover or focus (lily.js wires them). #}
-{% macro cover_actions(book, user, formats, is_read=False, shelf=None) -%}
+{% macro cover_actions(book, user, formats, is_read=False) -%}
     {%- set readable = book|readable_formats -%}
     <div class="lily-cover-actions" data-book-id="{{ book.id }}" data-book-formats="{{ readable|join(',') }}">
       {% if readable and user.role_viewer() %}
@@ -207,13 +207,6 @@
       {% if user.role_edit() %}
       <a class="icon-btn" href="{{ url_for('edit-book.show_edit_book', book_id=book.id) }}" aria-label="{{ _('Edit %(name)s', name=book.title) }}"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></span></a>
       {% endif %}
-      {% if shelf %}
-      {# On a shelf page the shelf's editor can take the book off it (shelves.js). #}
-      <button type="button" class="icon-btn is-danger lily-shelf-remove" aria-label="{{ _('Remove %(name)s from %(shelf)s', name=book.title, shelf=shelf.name) }}"
-              data-url="{{ url_for('shelf.set_book_on_shelf', shelf_id=shelf.id, book_id=book.id) }}"
-              data-shelf-url="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}"
-              data-failed="{{ _('Couldn’t take the book off the shelf. Try again.') }}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></button>
-      {% endif %}
     </div>
 {%- endmacro %}
 
@@ -227,7 +220,7 @@
 
 {# One book in a cover grid (index, author, search, shelf). Cards are plain: cover, title, authors. #}
 {# progress: the share read (0-100) of a book in progress, drawn along the cover's foot (Reading list) #}
-{% macro book_card(book, user, is_read=False, authors_max=0, series_link=True, alt=None, extra_class='', shelf=None, progress=None) -%}
+{% macro book_card(book, user, is_read=False, authors_max=0, series_link=True, alt=None, extra_class='', progress=None) -%}
     {%- set formats = book.data|map(attribute='format')|map('lower')|list -%}
     <div class="book lily-book{{ " is-read" if is_read }} {{ extra_class }}">
       <div class="cover">
@@ -237,7 +230,7 @@
             {% if is_read %}<span class="badge read glyphicon glyphicon-eye-open" aria-hidden="true"></span>{% endif %}
           </span>
         </a>
-        {{ cover_actions(book, user, formats, is_read, shelf) }}
+        {{ cover_actions(book, user, formats, is_read) }}
         {% if progress is not none %}
         <div class="progress continue-reading-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
              aria-valuenow="{{ progress|round|int }}" aria-label="{{_('Reading progress')}}">

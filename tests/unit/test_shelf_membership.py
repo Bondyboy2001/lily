@@ -69,12 +69,12 @@ class TestSetBookOnShelf:
         signed_out = env.app.test_client()
         assert signed_out.post(f"/shelf/{shelf}/book/{book}", json={"on": True}).status_code in (302, 401)
 
-    def test_shelf_page_cards_offer_removal(self, env):
+    def test_shelf_page_cards_offer_no_removal(self, env):
         from cps import ub
         book = env.add_book("Shelvable")
         shelf = _shelf(env, "Favourites")
         ub.session.get(ub.Shelf, shelf).books.append(ub.BookShelf(book_id=book, order=1))
         ub.session.commit()
         html = _login(env).get(f"/shelf/{shelf}").get_data(as_text=True)
-        assert 'aria-label="Remove Shelvable from Favourites"' in html
-        assert f'data-url="/shelf/{shelf}/book/{book}"' in html and "js/shelves.js" in html
+        assert "Shelvable" in html
+        assert "lily-shelf-remove" not in html and "js/shelves.js" not in html
