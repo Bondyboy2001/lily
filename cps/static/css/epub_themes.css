@@ -78,3 +78,16 @@
 	background: #ece1ca;
 	color: #000;
 }
+
+/* A book's own link styles assume a light page (default blue, sometimes a white
+   background); on the dark page they become unreadable boxes. */
+.darkTheme a {
+	color: #8ab4f8 !important;
+	background: transparent !important;
+	border-color: currentColor !important;
+	text-decoration-color: currentColor !important;
+}
+
+.darkTheme a:visited {
+	color: #c58af9 !important;
+}
