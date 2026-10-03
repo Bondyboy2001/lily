@@ -149,7 +149,7 @@ class TaskRebuildMetadata(CalibreTask):
                 self.checked, self.updated, self.covers = (progress[k] for k in ("checked", "updated", "covers"))
                 log.info("Rebuild: carrying on after %s books, from book %s", self.checked, progress["next_book_id"])
             self.total = self.checked + len(book_ids)
-            centre_covers = pdf_cover.available()
+            make_covers = pdf_cover.available()
             running = {}
             with ThreadPoolExecutor(max_workers=self.workers) as pool:
                 for book_id in book_ids:
@@ -158,7 +158,7 @@ class TaskRebuildMetadata(CalibreTask):
                         self._finish(cdb, running)
                     if self.stop_requested:
                         break
-                    running[pool.submit(_look_up, fetch_and_apply_metadata, book_id, centre_covers,
+                    running[pool.submit(_look_up, fetch_and_apply_metadata, book_id, make_covers,
                                         self.full)] = book_id
                 else:
                     self._unsubmitted = None
@@ -182,26 +182,26 @@ class TaskRebuildMetadata(CalibreTask):
                 except Exception as ex:
                     log.debug("Could not mark the duplicate index pending: %s", ex)
         if self.covers:
-            self.message = N_('Done: %(total)s books checked, %(updated)s updated, %(covers)s covers made or centred%(unanswered)s',
+            self.message = N_('Done: %(total)s books checked, %(updated)s updated, %(covers)s covers made%(unanswered)s',
                               **self._counts())
         else:
             self.message = N_('Done: %(total)s books checked, %(updated)s updated%(unanswered)s', **self._counts())
-        log.info("Metadata rebuild finished: %s books checked, %s updated, %s covers made or centred, no answer: %s",
+        log.info("Metadata rebuild finished: %s books checked, %s updated, %s covers made, no answer: %s",
                  self.total, self.updated, self.covers, dict(self.unanswered) or "none")
         self._handleSuccess()
 
     def _finish(self, cdb, running):
-        """Wait for a lookup to end and count it; record a made or centred cover."""
+        """Wait for a lookup to end and count it; record a made cover."""
         from cps.metadata_helper import library_lock
         done, __ = wait(running, return_when=FIRST_COMPLETED)
         for future in done:
             book_id = running.pop(future)
             try:
-                updated, centred, unanswered = future.result()
+                updated, cover_made, unanswered = future.result()
                 if updated:
                     self.updated += 1
                 self.unanswered.update(unanswered)
-                if centred:
+                if cover_made:
                     with library_lock:
                         self._cover_changed(cdb, book_id)
             except Exception as ex:
@@ -282,7 +282,7 @@ class TaskRebuildMetadata(CalibreTask):
             log.error("Rebuild: could not tidy authors: %s", ex)
 
     def _cover_changed(self, cdb, book_id):
-        """Record a made or centred cover so its URL and thumbnails change with it.
+        """Record a made cover so its URL and thumbnails change with it.
 
         The cover bumps the book's last_modified, which a later rebuild reads as "changed
         since its lookup" and looks it up again; when it was up to date, the lookup is stamped
@@ -348,19 +348,19 @@ def _backup_library():
         log.error("Rebuild: could not copy the library before the full rebuild: %s", ex)
 
 
-def _look_up(fetch, book_id, centre_covers, overwrite=False):
-    """One book's work in the pool: the lookup, then making or centring a PDF's cover.
+def _look_up(fetch, book_id, make_covers, overwrite=False):
+    """One book's work in the pool: the lookup, then making a PDF's page 1 cover.
     Returns (updated, cover changed, providers that failed to answer).
 
-    The cover comes second so a cover the provider just set is neither replaced nor cropped:
-    it no longer looks like the page render, so recentre_cover leaves it. Its paths are read
-    after the lookup, which moves the book's folder when the title or first author changes."""
+    The cover comes second, so a PDF-only book shows page 1 even when the provider just set a
+    cover (cover_job). Its paths are read after the lookup, which moves the book's folder when
+    the title or first author changes."""
     from cps.metadata_helper import library_lock
     unanswered = set()
     # Only a full rebuild overwrites; the keyword stays out otherwise (tests pass bare fetchers)
     extra = {"overwrite": True} if overwrite else {}
     updated = fetch(book_id, force=True, unanswered=unanswered, **extra)
-    if not centre_covers:
+    if not make_covers:
         return updated, False, unanswered
     with library_lock:
         cdb = db.CalibreDB(expire_on_commit=False, init=True)

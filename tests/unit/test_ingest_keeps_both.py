@@ -53,7 +53,7 @@ def _processor(ip, tmp_path):
     nbp.fetch_metadata_if_enabled = lambda *a, **k: None
     nbp.tidy_authors = lambda ids: None
     nbp.clear_details = lambda ids: None
-    nbp.centre_covers = lambda ids: None
+    nbp.make_page_covers = lambda ids: None
     nbp._register_title_sort_function = lambda con: True
     return nbp
 

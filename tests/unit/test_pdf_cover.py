@@ -1,260 +1,104 @@
-"""A PDF's cover is page 1, centred on what it prints (cps/pdf_cover.py)."""
+"""A PDF's cover is a plain picture of page 1, exactly as printed (cps/pdf_cover.py)."""
 import hashlib
 import sqlite3
 
 import pytest
 
 from cps import pdf_cover
-from cps.pdf_cover import balanced_crop, ink_columns, left_stamp, same_page
 
 from .lily_env import lily_env
 
 
-def _page(width, height, blocks):
-    """A white grey-level page with black rectangles (x0, y0, x1, y1)."""
-    pixels = bytearray([255]) * (width * height)
-    for x0, y0, x1, y1 in blocks:
-        for y in range(y0, y1):
-            pixels[y * width + x0:y * width + x1] = bytes(x1 - x0)
-    return bytes(pixels)
-
-
-@pytest.mark.unit
-def test_ink_columns_finds_the_print_and_ignores_a_speck():
-    page = _page(100, 140, [(20, 30, 60, 100), (90, 10, 91, 11)])
-    assert ink_columns(page, 100, 140) == (20, 59)
-    assert ink_columns(_page(100, 140, []), 100, 140) is None
-
-
-@pytest.mark.unit
-def test_lopsided_page_gets_even_margins():
-    # A Letter page whose print (60 to 920 of 1275) sits left of centre
-    left, right = balanced_crop(1275, 1650, 60, 920)
-    assert left == 0 and right == 921 + 60
-    # An even page wider than the A4 tile loses a little off both sides instead of one
-    left, right = balanced_crop(1275, 1650, 150, 1124)
-    assert 150 - left == right - 1125 and right - left <= 1650 / 1.414 + 1
-
-
-@pytest.mark.unit
-def test_pages_that_need_no_crop_are_left_alone():
-    assert balanced_crop(1166, 1650, 150, 1015) is None   # already even and A4 shaped
-    assert balanced_crop(1275, 1650, 0, 1100) is None     # print runs off the edge: a scan or cover art
-    assert balanced_crop(1166, 1650, 140, 1015) is None   # a few pixels out
-
-
-STAMP_PAGE = [(19, 150, 33, 400), (80, 60, 300, 460)]
-
-
-@pytest.mark.unit
-def test_left_stamp_finds_a_tall_thin_band():
-    assert left_stamp(_page(400, 518, STAMP_PAGE), 400, 518) == (19, 32)
-    # Below-threshold columns inside the glyph band do not split it
-    page = _page(400, 518, [(19, 150, 25, 400), (27, 150, 33, 400), (80, 60, 300, 460)])
-    assert left_stamp(page, 400, 518) == (19, 32)
-
-
-@pytest.mark.unit
-def test_left_stamp_leaves_other_left_print_alone():
-    page = _page(400, 518, [(19, 150, 33, 180), (80, 60, 300, 460)])
-    assert left_stamp(page, 400, 518) is None            # a short logo, not a stamp
-    page = _page(400, 518, [(19, 150, 45, 400), (80, 60, 300, 460)])
-    assert left_stamp(page, 400, 518) is None            # wider than 5% of the page
-    page = _page(400, 518, [(19, 150, 33, 400), (33, 60, 300, 460)])
-    assert left_stamp(page, 400, 518) is None            # no blank gap before the print
-    page = _page(400, 518, [(55, 150, 69, 400), (100, 60, 300, 460)])
-    assert left_stamp(page, 400, 518) is None            # starts outside the left zone
-    assert left_stamp(_page(400, 518, [(19, 150, 33, 400)]), 400, 518) is None  # nothing right of it
-    page = _page(400, 518, [(0, 150, 14, 400), (80, 60, 300, 460)])
-    assert left_stamp(page, 400, 518) is None            # a scan border touching the edge
-
-
-@pytest.mark.unit
-def test_ink_columns_with_start_skips_the_stamp():
-    assert ink_columns(_page(400, 518, STAMP_PAGE), 400, 518, start=33) == (80, 299)
-
-
-@pytest.mark.unit
-def test_balanced_crop_crops_the_stamp_out():
-    left, right = balanced_crop(400, 518, 80, 299, stamp_end=32)
-    assert left > 32
-    assert 80 - left == right - 300
-
-
-@pytest.mark.unit
-def test_same_page_tells_a_render_from_cover_art():
-    page = _page(24, 32, [(4, 6, 18, 26)])
-    assert same_page(page, _page(24, 32, [(4, 6, 18, 25)]))
-    assert not same_page(page, bytes(24 * 32))
-    assert not same_page(page, page[:-1])
-
-
-@pytest.mark.unit
-def test_recentre_cover_with_imagemagick(tmp_path):
-    wand_image = pytest.importorskip("wand.image", exc_type=ImportError)
-    from wand.color import Color
-    from wand.drawing import Drawing
-    from wand.exceptions import WandException
-    pdf, cover = str(tmp_path / "book.pdf"), str(tmp_path / "cover.jpg")
-    with wand_image.Image(width=1275, height=1650, background=Color("white"), resolution=150) as img, \
-            Drawing() as draw:
-        draw.fill_color = Color("black")
-        draw.rectangle(left=60, top=200, right=920, bottom=1400)
-        draw(img)
-        try:
-            img.save(filename=pdf)
-        except WandException as ex:
-            pytest.skip("ImageMagick cannot write PDFs here: %s" % ex)
-        img.format = "jpeg"
-        img.save(filename=cover)
-    try:
-        assert pdf_cover.recentre_cover(pdf, cover)
-    except WandException as ex:
-        pytest.skip("ImageMagick cannot read PDFs here: %s" % ex)
-    with wand_image.Image(filename=cover) as done:
-        # The render's pixel size depends on the PDF's page size; the proportions do not
-        assert abs(done.width / done.height - 981 / 1650) < 0.01
-    assert not pdf_cover.recentre_cover(pdf, cover)       # already centred
-
-
-@pytest.mark.unit
-def test_recentre_cover_crops_an_arxiv_stamp(tmp_path):
-    wand_image = pytest.importorskip("wand.image", exc_type=ImportError)
-    from wand.color import Color
-    from wand.drawing import Drawing
-    from wand.exceptions import WandException
-    pdf, cover = str(tmp_path / "stamp.pdf"), str(tmp_path / "cover.jpg")
-    with wand_image.Image(width=1275, height=1650, background=Color("white"), resolution=150) as img, \
-            Drawing() as draw:
-        draw.fill_color = Color("black")
-        draw.rectangle(left=60, top=450, right=105, bottom=1250)    # the stamp down the left margin
-        draw.rectangle(left=250, top=200, right=920, bottom=1400)   # the body print
-        draw(img)
-        try:
-            img.save(filename=pdf)
-        except WandException as ex:
-            pytest.skip("ImageMagick cannot write PDFs here: %s" % ex)
-        img.format = "jpeg"
-        img.save(filename=cover)
-    try:
-        assert pdf_cover.recentre_cover(pdf, cover)
-    except WandException as ex:
-        pytest.skip("ImageMagick cannot read PDFs here: %s" % ex)
-    # The stamp is cropped out: the margins are those of the body print alone, the left one
-    # capped to stay inside the blank gap beside the stamp
-    small_h = round(1650 * pdf_cover.MEASURE_WIDTH / 1275)
-    first, last = round(250 * pdf_cover.MEASURE_WIDTH / 1275), round(920 * pdf_cover.MEASURE_WIDTH / 1275) - 1
-    crop = balanced_crop(pdf_cover.MEASURE_WIDTH, small_h, first, last,
-                         stamp_end=round(105 * pdf_cover.MEASURE_WIDTH / 1275))
-    with wand_image.Image(filename=cover) as done:
-        assert abs(done.width / done.height - (crop[1] - crop[0]) / small_h) < 0.01
-    assert not pdf_cover.recentre_cover(pdf, cover)       # already centred
-
-
-@pytest.mark.unit
-def test_replace_cover_with_imagemagick(tmp_path):
-    wand_image = pytest.importorskip("wand.image", exc_type=ImportError)
-    from wand.color import Color
-    from wand.exceptions import WandException
-    pdf, cover = str(tmp_path / "book.pdf"), str(tmp_path / "cover.jpg")
-    with wand_image.Image(width=1275, height=1650, background=Color("white"), resolution=150) as img:
-        try:
-            img.save(filename=pdf)
-        except WandException as ex:
-            pytest.skip("ImageMagick cannot write PDFs here: %s" % ex)
-    # A provider's cover: dark and book shaped
-    with wand_image.Image(width=400, height=600, background=Color("navy")) as art:
-        art.format = "jpeg"
-        art.save(filename=cover)
-    try:
-        assert not pdf_cover.recentre_cover(pdf, cover)        # kept without replace
-    except WandException as ex:
-        pytest.skip("ImageMagick cannot read PDFs here: %s" % ex)
-    assert pdf_cover.recentre_cover(pdf, cover, replace=True)
-    with wand_image.Image(filename=cover) as done:
-        assert abs(done.width / done.height - 1275 / 1650) < 0.01
-    assert not pdf_cover.recentre_cover(pdf, cover, replace=True)   # already page 1
-
-
-def _fix_cover_world(tmp_path, monkeypatch, cover=None):
-    """A book folder with a PDF and maybe a cover.jpg; rendering and centring are recorded."""
+def _fix_cover_world(tmp_path, monkeypatch, cover=None, page=b"page one"):
+    """A book folder with a PDF and maybe a cover.jpg; page 1 "renders" as `page`."""
     pdf, path = tmp_path / "book.pdf", tmp_path / "cover.jpg"
     pdf.write_bytes(b"%PDF")
     if cover is not None:
         path.write_bytes(cover)
-    calls = []
-    monkeypatch.setattr(pdf_cover, "save_page_cover", lambda p, c: calls.append("page"))
-    monkeypatch.setattr(pdf_cover, "recentre_cover",
-                        lambda p, c, replace=False: calls.append("replace" if replace else "centre") or False)
-    return str(pdf), str(path), calls
+    renders = []
+    monkeypatch.setattr(pdf_cover, "page_cover_jpeg", lambda p: renders.append(p) or page)
+    return str(pdf), str(path), renders
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize("has_cover", [True, False])
 def test_a_pdf_with_no_cover_file_gets_its_first_page(tmp_path, monkeypatch, has_cover):
-    pdf, cover, calls = _fix_cover_world(tmp_path, monkeypatch)
+    pdf, cover, renders = _fix_cover_world(tmp_path, monkeypatch)
     assert pdf_cover.fix_cover(pdf, cover, has_cover)
-    assert calls == ["page"]
+    assert renders == [pdf] and (tmp_path / "cover.jpg").read_bytes() == b"page one"
 
 
 @pytest.mark.unit
 def test_the_old_imports_placeholder_card_is_replaced_by_the_first_page(tmp_path, monkeypatch):
     card = b"x" * pdf_cover.PLACEHOLDER_SIZE
     monkeypatch.setattr(pdf_cover, "PLACEHOLDER_MD5", hashlib.md5(card).hexdigest())
-    pdf, cover, calls = _fix_cover_world(tmp_path, monkeypatch, cover=card)
+    pdf, cover, renders = _fix_cover_world(tmp_path, monkeypatch, cover=card)
     assert pdf_cover.is_placeholder(cover)
     assert pdf_cover.fix_cover(pdf, cover, True)
-    assert calls == ["page"]
+    assert (tmp_path / "cover.jpg").read_bytes() == b"page one"
     # Same size, other bytes: a real cover
-    pdf, cover, calls = _fix_cover_world(tmp_path, monkeypatch, cover=b"y" * pdf_cover.PLACEHOLDER_SIZE)
+    pdf, cover, renders = _fix_cover_world(tmp_path, monkeypatch, cover=b"y" * pdf_cover.PLACEHOLDER_SIZE)
     assert not pdf_cover.is_placeholder(cover)
 
 
 @pytest.mark.unit
-def test_a_cover_file_the_book_lost_its_flag_for_is_shown_again_as_it_is(tmp_path, monkeypatch):
-    pdf, cover, calls = _fix_cover_world(tmp_path, monkeypatch, cover=b"real cover")
+def test_without_replace_a_cover_is_kept_as_it_is(tmp_path, monkeypatch):
+    pdf, cover, renders = _fix_cover_world(tmp_path, monkeypatch, cover=b"provider cover")
+    # Unflagged: shown again as it is
     assert pdf_cover.fix_cover(pdf, cover, False)
-    assert calls == []
-    # Flagged already: only centring is tried, and it found nothing to do
+    # Flagged: nothing to do
     assert not pdf_cover.fix_cover(pdf, cover, True)
-    assert calls == ["centre"]
+    assert renders == [] and (tmp_path / "cover.jpg").read_bytes() == b"provider cover"
 
 
 @pytest.mark.unit
-def test_replace_hands_any_cover_to_page_one(tmp_path, monkeypatch):
-    pdf, cover, calls = _fix_cover_world(tmp_path, monkeypatch, cover=b"provider cover")
+def test_replace_hands_any_cover_to_page_one_and_leaves_it_once_it_is(tmp_path, monkeypatch):
+    pdf, cover, renders = _fix_cover_world(tmp_path, monkeypatch, cover=b"provider cover")
+    assert pdf_cover.fix_cover(pdf, cover, True, replace=True)
+    assert (tmp_path / "cover.jpg").read_bytes() == b"page one"
+    # The same picture again: nothing rewritten, so a second Redo changes nothing
+    mtime = (tmp_path / "cover.jpg").stat().st_mtime_ns
     assert not pdf_cover.fix_cover(pdf, cover, True, replace=True)
-    assert calls == ["replace"]
-    # Unflagged: shown again, whatever the replace found
+    assert (tmp_path / "cover.jpg").stat().st_mtime_ns == mtime
+    # Unflagged: shown again even when the picture is the same
     assert pdf_cover.fix_cover(pdf, cover, False, replace=True)
-    assert calls == ["replace", "replace"]
+    assert not list(tmp_path.glob("*.writing"))
 
 
 @pytest.mark.unit
 def test_a_book_whose_pdf_is_missing_is_left_alone(tmp_path, monkeypatch):
-    pdf, cover, calls = _fix_cover_world(tmp_path, monkeypatch)
+    pdf, cover, renders = _fix_cover_world(tmp_path, monkeypatch)
     (tmp_path / "book.pdf").unlink()
     assert not pdf_cover.fix_cover(pdf, cover, False)
-    assert calls == []
+    assert renders == []
 
 
 @pytest.mark.unit
 def test_save_page_cover_with_imagemagick(tmp_path):
+    # Page 1 whole: a page with print off to one side keeps its full width and margins
     wand_image = pytest.importorskip("wand.image", exc_type=ImportError)
     from wand.color import Color
+    from wand.drawing import Drawing
     from wand.exceptions import WandException
     pdf, cover = str(tmp_path / "book.pdf"), str(tmp_path / "cover.jpg")
-    with wand_image.Image(width=1275, height=1650, background=Color("white"), resolution=150) as img:
+    with wand_image.Image(width=1275, height=1650, background=Color("white"), resolution=150) as img, \
+            Drawing() as draw:
+        draw.fill_color = Color("black")
+        draw.rectangle(left=60, top=450, right=105, bottom=1250)    # a stamp down the left margin
+        draw.rectangle(left=250, top=200, right=920, bottom=1400)   # the body print, off centre
+        draw(img)
         try:
             img.save(filename=pdf)
         except WandException as ex:
             pytest.skip("ImageMagick cannot write PDFs here: %s" % ex)
     try:
-        pdf_cover.save_page_cover(pdf, cover)
+        assert pdf_cover.save_page_cover(pdf, cover)
     except WandException as ex:
         pytest.skip("ImageMagick cannot read PDFs here: %s" % ex)
     with wand_image.Image(filename=cover) as done:
         assert done.format == "JPEG" and abs(done.width / done.height - 1275 / 1650) < 0.01
+        assert done.height >= 1020    # the largest thumbnail
+    assert not pdf_cover.save_page_cover(pdf, cover)    # the same picture: left alone
 
 
 @pytest.fixture
@@ -264,7 +108,7 @@ def env(tmp_path, temp_cwa_db):
 
 
 @pytest.mark.unit
-def test_rebuild_centres_pdf_covers_after_the_lookup(env, monkeypatch):
+def test_rebuild_makes_pdf_covers_after_the_lookup(env, monkeypatch):
     from cps import helper, metadata_helper
     from cps.tasks.metadata_rebuild import TaskRebuildMetadata
     pdf = env.add_book("Paper", fmt="PDF")
@@ -293,7 +137,7 @@ def test_rebuild_centres_pdf_covers_after_the_lookup(env, monkeypatch):
     folder = str(env.library_dir / "Test Author" / "Paper")
     assert order == [("lookup", pdf), ("cover", folder + "/Paper.pdf", folder + "/cover.jpg"), ("lookup", epub)]
     assert refreshed == [pdf] and task.covers == 1
-    assert str(task.message) == "Done: 2 books checked, 0 updated, 1 covers made or centred"
+    assert str(task.message) == "Done: 2 books checked, 0 updated, 1 covers made"
     after = dict(con.execute("SELECT id, last_modified FROM books"))
     con.close()
     assert after[pdf] != before[pdf] and after[epub] == before[epub]
@@ -354,7 +198,7 @@ def test_page_one_is_rendered_by_ghostscript_on_the_pdf_itself(monkeypatch):
     args, kw = ran[0]
     assert args[0] == "/usr/bin/gs" and args[-2:] == ["-f", "/books/A Paper.pdf"]
     # Same page box and anti-aliasing as ImageMagick's render; messages kept out of the image
-    for flag in ("-dUseCropBox", "-dFirstPage=1", "-dLastPage=1", "-r150", "-dTextAlphaBits=4",
+    for flag in ("-dUseCropBox", "-dFirstPage=1", "-dLastPage=1", "-r100", "-dTextAlphaBits=4",
                  "-dGraphicsAlphaBits=4", "-sstdout=%stderr", "-sOutputFile=-", "-dSAFER"):
         assert flag in args, flag
     assert kw["timeout"] == pdf_cover.RENDER_TIMEOUT and kw["capture_output"]

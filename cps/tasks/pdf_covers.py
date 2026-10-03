@@ -2,12 +2,11 @@
 # See CONTRIBUTORS for full list of authors.
 
 """Task that makes every PDF book's cover its first page again (Settings → Metadata → Redo
-PDF covers), with no metadata lookups, so it is much quicker than a full rebuild (about a quarter of a
-second a PDF).
+PDF covers), with no metadata lookups, so it is much quicker than a full rebuild.
 
-It exists so a better page centring (cps/pdf_cover.py) reaches the covers already made: each
-PDF is rendered and trimmed with the current cropper, and only a cover whose new crop differs
-is rewritten. Covers picked by hand are kept, as cover_job says. Books are done a few at a time
+Each PDF's page 1 is rendered as it is printed (cps/pdf_cover.py), and only a cover.jpg that
+holds a different picture is rewritten, so a second run changes nothing. Covers picked by hand
+are kept, as cover_job says. Books are done a few at a time
 (one Ghostscript each), leaving a core for the web app.
 
 The task is a TaskRebuildMetadata for its bookkeeping (checked/total/covers, the status line,

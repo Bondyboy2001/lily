@@ -429,8 +429,8 @@ Letter page or a publisher's 3:4 front is a little shorter than the slot, a 2:3 
 little narrower. Only outliers past 1:2 or 1:1 are clamped and trimmed. `--sunk` behind
 while it loads, a 1px `--line-soft` inset hairline (`outline-offset: -1px`), no shadow; the
 ribbons, marks and actions sit on the cover's own edges. A PDF whose cover is its first page
-has that page cropped to even side margins around the print on import and on Rebuild
-metadata (`cps/pdf_cover.py`). Grid covers mark their file types with ribbons (`.lily-ribbon`): one 22×34 notched ribbon per format hanging from the top edge, 12px in, in the format's own colour (PDF red, EPUB green, DjVu blue, anything else grey) with its icon knocked out in white; icon only, the group named by its `aria-label`. Finished and Fetched are 22px `--surface` discs with a `--success` glyph in the bottom-left corner, 8px in. Read state is a 3px `--success` inset outline plus that eye disc titled "Finished" on grid
+shows that page exactly as printed, never trimmed or centred (`cps/pdf_cover.py`; made on import,
+Rebuild metadata and Redo PDF covers). Grid covers mark their file types with ribbons (`.lily-ribbon`): one 22×34 notched ribbon per format hanging from the top edge, 12px in, in the format's own colour (PDF red, EPUB green, DjVu blue, anything else grey) with its icon knocked out in white; icon only, the group named by its `aria-label`. Finished and Fetched are 22px `--surface` discs with a `--success` glyph in the bottom-left corner, 8px in. Read state is a 3px `--success` inset outline plus that eye disc titled "Finished" on grid
 covers. Mark-as-read controls use the eye
 glyph (`glyphicon-eye-open`), the same mark as the sidebar's Finished row. For editors, a book a metadata lookup has
 matched carries the green fetched tick (`.lily-fetched`, §6.4): a disc beside the eye on grid covers and the book plate.

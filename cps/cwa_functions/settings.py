@@ -110,8 +110,8 @@ def rebuild_metadata():
 @login_required_if_no_ano
 @admin_required
 def redo_pdf_covers():
-    """Start a pass over every PDF book that renders page 1 as its cover again, centred by the
-    current cropper. No provider lookups, so it is much quicker than a full rebuild."""
+    """Start a pass over every PDF book that renders page 1 as its cover again, as
+    printed. No provider lookups, so it is much quicker than a full rebuild."""
     from ..services.worker import WorkerThread
     from ..tasks.pdf_covers import TaskRedoPdfCovers
     with _rebuild_start_lock:

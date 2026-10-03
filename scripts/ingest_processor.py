@@ -39,7 +39,7 @@ _cps_config = None
 fetch_and_apply_metadata = None
 clear_new_book_details = None
 tidy_new_book_authors = None
-recentre_new_book_cover = None
+make_new_book_cover = None
 CWA_DB = None
 audiobook = None
 requests = None
@@ -245,7 +245,7 @@ def _load_runtime_dependencies() -> None:
 
 def _load_optional_cps_modules() -> None:
     global _CPS_AVAILABLE, _cps_config, fetch_and_apply_metadata, clear_new_book_details, tidy_new_book_authors, \
-        recentre_new_book_cover
+        make_new_book_cover
 
     if _CPS_AVAILABLE:
         return
@@ -267,7 +267,7 @@ def _load_optional_cps_modules() -> None:
             from cps.metadata_helper import fetch_and_apply_metadata as loaded_fetch_and_apply_metadata
             from cps.tag_cleanup import clear_new_book_details as loaded_clear_new_book_details
             from cps.author_cleanup import tidy_new_book_authors as loaded_tidy_new_book_authors
-            from cps.pdf_cover import recentre_new_book_cover as loaded_recentre_new_book_cover
+            from cps.pdf_cover import make_new_book_cover as loaded_make_new_book_cover
             from cps import ub as loaded_ub
             from cps.calibre_init import init_calibre_db_from_app_db
             init_calibre_db_from_app_db(get_app_db_path())
@@ -276,7 +276,7 @@ def _load_optional_cps_modules() -> None:
             fetch_and_apply_metadata = loaded_fetch_and_apply_metadata
             clear_new_book_details = loaded_clear_new_book_details
             tidy_new_book_authors = loaded_tidy_new_book_authors
-            recentre_new_book_cover = loaded_recentre_new_book_cover
+            make_new_book_cover = loaded_make_new_book_cover
             _CPS_AVAILABLE = True
             print("[ingest-processor] Metadata functionality available", flush=True)
         except ImportError as e:
@@ -284,7 +284,7 @@ def _load_optional_cps_modules() -> None:
             fetch_and_apply_metadata = None
             clear_new_book_details = None
             tidy_new_book_authors = None
-            recentre_new_book_cover = None
+            make_new_book_cover = None
             _CPS_AVAILABLE = False
 
     except Exception as e:
@@ -861,7 +861,7 @@ class NewBookProcessor:
             # calibre reads a description, tags, publisher and more from the file: Lily keeps none
             self.clear_details(self.last_added_book_ids or [])
             # calibre's cover for a PDF is page 1 as printed, often off-centre: centre it on the print
-            self.centre_covers(self.last_added_book_ids or [])
+            self.make_page_covers(self.last_added_book_ids or [])
 
             # Fetch metadata if enabled, prefer exact book id from calibredb
             if self.last_added_book_id is not None:
@@ -975,15 +975,15 @@ class NewBookProcessor:
             except Exception as e:
                 print(f"[ingest-processor] WARN: Could not clear the details the file gave book id={book_id}: {e}", flush=True)
 
-    def centre_covers(self, book_ids) -> None:
-        if not _CPS_AVAILABLE or recentre_new_book_cover is None:
+    def make_page_covers(self, book_ids) -> None:
+        if not _CPS_AVAILABLE or make_new_book_cover is None:
             return
         for book_id in book_ids:
             try:
-                if recentre_new_book_cover(int(book_id), self.library_dir):
-                    print(f"[ingest-processor] Made or centred the cover of book id={book_id}", flush=True)
+                if make_new_book_cover(int(book_id), self.library_dir):
+                    print(f"[ingest-processor] Made the page 1 cover of book id={book_id}", flush=True)
             except Exception as e:
-                print(f"[ingest-processor] WARN: Could not make or centre the cover of book id={book_id}: {e}", flush=True)
+                print(f"[ingest-processor] WARN: Could not make the cover of book id={book_id}: {e}", flush=True)
 
     def fetch_metadata_if_enabled(self, book_title: str | None = None, book_id: int | None = None) -> None:
         """Fetch and apply metadata for newly ingested books if enabled"""
