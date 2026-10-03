@@ -141,3 +141,14 @@ def test_a_ticked_field_replaces_the_books_value():
     same = js[js.index("function same(a, b)"):]
     same = same[:same.index("}")]
     assert "toLowerCase" not in same
+
+
+def test_fetch_metadata_breaks_near_ties_by_provider_order_not_arrival():
+    """Open Library comes before Hardcover in the server's order (search_metadata.cl); a
+    result as good from each lists Open Library's first, whichever answered first."""
+    from cps.search_metadata import cl
+    ids = [c.__id__ for c in cl]
+    assert ids.index("openlibrary") < ids.index("hardcover")
+    js = (REPO_ROOT / "cps/static/js/get_meta.js").read_text(encoding="utf-8")
+    assert "rank[provider.id] = i;" in js
+    assert "(scoreBand(b) - scoreBand(a)) ||\n        ((rank[a.provider] || 0) - (rank[b.provider] || 0))" in js

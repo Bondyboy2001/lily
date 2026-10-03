@@ -33,6 +33,7 @@ $(function () {
   var status = {};      // provider id -> "loading" | "ok" | "skipped" | "busy" | "error" | "timeout"
   var names = {};       // provider id -> its name
   var needsKey = {};    // provider id -> true when a key would make it answer (Google Books)
+  var rank = {};        // provider id -> its place in the server's order (Open Library before Hardcover)
   var expanded = {};    // group key -> true once "Show more" was pressed
   var results = [];     // {uid, provider, book, descText, $el}; uid is the index
   var query = "";
@@ -320,13 +321,20 @@ $(function () {
     return ((r.book.source && r.book.source.description) || r.provider) + "|" + squash(r.book.title);
   }
 
-  // Exact identifier matches first, then the best match to the book; cards are
-  // moved, not redrawn, so ticks survive new results arriving
+  // How well a result matches, in steps of 5%: within one, the provider order decides
+  function scoreBand(r) {
+    return Math.round((r.book.score || 0) * 20);
+  }
+
+  // Exact identifier matches first, then the best match to the book, a near tie going to the
+  // provider asked first rather than the one that answered first; cards are moved, not
+  // redrawn, so ticks survive new results arriving
   function renderResults() {
     renderStatus();
     var shown = results.slice();
     shown.sort(function (a, b) {
-      return (b.book.exact_match - a.book.exact_match) ||
+      return (b.book.exact_match - a.book.exact_match) || (scoreBand(b) - scoreBand(a)) ||
+        ((rank[a.provider] || 0) - (rank[b.provider] || 0)) ||
         ((b.book.score || 0) - (a.book.score || 0)) || (a.uid - b.uid);
     });
     var loading = Object.keys(status).some(function (id) { return status[id] === "loading"; });
@@ -398,8 +406,9 @@ $(function () {
     var seq = searchSeq;
     inFlight.push($.getJSON(getPath() + "/metadata/provider", { query: query }).done(function (providers) {
       if (seq !== searchSeq) return;
-      providers.forEach(function (provider) {
+      providers.forEach(function (provider, i) {
         names[provider.id] = provider.name;
+        rank[provider.id] = i;
         searchProvider(provider.id, seq);
       });
       renderResults();
