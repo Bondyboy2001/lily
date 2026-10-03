@@ -11,6 +11,8 @@ import re
 import time
 
 import requests
+from http.cookiejar import DefaultCookiePolicy
+from requests.adapters import HTTPAdapter
 from collections.abc import Generator
 
 from cps import constants
@@ -92,12 +94,30 @@ class CoolOff:
         self._until = time.monotonic() + seconds
 
 
+def _kept_alive_session() -> requests.Session:
+    """A session whose connections stay open between calls, and which keeps no cookies, so the
+    rebuild's threads can share it."""
+    session = requests.Session()
+    session.cookies.set_policy(DefaultCookiePolicy(allowed_domains=[]))
+    adapter = HTTPAdapter(pool_connections=16, pool_maxsize=32)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
+# Every provider's requests go through this one pool of kept-alive connections. A new HTTPS
+# connection per request costs its handshake every time: measured from the server, an Open
+# Library search took 694 ms that way and 197 ms on a kept connection (Crossref 452 -> 193,
+# arXiv 274 -> 106), and a rebuild makes tens of thousands of requests.
+http_session = _kept_alive_session()
+
+
 def get_patiently(url, pause: float = 1.5, **kwargs):
-    """requests.get, asking once more after a pause when the service says it's busy (429)."""
-    response = requests.get(url, **kwargs)
+    """http_session.get, asking once more after a pause when the service says it's busy (429)."""
+    response = http_session.get(url, **kwargs)
     if response.status_code == 429:
         time.sleep(pause)
-        response = requests.get(url, **kwargs)
+        response = http_session.get(url, **kwargs)
     return response
 
 

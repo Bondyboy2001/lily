@@ -23,10 +23,9 @@ from html.parser import HTMLParser
 from os import getenv
 from xml.etree import ElementTree
 
-import requests
 
 from cps import logger
-from cps.services.Metadata import CoolOff, MetaRecord, MetaSourceInfo, Metadata, get_patiently
+from cps.services.Metadata import CoolOff, MetaRecord, MetaSourceInfo, Metadata, get_patiently, http_session
 from cps.services.identifiers import ARXIV_DOI_PREFIX, ARXIV_ID_RE, DOI_RE, arxiv_id_from_doi, compact_isbn
 
 log = logger.create()
@@ -155,7 +154,7 @@ class google_scholar(Metadata):
             return self._fetch_arxiv_abs(arxiv_id)
         except Exception as e:
             log.warning("arXiv abstract page lookup failed, trying the API: %s", e)
-        response = requests.get(
+        response = http_session.get(
             self.ARXIV_URL, params={"id_list": arxiv_id.group(0)}, headers=self.HEADERS, timeout=15
         )
         response.raise_for_status()
@@ -180,7 +179,7 @@ class google_scholar(Metadata):
     def _fetch_arxiv_abs(self, arxiv_id) -> list[MetaRecord]:
         """The paper from its abstract page's citation_* meta tags (the ones Google
         Scholar reads); empty when arXiv has no such paper."""
-        response = requests.get(
+        response = http_session.get(
             self.ARXIV_ABS_URL + arxiv_id.group(0), headers=self.HEADERS, timeout=10
         )
         if response.status_code == 404:
@@ -391,7 +390,7 @@ class google_scholar(Metadata):
         API, or by the cover's own address when the API has used the day's quota); '' for none.
         A failure is no cover, never a failed search."""
         try:
-            response = requests.get(self.OPENLIBRARY_EDITION_URL.format(isbn), headers=self.HEADERS, timeout=10)
+            response = http_session.get(self.OPENLIBRARY_EDITION_URL.format(isbn), headers=self.HEADERS, timeout=10)
             if response.status_code != 404:  # Open Library doesn't have that edition
                 response.raise_for_status()
                 covers = [c for c in response.json().get("covers") or [] if isinstance(c, int) and c > 0]
@@ -410,7 +409,7 @@ class google_scholar(Metadata):
             log.debug("No Google Books cover for ISBN %s: %s", isbn, e)
         try:
             url = self.GOOGLE_COVER_URL.format(isbn)
-            response = requests.get(url, headers=self.HEADERS, timeout=10)
+            response = http_session.get(url, headers=self.HEADERS, timeout=10)
             response.raise_for_status()
             if response.content and hashlib.md5(response.content).hexdigest() != self.GOOGLE_NO_COVER_MD5:
                 return url

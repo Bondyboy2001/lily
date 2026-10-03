@@ -126,7 +126,7 @@ def test_arxiv_id_is_read_from_the_abstract_page():
 def test_arxiv_id_is_read_from_datacite_first(monkeypatch):
     # arxiv.org is often slow; DataCite holds the same record under arXiv's DOI
     calls = []
-    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+    monkeypatch.setattr(scholar_module.http_session, "get", _fake_get({
         "https://api.datacite.org/dois/10.48550/arXiv.1108.1680":
             _Response(text=json.dumps({"data": DATACITE_HIT})),
     }, calls))
@@ -136,7 +136,7 @@ def test_arxiv_id_is_read_from_datacite_first(monkeypatch):
 
 def test_arxiv_id_missing_from_datacite_is_read_from_the_abstract_page(monkeypatch):
     # A paper from the last day or two isn't registered yet
-    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+    monkeypatch.setattr(scholar_module.http_session, "get", _fake_get({
         "https://api.datacite.org/": _Response(404),
         "https://arxiv.org/abs/1108.1680": _Response(text=ABS_PAGE),
         "https://export.arxiv.org/": requests.Timeout("API hangs"),
@@ -146,7 +146,7 @@ def test_arxiv_id_missing_from_datacite_is_read_from_the_abstract_page(monkeypat
 
 
 def test_unknown_arxiv_id_is_no_result_not_an_error(monkeypatch):
-    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+    monkeypatch.setattr(scholar_module.http_session, "get", _fake_get({
         "https://api.datacite.org/": _Response(404),
         "https://arxiv.org/abs/": _Response(404),
     }))
@@ -154,7 +154,7 @@ def test_unknown_arxiv_id_is_no_result_not_an_error(monkeypatch):
 
 
 def test_arxiv_outage_is_reported_as_a_failure(monkeypatch):
-    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+    monkeypatch.setattr(scholar_module.http_session, "get", _fake_get({
         "https://api.datacite.org/": requests.ConnectionError("down"),
         "https://arxiv.org/abs/": requests.ConnectionError("down"),
         "https://export.arxiv.org/": requests.Timeout("API hangs"),
@@ -186,7 +186,7 @@ def test_text_search_fails_when_every_source_is_down(monkeypatch):
 
 
 def test_versioned_id_keeps_the_bare_id(monkeypatch):
-    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+    monkeypatch.setattr(scholar_module.http_session, "get", _fake_get({
         "https://arxiv.org/abs/1108.1680v1": _Response(text=ABS_PAGE),
     }))
     records = google_scholar()._fetch_arxiv_abs(ARXIV_ID_RE.search("1108.1680v1"))
@@ -196,7 +196,7 @@ def test_versioned_id_keeps_the_bare_id(monkeypatch):
 def test_title_is_searched_in_datacite_not_the_arxiv_api(monkeypatch):
     # The arXiv API rate-limits and times out, so a typed title found nothing
     calls = []
-    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+    monkeypatch.setattr(scholar_module.http_session, "get", _fake_get({
         "https://api.datacite.org/dois": _Response(text=json.dumps({"data": [DATACITE_HIT]})),
     }, calls))
     records = google_scholar()._search_arxiv("Copula Gaussian graphical models")
@@ -245,7 +245,7 @@ def test_text_search_lists_arxiv_then_semantic_scholar_then_crossref(monkeypatch
 
 def test_semantic_scholar_match_reads_as_a_record(monkeypatch):
     calls = []
-    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+    monkeypatch.setattr(scholar_module.http_session, "get", _fake_get({
         "https://api.semanticscholar.org/": _Response(text=json.dumps(S2_MATCH)),
     }, calls))
     record, = google_scholar()._search_semantic_scholar("Mastering the game of Go")
@@ -265,7 +265,7 @@ def test_semantic_scholar_arxiv_paper_gets_arxivs_doi():
 
 
 def test_semantic_scholar_without_a_match_is_no_result(monkeypatch):
-    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+    monkeypatch.setattr(scholar_module.http_session, "get", _fake_get({
         "https://api.semanticscholar.org/": _Response(404, '{"error":"Title match not found"}'),
     }))
     assert google_scholar()._search_semantic_scholar("qwzx plorp") == []
@@ -273,7 +273,7 @@ def test_semantic_scholar_without_a_match_is_no_result(monkeypatch):
 
 def test_semantic_scholar_is_retried_once_when_busy(monkeypatch):
     answers = [_Response(429), _Response(text=json.dumps(S2_MATCH))]
-    monkeypatch.setattr(scholar_module.requests, "get", lambda url, **kw: answers.pop(0))
+    monkeypatch.setattr(scholar_module.http_session, "get", lambda url, **kw: answers.pop(0))
     monkeypatch.setattr("time.sleep", lambda s: None)
     assert len(google_scholar()._search_semantic_scholar("Mastering the game of Go")) == 1
 
@@ -284,7 +284,7 @@ def test_semantic_scholar_sends_the_api_key_when_set(monkeypatch):
     def get(url, **kwargs):
         sent.append(kwargs["headers"])
         return _Response(404)
-    monkeypatch.setattr(scholar_module.requests, "get", get)
+    monkeypatch.setattr(scholar_module.http_session, "get", get)
     monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "k123")
     google_scholar()._search_semantic_scholar("anything")
     monkeypatch.delenv("SEMANTIC_SCHOLAR_API_KEY")
@@ -294,7 +294,7 @@ def test_semantic_scholar_sends_the_api_key_when_set(monkeypatch):
 
 def test_crossref_is_retried_once_when_busy(monkeypatch):
     answers = [_Response(429), _Response(text=json.dumps({"message": {"items": []}}))]
-    monkeypatch.setattr(scholar_module.requests, "get", lambda url, **kw: answers.pop(0))
+    monkeypatch.setattr(scholar_module.http_session, "get", lambda url, **kw: answers.pop(0))
     monkeypatch.setattr("time.sleep", lambda s: None)
     assert google_scholar()._search_crossref("anything") == [] and answers == []
 
@@ -306,7 +306,7 @@ def test_crossref_gets_the_contact_address_when_set(monkeypatch):
     def get(url, **kwargs):
         sent.append(kwargs["params"])
         return _Response(text=json.dumps({"message": {"items": []}}))
-    monkeypatch.setattr(scholar_module.requests, "get", get)
+    monkeypatch.setattr(scholar_module.http_session, "get", get)
     monkeypatch.setenv("CROSSREF_MAILTO", "me@example.org")
     google_scholar()._search_crossref("anything")
     monkeypatch.delenv("CROSSREF_MAILTO")
@@ -321,7 +321,7 @@ def test_semantic_scholar_still_busy_is_left_out_for_a_while(monkeypatch):
     def get(url, **kw):
         asked.append(url)
         return _Response(429)
-    monkeypatch.setattr(scholar_module.requests, "get", get)
+    monkeypatch.setattr(scholar_module.http_session, "get", get)
     monkeypatch.setattr("time.sleep", lambda s: None)
     scholar = google_scholar()
     with pytest.raises(requests.HTTPError):
@@ -341,7 +341,7 @@ def _openlibrary(cover_id=None):
 
 def test_crossref_book_gets_its_cover_from_open_library_by_isbn(monkeypatch):
     calls = []
-    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+    monkeypatch.setattr(scholar_module.http_session, "get", _fake_get({
         "https://api.crossref.org/": _crossref(
             {"DOI": "10.1142/3727", "title": ["Nobel Lectures in Physics 1922 - 1941"], "type": "monograph",
              "ISBN": ["978-981-02-3402-7"]},
@@ -365,7 +365,7 @@ def test_a_lookup_fetches_only_the_applied_records_cover(monkeypatch):
     # search_titles (imports, Rebuild metadata) leaves covers out; complete() fetches the one
     # of the record applied, so a search no longer waits on a cover per result
     calls = []
-    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+    monkeypatch.setattr(scholar_module.http_session, "get", _fake_get({
         "https://api.crossref.org/": _crossref(
             {"DOI": "10.1142/3727", "title": ["Nobel Lectures in Physics 1922 - 1941"], "type": "monograph",
              "ISBN": ["978-981-02-3402-7"]},
@@ -389,7 +389,7 @@ def test_crossref_book_falls_back_to_google_books_cover(monkeypatch):
     google = SimpleNamespace(__id__="google", search_identifiers=lambda ids, *a: [
         SimpleNamespace(cover="https://books.google.com/cover?id=x" if ids == {"isbn": "9789810234027"} else "")])
     monkeypatch.setattr(search_metadata, "cl", [google])
-    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+    monkeypatch.setattr(scholar_module.http_session, "get", _fake_get({
         "https://api.crossref.org/": _crossref(
             {"DOI": "10.1142/3727", "title": ["Nobel Lectures"], "type": "monograph", "ISBN": ["9789810234027"]}),
         "https://openlibrary.org/isbn/": _openlibrary(None),
@@ -400,7 +400,7 @@ def test_crossref_book_falls_back_to_google_books_cover(monkeypatch):
 def test_a_cover_lookup_failing_still_shows_the_result(monkeypatch):
     import cps.search_metadata as search_metadata
     monkeypatch.setattr(search_metadata, "cl", [])
-    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+    monkeypatch.setattr(scholar_module.http_session, "get", _fake_get({
         "https://api.crossref.org/": _crossref(
             {"DOI": "10.1142/3727", "title": ["Nobel Lectures"], "type": "monograph", "ISBN": ["9789810234027"]}),
         "https://openlibrary.org/isbn/": requests.ConnectionError("down"),
@@ -420,7 +420,7 @@ def test_with_google_books_out_of_quota_its_cover_is_asked_for_by_isbn(monkeypat
     crossref = _crossref({"DOI": "10.1201/9781439894323", "title": ["Understanding Real Analysis"],
                           "type": "book", "ISBN": ["9781439894323"]})
     cover = _Response(text="a cover's bytes")
-    monkeypatch.setattr(scholar_module.requests, "get", _fake_get({
+    monkeypatch.setattr(scholar_module.http_session, "get", _fake_get({
         "https://api.crossref.org/": crossref, "https://openlibrary.org/isbn/": _Response(404),
         "https://books.google.com/books/content": cover}))
     (record,) = google_scholar()._search_crossref("understanding real analysis")

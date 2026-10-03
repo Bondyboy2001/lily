@@ -53,7 +53,7 @@ def test_google_out_of_quota_is_not_asked_again_at_once(monkeypatch):
     def get(url, **kw):
         asked.append(kw["params"]["q"])
         return _Response(429)
-    monkeypatch.setattr(module.requests, "get", get)
+    monkeypatch.setattr(module.http_session, "get", get)
     monkeypatch.setattr(module.Google, "_api_key", staticmethod(lambda: "secret-key"))
     google = module.Google()
     # A failure, not "no results": the edit page says the search failed, a rebuild who didn't answer
@@ -65,7 +65,7 @@ def test_google_out_of_quota_is_not_asked_again_at_once(monkeypatch):
     assert asked == ["Dune Frank Herbert"]
     # Another failure is not a quota: the next search asks again
     other = module.Google()
-    monkeypatch.setattr(module.requests, "get", lambda url, **kw: asked.append("again") or _Response(500))
+    monkeypatch.setattr(module.http_session, "get", lambda url, **kw: asked.append("again") or _Response(500))
     for _attempt in range(2):
         with pytest.raises(ProviderError):
             other.search("Dune")
@@ -76,7 +76,7 @@ def test_google_gives_the_title_in_full(monkeypatch):
     from cps.metadata_provider import google as module
     items = [{"id": "a1", "volumeInfo": {"title": "Sapiens", "subtitle": "A Brief History of Humankind"}},
              {"id": "b2", "volumeInfo": {"title": "Dune"}}]
-    monkeypatch.setattr(module.requests, "get", lambda url, **kw: _Response(payload={"items": items}))
+    monkeypatch.setattr(module.http_session, "get", lambda url, **kw: _Response(payload={"items": items}))
     sapiens, dune = module.Google().search("anything")
     assert (sapiens.title, sapiens.subtitle) == ("Sapiens: A Brief History of Humankind",
                                                  "A Brief History of Humankind")
@@ -94,7 +94,7 @@ def _open_library(monkeypatch):
         if url.endswith("/search.json"):
             return _Response(payload={"docs": docs})
         return _Response(payload={"description": {"value": "About " + asked[-1]}})
-    monkeypatch.setattr("requests.get", get)
+    monkeypatch.setattr("cps.services.Metadata.http_session.get", get)
     return module.OpenLibrary(), asked
 
 
@@ -122,7 +122,7 @@ def test_a_lookup_asks_open_library_for_one_description(monkeypatch):
 def test_a_retried_request_waits_once_when_the_service_is_busy(monkeypatch):
     from cps.services.Metadata import get_patiently
     answers, waits = [_Response(429), _Response(200)], []
-    monkeypatch.setattr("requests.get", lambda url, **kw: answers.pop(0))
+    monkeypatch.setattr("cps.services.Metadata.http_session.get", lambda url, **kw: answers.pop(0))
     monkeypatch.setattr("time.sleep", waits.append)
     assert get_patiently("https://example.org", pause=2).status_code == 200 and waits == [2]
     # Still busy the second time: the answer is the caller's to deal with
@@ -133,7 +133,7 @@ def test_a_retried_request_waits_once_when_the_service_is_busy(monkeypatch):
 def test_a_failed_open_library_search_is_raised_but_a_missing_description_is_not(monkeypatch):
     from cps.metadata_provider import openlibrary as module
     monkeypatch.setattr("time.sleep", lambda s: None)
-    monkeypatch.setattr("requests.get", lambda url, **kw: _Response(503))
+    monkeypatch.setattr("cps.services.Metadata.http_session.get", lambda url, **kw: _Response(503))
     with pytest.raises(requests.HTTPError):
         module.OpenLibrary().search("Dune")
 
@@ -141,7 +141,7 @@ def test_a_failed_open_library_search_is_raised_but_a_missing_description_is_not
         if url.endswith("/search.json"):
             return _Response(payload={"docs": [{"key": "/works/OL1W", "title": "Dune"}]})
         return _Response(503)
-    monkeypatch.setattr("requests.get", get)
+    monkeypatch.setattr("cps.services.Metadata.http_session.get", get)
     assert [(r.title, r.description) for r in module.OpenLibrary().search("Dune")] == [("Dune", "")]
 
 
@@ -154,7 +154,7 @@ def test_hardcover_without_a_token_is_skipped_and_a_failure_is_raised(monkeypatc
 
     def down(url, **kw):
         raise requests.ConnectionError("down")
-    monkeypatch.setattr(module.requests, "post", down)
+    monkeypatch.setattr(module.http_session, "post", down)
     with pytest.raises(ProviderError):
         module.Hardcover().search("Dune")
 
@@ -237,3 +237,13 @@ def test_a_hardcover_edition_with_only_an_isbn_10_keeps_it():
     book = {"id": 7, "slug": "dune", "editions": [{"id": 1, "title": "Dune", "isbn_13": None, "isbn_10": "0441172717"}]}
     [edition] = Hardcover()._parse_edition_results(book, "", "en")
     assert edition.identifiers["isbn"] == "0441172717"
+
+
+def test_providers_share_one_kept_alive_session_that_keeps_no_cookies():
+    # A connection per request cost its HTTPS handshake every time (Open Library 694 -> 197 ms)
+    from cps.metadata_provider import google, hardcover, scholar
+    from cps.services.Metadata import http_session
+    assert google.http_session is hardcover.http_session is scholar.http_session is http_session
+    # No cookies, so the rebuild's threads can share it
+    assert http_session.cookies._policy.allowed_domains() == ()
+    assert http_session.get_adapter("https://openlibrary.org")._pool_maxsize >= 16

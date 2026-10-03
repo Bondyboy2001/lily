@@ -8,10 +8,9 @@
 from datetime import datetime
 from os import getenv
 
-import requests
 
 from cps import config, logger
-from cps.services.Metadata import CoolOff, MetaRecord, MetaSourceInfo, Metadata, ProviderBusy, ProviderError
+from cps.services.Metadata import CoolOff, MetaRecord, MetaSourceInfo, Metadata, ProviderBusy, ProviderError, http_session
 
 log = logger.create()
 
@@ -65,7 +64,7 @@ class Google(Metadata):
         if self._busy.active():
             raise ProviderBusy("Google Books is out of quota" + hint)
         try:
-            results = requests.get(Google.SEARCH_URL, params=params, timeout=15)
+            results = http_session.get(Google.SEARCH_URL, params=params, timeout=15)
             results.raise_for_status()
         except Exception as e:
             status = getattr(getattr(e, "response", None), "status_code", None)

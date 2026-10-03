@@ -9,10 +9,9 @@
 import json
 from os import getenv
 
-import requests
 
 from cps import config, constants, logger
-from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata, ProviderError
+from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata, ProviderError, http_session
 
 log = logger.create()
 
@@ -105,7 +104,7 @@ class Hardcover(Metadata):
         # Its own headers: the class's are shared by every search running at once
         headers = dict(Hardcover.HEADERS, Authorization="Bearer " + token.replace("Bearer ", ""))
         try:
-            resp = requests.post(
+            resp = http_session.post(
                 Hardcover.BASE_URL,
                 json={"query": gql, "variables": {"query": variable}},
                 headers=headers,
