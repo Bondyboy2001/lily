@@ -95,10 +95,8 @@ def get_sidebar_config():
     sidebar = []
     sidebar.append({"glyph": "glyphicon-book", "text": _('Books'), "link": 'web.index', "id": "new",
                     "visibility": constants.SIDEBAR_RECENT, 'public': True, "page": "newest"})
-    # Reading and Finished always show for signed-in users (SIDEBAR_RECENT is the always-visible flag).
-    sidebar.append({"glyph": "glyphicon-education", "text": _('Reading'), "link": 'web.books_list', "id": "inprogress",
-                    "visibility": constants.SIDEBAR_RECENT, 'public': (not current_user.is_anonymous),
-                    "page": "inprogress"})
+    # Finished always shows for signed-in users (SIDEBAR_RECENT is the always-visible flag). There is
+    # no Reading row: a book in progress says "Continue · 33%" on its own page.
     sidebar.append({"glyph": "glyphicon-eye-open", "text": _('Finished'), "link": 'web.books_list', "id": "read",
                     "visibility": constants.SIDEBAR_RECENT, 'public': (not current_user.is_anonymous),
                     "page": "read"})

@@ -270,11 +270,11 @@ def test_advanced_search_renders(client):
 
 
 @pytest.mark.unit
-def test_reading_and_finished_lists_show_in_the_sidebar_and_filter_by_status(client):
+def test_finished_shows_in_the_sidebar_and_reading_does_not(client):
     env, c, _ = client
     ub = env.ub
     admin = env.admin()
-    admin.sidebar_view = 0  # every optional section off: these two still show
+    admin.sidebar_view = 0  # every optional section off: Finished still shows
     reading = env.add_book("Halfway Book")
     finished = env.add_book("Done Book")
     env.add_book("Untouched Book")
@@ -283,7 +283,7 @@ def test_reading_and_finished_lists_show_in_the_sidebar_and_filter_by_status(cli
     ub.session.commit()
 
     html = c.get("/inprogress/stored/").get_data(as_text=True)
-    assert 'id="nav_inprogress"' in html and 'id="nav_read"' in html
+    assert 'id="nav_inprogress"' not in html and 'id="nav_read"' in html
     assert "Halfway Book" in html and "Done Book" not in html and "Untouched Book" not in html
 
     html = c.get("/read/stored/").get_data(as_text=True)
