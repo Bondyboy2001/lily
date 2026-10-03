@@ -209,9 +209,9 @@ class TestInProgressReadingPositions:
                                          book_id=bid, format="pdf",
                                          cfi="page:9", percent=0.9))
         ub.session_commit()
-        # Continue opens the format last read in, and shows no percent
+        # Read opens the format last read in, and shows no percent
         html = _login(env).get(f"/book/{bid}").get_data(as_text=True)
-        assert ">Continue</span>" in html and f"/read/{bid}/pdf" in html and "90%" not in html
+        assert ">Read</span>" in html and f"/read/{bid}/pdf" in html and "90%" not in html
 
     def test_missing_format_offers_no_reader_link(self, env):
         from cps import ub
@@ -225,19 +225,6 @@ class TestInProgressReadingPositions:
         ub.session_commit()
         html = _login(env).get(f"/book/{bid}").get_data(as_text=True)
         assert f"/read/{bid}/pdf" not in html and f"/read/{bid}/epub" in html
-
-    def test_other_library_positions_ignored(self, env):
-        from cps import ub
-        admin = env.admin()
-        bid = env.add_book("Elsewhere", fmt="EPUB")
-        ub.session.add(ub.ReadBook(user_id=admin.id, book_id=bid,
-                                   read_status=ub.ReadBook.STATUS_IN_PROGRESS))
-        ub.session.add(ub.ReaderPosition(user_id=admin.id, library_uuid="otherlib",
-                                         book_id=bid, format="epub",
-                                         cfi="epubcfi(/5)", percent=0.5))
-        ub.session_commit()
-        html = _login(env).get(f"/book/{bid}").get_data(as_text=True)
-        assert ">Continue</span>" not in html and ">Read</span>" in html
 
     def test_multiple_formats_pick_newest(self, env):
         from datetime import datetime, timedelta, timezone
@@ -265,18 +252,18 @@ class TestInProgressReadingPositions:
                                          last_modified=now))
         ub.session_commit()
         html = _login(env).get(f"/book/{bid}").get_data(as_text=True)
-        assert ">Continue</span>" in html and f"/read/{bid}/pdf" in html
+        assert ">Read</span>" in html and f"/read/{bid}/pdf" in html
 
 
 @pytest.mark.unit
 class TestBookPageResume:
-    def test_in_progress_book_offers_to_continue(self, env):
+    def test_in_progress_book_still_just_says_read(self, env):
         client = _login(env)
         bid = env.add_book("Halfway", fmt="EPUB")
         client.post(f"/ajax/progress/{bid}?format=epub",
                     json={"cfi": "epubcfi(/6/4)", "percent": 0.42})
         html = client.get(f"/book/{bid}").get_data(as_text=True)
-        assert ">Continue</span>" in html and "42%" not in html
+        assert ">Read</span>" in html and "Continue" not in html and "42%" not in html
         assert f'href="/read/{bid}/epub"' in html
 
     def test_unstarted_book_just_reads(self, env):

@@ -52,8 +52,8 @@ def test_detail_page_has_no_inline_styles_and_one_primary():
     assert "url_for('web.read_book'" in read_btn
     assert 'class="book-action-label">{{ read_name }}</span>' in read_btn
     assert "_('Read')" in html
-    # A book in progress offers to continue, with no percent on the button
-    assert "_('Continue')" in html and "resume.percent" not in html
+    # Always "Read": no Continue and no percent, even for a book in progress
+    assert "Continue" not in html and "resume.percent" not in html
     assert html.count("btn-primary") == 1
     assert "btn-danger" not in html
 
