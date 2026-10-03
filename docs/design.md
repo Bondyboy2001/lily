@@ -521,7 +521,7 @@ content (grid, panel, rows)
   stage. On the right, centred against it: the heading (the book
   title as a display line (§3.1), the authors as an italic `--accent` byline at 20px),
   then the action bar, 22 apart. For editors, once a lookup has matched the book, a
-  14px `--muted` line 12 under the bar names the source (`.book-fetched-from`,
+  14px `--muted` line 20 under the bar names the source (`.book-fetched-from`,
   "Metadata fetched from Open Library"; the date stays in the details dialog).
   There are no fact tags on the page: the
   file, date and identifiers are in the details dialog. The stage is one
@@ -559,11 +559,11 @@ content (grid, panel, rows)
   "Undo lookup" (its tooltip names the source and date) that puts back the details from
   before; otherwise the dialog has no footer.
 - Tags are not shown on the book page; they are edited on the edit page.
-- **Shelves line** (`.book-on-shelves`, signed-in users): 12 under the action bar, 14px
-  `--muted`, the Shelves glyph then "On" and each shelf the book is on as an `--accent` link
-  to that shelf, comma-separated. Hidden while the book is on none. Ticking a shelf in the
+- **Shelves line** (`.book-on-shelves`, signed-in users): 20 under the action bar, 14px
+  `--muted`, the Shelves glyph (named "Shelves" for screen readers) then each shelf the book is on
+  as an `--accent` link to that shelf, comma-separated; no "On" label. Hidden while the book is on none. Ticking a shelf in the
   Shelves menu shows or hides its link in place (`shelves.js`). The fetched-from line
-  follows it, 4 under.
+  follows it, 6 under.
 - The action bar is Read, Download, Mark as read, Shelves, View details (the info sign), Fetch metadata (the magnifying glass,
   opening the lookup dialog on the book page itself; Apply saves through a hidden form of the
   book's values and reloads the page), Edit metadata and Delete. The editor still takes `?fetch=1`.
