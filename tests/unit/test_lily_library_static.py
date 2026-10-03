@@ -93,9 +93,12 @@ def test_detail_rare_actions_are_icon_buttons_not_a_menu():
         btn = re.search(r'<button[^>]*' + re.escape(needle) + r'[^>]*>', html, flags=re.S)
         assert btn, needle
         assert "aria-label=\"{{ _('" + label + "') }}\"" in btn.group(0)
-    # No archive, Keep offline or Shelves button: shelves are changed on the edit page
-    for gone in ("toggle-archive-btn", "keep-offline-btn", "book-shelves-btn"):
+    # No archive or Keep offline button
+    for gone in ("toggle-archive-btn", "keep-offline-btn"):
         assert gone not in html
+    shelves = re.search(r'<button[^>]*id="book-shelves-btn"[^>]*>', html, flags=re.S)
+    assert shelves and 'class="btn is-icon dropdown-toggle"' in shelves.group(0)
+    assert "aria-label=\"{{ _('Shelves') }}\"" in shelves.group(0)
 
 
 def test_detail_description_has_no_heading_and_shows_in_full():

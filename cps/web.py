@@ -1421,6 +1421,13 @@ def show_book(book_id):
         cwa_settings = cwa_db.cwa_settings
         metadata_lookup = _metadata_lookup(cwa_db, book_id) if current_user.role_edit() else None
 
+        # The Shelves menu: the shelves this user may change, each ticked when the book is on it
+        shelf_menu = []
+        if current_user.is_authenticated:
+            from .editbooks import _editable_shelves, _book_shelf_ids
+            on_ids = set(_book_shelf_ids(book_id))
+            shelf_menu = [(shelf, shelf.id in on_ids) for shelf in _editable_shelves()]
+
         try:
             related = _related_books(entry)
         except Exception as e:
@@ -1436,6 +1443,7 @@ def show_book(book_id):
                                      title=entry.title,
                                      cwa_settings=cwa_settings,
                                      metadata_lookup=metadata_lookup,
+                                     shelf_menu=shelf_menu,
                                      page="book")
     else:
         log.debug("Selected book is unavailable. File does not exist or is not accessible")

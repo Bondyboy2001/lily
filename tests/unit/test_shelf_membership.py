@@ -69,6 +69,20 @@ class TestSetBookOnShelf:
         signed_out = env.app.test_client()
         assert signed_out.post(f"/shelf/{shelf}/book/{book}", json={"on": True}).status_code in (302, 401)
 
+    def test_book_page_shelves_menu_ticks_the_books_shelves(self, env):
+        import re
+        from cps import ub
+        book = env.add_book("Shelvable")
+        on, off = _shelf(env, "Reading Group"), _shelf(env, "Holiday")
+        ub.session.get(ub.Shelf, on).books.append(ub.BookShelf(book_id=book, order=1))
+        ub.session.commit()
+        html = _login(env).get(f"/book/{book}").get_data(as_text=True)
+        menu = html[html.index('class="dropdown book-shelves-menu"'):]
+        menu = menu[:menu.index("</ul>")]
+        items = re.findall(r'aria-checked="(true|false)"\s+data-url="/shelf/(\d+)/book/%d"' % book, menu)
+        assert ("true", str(on)) in items and ("false", str(off)) in items
+        assert "/shelf/create" in menu and "js/shelves.js" in html
+
     def test_shelf_page_cards_offer_no_removal(self, env):
         from cps import ub
         book = env.add_book("Shelvable")

@@ -123,6 +123,27 @@
                             <span id="read-icon" class="glyphicon glyphicon-eye-open" aria-hidden="true"></span><span class="book-action-label sr-only">{{ read_label }}</span>
                         </button>
                     {% endif %}
+                    {# Shelves: the shelves this user may change, each a checkbox item that puts the book
+                       on or takes it off at once (§5.6), and a way to start a new shelf (shelves.js) #}
+                    {% if not current_user.is_anonymous %}
+                        <span class="dropdown book-shelves-menu">
+                            <button type="button" class="btn is-icon dropdown-toggle" id="book-shelves-btn" data-toggle="dropdown"
+                                    aria-haspopup="true" aria-expanded="false" title="{{ _('Shelves') }}" aria-label="{{ _('Shelves') }}">
+                                <span class="glyphicon glyphicon-list" aria-hidden="true"></span>
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="book-shelves-btn" data-failed="{{ _('Couldn’t change the shelf. Try again.') }}">
+                                <li class="dropdown-header">{{ _('Shelves') }}</li>
+                                {% for shelf, on in shelf_menu %}
+                                <li><button type="button" class="book-shelf-toggle" role="menuitemcheckbox"
+                                            aria-checked="{{ 'true' if on else 'false' }}"
+                                            data-url="{{ url_for('shelf.set_book_on_shelf', shelf_id=shelf.id, book_id=entry.id) }}"
+                                            data-shelf-url="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}">
+                                    <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>{{ shelf.name }}</button></li>
+                                {% endfor %}
+                                <li><a href="{{ url_for('shelf.create_shelf') }}"><span class="glyphicon glyphicon-plus" aria-hidden="true"></span>{{ _('New shelf') }}</a></li>
+                            </ul>
+                        </span>
+                    {% endif %}
                     {# Everything else worth knowing (dates, files, identifiers…) in a dialog (design §6.4) #}
                     <button type="button" class="btn is-icon" id="book-info-btn" title="{{ _('View details') }}" aria-label="{{ _('View details') }}"
                             data-toggle="modal" data-target="#bookInfoModal">
@@ -283,6 +304,7 @@
 
 {% block js %}
 <script src="{{ url_for('static', filename='js/details.js') }}"></script>
+<script src="{{ url_for('static', filename='js/shelves.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fullscreen.js') }}"></script>
 <script type="text/javascript">
     $(function () {

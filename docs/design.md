@@ -567,10 +567,12 @@ content (grid, panel, rows)
   else on the page. A Close button ends the footer.
 - Tags and shelves are not shown on the book page; both stay editable on the
   edit page.
-- The action bar is Read, Download, Mark as read, View details (the info sign), Fetch metadata (the magnifying glass,
-  opening the editor with the lookup running, `?fetch=1`), Edit metadata and Delete. A book's
-  shelves are changed on its edit page (the Shelves rows), never from the book page.
-  There is no archive and no Keep offline button.
+- The action bar is Read, Download, Mark as read, Shelves, View details (the info sign), Fetch metadata (the magnifying glass,
+  opening the editor with the lookup running, `?fetch=1`), Edit metadata and Delete.
+  The Shelves icon (`glyphicon-list`) opens a menu of the shelves you may change, each a
+  checkbox item (`role=menuitemcheckbox`, a tick when on) that puts the book on or takes
+  it off at once, plus "New shelf"; sidebar counts follow without a reload (`shelves.js`).
+  The edit page's Shelves rows change them too. There is no archive and no Keep offline button.
   Shelf pages offer no remove action on covers either.
 - Papers: the arXiv tag shows the id, linked to the abstract page; its DOI isn't
   shown. Other identifiers (a non-arXiv paper's DOI included) are linked tags named by
