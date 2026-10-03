@@ -83,3 +83,13 @@ def test_fetch_metadata_sends_the_book_id_so_its_pdf_can_be_read():
 
     assert 'id="metaModal" data-book-id="{{ book_id }}"' in template
     assert 'book_id: $("#metaModal").data("book-id"),' in js
+
+
+def test_book_edit_has_no_rich_text_editor():
+    template = (REPO_ROOT / "cps/templates/book_edit.html").read_text(encoding="utf-8")
+    js = (REPO_ROOT / "cps/static/js/edit_books.js").read_text(encoding="utf-8")
+
+    # Descriptions and comment columns are plain textareas; the HTML is sanitised server-side.
+    assert "tinymce" not in template.lower() and "tiny_editor" not in template
+    assert "tinymce" not in js.lower()
+    assert not (REPO_ROOT / "cps/static/js/libs/tinymce").exists()

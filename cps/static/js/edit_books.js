@@ -1,7 +1,7 @@
 /**
  * Created by SpeedProg on 05.04.2015.
  */
-/* global Bloodhound, language, Modernizr, tinymce, getPath */
+/* global Bloodhound, language, Modernizr, getPath */
 
 /* Description: a plain text box over the HTML Calibre stores. Paragraphs show as blank
    lines; an edited description is saved back as <p> paragraphs, an untouched one keeps
@@ -63,16 +63,6 @@
         $box.val(originalHtml !== null && text === originalText ? originalHtml : textToHtml(text));
     });
 })();
-
-if ($(".tiny_editor").length) {
-    tinymce.init({
-        selector: ".tiny_editor",
-        plugins: 'code',
-        branding: false,
-        menubar: "edit view format",
-        language: language
-    });
-}
 
 $(".datepicker").datepicker({
     format: "yyyy-mm-dd",
@@ -468,12 +458,6 @@ $("#btn-upload-cover").on("change", function () {
         filename = filename.substring(12);
     } // Remove c:\fake at beginning from localhost chrome
     $("#upload-cover").text(filename);
-});
-
-$("#book_edit_frm").on("submit", function () {
-    if (typeof tinymce !== "undefined" && typeof tinymce.triggerSave === "function") {
-        tinymce.triggerSave();
-    }
 });
 
 

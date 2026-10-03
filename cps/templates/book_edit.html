@@ -215,7 +215,7 @@
             {% endif %}
 
             {% if c.datatype == 'comments' %}
-              <textarea class="form-control tiny_editor" name="{{ 'custom_column_' ~ c.id }}" id="{{ 'custom_column_' ~ c.id }}" rows="7">{% if book['custom_column_' ~ c.id]|length > 0 %}{{book['custom_column_' ~ c.id][0].value}}{%endif%}</textarea>
+              <textarea class="form-control" name="{{ 'custom_column_' ~ c.id }}" id="{{ 'custom_column_' ~ c.id }}" rows="7">{% if book['custom_column_' ~ c.id]|length > 0 %}{{book['custom_column_' ~ c.id][0].value}}{%endif%}</textarea>
             {% endif %}
             {% if c.datatype == 'enumeration' %}
               <select class="form-control" name="{{ 'custom_column_' ~ c.id }}" id="{{ 'custom_column_' ~ c.id }}">
@@ -273,7 +273,6 @@
 {% block js %}
 {{ meta_fetch.meta_scripts() }}
 <script src="{{ url_for('static', filename='js/libs/typeahead.bundle.js') }}"></script>
-<script src="{{ url_for('static', filename='js/libs/tinymce/tinymce.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/libs/bootstrap-datepicker/bootstrap-datepicker.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/edit_books.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fullscreen.js') }}"></script>
