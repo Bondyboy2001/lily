@@ -6,7 +6,7 @@ zero=0000000000000000000000000000000000000000
 root=$(git rev-parse --show-toplevel)
 while read -r _local_ref local_sha _remote_ref _remote_sha; do
     [ "$local_sha" = "$zero" ] && continue   # deleting a branch
-    if ! "$root/scripts/check.sh" "$local_sha"; then
+    if ! "$root/scripts/check.sh" --commit "$local_sha"; then
         echo "pre-push: ${local_sha:0:8} fails the release checks above; fix them and push again." >&2
         exit 1
     fi

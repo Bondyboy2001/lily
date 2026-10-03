@@ -24,6 +24,21 @@ class MetaSourceInfo:
     link: str
 
 
+# A trailing part after the comma that is a suffix, not a first name ("King, Jr.")
+_NAME_SUFFIX = re.compile(r"^(jr|sr|i{1,3}|iv|v|phd|md|esq)\.?$", re.I)
+
+
+def natural_author(name):
+    """An author as "First Last": providers and library catalogues often give
+    "Last, First", which flips; "King, Jr." and names without a comma are left alone."""
+    name = " ".join((name or "").split())
+    last, sep, first = name.partition(",")
+    last, first = last.strip(), first.strip()
+    if not sep or not last or not first or "," in first or _NAME_SUFFIX.match(first):
+        return name
+    return f"{first} {last}"
+
+
 @dataclasses.dataclass
 class MetaRecord:
     id: Union[str, int]
@@ -48,6 +63,11 @@ class MetaRecord:
     # The most pixels the cover can have, when the provider knows: a book whose own cover is
     # at least that large keeps it without the provider's being downloaded to compare
     cover_max_pixels: int = 0
+
+    def __post_init__(self):
+        # Every provider builds its results here, so scoring, matching and saving all
+        # see "First Last" (natural_author)
+        self.authors = [natural_author(a) for a in self.authors or []]
 
 
 class ProviderError(Exception):

@@ -3,6 +3,7 @@ and arXiv lookups."""
 
 import pytest
 
+from cps.services.Metadata import MetaRecord, MetaSourceInfo
 from cps.services.identifiers import arxiv_id_from_doi, parse_identifier
 
 pytestmark = pytest.mark.unit
@@ -167,5 +168,6 @@ def test_a_cited_doi_on_the_first_page_is_not_pinned_as_exact():
     ("", ""),
 ])
 def test_fetched_authors_read_first_name_first(given, expected):
-    from cps.search_metadata import natural_author
-    assert natural_author(given) == expected
+    record = MetaRecord(id=1, title="T", authors=[given], url="",
+                        source=MetaSourceInfo(id="x", description="X", link=""))
+    assert record.authors == [expected]

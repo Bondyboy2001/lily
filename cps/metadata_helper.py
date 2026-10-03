@@ -23,7 +23,7 @@ from cps import logger, db, constants, helper
 from cps.clean_html import clean_string
 from cps.edition import split_edition
 from cps.helper import get_sorted_author
-from cps.search_metadata import cl as metadata_providers, natural_author
+from cps.search_metadata import cl as metadata_providers
 from cps.services import arxiv_shelf
 from cps.services.Metadata import ProviderBusy
 from cps.services.identifiers import (ARXIV_ID, DOI_RE, ISBN_RE, arxiv_id_from_doi, compact_isbn,
@@ -739,11 +739,11 @@ def _apply_record(cdb, book, record, cover, replace_tags=False):
             book.title = title
             changed = True
 
-        # "Last, First" reads as "First Last"; calibre keeps any other comma as "|"; names
-        # differing only in case are one author
+        # calibre keeps a name's comma as "|" (MetaRecord already turned "Last, First" round);
+        # names differing only in case are one author
         names = {}
         for name in record.authors or []:
-            name = natural_author(name).replace(',', '|')
+            name = (name or '').strip().replace(',', '|')
             if name:
                 names.setdefault(name.casefold(), name)
         if names:

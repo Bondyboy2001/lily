@@ -1880,8 +1880,8 @@ dl.book-info {
 /* Label on its own line, so "+ Add" sits under it even when there are no rows yet */
 .form-group:has(> .lily-edit-rows) > label { display: block; }
 
-/* "+ Add edition" sits under the Edit Metadata title field */
-#edition-add { margin-top: 8px; }
+/* A button under an Edit Metadata field ("+ Add edition" under the title) */
+.editbook-form .form-group > .form-control + .btn { margin-top: 8px; }
 
 .lily-edit-row {
     display: flex;

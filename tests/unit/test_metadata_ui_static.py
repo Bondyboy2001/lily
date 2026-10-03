@@ -96,7 +96,6 @@ def test_book_edit_has_no_rich_text_editor():
 
 
 def test_fetch_metadata_closes_from_its_header_cross_only():
-    from pathlib import Path
-    html = (Path(__file__).resolve().parents[2] / "cps/templates/meta_fetch.html").read_text()
+    html = (REPO_ROOT / "cps/templates/meta_fetch.html").read_text(encoding="utf-8")
     assert 'class="close" data-dismiss="modal"' in html
     assert "modal-footer" not in html and "meta_close" not in html

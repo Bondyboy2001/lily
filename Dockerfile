@@ -190,35 +190,36 @@ RUN \
 # (No libQt6* ABI-tag strip: it broke Calibre's Qt6 features and was dropped in V3.1.4;
 #  the cwa-init service does a kernel check instead.)
 
-# ============================================================================
-# Final runtime image
-# ============================================================================
 # --------------------------------------------------------------------------
-# app: the application as it lands on / (code, bytecode, s6 services, versions).
-# Built on runtime-base for the same Python 3.13 and abc user, without calibre or
-# the pip packages; application code changes most often, so it goes last.
+# app: the application as it lands on / (code, bytecode, s6 services, versions),
+# laid out under /out. Built on runtime-base for the same Python 3.13 and abc user,
+# without calibre or the pip packages; application code changes most often.
 # --------------------------------------------------------------------------
 FROM runtime-base AS app
 
 ARG VERSION
 ARG CALIBRE_RELEASE
 
-COPY --chown=abc:abc . /app/calibre-web-automated/
+# /out becomes / and /out/app becomes /app, so they are made root's before the copy
+# (whose --chown would otherwise give abc the parent directories it creates)
+RUN mkdir -p /out/app
+COPY --chown=abc:abc . /out/app/calibre-web-automated/
 
-WORKDIR /app/calibre-web-automated
+WORKDIR /out/app/calibre-web-automated
 
 RUN \
-  # s6 services, writable dirs, permissions and CLI aliases, staged under /out
+  # s6 services, writable dirs, permissions and CLI aliases
   bash scripts/setup-cwa.sh /out && \
   # The install stays owned by the build-time abc, so when PUID differs abc can't
   # write bytecode caches next to the code; compile them here instead
   python3 -m compileall -q -j 0 cps scripts cps.py && \
-  mkdir -p /out/app && \
-  mv /app/calibre-web-automated /out/app/ && \
   # Versions shown on the About/Admin pages and read by the init scripts
   echo "$VERSION" > /out/app/CWA_RELEASE && \
   echo "$CALIBRE_RELEASE" > /out/CALIBRE_RELEASE
 
+# ============================================================================
+# Final runtime image
+# ============================================================================
 FROM runtime-base
 
 # Set first: after the --link copies below it would make BuildKit unpack the whole image
@@ -230,16 +231,14 @@ COPY --link --from=calibre /app/calibre /app/calibre
 
 # Calibre's installer links its tools (calibredb, ebook-convert...) into /usr/bin and
 # adds shell completions. Done here, the calibre-binaries-setup service finds them and
-# skips it, rather than spending over a minute on it in every new container. It sits
-# above the ARGs because every RUN after an ARG is rebuilt when that value changes,
-# and BUILD_DATE changes on every build. Its desktop-menu step fails without a desktop
-# and only warns.
+# skips it, rather than spending over a minute on it in every new container. It must
+# stay above the ARGs: BUILD_DATE changes on every build and would rebuild it. Its
+# desktop-menu step fails without a desktop and only warns.
 RUN /app/calibre/calibre_postinstall > /dev/null && \
   calibredb --version
 
 ARG BUILD_DATE
 ARG VERSION
-ARG CALIBRE_RELEASE
 
 LABEL build_version="Version:- ${VERSION}" \
   build_date="${BUILD_DATE}" \

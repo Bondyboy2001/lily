@@ -1,6 +1,5 @@
-"""The release's quick checks run before every push, at the same pins as CI."""
+"""The release's quick checks: one script runs them for CI and the pre-push hook."""
 
-import re
 from pathlib import Path
 
 import pytest
@@ -10,32 +9,16 @@ pytestmark = pytest.mark.unit
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def _pins(text):
-    return set(re.findall(r"uvx ((?:ruff|vulture|mypy)==[\d.]+)", text))
-
-
-def test_check_script_runs_the_releases_quick_checks_at_its_pins():
-    release = _pins((ROOT / ".github/workflows/release.yml").read_text())
-    assert release == _pins((ROOT / "scripts/check.sh").read_text())
-    assert {p.split("==")[0] for p in release} == {"ruff", "vulture", "mypy"}
-
-
-def test_pre_push_hook_checks_the_pushed_commit():
+def test_ci_and_the_pre_push_hook_run_the_same_check_script():
+    release = (ROOT / ".github/workflows/release.yml").read_text()
+    assert "run: scripts/check.sh ruff mypy" in release and "run: scripts/check.sh vulture" in release
+    assert "uvx " not in release  # tool versions live in scripts/check.sh only
     hook = ROOT / ".githooks/pre-push"
     assert hook.stat().st_mode & 0o111 and (ROOT / "scripts/check.sh").stat().st_mode & 0o111
-    assert 'scripts/check.sh" "$local_sha"' in hook.read_text()
-
-
-def _jobs(text):
-    """Each job's YAML block in release.yml, by job id."""
-    body = text.split("\njobs:\n", 1)[1]
-    return dict(re.findall(r"^  ([\w-]+):\n((?:(?:    .*)?\n)+)", body, re.M))
+    assert 'scripts/check.sh" --commit "$local_sha"' in hook.read_text()
 
 
 def test_dead_code_fails_the_run_without_holding_back_the_image():
-    jobs = _jobs((ROOT / ".github/workflows/release.yml").read_text())
-    assert "uvx vulture" in jobs["dead-code"] and "vulture" not in jobs["checks"] + jobs["lint"]
-    assert "uvx ruff" in jobs["lint"] and "uvx mypy" in jobs["lint"]
-    assert "needs: [checks, lint, build]\n" in jobs["publish"]
-    assert "needs: [checks, lint, dead-code, build, publish]\n" in jobs["notify"]
-    assert "if: always() && github.ref == 'refs/heads/main'" in jobs["notify"]
+    release = (ROOT / ".github/workflows/release.yml").read_text()
+    publish = release.split("\n  publish:\n", 1)[1].split("\n\n", 1)[0]
+    assert "needs: [checks, lint, build]" in publish

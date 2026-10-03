@@ -86,7 +86,7 @@ def test_the_editor_hides_the_field_behind_add_edition_until_there_is_one(env):
     html = client.get(f"/admin/book/{book}").get_data(as_text=True)
     assert re.search(r'<div class="row" id="edition-field" hidden>', html)
     # "Add edition" sits under the title field, and the Edition field opens just below it
-    assert re.search(r'id="title" value="Probability">\s*(\{#.*?#\}\s*)?<button[^>]*id="edition-add"', html, re.S)
+    assert re.search(r'id="title" value="Probability">\s*<button[^>]*id="edition-add"', html)
     assert re.search(r'<button type="button" class="btn btn-default btn-sm" id="edition-add">', html)
     assert 'name="edition" id="edition" value=""' in html
     _save(env, client, book, edition="9")

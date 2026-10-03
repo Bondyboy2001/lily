@@ -357,7 +357,7 @@ class _ShardPlugin:
         for item in items:
             path = item.nodeid.split("::")[0]
             counts[path] = counts.get(path, 0) + 1
-        weights = json.loads(SHARD_WEIGHTS.read_text()) if SHARD_WEIGHTS.exists() else {}
+        weights = json.loads(SHARD_WEIGHTS.read_text())
         known = [p for p in counts if p in weights]
         per_test = (sum(weights[p] for p in known) / sum(counts[p] for p in known)) if known else 1.0
         weight = {p: weights.get(p, n * per_test) for p, n in counts.items()}

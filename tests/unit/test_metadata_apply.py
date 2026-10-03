@@ -270,13 +270,6 @@ def test_a_series_and_its_index_are_set_once(env, monkeypatch):
     assert _q(env, "SELECT series_index FROM books") == [(2.0,)]
 
 
-def test_a_last_first_author_is_stored_first_name_first(env, monkeypatch):
-    book = env.add_book("Dune", author="Unknown")
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Herbert, Frank"]))
-    _applies_once(env, helper, book)
-    assert _q(env, "SELECT name, sort FROM authors") == [("Frank Herbert", "Herbert, Frank")]
-
-
 def test_an_author_with_a_comma_is_stored_as_the_library_stores_them(env, monkeypatch):
     book = env.add_book("Dune", author="Unknown")
     helper = _setup(monkeypatch, _record(title="Dune", authors=["Martin Luther King, Jr."]))

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Lays out the image's own files under a staging root (the Dockerfile's app stage, which
-# copies it onto / in one layer): the app with its writable dirs and permissions, the s6
-# services, and the CLI aliases. Run as root from /app/calibre-web-automated.
+# copies it onto / in one layer): the app's writable dirs and permissions, the s6
+# services, and the CLI aliases. Run as root from <staging root>/app/calibre-web-automated.
 set -euo pipefail
 out=${1:?usage: setup-cwa.sh <staging root>}
 
