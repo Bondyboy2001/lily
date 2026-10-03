@@ -40,8 +40,7 @@ except ImportError:
 from . import calibre_db, cli_param
 from .string_helper import strip_whitespaces
 from . import logger, config, db, ub, fs
-from .constants import (STATIC_DIR as _STATIC_DIR, CACHE_TYPE_THUMBNAILS, THUMBNAIL_TYPE_COVER, THUMBNAIL_TYPE_SERIES,
-                        EXTENSIONS_AUDIO, is_unknown_author)
+from .constants import (STATIC_DIR as _STATIC_DIR, CACHE_TYPE_THUMBNAILS, THUMBNAIL_TYPE_COVER, EXTENSIONS_AUDIO, is_unknown_author)
 
 # Track books with pending thumbnail generation to prevent duplicate tasks
 _pending_thumbnail_books = set()
@@ -602,44 +601,6 @@ def get_book_cover_thumbnails_by_formats(book, resolution, formats):
         for row in rows:
             result.setdefault(row.format, row)
     return result
-
-
-def get_series_thumbnail_on_failure(series_id, resolution):
-    book = (calibre_db.session
-        .query(db.Books)
-        .join(db.books_series_link)
-        .join(db.Series)
-        .filter(db.Series.id == series_id)
-        .filter(db.Books.has_cover == 1)
-        .first())
-    return get_book_cover_internal(book, resolution=resolution)
-
-
-def get_series_cover_thumbnail(series_id, resolution=None):
-    return get_series_cover_internal(series_id, resolution)
-
-
-def get_series_cover_internal(series_id, resolution=None):
-    # Send the series thumbnail if it exists in cache
-    if resolution:
-        thumbnail = get_series_thumbnail(series_id, resolution)
-        if thumbnail:
-            cache = fs.FileSystem()
-            if cache.get_cache_file_exists(thumbnail.filename, CACHE_TYPE_THUMBNAILS):
-                return send_from_directory(cache.get_cache_file_dir(thumbnail.filename, CACHE_TYPE_THUMBNAILS),
-                                           thumbnail.filename)
-
-    return get_series_thumbnail_on_failure(series_id, resolution)
-
-
-def get_series_thumbnail(series_id, resolution):
-    return (ub.session
-        .query(ub.Thumbnail)
-        .filter(ub.Thumbnail.type == THUMBNAIL_TYPE_SERIES)
-        .filter(ub.Thumbnail.entity_id == series_id)
-        .filter(ub.Thumbnail.resolution == resolution)
-        .filter(or_(ub.Thumbnail.expiration.is_(None), ub.Thumbnail.expiration > datetime.now(timezone.utc)))
-        .first())
 
 
 # saves book cover from url

@@ -16,7 +16,7 @@ from .services.background_scheduler import BackgroundScheduler, CronTrigger
 from .services.background_scheduler import use_APScheduler  # noqa: F401
 from .tasks.database import TaskReconnectDatabase
 from .tasks.clean import TaskClean
-from .tasks.thumbnail import TaskGenerateCoverThumbnails, TaskGenerateSeriesThumbnails, TaskClearCoverThumbnailCache
+from .tasks.thumbnail import TaskGenerateCoverThumbnails, TaskClearCoverThumbnailCache
 from .tasks.thumbnail_migration import check_and_migrate_thumbnails
 from .services.worker import WorkerThread
 from .tasks.metadata_backup import TaskBackupMetadata
@@ -41,10 +41,6 @@ def get_scheduled_tasks(reconnect=True):
     if config.schedule_generate_book_covers:
         tasks.append([lambda: TaskClearCoverThumbnailCache(0), 'delete superfluous book covers', True])
         tasks.append([lambda: TaskGenerateCoverThumbnails(), 'generate book covers', False])
-
-    # Generate all missing series thumbnails
-    if config.schedule_generate_series_covers:
-        tasks.append([lambda: TaskGenerateSeriesThumbnails(), 'generate series covers', False])
 
     return tasks
 

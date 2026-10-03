@@ -21,7 +21,7 @@ from . import constants
 from . import config
 from . import calibre_db
 from . import pdf_fast
-from .helper import get_book_cover, get_series_cover_thumbnail, get_download_link
+from .helper import get_book_cover, get_download_link
 from .usermanagement import login_required_if_no_ano
 
 from .web import web, log, download_required, viewer_required
@@ -42,20 +42,6 @@ def get_cover(book_id, resolution=None):
     }
     cover_resolution = resolutions.get(resolution, None)
     return get_book_cover(book_id, cover_resolution)
-
-
-@web.route("/series_cover/<int:series_id>")
-@web.route("/series_cover/<int:series_id>/<string:resolution>")
-@login_required_if_no_ano
-def get_series_cover(series_id, resolution=None):
-    resolutions = {
-        'og': constants.COVER_THUMBNAIL_ORIGINAL,
-        'sm': constants.COVER_THUMBNAIL_SMALL,
-        'md': constants.COVER_THUMBNAIL_MEDIUM,
-        'lg': constants.COVER_THUMBNAIL_LARGE,
-    }
-    cover_resolution = resolutions.get(resolution, None)
-    return get_series_cover_thumbnail(series_id, cover_resolution)
 
 
 
