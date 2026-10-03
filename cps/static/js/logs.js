@@ -33,6 +33,27 @@
     var BANNER = /^=+ .* =+$/;
     var SOURCE = /^===== (.*) =====$/;
     var LEVELS = { WARN: "warning", WARNING: "warning", ERROR: "error", CRITICAL: "error" };
+    // Routine lines that say nothing went right or wrong: the scheduler's bookkeeping, start-up
+    // settings, a library's warning about its own storage, the import's locks and timers. Never
+    // applied to a warning or an error.
+    var HOUSEKEEPING = [
+        /^(?:Added|Removed) job\b/,
+        /^Running job "/,
+        /^Job ".*" executed successfully$/,
+        /^Scheduler started$/,
+        /^warnings\.warn\($/,
+        /UserWarning: Using the in-memory storage/,
+        /^SESSION_COOKIE_SECURE set to /,
+        /^Timer started with \d+ second delay$/,
+        /^Cache invalidated - will refresh/,
+        /^\[ingest-processor\] (?:Lock (?:acquired|released)|Checking if file is ready|Marked ingest batch|INFO: Set timestamp)/,
+        /^(?:\[ingest-processor\] )?(?:Configured timeout|Metadata functionality available|Post-batch follow-up)/,
+        /^Loading duplicates page/
+    ];
+
+    function housekeeping(text) {
+        return HOUSEKEEPING.some(function (re) { return re.test(text); });
+    }
 
     // "Lily web app (current)" and "Lily web app @4000….u" are one service; so are a log
     // file and its rotations.
@@ -44,7 +65,8 @@
     }
 
     /* The endpoint's text as [{name, date, lines: [{key, date, time, level, text}]}], oldest
-     * first: stamps, logger names, service tags and start-up banners dropped, consecutive
+     * first: stamps, logger names, service tags, start-up banners, routine housekeeping and a
+     * line repeated in the same second dropped, consecutive
      * sources of one service merged. `date` is the group's newest. `key` is the raw line,
      * to tell new lines apart. */
     function parse(text) {
@@ -81,7 +103,7 @@
                 rest = rest.slice(record[0].length);
             }
             rest = rest.replace(TAG, "").trim();
-            if (!rest || BANNER.test(rest)) {
+            if (!rest || BANNER.test(rest) || (!level && housekeeping(rest))) {
                 return;
             }
             if (!group) {
@@ -89,6 +111,11 @@
                 groups.push(group);
             }
             group.date = date || group.date;
+            // Some services print a line and log it too: the same words in the same second, once
+            var last = group.lines[group.lines.length - 1];
+            if (last && last.text === rest && last.time === time && (last.level === level || !level)) {
+                return;
+            }
             group.lines.push({ key: raw, date: date, time: time, level: level, text: rest });
         });
         return groups.filter(function (g) { return g.lines.length; });

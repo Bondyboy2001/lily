@@ -274,6 +274,27 @@ test("parse cleans each line and merges one service's sources", async () => {
     assert.equal(web.lines[0].key, SAMPLE.split("\n")[5]);
 });
 
+test("parse leaves out routine housekeeping and a line printed and logged at once", async () => {
+    const { LilyLogs } = loadLogs(scripted([{ success: true, version: "v1", text: "" }]).fetch);
+    const text = [
+        "===== Lily web app (current) =====",
+        "2026-10-03 23:14:33.1  [2026-10-03 23:14:33,1]  INFO {apscheduler:1} Added job \"delete temp\" to job store \"default\"",
+        "2026-10-03 23:14:33.2  [2026-10-03 23:14:33,2]  INFO {apscheduler:1} Scheduler started",
+        "2026-10-03 23:14:33.3  SESSION_COOKIE_SECURE set to False",
+        "2026-10-03 23:16:20.1  [cwa-duplicates] Found 0 duplicate groups total",
+        "2026-10-03 23:16:20.2  [2026-10-03 23:16:20,2]  INFO {cps.duplicates:114} [cwa-duplicates] Found 0 duplicate groups total",
+        "2026-10-03 23:16:21.0  [2026-10-03 23:16:21,0]  WARN {apscheduler:1} Added job \"x\" failed to save",
+        "===== Ingest service (current) =====",
+        "2026-10-03 23:15:04.1  [ingest-processor] Lock acquired successfully (PID: 814)",
+        "2026-10-03 23:15:07.1  [ingest-processor] Successfully fetched and applied metadata for: Think Bayes",
+    ].join("\n");
+    const groups = JSON.parse(JSON.stringify(LilyLogs.parse(text)));
+    assert.deepEqual(groups.map((g) => g.lines.map((l) => [l.level, l.text])), [
+        [["", "Found 0 duplicate groups total"], ["warning", "Added job \"x\" failed to save"]],
+        [["", "[ingest-processor] Successfully fetched and applied metadata for: Think Bayes"]],
+    ]);
+});
+
 test("loads on open and html stays text", async () => {
     const fx = scripted([{ success: true, version: "v1", text: "2026-10-03 20:00:00.1  <img src=x onerror=alert(1)>" }]);
     const { output } = loadLogs(fx.fetch);
