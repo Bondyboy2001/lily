@@ -265,7 +265,7 @@ def render_show_shelf(shelf_id, page_no, sort_param):
         return render_title_template("shelf.html",
                                      entries=result,
                                      pagination=pagination,
-                                     title=_("Shelf: %(name)s", name=shelf.name),
+                                     title=shelf.name,
                                      shelf=shelf,
                                      page="shelf",
                                      order=sort_param)

@@ -52,7 +52,7 @@
   {% endcall %}
   {% elif not entries[0] and page == 'read' %}
   {{ image.empty_state('glyphicon-eye-open', _('No Finished Books Yet'),
-                       _('Mark a book as read with its tick button, or finish it in the reader.'),
+                       _('Mark a book as read with its eye button, or finish it in the reader.'),
                        [(_('Browse all books'), url_for('web.index'), True)]) }}
   {% elif not entries[0] %}
   {{ image.empty_state('glyphicon-book', _('No Books Here Yet'),

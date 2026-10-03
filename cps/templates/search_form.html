@@ -2,12 +2,12 @@
 {% import "lily_form.html" as f with context %}
 
 {#- A "from / to" pair of date fields; edit_books.js wires .datepicker and .datepicker_delete. -#}
-{% macro date_field(name, label) -%}
+{% macro date_field(name, label, placeholder) -%}
 <div class="input-group lily-search-date">
-  <input type="text" class="datepicker form-control" name="{{ name }}" id="{{ name }}" value="" aria-label="{{ label }}" autocomplete="off">
+  <input type="text" class="datepicker form-control" name="{{ name }}" id="{{ name }}" value="" aria-label="{{ label }}" placeholder="{{ placeholder }}" autocomplete="off">
   <input type="text" class="form-control fake-input hidden" id="fake_{{ name }}" value="" tabindex="-1" aria-hidden="true">
   <span class="input-group-btn">
-    <button type="button" id="{{ name }}_delete" class="datepicker_delete btn btn-default" title="{{_('Clear date')}}" aria-label="{{_('Clear date')}}"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span></button>
+    <button type="button" id="{{ name }}_delete" class="datepicker_delete btn btn-default" title="{{_('Clear date')}}" aria-label="{{_('Clear date')}}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></button>
   </span>
 </div>
 {%- endmacro %}
@@ -38,8 +38,8 @@
         <input type="text" class="form-control typeahead" name="authors" id="authors" value="" autocomplete="off">
       {% endcall %}
       {% call f.row(_('Published'), for_id='publishstart', cls='lily-search-pair') %}
-        {{ date_field('publishstart', _('Published from')) }}
-        {{ date_field('publishend', _('Published to')) }}
+        {{ date_field('publishstart', _('Published from'), _('From')) }}
+        {{ date_field('publishend', _('Published to'), _('To')) }}
       {% endcall %}
       {% call f.row(_('Finished'), for_id='read_status') %}
         <select name="read_status" id="read_status" class="form-control">
@@ -53,7 +53,7 @@
     {% call f.group(_('Filters'), help=_('Books must match everything you include and nothing you exclude.'), id='search-filters') %}
       {{ include_exclude('tag', _('Tags'), _('Exclude tags'), tags) }}
       {{ include_exclude('shelf', _('Shelves'), _('Exclude shelves'), shelves) }}
-      {{ include_exclude('extension', _('Extensions'), _('Exclude extensions'), extensions, value_attr='format', text_attr='format') }}
+      {{ include_exclude('extension', _('File types'), _('Exclude file types'), extensions, value_attr='format', text_attr='format') }}
     {% endcall %}
 
     {% if cc|length > 0 %}
