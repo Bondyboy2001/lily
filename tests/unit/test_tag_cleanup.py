@@ -146,3 +146,10 @@ def test_lookup_adds_only_subject_tags(env, monkeypatch):
     book = env.add_book("Abstract Algebra")
     assert metadata_helper.fetch_and_apply_metadata(book)
     assert _tags(env)[0] == {book: ["Mathematics"]}
+
+
+def test_open_librarys_facets_go_and_inverted_fiction_subjects_turn_round():
+    from cps.tag_cleanup import clean_tags
+    assert clean_tags(["form:novel", "genre:gothic", "Fiction, psychological", "Married people, fiction",
+                       "Long island (n.y.), fiction", "Psychological fiction", "Holmes, Sherlock (Fictitious character)"]) == [
+        "Psychological fiction", "Married people", "Long island (n.y.)", "Holmes, Sherlock (Fictitious character)"]

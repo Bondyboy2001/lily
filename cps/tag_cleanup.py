@@ -165,18 +165,42 @@ def is_junk_tag(name):
                 or _LABEL.match(tag) or _JUNK_WORDS.search(tag) or _PUBLISHER.search(tag))
 
 
+# Open Library's faceted subjects: "genre:gothic", "form:novel"
+_FACET = re.compile(r'^[a-z_]+:\S')
+# Open Library's inverted fiction subjects: "Fiction, psychological", "Married people, fiction"
+_FICTION_FIRST = re.compile(r'^fiction,\s*(.+)$', re.I)
+_FICTION_LAST = re.compile(r'^(.+?),\s*fiction$', re.I)
+
+
+def _uninverted(tag):
+    """An inverted fiction subject the right way round ("Fiction, psychological" ->
+    "Psychological fiction", "Married people, fiction" -> "Married people"); '' for a facet."""
+    if _FACET.match(tag):
+        return ''
+    first = _FICTION_FIRST.match(tag)
+    if first:
+        rest = first.group(1).strip()
+        return rest[:1].upper() + rest[1:] + ' fiction'
+    last = _FICTION_LAST.match(tag)
+    if last:
+        rest = last.group(1).strip()
+        return rest[:1].upper() + rest[1:]
+    return tag
+
+
 def clean_tags(names, title='', authors=(), publishers=(), series=()):
     """The subjects among names, in order and without repeats.
 
-    Trims stray punctuation, names arXiv's subject codes, and drops junk and anything that
-    just repeats the book's own title, authors (or their surnames), publisher or series."""
+    Trims stray punctuation, names arXiv's subject codes, turns Open Library's inverted fiction
+    subjects round, and drops its facets ("genre:gothic"), junk and anything that just repeats
+    the book's own title, authors (or their surnames), publisher or series."""
     own = {_norm(value) for value in [title, *authors, *publishers, *series] if _norm(value)}
     own |= {surname for surname in map(_surname, authors) if surname}
     own_title = _norm(title)
     kept, seen = [], set()
     for name in names:
         subject = arxiv_subject(name)
-        tag = tidy_tag(name) if subject is None else subject
+        tag = _uninverted(tidy_tag(name)) if subject is None else subject
         key = _norm(tag)
         if not key or key in seen or key in own or is_junk_tag(tag):
             continue
