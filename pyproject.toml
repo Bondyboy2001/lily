@@ -123,7 +123,9 @@ select = ["E9", "F63", "F7", "F82", "F401", "F811", "F601", "F523", "F841", "B02
 # Type checking is introduced incrementally: run `mypy` (see requirements-dev.txt) on modules
 # as they are refactored. Unlisted modules are ignored so legacy code does not block CI.
 [tool.mypy]
-python_version = "3.12"
+# The image runs Python 3.13 (Dockerfile).
+python_version = "3.13"
 ignore_missing_imports = true
 follow_imports = "silent"
-files = ["scripts/db_backup.py", "scripts/library_mirror.py", "scripts/metadata_suggestions.py"]
+files = ["scripts/db_backup.py", "scripts/library_mirror.py", "scripts/metadata_suggestions.py",
+         "scripts/cwa_internal_auth.py"]
