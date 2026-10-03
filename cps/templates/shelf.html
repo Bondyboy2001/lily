@@ -9,7 +9,7 @@
   </a>
   {% endif %}
 {% endblock %}
-{% block view_switch %}{{ image.view_switch('books', current_user.get_view_property('books', 'view') or 'grid') }}{% endblock %}
+{% block view_switch %}{{ image.view_switch(current_user.get_view_property('books', 'view') or 'grid') }}{% endblock %}
 {% block body %}
 <div class="discover">
   <div class="lily-list-toolbar">

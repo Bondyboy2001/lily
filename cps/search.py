@@ -47,7 +47,7 @@ def simple_search():
 @login_required_if_no_ano
 def advanced_search():
     values = dict(request.form)
-    params = ['include_tag', 'exclude_tag', 'include_serie', 'exclude_serie', 'include_shelf', 'exclude_shelf',
+    params = ['include_tag', 'exclude_tag', 'include_shelf', 'exclude_shelf',
               'include_language', 'exclude_language', 'include_extension', 'exclude_extension']
     for param in params:
         values[param] = list(request.form.getlist(param))
@@ -110,7 +110,7 @@ def adv_search_language(q, include_languages_inputs, exclude_languages_inputs):
         for language in include_languages_inputs:
             q = q.filter(db.Books.languages.any(db.Languages.id == language))
         for language in exclude_languages_inputs:
-            q = q.filter(not_(db.Books.series.any(db.Languages.id == language)))
+            q = q.filter(not_(db.Books.languages.any(db.Languages.id == language)))
     return q
 
 
@@ -162,13 +162,6 @@ def adv_search_tag(q, include_tag_inputs, exclude_tag_inputs):
     return q
 
 
-def adv_search_serie(q, include_series_inputs, exclude_series_inputs):
-    for serie in include_series_inputs:
-        q = q.filter(db.Books.series.any(db.Series.id == serie))
-    for serie in exclude_series_inputs:
-        q = q.filter(not_(db.Books.series.any(db.Series.id == serie)))
-    return q
-
 def adv_search_shelf(q, include_shelf_inputs, exclude_shelf_inputs):
     q = q.outerjoin(ub.BookShelf, db.Books.id == ub.BookShelf.book_id)\
         .filter(or_(ub.BookShelf.shelf == None, ub.BookShelf.shelf.notin_(exclude_shelf_inputs)))
@@ -202,7 +195,7 @@ def extend_search_term(searchterm,
                                            format='medium')])
         except ValueError:
             pub_end = ""
-    elements = {'tag': db.Tags, 'serie':db.Series, 'shelf':ub.Shelf}
+    elements = {'tag': db.Tags, 'shelf': ub.Shelf}
     for key, db_element in elements.items():
         tag_names = calibre_db.session.query(db_element).filter(db_element.id.in_(tags['include_' + key])).all()
         searchterm.extend(tag.name for tag in tag_names)
@@ -244,7 +237,7 @@ def render_adv_search_results(term, offset=None, order=None, limit=None):
 
     # parse multi selects to a complete dict
     tags = dict()
-    elements = ['tag', 'serie', 'shelf', 'language', 'extension']
+    elements = ['tag', 'shelf', 'language', 'extension']
     for element in elements:
         tags['include_' + element] = term.get('include_' + element)
         tags['exclude_' + element] = term.get('exclude_' + element)
@@ -325,7 +318,6 @@ def render_adv_search_results(term, offset=None, order=None, limit=None):
         if publisher:
             q = q.filter(db.Books.publishers.any(func.lower(db.Publishers.name).ilike("%" + publisher + "%")))
         q = adv_search_tag(q, tags['include_tag'], tags['exclude_tag'])
-        q = adv_search_serie(q, tags['include_serie'], tags['exclude_serie'])
         q = adv_search_shelf(q, tags['include_shelf'], tags['exclude_shelf'])
         q = adv_search_extension(q, tags['include_extension'], tags['exclude_extension'])
         q = adv_search_language(q, tags['include_language'], tags['exclude_language'])
@@ -376,13 +368,6 @@ def render_prepare_search_form(cc):
         .filter(calibre_db.common_filters()) \
         .group_by(text('books_tags_link.tag'))\
         .order_by(db.Tags.name).all()
-    series = calibre_db.session.query(db.Series)\
-        .join(db.books_series_link)\
-        .join(db.Books)\
-        .filter(calibre_db.common_filters()) \
-        .group_by(text('books_series_link.series'))\
-        .order_by(db.Series.name)\
-        .filter(calibre_db.common_filters()).all()
     shelves = ub.session.query(ub.Shelf)\
         .filter(or_(ub.Shelf.is_public == 1, ub.Shelf.user_id == int(current_user.id)))\
         .order_by(ub.Shelf.name).all()
@@ -396,7 +381,7 @@ def render_prepare_search_form(cc):
     else:
         languages = None
     return render_title_template('search_form.html', tags=tags, languages=languages, extensions=extensions,
-                                 series=series,shelves=shelves, title=_("Advanced Search"), cc=cc, page="advsearch")
+                                 shelves=shelves, title=_("Advanced Search"), cc=cc, page="advsearch")
 
 
 def render_search_results(term, offset=None, order=None, limit=None):

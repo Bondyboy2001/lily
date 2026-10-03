@@ -494,8 +494,6 @@ content (grid, panel, rows)
   discs with a 1px `--line` edge and `--menu-shadow`, `--ink` icons, `--accent` on hover. They rise and fade in
   on hover/focus and stay visible on touch (36px, 8 apart). Read state fills the eye's disc
   `--success` with a `--surface` eye. No popups over the cover or its buttons (§5.6).
-- **Series grid** (`grid.html`): Isotope lays it out with fixed 160px tiles,
-  22 apart, so it doesn't follow the 190/26 card grid.
 - **List view ("ledger"):** one shared `--ledger-cols` track list for header and
   rows; rows radius 6, alternate ink 3%, hover `--hover`; read state is a dot.
 - **Browse lists** (`list.html`: categories, authors, publishers…): one
@@ -509,13 +507,13 @@ content (grid, panel, rows)
   ("3 groups of duplicate books. Review duplicates") joins the flashes at the top of
   the page, once per browser session and again when the count rises. It is never a
   dialog: nothing covers the page the user came to use.
-- **Book row** (`.continue-reading-row`, `image.book_row`): one row that scrolls
-  sideways, never wraps. Covers are 140px wide (112 on phones), 22 apart (14 on
-  phones). The library has no Continue Reading row; books in progress are in the
-  Reading list. The book page uses the row under the description for "Next in
-  ‹Series›" (later books in order, or "Earlier in ‹Series›" for the last one,
-  with "Book N" under each title; up to 12); there the cover and title both open
-  the book page. There is no "More by ‹Author›" row.
+- **Book row** (`.continue-reading-row`): one row that scrolls sideways, never
+  wraps. Covers are 140px wide (112 on phones), 22 apart (14 on phones). The
+  library has no Continue Reading row; books in progress are in the Reading list.
+- **No series anywhere:** Lily shows, edits, sorts, searches and browses no series
+  (no Series page or OPDS feed, no "Book N of", no "Next in" row, no series on
+  cards, in Fetch Metadata or in Advanced Search), and metadata lookups don't write
+  one. Calibre still stores a book's series; nothing in Lily reads it for display.
 - **Toolbar** (`.lily-list-toolbar`): chips and sort on the left, view switch
   (large icon buttons) top-right, margin-bottom 22. Toolbar chips are 38 tall
   so they sit level with the view switch. The direction chip shows only its
@@ -534,14 +532,13 @@ content (grid, panel, rows)
   plate: the bare cover at its own shape, radius 8, flat, with no mount or padding around
   it. Nothing letterboxes; a cover taller than 1 : 1.6 is cropped to that
   (`max-height: 160cqw`, `object-fit: cover`), so one deformed cover cannot stretch the
-  stage. On the right, centred against it: the heading (series line, the book
+  stage. On the right, centred against it: the heading (the book
   title as a display line (§3.1), the authors as an italic `--accent` byline at 20px,
   the rating), then the action bar, 22 apart. There are no fact tags on the page: the
   file, date and identifiers are in the details dialog. The stage is one
   row, so a tall cover never spreads the heading out.
 - **Under the stage** (`.book-detail-extra`, 40 below it, indented 40 to match the
-  stage padding): the description, then the related row ("Next in ‹Series›")
-  under the description.
+  stage padding): the description.
 - **≤1499px:** a smaller plate (≤268) and a 46px title. **≤1099px:** stage padding 24,
   title 40. **≤767px:** the stage stacks and centres: a 196px plate, a 30px title, Read across the full width with the icon buttons sharing the line
   under it. Reset row sizing here.
@@ -569,7 +566,7 @@ content (grid, panel, rows)
 - **Details dialog** (`#bookInfoModal`, §5.7): the info button in the action bar opens
   "Book Details", a two-column `dl.book-info` (label `--muted`, value `--ink`, 15px, rows
   10 apart, no dividers): Date added, Last edited, then whichever the book has of
-  published date, publisher, series, language, each file, each identifier, the
+  published date, publisher, language, each file, each identifier, the
   last metadata lookup (editors only: what it found and when, "Open Library · ‹date›",
   "No match" or "Lookup failed") and the book ID. Dates appear nowhere
   else on the page. The header's × is the only close control; there is no Close button.
@@ -601,9 +598,7 @@ content (grid, panel, rows)
   with Fetch Metadata; clearing one removes the value. Under Title sit Edition and
   Volume, two number fields side by side ("6" for the sixth edition, "3" for volume
   3; they stay paired on phones), stored in cwa.db (`book_editions`, `book_volumes`)
-  since calibre has no field for them. Then Authors and Series (no series number:
-  a save leaves the stored one alone, and Fetch Metadata offers one only on the
-  book page); Details
+  since calibre has no field for them. Then Authors; Details
   (publisher, published date, language, rating); Tags; Description.
   Authors and Tags are the same row editor: one field per value with a × beside
   it, and "Add author" / "Add tag" below (Enter, or a comma in a tag, starts the

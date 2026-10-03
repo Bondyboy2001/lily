@@ -715,14 +715,6 @@ def _has_date(current, published) -> bool:
     return published.month in (1, current.month)
 
 
-def _index(value):
-    """A series index as a number, or None when there is none (providers give 0 or '')."""
-    try:
-        return float(value) or None
-    except (TypeError, ValueError):
-        return None
-
-
 def _named(cdb, model, lookup, name, *extra):
     """The row called name, or a new one."""
     row = lookup(name)
@@ -936,21 +928,6 @@ def _apply_record(cdb, book, record, cover, replace_tags=False, mode=REPLACE, st
                     before.setdefault('tags', old_tags)
                     book.tags.append(tag)
                     changed = True
-
-        series = (record.series or '').strip()
-        if series and (not filling or not book.series):
-            row = _named(cdb, db.Series, cdb.get_series_by_name, series, series)
-            old_series, old_index = [s.name for s in book.series], book.series_index
-            new_series = _only(book, 'series', [row], dropped)
-            changed |= new_series
-            # A new series starts at the record's index, or 1; the same one takes the record's
-            index = _index(record.series_index) or (1.0 if new_series else None)
-            if index and index != _index(book.series_index):
-                book.series_index = str(index)
-                changed = True
-            if new_series or str(old_index) != str(book.series_index):
-                before['series'] = old_series
-                before['series_index'] = old_index
 
         published = helper.parse_partial_date(record.publishedDate)
         date_ok = not filling or _no_date(book.pubdate) or (published and book.pubdate

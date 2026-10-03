@@ -514,15 +514,15 @@ def _all_book_relationships():
 
 
 def _card_relationships():
-    """What a book card (image.html book_card) reads: authors, formats, series, rating."""
-    return (Books.authors, Books.data, Books.series, Books.ratings)
+    """What a book card (image.html book_card) reads: authors, formats, rating."""
+    return (Books.authors, Books.data, Books.ratings)
 
 
 def card_load_options(skip_others):
     """Loader options for a page of book cards.
 
     selectinload (not joinedload) so the paginated query isn't wrapped in a subquery and
-    multiplied by authors x formats x series x ratings. With skip_others, the relationships
+    multiplied by authors x formats x ratings. With skip_others, the relationships
     cards never read (comments, tags, identifiers, ...) are left unloaded.
     """
     card = _card_relationships()
@@ -1088,7 +1088,6 @@ class CalibreDB:
         def word_match(word):
             folded = lcase(word)
             matches = [Books.tags.any(contains(Tags.name, folded)),
-                       Books.series.any(contains(Series.name, folded)),
                        Books.authors.any(contains(Authors.name, folded)),
                        Books.publishers.any(contains(Publishers.name, folded)),
                        contains(Books.title, folded)]

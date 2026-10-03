@@ -121,31 +121,11 @@ class TestFilterChips:
         assert oldest[:2] == ["Epub English", "Pdf German"] and oldest[-1] == "Epub German"
         assert "Last read" in _get(client, "/newest/stored/")
 
-    def test_a_series_lists_in_series_order_until_another_sort_is_picked(self, env):
-        import sqlite3
-        from datetime import datetime, timezone
-        # Added newest-first in reverse reading order, so the default "new" sort would differ
-        ids = {title: env.add_book(title, timestamp=datetime(2026, 1, day, tzinfo=timezone.utc))
-               for title, day in (("Book Three", 3), ("Book One", 2), ("Book Two", 1))}
-        con = sqlite3.connect(env.library_dir / "metadata.db")
-        con.create_function("title_sort", 1, lambda t: t)  # calibre's triggers call it
-        con.execute("INSERT INTO series (name, sort) VALUES ('Saga', 'Saga')")
-        series_id = con.execute("SELECT id FROM series WHERE name='Saga'").fetchone()[0]
-        for index, title in enumerate(("Book One", "Book Two", "Book Three"), start=1):
-            con.execute("UPDATE books SET series_index=? WHERE id=?", (index, ids[title]))
-            con.execute("INSERT INTO books_series_link (book, series) VALUES (?, ?)", (ids[title], series_id))
-        con.commit()
-        con.close()
+    def test_there_is_no_series_page_or_series_sort(self, env):
+        env.add_book("Book One")
         client = _login(env)
-
-        def order(html):
-            grid = html[html.index('class="lily-list-toolbar"'):]
-            return re.findall(r'<p title="([^"]+)" class="title"', grid)
-
-        assert order(_get(client, f"/series/stored/{series_id}")) == ["Book One", "Book Two", "Book Three"]
-        assert order(_get(client, f"/series/abc/{series_id}")) == ["Book One", "Book Three", "Book Two"]
-        # The picked order is remembered
-        assert order(_get(client, f"/series/stored/{series_id}")) == ["Book One", "Book Three", "Book Two"]
+        assert client.get("/series").status_code == 404
+        assert "Series order" not in _get(client, "/newest/stored/")
 
     def test_filters_are_kept_in_sort_links_and_empty_result_offers_a_way_out(self, env):
         self._library(env)

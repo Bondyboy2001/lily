@@ -290,9 +290,8 @@ def test_sort_direction_is_one_toggle_button_not_a_dropdown():
     assert '<button type="button" class="btn lily-chip lily-sort-dir" id="lily-order-toggle"' in list_menu
     assert 'id="asc"' not in list_menu and 'id="desc"' not in list_menu
     assert "window.lilyToggleSortDir" in read(REPO_ROOT / "cps/static/js/lily.js")
-    for name in ("filter_list.js", "filter_grid.js"):
-        js = read(REPO_ROOT / "cps/static/js" / name)
-        assert "lily-order-toggle" in js and '"#asc"' not in js and '"#desc"' not in js, name
+    js = read(REPO_ROOT / "cps/static/js/filter_list.js")
+    assert "lily-order-toggle" in js and '"#asc"' not in js and '"#desc"' not in js
 
 
 def test_list_view_is_a_ledger_with_shared_columns_and_a_read_dot():

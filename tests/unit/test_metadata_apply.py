@@ -109,19 +109,10 @@ def test_nothing_new_is_not_an_update(env, monkeypatch):
 def test_a_change_bumps_last_modified_and_drops_unused_authors(env, monkeypatch):
     dune = env.add_book("Dune", author="Unknown")
     before = _q(env, "SELECT last_modified FROM books")
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], series="Dune", series_index=None))
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"]))
     assert helper.fetch_and_apply_metadata(dune) is True
     assert _q(env, "SELECT last_modified FROM books") != before
     assert ("Unknown",) not in _q(env, "SELECT name FROM authors")
-    assert _q(env, "SELECT series_index FROM books") == [(1.0,)]
-
-
-def test_a_new_series_without_an_index_starts_at_one(env, monkeypatch):
-    dune = env.add_book("Dune", author="Frank Herbert")
-    _sql(env, ("UPDATE books SET series_index=7 WHERE id=?", (dune,)))
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], series="Dune Chronicles"))
-    assert helper.fetch_and_apply_metadata(dune) is True
-    assert _q(env, "SELECT series_index FROM books") == [(1.0,)]
 
 
 def test_a_cover_download_error_keeps_the_rest(env, monkeypatch):
@@ -261,13 +252,15 @@ def test_a_name_in_another_case_is_the_same_author_and_publisher(env, monkeypatc
     assert _q(env, "SELECT name FROM publishers") == [("Ace",)]
 
 
-def test_a_series_and_its_index_are_set_once(env, monkeypatch):
-    # The library stores the index as a number; compared as text it never matched
+def test_a_series_from_a_provider_is_not_written(env, monkeypatch):
+    # Series were removed from Lily: a lookup leaves the library's series alone
     book = env.add_book("Dune Messiah", author="Frank Herbert")
+    _sql(env, ("UPDATE books SET series_index=7 WHERE id=?", (book,)))
     helper = _setup(monkeypatch, _record(title="Dune Messiah", authors=["Frank Herbert"],
                                          series="Dune Chronicles", series_index=2))
-    _applies_once(env, helper, book)
-    assert _q(env, "SELECT series_index FROM books") == [(2.0,)]
+    assert helper.fetch_and_apply_metadata(book) is False
+    assert _q(env, "SELECT name FROM series") == []
+    assert _q(env, "SELECT series_index FROM books") == [(7.0,)]
 
 
 def test_an_author_with_a_comma_is_stored_as_the_library_stores_them(env, monkeypatch):
@@ -390,7 +383,7 @@ def test_a_book_with_its_own_details_keeps_them_and_gets_only_what_it_lacks(env,
     dune = env.add_book("Dune", author="Frank Herbert", tags=("Deserts",))
     _described(env, dune, "<p>My own words.</p>")
     helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Theirs.",
-                                         publisher="Ace", tags=["Science fiction"], series="Dune Chronicles",
+                                         publisher="Ace", tags=["Science fiction"],
                                          identifiers={"google": "abc"}))
     store, changes = _store()
     _with_store(monkeypatch, helper, store)
@@ -398,9 +391,7 @@ def test_a_book_with_its_own_details_keeps_them_and_gets_only_what_it_lacks(env,
     assert _q(env, "SELECT text FROM comments") == [("<p>My own words.</p>",)]
     assert _q(env, "SELECT name FROM publishers p JOIN books_publishers_link l ON l.publisher=p.id") == [("Chilton",)]
     assert _book_tags(env, dune) == ["Deserts"]
-    # What it lacked is filled, and kept for Undo as it was
-    assert _q(env, "SELECT name FROM series") == [("Dune Chronicles",)]
-    assert changes and changes[0][0] == dune and '"series": []' in changes[0][1]
+    assert _q(env, "SELECT name FROM series") == []
 
 
 def test_a_none_description_counts_as_none(env, monkeypatch):

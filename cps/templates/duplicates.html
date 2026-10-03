@@ -130,9 +130,6 @@
                   <span>{{ book.author_names }}</span>
                   <span>{{_('Added')}} <span class="dup-mono">{{ book.timestamp.strftime('%Y-%m-%d %H:%M') }}</span></span>
                   <span>{{_('ID')}} <span class="dup-mono">{{ book.id }}</span></span>
-                  {% if book.series %}
-                    <span>{% for series in book.series %}{{ series.name }}{% if book.series_index %} ({{ book.series_index }}){% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</span>
-                  {% endif %}
                   {% if book.data %}
                     <span class="dup-mono">{% for data in book.data %}{{ data.format }} {{ data.uncompressed_size|filesizeformat_binary }}{% if not loop.last %}, {% endif %}{% endfor %}</span>
                   {% endif %}

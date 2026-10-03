@@ -13,7 +13,6 @@
               <span class="lily-order-title">{{ book['title'] }}</span>
               <span class="lily-order-meta">
                 {%- for author in book['author']|named_authors %}{{ author.name.replace('|', ',') }}{% if not loop.last %} &amp; {% endif %}{% endfor -%}
-                {%- if book['series']|length > 0 %} · {{ book['series'][0].name }} {{ book['series_index']|formatfloat(2) }}{% endif -%}
               </span>
               {% else %}
               <span class="lily-order-title">{{_('Hidden book')}}</span>

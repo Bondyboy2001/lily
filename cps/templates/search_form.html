@@ -65,7 +65,6 @@
 
     {% call f.group(_('Filters'), help=_('Books must match everything you include and nothing you exclude.'), id='search-filters') %}
       {{ include_exclude('tag', _('Tags'), _('Exclude tags'), tags) }}
-      {{ include_exclude('serie', _('Series'), _('Exclude series'), series) }}
       {{ include_exclude('shelf', _('Shelves'), _('Exclude shelves'), shelves) }}
       {% if languages %}
       {{ include_exclude('language', _('Languages'), _('Exclude languages'), languages) }}

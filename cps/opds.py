@@ -39,7 +39,6 @@ OPDS_ROOT_ORDER_DEFAULT = [
     'authors',
     'publishers',
     'categories',
-    'series',
     'languages',
     'ratings',
     'formats',
@@ -106,12 +105,6 @@ OPDS_ROOT_ENTRY_DEFS = {
         'title': 'Categories',
         'description': 'Books ordered by category',
         'visible': lambda user, __: user.check_visibility(constants.SIDEBAR_CATEGORY),
-    },
-    'series': {
-        'endpoint': 'opds.feed_seriesindex',
-        'title': 'Series',
-        'description': 'Books ordered by series',
-        'visible': lambda user, __: user.check_visibility(constants.SIDEBAR_SERIES),
     },
     'languages': {
         'endpoint': 'opds.feed_languagesindex',
@@ -389,45 +382,6 @@ def feed_letter_category(book_id):
 @requires_basic_auth_if_no_ano
 def feed_category(book_id):
     return render_xml_dataset(db.Tags, book_id)
-
-
-@opds.route("/opds/series")
-@requires_basic_auth_if_no_ano
-def feed_seriesindex():
-    if not auth.current_user().check_visibility(constants.SIDEBAR_SERIES):
-        abort(404)
-    return render_element_index(db.Series.sort, db.books_series_link, 'opds.feed_letter_series')
-
-
-@opds.route("/opds/series/letter/<book_id>")
-@requires_basic_auth_if_no_ano
-def feed_letter_series(book_id):
-    if not auth.current_user().check_visibility(constants.SIDEBAR_SERIES):
-        abort(404)
-    off = request.args.get("offset") or 0
-    letter = true() if book_id == "00" else func.upper(db.Series.sort).startswith(book_id)
-    entries = calibre_db.session.query(db.Series)\
-        .join(db.books_series_link)\
-        .join(db.Books)\
-        .filter(calibre_db.common_filters()).filter(letter)\
-        .group_by(text('books_series_link.series'))\
-        .order_by(db.Series.sort)
-    pagination = Pagination((int(off) / (int(config.config_books_per_page)) + 1), config.config_books_per_page,
-                            entries.count())
-    entries = entries.offset(off).limit(config.config_books_per_page).all()
-    return render_xml_template('feed.xml', listelements=entries, folder='opds.feed_series', pagination=pagination)
-
-
-@opds.route("/opds/series/<int:book_id>")
-@requires_basic_auth_if_no_ano
-def feed_series(book_id):
-    off = request.args.get("offset") or 0
-    entries, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
-                                                        db.Books,
-                                                        db.Books.series.any(db.Series.id == book_id),
-                                                        [db.Books.series_index],
-                                                        True, config.config_read_column)
-    return render_xml_template('feed.xml', entries=entries, pagination=pagination)
 
 
 @opds.route("/opds/ratings")

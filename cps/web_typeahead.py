@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""JSON lookups that feed the typeahead fields (authors, publishers, tags, series, languages, titles).
+"""JSON lookups that feed the typeahead fields (authors, publishers, tags, languages, titles).
 
 Routes are attached to the web blueprint; web.py imports this module at its end."""
 
@@ -44,12 +44,6 @@ def get_publishers_json():
 @login_required_if_no_ano
 def get_tags_json():
     return calibre_db.get_typeahead(db.Tags, request.args.get('q'), tag_filter=tags_filters())
-
-
-@web.route("/get_series_json", methods=['GET'])
-@login_required_if_no_ano
-def get_series_json():
-    return calibre_db.get_typeahead(db.Series, request.args.get('q'))
 
 
 @web.route("/get_languages_json", methods=['GET'])

@@ -268,35 +268,6 @@ lilyRowEditor({
 });
 
 
-var series = new Bloodhound({
-    name: "series",
-    datumTokenizer: function datumTokenizer(datum) {
-        return [datum.name];
-    },
-    // queryTokenizer: Bloodhound.tokenizers.whitespace,
-    queryTokenizer: function queryTokenizer(query) {
-        return [query];
-    },
-    remote: {
-        url: getPath() + "/get_series_json?q=%QUERY",
-        wildcard: '%QUERY',
-        /*replace: function replace(url, query) {
-            return url + encodeURIComponent(query);
-        }*/
-    }
-});
-$(".form-group #series").typeahead(
-    {
-        highlight: true,
-        minLength: 0,
-        hint: true
-    }, {
-        name: "series",
-        displayKey: "name",
-        source: series
-    }
-);
-
 var tags = new Bloodhound({
     name: "tags",
     datumTokenizer: function datumTokenizer(datum) {

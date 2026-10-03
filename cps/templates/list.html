@@ -6,12 +6,9 @@ See CONTRIBUTORS for full list of authors. -->
 
 {% import 'image.html' as image %}
 {% extends "layout.html" %}
-{% block view_switch %}{% if data == 'series' %}{{ image.view_switch('series', 'list') }}{% endif %}{% endblock %}
 {% block body %}{% set list_id = _(title) %}{# translated once, not once per row #}
 
 <div class="lily-list-toolbar">
-  {# Grid/List icons, pinned to the toolbar's top right #}
-  {{ self.view_switch() }}
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   {{ image.list_menu(order, data, charlist|map(attribute=0)|list, filterable=entries|length > 24) }}
 </div>
@@ -43,7 +40,7 @@ See CONTRIBUTORS for full list of authors. -->
 <p class="lily-list-nomatch" id="lily-list-nomatch" role="status" hidden>{{ _('Nothing matches that filter.') }}</p>
 {% endif %}
 {% if not entries %}
-  {% set empty_heading = {'author': _('No Authors Yet'), 'series': _('No Series Yet'), 'category': _('No Tags Yet'),
+  {% set empty_heading = {'author': _('No Authors Yet'), 'category': _('No Tags Yet'),
                           'publisher': _('No Publishers Yet'), 'language': _('No Languages Yet'),
                           'formats': _('No File Formats Yet'), 'ratings': _('No Ratings Yet')}.get(data, _('Nothing to List Yet')) %}
   {{ image.empty_state('glyphicon-list-alt', empty_heading,

@@ -8,11 +8,11 @@ JS = REPO_ROOT / "cps/static/js"
 TEMPLATES = REPO_ROOT / "cps/templates"
 
 LIBRARY_TEMPLATES = [
-    "index.html", "grid.html", "list.html", "detail.html", "author.html", "search.html",
+    "index.html", "list.html", "detail.html", "author.html", "search.html",
     "search_form.html", "shelf.html", "shelf_edit.html", "shelf_order.html",
     "book_edit.html", "image.html", "modal_dialogs.html",
 ]
-SORT_TEMPLATES = ["index.html", "author.html", "search.html", "shelf.html", "grid.html", "list.html"]
+SORT_TEMPLATES = ["index.html", "author.html", "search.html", "shelf.html", "list.html"]
 
 
 def read(path):
@@ -177,8 +177,8 @@ def test_sort_bars_are_dropdowns_not_solid_buttons():
     for name in SORT_TEMPLATES:
         html = read(TEMPLATES / name)
         assert html.count("btn-primary") <= 1, name  # at most the view's one Primary (index: empty-state action)
-        if name in ("grid.html", "list.html"):
-            # these pages have no server-side sort: order and letter filter live in list_menu
+        if name == "list.html":
+            # this page has no server-side sort: order and letter filter live in list_menu
             assert "image.list_menu(order, " in html and "image.chip(" not in html, name
         else:
             assert "image.sort_menu(order, " in html and "image.chip(" not in html, name
@@ -287,8 +287,8 @@ def test_detail_page_is_a_frontispiece_stage():
     stage = html[html.index('<div class="book-detail-main">'):html.index('<div class="book-detail-extra">')]
     assert 'id="readbtn"' in stage
     extra = html[html.index('<div class="book-detail-extra">'):html.index('id="bookInfoModal"')]
-    # The related rows come after the description; the lookup lives in the details dialog.
-    assert extra.index('class="book-detail-description"') < extra.index("related-series-heading")
+    # No related rows (they were the rest of a series); the lookup lives in the details dialog.
+    assert "related-series-heading" not in html and "book_row" not in html
     assert "book-metadata-lookup" not in stage and "book-metadata-lookup" not in extra
     assert "book-record" not in html
     # Date added and Last edited live in the details dialog, opened from the action bar.
@@ -402,7 +402,7 @@ def test_grid_covers_have_no_popups():
     actions = re.search(r"{% macro cover_actions.*?{%- endmacro %}", image, flags=re.S).group(0)
     assert "title=" not in actions
     assert actions.count("aria-label=") >= 4
-    for name in ("image.html", "index.html", "grid.html"):
+    for name in ("image.html", "index.html"):
         html = read(TEMPLATES / name)
         assert not re.search(r'<span class="img"[^>]*title=', html), name
         assert not re.search(r'<span class="badge[^"]*"[^>]*title=', html), name
@@ -425,7 +425,7 @@ def test_editor_shows_every_field_even_when_blank():
     template = read(TEMPLATES / "book_edit.html")
     assert "data-optional" not in template and "shown." not in template and "details_shown" not in template
     assert "editbook-section\"{%" not in template and " hidden{% endif %}" not in template
-    for field in ('id="title"', 'id="edition"', 'id="volume"', 'id="author-rows"', 'id="series"',
+    for field in ('id="title"', 'id="edition"', 'id="volume"', 'id="author-rows"',
                   'id="publisher"', 'id="pubdate"', 'id="languages"',
                   "image.rating_input('rating'", 'id="tag-rows"', 'id="comments"'):
         assert field in template, field
@@ -435,7 +435,6 @@ def test_editor_shows_every_field_even_when_blank():
     assert re.findall(r'<button type="button" class="btn btn-default btn-sm" id="([^"]+)"', template) == [
         "author-add", "tag-add"]
     assert 'name="series_index"' not in template
-    assert 'if (book.series_index && field("series_index").length) {' in read(JS / "get_meta.js")
     edit_js = read(JS / "edit_books.js")
     # Tags use the authors' row editor: a field per value, × beside it, Add tag below
     assert 'add: $("#tag-add"),' in edit_js and "chips" not in edit_js
@@ -613,14 +612,25 @@ def test_covers_much_wider_than_a4_are_shown_whole():
     assert '"cover-wide"' in read(JS / "lily.js")
 
 
-def test_book_row_series_number_is_not_a_hidden_author_line():
-    # Grid cards hide .meta .author; the book page's "Book N" must not use that class.
-    image = read(TEMPLATES / "image.html")
-    row = image[image.index("{% macro book_row"):]
-    row = row[:row.index("{%- endmacro %}")]
-    assert 'class="related-number"' in row and 'class="author"' not in row
+def test_series_appear_nowhere():
+    # Series were removed (2026-10-03): no page shows, edits, sorts or searches by them. The
+    # calibre library still stores them; nothing reads them for display.
+    assert not (TEMPLATES / "grid.html").exists() and not (JS / "filter_grid.js").exists()
+    for name in ("book_edit.html", "detail.html", "image.html", "index.html", "list.html",
+                 "listenmp3.html", "search_form.html", "shelf_order.html", "duplicates.html", "meta_fetch.html"):
+        html = read(TEMPLATES / name)
+        # (a calibre custom column of the "series" type is the user's own and stays)
+        assert not re.search(r"\.series\b|series_index|data='series'|'series':", html), name
+    for name in ("edit_books.js", "get_meta.js", "main.js"):
+        assert "series" not in read(JS / name), name
+    for name in ("web.py", "web_lists.py", "web_typeahead.py", "search.py", "opds.py"):
+        source = read(REPO_ROOT / "cps" / name)
+        for gone in ("/series", "get_series_json", "seriesasc", "render_series_books", "adv_search_serie",
+                     "_related_books", "feed_series"):
+            assert gone not in source, (name, gone)
     css = read(CSS / "lily-library.css")
-    assert ".continue-reading-item .meta .continue-reading-percent,\n.continue-reading-item .meta .related-number {" in css
+    for gone in (".meta .series", "lily-series-grid", "related-number", "#book_of", "book-related"):
+        assert gone not in css, gone
 
 
 def test_editor_keeps_the_authors_in_the_books_own_order():

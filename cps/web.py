@@ -567,16 +567,8 @@ def generate_char_list(entries): # data_colum, db_link):
     return char_list
 
 
-def query_char_list(data_colum, db_link):
-    results = (calibre_db.session.query(func.upper(func.substr(data_colum, 1, 1)).label('char'))
-            .join(db_link).join(db.Books).filter(calibre_db.common_filters())
-            .group_by(func.upper(func.substr(data_colum, 1, 1))).all())
-    return results
-
-
-# Lists about reading open with the book last read first, and a series in series order,
-# until another order is picked
-DEFAULT_SORTS = {"inprogress": "readnew", "read": "readnew", "series": "seriesasc"}
+# Lists about reading open with the book last read first, until another order is picked
+DEFAULT_SORTS = {"inprogress": "readnew", "read": "readnew"}
 
 
 def get_sort_function(sort_param, data):
@@ -602,13 +594,9 @@ def get_sort_function(sort_param, data):
     if sort_param == 'readold':
         order = [db.last_read_order(newest_first=False), db.Books.timestamp.desc()]
     if sort_param == 'authaz':
-        order = [db.Books.author_sort.asc(), db.Series.name, db.Books.series_index]
+        order = [db.Books.author_sort.asc(), db.Books.sort]
     if sort_param == 'authza':
-        order = [db.Books.author_sort.desc(), db.Series.name.desc(), db.Books.series_index.desc()]
-    if sort_param == 'seriesasc':
-        order = [db.Books.series_index.asc()]
-    if sort_param == 'seriesdesc':
-        order = [db.Books.series_index.desc()]
+        order = [db.Books.author_sort.desc(), db.Books.sort.desc()]
     if sort_param == 'hotdesc':
         order = [func.count(ub.Downloads.book_id).desc()]
     if sort_param == 'hotasc':
@@ -669,8 +657,6 @@ def render_books_list(data, sort_param, book_id, page):
         return render_author_books(page, book_id, order)
     elif data == "publisher":
         return render_publisher_books(page, book_id, order)
-    elif data == "series":
-        return render_series_books(page, book_id, order)
     elif data == "ratings":
         return render_ratings_books(page, book_id, order)
     elif data == "formats":
@@ -1003,35 +989,6 @@ def render_publisher_books(page, book_id, order):
                                  title=_("Publisher: %(name)s", name=publisher),
                                  page="publisher",
                                  order=order[1])
-
-
-def render_series_books(page, book_id, order):
-    if book_id == '-1':
-        entries, pagination = calibre_db.fill_indexpage(page, 0,
-                                                                db.Books,
-                                                                and_(db.Series.name == None,
-                                                                     list_filters.filter_expression()),
-                                                                [order[0][0]],
-                                                                True, config.config_read_column,
-                                                                db.books_series_link,
-                                                                db.Books.id == db.books_series_link.c.book,
-                                                                db.Series, cards_only=True)
-        series_name = _("Unknown")
-    else:
-        series_name = calibre_db.session.query(db.Series).filter(db.Series.id == book_id).first()
-        if series_name:
-            entries, pagination = calibre_db.fill_indexpage(page, 0,
-                                                                    db.Books,
-                                                                    and_(db.Books.series.any(db.Series.id == book_id),
-                                                                         list_filters.filter_expression()),
-                                                                    [order[0][0]],
-                                                                    True, config.config_read_column, cards_only=True)
-            series_name = series_name.name
-        else:
-            abort(404)
-    return render_title_template('index.html', pagination=pagination, entries=entries, id=book_id,
-                                 title=_("Series: %(serie)s", serie=series_name), page="series", order=order[1],
-                                 list_filters=list_filters.filter_context())
 
 
 def render_ratings_books(page, book_id, order):
@@ -1382,37 +1339,6 @@ def read_book(book_id, book_format):
         return redirect(url_for("web.index"))
 
 
-RELATED_BOOKS_LIMIT = 12
-
-
-def _series_number(book):
-    try:
-        return float(book.series_index)
-    except (TypeError, ValueError):
-        return 0.0
-
-
-def _related_books(entry):
-    """The book page's related row: the rest of its series (next books first). None when it
-    would be empty; archived and hidden books stay out."""
-    related = {"series": None}
-    if entry.series:
-        series = entry.series[0]
-        siblings = (calibre_db.session.query(db.Books)
-                    .filter(db.Books.series.any(db.Series.id == series.id))
-                    .filter(db.Books.id != entry.id)
-                    .filter(calibre_db.common_filters())
-                    .all())
-        siblings.sort(key=_series_number)
-        here = _series_number(entry)
-        later = [b for b in siblings if _series_number(b) > here]
-        earlier = [b for b in siblings if _series_number(b) <= here]
-        books = (later or earlier)[:RELATED_BOOKS_LIMIT]
-        if books:
-            related["series"] = {"name": series.name, "id": series.id, "next": bool(later), "books": books}
-    return related
-
-
 @web.route("/book/<int:book_id>")
 @login_required_if_no_ano
 def show_book(book_id):
@@ -1474,15 +1400,8 @@ def show_book(book_id):
             on_ids = set(_book_shelf_ids(book_id))
             shelf_menu = [(shelf, shelf.id in on_ids) for shelf in _editable_shelves()]
 
-        try:
-            related = _related_books(entry)
-        except Exception as e:
-            log.warning("Could not load related books for %s: %s", book_id, e)
-            related = {"series": None}
-
         return render_title_template('detail.html',
                                      entry=entry,
-                                     related=related,
                                      resume=resume,
                                      is_xhr=request.headers.get('X-Requested-With') == 'XMLHttpRequest',
                                      title=entry.title,

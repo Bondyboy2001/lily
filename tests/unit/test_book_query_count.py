@@ -100,12 +100,12 @@ def test_cards_only_page_skips_relationships_cards_do_not_render(tmp_path):
                 # what image.html's book_card reads must already be loaded
                 for entry in entries:
                     assert entry.Books.authors and entry.Books.data
-                    _ = entry.Books.series, entry.Books.ratings
+                    _ = entry.Books.ratings
             loaded = " ".join(statements)
         assert len(entries) == 4
         for table in ("comments", "tags", "identifiers", "publishers", "languages"):
             assert f"FROM {table}" not in loaded and f"JOIN {table} " not in loaded, table
-        # count + page query + authors/data/series/ratings (+ the random "Discover" row if enabled)
-        assert len(_relationship_loads(statements)) <= 8, statements
+        # count + page query + authors/data/ratings (+ the random "Discover" row if enabled)
+        assert len(_relationship_loads(statements)) <= 7, statements
     finally:
         env_cm.__exit__(None, None, None)

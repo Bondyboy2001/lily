@@ -27,7 +27,6 @@
         'title': (_('Title'), 'abc', 'zyx'),
         'author': (_('Author'), 'authaz', 'authza'),
         'published': (_('Published'), 'pubold', 'pubnew'),
-        'series': (_('Series order'), 'seriesasc', 'seriesdesc'),
         'shelf': (_('Added to shelf'), 'shelfold', 'shelfnew'),
         'downloads': (_('Downloads'), 'hotasc', 'hotdesc')} -%}
     {%- set ns = namespace(field=fields[0], desc=True) -%}
@@ -109,7 +108,7 @@
     {% endif %}
 {%- endmacro %}
 
-{# The same Sort / direction pair as sort_menu, for name lists (categories, authors, series…).
+{# The same Sort / direction pair as sort_menu, for name lists (categories, authors…).
    filter_list.js / filter_grid.js sort and filter the rows in place, so the options are buttons
    keyed by id, not links. `chars` is the list of initials: the letter filter only appears when a
    list is long enough to need it. #}
@@ -163,10 +162,9 @@
     <li{% if active %} class="active"{% endif %}><a{% if disabled %} class="disabled"{% endif %} href="{{ href }}"{% if active %} aria-current="true"{% endif %}>{{ label }}</a></li>
 {%- endmacro %}
 
-{# Grid/List icons at the top right of a list page. `kind` is 'books' (a CSS switch, no reload)
-   or 'series' (the series page renders a different template per view). #}
-{% macro view_switch(kind, current) -%}
-    <div class="lily-view-switch" role="group" aria-label="{{ _('View') }}" data-kind="{{ kind }}">
+{# Grid/List icons at the top right of a list page (a CSS switch, no reload). #}
+{% macro view_switch(current) -%}
+    <div class="lily-view-switch" role="group" aria-label="{{ _('View') }}">
       {% for view, glyph, label in [('grid', 'glyphicon-th-large', _('Grid')), ('list', 'glyphicon-th-list', _('List'))] %}
       <button type="button" class="icon-btn" data-view="{{ view }}" aria-pressed="{{ 'true' if current == view else 'false' }}"
               title="{{ label }}" aria-label="{{ label }}"><span class="glyphicon {{ glyph }}" aria-hidden="true"></span></button>
@@ -227,7 +225,7 @@
 
 {# One book in a cover grid (index, author, search, shelf). Cards are plain: cover, title, authors. #}
 {# progress: the share read (0-100) of a book in progress, drawn along the cover's foot (Reading list) #}
-{% macro book_card(book, user, is_read=False, authors_max=0, series_link=True, alt=None, extra_class='', progress=None) -%}
+{% macro book_card(book, user, is_read=False, authors_max=0, alt=None, extra_class='', progress=None) -%}
     {%- set formats = book.data|map(attribute='format')|map('lower')|list -%}
     <div class="book lily-book{{ " is-read" if is_read }} {{ extra_class }}">
       <div class="cover">
@@ -267,16 +265,6 @@
           {% endfor %}
           {% if book.data|music %}<span class="glyphicon glyphicon-music" aria-hidden="true"></span>{% endif %}
         </p>
-        {% if book.series.__len__() > 0 %}
-        <p class="series">
-          {% if series_link %}
-          <a href="{{ url_for('web.books_list', data='series', sort_param='stored', book_id=book.series[0].id) }}">{{ book.series[0].name }}</a>
-          {% else %}
-          <span>{{ book.series[0].name }}</span>
-          {% endif %}
-          ({{ book.series_index|formatfloat(2) }})
-        </p>
-        {% endif %}
         {% if book.ratings.__len__() > 0 %}
         {% set stars = (book.ratings[0].rating / 2)|int %}
         <div class="rating" title="{{ stars }} / 5">
@@ -326,33 +314,4 @@
       <input type="radio" class="lily-stars-input lily-stars-none" name="{{ name }}" id="{{ name }}-none" value=""{% if current < 1 or current > 5 %} checked{% endif %} {{ input_attrs|safe }}>
       <label for="{{ name }}-none" class="lily-stars-clear" title="{{ none_text }}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span><span class="sr-only">{{ none_text }}</span></label>
     </div>
-{%- endmacro %}
-
-{# A sideways-scrolling row of books under a heading (§6.3), used
-   on the book page for the rest of a series and more by the author. Each cover and title opens
-   the book's page; the cover is skipped by the keyboard so each book is one tab stop.
-   numbered shows "Book N" (the series number) under the title. #}
-{% macro book_row(id, heading, books, numbered=False) -%}
-<section class="continue-reading book-related" aria-labelledby="{{ id }}">
-  <h2 id="{{ id }}">{{ heading }}</h2>
-  <div class="continue-reading-row" role="list">
-    {% for book in books %}
-    <div class="book lily-book continue-reading-item" role="listitem">
-      <div class="cover">
-        <a href="{{ url_for('web.show_book', book_id=book.id) }}" class="book-cover-link" tabindex="-1" aria-hidden="true">
-          <span class="img">{{ book_cover(book) }}</span>
-        </a>
-      </div>
-      <div class="meta">
-        <a href="{{ url_for('web.show_book', book_id=book.id) }}">
-          <p title="{{ book.title }}" class="title">{{ book.title }}</p>
-        </a>
-        {% if numbered %}
-        <p class="related-number">{{ _('Book %(index)s', index=book.series_index|formatfloat(2)) }}</p>
-        {% endif %}
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-</section>
 {%- endmacro %}

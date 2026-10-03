@@ -236,7 +236,7 @@
 .lily-book .cover > a:focus-visible,
 .continue-reading-item .cover > a:focus-visible { outline-offset: -2px; }
 
-/* Read mark and series count: small pills on the cover's corner. */
+/* Read mark: a small pill on the cover's corner. */
 .lily-book .cover .badge,
 .container-fluid .lily-book .cover .badge {
     position: absolute;
@@ -403,9 +403,7 @@
 .continue-reading-item .meta > a:hover .title { color: var(--accent); }
 
 .container-fluid .lily-book .meta .author,
-.container-fluid .lily-book .meta .series,
 .lily-book .meta .author,
-.lily-book .meta .series,
 .continue-reading-item .meta .author {
     display: -webkit-box;
     -webkit-box-orient: vertical;
@@ -417,11 +415,9 @@
     line-height: 1.4;
 }
 
-.lily-book .meta .author a,
-.lily-book .meta .series a { color: var(--muted); }
+.lily-book .meta .author a { color: var(--muted); }
 
-.lily-book .meta .author a:hover,
-.lily-book .meta .series a:hover { color: var(--accent); }
+.lily-book .meta .author a:hover { color: var(--accent); }
 
 .container-fluid .lily-book .author .author-hidden,
 .container-fluid .lily-book .author .author-hidden-divider { display: none; }
@@ -701,8 +697,7 @@ body[data-book-view="list"] .lily-grid > .lily-book.is-read .meta > a::before {
 }
 
 body[data-book-view="list"] .lily-grid > .lily-book .meta .title,
-body[data-book-view="list"] .lily-grid > .lily-book .meta .author,
-body[data-book-view="list"] .lily-grid > .lily-book .meta .series {
+body[data-book-view="list"] .lily-grid > .lily-book .meta .author {
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -718,13 +713,6 @@ body[data-book-view="list"] .lily-grid > .lily-book .meta .author {
 }
 
 body[data-book-view="list"] .lily-grid > .lily-book .meta .author a { color: inherit; }
-
-body[data-book-view="list"] .lily-grid > .lily-book .meta .series {
-    grid-column: 1;
-    grid-row: 2;
-    padding-left: calc(7px + 8px); /* under the title, past the read dot and its gap */
-    font-size: 13px;
-}
 
 body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-formats {
     grid-column: 3;
@@ -815,8 +803,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 
     body[data-book-view="list"] .lily-grid > .lily-book .meta > * { grid-row: auto; }
 
-    body[data-book-view="list"] .lily-grid > .lily-book .meta .author,
-    body[data-book-view="list"] .lily-grid > .lily-book .meta .series {
+    body[data-book-view="list"] .lily-grid > .lily-book .meta .author {
         grid-column: 1;
         padding-left: calc(7px + 8px);
         font-size: 13px;
@@ -825,40 +812,17 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-formats { display: none; }
 }
 
-/* Series grid (grid.html): Isotope lays the items out, so they need a fixed width. */
-.row.lily-series-grid { margin: 0; }
-
-.lily-series-grid > .book,
-.container-fluid .lily-series-grid > .book {
-    width: 160px;
-    max-width: none;
-    margin: 0 22px 22px 0;
-    padding: 0;
-    float: left;
-}
-
 @media (max-width: 767px) {
     .row.lily-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 22px 14px;
     }
-
-    .lily-series-grid > .book,
-    .container-fluid .lily-series-grid > .book {
-        width: calc(50% - 7px);
-        margin-right: 14px;
-    }
-
-    .lily-series-grid > .book:nth-child(2n) { margin-right: 0; }
 }
 
 /* ------------------------------------------------------------------ */
 /* Continue reading row and empty library (index.html)                  */
 /* ------------------------------------------------------------------ */
 .continue-reading { margin: 0 0 22px; }
-/* The same row on the book page (image.book_row): full width of its column so it can scroll,
-   spaced by the column's own 22px gap. */
-.book-detail-extra > .book-related { align-self: stretch; min-width: 0; margin: 0; }
 
 /* One row that scrolls sideways, with covers smaller than the grid's, so the library
    still starts on the first screen however many books are in progress. */
@@ -909,8 +873,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 }
 
 .lily-grid > .lily-book .meta .continue-reading-percent,
-.continue-reading-item .meta .continue-reading-percent,
-.continue-reading-item .meta .related-number {
+.continue-reading-item .meta .continue-reading-percent {
     margin: 0;
     color: var(--muted);
     font-size: 14px;
@@ -1023,7 +986,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 .lily-setup-hint { color: var(--muted); font-size: 13px; }
 
 /* ------------------------------------------------------------------ */
-/* Category / series / publisher lists (list.html)                     */
+/* Category / publisher lists (list.html)                              */
 /* ------------------------------------------------------------------ */
 /* One list flowed into ~300px columns, so a count never strays far from its name.
    Short lists stay a single narrow column rather than one entry per column. */
@@ -1310,14 +1273,6 @@ dl.book-info {
     overflow-wrap: break-word;
     text-wrap: balance;
 }
-
-.book-detail-meta #book_of {
-    margin: 0;
-    color: var(--muted);
-    font-size: 15px;
-}
-
-.book-detail-meta #book_of a { font-weight: 500; }
 
 /* The byline: italic; the author names in the accent, the "&" between them in ink. */
 .book-detail-meta .author {

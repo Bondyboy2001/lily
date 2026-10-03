@@ -127,7 +127,7 @@ $(function () {
   function readForm() {
     return {
       title: field("title").val(), authors: field("authors").val(), publisher: field("publisher").val(),
-      pubdate: field("pubdate").val(), series: field("series").val(), seriesIndex: field("series_index").val(),
+      pubdate: field("pubdate").val(),
       rating: ratingValue(), description: htmlToText(field("comments").val()),
       tags: field("tags").val(), languages: field("languages").val(), ids: currentIdentifiers(),
     };
@@ -156,13 +156,6 @@ $(function () {
     add("authors", msg.author, authors, form.authors);
     add("publisher", msg.publisher, book.publisher, form.publisher);
     add("pubDate", msg.pubdate, book.publishedDate, form.pubdate);
-    add("series", msg.series, book.series, form.series);
-    // Only the book page's form carries a series number; the editor has none
-    if (book.series_index && field("series_index").length) {
-      add("seriesIndex", msg.series_index, book.series_index, form.seriesIndex, {
-        same: Number(book.series_index) === Number(form.seriesIndex),
-      });
-    }
     if (book.rating) {
       add("rating", msg.rating, book.rating + " / 5", form.rating ? form.rating + " / 5" : "");
     }
@@ -246,12 +239,6 @@ $(function () {
     }
     if (updateItems.publisher) {
       set("publisher", book.publisher);
-    }
-    if (updateItems.series && book.series) {
-      set("series", book.series);
-    }
-    if (updateItems.seriesIndex && book.series_index) {
-      set("series_index", book.series_index);
     }
     $.each(book.identifiers || {}, function (key, value) {
       if (updateItems[key] && value !== "" && value !== null) {

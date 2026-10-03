@@ -1,6 +1,6 @@
 {% import 'image.html' as image %}
 {% extends "layout.html" %}
-{% block view_switch %}{{ image.view_switch('books', current_user.get_view_property('books', 'view') or 'grid') }}{% endblock %}
+{% block view_switch %}{{ image.view_switch(current_user.get_view_property('books', 'view') or 'grid') }}{% endblock %}
 
 {% block body %}
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -35,7 +35,6 @@
     {# Grid/List icons, pinned to the toolbar's top right #}
     {{ self.view_switch() }}
     {% if page == 'hot' %}{% set sort_fields = ['downloads'] %}
-    {% elif page == 'series' %}{% set sort_fields = ['added', 'read', 'title', 'author', 'published', 'series'] %}
     {% else %}{% set sort_fields = ['added', 'read', 'title', 'author', 'published'] %}{% endif %}
     {% if list_filters and list_filters.active.get('metadata') %}{{ image.metadata_chips(list_filters) }}{% endif %}
     {{ image.sort_menu(order, url_for('web.books_list', data=page, book_id=id, sort_param='SORT_PARAM', **(list_filters.args if list_filters else {})), sort_fields) }}
@@ -45,7 +44,7 @@
   {% if entries %}{{ image.list_head() }}{% endif %}
   <div class="row display-flex lily-grid">
     {% for entry in entries if entry %}
-    {{ image.book_card(entry.Books, current_user, entry[1] == True, g.config_authors_max, series_link=(page != 'series'), extra_class='books',
+    {{ image.book_card(entry.Books, current_user, entry[1] == True, g.config_authors_max, extra_class='books',
                        progress=(reading_progress or {}).get(entry.Books.id)) }}
     {% endfor %}
   </div>

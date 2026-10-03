@@ -354,7 +354,7 @@ def test_book_editor_shows_every_field_even_when_blank(client):
     html = resp.get_data(as_text=True)
     # The fixture book has no series, publisher, rating or description: their fields still
     # show, blank, and nothing in the form is hidden but the identifiers table
-    assert 'name="series" id="series" value=""' in html
+    assert 'name="series"' not in html and 'name="series_index"' not in html
     assert 'name="publisher" id="publisher" value=""' in html
     assert re.search(r'<textarea[^>]*id="comments"[^>]*></textarea>', html)
     assert "data-optional" not in html
@@ -550,11 +550,11 @@ def test_pdf_reader_remembers_the_zoom_per_book():
 
 
 @pytest.mark.unit
-def test_book_page_offers_the_rest_of_the_series(client, temp_cwa_db):
+def test_book_page_shows_nothing_of_a_series(client, temp_cwa_db):
+    # Series are gone from every page, even for a book calibre has in one
     import sqlite3
     env, c, _ = client
-    ids = {n: env.add_book(f"Saga {n}", author="Ann Writer") for n in (1, 2, 3)}
-    env.add_book("Standalone", author="Ann Writer")
+    ids = {n: env.add_book(f"Saga {n}", author="Ann Writer") for n in (1, 2)}
     con = sqlite3.connect(env.library_dir / "metadata.db")
     con.create_function("title_sort", 1, lambda t: t)  # Calibre's triggers call it
     con.execute("INSERT INTO series (name, sort) VALUES ('Saga', 'Saga')")
@@ -564,25 +564,9 @@ def test_book_page_offers_the_rest_of_the_series(client, temp_cwa_db):
         con.execute("UPDATE books SET series_index=? WHERE id=?", (float(n), book_id))
     con.commit()
     con.close()
-
-    def row(html, heading_id):
-        section = html[html.index(f'aria-labelledby="{heading_id}"'):]
-        section = section[:section.index("</section>")]
-        return re.findall(r'<p title="([^"]+)" class="title">', section), section
-
     html = c.get(f"/book/{ids[1]}").get_data(as_text=True)
-    titles, section = row(html, "related-series-heading")
-    assert "Next in Saga" in section and titles == ["Saga 2", "Saga 3"] and "Book 2" in section
-    # There's no "More by" row for the author's other books.
-    assert "related-author-heading" not in html and "More by" not in html
-
-    # The last book looks back instead; a book with no series or siblings shows neither row.
-    html = c.get(f"/book/{ids[3]}").get_data(as_text=True)
-    titles, section = row(html, "related-series-heading")
-    assert "Earlier in Saga" in section and titles == ["Saga 1", "Saga 2"]
-    lone = env.add_book("Only Child", author="Solo Author")
-    html = c.get(f"/book/{lone}").get_data(as_text=True)
-    assert "related-series-heading" not in html
+    assert "Next in Saga" not in html and "Book 1 of" not in html and "related-series-heading" not in html
+    assert ">Saga<" not in html and "/series/" not in html
 
 
 def test_phone_tap_strips_sit_above_the_book():

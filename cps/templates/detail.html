@@ -37,9 +37,6 @@
         </div>
         <div class="book-detail-head">
             <div class="book-detail-meta">
-                {% if entry.series|length > 0 %}
-                    <p id="book_of">{{ _("Book %(index)s of %(range)s", index=entry.series_index|formatfloat(2), range=(url_for('web.books_list', data='series', sort_param='stored', book_id=entry.series[0].id)|escapedlink(entry.series[0].name))|safe) }}</p>
-                {% endif %}
                 {# The page's one h1: the top bar leaves its title out on this page (layout.html) #}
                 <h1 id="title">{{ entry.title }}</h1>
                 {% set authors = entry.ordered_authors|named_authors %}
@@ -163,14 +160,6 @@
         {% endif %}
 
 
-        {# What to read next: the rest of the series (later books first). #}
-        {% if related and related.series %}
-            {{ image.book_row('related-series-heading',
-                              _('Next in %(series)s', series=related.series.name) if related.series.next
-                              else _('Earlier in %(series)s', series=related.series.name),
-                              related.series.books, numbered=True) }}
-        {% endif %}
-
         {% if not current_user.is_anonymous %}
             <div class="meta-actions" hidden>
                 <form id="have_read_form" action="{{ url_for('web.toggle_read', book_id=entry.id) }}" method="POST">
@@ -210,12 +199,6 @@
               <div>
                 <dt>{{ _('Publisher') }}</dt>
                 <dd>{{ entry.publishers[0].name }}</dd>
-              </div>
-              {% endif %}
-              {% if entry.series|length %}
-              <div>
-                <dt>{{ _('Series') }}</dt>
-                <dd>{{ entry.series[0].name }} · {{ entry.series_index|formatfloat(2) }}</dd>
               </div>
               {% endif %}
               {% if entry.languages|length %}
@@ -285,8 +268,6 @@
         <input type="hidden" name="authors" value="{{ (entry.ordered_authors|named_authors)|map(attribute='name')|map('replace', '|', ',')|join(' & ') }}">
         <input type="hidden" name="rating" value="{% if entry.ratings %}{{ (entry.ratings[0].rating / 2)|int }}{% endif %}">
         <input type="hidden" name="pubdate" value="{% if entry.pubdate %}{{ entry.pubdate|formatdateinput }}{% endif %}">
-        <input type="hidden" name="series_index" value="{{ entry.series_index|formatfloat(2) }}">
-        <input type="hidden" name="series" value="{% if entry.series %}{{ entry.series[0].name }}{% endif %}" disabled>
         <input type="hidden" name="publisher" value="{% if entry.publishers %}{{ entry.publishers[0].name }}{% endif %}" disabled>
         <input type="hidden" name="languages" value="{{ entry.languages|map(attribute='language_name')|map('trim')|join(', ') }}" disabled>
         <input type="hidden" name="tags" value="{{ entry.tags|map(attribute='name')|map('trim')|join(', ') }}" disabled>

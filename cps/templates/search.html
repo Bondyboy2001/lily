@@ -1,6 +1,6 @@
 {% import 'image.html' as image %}
 {% extends "layout.html" %}
-{% block view_switch %}{{ image.view_switch('books', current_user.get_view_property('books', 'view') or 'grid') }}{% endblock %}
+{% block view_switch %}{{ image.view_switch(current_user.get_view_property('books', 'view') or 'grid') }}{% endblock %}
 {% block body %}
 <div class="discover">
     {% if entries|length < 1 %}
@@ -11,7 +11,7 @@
                             (_('Clear filters'), url_for('web.index'), False)]) }}
       {% else %}
       {{ image.empty_state('glyphicon-search', _('No Results Found'),
-                           _('Nothing matches %(term)s in titles, authors, tags, series, descriptions or ids. Check the spelling or try fewer words.', term=adv_searchterm),
+                           _('Nothing matches %(term)s in titles, authors, tags, descriptions or ids. Check the spelling or try fewer words.', term=adv_searchterm),
                            [(_('Advanced search'), url_for('search.advanced_search'), True),
                             (_('Clear search'), url_for('web.index'), False)]) }}
       {% endif %}

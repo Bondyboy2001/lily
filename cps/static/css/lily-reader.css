@@ -929,14 +929,11 @@ html.lily-reader-page:has(> body.lily-djvu),
     overflow-wrap: anywhere;
 }
 
-.lily-audio-author,
-.lily-audio-series { margin: 0 0 4px; color: var(--muted); font-size: 14px; }
+.lily-audio-author { margin: 0 0 4px; color: var(--muted); font-size: 14px; }
 
-.lily-audio-author a,
-.lily-audio-series a { color: var(--ink-soft); text-decoration: none; }
+.lily-audio-author a { color: var(--ink-soft); text-decoration: none; }
 
-.lily-audio-author a:hover,
-.lily-audio-series a:hover { color: var(--accent); text-decoration: underline; }
+.lily-audio-author a:hover { color: var(--accent); text-decoration: underline; }
 
 .lily-audio-player {
     padding: 22px;

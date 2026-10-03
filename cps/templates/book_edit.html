@@ -85,12 +85,6 @@
       </button>
       <input type="hidden" name="authors" id="authors" value="{{' & '.join(authors)}}">
     </div>
-    {# No series number field: a save without one leaves the stored number alone
-       (edit_book_series_index) #}
-    <div class="form-group">
-      <label for="series">{{_('Series')}}</label>
-      <input type="text" class="form-control typeahead" autocomplete="off" name="series" id="series" value="{% if book.series %}{{book.series[0].name}}{% endif %}">
-    </div>
     </section>
 
     <section class="editbook-section">

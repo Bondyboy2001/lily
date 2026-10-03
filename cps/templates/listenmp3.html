@@ -36,9 +36,6 @@
             <a href="{{ url_for('web.books_list', data='author', sort_param='stored', book_id=author.id) }}">{{ author.name.replace('|', ',') }}</a>{% if not loop.last %} &amp; {% endif %}
           {% endfor %}
         </p>
-        {% if entry.series|length > 0 %}
-        <p class="lily-audio-series">{{_("Book %(index)s of %(range)s", index=entry.series_index|formatfloat(2), range=(url_for('web.books_list', data='series', sort_param='stored', book_id=entry.series[0].id)|escapedlink(entry.series[0].name))|safe)}}</p>
-        {% endif %}
       </div>
     </div>
 

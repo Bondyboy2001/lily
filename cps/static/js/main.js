@@ -248,30 +248,22 @@ $(function() {
         $(this).html() === $(this).data("collapse-caption") ? $(this).html("(...)") : $(this).html($(this).data("collapse-caption"));
     });
 
-    // Grid/List icons in the list toolbar. Book pages switch in place; the series
-    // page renders a different template per view, so it reloads.
+    // Grid/List icons in the list toolbar: the page switches in place and the choice is saved
     $(".lily-view-switch [data-view]").click(function(e) {
         var $btn = $(this);
         var view = $btn.data("view");
-        var kind = $btn.closest(".lily-view-switch").data("kind");
         e.preventDefault();
         if ($btn.attr("aria-pressed") === "true") { return; }
-        var settings = kind === "series" ? {series: {series_view: view}} : {books: {view: view}};
-        if (kind !== "series") {
-            document.body.setAttribute("data-book-view", view);
-            $btn.siblings("[data-view]").addBack().each(function() {
-                $(this).attr("aria-pressed", $(this).data("view") === view ? "true" : "false");
-            });
-        }
+        document.body.setAttribute("data-book-view", view);
+        $btn.siblings("[data-view]").addBack().each(function() {
+            $(this).attr("aria-pressed", $(this).data("view") === view ? "true" : "false");
+        });
         $.ajax({
             method: "post",
             contentType: "application/json; charset=utf-8",
             dataType: "json",
             url: getPath() + "/ajax/view",
-            data: JSON.stringify(settings),
-            success: function success() {
-                if (kind === "series") { location.reload(); }
-            }
+            data: JSON.stringify({books: {view: view}})
         });
     });
 });
