@@ -289,17 +289,18 @@ def test_detail_page_is_a_frontispiece_stage():
     html = read(TEMPLATES / "detail.html")
     stage = html[html.index('<div class="book-detail-main">'):html.index('<div class="book-detail-extra">')]
     assert '<dl class="book-metadata">' in stage and 'id="readbtn"' in stage
-    extra = html[html.index('<div class="book-detail-extra">'):]
-    # The lookup line and the related rows come after the description.
-    assert extra.index('class="book-detail-description"') < extra.index('<dl class="book-record">') \
-        < extra.index("related-author-heading")
-    assert "book-metadata-lookup" in extra and "book-metadata-lookup" not in stage
+    extra = html[html.index('<div class="book-detail-extra">'):html.index('id="bookInfoModal"')]
+    # The related rows come after the description; the lookup lives in the details dialog.
+    assert extra.index('class="book-detail-description"') < extra.index("related-author-heading")
+    assert "book-metadata-lookup" not in stage and "book-metadata-lookup" not in extra
+    assert "book-record" not in html
     # Date added and Last edited live in the details dialog, opened from the action bar.
     assert "book-dates" not in html and "entry.timestamp" not in stage
     assert 'id="book-info-btn"' in stage and 'data-target="#bookInfoModal"' in stage
     dialog = html[html.index('id="bookInfoModal"'):]
     assert '<dl class="book-info">' in dialog
     assert dialog.index("entry.timestamp|formatdate") < dialog.index("entry.last_modified|formatdate")
+    assert dialog.index('<div class="book-metadata-lookup">') < dialog.index("_('Book ID')")
     # A matched lookup puts the green check on the cover plate's top-right corner.
     plate = stage[stage.index('<div class="book-detail-cover">'):stage.index('<div class="book-detail-head">')]
     assert "metadata_lookup.status == 'matched'" in plate and "image.fetched_mark(fetched, id='book-fetched-dot')" in plate
@@ -423,8 +424,9 @@ def test_editor_adds_only_title_and_authors_by_hand_and_shows_other_fields_once_
     # No "Add …" for any of them: only authors and shelves have an Add button
     assert "data-optional-add" not in template and "editbook-add-fields" not in template
     assert 'id="tag-add"' not in template
+    # The edition is the one optional field with an Add button (design §6.4)
     assert re.findall(r'<button type="button" class="btn btn-default btn-sm" id="([^"]+)"', template) == [
-        "author-add", "shelf-add"]
+        "author-add", "edition-add", "shelf-add"]
     # Title, authors and shelves always show; Details hides with its heading when it is empty
     for always in ('id="title"', 'id="author-rows"', 'id="shelf-rows"'):
         assert always in template

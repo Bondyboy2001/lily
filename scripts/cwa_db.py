@@ -840,6 +840,19 @@ class CWA_DB:
                          (book_id, status, source or '', datetime.now(timezone.utc).isoformat(timespec='seconds')))
         self.con.commit()
 
+    def set_book_edition(self, book_id: int, edition: int | None) -> None:
+        """Store the book's edition number, or forget it when None."""
+        if edition is None:
+            self.cur.execute("DELETE FROM book_editions WHERE book_id = ?", (book_id,))
+        else:
+            self.cur.execute("INSERT OR REPLACE INTO book_editions (book_id, edition) VALUES (?, ?)",
+                             (book_id, edition))
+        self.con.commit()
+
+    def get_book_edition(self, book_id: int) -> int | None:
+        row = self.cur.execute("SELECT edition FROM book_editions WHERE book_id = ?", (book_id,)).fetchone()
+        return row[0] if row else None
+
     def get_metadata_lookup(self, book_id: int) -> dict | None:
         """{status, source, checked_at} from the book's last lookup, or None when it has had none."""
         row = self.cur.execute("SELECT status, source, checked_at FROM metadata_lookups WHERE book_id = ?",

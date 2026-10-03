@@ -1094,13 +1094,40 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 }
 
 /* Metadata fetched: a filled --success dot in the stage's top-right corner, named by its tooltip. */
-/* The fetched mark on the plate: the grid's green check, a little larger, on its top-right corner. */
-.book-detail-cover .lily-fetched {
+/* The plate's top-right corner (§6.4): the edition pill, then the fetched mark, 6 apart. */
+.book-plate-marks {
+    position: absolute;
     top: 6px;
     right: 6px;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* The fetched mark on the plate: the grid's green check, a little larger. */
+.book-detail-cover .lily-fetched {
+    position: static;
     width: 26px;
     height: 26px;
     font-size: 13px;
+}
+
+/* The edition: an opaque --surface pill the fetched mark's height, so it reads over any cover. */
+.book-edition {
+    display: inline-flex;
+    align-items: center;
+    height: 26px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    white-space: nowrap;
 }
 
 /* The details dialog (#bookInfoModal): label and value side by side, rows apart by space alone. */
@@ -1388,24 +1415,6 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 .book-detail-description .comments p { margin: 0 0 14px; }
 .book-detail-description .comments p:last-child { margin-bottom: 0; }
 
-/* What the last metadata lookup found, on one quiet line under the description (editors only). */
-dl.book-record {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 8px;
-    margin: 0;
-    color: var(--muted);
-    font-size: 13px;
-    font-variant-numeric: tabular-nums;
-}
-
-.book-detail-description + dl.book-record { padding-left: 64px; }
-
-.book-record > div { display: flex; gap: 4px; }
-.book-record > div + div::before { content: "·"; margin-right: 4px; }
-.book-record dt { font-weight: 400; }
-.book-record dd { margin: 0; color: var(--ink-soft); }
-
 /* Narrower: a smaller plate and title. */
 @media (max-width: 1499px) {
     .book-detail-main {
@@ -1452,7 +1461,6 @@ dl.book-record {
     .book-detail-description { padding-left: 40px; }
     .book-detail-description::before { top: -14px; font-size: 76px; }
     .book-detail-description .comments { font-size: 19px; }
-    .book-detail-description + dl.book-record { padding-left: 40px; }
 }
 
 /* ------------------------------------------------------------------ */

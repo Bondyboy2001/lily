@@ -481,6 +481,13 @@ $("#btn-upload-cover").on("change", function () {
     });
 })();
 
+/* "Add edition" shows the Edition field in its place, ready to type in. */
+$("#edition-add").on("click", function () {
+    $(this).prop("hidden", true);
+    $("#edition-field").prop("hidden", false);
+    $("#edition").trigger("focus");
+});
+
 /* Leaving with unsaved edits asks first (the browser's own "Leave site?" prompt). Only what
    the user types or picks counts: set-up code fills fields too. Saving, and Fetch Metadata's
    Apply, which saves by itself, leave freely. */

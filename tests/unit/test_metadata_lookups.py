@@ -159,8 +159,11 @@ def test_book_page_shows_the_lookup_to_editors(env):
     book = env.add_book("Dune")
     _store().save_metadata_lookup(book, "matched", "Open Library")
     html = _login(env).get(f"/book/{book}").get_data(as_text=True)
-    fact = re.search(r'<div class="book-metadata-lookup">.*?</div>', html, flags=re.S)
-    assert fact and ">From Open Library</dd>" in fact.group(0) and 'title="Looked up ' in fact.group(0)
+    # What the lookup found, and when, is a row of the details dialog
+    dialog = html[html.index('id="bookInfoModal"'):]
+    fact = re.search(r'<div class="book-metadata-lookup">.*?</div>', dialog, flags=re.S)
+    assert fact and re.search(r"<dd>From Open Library · \w{3} \d{1,2}, \d{4}\s*</dd>", fact.group(0))
+    assert "book-metadata-lookup" not in html[:html.index('id="bookInfoModal"')]
     dot = re.search(r'<span class="lily-fetched" id="book-fetched-dot"[^>]*>', html)
     assert dot and 'aria-label="Metadata fetched from Open Library on ' in dot.group(0)
     env.add_user("reader", password="pw")

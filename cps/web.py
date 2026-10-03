@@ -1480,6 +1480,8 @@ def show_book(book_id):
         cwa_settings = cwa_db.cwa_settings
         metadata_lookup = _metadata_lookup(cwa_db, book_id) if current_user.role_edit() else None
 
+        from .editbooks import book_edition
+
         # The Shelves menu: the shelves this user may change, each ticked when the book is on it
         shelf_menu = []
         if current_user.is_authenticated:
@@ -1502,6 +1504,7 @@ def show_book(book_id):
                                      title=entry.title,
                                      cwa_settings=cwa_settings,
                                      metadata_lookup=metadata_lookup,
+                                     edition=book_edition(book_id),
                                      shelf_menu=shelf_menu,
                                      page="book")
     else:

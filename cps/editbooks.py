@@ -23,6 +23,7 @@ from flask import Blueprint, request, flash, redirect, url_for, abort, Response
 from flask_babel import gettext as _
 from flask_babel import lazy_gettext as N_
 from flask_babel import get_locale
+from .edition import split_edition
 from .cw_login import current_user
 from sqlalchemy.exc import OperationalError, IntegrityError, InterfaceError, InvalidRequestError
 from sqlalchemy.orm.exc import StaleDataError
@@ -366,6 +367,13 @@ def do_edit_book(book_id, upload_formats=None):
 
     to_save = request.form.to_dict()
 
+    # "Title (9th Edition)", typed or applied from Fetch Metadata: the edition comes off the
+    # title and fills the Edition field, unless that was filled in by hand
+    if to_save.get("title"):
+        to_save["title"], title_edition = split_edition(to_save["title"])
+        if title_edition and not (to_save.get("edition") or "").strip():
+            to_save["edition"] = str(title_edition)
+
     try:
         title_change = False
         author_change = False
@@ -460,6 +468,17 @@ def do_edit_book(book_id, upload_formats=None):
         else:
             book.pubdate = db.Books.DEFAULT_PUBDATE
 
+        # The edition lives in cwa.db (calibre has no field for it), saved once the book is.
+        # Only the editor sends the field, so other saves leave it as it is.
+        edition = _UNCHANGED
+        if "edition" in to_save and not upload_formats:
+            edition = parse_edition(to_save["edition"])
+            if edition is _INVALID:
+                flash(_("'%(edition)s' is not an edition. Write the number, like 6 for the sixth edition.",
+                        edition=to_save["edition"]), category="error")
+                edit_error = True
+                edition = _UNCHANGED
+
         # Stage 3: Commit all changes to the database.
         if modify_date:
             book.last_modified = datetime.now(timezone.utc)
@@ -485,6 +504,9 @@ def do_edit_book(book_id, upload_formats=None):
             calibre_db.session.merge(book)
             calibre_db.session.commit()
             log.debug("[edit_book] db commit retry ok book_id=%s duration=%.3fs", book.id, time.monotonic() - request_start)
+
+        if edition is not _UNCHANGED:
+            _save_edition(book.id, edition)
 
         if refresh_cover_thumbnail_after_commit:
             helper.replace_cover_thumbnail_cache(
@@ -917,6 +939,7 @@ def render_edit_book(book_id):
             author_names.append(authr.name.replace('|', ','))
 
     return render_title_template('book_edit.html', book=book, authors=author_names, cc=cc,
+                                 edition=book_edition(book.id),
                                  shelf_ids_editable=[shelf.id for shelf in _editable_shelves()],
                                  book_shelf_ids=_book_shelf_ids(book.id),
                                  reader_list=helper.check_read_formats(book),
@@ -924,6 +947,44 @@ def render_edit_book(book_id):
                                  return_to=(_return_to(request.values.get("next"))
                                             or _return_to(request.referrer)),
                                  config=config)
+
+
+_UNCHANGED = object()
+_INVALID = object()
+
+
+def parse_edition(raw):
+    """The editor's Edition field: None when blank (no edition), the number for 1-999,
+    else _INVALID. "6th" is read as 6, the way the badge writes it."""
+    value = (raw or "").strip().lower()
+    if not value:
+        return None
+    for suffix in ("st", "nd", "rd", "th"):
+        if value.endswith(suffix):
+            value = value[:-len(suffix)].strip()
+            break
+    if not value.isdigit() or not 1 <= int(value) <= 999:
+        return _INVALID
+    return int(value)
+
+
+def book_edition(book_id):
+    """The book's edition number from cwa.db, or None."""
+    try:
+        from cwa_db import CWA_DB
+        return CWA_DB().get_book_edition(book_id)
+    except Exception as e:
+        log.debug("Could not read book %s's edition: %s", book_id, e)
+        return None
+
+
+def _save_edition(book_id, edition):
+    try:
+        from cwa_db import CWA_DB
+        CWA_DB().set_book_edition(book_id, edition)
+    except Exception as e:
+        log.error("Could not save book %s's edition: %s", book_id, e)
+        flash(_("The edition couldn't be saved."), category="error")
 
 
 def _note_matched(book_id, source):

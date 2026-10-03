@@ -184,6 +184,7 @@ def _load_editbooks_module(delete_key_calls):
 
     _install_stub("cps.ub", {"session": _Session([])})
     _install_stub("cps.clean_html", {"clean_string": lambda value: value})
+    _install_stub("cps.edition", {"split_edition": lambda title: (title, None)})
     _install_stub("cps.services")
     _install_stub("cps.services.worker", {"WorkerThread": SimpleNamespace(get_instance=lambda: None)})
     _install_stub("cps.services.arxiv_shelf", {"ARXIV_SHELF": "arXiv", "arxiv_shelf": lambda *a, **k: None})

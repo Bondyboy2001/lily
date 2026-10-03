@@ -95,6 +95,14 @@ def yesno(value, yes, no):
     return yes if value else no
 
 
+@jinjia.app_template_filter('ordinal')
+def ordinal(number):
+    """1 → "1st", 2 → "2nd", 11 → "11th", 23 → "23rd": an edition as people write it."""
+    number = int(number)
+    suffix = "th" if 10 <= number % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(number % 10, "th")
+    return f"{number}{suffix}"
+
+
 @jinjia.app_template_filter('formatfloat')
 def formatfloat(value, decimals=1):
     # Handle None and empty string cases

@@ -211,6 +211,9 @@ hr { display: none; }
     transition: background-color .12s ease-out, color .12s ease-out, filter .12s ease-out;
 }
 
+/* Bootstrap's .btn display would otherwise beat the hidden attribute */
+.btn[hidden] { display: none; }
+
 .btn-default,
 .btn-success,
 .btn-info,

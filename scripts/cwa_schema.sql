@@ -171,3 +171,9 @@ CREATE TABLE IF NOT EXISTS metadata_lookups(
     source TEXT NOT NULL DEFAULT '',  -- the provider that matched, as it names itself
     checked_at TEXT NOT NULL  -- UTC, ISO 8601
 );
+
+-- A book's edition, set by hand in the editor ("6" for the sixth): calibre has no field for it
+CREATE TABLE IF NOT EXISTS book_editions(
+    book_id INTEGER PRIMARY KEY,
+    edition INTEGER NOT NULL
+);

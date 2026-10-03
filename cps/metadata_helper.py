@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 
 from cps import logger, db, constants, helper
 from cps.clean_html import clean_string
+from cps.edition import split_edition
 from cps.helper import get_sorted_author
 from cps.search_metadata import cl as metadata_providers
 from cps.services import arxiv_shelf
@@ -708,6 +709,16 @@ def _unused(session, row) -> bool:
     return session.query(model.id).filter(model.id == row.id, model.books.any()).first() is None
 
 
+def _note_edition(book_id, edition):
+    """Store an edition found in a fetched title, keeping one the book already has."""
+    try:
+        store = CWA_DB()
+        if store.get_book_edition(book_id) is None:
+            store.set_book_edition(book_id, edition)
+    except Exception as e:
+        log.debug("Could not note book %s's edition: %s", book_id, e)
+
+
 def _apply_record(cdb, book, record, cover, replace_tags=False):
     """Writes what the record changes and commits; True when anything changed. Only fields
     the record has are touched; a book's own identifiers are kept and new ones added. The
@@ -719,6 +730,11 @@ def _apply_record(cdb, book, record, cover, replace_tags=False):
     with session.no_autoflush:
         # A book that goes by the title without its subtitle (or with it) keeps going by that
         title = (matched_title(book.title, record) or record.title or '').strip()
+        # "Title (9th Edition)": the edition goes to the book's Edition, unless it has one
+        title, edition = split_edition(title)
+        edition = edition or split_edition(record.title or '')[1]
+        if edition:
+            _note_edition(book.id, edition)
         if title and title != book.title:
             book.title = title
             changed = True

@@ -19,11 +19,20 @@
                 <img id="detailcover" alt="{{ entry.title }}"
                      src="{{ url_for('web.get_cover', book_id=entry.id, resolution='og', c=entry|last_modified) }}"/>
             </div>
-            {# A green check on the plate's top-right corner once a metadata lookup has found the book (editors only) #}
-            {% if metadata_lookup and metadata_lookup.status == 'matched' %}
+            {# The plate's top-right corner: the edition ("9th ed."), set in the editor, and a green
+               check once a metadata lookup has found the book (editors only), side by side #}
+            {% set fetched_shown = metadata_lookup and metadata_lookup.status == 'matched' %}
+            {% if edition or fetched_shown %}
+            <div class="book-plate-marks">
+                {% if edition %}
+                <span class="book-edition" id="book-edition" title="{{ _('%(nth)s edition', nth=edition|ordinal) }}">{{ _('%(nth)s ed.', nth=edition|ordinal) }}<span class="sr-only"> ({{ _('%(nth)s edition', nth=edition|ordinal) }})</span></span>
+                {% endif %}
+                {% if fetched_shown %}
                 {% set fetched = _('Metadata fetched from %(source)s on %(date)s', source=metadata_lookup.source, date=metadata_lookup.checked|formatdate) if metadata_lookup.source
                                  else _('Metadata fetched on %(date)s', date=metadata_lookup.checked|formatdate) %}
                 {{ image.fetched_mark(fetched, id='book-fetched-dot') }}
+                {% endif %}
+            </div>
             {% endif %}
         </div>
         <div class="book-detail-head">
@@ -179,22 +188,6 @@
             </section>
         {% endif %}
 
-        {# What its last metadata lookup found, quietly under the description (editors only) #}
-        {% if metadata_lookup %}
-        <dl class="book-record">
-            {% set lookup_words = {'nomatch': _('No match'), 'failed': _('Lookup failed')} %}
-            <div class="book-metadata-lookup">
-                <dt>{{ _('Metadata') }}</dt>
-                <dd title="{{ _('Looked up %(date)s', date=metadata_lookup.checked|formatdate) }}">
-                    {%- if metadata_lookup.status == 'matched' -%}
-                        {{ _('From %(source)s', source=metadata_lookup.source) if metadata_lookup.source else _('Matched') }}
-                    {%- else -%}
-                        {{ lookup_words.get(metadata_lookup.status, metadata_lookup.status) }}
-                    {%- endif -%}
-                </dd>
-            </div>
-        </dl>
-        {% endif %}
 
         {# What to read next: the rest of the series (later books first), then the author's others. #}
         {% if related and related.series %}
@@ -275,10 +268,19 @@
                 <dd class="book-info-id">{% if id_url.startswith('https://') %}<a href="{{ id_url }}" target="_blank" rel="noopener">{{ identifier.val }}</a>{% else %}{{ identifier.val }}{% endif %}</dd>
               </div>
               {% endfor %}
+              {# What the last metadata lookup found, and when (editors only) #}
               {% if metadata_lookup %}
-              <div>
+              {% set lookup_words = {'nomatch': _('No match'), 'failed': _('Lookup failed')} %}
+              <div class="book-metadata-lookup">
                 <dt>{{ _('Metadata') }}</dt>
-                <dd>{{ _('Looked up %(date)s', date=metadata_lookup.checked|formatdate) }}</dd>
+                <dd>
+                  {%- if metadata_lookup.status == 'matched' -%}
+                    {{ _('From %(source)s', source=metadata_lookup.source) if metadata_lookup.source else _('Matched') }}
+                  {%- else -%}
+                    {{ lookup_words.get(metadata_lookup.status, metadata_lookup.status) }}
+                  {%- endif -%}
+                  {{ ' · ' }}{{ metadata_lookup.checked|formatdate }}
+                </dd>
               </div>
               {% endif %}
               <div>

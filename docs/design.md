@@ -532,7 +532,7 @@ content (grid, panel, rows)
   the rating), then the fact tags, then the action bar, 22 apart. The stage is one
   row, so a tall cover never spreads the heading out.
 - **Under the stage** (`.book-detail-extra`, 40 below it, indented 40 to match the
-  stage padding): the description, the lookup line, then the related rows
+  stage padding): the description, then the related rows
   ("Next in ‹Series›", "More by ‹Author›") under the description.
 - **≤1499px:** a smaller plate (≤268) and a 46px title. **≤1099px:** stage padding 24,
   title 40. **≤767px:** the stage stacks and centres: a 196px plate, a 30px title, the
@@ -553,19 +553,23 @@ content (grid, panel, rows)
 - **Description:** a pull-quote: `--font-body` 22px italic, line-height 1.6, `--ink-soft`,
   the full width of the page (no measure cap), indented 64 behind a 112px `--accent` opening mark (19px, 40 and 76 on
   phones). There is no "not fetched yet" notice: the fetched dot already says so.
-- **Lookup line** (`dl.book-record`, editors only): one 13px `--muted` line under the
-  description, aligned with its text, saying what the last metadata lookup found
-  ("From Open Library", "No match" or "Lookup failed", with the date in its tooltip).
+- **Plate corner** (`.book-plate-marks`, 6 from the cover plate's top-right corner, items 6 apart):
+  the edition pill, then the fetched mark. Either may be missing.
+- **Edition pill** (`.book-edition`, everyone): set in the editor, shown as "9th ed." (full
+  "9th edition" in its tooltip and for screen readers). An opaque `--surface` pill, 26 tall,
+  padding 0 10, a `--line` edge, 12px/600 `--ink`, so it reads over any cover. Grid cards don't
+  show it.
 - **Fetched mark** (`.lily-fetched`, `image.fetched_mark`, editors only): a filled 26px `--success`
-  disc with a `--surface` check and ring, 6 from the cover plate's top-right corner, once a metadata
+  disc with a `--surface` check and ring, once a metadata
   lookup has matched the book; its tooltip and label say where from and when ("Metadata fetched
-  from Open Library on ‹date›"). Grid cards carry the same mark at 22px.
+  from Open Library on ‹date›"). Grid cards carry the same mark at 22px, 6 from the cover's corner.
   No dot before a lookup, or after one that found nothing.
 - **Details dialog** (`#bookInfoModal`, §5.7): the info button in the action bar opens
   "Book Details", a two-column `dl.book-info` (label `--muted`, value `--ink`, 15px, rows
   10 apart, no dividers): Date added, Last edited, then whichever the book has of
   published date, publisher, series, language, each file, each identifier, the
-  reader's progress, the last metadata lookup and the book ID. Dates appear nowhere
+  last metadata lookup (editors only: what it found and when, "From Open Library · ‹date›",
+  "No match" or "Lookup failed") and the book ID. Dates appear nowhere
   else on the page. A Close button ends the footer.
 - Tags and shelves are not shown on the book page; both stay editable on the
   edit page.
@@ -585,7 +589,11 @@ content (grid, panel, rows)
   the only things added by hand. Series, publisher, published date, language,
   rating, tags and description show only when the book has a value, which Fetch
   Metadata or the file gave; a value can be corrected or cleared, but there are
-  no "Add …" buttons for them. A section with nothing to show (Details, Tags,
+  no "Add …" buttons for them. The one exception is the edition: an "Add edition"
+  button (small secondary, like "Add author") under Series shows a number field
+  ("6" for the sixth edition), shown from the start when the book has one; clearing
+  it removes the edition. It is stored in cwa.db (`book_editions`), since calibre
+  has no field for it. A section with nothing to show (Details, Tags,
   Description) is hidden with its heading, and Fetch Metadata reveals any field
   it fills.
   The description box fits its text (no drag handle), padding 14/16 and

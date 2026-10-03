@@ -202,6 +202,23 @@ $(function () {
     return fields;
   }
 
+  var EDITION_WORDS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth",
+    "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth",
+    "seventeenth", "eighteenth", "nineteenth", "twentieth"];
+  var EDITION_RE = new RegExp("\\s*[(\\[]\\s*(?:(\\d{1,3})(?:st|nd|rd|th)?\\.?|(" + EDITION_WORDS.join("|") +
+    "))\\s+(?:edition|edn\\.?|ed\\.?)\\s*[)\\]]|\\s*[(\\[]\\s*edition\\s+(\\d{1,3})\\s*[)\\]]", "i");
+
+  // {title, edition}: the title without its bracketed edition and that edition's number
+  function splitEdition(title) {
+    var m = EDITION_RE.exec(title);
+    if (!m) { return { title: title, edition: null }; }
+    var number = m[1] || m[3];
+    var edition = number ? parseInt(number, 10) : EDITION_WORDS.indexOf(m[2].toLowerCase()) + 1;
+    var rest = $.trim(title.slice(0, m.index) + title.slice(m.index + m[0].length));
+    if (!rest || edition < 1) { return { title: title, edition: null }; }
+    return { title: rest, edition: edition };
+  }
+
   function populateForm(result) {
     var book = result.book;
     var updateItems = ticksOf(result.$el);
@@ -218,7 +235,16 @@ $(function () {
       set("authors", (book.authors || []).join(" & ")).trigger("change");
     }
     if (updateItems.title) {
-      set("title", book.title);
+      // "Title (9th Edition)": the edition comes off the title and fills an empty Edition
+      // field (cps/edition.py does the same on save)
+      var split = splitEdition(book.title || "");
+      set("title", split.title);
+      var $edition = $("#edition");
+      if (split.edition && $edition.length && !$.trim($edition.val())) {
+        $edition.val(split.edition).trigger("change");
+        $("#edition-field").prop("hidden", false);
+        $("#edition-add").prop("hidden", true);
+      }
     }
     if (updateItems.rating) {
       // In the editor, check the matching star, or none
