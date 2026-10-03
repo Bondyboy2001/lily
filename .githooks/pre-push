@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Refuses a push whose commit would fail the release's quick checks (scripts/check.sh).
+# Enable once per clone: git config core.hooksPath .githooks (worktrees share it).
+# Skip in an emergency with git push --no-verify.
+zero=0000000000000000000000000000000000000000
+root=$(git rev-parse --show-toplevel)
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+    [ "$local_sha" = "$zero" ] && continue   # deleting a branch
+    if ! "$root/scripts/check.sh" "$local_sha"; then
+        echo "pre-push: ${local_sha:0:8} fails the release checks above; fix them and push again." >&2
+        exit 1
+    fi
+done

@@ -66,11 +66,6 @@ jobs:
         if: matrix.shard == 1
         run: uvx ruff==0.16.9 check cps scripts tests
 
-      # Dead code fails the release too (config + whitelist in pyproject.toml [tool.vulture])
-      - name: Run vulture
-        if: matrix.shard == 1
-        run: uvx vulture==2.16
-
       - name: Run mypy
         if: matrix.shard == 1
         run: uvx mypy==2.3.1
@@ -93,6 +88,22 @@ jobs:
           # tests/conftest.py splits the suite by file
           LILY_TEST_SHARD: ${{ matrix.shard }}/2
         run: pytest -m "smoke or unit" -n auto --tb=short
+
+  # Dead code marks the run failed (and opens the release-failing issue) but does not hold
+  # back the image: publish doesn't wait on it. Config + whitelist in pyproject.toml
+  # [tool.vulture]; scripts/check.sh runs it before every push.
+  dead-code:
+    name: Dead code (vulture)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.2.0
+
+      - name: Run vulture
+        run: uvx vulture==2.16
 
   build:
     name: Build ${{ matrix.platform }}
@@ -299,3 +310,34 @@ jobs:
 
       - name: Inspect image
         run: docker buildx imagetools inspect "ghcr.io/${GITHUB_REPOSITORY,,}:latest"
+
+  # A failed release on main opens (or comments on) one "Release failing" issue, so the
+  # GitHub app and email say so; the next fully green run closes it.
+  notify:
+    name: Report release status
+    runs-on: ubuntu-latest
+    needs: [checks, dead-code, build, publish]
+    if: always() && github.ref == 'refs/heads/main'
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Open, update or close the release-failing issue
+        run: |
+          short=${GITHUB_SHA:0:8}
+          gh label create release-failing --color B3261E --description "The latest release on main failed" --force
+          open=$(gh issue list --label release-failing --state open --json number --jq '.[0].number // empty')
+          if [ "$FAILED" = "true" ]; then
+            body="Release of $short failed: $RUN_URL"$'\n\n'"Run \`scripts/check.sh\` and the tests, fix main, and push."
+            if [ -n "$open" ]; then
+              gh issue comment "$open" --body "$body"
+            else
+              gh issue create --title "Release failing on main" --label release-failing --body "$body"
+            fi
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --comment "Fixed: $short released ($RUN_URL)."
+          fi
