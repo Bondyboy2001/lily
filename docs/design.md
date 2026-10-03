@@ -507,8 +507,8 @@ content (grid, panel, rows)
   phones). The library has no Continue Reading row; books in progress are in the
   Reading list. The book page uses the row under the description for "Next in
   ‹Series›" (later books in order, or "Earlier in ‹Series›" for the last one,
-  with "Book N" under each title) and "More by ‹Author›" (up to 12, newest
-  first); there the cover and title both open the book page.
+  with "Book N" under each title; up to 12); there the cover and title both open
+  the book page. There is no "More by ‹Author›" row.
 - **Toolbar** (`.lily-list-toolbar`): chips and sort on the left, view switch
   (large icon buttons) top-right, margin-bottom 22. Toolbar chips are 38 tall
   so they sit level with the view switch. The direction chip shows only its
@@ -532,8 +532,8 @@ content (grid, panel, rows)
   the rating), then the fact tags, then the action bar, 22 apart. The stage is one
   row, so a tall cover never spreads the heading out.
 - **Under the stage** (`.book-detail-extra`, 40 below it, indented 40 to match the
-  stage padding): the description, then the related rows
-  ("Next in ‹Series›", "More by ‹Author›") under the description.
+  stage padding): the description, then the related row ("Next in ‹Series›")
+  under the description.
 - **≤1499px:** a smaller plate (≤268) and a 46px title. **≤1099px:** stage padding 24,
   title 40. **≤767px:** the stage stacks and centres: a 196px plate, a 30px title, the
   tags centred, Read across the full width with the icon buttons sharing the line

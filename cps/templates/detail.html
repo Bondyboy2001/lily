@@ -186,16 +186,12 @@
         {% endif %}
 
 
-        {# What to read next: the rest of the series (later books first), then the author's others. #}
+        {# What to read next: the rest of the series (later books first). #}
         {% if related and related.series %}
             {{ image.book_row('related-series-heading',
                               _('Next in %(series)s', series=related.series.name) if related.series.next
                               else _('Earlier in %(series)s', series=related.series.name),
                               related.series.books, numbered=True) }}
-        {% endif %}
-        {% if related and related.author %}
-            {{ image.book_row('related-author-heading', _('More by %(author)s', author=related.author.name),
-                              related.author.books) }}
         {% endif %}
 
         {% if not current_user.is_anonymous %}

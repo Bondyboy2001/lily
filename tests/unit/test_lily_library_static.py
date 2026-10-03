@@ -291,7 +291,7 @@ def test_detail_page_is_a_frontispiece_stage():
     assert '<dl class="book-metadata">' in stage and 'id="readbtn"' in stage
     extra = html[html.index('<div class="book-detail-extra">'):html.index('id="bookInfoModal"')]
     # The related rows come after the description; the lookup lives in the details dialog.
-    assert extra.index('class="book-detail-description"') < extra.index("related-author-heading")
+    assert extra.index('class="book-detail-description"') < extra.index("related-series-heading")
     assert "book-metadata-lookup" not in stage and "book-metadata-lookup" not in extra
     assert "book-record" not in html
     # Date added and Last edited live in the details dialog, opened from the action bar.

@@ -546,7 +546,7 @@ def test_pdf_reader_remembers_the_zoom_per_book():
 
 
 @pytest.mark.unit
-def test_book_page_offers_the_rest_of_the_series_and_the_author(client, temp_cwa_db):
+def test_book_page_offers_the_rest_of_the_series(client, temp_cwa_db):
     import sqlite3
     env, c, _ = client
     ids = {n: env.add_book(f"Saga {n}", author="Ann Writer") for n in (1, 2, 3)}
@@ -569,8 +569,8 @@ def test_book_page_offers_the_rest_of_the_series_and_the_author(client, temp_cwa
     html = c.get(f"/book/{ids[1]}").get_data(as_text=True)
     titles, section = row(html, "related-series-heading")
     assert "Next in Saga" in section and titles == ["Saga 2", "Saga 3"] and "Book 2" in section
-    titles, section = row(html, "related-author-heading")
-    assert "More by Ann Writer" in section and titles == ["Standalone"]
+    # There's no "More by" row for the author's other books.
+    assert "related-author-heading" not in html and "More by" not in html
 
     # The last book looks back instead; a book with no series or siblings shows neither row.
     html = c.get(f"/book/{ids[3]}").get_data(as_text=True)
@@ -578,7 +578,7 @@ def test_book_page_offers_the_rest_of_the_series_and_the_author(client, temp_cwa
     assert "Earlier in Saga" in section and titles == ["Saga 1", "Saga 2"]
     lone = env.add_book("Only Child", author="Solo Author")
     html = c.get(f"/book/{lone}").get_data(as_text=True)
-    assert "related-series-heading" not in html and "related-author-heading" not in html
+    assert "related-series-heading" not in html
 
 
 def test_phone_tap_strips_sit_above_the_book():
