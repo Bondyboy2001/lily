@@ -221,6 +221,10 @@ RUN \
 
 FROM runtime-base
 
+# Set first: after the --link copies below it would make BuildKit unpack the whole image
+# on every build (~7 s in CI) just to check that /config exists
+WORKDIR /config
+
 # --link copies are independent layers: they don't get redone when an earlier layer changes
 COPY --link --from=calibre /app/calibre /app/calibre
 
@@ -253,7 +257,6 @@ COPY --link --from=app /out/ /
 ENV CALIBRE_CONFIG_DIR=/config/.config/calibre
 ENV S6_LOGGING=1
 ENV S6_CATCHALL_USER=abc
-WORKDIR /config
 # The default port Lily listens on. Can be overridden with the CWA_PORT_OVERRIDE environment variable.
 EXPOSE 8083
 VOLUME ["/config", "/cwa-book-ingest", "/calibre-library"]

@@ -26,6 +26,7 @@ venv/
 **/__pycache__/
 **/*.pyc
 .ruff_cache/
+.mypy_cache/
 .playwright-mcp/
 .superpowers/
 .claude/
