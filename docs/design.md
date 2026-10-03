@@ -211,7 +211,7 @@ The book-page cover is a spine shape: `4px 8px 8px 4px`.
 | Switch | 34 × 20, 16px thumb | — |
 | Checkbox / radio | 14 × 14, `accent-color` | — |
 
-Bootstrap's `.btn-sm`, `.btn-xs` and `.btn-lg` do not change size. Every
+Bootstrap's `.btn-sm` does not change size. Every
 button is one size within its context. On coarse pointers every control gets a
 44px hit area through `::after` and keeps its drawn size: icon buttons and
 `.close` reach out 7px all round; text buttons and chips 7px above and below
@@ -260,8 +260,7 @@ get the Lily component:
 | `.modal` | Dialog |
 | `.alert-*` | Notice |
 | `.label-*`, `.badge` | Pill |
-| `.pagination`, `.nav-tabs`, `.nav-pills` | Chip row |
-| `.panel`, `.well` | Panel |
+| `.pagination` | Chip row |
 | `.table` | Table |
 | `.progress` | Progress bar |
 
@@ -325,7 +324,7 @@ colours the chosen chip gets a 2px `Highlight` outline.
 
 `--paper` fill, 1px `--line-strong` edge, radius 7, 30 tall (textareas auto).
 Placeholder `--faint`. Focus darkens the edge to `--faint` and shows the focus
-ring; no glow. Invalid (`.has-error`, `:user-invalid`): edge mixes accent 55%
+ring; no glow. Invalid (`:user-invalid`): edge mixes accent 55%
 into `--line-strong`. It warms rather than turning red. Disabled/read-only: `--sunk`
 fill at 0.4 opacity. Labels sit 4px above, 15px/500 `--ink-soft`.
 
@@ -376,14 +375,14 @@ header.
 ### 5.9 Pills and badges
 
 Small, non-interactive facts: radius 999, padding 3×6, 10–11px/500, tone
-label on the same tone at 12% (`.label-success`, `.label-warning`, …); neutral
+label on the same tone at 12% (`.label-success`, `.label-danger`, …); neutral
 is ink 12% with `--ink-soft`. If it does something, it's a chip.
 
 ### 5.10 Panels
 
 | Kind | Recipe | Use |
 | --- | --- | --- |
-| **Panel** | `--surface`, 1px `--line`, radius 10, padding 22 (dense: 14), no shadow | Any boxed group of content: `.panel`, `.well`, duplicate cards, user cards |
+| **Panel** | `--surface`, 1px `--line`, radius 10, padding 22 (dense: 14), no shadow | Any boxed group of content: duplicate cards, user cards |
 | **Side panel** | `--surface`, no border, radius 10, padding 20×22 | A compact group of facts beside content |
 | **Stage** | `--sunk`, no border, radius 10, padding 40 (24 below 1100, 24×16 on phones) | The book page's top band (`.book-detail-main`), and only that |
 | **Group card** | ink 2.5% into `--paper`, 1px `--line-soft`, radius 12, padding 0 16 | Settings rows (`.lp-list`) and only that |
@@ -507,9 +506,7 @@ content (grid, panel, rows)
   ("3 groups of duplicate books. Review duplicates") joins the flashes at the top of
   the page, once per browser session and again when the count rises. It is never a
   dialog: nothing covers the page the user came to use.
-- **Book row** (`.continue-reading-row`): one row that scrolls sideways, never
-  wraps. Covers are 140px wide (112 on phones), 22 apart (14 on phones). The
-  library has no Continue Reading row; books in progress are in the Reading list.
+- **No Continue Reading row:** books in progress are in the Reading list.
 - **No series anywhere:** Lily shows, edits, sorts, searches and browses no series
   (no Series page or OPDS feed, no "Book N of", no "Next in" row, no series on
   cards, in Fetch Metadata or in Advanced Search), and metadata lookups don't write

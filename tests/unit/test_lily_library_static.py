@@ -126,11 +126,6 @@ def test_library_has_no_continue_reading_row():
     assert "continue_reading" not in html and "Continue Reading" not in html
 
 
-def test_book_row_is_one_scrolling_row():
-    body = re.search(r"^\.continue-reading-row \{([^}]*)\}", read(CSS / "lily-library.css"), flags=re.M).group(1)
-    assert "display: flex" in body and "overflow-x: auto" in body and "grid-template-columns" not in body
-
-
 def test_detail_toolbar_buttons_are_labelled():
     css = read(CSS / "lily-library.css")
     parts = _rules_by_selector(css, ".book-action-bar")

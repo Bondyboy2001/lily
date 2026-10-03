@@ -18,7 +18,6 @@ _.anonymous_user
 _.session_protection
 
 # Request-scoped `g` attributes read from templates
-_.google_site_verification
 _.allow_upload
 
 # Per-user / per-task attributes assigned dynamically and read elsewhere

@@ -7,7 +7,7 @@
  * into the guide's components, so existing markup picks them up without template changes:
  *   .btn / .btn-default → Quiet    .btn-primary → Primary    .btn-danger → Danger
  *   .form-control → Field          .dropdown-menu → Menu     .modal → Sheet
- *   .alert → Notice                .label / .badge → Pill    .pagination / .nav-tabs → Chips
+ *   .alert → Notice                .label / .badge → Pill    .pagination → Chips
  * Loaded after bootstrap.min.css, style.css, upload.css and lily-fixes.css in layout.html.
  */
 
@@ -193,7 +193,6 @@ code {
 
 hr { display: none; }
 
-.lily-section-label,
 .dropdown-header {
     font-family: var(--font-body);
     font-size: var(--heading-size);
@@ -226,10 +225,7 @@ hr { display: none; }
 /* Bootstrap's .btn display would otherwise beat the hidden attribute */
 .btn[hidden] { display: none; }
 
-.btn-default,
-.btn-success,
-.btn-info,
-.btn-warning {
+.btn-default {
     border: 0;
     background: var(--control-tint);
     color: var(--ink-soft);
@@ -243,10 +239,7 @@ hr { display: none; }
 .btn-default:hover,
 .btn-default:focus,
 .btn-default:active,
-.btn-default.active,
-.btn-success:hover,
-.btn-info:hover,
-.btn-warning:hover {
+.btn-default.active {
     border: 0;
     background: var(--control-tint-strong);
     color: var(--ink);
@@ -289,10 +282,7 @@ hr { display: none; }
 
 /* Icon-only destructive actions (trash icons) use the accent, like the primary button. */
 .icon-btn.is-danger,
-.icon-btn.is-danger:focus,
-.danger.remove,
-.book-remove,
-.user-remove { color: var(--accent); }
+.icon-btn.is-danger:focus { color: var(--accent); }
 
 /* A destructive action that isn't the page's main job: Quiet, with accent text so it
    doesn't compete with Save. */
@@ -303,10 +293,7 @@ hr { display: none; }
 .btn.is-danger:hover,
 .btn.is-danger:focus-visible,
 .icon-btn.is-danger:hover,
-.icon-btn.is-danger:focus-visible,
-.danger.remove:hover,
-.book-remove:hover,
-.user-remove:hover {
+.icon-btn.is-danger:focus-visible {
     background: color-mix(in srgb, var(--danger) 12%, transparent);
     color: var(--danger);
 }
@@ -326,11 +313,7 @@ hr { display: none; }
 
 /* Every button is one size (§4); Bootstrap's size modifiers do not change it. */
 .btn-sm,
-.btn-xs,
-.btn-lg,
-.btn-group-sm > .btn,
-.btn-group-xs > .btn,
-.btn-group-lg > .btn {
+.btn-group-sm > .btn {
     height: 30px;
     padding: 0 14px;
     font-size: 15px;
@@ -340,8 +323,7 @@ hr { display: none; }
 
 .btn-block + .btn-block { margin-top: 8px; }
 
-.btn-group > .btn + .btn,
-.btn-toolbar > .btn + .btn { margin-left: 8px; }
+.btn-group > .btn + .btn { margin-left: 8px; }
 
 .btn-group > .btn,
 .btn-group > .btn:first-child:not(:last-child):not(.dropdown-toggle),
@@ -457,8 +439,7 @@ button:disabled {
 /* ------------------------------------------------------------------ */
 /* Fields (§5 Fields)                                                   */
 /* ------------------------------------------------------------------ */
-label,
-.control-label {
+label {
     margin-bottom: 4px;
     font-size: 15px;
     font-weight: 500;
@@ -583,14 +564,10 @@ textarea::placeholder {
     opacity: 1;
 }
 
-.has-error .form-control,
 .form-control:user-invalid {
     border-color: color-mix(in srgb, var(--accent) 55%, var(--line-strong));
     box-shadow: none;
 }
-
-.has-error .control-label,
-.has-error .help-block { color: var(--ink-soft); }
 
 .form-control[disabled],
 .form-control[readonly],
@@ -784,8 +761,7 @@ input[type="radio"] {
 .alert-warning { background: color-mix(in srgb, var(--warning) 7%, transparent); color: var(--ink); }
 .alert-danger { background: color-mix(in srgb, var(--danger) 7%, transparent); color: var(--ink); }
 
-.alert a:not(.btn),
-.alert .alert-link { color: var(--accent); font-weight: 500; }
+.alert a:not(.btn) { color: var(--accent); font-weight: 500; }
 
 .label,
 .badge {
@@ -804,15 +780,12 @@ input[type="radio"] {
 
 .label-primary, .label-info { background: var(--accent-soft); color: var(--accent); }
 .label-success { background: color-mix(in srgb, var(--success) 12%, transparent); color: var(--success); }
-.label-warning { background: color-mix(in srgb, var(--warning) 12%, transparent); color: var(--warning); }
 .label-danger { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
 
 /* ------------------------------------------------------------------ */
 /* Chips: pagination, tabs, pills (§5 Chips)                            */
 /* ------------------------------------------------------------------ */
-.pagination,
-.nav-tabs,
-.nav-pills {
+.pagination {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
@@ -821,12 +794,7 @@ input[type="radio"] {
     border: 0;
 }
 
-.nav-tabs,
-.nav-pills { margin: 0 0 22px; }
-
-.pagination > li,
-.nav-tabs > li,
-.nav-pills > li {
+.pagination > li {
     float: none;
     display: block;
     margin: 0;
@@ -835,9 +803,7 @@ input[type="radio"] {
 .pagination > li > a,
 .pagination > li > span,
 .pagination > li:first-child > a,
-.pagination > li:last-child > a,
-.nav-tabs > li > a,
-.nav-pills > li > a {
+.pagination > li:last-child > a {
     float: none;
     display: inline-flex;
     align-items: center;
@@ -857,11 +823,7 @@ input[type="radio"] {
 }
 
 .pagination > li > a:hover,
-.pagination > li > a:focus,
-.nav-tabs > li > a:hover,
-.nav-tabs > li > a:focus,
-.nav-pills > li > a:hover,
-.nav-pills > li > a:focus {
+.pagination > li > a:focus {
     border: 0;
     background: var(--control-tint-strong);
     color: var(--ink);
@@ -869,55 +831,21 @@ input[type="radio"] {
 
 .pagination > .active > a,
 .pagination > .active > a:focus,
-.pagination > .active > span,
-.nav-tabs > li.active > a,
-.nav-tabs > li.active > a:focus,
-.nav-pills > li.active > a,
-.nav-pills > li.active > a:focus {
+.pagination > .active > span {
     border: 0;
     background: var(--accent-soft);
     color: var(--accent);
 }
 
-.pagination > .active > a:hover,
-.nav-tabs > li.active > a:hover,
-.nav-pills > li.active > a:hover {
+.pagination > .active > a:hover {
     border: 0;
     background: var(--selected);
     color: var(--accent);
 }
 
 /* ------------------------------------------------------------------ */
-/* Cards, rows, progress                                                */
+/* Rows, tables, progress                                               */
 /* ------------------------------------------------------------------ */
-.well,
-.panel {
-    padding: 22px;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    background: var(--surface);
-    box-shadow: none;
-}
-
-.panel { padding: 0; }
-.panel-body { padding: 22px; }
-
-.panel-heading,
-.panel-default > .panel-heading {
-    padding: 14px 22px;
-    border-bottom: 0;
-    border-radius: 10px 10px 0 0;
-    background: transparent;
-    color: var(--heading);
-    font-size: var(--heading-size);
-    font-weight: 600;
-}
-
-.panel-footer {
-    border-top: 0;
-    background: transparent;
-}
-
 .list-group-item {
     border: 0;
     background: transparent;
@@ -939,19 +867,8 @@ input[type="radio"] {
     font-variant-numeric: tabular-nums;
 }
 
-.table-striped > tbody > tr:nth-of-type(odd) { background: transparent; }
-.table-hover > tbody > tr:hover { background: var(--hover); }
 .table > tbody > tr.active > td,
 .table > tbody > tr.selected > td { background: var(--selected); }
-
-.table-bordered,
-.table-bordered > thead > tr > th,
-.table-bordered > tbody > tr > td,
-.table-bordered > tbody > tr > th,
-.table-bordered > tfoot > tr > td,
-.table-bordered > tfoot > tr > th {
-    border: 0;
-}
 
 .progress {
     height: 4px;
@@ -968,8 +885,6 @@ input[type="radio"] {
     font-size: 0;
 }
 
-.progress-bar-success { background: var(--success); }
-.progress-bar-warning { background: var(--warning); }
 .progress-bar-danger { background: var(--danger); }
 
 /* ------------------------------------------------------------------ */
@@ -1027,9 +942,7 @@ textarea:focus-visible {
         border: 1px solid ButtonText;
     }
 
-    .pagination > .active > a,
-    .nav-tabs > li.active > a,
-    .nav-pills > li.active > a {
+    .pagination > .active > a {
         outline: 2px solid Highlight;
     }
 }

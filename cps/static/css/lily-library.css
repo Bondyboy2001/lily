@@ -350,9 +350,6 @@
 /* Fetched fills green so it reads on any cover; the eye stays a quiet --surface disc. */
 .cover .lily-cover-marks > .lily-fetched { background: var(--success); color: var(--surface); }
 
-
-.lily-book .cover .lily-cover-count { left: auto; right: 6px; }
-
 /* Fetched mark: a filled --success square tucked into the cover's top-right corner once a
    metadata lookup has matched the book (editors only). No ring: its outer corner follows the
    cover's 8px radius and the inner one is softened to 6. */
@@ -494,7 +491,6 @@
     background: var(--success);
     color: var(--surface);
 }
-
 
 @media (hover: hover) {
     .lily-cover-actions {
@@ -829,25 +825,6 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 
 /* One row that scrolls sideways, with covers smaller than the grid's, so the library
    still starts on the first screen however many books are in progress. */
-.continue-reading-row {
-    display: flex;
-    gap: 22px;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x proximity;
-    padding-bottom: 8px;
-}
-
-.continue-reading-row > .continue-reading-item {
-    flex: 0 0 140px;
-    width: 140px;
-    max-width: none;
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-    float: none;
-    scroll-snap-align: start;
-}
 
 .continue-reading-item .meta .title { -webkit-line-clamp: 1; }
 .continue-reading-item .meta .author { -webkit-line-clamp: 1; }
@@ -881,15 +858,6 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     color: var(--muted);
     font-size: 14px;
     font-variant-numeric: tabular-nums;
-}
-
-@media (max-width: 767px) {
-    .continue-reading-row { gap: 14px; }
-
-    .continue-reading-row > .continue-reading-item {
-        flex-basis: 112px;
-        width: 112px;
-    }
 }
 
 .library-empty-state {
@@ -1668,7 +1636,6 @@ dl.book-info {
 
 .lily-stars-none:checked:not(:focus-visible) + .lily-stars-clear { visibility: hidden; }
 
-
 /* ------------------------------------------------------------------ */
 /* Book editor (book_edit.html)                                        */
 /* ------------------------------------------------------------------ */
@@ -2031,7 +1998,6 @@ dl.book-info {
 .editbook-fields .editbook-publisher { grid-column: 1 / -1; }
 /* The Rating label sits above its stars, like every other field's label */
 .editbook-rating > label { display: block; }
-
 
 .editbook-section .row { margin-left: -8px; margin-right: -8px; }
 .editbook-section .row > [class*="col-"] { padding-left: 8px; padding-right: 8px; }

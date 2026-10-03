@@ -71,7 +71,6 @@ def before_request():
             log.error("Calibre DB session unavailable")
             config.db_configured = False
     g.constants = constants
-    g.google_site_verification = os.getenv('GOOGLE_SITE_VERIFICATION', '')
     g.allow_anonymous = config.config_anonbrowse
     g.allow_upload = config.config_uploading
     g.config_authors_max = config.config_authors_max
