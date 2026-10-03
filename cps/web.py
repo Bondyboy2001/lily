@@ -570,8 +570,9 @@ def query_char_list(data_colum, db_link):
     return results
 
 
-# Lists about reading open with the book last read first until another order is picked
-DEFAULT_SORTS = {"inprogress": "readnew", "read": "readnew"}
+# Lists about reading open with the book last read first, and a series in series order,
+# until another order is picked
+DEFAULT_SORTS = {"inprogress": "readnew", "read": "readnew", "series": "seriesasc"}
 
 
 def get_sort_function(sort_param, data):
