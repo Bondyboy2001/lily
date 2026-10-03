@@ -412,6 +412,21 @@ def test_book_page_details_dialog(client, temp_cwa_db):
 
 
 @pytest.mark.unit
+def test_details_dialog_names_and_links_identifiers(client, temp_cwa_db):
+    import sqlite3
+    env, c, book_id = client
+    con = sqlite3.connect(env.library_dir / "metadata.db")
+    con.execute("INSERT INTO identifiers (book, type, val) VALUES (?, 'arxiv', '1402.7349')", (book_id,))
+    con.commit()
+    con.close()
+    html = c.get(f"/book/{book_id}").get_data(as_text=True)
+    dialog = html[html.index('id="bookInfoModal"'):]
+    dialog = dialog[:dialog.index("</dl>")]
+    assert "<dt>arXiv</dt>" in dialog and "ARXIV" not in dialog
+    assert '<a href="https://arxiv.org/abs/1402.7349" target="_blank" rel="noopener">1402.7349</a>' in dialog
+
+
+@pytest.mark.unit
 def test_grid_quick_actions_name_their_book(client):
     env, c, _ = client
     html = c.get("/").get_data(as_text=True)

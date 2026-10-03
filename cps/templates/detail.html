@@ -247,8 +247,10 @@
               {% endfor %}
               {% for identifier in entry.identifiers %}
               <div>
-                <dt>{{ identifier.type|upper }}</dt>
-                <dd class="book-info-id">{{ identifier.val }}</dd>
+                {# Named as the source spells it (arXiv, ISBN…) and linked when it has a page #}
+                {% set id_url = identifier|string %}
+                <dt>{{ identifier.format_type() }}</dt>
+                <dd class="book-info-id">{% if id_url.startswith('https://') %}<a href="{{ id_url }}" target="_blank" rel="noopener">{{ identifier.val }}</a>{% else %}{{ identifier.val }}{% endif %}</dd>
               </div>
               {% endfor %}
               {% if not current_user.is_anonymous %}
