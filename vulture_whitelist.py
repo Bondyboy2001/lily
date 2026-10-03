@@ -65,6 +65,7 @@ _.font_size
 _.font
 _.fill_color
 _.text_antialias
+_.depth  # bits per channel of the grey thumbnail (cps/cover_match.py)
 
 # WSGI handler / logger internals
 _.format_request
