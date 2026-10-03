@@ -24,8 +24,9 @@ log = logger.create()
 
 FILTER_PARAMS = ("format", "lang", "status", "tag", "metadata")
 STATUS_CHOICES = ("unread", "reading", "read")
-# What a book's last metadata lookup found (cwa.db's metadata_lookups), or unchecked for none yet
-METADATA_CHOICES = ("matched", "nomatch", "failed", "unchecked")
+# What a book's last metadata lookup found (cwa.db's metadata_lookups), unchecked for none yet,
+# or changed: a lookup changed it and Book Details can undo that (metadata_changes)
+METADATA_CHOICES = ("matched", "nomatch", "failed", "unchecked", "changed")
 
 
 def _read_status_subquery(status):
@@ -92,13 +93,17 @@ def filter_expression(active=None):
 
 
 def _metadata_clause(choice):
-    """Books whose last lookup found `choice`, or that have had none (unchecked). The lookups
+    """Books whose last lookup found `choice`, that have had none (unchecked), or that a lookup
+    changed (changed). The lookups
     live in cwa.db, not the library, so their ids are written into the query as literals: a
     library can have more books than SQLite takes bound parameters."""
     from cwa_db import CWA_DB
     try:
         with CWA_DB() as store:
-            ids = store.metadata_lookup_ids(None if choice == "unchecked" else choice)
+            if choice == "changed":
+                ids = store.metadata_changed_ids()
+            else:
+                ids = store.metadata_lookup_ids(None if choice == "unchecked" else choice)
     except Exception as e:
         log.error("Could not read the metadata lookups: %s", e)
         ids = []

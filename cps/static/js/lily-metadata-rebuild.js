@@ -3,7 +3,8 @@
  * rebuild, then show its progress in a help line under the label until it finishes, with Stop
  * beside it meanwhile. A stopped rebuild is followed until the books under way are done.
  * Opening the page while a rebuild runs picks it up again. After a rebuild that was stopped
- * or cut short, the dialog offers to continue from there or start again.
+ * or cut short, the dialog offers to continue from there or start again. Retry failed starts
+ * a run of only the books whose last lookup failed, shown the same way.
  */
 (function () {
   "use strict";
@@ -14,6 +15,7 @@
   var confirmBtn = document.getElementById("rebuild_metadata_confirm");
   var restartBtn = document.getElementById("rebuild_metadata_restart");
   var resumeText = document.getElementById("rebuildMetadataResume");
+  var retryBtn = document.getElementById("retry_failed");
   // How far an unfinished rebuild got, in words; empty when there is none to continue
   var resume = "";
   var glyph = btn.querySelector(".glyphicon");
@@ -48,6 +50,7 @@
 
   function busy(on) {
     btn.disabled = on;
+    if (retryBtn) { retryBtn.disabled = on; }
     glyph.classList.toggle("glyphicon-spin", on);
     stopBtn.hidden = !on;
     stopBtn.disabled = false;
@@ -80,11 +83,12 @@
       .catch(function () { /* the next tick tries again */ });
   }
 
-  function start(continuing) {
+  // data: what to send (resume, or failed for Retry failed)
+  function start(data) {
     $("#rebuildMetadataModal").modal("hide");
     busy(true);
     say("Waiting to start…");
-    post(btn.dataset.url, continuing ? { resume: "1" } : null)
+    post(btn.dataset.url, data)
       .then(function () {
         follow();
         poll();
@@ -102,8 +106,11 @@
     confirmBtn.textContent = resume ? confirmBtn.dataset.continueLabel : confirmBtn.dataset.label;
     $("#rebuildMetadataModal").modal("show");
   });
-  confirmBtn.addEventListener("click", function () { start(Boolean(resume)); });
-  restartBtn.addEventListener("click", function () { start(false); });
+  confirmBtn.addEventListener("click", function () { start(resume ? { resume: "1" } : null); });
+  restartBtn.addEventListener("click", function () { start(null); });
+  if (retryBtn) {
+    retryBtn.addEventListener("click", function () { start({ failed: "1" }); });
+  }
   stopBtn.addEventListener("click", function () {
     stopBtn.disabled = true;
     post(stopBtn.dataset.url).then(poll).catch(function () { stopBtn.disabled = false; });

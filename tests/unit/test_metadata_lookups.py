@@ -282,3 +282,22 @@ def test_applying_a_result_on_the_book_page_changes_only_what_it_fills(env):
     finally:
         con.close()
     assert _store().get_metadata_lookup(book)["status"] == "matched"
+
+
+def test_a_lookups_change_is_listed_and_undone_from_book_details(env):
+    import json
+    book = env.add_book("Dune")
+    store = _store()
+    store.save_metadata_lookup(book, "matched", "Open Library")
+    store.save_metadata_change(book, "Open Library", json.dumps({"title": "dune"}))
+    client = _login(env)
+    html = client.get("/", query_string={"metadata": "changed"}).get_data(as_text=True)
+    assert re.findall(r'<p title="([^"]+)" class="title"', html) == ["Dune"]
+    assert 'id="lookups_changed"' in client.get("/cwa-settings").get_data(as_text=True)
+    page = client.get(f"/book/{book}").get_data(as_text=True)
+    dialog = page[page.index('id="bookInfoModal"'):]
+    assert f'action="/admin/book/{book}/undo-lookup"' in dialog and 'id="undo-lookup"' in dialog
+    client.post(f"/admin/book/{book}/undo-lookup")
+    assert store.last_metadata_change(book) is None and store.is_hand_edited(book)
+    page = client.get(f"/book/{book}").get_data(as_text=True)
+    assert 'id="undo-lookup"' not in page

@@ -1463,6 +1463,7 @@ def show_book(book_id):
             resume = _book_resume(int(current_user.id), book_id, entry.reader_list)
 
         metadata_lookup = _metadata_lookup(CWA_DB(), book_id) if current_user.role_edit() else None
+        metadata_change = _metadata_change(CWA_DB(), book_id) if current_user.role_edit() else None
 
         from .editbooks import book_edition
 
@@ -1486,6 +1487,7 @@ def show_book(book_id):
                                      is_xhr=request.headers.get('X-Requested-With') == 'XMLHttpRequest',
                                      title=entry.title,
                                      metadata_lookup=metadata_lookup,
+                                     metadata_change=metadata_change,
                                      edition=book_edition(book_id),
                                      shelf_menu=shelf_menu,
                                      page="book")
@@ -1494,6 +1496,18 @@ def show_book(book_id):
         flash(_("That book isn't in your library any more, or its file can't be read."),
               category="error")
         return redirect(url_for("web.index"))
+
+def _metadata_change(cwa_db, book_id):
+    """The book's latest lookup change that Undo can put back: {source, changed}, or None."""
+    try:
+        change = cwa_db.last_metadata_change(book_id)
+        if change:
+            change["changed"] = datetime.fromisoformat(change["changed_at"])
+        return change
+    except Exception as e:
+        log.debug("No lookup change to show for book %s: %s", book_id, e)
+        return None
+
 
 def _metadata_lookup(cwa_db, book_id):
     """What the book's last metadata lookup found, for its Metadata fact: {status, source,

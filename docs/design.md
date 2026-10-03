@@ -564,7 +564,9 @@ content (grid, panel, rows)
   published date, publisher, series, language, each file, each identifier, the
   last metadata lookup (editors only: what it found and when, "Open Library · ‹date›",
   "No match" or "Lookup failed") and the book ID. Dates appear nowhere
-  else on the page. A Close button ends the footer.
+  else on the page. A Close button ends the footer; for editors, when an automatic lookup
+  changed the book, a secondary "Undo lookup" comes before it (its tooltip names the source
+  and date) and puts back the details from before.
 - Tags and shelves are not shown on the book page; both stay editable on the
   edit page.
 - The action bar is Read, Download, Mark as read, Shelves, View details (the info sign), Fetch metadata (the magnifying glass,

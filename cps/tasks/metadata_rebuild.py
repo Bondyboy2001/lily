@@ -21,6 +21,7 @@ from collections import Counter
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from flask_babel import lazy_gettext as N_
+from sqlalchemy import func
 
 from cps import config, db, helper, logger, pdf_cover
 from cps.services.worker import (CalibreTask, STAT_FAIL, STAT_FINISH_SUCCESS, STAT_STARTED, STAT_STOPPING,
@@ -123,6 +124,7 @@ class TaskRebuildMetadata(CalibreTask):
                 if not progress and self.book_ids is None:
                     self._tidy_authors(cdb)
                     self._tidy_tags(cdb)
+                    self._clear_none_descriptions(cdb)
                 book_ids = [row[0] for row in cdb.session.query(db.Books.id).order_by(db.Books.id).all()]
             if self.book_ids is not None:
                 # Those still in the library; picked here, not in SQL, as there can be thousands
@@ -249,6 +251,19 @@ class TaskRebuildMetadata(CalibreTask):
         except Exception as ex:
             cdb.session.rollback()
             log.error("Rebuild: could not tidy tags: %s", ex)
+
+    def _clear_none_descriptions(self, cdb):
+        """Clear the description "None" that an old Fetch Metadata save wrote, so the lookups
+        fill it."""
+        try:
+            cleared = (cdb.session.query(db.Comments).filter(func.trim(db.Comments.text) == 'None')
+                       .delete(synchronize_session=False))
+            cdb.session.commit()
+            if cleared:
+                log.info("Rebuild: cleared the description \"None\" from %s books", cleared)
+        except Exception as ex:
+            cdb.session.rollback()
+            log.error("Rebuild: could not clear \"None\" descriptions: %s", ex)
 
     def _cover_changed(self, cdb, book_id):
         """Record a made or centred cover so its URL and thumbnails change with it."""

@@ -462,3 +462,28 @@ def test_the_paper_sources_are_not_asked_about_an_epub(env, monkeypatch):
     metadata_helper.fetch_and_apply_metadata(epub, force=True)
     metadata_helper.fetch_and_apply_metadata(pdf, force=True)
     assert asked == ["Spectral Graphs Fan Chung"]
+
+
+def test_undo_puts_back_what_a_lookup_changed(env, monkeypatch):
+    from cwa_db import CWA_DB
+    from cps import metadata_helper
+    book = env.add_book("dune", author="Unknown", tags=("Deserts",))
+    (env.library_dir / "Unknown" / "dune").mkdir(parents=True, exist_ok=True)
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice.",
+                                         publisher="Ace", tags=["Science fiction"], series="Dune Chronicles",
+                                         publishedDate="1965", identifiers={"google": "abc"}))
+    monkeypatch.setattr(helper, "CWA_DB", CWA_DB)
+    CWA_DB().update_cwa_settings({"auto_metadata_fetch_enabled": 1})
+    before = _q(env, "SELECT title, author_sort, pubdate, series_index FROM books")
+    assert helper.fetch_and_apply_metadata(book, force=True) is True
+    assert _q(env, "SELECT title FROM books") == [("Dune",)]
+    assert metadata_helper.undo_last_change(book) is True
+    assert _q(env, "SELECT title, author_sort, pubdate, series_index FROM books")[0][:2] == before[0][:2]
+    assert _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author") == [("Unknown",)]
+    assert _q(env, "SELECT text FROM comments") == []
+    assert _book_tags(env, book) == ["Deserts"]
+    assert _q(env, "SELECT count(*) FROM books_series_link") == [(0,)]
+    assert _q(env, "SELECT count(*) FROM identifiers") == [(0,)]
+    # Undone once; the book now counts as edited by hand
+    assert metadata_helper.undo_last_change(book) is False
+    assert CWA_DB().is_hand_edited(book)

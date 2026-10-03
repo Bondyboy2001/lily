@@ -989,6 +989,89 @@ def _keep_change(store, book_id, source, before):
         log.debug(f"Could not keep the change to book {book_id}: {e}")
 
 
+def undo_last_change(book_id: int) -> bool:
+    """Put back what the book's latest lookup changed, as it was before; True when there was
+    one. The book then counts as edited by hand, so the next lookup only fills its gaps. A
+    cover the lookup set stays."""
+    store = CWA_DB()
+    change = store.last_metadata_change(book_id)
+    if not change:
+        return False
+    before = json.loads(change["before"])
+    with library_lock:
+        cdb = db.CalibreDB(expire_on_commit=False, init=True)
+    try:
+        with library_lock:
+            book = cdb.get_book(book_id)
+            if not book:
+                return False
+            old = _title_and_author(cdb, book)
+            _restore(cdb, book, before)
+            _follow_up(cdb, book_id, old, bool(store.get_cwa_settings().get('auto_metadata_enforcement')))
+    except Exception:
+        with library_lock:
+            _rollback(cdb)
+        raise
+    finally:
+        with library_lock:
+            cdb.session.close()
+    store.drop_metadata_change(change["id"])
+    store.save_hand_edit(book_id)
+    log.info(f"Undid the {change['source'] or 'metadata'} lookup of book {book_id}")
+    return True
+
+
+def _restore(cdb, book, before):
+    """Set the book's fields back to `before` (see _apply_record) and commit."""
+    session = cdb.session
+    dropped = []
+    with session.no_autoflush:
+        if 'title' in before:
+            book.title = before['title']
+        if 'authors' in before:
+            authors = []
+            for name in before['authors'] or []:
+                author = _named(cdb, db.Authors, cdb.get_author_by_name, name, get_sorted_author(name.replace('|', ',')))
+                if author not in authors:
+                    authors.append(author)
+            dropped += [a for a in book.authors if a not in authors]
+            book.authors = authors
+            book.author_sort = before.get('author_sort') or ' & '.join(a.sort for a in authors)
+        if 'description' in before:
+            text = before['description'] or ''
+            if text and book.comments:
+                book.comments[0].text = text
+            elif text:
+                session.add(db.Comments(text, book.id))
+            else:
+                for comment in list(book.comments):
+                    session.delete(comment)
+        for attr, model, lookup in (('publisher', db.Publishers, cdb.get_publisher_by_name),
+                                    ('tags', db.Tags, cdb.get_tag_by_name),
+                                    ('series', db.Series, cdb.get_series_by_name)):
+            if attr not in before:
+                continue
+            # A publisher's and a series' rows take their sort name too, as _apply_record makes them
+            rows = [_named(cdb, model, lookup, name, *(() if model is db.Tags else (name,)))
+                    for name in before[attr] or []]
+            _only(book, 'publishers' if attr == 'publisher' else attr, rows, dropped)
+        if 'series_index' in before:
+            book.series_index = before['series_index']
+        if 'pubdate' in before:
+            book.pubdate = datetime.fromisoformat(before['pubdate']) if before['pubdate'] else db.Books.DEFAULT_PUBDATE
+        added = set(before.get('identifiers_added') or [])
+        for identifier in list(book.identifiers):
+            if identifier.type.lower() in added:
+                book.identifiers.remove(identifier)
+                session.delete(identifier)
+    book.last_modified = datetime.now(timezone.utc)
+    session.flush()
+    for row in dropped:
+        if _unused(session, row):
+            session.delete(row)
+    session.commit()
+
+
 def _place_cover(book, cover):
     """Moves the downloaded cover into the book's folder, keeping the old one beside it
     until the commit is through. Returns (undo, done)."""

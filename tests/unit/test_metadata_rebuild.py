@@ -361,3 +361,48 @@ def test_rebuild_route_looks_up_only_the_books_ticked_in_the_table(env, monkeypa
     assert not queued
     c.post("/cwa-settings/rebuild-metadata", data={"book_ids": "9,3,x,5"})
     assert queued[0].book_ids == [3, 5, 9] and queued[0].name == "Look up selected books"
+
+
+@pytest.mark.unit
+def test_retry_failed_looks_up_only_the_failed_books(env, monkeypatch):
+    from cwa_db import CWA_DB
+    from cps.services.worker import WorkerThread
+    queued = []
+    monkeypatch.setattr(WorkerThread, "add_parallel", classmethod(lambda cls, user, task: queued.append(task)))
+    monkeypatch.setattr(WorkerThread, "tasks", property(lambda self: []))
+    c = _login(env)
+    assert c.post("/cwa-settings/rebuild-metadata", data={"failed": "1"}).get_json() == {"success": True, "none": True}
+    one, two, three = (env.add_book(t) for t in ("One", "Two", "Three"))
+    store = CWA_DB()
+    store.save_metadata_lookup(three, "failed")
+    store.save_metadata_lookup(one, "failed")
+    store.save_metadata_lookup(two, "nomatch")
+    c.post("/cwa-settings/rebuild-metadata", data={"failed": "1"})
+    assert queued[0].book_ids == [one, three] and queued[0].name == "Retry failed lookups"
+    html = c.get("/cwa-settings").get_data(as_text=True)
+    assert 'id="retry_failed"' in html
+
+
+@pytest.mark.unit
+def test_the_rebuild_confirmation_says_what_it_does_and_how_long(env):
+    for title in ("One", "Two"):
+        env.add_book(title)
+    html = _login(env).get("/cwa-settings").get_data(as_text=True)
+    modal = html[html.index('id="rebuildMetadataModal"'):]
+    assert "keeps the details it has and gets the ones it lacks" in modal
+    assert "For 2 books this takes under an hour" in modal
+    assert 'id="retry_failed"' not in html
+
+
+@pytest.mark.unit
+def test_a_full_rebuild_clears_none_descriptions(env, monkeypatch):
+    import sqlite3
+    book = env.add_book("One")
+    con = sqlite3.connect(env.library_dir / "metadata.db")
+    con.execute("INSERT INTO comments (book, text) VALUES (?, 'None')", (book,))
+    con.commit()
+    con.close()
+    _run_rebuild(env, monkeypatch)
+    con = sqlite3.connect(env.library_dir / "metadata.db")
+    assert con.execute("SELECT count(*) FROM comments").fetchone()[0] == 0
+    con.close()

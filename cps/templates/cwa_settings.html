@@ -18,26 +18,35 @@
       {{ f.toggle('auto_metadata_enforcement', _('Write edits into book files'), cwa_settings['auto_metadata_enforcement'],
          help=_('Edits are saved into EPUB and AZW3 files too, not just the library. PDFs are never changed.')) }}
       {{ f.input('config_google_books_api_key', _('Google Books API key'), config.config_google_books_api_key, type='password',
-         help=_('Optional. Raises the Google Books rate limit.')) }}
+         help=_('Without one, Google Books rarely answers and lookups rely on the other providers. A free key comes from the Google Cloud console.')) }}
       {# lily-metadata-rebuild.js: confirms, queues the task and shows its progress under the label #}
       {% call f.row(_('Rebuild metadata')) %}
         <button type="button" class="btn btn-default" id="rebuild_metadata"
                 data-url="{{ url_for('cwa_settings.rebuild_metadata') }}" data-status-url="{{ url_for('cwa_settings.rebuild_metadata_status') }}">
           <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> {{ _('Rebuild') }}
         </button>
+        {% if lookups.get('failed') %}
+        {# Looks up again only the books whose last lookup failed #}
+        <button type="button" class="btn btn-default" id="retry_failed">{{ _('Retry failed') }}</button>
+        {% endif %}
         <button type="button" class="btn btn-default" id="rebuild_metadata_stop" hidden
                 data-url="{{ url_for('cwa_settings.stop_rebuild_metadata') }}">{{ _('Stop') }}</button>
       {% endcall %}
       {# What each book's last lookup found; the library's Metadata filter lists them #}
       {% if lookups.get('failed') %}
       {{ f.link(url_for('web.index', metadata='failed'), _('Lookup failed'),
-         help=_('A provider didn’t answer, often Google’s daily limit. Rebuild asks again.'),
+         help=_('A provider that might have the book didn’t answer. Retry failed asks again.'),
          value=lookups['failed'], id='lookups_failed') }}
       {% endif %}
       {% if lookups.get('nomatch') %}
       {{ f.link(url_for('web.index', metadata='nomatch'), _('No match'),
          help=_('Every provider answered, but none has the book under this title and author.'),
          value=lookups['nomatch'], id='lookups_nomatch') }}
+      {% endif %}
+      {% if lookups.get('changed') %}
+      {{ f.link(url_for('web.index', metadata='changed'), _('Changed by lookups'),
+         help=_('Each book’s Book Details can undo its lookup.'),
+         value=lookups['changed'], id='lookups_changed') }}
       {% endif %}
     {% endcall %}
 
@@ -54,6 +63,11 @@
     <div class="modal-content">
       <div class="modal-header"><h4 class="modal-title" id="rebuildMetadataTitle">{{ _('Rebuild Metadata?') }}</h4></div>
       <div class="modal-body">
+        {# What a rebuild does, so it is never started blind #}
+        <p id="rebuildMetadataWhat">{{ _('Every book is looked up again. A book keeps the details it has and gets the ones it lacks; one whose details came from its file name takes the match’s. Books you’ve edited keep their title and authors. Authors and tags are tidied first.') }}</p>
+        {% if rebuild_time.books %}
+        <p>{{ _('For %(books)s books this takes %(time)s. Each change can be undone from the book’s details.', books=rebuild_time.books, time=rebuild_time.time) }}</p>
+        {% endif %}
         {# Filled in by lily-metadata-rebuild.js when a stopped rebuild can be carried on #}
         <p id="rebuildMetadataResume" hidden></p>
       </div>

@@ -58,17 +58,42 @@ def set_cwa_settings():
         return redirect(url_for('cwa_settings.set_cwa_settings'))
 
     return render_title_template("cwa_settings.html", title=_("Import & Metadata"), page="cwa-settings",
-                                 cwa_settings=cwa_db.get_cwa_settings(), config=config, lookups=_lookup_counts(cwa_db))
+                                 cwa_settings=cwa_db.get_cwa_settings(), config=config, lookups=_lookup_counts(cwa_db),
+                                 rebuild_time=_rebuild_time())
+
+
+# A lookup takes about this long a book, four at once (measured on 2026-10-03)
+SECONDS_A_BOOK = 1.5
+
+
+def _rebuild_time():
+    """How long a rebuild of the whole library takes, in words, for its confirmation."""
+    from .. import calibre_db, db
+    try:
+        books = calibre_db.session.query(db.Books.id).count()
+    except Exception as e:
+        log.debug("No books to count: %s", e)
+        return {"books": 0, "time": ""}
+    hours = books * SECONDS_A_BOOK / 3600
+    if hours < 1:
+        time = _("under an hour")
+    elif hours < 1.5:
+        time = _("about an hour")
+    else:
+        time = _("about %(hours)s hours", hours=round(hours))
+    return {"books": books, "time": time}
 
 
 def _lookup_counts(cwa_db):
-    """{status: books} from the books' last metadata lookups, counting only books still in the library."""
+    """{status: books} from the books' last metadata lookups, and {changed: books} a lookup changed
+    that can be undone, counting only books still in the library."""
     from .. import calibre_db, db
     try:
         books = {row[0] for row in calibre_db.session.query(db.Books.id)}
         counts = {}
         for status in ("failed", "nomatch"):
             counts[status] = sum(1 for book_id in cwa_db.metadata_lookup_ids(status) if book_id in books)
+        counts["changed"] = sum(1 for book_id in cwa_db.metadata_changed_ids() if book_id in books)
         return counts
     except Exception as e:
         log.debug("No metadata lookups to count: %s", e)
@@ -80,16 +105,21 @@ def _lookup_counts(cwa_db):
 @admin_required
 def rebuild_metadata():
     """Start a lookup of every book with the metadata providers, a few at once. It runs on its
-    own thread, so covers and duplicate scans don't wait behind it. With `book_ids` (comma-separated),
-    it looks up only those books, the ones ticked in the book table. With `resume`, it carries on
-    where a stopped or interrupted rebuild got to."""
+    own thread, so covers and duplicate scans don't wait behind it. With `failed`, it looks up only
+    the books whose last lookup failed (Retry failed). With `book_ids` (comma-separated), only
+    those books. With `resume`, it carries on where a stopped or interrupted rebuild got to."""
     from ..services.worker import WorkerThread
     from ..tasks.metadata_rebuild import TaskRebuildMetadata
     # Two requests at once (two tabs) start one rebuild
     with _rebuild_start_lock:
         if _running_rebuilds(including_stopping=True):
             return jsonify({"success": True, "running": True})
-        if request.form.get("book_ids"):
+        if request.form.get("failed"):
+            book_ids = CWA_DB().metadata_lookup_ids("failed")
+            if not book_ids:
+                return jsonify({"success": True, "none": True})
+            task = TaskRebuildMetadata(book_ids=book_ids)
+        elif request.form.get("book_ids"):
             # The books ticked in the book table
             book_ids = [int(i) for i in request.form["book_ids"].split(",") if i.strip().isdigit()]
             if not book_ids:
