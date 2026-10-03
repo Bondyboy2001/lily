@@ -884,19 +884,8 @@ def _named(cdb, model, lookup, name, *extra):
     return row
 
 
-def _only(book, attr, rows, dropped) -> bool:
-    """Make rows the book's only tags, or its one publisher; False when they
-    already are. The rows they replace are added to `dropped`."""
-    current = getattr(book, attr)
-    if {r.name for r in current} == {r.name for r in rows}:
-        return False
-    dropped.extend(r for r in current if r not in rows)
-    setattr(book, attr, rows)
-    return True
-
-
 def _unused(session, row) -> bool:
-    """Whether no book has the author, tag or publisher any more. Asked of the
+    """Whether no book has the author any more. Asked of the
     library, as row.books would load every book that has it: thousands, for a common tag."""
     model = type(row)
     return session.query(model.id).filter(model.id == row.id, model.books.any()).first() is None
@@ -957,11 +946,6 @@ def reads_as_english(text: str) -> bool:
     return sum(word in _ENGLISH_WORDS for word in words) * 20 >= len(words)
 
 
-def _wants_english(book) -> bool:
-    """Whether the book's description should be English: it is English, or has no language."""
-    codes = {lang.lang_code for lang in book.languages or []}
-    return not codes or 'eng' in codes
-
 
 def _blank_description(book) -> bool:
     """The book has no description, or only the "None" an old save wrote."""
@@ -980,12 +964,11 @@ def _apply_record(cdb, book, record, cover, mode=REPLACE, store=None, changes=No
     """Writes what the record changes and commits; True when anything changed.
 
     With mode REPLACE (see lookup_mode) the record's fields replace the book's; with FILL and
-    HAND only empty fields are filled (a date also when the record's is earlier, as a first
-    publication is), and the title and authors change only as lookup_mode says. Only fields
-    the record has are touched; a book's own identifiers are kept and new ones added. The
-    rating is left alone: a provider's is its readers' average, not this library's. A
-    description that doesn't read as English is skipped for an English book. Tags are left
-    alone: they are the user's own (and providers' are shop categories). What changed is
+    HAND only empty fields are filled, and the title and authors change only as lookup_mode
+    says (a date is also replaced by an earlier one, as a first publication is). Only fields
+    the record has are touched; a book's own identifiers are kept and new ones added. A
+    description that doesn't read as English is skipped. Tags, the publisher, languages and
+    ratings are left alone: Lily keeps none of them from a lookup. What changed is
     kept in `store` as it was before, for Undo, and added to `changes` as {field: [before,
     after]} for the Logs page (see described_changes)."""
     session = cdb.session
@@ -1048,7 +1031,7 @@ def _apply_record(cdb, book, record, cover, mode=REPLACE, store=None, changes=No
         # Cleaned like an edit's: a description is shown as HTML, and a provider's can be anyone's
         description = (record.description or '').strip()
         description = clean_string(description, book.id) if description else ''
-        if description and _wants_english(book) and not reads_as_english(description):
+        if description and not reads_as_english(description):
             log.info(f"Skipped a description for book {book.id} that isn't in English")
             description = ''
         current = book.comments[0].text if book.comments else ''
@@ -1060,14 +1043,6 @@ def _apply_record(cdb, book, record, cover, mode=REPLACE, store=None, changes=No
             else:
                 session.add(db.Comments(description, book.id))
             changed = True
-
-        publisher = (record.publisher or '').strip()
-        if publisher and (not filling or not book.publishers):
-            row = _named(cdb, db.Publishers, cdb.get_publisher_by_name, publisher, publisher)
-            old = [p.name for p in book.publishers]
-            if _only(book, 'publishers', [row], dropped):
-                before['publisher'] = old
-                changed = True
 
         published = helper.parse_partial_date(record.publishedDate)
         date_ok = not filling or _no_date(book.pubdate) or (published and book.pubdate
@@ -1146,8 +1121,6 @@ def described_changes(book, before, new_cover=False, description=None) -> dict:
         if description is None:
             description = book.comments[0].text if book.comments else ''
         changes['description'] = [_snippet(before['description']), _snippet(description)]
-    if 'publisher' in before:
-        changes['publisher'] = [", ".join(before['publisher'] or []), names(book.publishers)]
     if 'pubdate' in before:
         changes['pubdate'] = [_date_text(before['pubdate']), _date_text(book.pubdate)]
     if before.get('identifiers_added'):
@@ -1224,11 +1197,6 @@ def _restore(cdb, book, before):
             else:
                 for comment in list(book.comments):
                     session.delete(comment)
-        if 'publisher' in before:
-            # The publisher's row takes its sort name too, as _apply_record makes it
-            rows = [_named(cdb, db.Publishers, cdb.get_publisher_by_name, name, name)
-                    for name in before['publisher'] or []]
-            _only(book, 'publishers', rows, dropped)
         if 'pubdate' in before:
             book.pubdate = datetime.fromisoformat(before['pubdate']) if before['pubdate'] else db.Books.DEFAULT_PUBDATE
         added = set(before.get('identifiers_added') or [])

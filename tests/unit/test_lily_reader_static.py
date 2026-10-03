@@ -145,11 +145,11 @@ def test_advanced_search_uses_lily_form_rows():
     html = read(TEMPLATES / "search_form.html")
     assert 'import "lily_form.html" as f' in html
     assert "col-sm-" not in html and not re.search(r'\sstyle="', html)
-    for field in ("title", "authors", "publisher", "comments", "read_status"):
+    for field in ("title", "authors", "comments", "read_status"):
         assert 'name="%s"' % field in html, field
-    # The rating bounds are star radio groups posting the same field names (search.py).
-    for field in ("ratinghigh", "ratinglow"):
-        assert "image.rating_input('%s'" % field in html, field
+    # No publisher, rating or language filters; the published range stays
+    for gone in ('name="publisher"', "rating_input", "include_exclude('language'"):
+        assert gone not in html, gone
     assert "date_field('publishstart'" in html and "date_field('publishend'" in html
 
 
@@ -245,30 +245,6 @@ def test_djvu_reader_uses_the_lily_chrome():
     assert 'getPropertyValue("--sunk")' in js and '"page:" + page' in js
 
 
-def test_rating_inputs_are_keyboard_radio_groups():
-    # docs/design.md §5.14: a rating input is a radio group (none + 1-5 stars) drawn as stars,
-    # so the arrow keys pick a rating; the mouse-only bootstrap-rating-input plugin is gone.
-    image = read(TEMPLATES / "image.html")
-    macro = re.search(r"{% macro rating_input.*?{%- endmacro %}", image, flags=re.S).group(0)
-    assert 'role="radiogroup"' in macro and 'type="radio"' in macro
-    assert "aria-labelledby=" in macro and "aria-label=" in macro
-    assert "ngettext('%(num)s star', '%(num)s stars', n)" in macro
-    # Clearing a rating clears one value, so the "none" option is the × glyph (§5.2).
-    clear = re.search(r'<label[^>]*class="lily-stars-clear"[^>]*>.*?</label>', macro).group(0)
-    assert "glyphicon-remove" in clear and 'title="{{ none_text }}"' in clear
-    for name in ("book_edit.html", "search_form.html"):
-        html = read(TEMPLATES / name)
-        assert "bootstrap-rating-input" not in html and "data-clearable" not in html, name
-        assert "image.rating_input(" in html, name
-    css = strip_comments(read(CSS / "lily-library.css"))
-    assert "rating-input" not in css
-    assert re.search(r"\.lily-stars \.lily-star \{[^}]*font-size: 27px", css)
-    assert re.search(r"\.lily-stars-input:focus-visible \+ label \{[^}]*outline: 2px solid", css)
-    # get_meta.js fills the rating by checking a radio, not through the plugin.
-    meta = read(JS / "get_meta.js")
-    assert '$("#rating").data("rating")' not in meta and "input[name='rating']" in meta
-
-
 @pytest.mark.unit
 def test_authors_page_has_no_letter_filter(client):
     env, c, _ = client
@@ -352,38 +328,17 @@ def test_book_editor_shows_every_field_even_when_blank(client):
     resp = c.get(f"/admin/book/{book_id}")
     assert resp.status_code == 200, resp.data[:300]
     html = resp.get_data(as_text=True)
-    # The fixture book has no series, publisher, rating or description: their fields still
-    # show, blank, and nothing in the form is hidden but the identifiers table
+    # The fixture book has no series or description: their fields still show, blank, and
+    # nothing in the form is hidden but the identifiers table. No publisher, language or rating.
     assert 'name="series"' not in html and 'name="series_index"' not in html
-    assert 'name="publisher" id="publisher" value=""' in html
+    for gone in ('name="publisher"', 'name="languages"', 'name="rating"'):
+        assert gone not in html, gone
+    assert 'name="pubdate"' in html
     assert re.search(r'<textarea[^>]*id="comments"[^>]*></textarea>', html)
     assert "data-optional" not in html
     form = html.split('<div class="editbook-form">', 1)[1].split('<aside class="editbook-actions"', 1)[0]
     assert re.findall(r'<(\w+)[^>]*\shidden[\s>]', form) == ["table"]
     assert 'id="author-add"' in html and 'id="tag-add"' in html and 'id="title"' in html
-    # The rating is a star radio group named by its visible label; "none" is chosen.
-    group = re.search(r'<div class="lily-stars" role="radiogroup"[^>]*>(.*?)</div>', html, flags=re.S)
-    assert group and 'aria-labelledby="rating-label"' in group.group(0)
-    assert '<label id="rating-label">' in html
-    radios = re.findall(r'<input type="radio"[^>]*name="rating"[^>]*>', group.group(1))
-    assert [re.search(r'value="([^"]*)"', r).group(1) for r in radios] == ["1", "2", "3", "4", "5", ""]
-    assert "checked" in radios[-1] and not any("checked" in r for r in radios[:-1])
-    assert "<span class=\"sr-only\">3 stars</span>" in group.group(1)
-    assert "<span class=\"sr-only\">1 star</span>" in group.group(1)
-
-
-@pytest.mark.unit
-def test_advanced_search_rating_bounds_are_star_radio_groups(client):
-    env, c, _ = client
-    html = c.get("/advsearch").get_data(as_text=True)
-    for name, label in (("ratinghigh", "Rating above"), ("ratinglow", "Rating below")):
-        group = re.search(r'<div class="lily-stars" role="radiogroup" aria-label="%s">(.*?)</div>' % label,
-                          html, flags=re.S)
-        assert group, name
-        values = re.findall(r'<input type="radio"[^>]*name="%s"[^>]*value="([^"]*)"' % name, group.group(1))
-        # "Any rating" posts an empty value, which search.py treats as no bound.
-        assert values == ["1", "2", "3", "4", "5", ""], name
-        assert '<span class="sr-only">Any rating</span>' in group.group(1)
 
 
 @pytest.mark.unit

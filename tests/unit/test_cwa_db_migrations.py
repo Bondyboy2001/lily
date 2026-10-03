@@ -310,14 +310,23 @@ def test_migration_6_drops_the_import_merge_setting(cwa_dir):
         db.close()
 
 
+def _library(folder):
+    """A calibre library's linked tables, as metadata.db has them."""
+    lib = sqlite3.connect(folder / "metadata.db")
+    lib.execute("CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT, pubdate TEXT)")
+    for table, column in (("tags", "tag"), ("publishers", "publisher"), ("languages", "lang_code"),
+                          ("ratings", "rating")):
+        lib.execute(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY, name TEXT)")
+        lib.execute(f"CREATE TABLE books_{table}_link (id INTEGER PRIMARY KEY, book INTEGER, {column} INTEGER)")
+    return lib
+
+
 @pytest.mark.unit
 def test_migration_7_clears_every_books_tags_once_after_a_backup(cwa_dir, tmp_path, monkeypatch):
     import json
     library = tmp_path / "library"
     library.mkdir()
-    lib = sqlite3.connect(library / "metadata.db")
-    lib.execute("CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT)")
-    lib.execute("CREATE TABLE books_tags_link (id INTEGER PRIMARY KEY, book INTEGER, tag INTEGER)")
+    lib = _library(library)
     lib.executemany("INSERT INTO tags VALUES (?, ?)", [(1, "Mathematics"), (2, "Springer 2011")])
     lib.executemany("INSERT INTO books_tags_link (book, tag) VALUES (?, ?)", [(1, 1), (1, 2), (2, 1)])
     lib.commit()
@@ -362,9 +371,7 @@ def test_migration_7_leaves_a_new_installs_library_alone(tmp_path, monkeypatch):
     import json
     library = tmp_path / "library"
     library.mkdir()
-    lib = sqlite3.connect(library / "metadata.db")
-    lib.execute("CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT)")
-    lib.execute("CREATE TABLE books_tags_link (id INTEGER PRIMARY KEY, book INTEGER, tag INTEGER)")
+    lib = _library(library)
     lib.execute("INSERT INTO tags VALUES (1, 'Mathematics')")
     lib.execute("INSERT INTO books_tags_link (book, tag) VALUES (1, 1)")
     lib.commit()
@@ -381,3 +388,46 @@ def test_migration_7_leaves_a_new_installs_library_alone(tmp_path, monkeypatch):
         assert lib.execute("SELECT COUNT(*) FROM books_tags_link").fetchone()[0] == 1
     finally:
         lib.close()
+
+
+@pytest.mark.unit
+def test_migration_8_clears_publishers_languages_and_ratings_but_not_dates(cwa_dir, tmp_path, monkeypatch):
+    import json
+    library = tmp_path / "library"
+    library.mkdir()
+    lib = _library(library)
+    lib.execute("INSERT INTO books VALUES (1, 'Dune', '1965-08-01 00:00:00+00:00')")
+    lib.execute("INSERT INTO publishers VALUES (1, 'Ace')")
+    lib.execute("INSERT INTO books_publishers_link (book, publisher) VALUES (1, 1)")
+    lib.execute("INSERT INTO languages VALUES (1, 'eng')")
+    lib.execute("INSERT INTO books_languages_link (book, lang_code) VALUES (1, 1)")
+    lib.execute("INSERT INTO ratings VALUES (1, 8)")
+    lib.execute("INSERT INTO books_ratings_link (book, rating) VALUES (1, 1)")
+    lib.execute("INSERT INTO tags VALUES (1, 'To read')")
+    lib.execute("INSERT INTO books_tags_link (book, tag) VALUES (1, 1)")
+    lib.commit()
+    lib.close()
+    dirs = tmp_path / "dirs.json"
+    dirs.write_text(json.dumps({"calibre_library_dir": str(library)}))
+    monkeypatch.setattr(cwa_db_module, "DIRS_FILE", str(dirs))
+    con = sqlite3.connect(cwa_dir / "cwa.db")
+    con.execute("CREATE TABLE cwa_settings (default_settings SMALLINT DEFAULT 1 NOT NULL)")
+    con.execute("INSERT INTO cwa_settings DEFAULT VALUES")
+    # Migration 7 ran long ago: the user's tags since then must stay
+    con.execute("CREATE TABLE cwa_schema_migrations (version INTEGER PRIMARY KEY NOT NULL, name TEXT NOT NULL, "
+                "applied_at TEXT NOT NULL)")
+    con.executemany("INSERT INTO cwa_schema_migrations VALUES (?, 'old', '2026-01-01')", [(v,) for v in range(1, 8)])
+    con.commit()
+    con.close()
+
+    _reopen(cwa_dir).close()
+    lib = sqlite3.connect(library / "metadata.db")
+    try:
+        for table in ("publishers", "languages", "ratings", "books_publishers_link", "books_languages_link",
+                      "books_ratings_link"):
+            assert lib.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
+        assert lib.execute("SELECT pubdate FROM books").fetchone()[0].startswith("1965-08-01")
+        assert lib.execute("SELECT name FROM tags").fetchall() == [("To read",)]
+    finally:
+        lib.close()
+    assert (cwa_dir / "metadata.db.before-details-clear").exists()

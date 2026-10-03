@@ -220,7 +220,6 @@ def test_datacite_record_reads_like_the_abstract_page():
     assert record.authors == ["Adrian Dobra", "Alex Lenkoski"]
     assert record.description == "We propose a Bayesian approach & more."
     assert record.publishedDate == "2011-08-08"
-    assert record.publisher == "arXiv"
     assert record.url == "https://arxiv.org/abs/1108.1680"
     assert record.identifiers == {"arxiv": "1108.1680", "doi": "10.1214/10-aoas397"}
 
@@ -254,7 +253,6 @@ def test_semantic_scholar_match_reads_as_a_record(monkeypatch):
     assert record.title == "Mastering the game of Go with deep neural networks and tree search"
     assert record.authors == ["David Silver", "Aja Huang"]
     assert record.description == "The game of Go has long been viewed as the most challenging."
-    assert record.publisher == "Nature"
     assert record.publishedDate == "2016-01-27"
     assert record.identifiers == {"doi": "10.1038/nature16961"}
     assert record.source.description == "Semantic Scholar"

@@ -288,7 +288,7 @@ def test_applying_a_result_on_the_book_page_changes_only_what_it_fills(env):
     page = c.get(f"/book/{book}").get_data(as_text=True)
     form = re.search(r'<form action="([^"]+)" method="post" id="book_edit_frm" hidden>(.*?)</form>', page, flags=re.S)
     assert form
-    # What get_meta.js sends: the enabled fields, plus the ones a result filled (here the publisher)
+    # What get_meta.js sends: the enabled fields, plus the ones a result filled (here the description)
     data = {}
     for tag in re.findall(r"<input [^>]*>", form.group(2)):
         name = html_lib.unescape(re.search(r'name="([^"]+)"', tag).group(1))
@@ -296,13 +296,12 @@ def test_applying_a_result_on_the_book_page_changes_only_what_it_fills(env):
         if " disabled" not in tag:
             data[name] = value
     assert "tags" not in data and "comments" not in data and "shelves_present" not in data
-    data.update(publisher="Chilton Books", metadata_source="Open Library")
+    data.update(comments="<p>A desert planet.</p>", metadata_source="Open Library")
     resp = c.post(html_lib.unescape(form.group(1)), data=data)
     assert resp.status_code == 302 and resp.headers["Location"].endswith(f"/book/{book}")
     con = sqlite3.connect(env.library_dir / "metadata.db")
     try:
-        assert con.execute("SELECT p.name FROM publishers p JOIN books_publishers_link l ON l.publisher = p.id "
-                           "WHERE l.book = ?", (book,)).fetchall() == [("Chilton Books",)]
+        assert "A desert planet." in con.execute("SELECT text FROM comments WHERE book = ?", (book,)).fetchone()[0]
         assert con.execute("SELECT t.name FROM tags t JOIN books_tags_link l ON l.tag = t.id WHERE l.book = ?",
                            (book,)).fetchall() == [("sf",)]
         assert con.execute("SELECT type, val FROM identifiers WHERE book = ?", (book,)).fetchall() == [

@@ -11,11 +11,9 @@ Routes are attached to the web blueprint; web.py imports this module at its end.
 import json
 
 from flask import request, url_for
-from flask_babel import get_locale
 from sqlalchemy.orm import lazyload, selectinload
 from sqlalchemy.sql.expression import and_, func, not_, or_
 
-from . import isoLanguages
 from . import db
 from . import calibre_db
 from .helper import tags_filters
@@ -34,30 +32,10 @@ def get_authors_json():
     return calibre_db.get_typeahead(db.Authors, request.args.get('q'), ('|', ','))
 
 
-@web.route("/get_publishers_json", methods=['GET'])
-@login_required_if_no_ano
-def get_publishers_json():
-    return calibre_db.get_typeahead(db.Publishers, request.args.get('q'), ('|', ','))
-
-
 @web.route("/get_tags_json", methods=['GET'])
 @login_required_if_no_ano
 def get_tags_json():
     return calibre_db.get_typeahead(db.Tags, request.args.get('q'), tag_filter=tags_filters())
-
-
-@web.route("/get_languages_json", methods=['GET'])
-@login_required_if_no_ano
-def get_languages_json():
-    query = (request.args.get('q') or '').lower()
-    language_names = isoLanguages.get_language_names(get_locale())
-    entries_start = [s for key, s in language_names.items() if s.lower().startswith(query.lower())]
-    if len(entries_start) < 5:
-        entries = [s for key, s in language_names.items() if query in s.lower()]
-        entries_start.extend(entries[0:(5 - len(entries_start))])
-        entries_start = list(set(entries_start))
-    json_dumps = json.dumps([dict(name=r) for r in entries_start[0:5]])
-    return json_dumps
 
 
 @web.route("/get_book_titles_json", methods=['GET'])
@@ -97,7 +75,7 @@ def get_book_titles_json():
 @login_required_if_no_ano
 def get_matching_tags():
     tag_dict = {'tags': []}
-    q = calibre_db.session.query(db.Books).filter(calibre_db.common_filters(True))
+    q = calibre_db.session.query(db.Books).filter(calibre_db.common_filters())
     calibre_db.create_functions()
     author_input = request.args.get('authors') or ''
     title_input = request.args.get('title') or ''

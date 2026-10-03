@@ -4,10 +4,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Query-string filters for the library book grids (format, language, read status, tag, and
+"""Query-string filters for the library book grids (format, read status, tag, and
 what the book's last metadata lookup found).
 
-Filters arrive as query parameters (?format=EPUB&lang=eng&status=unread&tag=12&metadata=failed), so they survive
+Filters arrive as query parameters (?format=EPUB&status=unread&tag=12&metadata=failed), so they survive
 pagination (url_for_other_page copies request.args) and are carried into the sort links. They are
 AND-ed into the page's own db_filter; calibre_db.fill_indexpage still applies common_filters, so
 user tag/language/custom-column restrictions keep working.
@@ -21,7 +21,7 @@ from .cw_login import current_user
 
 log = logger.create()
 
-FILTER_PARAMS = ("format", "lang", "status", "tag", "metadata")
+FILTER_PARAMS = ("format", "status", "tag", "metadata")
 STATUS_CHOICES = ("unread", "reading", "read")
 # A book's last metadata lookup went wrong (cwa.db's metadata_lookups): no provider has it, or
 # one didn't answer. Only the problems: the Logs page lists what lookups found and changed
@@ -48,7 +48,7 @@ def _finished_subquery():
 def active_filters():
     """The valid filter parameters on this request, as {param: value}."""
     if current_user.is_anonymous:
-        allowed = ("format", "lang", "tag")
+        allowed = ("format", "tag")
     else:
         allowed = FILTER_PARAMS
     active = {}
@@ -74,8 +74,6 @@ def filter_expression(active=None):
     clauses = []
     if "format" in active:
         clauses.append(db.Books.data.any(db.Data.format == active["format"]))
-    if "lang" in active:
-        clauses.append(db.Books.languages.any(db.Languages.lang_code == active["lang"]))
     if "tag" in active:
         clauses.append(db.Books.tags.any(db.Tags.id == int(active["tag"])))
     if "metadata" in active:

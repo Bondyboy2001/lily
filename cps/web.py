@@ -17,13 +17,11 @@ from flask import Blueprint, jsonify
 from flask import request, redirect, flash, abort, url_for
 from flask import session as flask_session
 from flask_babel import gettext as _
-from flask_babel import get_locale
 from .cw_login import current_user
 from sqlalchemy.exc import IntegrityError, InvalidRequestError, OperationalError
 from sqlalchemy.sql.expression import func, and_
-from sqlalchemy.sql.functions import coalesce
 
-from . import constants, logger, isoLanguages, helper
+from . import constants, logger, helper
 from . import db, ub, config, app
 from . import calibre_db
 from .recent_imports import added_summary, books_added_after, newest_book_id
@@ -637,9 +635,7 @@ def cwa_get_num_books_in_library() -> int:
 
 def render_books_list(data, sort_param, book_id, page):
     order = get_sort_function(sort_param, data)
-    if data == "rated":
-        return render_rated_books(page, book_id, order=order)
-    elif data == "unread":
+    if data == "unread":
         return render_read_books(page, False, order=order)
     elif data == "read":
         return render_read_books(page, True, order=order)
@@ -651,16 +647,10 @@ def render_books_list(data, sort_param, book_id, page):
         return render_downloaded_books(page, order, book_id)
     elif data == "author":
         return render_author_books(page, book_id, order)
-    elif data == "publisher":
-        return render_publisher_books(page, book_id, order)
-    elif data == "ratings":
-        return render_ratings_books(page, book_id, order)
     elif data == "formats":
         return render_formats_books(page, book_id, order)
     elif data == "category":
         return render_category_books(page, book_id, order)
-    elif data == "language":
-        return render_language_books(page, book_id, order)
     elif data == "search":
         term = request.args.get('query', None)
         offset = int(int(config.config_books_per_page) * (page - 1))
@@ -771,25 +761,6 @@ def _book_resume(user_id, book_id, reader_list):
         return None
 
 
-def render_rated_books(page, book_id, order):
-    if current_user.check_visibility(constants.SIDEBAR_BEST_RATED):
-        entries, pagination = calibre_db.fill_indexpage(page, 0,
-                                                                db.Books,
-                                                                and_(db.Books.ratings.any(db.Ratings.rating > 9),
-                                                                     list_filters.filter_expression()),
-                                                                order[0],
-                                                                True, config.config_read_column,
-                                                                db.books_series_link,
-                                                                db.Books.id == db.books_series_link.c.book,
-                                                                db.Series, cards_only=True)
-
-        return render_title_template('index.html', entries=entries, pagination=pagination,
-                                     id=book_id, title=_("Top Rated Books"), page="rated", order=order[1],
-                                     list_filters=list_filters.filter_context())
-    else:
-        abort(404)
-
-
 def render_hot_books(page, order):
     if current_user.check_visibility(constants.SIDEBAR_HOT):
         if order[1] not in ['hotasc', 'hotdesc']:
@@ -889,70 +860,6 @@ def render_author_books(page, author_id, order):
                                  list_filters=list_filters.filter_context())
 
 
-def render_publisher_books(page, book_id, order):
-    if book_id == '-1':
-        entries, pagination = calibre_db.fill_indexpage(page, 0,
-                                                                db.Books,
-                                                                db.Publishers.name == None,
-                                                                [db.Series.name, order[0][0], db.Books.series_index],
-                                                                True, config.config_read_column,
-                                                                db.books_publishers_link,
-                                                                db.Books.id == db.books_publishers_link.c.book,
-                                                                db.Publishers,
-                                                                db.books_series_link,
-                                                                db.Books.id == db.books_series_link.c.book,
-                                                                db.Series, cards_only=True)
-        publisher = _("Unknown")
-    else:
-        publisher = calibre_db.session.query(db.Publishers).filter(db.Publishers.id == book_id).first()
-        if publisher:
-            entries, pagination = calibre_db.fill_indexpage(page, 0,
-                                                                    db.Books,
-                                                                    db.Books.publishers.any(
-                                                                        db.Publishers.id == book_id),
-                                                                    [db.Series.name, order[0][0],
-                                                                     db.Books.series_index],
-                                                                    True, config.config_read_column,
-                                                                    db.books_series_link,
-                                                                    db.Books.id == db.books_series_link.c.book,
-                                                                    db.Series, cards_only=True)
-            publisher = publisher.name
-        else:
-            abort(404)
-
-    return render_title_template('index.html', entries=entries, pagination=pagination, id=book_id,
-                                 title=_("Publisher: %(name)s", name=publisher),
-                                 page="publisher",
-                                 order=order[1])
-
-
-def render_ratings_books(page, book_id, order):
-    if book_id == '-1':
-        db_filter = coalesce(db.Ratings.rating, 0) < 1
-        entries, pagination = calibre_db.fill_indexpage(page, 0,
-                                                                db.Books,
-                                                                db_filter,
-                                                                [order[0][0]],
-                                                                True, config.config_read_column,
-                                                                db.books_ratings_link,
-                                                                db.Books.id == db.books_ratings_link.c.book,
-                                                                db.Ratings, cards_only=True)
-        title = _("Rating: None")
-    else:
-        name = calibre_db.session.query(db.Ratings).filter(db.Ratings.id == book_id).first()
-        if name:
-            entries, pagination = calibre_db.fill_indexpage(page, 0,
-                                                                    db.Books,
-                                                                    db.Books.ratings.any(db.Ratings.id == book_id),
-                                                                    [order[0][0]],
-                                                                    True, config.config_read_column, cards_only=True)
-            title = _("Rating: %(rating)s Stars", rating=int(name.rating / 2))
-        else:
-            abort(404)
-    return render_title_template('index.html', pagination=pagination, entries=entries, id=book_id,
-                                 title=title, page="ratings", order=order[1])
-
-
 def render_formats_books(page, book_id, order):
     if book_id == '-1':
         name = _("Unknown")
@@ -1015,35 +922,6 @@ def render_category_books(page, book_id, order):
             abort(404)
     return render_title_template('index.html', entries=entries, pagination=pagination, id=book_id,
                                  title=_("Tag: %(name)s", name=tagsname), page="category", order=order[1])
-
-
-def render_language_books(page, name, order):
-    try:
-        if name.lower() != "none":
-            lang_name = isoLanguages.get_language_name(get_locale(), name)
-            if lang_name == "Unknown":
-                abort(404)
-        else:
-            lang_name = _("Unknown")
-    except KeyError:
-        abort(404)
-    if name == "none":
-        entries, pagination = calibre_db.fill_indexpage(page, 0,
-                                                                db.Books,
-                                                                db.Languages.lang_code == None,
-                                                                [order[0][0]],
-                                                                True, config.config_read_column,
-                                                                db.books_languages_link,
-                                                                db.Books.id == db.books_languages_link.c.book,
-                                                                db.Languages, cards_only=True)
-    else:
-        entries, pagination = calibre_db.fill_indexpage(page, 0,
-                                                                db.Books,
-                                                                db.Books.languages.any(db.Languages.lang_code == name),
-                                                                [order[0][0]],
-                                                                True, config.config_read_column, cards_only=True)
-    return render_title_template('index.html', entries=entries, pagination=pagination, id=name,
-                                 title=_("Language: %(name)s", name=lang_name), page="language", order=order[1])
 
 
 def render_read_books(page, are_read, as_xml=False, order=None):
@@ -1288,9 +1166,6 @@ def show_book(book_id):
     if entries:
         entry, read_book = entries
         entry.read_status = read_book == ub.ReadBook.STATUS_FINISHED
-        for lang_index in range(0, len(entry.languages)):
-            entry.languages[lang_index].language_name = isoLanguages.get_language_name(get_locale(), entry.languages[
-                lang_index].lang_code)
         entry.tags = sort(entry.tags, key=lambda tag: tag.name)
 
         # Filter tags based on user's allowed/denied tags (Issue #906)

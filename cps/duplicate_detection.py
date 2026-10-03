@@ -50,14 +50,14 @@ def filter_dismissed_groups(duplicate_groups, user_id=None):
     return [group for group in duplicate_groups if not _is_dismissed(group, dismissed_hashes)]
 
 
-def get_common_filters(user_id=None, return_all_languages=False):
+def get_common_filters(user_id=None):
     """Build common filters using either current_user or a specific user_id.
 
     Falls back to no-op filters if user context is unavailable.
     """
     try:
         if user_id is None:
-            return calibre_db.common_filters(return_all_languages=return_all_languages)
+            return calibre_db.common_filters()
     except Exception:
         # No request context; fall back to permissive filter
         return true()
@@ -66,11 +66,6 @@ def get_common_filters(user_id=None, return_all_languages=False):
         user = ub.session.query(ub.User).filter(ub.User.id == int(user_id)).first()
         if not user:
             return true()
-
-        if user.filter_language() == "all" or return_all_languages:
-            lang_filter = true()
-        else:
-            lang_filter = db.Books.languages.any(db.Languages.lang_code == user.filter_language())
 
         negtags_list = user.list_denied_tags()
         postags_list = user.list_allowed_tags()
@@ -94,7 +89,7 @@ def get_common_filters(user_id=None, return_all_languages=False):
             pos_content_cc_filter = true()
             neg_content_cc_filter = false()
 
-        return and_(lang_filter, pos_content_tags_filter, ~neg_content_tags_filter,
+        return and_(pos_content_tags_filter, ~neg_content_tags_filter,
                     pos_content_cc_filter, ~neg_content_cc_filter)
     except Exception:
         return true()

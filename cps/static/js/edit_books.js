@@ -90,37 +90,6 @@ $(".datepicker_delete").click(function() {
 Takes a prefix, query typeahead callback, Bloodhound typeahead adapter
  and returns the completions it gets from the bloodhound engine prefixed.
  */
-function prefixedSource(prefix, query, cb, source) {
-    function async(retArray) {
-        retArray = retArray || [];
-        var matches = [];
-        for (var i = 0; i < retArray.length; i++) {
-            var obj = {name : prefix + retArray[i].name};
-            matches.push(obj);
-        }
-        cb(matches);
-    }
-    source.search(query, cb, async);
-}
-
-function sourceSplit(query, cb, split, source) {
-    var tokens = query.split(split);
-    var currentSource = tokens[tokens.length - 1].trim();
-
-    tokens.splice(tokens.length - 1, 1); // remove last element
-    var prefix = "";
-    var newSplit;
-    if (split === "&") {
-        newSplit = " " + split + " ";
-    } else {
-        newSplit = split + " ";
-    }
-    for (var i = 0; i < tokens.length; i++) {
-        prefix += tokens[i].trim() + newSplit;
-    }
-    prefixedSource(prefix, currentSource, cb, source);
-}
-
 var authors = new Bloodhound({
     name: "authors",
     identify: function(obj) { return obj.name; },
@@ -295,59 +264,6 @@ lilyRowEditor({
     read: function (val) { return this.split(val); },
     write: function (values) { return values.join(", "); }
 });
-
-var languages = new Bloodhound({
-    name: "languages",
-    datumTokenizer: function datumTokenizer(datum) {
-        return [datum.name];
-    },
-    queryTokenizer: function queryTokenizer(query) {
-        return [query];
-    },
-    remote: {
-        url: getPath() + "/get_languages_json?q=%QUERY",
-        wildcard: '%QUERY'
-        /*replace: function replace(url, query) {
-            return url + encodeURIComponent(query);
-        }*/
-    }
-});
-
-$(".form-group #languages").typeahead(
-    {
-        highlight: true, minLength: 0,
-        hint: true
-    }, {
-        name: "languages",
-        display: "name",
-        source: function source(query, cb, asyncResults) {
-            return sourceSplit(query, cb, ",", languages);
-        }
-    }
-);
-
-var publishers = new Bloodhound({
-    name: "publisher",
-    datumTokenizer: function datumTokenizer(datum) {
-        return [datum.name];
-    },
-    queryTokenizer: Bloodhound.tokenizers.whitespace,
-    remote: {
-        url: getPath() + "/get_publishers_json?q=%QUERY",
-        wildcard: '%QUERY'
-    }
-});
-
-$(".form-group #publisher").typeahead(
-    {
-        highlight: true, minLength: 0,
-        hint: true
-    }, {
-        name: "publishers",
-        displayKey: "name",
-        source: publishers
-    }
-);
 
 $("#search").on("change input.typeahead:selected", function(event) {
     if (event.target.type === "search" && event.target.tagName === "INPUT") {

@@ -123,7 +123,6 @@ def new_user():
     else:
         content.role = config.config_default_role
         content.sidebar_view = config.config_default_show
-        content.default_language = config.config_default_language
     return render_title_template("user_edit.html", new_user=1, content=content,
                                  config=config, title=_("Add New User"), page="newuser")
 
@@ -150,7 +149,6 @@ def edit_user(user_id):
 
 
 def _handle_new_user(to_save, content):
-    content.default_language = config.config_default_language
     content.sidebar_view = config.config_default_show
 
     content.role = constants.selected_roles(to_save)

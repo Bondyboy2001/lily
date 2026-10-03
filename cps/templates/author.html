@@ -16,7 +16,7 @@
   {% if not entries and list_filters and list_filters.active %}
   {{ image.empty_state('glyphicon-filter', _('No Books Match These Filters'),
                        _('Try removing a filter, or clear them all.'),
-                       [(_('Clear filters'), list_filters.url(format=None, lang=None, status=None, tag=None, metadata=None), True)]) }}
+                       [(_('Clear filters'), list_filters.url(format=None, status=None, tag=None, metadata=None), True)]) }}
   {% endif %}
 </div>
 

@@ -25,8 +25,8 @@
         'added': (_('Date added'), 'old', 'new'),
         'fetched': (_('Last fetched'), 'fetchold', 'fetchnew'),
         'title': (_('Title'), 'abc', 'zyx'),
-        'author': (_('Author'), 'authaz', 'authza'),
         'published': (_('Published'), 'pubold', 'pubnew'),
+        'author': (_('Author'), 'authaz', 'authza'),
         'shelf': (_('Added to shelf'), 'shelfold', 'shelfnew'),
         'downloads': (_('Downloads'), 'hotasc', 'hotdesc')} -%}
     {%- set ns = namespace(field=fields[0], desc=True) -%}
@@ -244,13 +244,6 @@
           {% endfor %}
           {% if book.data|music %}<span class="glyphicon glyphicon-music" aria-hidden="true"></span>{% endif %}
         </p>
-        {% if book.ratings.__len__() > 0 %}
-        {% set stars = (book.ratings[0].rating / 2)|int %}
-        <div class="rating" title="{{ stars }} / 5">
-          {% for number in range(stars) %}<span class="glyphicon glyphicon-star good" aria-hidden="true"></span>{% endfor %}
-          {% for number in range(5 - stars) %}<span class="glyphicon glyphicon-star-empty" aria-hidden="true"></span>{% endfor %}
-        </div>
-        {% endif %}
       </div>
     </div>
 {%- endmacro %}
@@ -272,20 +265,4 @@
     </p>
     {% endif %}
   </div>
-{%- endmacro %}
-
-{# A star rating field (docs/design.md §5.14): a radio group of 1–5 stars and a "none" option, so
-   the arrow keys pick a rating and every star has a name. Posts `name` as "1"…"5", or "" for none.
-   Name the group with `labelledby` (id of a visible label) or `label`. `input_attrs` goes on each radio. #}
-{% macro rating_input(name, value=0, labelledby=None, label=None, none_label=None, input_attrs='') -%}
-    {%- set current = value|int -%}
-    {%- set none_text = none_label or _('No rating') -%}
-    <div class="lily-stars" role="radiogroup"{% if labelledby %} aria-labelledby="{{ labelledby }}"{% elif label %} aria-label="{{ label }}"{% endif %}>
-      {%- for n in range(1, 6) %}
-      <input type="radio" class="lily-stars-input" name="{{ name }}" id="{{ name }}-{{ n }}" value="{{ n }}"{% if current == n %} checked{% endif %} {{ input_attrs|safe }}>
-      <label for="{{ name }}-{{ n }}" class="lily-star"><span class="glyphicon glyphicon-star" aria-hidden="true"></span><span class="glyphicon glyphicon-star-empty" aria-hidden="true"></span><span class="sr-only">{{ ngettext('%(num)s star', '%(num)s stars', n) }}</span></label>
-      {%- endfor %}
-      <input type="radio" class="lily-stars-input lily-stars-none" name="{{ name }}" id="{{ name }}-none" value=""{% if current < 1 or current > 5 %} checked{% endif %} {{ input_attrs|safe }}>
-      <label for="{{ name }}-none" class="lily-stars-clear" title="{{ none_text }}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span><span class="sr-only">{{ none_text }}</span></label>
-    </div>
 {%- endmacro %}

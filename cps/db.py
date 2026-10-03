@@ -36,10 +36,9 @@ from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.sql import select, table as sql_table, column as sql_column
 from .cw_login import current_user
 from flask_babel import gettext as _
-from flask_babel import get_locale
 from flask import flash
 
-from . import logger, ub, isoLanguages
+from . import logger, ub
 from .pagination import Pagination
 from .string_helper import strip_whitespaces
 from .services.identifiers import parse_identifier
@@ -846,21 +845,13 @@ class CalibreDB:
         return self.session.query(Authors).filter(Authors.name == name).first()
 
 
-    def get_publisher_by_name(self, name):
-        self.ensure_session()
-        return self.session.query(Publishers).filter(Publishers.name == name).first()
-
     def set_metadata_dirty(self, book_id):
         self.ensure_session()
         if not self.session.query(Metadata_Dirtied).filter(Metadata_Dirtied.book == book_id).one_or_none():
             self.session.add(Metadata_Dirtied(book_id))
 
     # Language and content filters for displaying in the UI
-    def common_filters(self, return_all_languages=False, viewing_tag_id=None):
-        if current_user.filter_language() == "all" or return_all_languages:
-            lang_filter = true()
-        else:
-            lang_filter = Books.languages.any(Languages.lang_code == current_user.filter_language())
+    def common_filters(self, viewing_tag_id=None):
         negtags_list = current_user.list_denied_tags()
         postags_list = current_user.list_allowed_tags()
         neg_content_tags_filter = false() if negtags_list == [''] else Books.tags.any(Tags.name.in_(negtags_list))
@@ -896,7 +887,7 @@ class CalibreDB:
         else:
             pos_content_cc_filter = true()
             neg_content_cc_filter = false()
-        return and_(lang_filter, pos_content_tags_filter, ~neg_content_tags_filter,
+        return and_(pos_content_tags_filter, ~neg_content_tags_filter,
                     pos_content_cc_filter, ~neg_content_cc_filter)
 
     def generate_linked_query(self, config_read_column, database):
@@ -1149,41 +1140,6 @@ class CalibreDB:
         entries = self.order_authors(result, list_return=True, combined=True)
 
         return entries, result_count, pagination
-
-    # Creates for all stored languages a translated speaking name in the array for the UI
-    def speaking_language(self, languages=None, return_all_languages=False, with_count=False, reverse_order=False):
-        self.ensure_session()
-
-        if with_count:
-            if not languages:
-                languages = self.session.query(Languages, func.count('books_languages_link.book'))\
-                    .join(books_languages_link).join(Books)\
-                    .filter(self.common_filters(return_all_languages=return_all_languages)) \
-                    .group_by(text('books_languages_link.lang_code')).all()
-            tags = list()
-            for lang in languages:
-                tag = Category(isoLanguages.get_language_name(get_locale(), lang[0].lang_code), lang[0].lang_code)
-                tags.append([tag, lang[1]])
-            # Append all books without language to list
-            if not return_all_languages:
-                no_lang_count = (self.session.query(Books)
-                                 .outerjoin(books_languages_link).outerjoin(Languages)
-                                 .filter(Languages.lang_code==None)
-                                 .filter(self.common_filters())
-                                 .count())
-                if no_lang_count:
-                    tags.append([Category(_("Unknown"), "none"), no_lang_count])
-            return sorted(tags, key=lambda x: x[0].name.lower(), reverse=reverse_order)
-        else:
-            if not languages:
-                languages = self.session.query(Languages) \
-                    .join(books_languages_link) \
-                    .join(Books) \
-                    .filter(self.common_filters(return_all_languages=return_all_languages)) \
-                    .group_by(text('books_languages_link.lang_code')).all()
-            for lang in languages:
-                lang.name = isoLanguages.get_language_name(get_locale(), lang.lang_code)
-            return sorted(languages, key=lambda x: x.name, reverse=reverse_order)
 
     def create_functions(self, config=None):
         """Register calibre's SQL functions on this session's connection. Every pooled

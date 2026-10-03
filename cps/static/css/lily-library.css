@@ -367,18 +367,6 @@
     font-size: 11px;
 }
 
-/* Stars: filled in the accent, empty in the line colour (decorative; the count is in the title). */
-.rating .glyphicon-star.good,
-.rating .glyphicon-star { color: var(--accent); }
-.rating .glyphicon-star-empty { color: var(--line-strong); }
-
-.container-fluid .lily-book .meta .rating,
-.lily-book .meta .rating {
-    margin-top: 4px;
-    font-size: 11px;
-    letter-spacing: 1px;
-}
-
 /* A read book's cover is edged in green (lily.js toggles .is-read with the eye button). */
 .lily-book.is-read .cover::after {
     z-index: 3;
@@ -691,8 +679,6 @@
     font-size: 11px;
     font-variant-numeric: tabular-nums;
 }
-
-.lily-list-row .rating { font-size: 12px; letter-spacing: 1px; }
 
 /* ------------------------------------------------------------------ */
 /* Search results and shelves                                           */
@@ -1106,8 +1092,6 @@ dl.book-info {
 
 .lily-search-page .lp-control > .input-group .form-control { min-width: 0; }
 
-.lily-search-page .lp-control .lily-stars { margin-right: auto; }
-
 @media (max-width: 767px) {
     .lily-search-page .lp-row { grid-template-columns: minmax(0, 1fr); }
 
@@ -1250,68 +1234,6 @@ dl.book-info {
     background: var(--hover);
     color: var(--ink);
 }
-
-/* Rating input (image.rating_input, design §5.14): a radio group drawn as 27px stars. The
-   radios stay in the tab order (the arrow keys pick a rating) but out of sight, and each
-   label wears its radio's focus ring. Stars up to the chosen one fill; hovering previews. */
-.lily-stars {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    line-height: 1;
-}
-
-.lily-stars-input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: 0;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.lily-stars label {
-    margin: 0;
-    font-weight: 400;
-    cursor: pointer;
-}
-
-/* 27px stars, 8px apart (the padding), each its own click target. */
-.lily-stars .lily-star {
-    display: inline-flex;
-    padding: 4px;
-    border-radius: var(--control-radius);
-    font-size: 27px;
-    line-height: 1;
-}
-
-.lily-star .glyphicon { top: 0; }
-.lily-star .glyphicon-star { color: var(--accent); }
-.lily-star .glyphicon-star-empty { display: none; color: var(--line-strong); }
-
-/* Stars after the chosen one, and all of them while none is chosen, are empty. */
-.lily-stars-input:checked + .lily-star ~ .lily-star .glyphicon-star,
-.lily-stars:has(.lily-stars-none:checked) .lily-star .glyphicon-star { display: none; }
-
-.lily-stars-input:checked + .lily-star ~ .lily-star .glyphicon-star-empty,
-.lily-stars:has(.lily-stars-none:checked) .lily-star .glyphicon-star-empty { display: inline-block; }
-
-@media (hover: hover) {
-    .lily-stars:has(.lily-star:hover) .lily-star .glyphicon-star { display: inline-block; }
-    .lily-stars:has(.lily-star:hover) .lily-star .glyphicon-star-empty { display: none; }
-    .lily-stars .lily-star:hover ~ .lily-star .glyphicon-star { display: none; }
-    .lily-stars .lily-star:hover ~ .lily-star .glyphicon-star-empty { display: inline-block; }
-}
-
-.lily-stars-input:focus-visible + label {
-    outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
-    outline-offset: 0;
-}
-
-/* "No rating" (a trash glyph) shows once there is a rating to clear, or while it has focus. */
-.lily-stars .lily-stars-clear { margin-left: 4px; }
-
-.lily-stars-none:checked:not(:focus-visible) + .lily-stars-clear { visibility: hidden; }
 
 /* ------------------------------------------------------------------ */
 /* Book editor (book_edit.html)                                        */
@@ -1591,12 +1513,11 @@ dl.book-info {
     opacity: 1;
 }
 
-/* Every "remove/clear this value" control (row editor, date clear, rating clear) is the
+/* Every "remove/clear this value" control (row editor, date clear) is the
    same × glyph in the same 30px square, muted until hovered, then danger red. The trash
    glyph is kept for deleting the book itself. */
 .icon-btn.lily-edit-remove,
-.btn.datepicker_delete,
-.lily-stars .lily-stars-clear {
+.btn.datepicker_delete {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1612,8 +1533,7 @@ dl.book-info {
 }
 
 .icon-btn.lily-edit-remove .glyphicon,
-.btn.datepicker_delete .glyphicon,
-.lily-stars-clear .glyphicon {
+.btn.datepicker_delete .glyphicon {
     margin: 0;
     font-size: 16px;
     color: inherit;
@@ -1622,9 +1542,7 @@ dl.book-info {
 .icon-btn.lily-edit-remove:hover,
 .icon-btn.lily-edit-remove:focus,
 .btn.datepicker_delete:hover,
-.btn.datepicker_delete:focus,
-.lily-stars .lily-stars-clear:hover,
-.lily-stars-input:focus-visible + .lily-stars-clear {
+.btn.datepicker_delete:focus {
     background: color-mix(in srgb, var(--danger) 12%, transparent);
     color: var(--danger);
     text-decoration: none;
@@ -1664,9 +1582,6 @@ dl.book-info {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: 14px;
 }
-.editbook-fields .editbook-publisher { grid-column: 1 / -1; }
-/* The Rating label sits above its stars, like every other field's label */
-.editbook-rating > label { display: block; }
 
 .editbook-section .row { margin-left: -8px; margin-right: -8px; }
 .editbook-section .row > [class*="col-"] { padding-left: 8px; padding-right: 8px; }

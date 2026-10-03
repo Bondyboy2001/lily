@@ -67,15 +67,6 @@
   color: var(--muted);
 }
 
-.container-fluid .book .meta .rating {
-  margin-top: 5px;
-}
-.rating .glyphicon-star-empty {
-  color: var(--line);
-}
-.rating .glyphicon-star.good {
-  color: var(--accent);
-}
 
 .container-fluid .author .author-hidden,
 .container-fluid .author .author-hidden-divider {

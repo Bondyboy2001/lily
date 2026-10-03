@@ -105,9 +105,6 @@ def get_sidebar_config():
         sidebar.append({"glyph": "glyphicon-download", "text": _('Downloaded Books'), "link": 'web.books_list',
                         "id": "download", "visibility": constants.SIDEBAR_DOWNLOAD, 'public': (not current_user.is_anonymous),
                         "page": "download"})
-    sidebar.append(
-        {"glyph": "glyphicon-star", "text": _('Top Rated Books'), "link": 'web.books_list', "id": "rated",
-         "visibility": constants.SIDEBAR_BEST_RATED, 'public': True, "page": "rated"})
     # Reading and Finished always show for signed-in users (SIDEBAR_RECENT is the always-visible flag).
     sidebar.append({"glyph": "glyphicon-education", "text": _('Reading'), "link": 'web.books_list', "id": "inprogress",
                     "visibility": constants.SIDEBAR_RECENT, 'public': (not current_user.is_anonymous),
@@ -120,15 +117,6 @@ def get_sidebar_config():
          "visibility": constants.SIDEBAR_READ_AND_UNREAD, 'public': (not current_user.is_anonymous), "page": "unread"})
     sidebar.append({"glyph": "glyphicon-user", "text": _('Authors'), "link": 'web.author_list', "id": "author",
                     "visibility": constants.SIDEBAR_AUTHOR, 'public': True, "page": "author"})
-    sidebar.append(
-        {"glyph": "glyphicon-text-size", "text": _('Publishers'), "link": 'web.publisher_list', "id": "publisher",
-         "visibility": constants.SIDEBAR_PUBLISHER, 'public': True, "page": "publisher"})
-    sidebar.append({"glyph": "glyphicon-flag", "text": _('Languages'), "link": 'web.language_overview', "id": "lang",
-                    "visibility": constants.SIDEBAR_LANGUAGE, 'public': (current_user.filter_language() == 'all'),
-                    "page": "language"})
-    sidebar.append({"glyph": "glyphicon-star-empty", "text": _('Ratings'), "link": 'web.ratings_list', "id": "rate",
-                    "visibility": constants.SIDEBAR_RATING, 'public': True,
-                    "page": "rating"})
     sidebar.append({"glyph": "glyphicon-file", "text": _('File formats'), "link": 'web.formats_list', "id": "format",
                     "visibility": constants.SIDEBAR_FORMAT, 'public': True,
                     "page": "format"})

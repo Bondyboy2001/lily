@@ -145,8 +145,8 @@ def test_control_edges_meet_non_text_contrast_in_both_themes():
     for palette in (light, dark):
         for ground in ("paper", "surface", "sunk"):
             assert contrast(palette["line-strong"], palette[ground]) >= 3, (ground, palette["line-strong"])
-    library = read(CSS / "lily-library.css")
-    assert ".rating .glyphicon-star-empty { color: var(--line-strong); }" in library
+    # No stars left to draw in it: Lily keeps no ratings
+    assert ".rating " not in read(CSS / "lily-library.css")
 
 
 def test_theme_is_applied_in_head_before_styles_paint():

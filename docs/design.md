@@ -296,7 +296,7 @@ get the Lily component:
   control, never a colour change.
 - Destructive actions rest in the accent, not red: trash icons are
   `.icon-btn.is-danger` in `--accent`. Removing or clearing one value (an author or
-  tag row, a date, a rating) is the × glyph (`glyphicon-remove`), not the trash, which
+  tag row, a date) is the × glyph (`glyphicon-remove`), not the trash, which
   is kept for deleting a thing itself (a book, a format, a bookmark). On hover and keyboard focus every
   destructive control (`.is-danger`, row removers, clear-date buttons) turns red:
   `--danger` at 12% behind a `--danger` label, so the pointer warns before the
@@ -420,15 +420,8 @@ rather than describe a void ("Add your first book", not "No books").
 
 ### 5.14 Ratings
 
-Stars are icons: filled `--accent`, empty `--line-strong`. Sizes: 11px in cards,
-12px in list rows, 16px on the book page, 27px in a rating input.
-
-A rating input (`image.rating_input`, `.lily-stars`: the editor and advanced
-search) is a radio group: one radio per star (each named "3 stars") and a
-"none" option drawn as the × glyph, which shows once there is a rating to
-clear. The radios are out of sight but keep the keyboard (Tab in, arrow keys
-to pick); each star label wears its radio's focus ring. Stars up to the chosen
-one fill, and hovering previews a rating. It posts "1"…"5", or "" for none.
+Lily keeps no ratings: there are no stars on cards, the book page, the editor or
+advanced search (a custom rating column is a plain number field).
 
 ### 5.15 Book cover
 
@@ -492,7 +485,7 @@ content (grid, panel, rows)
   discs with a 1px `--line` edge and `--menu-shadow`, `--ink` icons, `--accent` on hover. They rise and fade in
   on hover/focus and stay visible on touch (36px, 8 apart). Read state fills the eye's disc
   `--success` with a `--surface` eye. No popups over the cover or its buttons (§5.6).
-- **Browse lists** (`list.html`: categories, authors, publishers…): one
+- **Browse lists** (`list.html`: authors, file formats…): one
   `.lily-list` flowed into 300px CSS columns, gap 22, so each count sits
   beside its name; lists of 12 or fewer stay one column, max 560. Rows are
   list rows (§5.11), min-height 40; long names wrap. A list of more than 24
@@ -527,8 +520,8 @@ content (grid, panel, rows)
   it. Nothing letterboxes; a cover taller than 1 : 1.6 is cropped to that
   (`max-height: 160cqw`, `object-fit: cover`), so one deformed cover cannot stretch the
   stage. On the right, centred against it: the heading (the book
-  title as a display line (§3.1), the authors as an italic `--accent` byline at 20px,
-  the rating), then the action bar, 22 apart. There are no fact tags on the page: the
+  title as a display line (§3.1), the authors as an italic `--accent` byline at 20px),
+  then the action bar, 22 apart. There are no fact tags on the page: the
   file, date and identifiers are in the details dialog. The stage is one
   row, so a tall cover never spreads the heading out.
 - **Under the stage** (`.book-detail-extra`, 40 below it, indented 40 to match the
@@ -560,7 +553,7 @@ content (grid, panel, rows)
 - **Details dialog** (`#bookInfoModal`, §5.7): the info button in the action bar opens
   "Book Details", a two-column `dl.book-info` (label `--muted`, value `--ink`, 15px, rows
   10 apart, no dividers): Date added, Last edited, then whichever the book has of
-  published date, publisher, language, each file, each identifier, the
+  published date, each file, each identifier, the
   last metadata lookup (editors only: what it found and when, "Open Library · ‹date›",
   "No match" or "Lookup failed") and the book ID. Dates appear nowhere
   else on the page. The header's × is the only close control; there is no Close button.
@@ -592,13 +585,11 @@ content (grid, panel, rows)
   with Fetch Metadata; clearing one removes the value. Under Title sit Edition and
   Volume, two number fields side by side ("6" for the sixth edition, "3" for volume
   3; they stay paired on phones), stored in cwa.db (`book_editions`, `book_volumes`)
-  since calibre has no field for them. Then Authors; Details
-  (publisher, published date, language, rating); Tags; Description.
+  since calibre has no field for them. Then Authors; Details (published date
+  only: Lily keeps no publisher, language or rating); Tags; Description.
   Authors and Tags are the same row editor: one field per value with a × beside
   it, and "Add author" / "Add tag" below (Enter, or a comma in a tag, starts the
-  next row). Details puts
-  Publisher on its own row and pairs the shorter fields under it (one column on
-  phones).
+  next row).
   The description box fits its text (no drag handle), padding 14/16 and
   line-height 1.68.
 - **Fetch Metadata results** are compact cards: a 128px cover column with
@@ -775,7 +766,7 @@ transitions are turned off in `lily.js`.
 - **Touch:** 44px minimum hit area on coarse pointers. Nothing clips that
   area: a control that hides a native input inside it (the upload button)
   spreads the input over the whole 44px.
-- **Hidden native inputs** (the upload button's file input, a rating's radios)
+- **Hidden native inputs** (the upload button's file input)
   keep the keyboard, and the control drawn for them wears their focus ring
   (`:has(input:focus-visible)`, or `input:focus-visible + label`).
 - **Structure:** one skip link to `#lily-content`; one live region for

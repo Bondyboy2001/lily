@@ -43,7 +43,7 @@
   {% if not entries[0] and list_filters and list_filters.active %}
   {{ image.empty_state('glyphicon-filter', _('No Books Match These Filters'),
                        _('Try removing a filter, or clear them all.'),
-                       [(_('Clear filters'), list_filters.url(format=None, lang=None, status=None, tag=None, metadata=None), True)]) }}
+                       [(_('Clear filters'), list_filters.url(format=None, status=None, tag=None, metadata=None), True)]) }}
   {% elif not entries[0] and page == 'newest' %}
   {% call image.empty_state('glyphicon-book', _('Add Your First Book'),
                             _('Upload a book to start your library, or drop files into the import folder and Lily adds them automatically.')) %}

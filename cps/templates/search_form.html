@@ -38,9 +38,6 @@
       {% call f.row(_('Author'), for_id='authors') %}
         <input type="text" class="form-control typeahead" name="authors" id="authors" value="" autocomplete="off">
       {% endcall %}
-      {% call f.row(_('Publisher'), for_id='publisher') %}
-        <input type="text" class="form-control" name="publisher" id="publisher" value="">
-      {% endcall %}
       {% call f.row(_('Description'), for_id='comments') %}
         <input type="text" class="form-control" name="comments" id="comments" value="">
       {% endcall %}
@@ -55,20 +52,11 @@
           <option value="False">{{_('No')}}</option>
         </select>
       {% endcall %}
-      {% call f.row(_('Rating above')) %}
-        {{ image.rating_input('ratinghigh', label=_('Rating above'), none_label=_('Any rating')) }}
-      {% endcall %}
-      {% call f.row(_('Rating below')) %}
-        {{ image.rating_input('ratinglow', label=_('Rating below'), none_label=_('Any rating')) }}
-      {% endcall %}
     {% endcall %}
 
     {% call f.group(_('Filters'), help=_('Books must match everything you include and nothing you exclude.'), id='search-filters') %}
       {{ include_exclude('tag', _('Tags'), _('Exclude tags'), tags) }}
       {{ include_exclude('shelf', _('Shelves'), _('Exclude shelves'), shelves) }}
-      {% if languages %}
-      {{ include_exclude('language', _('Languages'), _('Exclude languages'), languages) }}
-      {% endif %}
       {{ include_exclude('extension', _('Extensions'), _('Exclude extensions'), extensions, value_attr='format', text_attr='format') }}
     {% endcall %}
 

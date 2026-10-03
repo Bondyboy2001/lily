@@ -54,11 +54,12 @@ class TestFilterChips:
         assert _titles(html) == ["Epub English", "Epub German", "Pdf German"]
         assert 'class="lily-filter-chips"' not in html
 
-    def test_format_language_and_tag_filters_combine(self, env):
+    def test_format_and_tag_filters_combine(self, env):
         self._library(env)
         client = _login(env)
         assert _titles(_get(client, "/", format="pdf")) == ["Pdf German"]
-        assert _titles(_get(client, "/", lang="deu")) == ["Epub German", "Pdf German"]
+        # There is no language filter: ?lang= is ignored
+        assert len(_titles(_get(client, "/", lang="deu"))) == 3
         from cps import calibre_db, db
         history = calibre_db.session.query(db.Tags).filter(db.Tags.name == "History").one()
         assert _titles(_get(client, "/", tag=history.id, format="EPUB")) == ["Epub German"]

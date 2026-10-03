@@ -212,38 +212,62 @@ def _m6_drop_import_merge(cur) -> None:
 DIRS_FILE = "/app/calibre-web-automated/dirs.json"
 
 
-def _m7_clear_every_books_tags(cur) -> None:
-    # Tags are the user's own from now on: lookups and imports add none, and the ones they
-    # added before go, once. Not on a new install, whose library's tags were never Lily's.
+def _existing_library(cur):
+    """(metadata.db, the folder cwa.db is in) on an existing install; None on a new one, whose
+    library's details were never Lily's, or without a library."""
     if not cur.execute("SELECT COUNT(*) FROM cwa_settings").fetchone()[0]:
-        return
+        return None
     try:
         with open(DIRS_FILE) as f:
             library = json.load(f)["calibre_library_dir"]
     except (OSError, ValueError, KeyError):
-        return
-    clear_library_tags(os.path.join(library, "metadata.db"),
-                       os.path.dirname(cur.execute("PRAGMA database_list").fetchone()[2]))
+        return None
+    return os.path.join(library, "metadata.db"), os.path.dirname(cur.execute("PRAGMA database_list").fetchone()[2])
 
 
-def clear_library_tags(metadata_db: str, backup_dir: str) -> int:
-    """Remove every tag from every book in the library at metadata_db, after copying it to
-    backup_dir as metadata.db.before-tag-clear; returns how many books had tags. Nothing
-    happens without a library."""
+def _m7_clear_every_books_tags(cur) -> None:
+    # Tags are the user's own from now on: lookups and imports add none, and the ones they
+    # added before go, once.
+    found = _existing_library(cur)
+    if found:
+        clear_library_details(*found, ("tags",), "tag-clear")
+
+
+def _m8_clear_publishers_languages_ratings(cur) -> None:
+    # Lily keeps no publishers, languages or ratings any more: the ones lookups and imports
+    # added go, once. Published dates stay.
+    found = _existing_library(cur)
+    if found:
+        clear_library_details(*found, ("publishers", "languages", "ratings"), "details-clear")
+
+
+# What a book links to, as calibre keeps it: the table, its link table, the link's column
+_LINKED = {"tags": ("books_tags_link", "tag"), "publishers": ("books_publishers_link", "publisher"),
+           "languages": ("books_languages_link", "lang_code"), "ratings": ("books_ratings_link", "rating")}
+
+
+def clear_library_details(metadata_db: str, backup_dir: str, tables, name: str) -> int:
+    """Remove every book's links to `tables` (tags, publishers, languages, ratings) in the library
+    at metadata_db, after copying it to backup_dir as metadata.db.before-<name>; returns how many
+    books had any. Nothing happens without a library."""
     if not os.path.isfile(metadata_db):
         return 0
-    shutil.copy2(metadata_db, os.path.join(backup_dir, "metadata.db.before-tag-clear"))
+    backup = os.path.join(backup_dir, "metadata.db.before-" + name)
+    shutil.copy2(metadata_db, backup)
     con = sqlite3.connect(metadata_db, timeout=30)
     try:
-        books = con.execute("SELECT COUNT(DISTINCT book) FROM books_tags_link").fetchone()[0]
-        con.execute("DELETE FROM books_tags_link")
-        con.execute("DELETE FROM tags")
+        books = set()
+        for table in tables:
+            link, __ = _LINKED[table]
+            books.update(row[0] for row in con.execute(f"SELECT book FROM {link}"))
+            con.execute(f"DELETE FROM {link}")
+            con.execute(f"DELETE FROM {table}")
         con.commit()
     finally:
         con.close()
-    print(f"[cwa-db] Cleared the tags of {books} books; the library before is {backup_dir}/metadata.db.before-tag-clear",
+    print(f"[cwa-db] Cleared the {', '.join(tables)} of {len(books)} books; the library before is {backup}",
           flush=True)
-    return books
+    return len(books)
 
 
 # The lookups the Logs page can list (metadata_lookup_log): a full rebuild's worth is too many
@@ -256,7 +280,8 @@ MIGRATIONS: list = [(1, "always detect duplicates, no Hardcover auto-fetch", _m1
                     (4, "drop the unread import log", _m4_drop_import_log),
                     (5, "drop unused duplicate-scan and resolution columns", _m5_drop_unused_columns),
                     (6, "drop the import merge setting", _m6_drop_import_merge),
-                    (7, "clear every book's tags", _m7_clear_every_books_tags)]
+                    (7, "clear every book's tags", _m7_clear_every_books_tags),
+                    (8, "clear every book's publisher, languages and rating", _m8_clear_publishers_languages_ratings)]
 SCHEMA_MIGRATIONS_TABLE = "cwa_schema_migrations"
 
 

@@ -44,7 +44,7 @@ class google_scholar(Metadata):
     ARXIV_ABS_URL = "https://arxiv.org/abs/"
     DATACITE_URL = "https://api.datacite.org/dois"
     S2_MATCH_URL = "https://api.semanticscholar.org/graph/v1/paper/search/match"
-    S2_FIELDS = "title,authors,abstract,publicationDate,year,venue,journal,externalIds,url"
+    S2_FIELDS = "title,authors,abstract,publicationDate,year,externalIds,url"
     CROSSREF_URL = "https://api.crossref.org/works"
     # Crossref's types for a whole book, whose ISBN is the record's own; a chapter's
     # ISBN is its book's, good for a cover but not an identifier
@@ -207,7 +207,6 @@ class google_scholar(Metadata):
         )
         match.cover = ""
         match.description = " ".join(tags.first("citation_abstract").split())
-        match.publisher = "arXiv"
         match.publishedDate = tags.first("citation_date").replace("/", "-")[:10]
         match.identifiers = {"arxiv": arxiv_id}
         # The journal's DOI once published, otherwise arXiv's own
@@ -234,7 +233,6 @@ class google_scholar(Metadata):
         )
         match.cover = ""
         match.description = " ".join((entry.findtext(ATOM + "summary") or "").split())
-        match.publisher = "arXiv"
         match.publishedDate = (entry.findtext(ATOM + "published") or "")[:10]
         match.identifiers = {"arxiv": arxiv_id}
         # The journal's DOI once published, otherwise arXiv's own
@@ -293,7 +291,6 @@ class google_scholar(Metadata):
         abstract = next((d.get("description") or "" for d in attrs.get("descriptions", [])
                          if d.get("descriptionType") == "Abstract"), "")
         match.description = " ".join(abstract.split())
-        match.publisher = "arXiv"
         # The first version's submission, as the arXiv API's "published"
         submitted = sorted(d.get("date") or "" for d in attrs.get("dates", [])
                            if d.get("dateType") == "Submitted")
@@ -342,7 +339,6 @@ class google_scholar(Metadata):
         )
         match.cover = ""
         match.description = " ".join((hit.get("abstract") or "").split())
-        match.publisher = (hit.get("journal") or {}).get("name") or hit.get("venue") or ""
         match.publishedDate = hit.get("publicationDate") or str(hit.get("year") or "")
         ids = hit.get("externalIds") or {}
         match.identifiers = {}
@@ -358,7 +354,7 @@ class google_scholar(Metadata):
         doi = DOI_RE.search(query)
         params = {
             "rows": self.MAX_RESULTS,
-            "select": "DOI,title,author,publisher,container-title,issued,abstract,URL,type,ISBN",
+            "select": "DOI,title,author,issued,abstract,URL,type,ISBN",
         }
         if doi:
             params["filter"] = "doi:" + doi.group(0)
@@ -447,9 +443,6 @@ class google_scholar(Metadata):
         # Abstracts come as JATS XML; strip the tags
         abstract = re.sub(r"<[^>]+>", " ", item.get("abstract") or "")
         match.description = " ".join(html.unescape(abstract).split())
-        match.publisher = (item.get("container-title") or [None])[0] or item.get(
-            "publisher", ""
-        )
         parts = (item.get("issued", {}).get("date-parts") or [[]])[0]
         if parts and parts[0]:
             parts = list(parts) + [1] * (3 - len(parts))

@@ -12,7 +12,6 @@ from os import getenv
 import requests
 
 from cps import config, constants, logger
-from cps.isoLanguages import get_language_name
 from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata, ProviderError
 
 log = logger.create()
@@ -46,8 +45,6 @@ class Hardcover(Metadata):
         "  editions { "
         "    id title release_date isbn_13 isbn_10 reading_format_id "
         "    image { url } "
-        "    language { code3 } "
-        "    publisher { name } "
         "    contributions { author { name } } "
         "  } "
         "} }"
@@ -178,9 +175,7 @@ class Hardcover(Metadata):
             )
             match.cover = (edition.get("image") or {}).get("url", generic_cover)
             match.description = result.get("description", "")
-            match.publisher = (edition.get("publisher") or {}).get("name", "")
             match.publishedDate = edition.get("release_date", "")
-            match.languages = self._parse_languages(edition, locale)
             match.identifiers = {
                 "hardcover-id": book_id,
                 "hardcover-slug": result.get("slug", ""),
@@ -230,12 +225,6 @@ class Hardcover(Metadata):
         except Exception as e:
             log.warning(f"Error parsing edition authors: {e}")
             return authors
-
-    @staticmethod
-    def _parse_languages(edition: dict, locale: str) -> list[str]:
-        language_iso = (edition.get("language") or {}).get("code3", "")
-        languages = [get_language_name(locale, language_iso)] if language_iso else []
-        return languages
 
     @staticmethod
     def _safe_get(data, *keys, default=None):

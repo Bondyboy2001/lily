@@ -11,7 +11,6 @@ from os import getenv
 import requests
 
 from cps import config, logger
-from cps.isoLanguages import get_lang3, get_language_name
 from cps.services.Metadata import CoolOff, MetaRecord, MetaSourceInfo, Metadata, ProviderBusy, ProviderError
 
 log = logger.create()
@@ -107,10 +106,7 @@ class Google(Metadata):
         match.cover_max_pixels = Google.COVER_MAX_PIXELS
         match.cover = self._parse_cover(result=result, generic_cover=generic_cover)
         match.description = volume_info.get("description", "")
-        match.languages = self._parse_languages(result=result, locale=locale)
-        match.publisher = volume_info.get("publisher", "")
         match.publishedDate = self._parse_date(volume_info.get("publishedDate", ""))
-        match.rating = volume_info.get("averageRating", 0)
 
         match.identifiers = {"google": match.id}
         match = self._parse_isbn(result=result, match=match)
@@ -149,13 +145,3 @@ class Google(Metadata):
 
             return cover_url.replace("http://", "https://")
         return generic_cover
-
-    @staticmethod
-    def _parse_languages(result: dict, locale: str) -> list[str]:
-        language_iso2 = result["volumeInfo"].get("language", "")
-        languages = (
-            [get_language_name(locale, get_lang3(language_iso2))]
-            if language_iso2
-            else []
-        )
-        return languages

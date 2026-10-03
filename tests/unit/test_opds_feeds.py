@@ -142,11 +142,11 @@ class TestAcquisitionFeeds:
 
     def test_feed_hidden_when_sidebar_entry_disabled(self, env):
         from cps import constants
-        user = env.add_user("norated", password="pw",
-                            sidebar_view=constants.ADMIN_USER_SIDEBAR & ~constants.SIDEBAR_BEST_RATED)
+        user = env.add_user("nohot", password="pw",
+                            sidebar_view=constants.ADMIN_USER_SIDEBAR & ~constants.SIDEBAR_HOT)
         client = env.app.test_client()
-        assert client.get("/opds/rated", headers=_auth(user.name, "pw")).status_code == 404
-        assert "Top Rated Books" not in _titles(_get_feed(env, "/opds", _auth(user.name, "pw")))
+        assert client.get("/opds/hot", headers=_auth(user.name, "pw")).status_code == 404
+        assert "Hot Books" not in _titles(_get_feed(env, "/opds", _auth(user.name, "pw")))
         # "Recently added" is deliberately always visible (User.check_visibility).
         assert client.get("/opds/new", headers=_auth(user.name, "pw")).status_code == 200
 

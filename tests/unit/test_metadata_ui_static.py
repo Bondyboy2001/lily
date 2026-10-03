@@ -131,8 +131,7 @@ def test_fetch_metadata_cards_stack_on_phones():
 
 def test_a_ticked_field_replaces_the_books_value():
     js = (REPO_ROOT / "cps/static/js/get_meta.js").read_text(encoding="utf-8")
-    # Languages are the result's, not merged into the book's; a result never brings tags
-    assert 'set("languages", (book.languages || []).join(", "))' in js
+    # A result never brings tags, a publisher, languages or a rating
     assert 'set("tags"' not in js and "msg.tags" not in js
     assert "getUniqueValues" not in js
     # A title's "(2nd Edition)" replaces the Edition field, filled or not

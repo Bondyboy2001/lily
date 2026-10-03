@@ -1,33 +1,41 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Tags are the user's own: nothing adds them but an edit by hand.
+"""Lily keeps no tags, publishers, languages or ratings but the tags a user types: calibre
+reads them from a file on import, so an import clears them again (metadata lookups never add
+any either). The file's published date stays."""
 
-calibre turns a file's subjects and a PDF's Keywords field into tags on import, so an import
-clears them again (metadata lookups never add any either)."""
 
-
-def delete_unused_tags(session):
-    """Remove tags no book uses any more; returns how many. The caller commits."""
+def delete_unused(session):
+    """Remove tags, publishers, languages and ratings no book uses any more; returns how many.
+    The caller commits."""
     from cps import db
-    unused = session.query(db.Tags).filter(~db.Tags.id.in_(
-        session.query(db.books_tags_link.c.tag))).all()
-    for tag in unused:
-        session.delete(tag)
-    return len(unused)
+    removed = 0
+    for model, link, column in ((db.Tags, db.books_tags_link, "tag"),
+                                (db.Publishers, db.books_publishers_link, "publisher"),
+                                (db.Languages, db.books_languages_link, "lang_code"),
+                                (db.Ratings, db.books_ratings_link, "rating")):
+        unused = session.query(model).filter(~model.id.in_(session.query(getattr(link.c, column)))).all()
+        for row in unused:
+            session.delete(row)
+        removed += len(unused)
+    return removed
 
 
-def clear_new_book_tags(book_id):
-    """Drop the tags calibre read from a newly imported file; True when it had any."""
+def clear_new_book_details(book_id):
+    """Drop the tags, publisher, languages and rating calibre read from a newly imported file;
+    True when it had any."""
     from cps import db
     cdb = db.CalibreDB(expire_on_commit=False, init=True)
     try:
         book = cdb.get_book(book_id)
-        if book is None or not book.tags:
+        if book is None:
             return False
-        book.tags = []
+        if not (book.tags or book.publishers or book.languages or book.ratings):
+            return False
+        book.tags, book.publishers, book.languages, book.ratings = [], [], [], []
         cdb.session.flush()
-        delete_unused_tags(cdb.session)
+        delete_unused(cdb.session)
         cdb.session.commit()
         return True
     except Exception:

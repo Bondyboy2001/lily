@@ -417,9 +417,11 @@ def test_editor_shows_every_field_even_when_blank():
     assert "data-optional" not in template and "shown." not in template and "details_shown" not in template
     assert "editbook-section\"{%" not in template and " hidden{% endif %}" not in template
     for field in ('id="title"', 'id="edition"', 'id="volume"', 'id="author-rows"',
-                  'id="publisher"', 'id="pubdate"', 'id="languages"',
-                  "image.rating_input('rating'", 'id="tag-rows"', 'id="comments"'):
+                  'id="pubdate"', 'id="tag-rows"', 'id="comments"'):
         assert field in template, field
+    # No publisher, language or rating: Lily keeps none of them
+    for gone in ('id="publisher"', 'id="languages"', "rating_input"):
+        assert gone not in template, gone
     # Edition and Volume are plain fields, paired under the title; Add author and Add tag stay
     numbers = template.split('<div class="editbook-fields editbook-numbers">', 1)[1].split("{# One row per author", 1)[0]
     assert numbers.index('id="edition"') < numbers.index('id="volume"')
@@ -433,7 +435,7 @@ def test_editor_shows_every_field_even_when_blank():
         assert gone not in edit_js, gone
     assert "reveal-filled" not in read(JS / "get_meta.js") and "edition-field" not in read(JS / "get_meta.js")
     css = read(CSS / "lily-library.css")
-    assert "data-optional" not in css and ".editbook-fields .editbook-publisher { grid-column: 1 / -1; }" in css
+    assert "data-optional" not in css and "editbook-publisher" not in css
 
 
 def test_fetch_metadata_search_is_a_field_and_a_separate_button():

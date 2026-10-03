@@ -89,8 +89,7 @@ version = {attr = "cps.constants.STABLE_VERSION"}
 # third-party code; cps/static is generated/vendored.
 [tool.vulture]
 paths = ["cps", "scripts", "vulture_whitelist.py"]
-exclude = ["cps/static", "cps/cw_advocate", "cps/cw_login",
-           "cps/iso_language_names.py"]
+exclude = ["cps/static", "cps/cw_advocate", "cps/cw_login"]
 min_confidence = 60
 ignore_decorators = [
     "@*.route", "@*.app_template_filter", "@*.errorhandler", "@*.before_request",
@@ -118,7 +117,6 @@ select = ["E9", "F63", "F7", "F82", "F401", "F811", "F601", "F523", "F841", "B02
 # test writing, and removing the call could drop the behaviour under test.
 "tests/**" = ["F841"]
 # Generated data file; its generator decides the whitespace.
-"cps/iso_language_names.py" = ["W291", "W292"]
 
 # coverage.py (pytest --cov) reads these; it ignores [coverage:*] sections in pytest.ini.
 [tool.coverage.run]

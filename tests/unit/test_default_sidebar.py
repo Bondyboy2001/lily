@@ -55,10 +55,8 @@ def test_default_sidebar_is_the_core_views():
     for flag in (constants.SIDEBAR_RECENT, constants.SIDEBAR_AUTHOR, constants.SIDEBAR_SERIES,
                  constants.SIDEBAR_CATEGORY, constants.SIDEBAR_READ_AND_UNREAD):
         assert constants.DEFAULT_SIDEBAR & flag
-    for flag in (constants.SIDEBAR_HOT, constants.SIDEBAR_DOWNLOAD, constants.SIDEBAR_BEST_RATED,
-                 constants.SIDEBAR_RANDOM, constants.SIDEBAR_PUBLISHER, constants.SIDEBAR_LANGUAGE,
-                 constants.SIDEBAR_RATING, constants.SIDEBAR_FORMAT,
-                 constants.SIDEBAR_DUPLICATES):
+    for flag in (constants.SIDEBAR_HOT, constants.SIDEBAR_DOWNLOAD, constants.SIDEBAR_RANDOM,
+                 constants.SIDEBAR_FORMAT, constants.SIDEBAR_DUPLICATES):
         assert not constants.DEFAULT_SIDEBAR & flag
 
 

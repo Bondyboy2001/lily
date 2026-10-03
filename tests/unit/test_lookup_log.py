@@ -38,7 +38,7 @@ def test_the_log_keeps_only_the_newest_lookups(env, monkeypatch):
 def test_a_lookup_logs_its_book_result_and_changes(env, monkeypatch):
     from cps import metadata_helper
     env, store = env
-    dune = SimpleNamespace(title="Dune", authors=["Frank Herbert"], description="<p>Spice.</p>", publisher="Ace",
+    dune = SimpleNamespace(title="Dune", authors=["Frank Herbert"], description="<p>Spice.</p>",
                            tags=[], series="", series_index=0, publishedDate="1965-08-01", rating=None,
                            identifiers={"isbn": "9780441172719"}, cover="", languages=[],
                            source=SimpleNamespace(description="Open Library"))
@@ -55,7 +55,6 @@ def test_a_lookup_logs_its_book_result_and_changes(env, monkeypatch):
     changes = json.loads(entry["changes"])
     assert changes["authors"] == ["Unknown", "Frank Herbert"]
     assert changes["description"] == ["", "Spice."]
-    assert changes["publisher"] == ["", "Ace"]
     assert changes["pubdate"][1] == "1965-08-01"
     assert changes["identifiers"] == ["", "isbn 9780441172719"]
 
@@ -71,7 +70,7 @@ def test_the_logs_page_lists_lookups_with_their_changes(env):
     env, store = env
     book = env.add_book("Dune", author="Frank Herbert")
     store.log_metadata_lookup(book, "Dune", "matched", "Google Books",
-                              json.dumps({"title": ["dune", "Dune"], "publisher": ["", "Ace"]}))
+                              json.dumps({"title": ["dune", "Dune"], "pubdate": ["", "1965-08-01"]}))
     store.log_metadata_lookup(9999, "Gone Book", "failed")
     html = _admin(env).get("/logs").get_data(as_text=True)
     section = html[html.index('id="section-lookups"'):html.index('id="section-service-logs"')]
@@ -82,7 +81,7 @@ def test_the_logs_page_lists_lookups_with_their_changes(env):
     assert '<span class="label label-success">Matched</span>' in section and "Google Books" in section
     assert '<span class="label label-danger">Failed</span>' in section
     assert '<span class="lookup-field">Title</span>' in section and '<span class="lookup-before">dune</span>' in section
-    assert '<span class="lookup-field">Publisher</span>' in section and '<span class="lookup-after">Ace</span>' in section
+    assert '<span class="lookup-field">Published</span>' in section and '<span class="lookup-after">1965-08-01</span>' in section
     assert "Showing the latest 2 of 2 lookups." in section and "Show more" not in section
     # The live log is still there, under its own heading
     assert "Service Logs" in html and 'id="log_output"' in html

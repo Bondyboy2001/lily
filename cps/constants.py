@@ -62,17 +62,13 @@ ALL_ROLES = {
             }
 
 DETAIL_RANDOM           = 1 <<  0
-SIDEBAR_LANGUAGE        = 1 <<  1
 SIDEBAR_SERIES          = 1 <<  2
 SIDEBAR_CATEGORY        = 1 <<  3
 SIDEBAR_HOT             = 1 <<  4
 SIDEBAR_RANDOM          = 1 <<  5
 SIDEBAR_AUTHOR          = 1 <<  6
-SIDEBAR_BEST_RATED      = 1 <<  7
 SIDEBAR_READ_AND_UNREAD = 1 <<  8
 SIDEBAR_RECENT          = 1 <<  9
-SIDEBAR_PUBLISHER       = 1 << 12
-SIDEBAR_RATING          = 1 << 13
 SIDEBAR_FORMAT          = 1 << 14
 SIDEBAR_DOWNLOAD        = 1 << 16
 SIDEBAR_DUPLICATES      = 1 << 18

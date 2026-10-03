@@ -71,16 +71,6 @@ $(function () {
     return field(name).prop("disabled", false).val(value);
   }
 
-  // The editor's rating is a group of star radios (image.html rating_input); the book page's a hidden field
-  function ratingInput() {
-    return $form.find("input[name='rating']");
-  }
-
-  function ratingValue() {
-    var $rating = ratingInput();
-    return $rating.is(":radio") ? $rating.filter(":checked").val() : $rating.val();
-  }
-
   var bookResultTemplate = _.template($("#template-book-result").html());
 
   // A card's ticks as field -> checked
@@ -122,10 +112,8 @@ $(function () {
   // The form's values, read once per render rather than once per card
   function readForm() {
     return {
-      title: field("title").val(), authors: field("authors").val(), publisher: field("publisher").val(),
-      pubdate: field("pubdate").val(),
-      rating: ratingValue(), description: htmlToText(field("comments").val()),
-      languages: field("languages").val(), ids: currentIdentifiers(),
+      title: field("title").val(), authors: field("authors").val(), pubdate: field("pubdate").val(),
+      description: htmlToText(field("comments").val()), ids: currentIdentifiers(),
     };
   }
 
@@ -143,15 +131,8 @@ $(function () {
     var authors = (book.authors || []).join(" & ");
     add("title", msg.title, book.title, form.title, { link: book.url });
     add("authors", msg.author, authors, form.authors);
-    add("publisher", msg.publisher, book.publisher, form.publisher);
     add("pubDate", msg.pubdate, book.publishedDate, form.pubdate);
-    if (book.rating) {
-      add("rating", msg.rating, book.rating + " / 5", form.rating ? form.rating + " / 5" : "");
-    }
     add("description", msg.comments, result.descText, form.description, { cls: "meta-description" });
-    if (book.languages && book.languages.length) {
-      add("languages", msg.languages, book.languages.join(", "), form.languages);
-    }
     $.each(book.identifiers || {}, function (key, value) {
       if (value === "" || value === null) return;
       add(key, key, value, form.ids[String(key).toLowerCase()], {
@@ -185,11 +166,8 @@ $(function () {
     if (updateItems.description) {
       set("comments", book.description || "").trigger("lily:set-html");
     }
-    // A ticked field replaces the book's value outright, languages included. Tags are the
-    // user's own: a result never brings any
-    if (updateItems.languages) {
-      set("languages", (book.languages || []).join(", "));
-    }
+    // A ticked field replaces the book's value outright. Tags, the publisher, languages and
+    // ratings are not Lily's: a result never brings any
     if (updateItems.authors) {
       set("authors", (book.authors || []).join(" & ")).trigger("change");
     }
@@ -203,16 +181,6 @@ $(function () {
         $edition.val(split.edition).trigger("change");
       }
     }
-    if (updateItems.rating) {
-      // In the editor, check the matching star, or none
-      var $rating = ratingInput();
-      if ($rating.is(":radio")) {
-        var $star = $rating.filter("[value='" + Math.round(book.rating) + "']");
-        ($star.length ? $star : $rating.filter("[value='']")).prop("checked", true);
-      } else {
-        $rating.val(Math.round(book.rating) || "");
-      }
-    }
     // A provider with no cover sends Lily's placeholder; that leaves the book's own cover alone.
     if (updateItems.cover && book.cover && !/\/generic_cover\.svg(\?|$)/.test(book.cover) && field("cover_url").length) {
       $(".cover img").attr("src", book.cover);
@@ -220,9 +188,6 @@ $(function () {
     }
     if (updateItems.pubDate) {
       set("pubdate", fullDate(book.publishedDate)).trigger("change");
-    }
-    if (updateItems.publisher) {
-      set("publisher", book.publisher);
     }
     $.each(book.identifiers || {}, function (key, value) {
       if (updateItems[key] && value !== "" && value !== null) {

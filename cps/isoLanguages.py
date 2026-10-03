@@ -5,9 +5,7 @@
 # See CONTRIBUTORS for full list of authors.
 
 
-from .iso_language_names import LANGUAGE_NAMES as _LANGUAGE_NAMES
 from . import logger
-from .string_helper import strip_whitespaces
 
 log = logger.create()
 
@@ -31,53 +29,6 @@ except ImportError:
     print("Python 3.12 isn't compatible with iso-639. Please install pycountry.")
     from iso639 import languages
     get = languages.get
-
-
-def get_language_names(locale):
-    names = _LANGUAGE_NAMES.get(str(locale))
-    if names is None:
-        names = _LANGUAGE_NAMES.get(locale.language)
-    return names
-
-
-def get_language_name(locale, lang_code):
-    UNKNOWN_TRANSLATION = "Unknown"
-    names = get_language_names(locale)
-    if names is None:
-        log.error(f"Missing language names for locale: {str(locale)}/{locale.language}")
-        return UNKNOWN_TRANSLATION
-
-    name = names.get(lang_code, UNKNOWN_TRANSLATION)
-    if name == UNKNOWN_TRANSLATION:
-        log.error(f"Missing translation for language name: {lang_code}")
-
-    return name
-
-
-def get_language_code_from_name(locale, language_names, remainder=None):
-    language_names = {strip_whitespaces(x).lower() for x in language_names if x}
-    lang = []
-    for key, val in get_language_names(locale).items():
-        val = val.lower()
-        if val in language_names:
-            lang.append(key)
-            language_names.remove(val)
-    if remainder is not None and language_names:
-        remainder.extend(language_names)
-    return lang
-
-
-def get_valid_language_codes_from_code(locale, language_names, remainder=None):
-    lang = []
-    if "" in language_names:
-        language_names.remove("")
-    for k, __ in get_language_names(locale).items():
-        if k in language_names:
-            lang.append(k)
-            language_names.remove(k)
-    if remainder is not None and len(language_names):
-        remainder.extend(language_names)
-    return lang
 
 
 def get_lang3(lang):

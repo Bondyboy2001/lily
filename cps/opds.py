@@ -10,14 +10,13 @@ import datetime
 from urllib.parse import unquote_plus
 
 from flask import Blueprint, request, render_template, make_response, abort, g, url_for
-from flask_babel import get_locale
 from flask_babel import gettext as _
 
 
 from sqlalchemy.sql.expression import func, text, or_, and_, true
 from sqlalchemy.exc import InvalidRequestError, OperationalError
 
-from . import logger, config, db, calibre_db, ub, isoLanguages, constants
+from . import logger, config, db, calibre_db, ub, constants
 from .usermanagement import requires_basic_auth_if_no_ano, auth
 from .helper import get_download_link, get_book_cover
 from .pagination import Pagination
@@ -31,16 +30,12 @@ log = logger.create()
 OPDS_ROOT_ORDER_DEFAULT = [
     'books',
     'hot',
-    'top_rated',
     'recent',
     'random',
     'read',
     'unread',
     'authors',
-    'publishers',
     'categories',
-    'languages',
-    'ratings',
     'formats',
     'shelves',
 ]
@@ -57,12 +52,6 @@ OPDS_ROOT_ENTRY_DEFS = {
         'title': 'Hot Books',
         'description': 'Popular publications from this catalog based on Downloads.',
         'visible': lambda user, __: user.check_visibility(constants.SIDEBAR_HOT),
-    },
-    'top_rated': {
-        'endpoint': 'opds.feed_best_rated',
-        'title': 'Top Rated Books',
-        'description': 'Popular publications from this catalog based on Rating.',
-        'visible': lambda user, __: user.check_visibility(constants.SIDEBAR_BEST_RATED),
     },
     'recent': {
         'endpoint': 'opds.feed_new',
@@ -94,29 +83,11 @@ OPDS_ROOT_ENTRY_DEFS = {
         'description': 'Books ordered by Author',
         'visible': lambda user, __: user.check_visibility(constants.SIDEBAR_AUTHOR),
     },
-    'publishers': {
-        'endpoint': 'opds.feed_publisherindex',
-        'title': 'Publishers',
-        'description': 'Books ordered by publisher',
-        'visible': lambda user, __: user.check_visibility(constants.SIDEBAR_PUBLISHER),
-    },
     'categories': {
         'endpoint': 'opds.feed_categoryindex',
         'title': 'Categories',
         'description': 'Books ordered by category',
         'visible': lambda user, __: user.check_visibility(constants.SIDEBAR_CATEGORY),
-    },
-    'languages': {
-        'endpoint': 'opds.feed_languagesindex',
-        'title': 'Languages',
-        'description': 'Books ordered by Languages',
-        'visible': lambda user, __: user.check_visibility(constants.SIDEBAR_LANGUAGE),
-    },
-    'ratings': {
-        'endpoint': 'opds.feed_ratingindex',
-        'title': 'Ratings',
-        'description': 'Books ordered by Rating',
-        'visible': lambda user, __: user.check_visibility(constants.SIDEBAR_RATING),
     },
     'formats': {
         'endpoint': 'opds.feed_formatindex',
@@ -260,19 +231,6 @@ def feed_discover():
     return render_xml_template('feed.xml', entries=entries, pagination=pagination)
 
 
-@opds.route("/opds/rated")
-@requires_basic_auth_if_no_ano
-def feed_best_rated():
-    if not auth.current_user().check_visibility(constants.SIDEBAR_BEST_RATED):
-        abort(404)
-    off = request.args.get("offset") or 0
-    entries, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
-                                                        db.Books, db.Books.ratings.any(db.Ratings.rating > 9),
-                                                        [db.Books.timestamp.desc()],
-                                                        True, config.config_read_column)
-    return render_xml_template('feed.xml', entries=entries, pagination=pagination)
-
-
 @opds.route("/opds/hot")
 @requires_basic_auth_if_no_ano
 def feed_hot():
@@ -328,29 +286,6 @@ def feed_author(book_id):
     return render_xml_dataset(db.Authors, book_id)
 
 
-@opds.route("/opds/publisher")
-@requires_basic_auth_if_no_ano
-def feed_publisherindex():
-    if not auth.current_user().check_visibility(constants.SIDEBAR_PUBLISHER):
-        abort(404)
-    off = request.args.get("offset") or 0
-    entries = calibre_db.session.query(db.Publishers)\
-        .join(db.books_publishers_link)\
-        .join(db.Books).filter(calibre_db.common_filters())\
-        .group_by(text('books_publishers_link.publisher'))\
-        .order_by(db.Publishers.sort)\
-        .limit(config.config_books_per_page).offset(off)
-    pagination = Pagination((int(off) / (int(config.config_books_per_page)) + 1), config.config_books_per_page,
-                            len(calibre_db.session.query(db.Publishers).all()))
-    return render_xml_template('feed.xml', listelements=entries, folder='opds.feed_publisher', pagination=pagination)
-
-
-@opds.route("/opds/publisher/<int:book_id>")
-@requires_basic_auth_if_no_ano
-def feed_publisher(book_id):
-    return render_xml_dataset(db.Publishers, book_id)
-
-
 @opds.route("/opds/category")
 @requires_basic_auth_if_no_ano
 def feed_categoryindex():
@@ -384,34 +319,6 @@ def feed_category(book_id):
     return render_xml_dataset(db.Tags, book_id)
 
 
-@opds.route("/opds/ratings")
-@requires_basic_auth_if_no_ano
-def feed_ratingindex():
-    if not auth.current_user().check_visibility(constants.SIDEBAR_RATING):
-        abort(404)
-    off = request.args.get("offset") or 0
-    entries = calibre_db.session.query(db.Ratings, func.count('books_ratings_link.book').label('count'),
-                                       (db.Ratings.rating / 2).label('name')) \
-        .join(db.books_ratings_link)\
-        .join(db.Books)\
-        .filter(calibre_db.common_filters()) \
-        .group_by(text('books_ratings_link.rating'))\
-        .order_by(db.Ratings.rating).all()
-
-    pagination = Pagination((int(off) / (int(config.config_books_per_page)) + 1), config.config_books_per_page,
-                            len(entries))
-    element = []
-    for entry in entries:
-        element.append(FeedObject(entry[0].id, _("{} Stars").format(entry.name)))
-    return render_xml_template('feed.xml', listelements=element, folder='opds.feed_ratings', pagination=pagination)
-
-
-@opds.route("/opds/ratings/<book_id>")
-@requires_basic_auth_if_no_ano
-def feed_ratings(book_id):
-    return render_xml_dataset(db.Ratings, book_id)
-
-
 @opds.route("/opds/formats")
 @requires_basic_auth_if_no_ano
 def feed_formatindex():
@@ -437,36 +344,6 @@ def feed_format(book_id):
     entries, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
                                                         db.Books,
                                                         db.Books.data.any(db.Data.format == book_id.upper()),
-                                                        [db.Books.timestamp.desc()],
-                                                        True, config.config_read_column)
-    return render_xml_template('feed.xml', entries=entries, pagination=pagination)
-
-
-@opds.route("/opds/language")
-@opds.route("/opds/language/")
-@requires_basic_auth_if_no_ano
-def feed_languagesindex():
-    if not auth.current_user().check_visibility(constants.SIDEBAR_LANGUAGE):
-        abort(404)
-    off = request.args.get("offset") or 0
-    if auth.current_user().filter_language() == "all":
-        languages = calibre_db.speaking_language()
-    else:
-        languages = calibre_db.session.query(db.Languages).filter(
-            db.Languages.lang_code == auth.current_user().filter_language()).all()
-        languages[0].name = isoLanguages.get_language_name(get_locale(), languages[0].lang_code)
-    pagination = Pagination((int(off) / (int(config.config_books_per_page)) + 1), config.config_books_per_page,
-                            len(languages))
-    return render_xml_template('feed.xml', listelements=languages, folder='opds.feed_languages', pagination=pagination)
-
-
-@opds.route("/opds/language/<int:book_id>")
-@requires_basic_auth_if_no_ano
-def feed_languages(book_id):
-    off = request.args.get("offset") or 0
-    entries, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
-                                                        db.Books,
-                                                        db.Books.languages.any(db.Languages.id == book_id),
                                                         [db.Books.timestamp.desc()],
                                                         True, config.config_read_column)
     return render_xml_template('feed.xml', entries=entries, pagination=pagination)

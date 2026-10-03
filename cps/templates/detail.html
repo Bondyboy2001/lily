@@ -47,14 +47,6 @@
                     {% endfor %}
                 </p>
                 {% endif %}
-                {% set current_rating = (entry.ratings[0].rating / 2)|int if entry.ratings|length > 0 else 0 %}
-                {% if current_rating > 0 %}
-                <div class="rating" id="detail-rating-block" title="{{ current_rating }} / 5">
-                    {% for number in range(current_rating) %}<span class="glyphicon glyphicon-star good" aria-hidden="true"></span>{% endfor %}
-                    {% for number in range(5 - current_rating) %}<span class="glyphicon glyphicon-star-empty" aria-hidden="true"></span>{% endfor %}
-                    <span class="sr-only">{{ _('Rating') }}: {{ current_rating }} / 5</span>
-                </div>
-                {% endif %}
             </div>
 
             <div class="book-detail-actions">
@@ -195,18 +187,6 @@
                 <dd>{{ entry.pubdate|formatdate }}</dd>
               </div>
               {% endif %}
-              {% if entry.publishers|length %}
-              <div>
-                <dt>{{ _('Publisher') }}</dt>
-                <dd>{{ entry.publishers[0].name }}</dd>
-              </div>
-              {% endif %}
-              {% if entry.languages|length %}
-              <div>
-                <dt>{{ _('Language') }}</dt>
-                <dd>{% for language in entry.languages %}{{ language.language_name }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>
-              </div>
-              {% endif %}
               {% for format in entry.data %}
               <div>
                 <dt>{{ _('File') if loop.length == 1 else format.format }}</dt>
@@ -266,10 +246,7 @@
         <input type="hidden" name="detail_view" value="1">
         <input type="hidden" name="title" value="{{ entry.title }}">
         <input type="hidden" name="authors" value="{{ (entry.ordered_authors|named_authors)|map(attribute='name')|map('replace', '|', ',')|join(' & ') }}">
-        <input type="hidden" name="rating" value="{% if entry.ratings %}{{ (entry.ratings[0].rating / 2)|int }}{% endif %}">
         <input type="hidden" name="pubdate" value="{% if entry.pubdate %}{{ entry.pubdate|formatdateinput }}{% endif %}">
-        <input type="hidden" name="publisher" value="{% if entry.publishers %}{{ entry.publishers[0].name }}{% endif %}" disabled>
-        <input type="hidden" name="languages" value="{{ entry.languages|map(attribute='language_name')|map('trim')|join(', ') }}" disabled>
         <input type="hidden" name="tags" value="{{ entry.tags|map(attribute='name')|map('trim')|join(', ') }}" disabled>
         <input type="hidden" name="comments" value="{% if entry.comments %}{{ entry.comments[0].text }}{% endif %}" disabled>
         <input type="hidden" name="cover_url" value="" disabled>

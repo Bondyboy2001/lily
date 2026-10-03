@@ -21,14 +21,13 @@ from urllib.parse import urlsplit
 from flask import Blueprint, request, flash, redirect, url_for, abort, Response
 from flask_babel import gettext as _
 from flask_babel import lazy_gettext as N_
-from flask_babel import get_locale
 from .edition import split_edition
 from .cw_login import current_user
 from sqlalchemy.exc import OperationalError, IntegrityError, InterfaceError, InvalidRequestError
 from sqlalchemy.orm.exc import StaleDataError
 from sqlalchemy.sql.expression import func, or_
 
-from . import logger, isoLanguages, uploader, helper, constants
+from . import logger, uploader, helper, constants
 from .clean_html import clean_string
 from . import config, ub, db, calibre_db
 from .services.arxiv_shelf import ARXIV_SHELF, arxiv_shelf
@@ -255,7 +254,6 @@ def do_edit_book(book_id, upload_formats=None):
                     calibre_db.session.rollback()
                     return render_edit_book(book_id)
                 modify_date = True
-            modify_date |= edit_book_ratings(to_save, book)
         else:
             to_save, edit_error = upload_book_formats(upload_formats, book, book_id, book.has_cover)
 
@@ -303,17 +301,6 @@ def do_edit_book(book_id, upload_formats=None):
 
         modify_date |= edit_book_tags(to_save.get('tags'), book)
         modify_date |= edit_book_series(to_save.get("series"), book)
-        modify_date |= edit_book_publisher(to_save.get('publisher'), book)
-
-        try:
-            invalid = []
-            modify_date |= edit_book_languages(to_save.get('languages'), book, upload_mode=upload_formats, invalid=invalid)
-            if invalid:
-                for lang in invalid:
-                    flash(_("'%(langname)s' is not a valid language", langname=lang), category="warning")
-        except ValueError as e:
-            flash(str(e), category="error")
-            edit_error = True
 
         modify_date |= edit_all_cc_data(book_id, book, to_save)
 
@@ -395,7 +382,7 @@ def do_edit_book(book_id, upload_formats=None):
             # Define metadata fields that represent actual content changes
             metadata_fields = {
                 'title', 'authors', 'series', 'series_index', 'tags', 'comments',
-                'cover_url', 'pubdate', 'publisher', 'languages', 'rating'
+                'cover_url', 'pubdate'
             }
 
             # Filter to meaningful metadata changes (including empty values for legitimate clearing)
@@ -478,9 +465,7 @@ def merge_metadata(book, meta, to_save):
     if meta.cover:
         to_save['cover_format'] = meta.cover
     for s_field, m_field in [
-            ('tags', 'tags'), ('authors', 'author'), ('series', 'series'),
-            ('series_index', 'series_id'), ('languages', 'languages'),
-            ('title', 'title'), ('comments', 'description')]:
+            ('authors', 'author'), ('title', 'title'), ('comments', 'description')]:
         try:
             val = None if len(getattr(book, s_field)) else getattr(meta, m_field, '')
         except TypeError:
@@ -762,9 +747,6 @@ def render_edit_book(book_id):
               category="error")
         return redirect(url_for("web.index"))
 
-    for lang in book.languages:
-        lang.language_name = isoLanguages.get_language_name(get_locale(), lang.lang_code)
-
     book.authors = calibre_db.order_authors([book])
 
     # calibre's "Unknown" stand-in shows as an empty author field
@@ -895,29 +877,6 @@ def _note_hand_cover(book_id):
         log.debug("Could not note book %s's cover as chosen by hand: %s", book_id, e)
 
 
-def edit_book_ratings(to_save, book):
-    changed = False
-    if strip_whitespaces(to_save.get("rating", "")):
-        old_rating = False
-        if len(book.ratings) > 0:
-            old_rating = book.ratings[0].rating
-        rating_x2 = int(float(to_save.get("rating", "")) * 2)
-        if rating_x2 != old_rating:
-            changed = True
-            is_rating = calibre_db.session.query(db.Ratings).filter(db.Ratings.rating == rating_x2).first()
-            if is_rating:
-                book.ratings.append(is_rating)
-            else:
-                new_rating = db.Ratings(rating=rating_x2)
-                book.ratings.append(new_rating)
-            if old_rating:
-                book.ratings.remove(book.ratings[0])
-    else:
-        if len(book.ratings) > 0:
-            book.ratings.remove(book.ratings[0])
-            changed = True
-    return changed
-
 
 def edit_book_tags(tags, book):
     if tags is not None:
@@ -971,46 +930,6 @@ def edit_book_comments(comments, book):
         return modify_date
     return False
 
-
-def edit_book_languages(languages, book, upload_mode=False, invalid=None):
-    if languages is not None:
-        input_languages = languages.split(',')
-        unknown_languages = []
-        if not upload_mode:
-            input_l = isoLanguages.get_language_code_from_name(get_locale(), input_languages, unknown_languages)
-        else:
-            input_l = isoLanguages.get_valid_language_codes_from_code(get_locale(), input_languages, unknown_languages)
-        for lang in unknown_languages:
-            log.error("'%s' is not a valid language", lang)
-            if isinstance(invalid, list):
-                invalid.append(lang)
-            else:
-                raise ValueError(_("'%(langname)s' is not a valid language", langname=lang))
-        # ToDo: Not working correct
-        if upload_mode and len(input_l) == 1:
-            # If the language of the file is excluded from the users view, it's not imported, to allow the user to view
-            # the book it's language is set to the filter language
-            if input_l[0] != current_user.filter_language() and current_user.filter_language() != "all":
-                input_l[0] = calibre_db.session.query(db.Languages). \
-                    filter(db.Languages.lang_code == current_user.filter_language()).first().lang_code
-        # Remove duplicates from normalized langcodes
-        input_l = helper.uniq(input_l)
-        return modify_database_object(input_l, book.languages, db.Languages, calibre_db.session, 'languages')
-    return False
-
-
-def edit_book_publisher(publishers, book):
-    if publishers is not None:
-        changed = False
-        if publishers:
-            publisher = strip_whitespaces(publishers)
-            if len(book.publishers) == 0 or (len(book.publishers) > 0 and publisher != book.publishers[0].name):
-                changed |= modify_database_object([publisher], book.publishers, db.Publishers, calibre_db.session,
-                                                  'publisher')
-        elif len(book.publishers):
-            changed |= modify_database_object([], book.publishers, db.Publishers, calibre_db.session, 'publisher')
-        return changed
-    return False
 
 def edit_cc_data_value(book_id, book, c, to_save, cc_db_value, cc_string):
     changed = False

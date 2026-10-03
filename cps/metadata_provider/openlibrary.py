@@ -11,12 +11,11 @@ from datetime import datetime
 
 
 from cps import logger
-from cps.isoLanguages import get_language_name
 from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata, get_patiently
 
 log = logger.create()
 
-SEARCH_FIELDS = "key,title,subtitle,author_name,first_publish_year,cover_i,language"
+SEARCH_FIELDS = "key,title,subtitle,author_name,first_publish_year,cover_i"
 
 
 class OpenLibrary(Metadata):
@@ -56,7 +55,7 @@ class OpenLibrary(Metadata):
         isbn = identifiers.get("isbn")
         if not isbn:
             return []
-        # The work (authors) and the edition (publisher, date) come separately
+        # The work (authors) and the edition (date, its own cover) come separately
         with ThreadPoolExecutor(max_workers=2) as pool:
             docs = pool.submit(self._search_docs, {"isbn": isbn, "limit": 1})
             edition = pool.submit(self._get_json, f"/isbn/{isbn}.json")
@@ -67,7 +66,6 @@ class OpenLibrary(Metadata):
         if not record:
             return []
         record.identifiers["isbn"] = isbn
-        record.publisher = (edition.get("publishers") or [""])[0]
         record.publishedDate = self._parse_date(edition.get("publish_date")) or record.publishedDate
         if edition.get("covers"):
             record.cover = self.COVER_URL.format(edition["covers"][0])
@@ -115,20 +113,8 @@ class OpenLibrary(Metadata):
         )
         year = doc.get("first_publish_year")
         match.publishedDate = f"{year:04d}-01-01" if year else ""
-        match.languages = self._parse_languages(doc.get("language", []), locale)
         match.identifiers = {"openlibrary": work_id}
         return match
-
-    @staticmethod
-    def _parse_languages(codes: list[str], locale) -> list[str]:
-        # A work lists every language any edition appeared in; only a single one is telling
-        if len(codes) != 1:
-            return []
-        try:
-            name = get_language_name(locale, codes[0])
-        except Exception:
-            return []
-        return [name] if name and name != "Unknown" else []
 
     def _add_descriptions(self, records: list[MetaRecord]) -> None:
         # Search results carry no description; each work has its own

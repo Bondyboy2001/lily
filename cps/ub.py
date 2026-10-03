@@ -178,9 +178,6 @@ class UserBase:
     def get_id(self):
         return str(self.id)
 
-    def filter_language(self):
-        return self.default_language
-
     def check_visibility(self, value):
         if value == constants.SIDEBAR_RECENT:
             return True

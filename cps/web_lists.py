@@ -12,7 +12,7 @@ Routes are attached to the web blueprint; web.py imports this module at its end.
 from flask import abort
 from flask_babel import gettext as _
 from .cw_login import current_user
-from sqlalchemy.sql.expression import text, func, or_
+from sqlalchemy.sql.expression import text, func
 
 from . import constants
 from . import db, ub
@@ -64,87 +64,6 @@ def download_list():
     abort(404)
 
 
-@web.route("/publisher")
-@login_required_if_no_ano
-def publisher_list():
-    if current_user.check_visibility(constants.SIDEBAR_PUBLISHER):
-        order_dir = current_user.get_view_property('publisher', 'dir')
-        order_no = 1 if order_dir != 'desc' else 0
-        order = db.Publishers.name.desc() if order_dir == 'desc' else db.Publishers.name.asc()
-
-        entries_query = (calibre_db.session.query(db.Publishers, func.count(db.books_publishers_link.c.book).label('count'))
-                         .join(db.books_publishers_link, db.Publishers.id == db.books_publishers_link.c.publisher)
-                         .join(db.Books, db.books_publishers_link.c.book == db.Books.id)
-                         .filter(calibre_db.common_filters())
-                         .group_by(db.Publishers.id)
-                         .order_by(order))
-
-        entries = entries_query.all()
-
-        no_publisher_count = (calibre_db.session.query(func.count(db.Books.id))
-                              .outerjoin(db.books_publishers_link)
-                              .filter(db.books_publishers_link.c.book == None)
-                              .filter(calibre_db.common_filters())
-                              .scalar())
-
-        if no_publisher_count:
-            # Manually create an "Unknown" category entry
-            none_publisher_entry = (db.Category(_("Unknown"), "-1"), no_publisher_count)
-            # Decide where to insert it based on sort order
-            if order_no == 1: # ascending
-                entries.insert(0, none_publisher_entry)
-            else: # descending
-                entries.append(none_publisher_entry)
-
-        char_list = [entry[0].name[0].upper() for entry in entries if entry[0].name]
-        char_list = sorted(set(char_list))
-
-        return render_title_template('list.html', entries=entries, charlist=char_list,
-                                     title=_("Publishers"), page="publisherlist", data="publisher", order=order_no)
-    abort(404)
-
-
-
-
-
-@web.route("/ratings")
-@login_required_if_no_ano
-def ratings_list():
-    if current_user.check_visibility(constants.SIDEBAR_RATING):
-        order_dir = current_user.get_view_property('ratings', 'dir')
-        order_no = 1 if order_dir != 'desc' else 0
-        order = db.Ratings.rating.desc() if order_dir == 'desc' else db.Ratings.rating.asc()
-
-        entries_query = (calibre_db.session.query(db.Ratings, func.count(db.books_ratings_link.c.book).label('count'),
-                                           (db.Ratings.rating / 2).label('name'))
-                   .join(db.books_ratings_link, db.Ratings.id == db.books_ratings_link.c.rating)
-                   .join(db.Books, db.books_ratings_link.c.book == db.Books.id)
-                   .filter(calibre_db.common_filters())
-                   .filter(db.Ratings.rating > 0)
-                   .group_by(db.Ratings.id)
-                   .order_by(order))
-
-        entries = entries_query.all()
-
-        no_rating_count = (calibre_db.session.query(func.count(db.Books.id))
-                           .outerjoin(db.books_ratings_link, db.Books.id == db.books_ratings_link.c.book)
-                           .outerjoin(db.Ratings, db.books_ratings_link.c.rating == db.Ratings.id)
-                           .filter(calibre_db.common_filters())
-                           .filter(or_(db.books_ratings_link.c.rating == None, db.Ratings.rating == 0))
-                           .scalar())
-
-        if no_rating_count:
-            none_rating_entry = (db.Category(_("Unknown"), "-1"), no_rating_count, 0)
-            if order_no == 1: # ascending
-                entries.insert(0, none_rating_entry)
-            else: # descending
-                entries.append(none_rating_entry)
-
-        return render_title_template('list.html', entries=entries,
-                                     title=_("Ratings"), page="ratingslist", data="ratings", order=order_no)
-    abort(404)
-
-
 @web.route("/formats")
 @login_required_if_no_ano
 def formats_list():
@@ -168,18 +87,6 @@ def formats_list():
             entries.append([db.Category(_("Unknown"), "-1"), no_format_count])
         return render_title_template('list.html', entries=entries, charlist=[],
                                      title=_("File Formats List"), page="formatslist", data="formats", order=order_no)
-    abort(404)
-
-
-@web.route("/language")
-@login_required_if_no_ano
-def language_overview():
-    if current_user.check_visibility(constants.SIDEBAR_LANGUAGE) and current_user.filter_language() == "all":
-        order_no = 0 if current_user.get_view_property('language', 'dir') == 'desc' else 1
-        languages = calibre_db.speaking_language(reverse_order=not order_no, with_count=True)
-        char_list = generate_char_list(languages)
-        return render_title_template('list.html', entries=languages, charlist=char_list,
-                                     title=_("Languages"), page="langlist", data="language", order=order_no)
     abort(404)
 
 
