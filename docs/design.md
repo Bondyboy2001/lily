@@ -430,7 +430,7 @@ little narrower. Only outliers past 1:2 or 1:1 are clamped and trimmed. `--sunk`
 while it loads, a 1px `--line-soft` inset hairline (`outline-offset: -1px`), no shadow; the
 ribbons, marks and actions sit on the cover's own edges. A PDF whose cover is its first page
 has that page cropped to even side margins around the print on import and on Rebuild
-metadata (`cps/pdf_cover.py`). Grid covers mark their file types with ribbons (`.lily-ribbon`): one 22×34 notched ribbon per format hanging from the top edge, 12px in, in the format's own colour (PDF red, EPUB green, DjVu blue, anything else grey) with its icon knocked out in white; icon only, the group named by its `aria-label`. Finished and Fetched are 22px `--surface` discs with a `--success` glyph in the bottom-left corner, 8px in (top-right on touch screens, where the quick actions stay out). Read state is a 3px `--success` inset outline plus that eye disc titled "Finished" on grid
+metadata (`cps/pdf_cover.py`). Grid covers mark their file types with ribbons (`.lily-ribbon`): one 22×34 notched ribbon per format hanging from the top edge, 12px in, in the format's own colour (PDF red, EPUB green, DjVu blue, anything else grey) with its icon knocked out in white; icon only, the group named by its `aria-label`. Finished and Fetched are 22px `--surface` discs with a `--success` glyph in the bottom-left corner, 8px in. Read state is a 3px `--success` inset outline plus that eye disc titled "Finished" on grid
 covers. Mark-as-read controls use the eye
 glyph (`glyphicon-eye-open`), the same mark as the sidebar's Finished row. For editors, a book a metadata lookup has
 matched carries the green fetched tick (`.lily-fetched`, §6.4): a disc beside the eye on grid covers and the book plate.
@@ -477,10 +477,11 @@ content (grid, panel, rows)
 
 - **Grid** (`.lily-grid`): `repeat(auto-fill, minmax(190px, 1fr))`, gap 26;
   phones 2-up, gap 22×14. Card: cover (§5.15), then title 15/500 clamped to
-  two lines, and no author line (the book page carries the byline). Quick actions are round buttons
-  in a row at the cover's bottom right, 8px in, 6 apart: 32px `--surface`
-  discs with a 1px `--line` edge and `--menu-shadow`, `--ink` icons, `--accent` on hover. They rise and fade in
-  on hover/focus and stay visible on touch (36px, 8 apart). Read state fills the eye's disc
+  two lines (kept two lines tall, so rows line up), and no author line (the book page carries the byline).
+  Quick actions are a row of round buttons under the title, 8px below it, 6 apart, never on the
+  cover (they would hide its art and be hard to tap on a phone): 32px `--surface` discs with a 1px
+  `--line` edge, no shadow, `--ink` icons, `--accent` on hover. With a pointer they rise and fade in
+  on hover/focus, their row kept so nothing shifts; on touch they stay visible (36px, 8 apart). Read state fills the eye's disc
   `--success` with a `--surface` eye. No popups over the cover or its buttons (§5.6).
 - **Browse lists** (`list.html`: the authors list): one
   `.lily-list` flowed into 300px CSS columns, gap 22, so each count sits

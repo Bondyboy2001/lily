@@ -271,8 +271,7 @@
 .lily-ribbon-djvu { --ribbon: var(--format-djvu); --glyph: url("../icons/formats/djvu.svg"); }
 .lily-ribbon-other { --ribbon: var(--format-other); --glyph: url("../icons/formats/file.svg"); }
 
-/* Finished and Fetched: small --surface discs in the bottom-left corner, clear of the quick
-   actions on the right. */
+/* Finished and Fetched: small --surface discs in the bottom-left corner. */
 .cover .lily-cover-marks {
     position: absolute;
     left: 8px;
@@ -341,6 +340,8 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
     overflow: hidden;
+    /* Two lines kept even for a short title, so the action rows under it line up across a row */
+    min-height: 2.7em;
     margin: 0 0 2px;
     color: var(--ink);
     font-family: var(--font-ui);
@@ -362,9 +363,10 @@
     outline-offset: -3px;
 }
 
-/* Quick actions: a row of round buttons floating at the cover's bottom right, shown on hover or
-   keyboard focus. Each is a --surface disc with the floating-layer shadow, so it reads on
-   pale and dark covers alike. They are skinned through the --btn-* variables. */
+/* Quick actions: a row of round buttons under the title, off the cover so they never hide its
+   art and stay easy to tap on a phone. Where there is a pointer they fade in on hover or
+   keyboard focus; their row is kept, so nothing shifts. Each is a --surface disc with a --line
+   edge, skinned through the --btn-* variables. */
 .lily-cover-actions {
     --btn-size: 32px;
     --btn-bg: var(--surface);
@@ -373,13 +375,10 @@
     --btn-radius: 50%;
     --btn-ink: var(--ink);
     --btn-hover-ink: var(--accent);
-    --btn-shadow: var(--menu-shadow);
-    position: absolute;
-    right: 8px;
-    bottom: 8px;
-    z-index: 2;
+    --btn-shadow: none;
     display: flex;
     gap: 6px;
+    margin: 8px 0 0;
     padding: 0;
 }
 
@@ -467,9 +466,6 @@
    (the 44px hit area comes from .icon-btn::after). */
 @media (hover: none) {
     .lily-cover-actions { --btn-size: 36px; gap: 8px; }
-
-    /* The actions stay out along the foot, so Finished and Fetched move to the top-right. */
-    .lily-book .cover .lily-cover-marks { top: 8px; right: 8px; bottom: auto; left: auto; }
 }
 
 @media (max-width: 767px) {

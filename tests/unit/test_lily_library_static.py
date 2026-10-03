@@ -409,13 +409,20 @@ def test_grid_covers_have_no_popups():
     assert 'attr("title", $btn.data("label-read"))' not in js
 
 
-def test_cover_quick_actions_are_floating_round_buttons():
-    # docs/design.md §6.3: round frosted discs at the cover's bottom right, not a bar across its foot.
+def test_card_quick_actions_are_round_buttons_under_the_title():
+    # docs/design.md §6.3: a row of round discs under the title, never on the cover, where they
+    # hid its art and were hard to tap on a phone.
     css = read(CSS / "lily-library.css")
     bar = next(body for sel, body in css_rules(css) if sel == ".lily-cover-actions")
-    assert "--btn-radius: 50%" in bar and "right: 8px" in bar and "bottom: 8px" in bar
-    assert "left: 0" not in bar and "--cover-tint" not in css
-    assert "--cover-tint" not in read(JS / "lily.js")
+    assert "--btn-radius: 50%" in bar and "position: absolute" not in bar
+    assert "--cover-tint" not in css and "--cover-tint" not in read(JS / "lily.js")
+    card = re.search(r"{% macro book_card.*?{%- endmacro %}", read(TEMPLATES / "image.html"), flags=re.S).group(0)
+    cover = card[card.index('<div class="cover">'):card.index('<div class="meta">')]
+    assert "cover_actions(" not in cover
+    assert card.index('<div class="meta">') < card.index("cover_actions(")
+    # Titles keep two lines, so the rows of buttons line up across the grid
+    title = next(body for sel, body in css_rules(css) if ".lily-book .meta .title" in sel and "line-clamp" in body)
+    assert "min-height: 2.7em" in title
 
 
 def test_editor_shows_every_field_even_when_blank():
