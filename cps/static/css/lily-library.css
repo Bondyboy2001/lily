@@ -1846,14 +1846,6 @@ dl.book-info {
     overflow: hidden;
 }
 
-/* What the book has now, under a value that would replace it */
-#meta-info #book-list .media .media-body dd .meta-current {
-    display: block;
-    margin-top: 2px;
-    color: var(--muted);
-    font-size: 13px;
-}
-
 /* Providers that didn't answer, or are still being asked: a help line over the results */
 #metaModal .meta-status {
     flex: none;

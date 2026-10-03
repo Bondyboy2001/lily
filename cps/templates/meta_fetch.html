@@ -60,7 +60,6 @@
         <dt><label><input type="checkbox" data-meta-value="<%- f.key %>"<% if (f.tick) { %> checked<% } %>> <%- f.label %></label></dt>
         <dd class="<%- f.cls || '' %><%- f.same ? ' meta-same' : '' %>">
           <% if (f.link) { %><a href="<%- safeUrl(f.link) %>" target="_blank" rel="noopener"><%- f.text %></a><% } else { %><span class="meta-value"><%- f.text %></span><% } %>
-          <% if (f.current) { %><span class="meta-current">{{_('Now:')}} <%- f.current %></span><% } %>
           <% if (f.editions) { %>
             <a href="#" class="meta-editions" data-hardcover-id="<%- f.editions %>"><span class="glyphicon glyphicon-search" aria-hidden="true"></span> {{_("Editions")}}</a>
           <% } %>

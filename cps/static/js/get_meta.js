@@ -117,11 +117,6 @@ $(function () {
     return String(text || "").toLowerCase().replace(/[^0-9a-z\u00c0-\uffff]+/g, "");
   }
 
-  // Nothing worth keeping: empty, calibre's "Unknown", or the "None" an old save wrote
-  function blank(value) {
-    var text = $.trim(String(value || "")).toLowerCase();
-    return !text || text === "unknown" || text === "none";
-  }
 
   // The form's values, read once per render rather than once per card
   function readForm() {
@@ -133,21 +128,14 @@ $(function () {
     };
   }
 
-  // What the book has now, shown under a value it would replace; a long one is cut
-  function shortened(text) {
-    text = $.trim(String(text || ""));
-    return text.length > 140 ? text.slice(0, 139) + "…" : text;
-  }
 
-  // The rows a result card shows: what the provider has, dimmed where the form already has
-  // it, with the book's own value under it where they differ
+  // The rows a result card shows: what the provider has, dimmed where the form already has it
   function buildFields(result) {
     var book = result.book;
     var fields = [];
     function add(key, label, text, current, extra) {
       if (text === undefined || text === null || text === "") return;
       var field = $.extend({ key: key, label: label, text: String(text), same: same(text, current) }, extra || {});
-      field.current = blank(current) || field.same ? "" : shortened(current);
       field.tick = true;
       fields.push(field);
     }

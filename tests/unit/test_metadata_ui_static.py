@@ -109,8 +109,8 @@ def test_fetch_metadata_ticks_every_field_but_the_cover_and_remembers_nothing():
     assert '<% if (f.tick) { %> checked<% } %>' in template
     assert "field.tick = true;" in js and "function ticked(" not in js
     assert '<input type="checkbox" data-meta-value="cover" aria-label=' in template
-    # The book's own value shows under one that would replace it
-    assert '<span class="meta-current">' in template
+    # A result shows only the provider's values, no "Now: …" line of the book's own
+    assert "meta-current" not in template and "Now:" not in template
 
 
 def test_fetch_metadata_names_providers_that_did_not_answer():
@@ -137,7 +137,7 @@ def test_a_ticked_field_replaces_the_books_value():
     assert "getUniqueValues" not in js
     # A title's "(2nd Edition)" replaces the Edition field, filled or not
     assert "if (split.edition && $edition.length) {" in js
-    # A case-only difference counts as a change, so it shows "Now: …" and applies
+    # A case-only difference counts as a change, so it isn't dimmed and applies
     same = js[js.index("function same(a, b)"):]
     same = same[:same.index("}")]
     assert "toLowerCase" not in same
