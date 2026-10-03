@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Offline reading: the service worker (/sw.js) and the page it opens when there's no network.
+"""Offline reading: the service worker (/sw.js), which keeps the books in progress on the device.
 
 The worker is rendered rather than served from /static so it can sit at the app root (its scope
 is the whole app) and carry this deploy's cache-busted asset URLs. Books are only kept on a
@@ -48,20 +48,12 @@ def _extras():
 @offline.route("/sw.js")
 def service_worker():
     extras = _extras()
-    shell = url_for('offline.offline_page')
-    # A new deploy (new asset hashes) is a new worker, which refreshes the shell and its assets.
-    version = hashlib.sha256(repr((shell, extras)).encode("utf-8")).hexdigest()[:12]
-    body = render_template('sw.js', version=version, shell=shell, extras=extras,
+    # A new deploy (new asset hashes) is a new worker.
+    version = hashlib.sha256(repr(extras).encode("utf-8")).hexdigest()[:12]
+    body = render_template('sw.js', version=version, extras=extras,
                            scope=url_for('web.index'))
     resp = make_response(body)
     resp.headers['Content-Type'] = 'application/javascript; charset=utf-8'
     resp.headers['Cache-Control'] = 'no-cache'
     resp.headers['Service-Worker-Allowed'] = url_for('web.index')
     return resp
-
-
-@offline.route("/offline")
-def offline_page():
-    """What the app shows with no connection: the books kept on this device, read from the
-    worker's own index by offline.js, so the page holds nothing of the server's."""
-    return render_template('offline.html')

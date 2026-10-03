@@ -2,28 +2,24 @@
  * Lily's service worker: offline reading (cps/offline.py renders this file at the app root).
  *
  * Caches
- *   lily-shell-<version>  the Offline page and its assets; replaced on each deploy
  *   lily-pages            kept books' reader and book pages
  *   lily-books            kept books' files and covers
  *   lily-static           the scripts, styles and fonts those pages use
  *   lily-offline-meta     the index of kept books (one JSON entry)
  *
  * Requests
- *   page loads            network first (4 s, then the saved copy if there is one); with no
- *                         saved copy and no network, the Offline page
+ *   page loads            network first (4 s, then the saved copy if there is one)
  *   /static/…             a versioned URL (?q=) from the cache when kept, else the network;
  *                         unversioned ones (pdf.js' own fetches) network first
  *   book files, covers    network first, the saved copy offline (byte ranges sliced for pdf.js)
  *   everything else       untouched (API calls, uploads, POSTs)
  *
- * offline.js on the page sends: drop {id}, list, sync {books}.
+ * offline.js on the library page sends: sync {books}.
  */
 const VERSION = {{ version|tojson }};
 const SCOPE = {{ scope|tojson }};
-const SHELL_URL = {{ shell|tojson }};
 const EXTRAS = {{ extras|tojson }};
 {% raw %}
-const SHELL_CACHE = "lily-shell-" + VERSION;
 const PAGES_CACHE = "lily-pages";
 const BOOKS_CACHE = "lily-books";
 const STATIC_CACHE = "lily-static";
@@ -87,7 +83,7 @@ async function inParallel(items, worker) {
 }
 
 // Index of kept books: {id: {id, title, author, format, reader, page, cover, auto,
-// excluded, savedAt, bytes, pages:[], files:[], statics:[]}}
+// savedAt, bytes, pages:[], files:[], statics:[]}}
 async function readIndex() {
   const res = await (await caches.open(META_CACHE)).match(INDEX_URL);
   return res ? res.json() : {};
@@ -194,16 +190,11 @@ async function removeUnused(old, index) {
   }
 }
 
-async function dropBook(id, keepTombstone) {
+async function dropBook(id) {
   const index = await readIndex();
   const old = index[id];
   if (!old) { return null; }
-  if (keepTombstone) {
-    // A book still in progress would come straight back; remember it was taken off.
-    index[id] = { id: id, excluded: true, auto: true, pages: [], files: [], statics: [] };
-  } else {
-    delete index[id];
-  }
+  delete index[id];
   await removeUnused(old, index);
   await writeIndex(index);
   return null;
@@ -212,44 +203,29 @@ async function dropBook(id, keepTombstone) {
 async function patchEntry(id, fields) {
   const index = await readIndex();
   if (!index[id]) { return; }
-  if (fields === null) { delete index[id]; } else { Object.assign(index[id], fields); }
+  Object.assign(index[id], fields);
   await writeIndex(index);
 }
 
-// The books in progress, as the library page hands them over: keep those books, let go of the ones that left,
-// and forget "taken off" marks for books no longer in progress.
+// The books in progress, as the library page hands them over: keep those books and let go of the ones that left.
+// An "excluded" entry is a mark left by the removed Offline page's trash button; it is kept again.
 async function syncAuto(books) {
   const wanted = new Map(books.map((b) => [String(b.id), b]));
   for (const [id, entry] of Object.entries(await readIndex())) {
     if (wanted.has(id)) { continue; }
-    if (entry.excluded) {
-      await patchEntry(id, null);
-    } else if (entry.auto) {
-      await dropBook(id, false);
+    if (entry.auto) {
+      await dropBook(id);
     }
   }
   for (const book of books) {
     const entry = (await readIndex())[book.id];
-    if (entry && entry.excluded) { continue; }
-    if (!entry || Date.now() - entry.savedAt > REFRESH_AFTER_MS) {
+    if (!entry || entry.excluded || Date.now() - entry.savedAt > REFRESH_AFTER_MS) {
       try { await keepBook(book, { auto: true }); } catch (e) { /* tried again on the next visit */ }
     } else if (!entry.auto) {
       await patchEntry(book.id, { auto: true });
     }
   }
-  return list();
-}
-
-function summary(entry) {
-  return { id: entry.id, title: entry.title, author: entry.author, format: entry.format, reader: entry.reader,
-           page: entry.page, cover: entry.cover, auto: entry.auto, bytes: entry.bytes,
-           savedAt: entry.savedAt };
-}
-
-async function list() {
-  const index = await readIndex();
-  return Object.values(index).filter((e) => !e.excluded).map(summary)
-    .sort((a, b) => b.savedAt - a.savedAt);
+  return null;
 }
 
 // A kept page loaded online: save the new copy (and any new asset versions) in the background.
@@ -262,36 +238,15 @@ async function refreshKept(url) {
 
 // ---------------------------------------------------------------- lifecycle
 
-async function cacheShell() {
-  const cache = await caches.open(SHELL_CACHE);
-  const res = await fetchOk(SHELL_URL);
-  const html = await res.clone().text();
-  await cache.put(SHELL_URL, res);
-  const urls = [...referencedUrls(html, abs(SHELL_URL), false)].filter(isStatic)
-    .concat((EXTRAS.all || []).map(abs));
-  await inParallel(urls, async (u) => {
-    try {
-      const r = await fetchOk(u);
-      if (/\.css(\?|$)/.test(u)) {
-        const text = await r.clone().text();
-        for (const v of referencedUrls(text, u, true)) {
-          if (!(await cache.match(v))) { try { await cache.put(v, await fetchOk(v)); } catch (e) { /* optional */ } }
-        }
-      }
-      await cache.put(u, r);
-    } catch (e) { /* optional asset */ }
-  });
-}
-
 self.addEventListener("install", (event) => {
-  event.waitUntil(cacheShell().then(() => self.skipWaiting()));
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     const names = await caches.keys();
-    await Promise.all(names.filter((n) => n.startsWith("lily-shell-") && n !== SHELL_CACHE)
-      .map((n) => caches.delete(n)));
+    // The Offline page's own cache (lily-shell-*) is gone with the page.
+    await Promise.all(names.filter((n) => n.startsWith("lily-shell-")).map((n) => caches.delete(n)));
     await self.clients.claim();
   })());
 });
@@ -301,11 +256,6 @@ self.addEventListener("message", (event) => {
   const msg = event.data || {};
   const work = (async () => {
     switch (msg.type) {
-      case "drop": return serial(async () => {
-        const entry = (await readIndex())[msg.id];
-        return dropBook(msg.id, !!(entry && entry.auto));
-      });
-      case "list": return list();
       case "sync": return serial(() => syncAuto(msg.books || []));
       default: throw new Error("Unknown message " + msg.type);
     }
@@ -336,26 +286,24 @@ async function navigate(event) {
       }
       return first;
     }
-    const saved = await fromCaches(request.url, [PAGES_CACHE, SHELL_CACHE], false);
+    const saved = await fromCaches(request.url, [PAGES_CACHE], false);
     return saved || (await network);
   } catch (error) {
-    const saved = await fromCaches(request.url, [PAGES_CACHE, SHELL_CACHE], false);
-    if (saved) { return saved; }
-    const shell = await fromCaches(SHELL_URL, [SHELL_CACHE], false);
-    return shell || Response.error();
+    const saved = await fromCaches(request.url, [PAGES_CACHE], false);
+    return saved || Response.error();
   }
 }
 
 async function staticFile(request) {
   const versioned = /[?&]q=/.test(request.url);
   if (versioned) {
-    const hit = await fromCaches(request.url, [SHELL_CACHE, STATIC_CACHE], false);
+    const hit = await fromCaches(request.url, [STATIC_CACHE], false);
     if (hit) { return hit; }
   }
   try {
     return await fetch(request);
   } catch (error) {
-    const hit = await fromCaches(request.url, [SHELL_CACHE, STATIC_CACHE], true);
+    const hit = await fromCaches(request.url, [STATIC_CACHE], true);
     if (hit) { return hit; }
     throw error;
   }

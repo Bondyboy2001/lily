@@ -728,11 +728,9 @@ request says so in one quiet line at the foot of the page (`#bookmark-status`,
 - Only where the browser runs a service worker: HTTPS or localhost. Over plain
   `http://host:port` nothing changes.
 - Books in progress (the Reading list) are kept automatically and let go when they leave it;
-  there is no button to keep a book. Taking one in progress off the device sticks.
-- With no network, a page that was kept opens from the device; anything else opens
-  the **Offline** page (`/offline`, a `.lily-standalone` page): the kept books as
-  rows (44px cover, title, author · format · size, a quiet Read, a trash
-  `.icon-btn.is-danger`), or an empty state that says how books get there.
+  there is no button to keep or remove a book.
+- With no network, a page that was kept opens from the device; anything else gets the
+  browser's own offline error. There is no Offline page listing the kept books.
 - Reading positions save on the device and sync when the connection is back
   (`progress-sync.js`); CSRF tokens last the session so a cached reader can still save.
 

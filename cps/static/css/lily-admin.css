@@ -533,23 +533,3 @@ input[type="checkbox"].lp-switch:disabled { opacity: .4; cursor: not-allowed; }
     white-space: pre-wrap;
     word-break: break-all;
 }
-
-/* ---- Offline page (offline.html): books kept on this device, one row each ---- */
-.lily-offline .offline-status { color: var(--muted); }
-.lily-offline .offline-books { margin: 22px 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 14px; }
-.lily-offline .offline-book { display: flex; align-items: center; gap: 14px; }
-.lily-offline .offline-book-cover {
-    flex: none;
-    width: 44px;
-    aspect-ratio: 1 / 1.414;
-    border-radius: 3px;
-    outline: 1px solid var(--line-soft);
-    outline-offset: -1px;
-    background: var(--sunk);
-    object-fit: cover;
-    object-position: left center;
-}
-.lily-offline .offline-book-text { flex: 1; min-width: 0; }
-.lily-offline .offline-book-title { color: var(--ink); font-weight: 500; }
-.lily-offline .offline-book-meta { margin: 2px 0 0; font-size: 14px; color: var(--muted); }
-.lily-offline .library-empty-state { margin: 48px auto; }

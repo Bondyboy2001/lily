@@ -44,7 +44,7 @@ class TestRoutes:
         body = resp.get_data(as_text=True)
         assert "{% raw %}" not in body and "{{" not in body
         version = re.search(r'const VERSION = "([0-9a-f]{12})";', body)
-        assert version and 'const SCOPE = "/";' in body and 'const SHELL_URL = "/offline";' in body
+        assert version and 'const SCOPE = "/";' in body and "SHELL" not in body
         extras = json.loads(re.search(r"const EXTRAS = (\{.*?\});\n", body).group(1))
         # Files the readers load by themselves (cache-busted with ?q= in production).
         assert any("/static/locale/en-US/" in u for u in extras["pdf"])
@@ -55,12 +55,12 @@ class TestRoutes:
         assert any("/static/fonts/literata/" in u for u in extras["all"])
         assert not any("/cmaps/" in u for urls in extras.values() for u in urls)
 
-    def test_offline_page_needs_no_login_and_holds_no_server_data(self, env):
-        html = env.app.test_client().get("/offline").get_data(as_text=True)
-        assert "Saved on This Device" in html
-        assert '<meta name="lily-sw" content="/sw.js" data-scope="/">' in html
-        assert "js/offline.js" in html and 'class="offline-books"' in html
-        assert env.admin().email not in html
+    def test_there_is_no_offline_page(self, env):
+        resp = env.app.test_client().get("/offline")
+        assert resp.status_code == 404
+        assert "Saved on This Device" not in resp.get_data(as_text=True)
+        assert not (REPO_ROOT / "cps/templates/offline.html").exists()
+        assert "offline-books" not in JS and "lily-offline " not in JS
 
     def test_csrf_tokens_last_the_session(self, env):
         # A reader page opened from the cache days later still saves positions.
@@ -94,22 +94,24 @@ class TestWorkerRules:
     def test_links_resolve_against_an_absolute_base(self):
         # new URL(x, "/read/7/pdf") throws, which once left kept books without their files.
         assert "referencedUrls(html, abs(url), false)" in SW
-        assert "referencedUrls(html, abs(SHELL_URL), false)" in SW
 
     def test_only_reads_are_intercepted(self):
         handler = SW[SW.index('self.addEventListener("fetch"'):]
         assert 'if (request.method !== "GET") { return; }' in handler
         assert 'path === "sw.js"' in handler
 
-    def test_pages_fall_back_to_saved_copies_then_the_offline_page(self):
+    def test_pages_fall_back_to_saved_copies_only(self):
         nav = SW[SW.index("async function navigate"):SW.index("async function staticFile")]
-        assert "NAV_TIMEOUT_MS" in nav and "PAGES_CACHE" in nav and "SHELL_URL" in nav
+        assert "NAV_TIMEOUT_MS" in nav and "PAGES_CACHE" in nav and "SHELL" not in nav
+        assert "return saved || Response.error();" in nav
 
     def test_pdf_byte_ranges_come_from_the_saved_file(self):
         assert '"Content-Range": "bytes " + start + "-" + end + "/" + size' in SW and "status: 206" in SW
 
-    def test_untaking_a_book_in_progress_sticks(self):
-        assert "excluded: true" in SW and "dropBook(msg.id, !!(entry && entry.auto))" in SW
+    def test_the_worker_only_takes_the_library_sync(self):
+        assert 'case "sync"' in SW and 'case "list"' not in SW and 'case "drop"' not in SW
+        # Shell caches left by the Offline page are cleared on activate.
+        assert 'n.startsWith("lily-shell-")' in SW
 
     def test_nothing_switches_on_without_a_secure_context(self):
         assert '!("serviceWorker" in navigator) || !window.isSecureContext' in JS
