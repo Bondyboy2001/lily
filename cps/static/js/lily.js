@@ -806,29 +806,28 @@ window.lilyToggleSortDir = function (btn) {
 })();
 
 /*
- * Each cover box takes its image's shape (docs/design.md §5.15): --r is width / height,
- * clamped to 1:2 … 1:1 so an odd scan cannot break a row. Load does not bubble, so a
- * capturing listener catches every cover; earlier loads are swept up.
+ * Covers more than 5% wider than the A4 tile get .cover-wide (docs/design.md §5.15). Load
+ * does not bubble, so a capturing listener catches every cover; earlier loads are swept up.
  */
 (function () {
   "use strict";
   var COVERS = ".lily-book .cover img, .lily-order-cover";
+  var WIDEST = (1 / 1.414) * 1.05;
 
-  function shape(img) {
+  function mark(img) {
     if (!img.naturalWidth || !img.naturalHeight) { return; }
-    var r = Math.min(1, Math.max(0.5, img.naturalWidth / img.naturalHeight));
-    (img.closest(".lily-book .cover") || img).style.setProperty("--r", r.toFixed(4));
+    img.classList.toggle("cover-wide", img.naturalWidth / img.naturalHeight > WIDEST);
   }
 
   document.addEventListener("load", function (e) {
     var img = e.target;
-    if (img.tagName === "IMG" && img.matches(COVERS)) { shape(img); }
+    if (img.tagName === "IMG" && img.matches(COVERS)) { mark(img); }
   }, true);
 
   document.addEventListener("DOMContentLoaded", function () {
     var imgs = document.querySelectorAll(COVERS);
     for (var i = 0; i < imgs.length; i++) {
-      if (imgs[i].complete) { shape(imgs[i]); }
+      if (imgs[i].complete) { mark(imgs[i]); }
     }
   });
 })();

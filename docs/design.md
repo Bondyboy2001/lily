@@ -422,13 +422,14 @@ advanced search (a custom rating column is a plain number field).
 
 ### 5.15 Book cover
 
-A shelf: each grid card keeps an A4 slot (**1 : 1.414**) so titles line up, and the cover
-inside it takes the image's own shape (`--r`, width / height, set by `lily.js` on load),
-standing on the slot's foot at its left edge, so the title lines up under it. Nothing is cropped or letterboxed: a US
-Letter page or a publisher's 3:4 front is a little shorter than the slot, a 2:3 jacket a
-little narrower. Only outliers past 1:2 or 1:1 are clamped and trimmed. `--sunk` behind
-while it loads, a 1px `--line-soft` inset hairline (`outline-offset: -1px`), no shadow; the
-ribbons, marks and actions sit on the cover's own edges. A PDF whose cover is its first page
+Every grid cover is the same A4 tile (**1 : 1.414**), so a row's tops and feet line up
+(an image's own shape made a ragged row). `object-fit: cover` anchored `left center` (a US
+Letter page, wider than A4, loses its right margin rather than half of arXiv's left-margin
+stamp), `--sunk` behind, a 1px `--line-soft` inset hairline (`outline-offset: -1px`), no
+shadow. A cover more than 5% wider than A4 (a publisher's 3:4 front) still fills the tile —
+covers never letterbox — but is marked `.cover-wide` by `lily.js` and centred, so the crop
+comes evenly off both sides. The book page's plate (§6.4) is where a cover shows its own
+shape. A PDF whose cover is its first page
 shows that page exactly as printed, never trimmed or centred (`cps/pdf_cover.py`; made on import,
 Rebuild metadata and Redo PDF covers). Grid covers mark their file types with ribbons (`.lily-ribbon`): one 22×34 notched ribbon per format hanging from the top edge, 12px in, in the format's own colour (PDF red, EPUB green, DjVu blue, anything else grey) with its icon knocked out in white; icon only, the group named by its `aria-label`. Finished and Fetched are 22px `--surface` discs with a `--success` glyph in the bottom-left corner, 8px in. Read state is a 3px `--success` inset outline plus that eye disc titled "Finished" on grid
 covers. Mark-as-read controls use the eye

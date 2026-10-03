@@ -606,25 +606,32 @@ def test_installed_app_opens_the_reader_in_place():
         assert "data-reader-link=" in tag, name
 
 
-def test_covers_take_their_own_shape_on_a_shelf():
-    # §5.15: a fixed tile cropped Letter pages (half of arXiv's stamp) and 3:4 fronts (words at
-    # the edge). The card keeps an A4 slot; the cover box takes the image's shape on its foot.
+def test_grid_covers_are_one_a4_tile_so_rows_line_up():
+    # §5.15: covers at their own shape made a ragged row; every cover is the same A4 tile.
     css = read(CSS / "lily-library.css")
     rules = css_rules(css)
-    card = [b for s, b in rules if s == ".lily-grid > .lily-book"]
-    assert card and "display: grid" in card[0] and "container-type: inline-size" in card[0]
-    slot = [b for s, b in rules if s == ".lily-grid > .lily-book::before"]
-    assert slot and "aspect-ratio: 1 / 1.414" in slot[0]
-    cover = [b for s, b in rules if ".lily-book .cover" in s and "grid-area: 1 / 1" in b]
-    assert cover and "aspect-ratio: var(--r)" in cover[0] and "align-self: end" in cover[0]
-    # A narrow cover hugs the left edge, where its title starts, not the slot's centre
-    assert "justify-self: start" in cover[0]
-    assert "calc(141.4cqw * var(--r))" in cover[0]
-    order = [b for s, b in rules if s == ".lily-order-cover"]
-    assert order and "aspect-ratio: var(--r" in order[0]
-    assert "object-position: left center" not in css and "cover-wide" not in css
-    js = read(JS / "lily.js")
-    assert 'style.setProperty("--r"' in js and "cover-wide" not in js
+    cover = [b for s, b in rules if s.endswith(".lily-book .cover")]
+    assert cover and "aspect-ratio: 1 / 1.414" in cover[0]
+    assert not re.search(r"var\(--r[,)]", css) and ".lily-grid > .lily-book::before" not in css
+    assert 'setProperty("--r"' not in read(JS / "lily.js")
+
+
+def test_wide_page_covers_keep_their_left_margin():
+    # §5.15: Letter pages are wider than the A4 cover box; a centred crop cut arXiv's
+    # left-margin stamp in half, so the trim comes off the right margin instead.
+    css = read(CSS / "lily-library.css")
+    grid = [b for s, b in css_rules(css) if ".container-fluid .lily-book .cover span img" in s]
+    assert grid and "object-fit: cover" in grid[0] and "object-position: left center" in grid[0]
+    order = [b for s, b in css_rules(css) if s == ".lily-order-cover"]
+    assert order and "aspect-ratio: 1 / 1.414" in order[0] and "object-position: left center" in order[0]
+
+
+def test_covers_much_wider_than_a4_crop_evenly():
+    # §5.15: a 3:4 publisher cover still fills the tile (no letterbox), cropped from both sides.
+    css = read(CSS / "lily-library.css")
+    wide = [b for s, b in css_rules(css) if ".lily-book .cover img.cover-wide" in s]
+    assert wide and "object-position: center" in wide[0] and "contain" not in wide[0]
+    assert '"cover-wide"' in read(JS / "lily.js")
 
 
 def test_series_appear_nowhere():
