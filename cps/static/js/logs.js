@@ -17,9 +17,9 @@
 
 /* Two live views behind two pills. App polls the log endpoint and draws the raw text as
  * one clean line per entry (a short time, a Warning/Error word, the message), grouped by
- * service; Metadata asks for lookups newer than the last one shown and appends them.
- * Only the view on screen is polled, every 2 s, and nothing while the tab is hidden.
- * New lines fade in, and the page follows them while the reader is at the bottom.
+ * service; Metadata asks for lookups newer than the newest one shown and puts them on top.
+ * Both read newest first. Only the view on screen is polled, every 2 s, and nothing while
+ * the tab is hidden. New lines fade in; a reader scrolled down keeps their place.
  * "Copy logs" copies the view on screen (App: the raw text). */
 (function (root) {
     "use strict";
@@ -43,9 +43,10 @@
             .replace(/^Log (?:archive|file) (.+?)(?:\.\d+)?$/, "$1");
     }
 
-    /* The endpoint's text as [{name, date, lines: [{key, date, time, level, text}]}]:
-     * stamps, logger names, service tags and start-up banners dropped, consecutive
-     * sources of one service merged. `key` is the raw line, to tell new lines apart. */
+    /* The endpoint's text as [{name, date, lines: [{key, date, time, level, text}]}], oldest
+     * first: stamps, logger names, service tags and start-up banners dropped, consecutive
+     * sources of one service merged. `date` is the group's newest. `key` is the raw line,
+     * to tell new lines apart. */
     function parse(text) {
         var groups = [];
         var group = null;
@@ -87,7 +88,7 @@
                 group = { name: "", date: "", lines: [] };
                 groups.push(group);
             }
-            group.date = group.date || date;
+            group.date = date || group.date;
             group.lines.push({ key: raw, date: date, time: time, level: level, text: rest });
         });
         return groups.filter(function (g) { return g.lines.length; });
@@ -132,29 +133,13 @@
         var version = "";
         var latest = null; // newest text from the server
         var shown = null; // text on screen
-        var seen = null; // raw lines on screen, so new ones can be marked
+        var seen = null; // raw line -> its element on screen, so new ones can be marked
         var inFlight = false;
         var timer = null;
         var view = 0;
-        // Following the newest line: true until the reader scrolls up from the bottom.
-        var pinned = true;
-        var end = document.createElement("div");
-        end.className = "logs-end";
-        end.setAttribute("aria-hidden", "true");
-        panel.appendChild(end);
-        if ("IntersectionObserver" in window) {
-            new IntersectionObserver(function (entries) {
-                pinned = entries[entries.length - 1].isIntersecting;
-            }, { rootMargin: "0px 0px 80px 0px" }).observe(end);
-        }
-
-        function toEnd() {
-            if (end.scrollIntoView) {
-                end.scrollIntoView({ block: "end" });
-            }
-        }
 
         // The bar sticks just under the top bar, whose height changes as it wraps on phones.
+        var bar = panel.querySelector(".logs-bar");
         var topbar = document.querySelector(".lily-topbar");
         function placeBar() {
             if (topbar) {
@@ -178,6 +163,30 @@
         function selecting() {
             var sel = window.getSelection && window.getSelection();
             return !!(sel && !sel.isCollapsed && sel.anchorNode && output.contains(sel.anchorNode));
+        }
+
+        /* New lines go on top. A reader who has scrolled down to older lines keeps their
+         * place: note the first line showing under the bar, and after the redraw scroll by
+         * however far it moved. A reader at the top just sees the new lines arrive. */
+        function place(list) {
+            var below = bar.getBoundingClientRect().bottom;
+            if (list.getBoundingClientRect().top >= below) {
+                return null;
+            }
+            var rows = list.querySelectorAll(".logs-line");
+            for (var i = 0; i < rows.length; i++) {
+                var top = rows[i].getBoundingClientRect().top;
+                if (top >= below) {
+                    return { el: rows[i], top: top };
+                }
+            }
+            return null;
+        }
+
+        function keepPlace(mark, el) {
+            if (mark && el && el.parentNode && window.scrollBy) {
+                window.scrollBy(0, el.getBoundingClientRect().top - mark.top);
+            }
         }
 
         function line(entry, fresh) {
@@ -223,8 +232,17 @@
             if (latest === null || latest === shown || selecting()) {
                 return;
             }
-            var follow = pinned && view === 0;
-            var groups = parse(latest);
+            var mark = view === 0 ? place(output) : null;
+            var markKey = null;
+            if (mark) {
+                for (var key in seen) {
+                    if (seen[key] === mark.el) {
+                        markKey = key;
+                        break;
+                    }
+                }
+            }
+            var groups = parse(latest).reverse();
             var next = {};
             var frag = document.createDocumentFragment();
             groups.forEach(function (group) {
@@ -234,9 +252,10 @@
                 head.className = "logs-source";
                 head.textContent = groupLabel(group);
                 box.appendChild(head);
-                group.lines.forEach(function (entry) {
-                    box.appendChild(line(entry, seen !== null && !seen[entry.key]));
-                    next[entry.key] = true;
+                group.lines.slice().reverse().forEach(function (entry) {
+                    var p = line(entry, seen !== null && !seen[entry.key]);
+                    box.appendChild(p);
+                    next[entry.key] = p;
                 });
                 frag.appendChild(box);
             });
@@ -251,51 +270,51 @@
             seen = next;
             shown = latest;
             setCopyEnabled();
-            if (follow) {
-                toEnd();
-            }
+            keepPlace(mark, markKey === null ? null : next[markKey]);
         }
 
         function appendLookups(html) {
             if (!html) {
                 return;
             }
-            var follow = pinned && view === 1;
+            var mark = view === 1 ? place(lookupOutput) : null;
             var holder = document.createElement("div");
             holder.innerHTML = html;
+            var frag = document.createDocumentFragment();
+            var day = null;
             while (holder.firstChild) {
                 var node = holder.firstChild;
                 if (node.nodeType === 1 && node.classList.contains("logs-line")) {
                     node.classList.add("is-new");
+                    day = node.getAttribute("data-day");
                 }
-                lookupOutput.appendChild(node);
+                frag.appendChild(node);
             }
+            // The new rows carry their days' headings, so the oldest of them, if it's the
+            // day already on top, takes over that heading.
+            var top = lookupOutput.firstElementChild;
+            if (top && top.classList.contains("logs-source") && top.getAttribute("data-day") === day) {
+                lookupOutput.removeChild(top);
+            }
+            lookupOutput.insertBefore(frag, lookupOutput.firstChild);
             // A long-open page during a library-wide rebuild keeps only the newest rows.
             var rows = lookupOutput.querySelectorAll(".logs-line");
-            for (var i = 0; i < rows.length - KEEP_LOOKUPS; i++) {
+            for (var i = KEEP_LOOKUPS; i < rows.length; i++) {
                 lookupOutput.removeChild(rows[i]);
             }
-            var first = lookupOutput.firstElementChild;
-            while (first && first.classList.contains("logs-source") && first.nextElementSibling &&
-                   first.nextElementSibling.classList.contains("logs-source")) {
-                lookupOutput.removeChild(first);
-                first = lookupOutput.firstElementChild;
+            var last = lookupOutput.lastElementChild;
+            while (last && last.classList.contains("logs-source")) {
+                lookupOutput.removeChild(last);
+                last = lookupOutput.lastElementChild;
             }
             lookupEmpty.hidden = true;
             setCopyEnabled();
-            if (follow) {
-                toEnd();
-            }
+            keepPlace(mark, mark && mark.el);
         }
 
         function lookupsQuery() {
-            var rows = lookupOutput.querySelectorAll(".logs-line");
-            var last = rows.length ? rows[rows.length - 1] : null;
-            if (!last) {
-                return "";
-            }
-            return "?after=" + encodeURIComponent(last.getAttribute("data-id")) +
-                "&day=" + encodeURIComponent(last.getAttribute("data-day") || "");
+            var newest = lookupOutput.querySelector(".logs-line");
+            return newest ? "?after=" + encodeURIComponent(newest.getAttribute("data-id")) : "";
         }
 
         function stop() {
@@ -362,9 +381,11 @@
                 panels[i].hidden = i !== index;
             });
             setCopyEnabled();
-            pinned = true;
             renderApp();
-            toEnd();
+            // Each view opens at its newest line.
+            if (window.scrollTo) {
+                window.scrollTo(0, 0);
+            }
             if (!inFlight && document.visibilityState !== "hidden") {
                 stop();
                 poll();

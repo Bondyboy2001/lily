@@ -76,8 +76,8 @@ def test_the_logs_page_lists_lookups_with_their_changes(env):
     store.log_metadata_lookup(9999, "Gone Book", "failed")
     html = _admin(env).get("/logs").get_data(as_text=True)
     panel = html[html.index('id="logs_metadata"'):]
-    # Oldest first, newest at the bottom; a deleted book is named but not linked
-    assert panel.index(f'href="/book/{book}"') < panel.index("Gone Book")
+    # Newest first, at the top; a deleted book is named but not linked
+    assert panel.index("Gone Book") < panel.index(f'href="/book/{book}"')
     assert 'title="No longer in the library"' in panel
     assert '<span class="lookup-result">matched on Google Books</span>' in panel
     assert '<p class="logs-line lookup is-failed"' in panel and '<span class="lookup-result">failed</span>' in panel
@@ -91,23 +91,22 @@ def test_the_logs_page_lists_lookups_with_their_changes(env):
     assert 'id="logs_tab_app"' in html and 'id="log_output"' in html
 
 
-def test_new_lookups_arrive_after_the_last_one_shown(env):
+def test_new_lookups_arrive_after_the_newest_one_shown(env):
     env, store = env
     store.log_metadata_lookup(1, "First", "nomatch")
     client = _admin(env)
     html = client.get("/logs").get_data(as_text=True)
     first = int(html.split('data-id="')[1].split('"')[0])
-    day = html.split('data-day="')[1].split('"')[0]
-    reply = client.get(f"/logs/lookups?after={first}&day={day}").get_json()
+    reply = client.get(f"/logs/lookups?after={first}").get_json()
     assert reply == {"success": True, "html": ""}
     store.log_metadata_lookup(2, "Second <b>", "manual")
-    reply = client.get(f"/logs/lookups?after={first}&day={day}")
+    reply = client.get(f"/logs/lookups?after={first}")
     assert reply.headers["Cache-Control"] == "no-store"
     row = reply.get_json()["html"]
     assert "Second &lt;b&gt;" in row and "First" not in row
     assert '<span class="lookup-result">filled in by hand</span>' in row
-    # Same day as the last row shown, so no second day heading
-    assert 'class="logs-source"' not in row
+    # The new rows carry their day's heading; the page drops the one it already had
+    assert row.count('class="logs-source"') == 1
     # A bogus id lists from the start rather than failing
     assert "First" in client.get("/logs/lookups?after=x").get_json()["html"]
 

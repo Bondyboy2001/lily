@@ -19,7 +19,6 @@ class Node {
         this.disabled = false;
         this.tabIndex = 0;
         this.listeners = {};
-        this.scrolledIntoView = 0;
         const el = this;
         this.classList = {
             set: new Set(),
@@ -35,6 +34,7 @@ class Node {
     }
     get firstChild() { return this.childNodes[0] || null; }
     get firstElementChild() { return this.children[0] || null; }
+    get lastElementChild() { return this.children[this.children.length - 1] || null; }
     get nextElementSibling() {
         const sibs = this.parentNode ? this.parentNode.children : [];
         return sibs[sibs.indexOf(this) + 1] || null;
@@ -50,6 +50,18 @@ class Node {
         node.parentNode = this;
         this.childNodes.push(node);
         if (node.nodeType === 1) this.children.push(node);
+        return node;
+    }
+    insertBefore(node, ref) {
+        if (!ref) return this.appendChild(node);
+        const nodes = node.isFragment ? [...node.childNodes] : [node];
+        if (node.isFragment) { node.childNodes = []; node.children = []; }
+        nodes.forEach((n) => {
+            if (n.parentNode) n.parentNode.removeChild(n);
+            n.parentNode = this;
+            this.childNodes.splice(this.childNodes.indexOf(ref), 0, n);
+            if (n.nodeType === 1) this.children.splice(this.children.indexOf(ref) === -1 ? this.children.length : this.children.indexOf(ref), 0, n);
+        });
         return node;
     }
     removeChild(node) {
@@ -86,7 +98,13 @@ class Node {
         return false;
     }
     focus() { this.ownerDocument.activeElement = this; }
-    scrollIntoView() { this.scrolledIntoView += 1; }
+    // Every element is a 20px row in document order; the sticky bar stays at the top.
+    getBoundingClientRect() {
+        const doc = this.ownerDocument;
+        if (this.classList.contains("logs-bar")) return { top: 0, bottom: 20 };
+        const top = (doc.page.descendants().indexOf(this) + 1) * 20 - doc.scrollY;
+        return { top, bottom: top + 20 };
+    }
     get offsetHeight() { return 60; }
     descendants() { return this.children.flatMap((c) => [c, ...c.descendants()]); }
     matches(sel) { return sel.startsWith(".") && this.classList.contains(sel.slice(1)); }
@@ -97,6 +115,7 @@ class Node {
 function makeDocument() {
     const doc = {
         visibilityState: "visible",
+        scrollY: 0,
         listeners: {},
         documentElement: { lang: "en" },
         createElement(tag) { return new Node(tag, doc); },
@@ -148,7 +167,6 @@ export function loadLogs(fetchImpl, { visibilityState = "visible" } = {}) {
     document.visibilityState = visibilityState;
     const timers = new Map();
     let nextTimer = 1;
-    const observers = [];
     let selection = { isCollapsed: true, anchorNode: null };
     const sandbox = {
         document,
@@ -160,10 +178,8 @@ export function loadLogs(fetchImpl, { visibilityState = "visible" } = {}) {
         isSecureContext: false,
         addEventListener() {},
         getSelection: () => selection,
-        IntersectionObserver: class {
-            constructor(cb) { this.cb = cb; observers.push(this); }
-            observe() {}
-        },
+        scrollBy(x, y) { document.scrollY += y; },
+        scrollTo(x, y) { document.scrollY = y; },
         Promise,
     };
     sandbox.window = sandbox;
@@ -179,9 +195,8 @@ export function loadLogs(fetchImpl, { visibilityState = "visible" } = {}) {
         lookups: $id("lookup_output"),
         status: $id("logs_status"),
         live: $id("logs_live"),
-        end: document.page.querySelector(".logs-end"),
-        // The reader scrolls away from (false) or back to (true) the newest line.
-        atBottom(on) { observers.forEach((o) => o.cb([{ isIntersecting: on }])); },
+        scrollTo(y) { document.scrollY = y; },
+        top(node) { return node.getBoundingClientRect().top; },
         select(node) { selection = { isCollapsed: false, anchorNode: node }; },
         unselect() { selection = { isCollapsed: true, anchorNode: null }; },
         tick() {
@@ -273,10 +288,10 @@ test("warnings and errors carry a word, nothing else", async () => {
     const { output } = loadLogs(fx.fetch);
     await flush();
     const words = output.querySelectorAll(".logs-level").map((b) => b.textContent);
-    assert.deepEqual(words, ["Warning", "Error"]);
+    assert.deepEqual(words, ["Error", "Warning"]);
     assert.equal(lines(output).filter((p) => p.classList.contains("is-error")).length, 1);
     assert.deepEqual(output.querySelectorAll(".logs-source").map((h) => h.textContent.split(",")[0]),
-        ["Ingest service", "Lily web app"]);
+        ["Lily web app", "Ingest service"]);
 });
 
 test("empty payload shows the empty message", async () => {
@@ -326,26 +341,33 @@ test("only lines that weren't there before fade in", async () => {
     assert.equal(lines(output).filter((p) => p.classList.contains("is-new")).length, 0);
     tick();
     await flush();
-    assert.deepEqual(lines(output).map((p) => p.classList.contains("is-new")), [false, true]);
+    assert.deepEqual(lines(output).map((p) => p.classList.contains("is-new")), [true, false]);
 });
 
-test("follows new lines at the bottom, not when scrolled up", async () => {
+test("newest first; a reader at the top sees new lines, one scrolled down keeps their place", async () => {
+    const one = "2026-10-03 20:00:00.1  one";
+    const two = one + "\n2026-10-03 20:00:01.1  two\n2026-10-03 20:00:01.2  three\n2026-10-03 20:00:01.3  four";
     const fx = scripted([
-        { success: true, version: "v1", text: "2026-10-03 20:00:00.1  one" },
-        { success: true, version: "v2", text: "2026-10-03 20:00:00.1  one\n2026-10-03 20:00:01.1  two" },
-        { success: true, version: "v3", text: "2026-10-03 20:00:00.1  one\n2026-10-03 20:00:02.1  three" },
+        { success: true, version: "v1", text: one + "\n2026-10-03 20:00:00.2  zero" },
+        { success: true, version: "v2", text: two },
+        { success: true, version: "v3", text: two + "\n2026-10-03 20:00:02.1  five" },
     ]);
-    const { end, tick, atBottom } = loadLogs(fx.fetch);
+    const { document, output, tick, scrollTo, top } = loadLogs(fx.fetch);
     await flush();
-    const opened = end.scrolledIntoView;
-    assert.ok(opened >= 1, "opens at the newest line");
+    assert.deepEqual(texts(output), ["zero", "one"]);
     tick();
     await flush();
-    assert.equal(end.scrolledIntoView, opened + 1);
-    atBottom(false);
+    // At the top: nothing scrolls, the new lines are simply there
+    assert.deepEqual(texts(output), ["four", "three", "two", "one"]);
+    assert.equal(document.scrollY, 0);
+    // Scrolled down to "two": the next redraw leaves it where it was
+    const two_ = () => lines(output).find((p) => p.children[1].textContent === "two");
+    scrollTo(top(two_()) - 20);
+    const before = top(two_());
     tick();
     await flush();
-    assert.equal(end.scrolledIntoView, opened + 1);
+    assert.equal(texts(output)[0], "five");
+    assert.equal(top(two_()), before);
 });
 
 test("a selection in the log holds the redraw until it ends", async () => {
@@ -437,14 +459,30 @@ test("the Metadata pill shows lookups and asks only for newer ones", async () =>
     assert.equal(document.getElementById("logs_app").hidden, true);
     assert.equal(tab.getAttribute("aria-selected"), "true");
     assert.equal(tab.classList.contains("active"), true);
-    assert.equal(fx.calls[1], "/logs/lookups?after=7&day=2026-10-03");
+    assert.equal(fx.calls[1], "/logs/lookups?after=7");
     const rows = lines(lookups);
-    assert.deepEqual(rows.map((p) => p.getAttribute("data-id")), ["7", "8"]);
-    assert.equal(rows[1].classList.contains("is-new"), true);
+    assert.deepEqual(rows.map((p) => p.getAttribute("data-id")), ["8", "7"]);
+    assert.equal(rows[0].classList.contains("is-new"), true);
     tick();
     await flush();
     // The app log isn't polled while its view is away
-    assert.equal(fx.calls[2], "/logs/lookups?after=8&day=2026-10-03");
+    assert.equal(fx.calls[2], "/logs/lookups?after=8");
+});
+
+test("new lookups go on top under one heading per day", async () => {
+    const fx = scripted([
+        { success: true, version: "v1", text: "" },
+        { success: true, html: '<p class="logs-source" data-day="2026-10-04">4 October</p>' +
+            '<p class="logs-line lookup is-matched" data-id="9" data-day="2026-10-04">00:01 Next day</p>' +
+            '<p class="logs-source" data-day="2026-10-03">3 October</p>' +
+            '<p class="logs-line lookup is-matched" data-id="8" data-day="2026-10-03">23:59 Same day</p>' },
+    ]);
+    const { document, lookups } = loadLogs(fx.fetch);
+    await flush();
+    document.getElementById("logs_tab_metadata").dispatch("click");
+    await flush();
+    assert.deepEqual(lookups.children.map((n) => n.getAttribute("data-day") + (n.classList.contains("logs-source") ? " heading" : " " + n.getAttribute("data-id"))),
+        ["2026-10-04 heading", "2026-10-04 9", "2026-10-03 heading", "2026-10-03 8", "2026-10-03 7"]);
 });
 
 let failures = 0;

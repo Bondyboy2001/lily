@@ -2,8 +2,8 @@
 {% block pane_class %} is-wide{% endblock %}
 {% block settings %}
 {# Two live views behind two pills: App (the app log and the services' output, cleaned into
-   one line per entry) and Metadata (the latest lookups). Both read oldest first, newest at
-   the bottom, and logs.js keeps them current. The bar stays in reach as the page scrolls. #}
+   one line per entry) and Metadata (the latest lookups). Both read newest first, at the
+   top, and logs.js keeps them current. The bar stays in reach as the page scrolls. #}
 <div class="lily-logs" data-logs-url="{{ url_for('logs.logs_data') }}" data-lookups-url="{{ url_for('logs.lookups_data') }}"
      data-empty-message="{{ _('No logs captured yet.') }}" data-warning="{{ _('Warning') }}" data-error="{{ _('Error') }}">
   <div class="logs-bar">

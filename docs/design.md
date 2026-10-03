@@ -647,8 +647,8 @@ Build every settings page from the macros. Never hand-write rows.
   becomes a short row.
 - **Logs** (`logs.html`, `logs.js`) is plain text with no rows or cards: a bar of two chips
   (App, Metadata) as tabs, a breathing `--accent` "Live" dot and the Copy icon button,
-  sticky under the top bar. Below it is one list, oldest first with the newest at the bottom.
-  The page follows new lines while the reader is at the bottom, and they fade in from
+  sticky under the top bar. Below it is one list, newest first at the top. New lines
+  arrive above the reader's place without moving it, and they fade in from
   `--accent-soft`. Each line is a short time (12px mono `--faint`) and then its text,
   wrapped by word under itself. App lines are 12px mono under a 13px `--muted` service
   name, and only a "Warning" (`--warning`) or "Error" (`--danger`) word carries colour.

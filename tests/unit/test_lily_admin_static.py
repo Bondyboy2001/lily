@@ -142,7 +142,7 @@ def test_logs_page_is_two_live_views_behind_two_pills():
         assert gone not in html and gone not in rows, gone
     js = read(REPO_ROOT / "cps/static/js/logs.js")
     assert "visibilitychange" in js and "since=" in js and "?after=" in js
-    assert "IntersectionObserver" in js and "is-new" in js
+    assert "scrollBy" in js and "is-new" in js
     css = read(REPO_ROOT / "cps/static/css/lily-admin.css")
     assert re.search(r"\.lily-logs \.logs-bar \{[^}]*position: sticky;[^}]*top: var\(--logs-bar-top", css)
     # Motion only when the reader hasn't asked for less

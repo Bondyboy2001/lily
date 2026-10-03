@@ -206,10 +206,10 @@ def _field_labels():
             'identifiers': _('Identifiers'), 'cover': _('Cover')}
 
 
-def _lookup_rows(after=0, day=''):
-    """The newest lookups (above id `after`), oldest first so the newest sits at the bottom like the
-    app log. Each is {id, book_id, title, exists, status, source, time, iso, day, day_label, changes:
-    [(label, before, after)]}; day_label is set on the first row of each day after `day`."""
+def _lookup_rows(after=0):
+    """The newest lookups (above id `after`), newest first like the app log. Each is {id, book_id,
+    title, exists, status, source, time, iso, day, day_label, changes: [(label, before, after)]};
+    day_label is set on the first (newest) row of each day."""
     import sys
     if '/app/calibre-web-automated/scripts/' not in sys.path:
         sys.path.insert(1, '/app/calibre-web-automated/scripts/')
@@ -224,7 +224,8 @@ def _lookup_rows(after=0, day=''):
     present = {row[0] for row in calibre_db.session.query(db.Books.id).filter(db.Books.id.in_(ids))} if ids else set()
     labels = _field_labels()
     rows = []
-    for entry in reversed(entries):
+    day = None
+    for entry in entries:
         try:
             changes = json.loads(entry['changes'] or '{}')
         except ValueError:
@@ -259,13 +260,12 @@ def show_logs():
 @user_login_required
 @admin_required
 def lookups_data():
-    """Lookups newer than `after` (the last id the page shows), as rows ready to append.
-    `day` is the day of that last row, so a new day gets its heading."""
+    """Lookups newer than `after` (the newest id the page shows), as rows ready to put on top."""
     try:
         after = max(int(request.args.get('after', 0)), 0)
     except ValueError:
         after = 0
-    rows = _lookup_rows(after, request.args.get('day', ''))
+    rows = _lookup_rows(after)
     return _no_store(jsonify({
         'success': True,
         'html': render_template('logs_lookup_rows.html', lookups=rows) if rows else '',

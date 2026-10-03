@@ -1,5 +1,5 @@
-{#- Metadata lookups as log lines, oldest first: the time, the book, what the lookup found and,
-    under it, every field it changed (before → after). A day's first row carries the day.
+{#- Metadata lookups as log lines, newest first: the time, the book, what the lookup found and,
+    under it, every field it changed (before → after). A day's newest row carries the day.
     The Logs page lists these, and /logs/lookups sends new ones in the same markup. -#}
 {%- for lookup in lookups %}
 {%- if lookup.day_label %}
