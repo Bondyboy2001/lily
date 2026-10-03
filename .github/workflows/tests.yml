@@ -1,8 +1,12 @@
 name: Test Suite
 
+# main is checked by release.yml on every push (it gates the image), so this suite runs on
+# other branches and PRs, and once a night on main for the slow Docker integration tests.
 on:
   push:
-    branches: ['**']
+    branches-ignore: [main]
+  schedule:
+    - cron: '0 3 * * *'
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -43,22 +47,6 @@ jobs:
       - name: Run mypy
         run: |
           pipx run mypy
-
-  # ============================================================================
-  # Dependency audit: known-vulnerable pins in requirements.lock.
-  # Informational (continue-on-error): read the output rather than gating
-  # merges on it.
-  # ============================================================================
-  dependency-audit:
-    name: Dependency Audit (pip-audit)
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-
-      - name: Run pip-audit
-        run: pipx run pip-audit -r requirements.lock --no-deps --disable-pip
 
   # ============================================================================
   # JOB 1: Fast Tests (Smoke + Unit)
@@ -169,16 +157,16 @@ jobs:
 
   # ============================================================================
   # JOB 2: Integration Tests (Docker)
-  # Runs on: Merge to main, manual trigger
+  # Runs on: Nightly on main, manual trigger
   # Duration: ~15-20 minutes
   # Purpose: Validate real-world behavior in Docker container
   # ============================================================================
   integration-tests:
     name: Integration Tests (Docker)
     runs-on: ubuntu-latest
-    # Only run on merge to main OR manual dispatch with flag
+    # Only run nightly on main OR manual dispatch with flag
     if: |
-      github.ref == 'refs/heads/main' ||
+      github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' && inputs.run_integration)
     
     steps:
@@ -248,7 +236,7 @@ jobs:
   test-summary:
     name: Test Suite Summary
     runs-on: ubuntu-latest
-    needs: [lint, dependency-audit, fast-tests, docker-build, integration-tests]
+    needs: [lint, fast-tests, docker-build, integration-tests]
     if: always()
     
     steps:
@@ -263,7 +251,7 @@ jobs:
           for job in "lint=${{ needs.lint.result }}" "fast-tests=${{ needs.fast-tests.result }}" \
                      "docker-build=${{ needs.docker-build.result }}" \
                      "integration-tests=${{ needs.integration-tests.result }}"; do
-            # "skipped" is fine: docker-build only runs on PRs, integration only on main or when requested
+            # "skipped" is fine: docker-build only runs on PRs, integration only nightly or when requested
             if [[ "${job#*=}" == "failure" || "${job#*=}" == "cancelled" ]]; then
               echo "❌ ${job%%=*} ${job#*=}"
               failed=1

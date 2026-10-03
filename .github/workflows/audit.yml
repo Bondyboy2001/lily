@@ -1,0 +1,49 @@
+name: Dependency Audit
+
+# pip-audit over requirements.lock once a week. Known-vulnerable pins open (or comment on)
+# one "Dependency audit" issue instead of turning every push red.
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    name: pip-audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Run pip-audit
+        id: audit
+        run: |
+          set +e
+          pipx run pip-audit -r requirements.lock --no-deps --disable-pip > audit.txt 2>&1
+          status=$?
+          cat audit.txt
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the issue
+        if: steps.audit.outputs.status != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "pip-audit found vulnerable pins in requirements.lock ([run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)):"
+            echo
+            echo '```'
+            cat audit.txt
+            echo '```'
+          } > body.md
+          number=$(gh issue list --state open --search 'in:title "Dependency audit"' --json number -q '.[0].number')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body-file body.md
+          else
+            gh issue create --title "Dependency audit: vulnerable pins" --body-file body.md
+          fi
+          exit 1

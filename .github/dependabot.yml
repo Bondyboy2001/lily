@@ -18,6 +18,10 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    # One PR for all action bumps, majors included: release.yml exercises them on merge
+    groups:
+      actions:
+        patterns: ['*']
 
   - package-ecosystem: docker
     directory: /

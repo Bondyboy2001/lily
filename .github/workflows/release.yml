@@ -85,6 +85,10 @@ jobs:
       - name: Run ruff
         run: uvx ruff==0.16.9 check cps scripts tests
 
+      # Dead code fails the release too (config + whitelist in pyproject.toml [tool.vulture])
+      - name: Run vulture
+        run: uvx vulture==2.16
+
       - name: Run mypy
         run: uvx mypy==2.3.1
 
