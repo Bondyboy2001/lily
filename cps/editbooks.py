@@ -873,10 +873,15 @@ def _note_matched(book_id, source):
 
 
 def _note_hand_edit(book_id):
-    """The book was edited by hand: automatic lookups keep its title and authors from now on."""
+    """The book was edited by hand: automatic lookups keep its title and authors from now on.
+    One no provider had (lecture notes, say) now counts as filled in by hand, so the library's
+    No match and Lookup failed filters no longer list it."""
     try:
         from cwa_db import CWA_DB
-        CWA_DB().save_hand_edit(book_id)
+        store = CWA_DB()
+        store.save_hand_edit(book_id)
+        if (store.get_metadata_lookup(book_id) or {}).get("status") in ("nomatch", "failed"):
+            store.save_metadata_lookup(book_id, "manual")
     except Exception as e:
         log.debug("Could not note book %s as edited by hand: %s", book_id, e)
 

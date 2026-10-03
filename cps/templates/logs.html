@@ -23,6 +23,7 @@
         <td class="lookup-result">
           {% if lookup.status == 'matched' %}<span class="label label-success">{{ _('Matched') }}</span>
           {% elif lookup.status == 'failed' %}<span class="label label-danger">{{ _('Failed') }}</span>
+          {% elif lookup.status == 'manual' %}<span class="label">{{ _('Filled in by hand') }}</span>
           {% else %}<span class="label">{{ _('No match') }}</span>{% endif %}
           {% if lookup.source %}<span class="lookup-source">{{ lookup.source }}</span>{% endif %}
         </td>

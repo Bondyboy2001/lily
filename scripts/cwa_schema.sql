@@ -178,7 +178,7 @@ CREATE TABLE IF NOT EXISTS metadata_changes(
 -- What the last metadata lookup of each book found, for the library's Metadata filter and Retry failed
 CREATE TABLE IF NOT EXISTS metadata_lookups(
     book_id INTEGER PRIMARY KEY,
-    status TEXT NOT NULL,  -- matched, nomatch (every provider answered, none has it) or failed (one didn't answer)
+    status TEXT NOT NULL,  -- matched, nomatch (every provider answered, none has it), failed (one didn't answer) or manual (filled in by hand, no provider has it)
     source TEXT NOT NULL DEFAULT '',  -- the provider that matched, as it names itself
     checked_at TEXT NOT NULL  -- UTC, ISO 8601
 );
@@ -189,7 +189,7 @@ CREATE TABLE IF NOT EXISTS metadata_lookup_log(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     book_id INTEGER NOT NULL,
     title TEXT NOT NULL DEFAULT '',  -- the book's title after the lookup: it may be deleted since
-    status TEXT NOT NULL,  -- matched, nomatch or failed, as metadata_lookups
+    status TEXT NOT NULL,  -- matched, nomatch, failed or manual, as metadata_lookups
     source TEXT NOT NULL DEFAULT '',  -- the provider that matched
     checked_at TEXT NOT NULL,  -- UTC, ISO 8601
     changes TEXT NOT NULL DEFAULT '{}'  -- JSON: {field: [before, after]} for each field it changed

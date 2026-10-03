@@ -212,7 +212,8 @@ class TaskRebuildMetadata(CalibreTask):
 
     def _still_to_look_up(self, books):
         """The books not up to date: never looked up, failed, or changed since their lookup
-        matched them or found nothing. The others are counted as skipped."""
+        matched them, found nothing or left them as filled in by hand. The others are counted
+        as skipped."""
         try:
             lookups = self._store.metadata_lookups_by_book() if self._store else {}
         except Exception as ex:
@@ -221,7 +222,7 @@ class TaskRebuildMetadata(CalibreTask):
         wanted = []
         for book_id, last_modified in books:
             status, checked = lookups.get(book_id, (None, None))
-            if status in ("matched", "nomatch") and not _changed_since(last_modified, checked):
+            if status in ("matched", "nomatch", "manual") and not _changed_since(last_modified, checked):
                 self.skipped += 1
             else:
                 wanted.append(book_id)

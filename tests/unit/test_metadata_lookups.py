@@ -72,6 +72,30 @@ def test_each_lookup_notes_what_it_found(env, monkeypatch):
     assert store.metadata_lookup_ids("nomatch") == [unknown]
 
 
+def test_lecture_notes_filled_in_by_hand_leave_the_no_match_list(env, monkeypatch):
+    """Lecture notes are in no provider: once filled in by hand they are no longer a problem to
+    list, and later lookups that find nothing leave them so. A matched book stays matched."""
+    from cps.editbooks import _note_hand_edit
+    notes = env.add_book("MATH2001 Lecture Notes Week 3", author="Jane Roe")
+    dune = env.add_book("Dune", author="Frank Herbert")
+    helper = _providers(monkeypatch, FakeProvider(
+        __id__="openlibrary", __name__="OpenLibrary", identifier_types=frozenset(),
+        search=lambda q, *a: [_record("Dune", ["Frank Herbert"])] if "Dune" in q else []))
+    helper.fetch_and_apply_metadata(notes, force=True)
+    helper.fetch_and_apply_metadata(dune, force=True)
+    store = _store()
+    assert store.metadata_lookup_ids("nomatch") == [notes]
+    _note_hand_edit(notes)
+    _note_hand_edit(dune)
+    assert store.get_metadata_lookup(notes)["status"] == "manual"
+    assert store.get_metadata_lookup(dune)["status"] == "matched"
+    assert store.metadata_lookup_ids("nomatch") == []
+    helper.fetch_and_apply_metadata(notes, force=True)
+    assert store.get_metadata_lookup(notes)["status"] == "manual"
+    client = _login(env)
+    assert "Filled in by hand" in client.get(f"/book/{notes}").get_data(as_text=True)
+
+
 def test_a_provider_that_did_not_answer_makes_it_failed_not_nomatch(env, monkeypatch):
     book = env.add_book("A Book Nobody Has", author="Jane Roe")
     helper = _providers(
@@ -219,9 +243,9 @@ def test_applying_a_fetch_metadata_result_marks_the_book_matched(env, before):
     store = _store()
     store.save_metadata_lookup(book_id, before)
     client = _login(env)
-    # A plain save leaves the lookup alone
+    # A plain save means it was filled in by hand: off the No match and Lookup failed lists
     client.post(f"/admin/book/{book_id}", data={"title": "Dune", "authors": "Frank Herbert"})
-    assert _store().get_metadata_lookup(book_id)["status"] == before
+    assert _store().get_metadata_lookup(book_id)["status"] == "manual"
     client.post(f"/admin/book/{book_id}", data={"title": "Dune", "authors": "Frank Herbert",
                                                 "metadata_source": "Open Library"})
     lookup = _store().get_metadata_lookup(book_id)

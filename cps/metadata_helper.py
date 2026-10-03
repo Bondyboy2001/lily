@@ -601,7 +601,9 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
         if unanswered is not None:
             unanswered.update(missed)
         if record is None:
-            _note_lookup(store, book_id, _missed_status(missed, busy), title=title)
+            # A book filled in by hand that no provider has stays so, out of the No match list
+            status = 'manual' if mode == HAND else _missed_status(missed, busy)
+            _note_lookup(store, book_id, status, title=title)
             return False
         # A PDF's cover is its first page; a provider's is only taken by hand, in Fetch metadata
         url = '' if page_cover else getattr(record, 'cover', '') or ''
@@ -667,7 +669,8 @@ def _hand_edited(store, book_id) -> bool:
 
 def _note_lookup(store, book_id, status, source='', title='', changes=None):
     """Note what the book's lookup found: matched, nomatch (every provider answered and none
-    has it) or failed (one didn't answer, or the lookup went wrong). The library's Metadata
+    has it), failed (one didn't answer, or the lookup went wrong) or manual (no match for a
+    book filled in by hand, so not one to list as a problem). The library's Metadata
     filter and Retry failed read it, and the Logs page lists it with what it changed; a
     failure here is logged, never the lookup's."""
     try:

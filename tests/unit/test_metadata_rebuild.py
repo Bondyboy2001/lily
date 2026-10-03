@@ -414,9 +414,10 @@ def test_a_full_rebuild_clears_none_descriptions(env, monkeypatch):
 def test_a_rebuild_skips_books_up_to_date_and_a_full_one_does_not(env, monkeypatch):
     import sqlite3
     from cwa_db import CWA_DB
-    matched, nomatch, failed, edited, unchecked = (env.add_book(t) for t in ("A", "B", "C", "D", "E"))
+    matched, nomatch, failed, edited, unchecked, manual = (env.add_book(t) for t in ("A", "B", "C", "D", "E", "F"))
     store = CWA_DB()
-    for book, status in ((matched, "matched"), (nomatch, "nomatch"), (failed, "failed"), (edited, "matched")):
+    for book, status in ((matched, "matched"), (nomatch, "nomatch"), (failed, "failed"), (edited, "matched"),
+                         (manual, "manual")):
         store.save_metadata_lookup(book, status)
     store.save_cover_check(matched, "http://cover", "1:2")
     # Edited after its lookup
@@ -426,10 +427,10 @@ def test_a_rebuild_skips_books_up_to_date_and_a_full_one_does_not(env, monkeypat
     con.commit()
     con.close()
     task, looked_up = _run_rebuild(env, monkeypatch)
-    assert looked_up == [failed, edited, unchecked] and task.skipped == 2
-    assert task.message == "Done: 3 books checked, 3 updated, 2 up to date skipped"
+    assert looked_up == [failed, edited, unchecked] and task.skipped == 3
+    assert task.message == "Done: 3 books checked, 3 updated, 3 up to date skipped"
     task, looked_up = _run_rebuild(env, monkeypatch, full=True)
-    assert looked_up == [matched, nomatch, failed, edited, unchecked] and task.skipped == 0
+    assert looked_up == [matched, nomatch, failed, edited, unchecked, manual] and task.skipped == 0
     # What earlier lookups found is forgotten (the stand-in lookup notes nothing)
     assert store.get_metadata_lookup(matched) is None and store.get_cover_check(matched) is None
 

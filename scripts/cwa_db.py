@@ -883,7 +883,7 @@ class CWA_DB:
         self.con.commit()
 
     def save_metadata_lookup(self, book_id: int, status: str, source: str = '') -> None:
-        """Note what a metadata lookup of the book found: matched, nomatch or failed."""
+        """Note what a metadata lookup of the book found: matched, nomatch, failed or manual."""
         self.cur.execute("INSERT OR REPLACE INTO metadata_lookups (book_id, status, source, checked_at) "
                          "VALUES (?, ?, ?, ?)",
                          (book_id, status, source or '', datetime.now(UTC).isoformat(timespec='seconds')))

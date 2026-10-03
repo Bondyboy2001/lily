@@ -223,7 +223,7 @@
               {% endfor %}
               {# What the last metadata lookup found, and when (editors only) #}
               {% if metadata_lookup %}
-              {% set lookup_words = {'nomatch': _('No match'), 'failed': _('Lookup failed')} %}
+              {% set lookup_words = {'nomatch': _('No match'), 'failed': _('Lookup failed'), 'manual': _('Filled in by hand')} %}
               <div class="book-metadata-lookup">
                 <dt>{{ _('Metadata') }}</dt>
                 <dd>
