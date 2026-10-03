@@ -560,6 +560,9 @@ def get_sort_function(sort_param, data):
         order = [db.Books.author_sort.asc(), db.Books.sort]
     if sort_param == 'authza':
         order = [db.Books.author_sort.desc(), db.Books.sort.desc()]
+    if sort_param == 'relevance':
+        # simple search only: get_search_results ranks the matches by how well they match
+        order = []
     if sort_param is None:
         sort_param = "new"
     return order, sort_param

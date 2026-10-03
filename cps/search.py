@@ -34,7 +34,8 @@ log = logger.create()
 def simple_search():
     term = request.args.get("query")
     if term:
-        return redirect(url_for('web.books_list', data="search", sort_param='stored', query=term.strip()))
+        # A new search starts best match first; another sort can be picked on the results
+        return redirect(url_for('web.books_list', data="search", sort_param='relevance', query=term.strip()))
     else:
         return render_title_template('search.html',
                                      searchterm="",

@@ -31,7 +31,7 @@ try:
 except ImportError:
     from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.pool import QueuePool
-from sqlalchemy.sql.expression import and_, true, false, text, func, or_
+from sqlalchemy.sql.expression import and_, true, false, text, func, or_, case
 from sqlalchemy.sql import select, table as sql_table, column as sql_column
 from .cw_login import current_user
 from flask_babel import gettext as _
@@ -1032,6 +1032,30 @@ class CalibreDB:
         query = query.options(selectinload(Books.data))
         return query.filter(self.common_filters()).filter(filter_expression)
 
+    @staticmethod
+    def search_rank(term):
+        """Best match first, for a simple search's Relevance order: 0 the term is the book's id,
+        1 the title is the term, 2 the title starts with it, 3 holds it, 4 holds every word,
+        5 the authors hold every word, 6 anything else (a tag or a custom column)."""
+        whole = strip_whitespaces(term or '')
+        folded = lcase(whole)
+        words = [lcase(word) for word in search_words(term)]
+        title = func.lower(Books.title)
+
+        def holds(column, value):
+            return column.like(like_pattern(value), escape="\\")
+
+        ids = {whole.lower(), *(v.lower() for v in parse_identifier(whole).values())}
+        return case(
+            (Books.identifiers.any(func.lower(Identifiers.val).in_(ids)), 0),
+            (title == folded, 1),
+            (title.like(like_pattern(folded)[1:], escape="\\"), 2),
+            (holds(title, folded), 3),
+            (and_(*[holds(title, word) for word in words]), 4),
+            (and_(*[Books.authors.any(holds(func.lower(Authors.name), word)) for word in words]), 5),
+            else_=6,
+        )
+
     def get_cc_columns(self, config, filter_config_custom_read=False):
         self.ensure_session()
         tmp_cc = self.session.query(CustomColumns).filter(CustomColumns.datatype.notin_(cc_exceptions)).all()
@@ -1052,7 +1076,10 @@ class CalibreDB:
     # read search results from calibre-database and return it (function is used for feed and simple search
     def get_search_results(self, term, config, offset=None, order=None, limit=None, cards_only=False):
         self.ensure_session()
-        order = order[0] if order else [Books.sort]
+        if order and order[1] == 'relevance':
+            order = [self.search_rank(term), Books.sort]
+        else:
+            order = order[0] if order else [Books.sort]
         pagination = None
         query = self.search_query(term, config).order_by(*order)
         if offset is not None and limit is not None:

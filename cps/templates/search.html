@@ -10,14 +10,14 @@
                             (_('Clear filters'), url_for('web.index'), False)]) }}
       {% else %}
       {{ image.empty_state('glyphicon-search', _('No Results Found'),
-                           _('Nothing matches %(term)s in titles, authors, tags, descriptions or ids. Check the spelling or try fewer words.', term=adv_searchterm),
+                           _('Nothing matches %(term)s in titles, authors, tags or ids. Check the spelling or try fewer words.', term=adv_searchterm),
                            [(_('Advanced search'), url_for('search.advanced_search'), True),
                             (_('Clear search'), url_for('web.index'), False)]) }}
       {% endif %}
     {% else %}
       <h2>{{ ngettext('%(num)s Result for “%(term)s”', '%(num)s Results for “%(term)s”', result_count, term=adv_searchterm) }}</h2>
       <div class="lily-list-toolbar">
-      {{ image.sort_menu(order, url_for('web.books_list', data=page, sort_param='SORT_PARAM', query=query), ['added', 'title', 'author', 'published']) }}
+      {{ image.sort_menu(order, url_for('web.books_list', data=page, sort_param='SORT_PARAM', query=query), ['relevance', 'added', 'title', 'author', 'published'] if page == 'search' else ['added', 'title', 'author', 'published']) }}
       {{ image.pager(pagination) }}
       </div>
   {% endif %}

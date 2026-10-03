@@ -18,7 +18,8 @@
 
 {# Sort controls for book lists: one dropdown picks what to sort by, the other the direction.
    `href` is a URL whose sort_param is SORT_PARAM (swapped per option); `fields` lists keys of
-   `sorts` below in menu order; `disabled` greys the options (a shelf being reordered). #}
+   `sorts` below in menu order; `disabled` greys the options (a shelf being reordered).
+   Picking another sort keeps the direction; from Relevance, which has none, it is descending. #}
 {% macro sort_menu(order, href, fields, disabled=False) -%}
     {#- key: (label, ascending param, descending param) -#}
     {%- set sorts = {
@@ -27,7 +28,8 @@
         'title': (_('Title'), 'abc', 'zyx'),
         'published': (_('Published'), 'pubold', 'pubnew'),
         'author': (_('Author'), 'authaz', 'authza'),
-        'shelf': (_('Added to shelf'), 'shelfold', 'shelfnew')} -%}
+        'shelf': (_('Added to shelf'), 'shelfold', 'shelfnew'),
+        'relevance': (_('Relevance'), 'relevance', 'relevance')} -%}
     {%- set ns = namespace(field=fields[0], desc=True) -%}
     {%- for key in fields -%}
       {%- if order == sorts[key][1] %}{% set ns.field = key %}{% set ns.desc = False %}{% endif -%}
@@ -48,13 +50,16 @@
           {% endfor %}
         </ul>
       </div>
-      {# The direction is one button: pressing it reloads the list in the other order. #}
+      {# The direction is one button: pressing it reloads the list in the other order.
+         Relevance (best match first) has no direction. #}
+      {% if ns.field != 'relevance' %}
       <a class="btn lily-chip lily-sort-dir{% if disabled %} disabled{% endif %}" id="lily-sort-dir-toggle"
          href="{{ href|replace('SORT_PARAM', sorts[ns.field][1 if ns.desc else 2]) }}"
          title="{{ _('Sort ascending') if ns.desc else _('Sort descending') }}"{% if disabled %} aria-disabled="true"{% endif %}>
         <span class="glyphicon glyphicon-sort-by-attributes{% if ns.desc %}-alt{% endif %}" aria-hidden="true"></span>
         <span class="lily-sort-value">{{ _('Descending') if ns.desc else _('Ascending') }}</span>
       </a>
+      {% endif %}
     </div>
 {%- endmacro %}
 
