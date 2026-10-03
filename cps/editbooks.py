@@ -279,11 +279,6 @@ def do_edit_book(book_id):
                     flash(error, category="error")
 
         # Stage 2: Apply the remaining metadata changes to the database session.
-        # Not sent (the book page's Fetch Metadata sends it only when a result fills it): left
-        # as it is. Markup(None) would save the text "None".
-        comments = to_save.get('comments')
-        modify_date |= edit_book_comments(None if comments is None else Markup(comments).unescape(), book)
-
         input_identifiers = identifier_list(to_save, book)
         modification, warning = modify_identifiers(input_identifiers, book.identifiers, calibre_db.session)
         if warning:
@@ -372,7 +367,7 @@ def do_edit_book(book_id):
         try:
             # Define metadata fields that represent actual content changes
             metadata_fields = {
-                'title', 'authors', 'tags', 'comments',
+                'title', 'authors', 'tags',
                 'cover_url', 'pubdate'
             }
 
@@ -861,25 +856,6 @@ def edit_book_tags(tags, book):
         input_tags = helper.uniq(input_tags)
         return modify_database_object(input_tags, book.tags, db.Tags, calibre_db.session, 'tags')
     return False
-
-def edit_book_comments(comments, book):
-    if comments is not None:
-        modify_date = False
-        if comments:
-            comments = clean_string(comments, book.id)
-        if len(book.comments):
-            if book.comments[0].text != comments:
-                book.comments[0].text = comments
-                modify_date = True
-        else:
-            if comments:
-                # Add comment via session instead of appending to collection during flush
-                new_comment = db.Comments(comment=comments, book=book.id)
-                calibre_db.session.add(new_comment)
-                modify_date = True
-        return modify_date
-    return False
-
 
 def edit_cc_data_value(book_id, book, c, to_save, cc_db_value, cc_string):
     changed = False

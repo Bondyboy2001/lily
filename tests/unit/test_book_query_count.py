@@ -78,12 +78,13 @@ def test_opds_page_query_count_does_not_grow_with_books(tmp_path):
 def test_relationships_load_by_primary_key_not_by_rerunning_the_page_query(tmp_path):
     statements = _opds_new_statements(tmp_path, 5)
     loads = _relationship_loads(statements)
-    # one query per Books relationship (authors, tags, comments, data, identifiers), each
-    # keyed on the page's book ids
-    assert len(loads) == 5, loads
+    # one query per Books relationship (authors, tags, data, identifiers), each keyed on the
+    # page's book ids; descriptions (comments) are gone, so neither loaded nor read
+    assert len(loads) == 4, loads
     for statement in loads:
         assert " IN (" in statement, statement
         assert "FROM (SELECT" not in statement, f"relationship load re-runs the page query: {statement}"
+    assert not any("FROM comments" in s for s in statements)
 
 
 def test_cards_only_page_skips_relationships_cards_do_not_render(tmp_path):

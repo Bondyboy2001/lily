@@ -18,7 +18,7 @@ A rebuild skips a book that is up to date: its last lookup matched it or found n
 hasn't changed since, and fills only what a matched book lacks. A full rebuild first copies the
 library's metadata.db to /config/metadata.db.before-full-rebuild, forgets what earlier lookups
 found (cwa.db) and looks every book up again, and a match replaces the book's details rather
-than filling them: its description, date and identifiers, and its title and authors unless it
+than filling them: its date and identifiers, and its title and authors unless it
 was edited by hand. A book with no match keeps what it has."""
 
 import os
@@ -29,7 +29,6 @@ from datetime import datetime, timedelta, UTC
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from flask_babel import lazy_gettext as N_
-from sqlalchemy import func
 
 from cps import config, db, helper, logger, pdf_cover
 from cps.services.worker import (CalibreTask, STAT_FAIL, STAT_FINISH_SUCCESS, STAT_STARTED, STAT_STOPPING,
@@ -137,7 +136,6 @@ class TaskRebuildMetadata(CalibreTask):
             with library_lock:
                 if not progress and self.book_ids is None:
                     self._tidy_authors(cdb)
-                    self._clear_none_descriptions(cdb)
                 books = cdb.session.query(db.Books.id, db.Books.last_modified).order_by(db.Books.id).all()
             book_ids = [row[0] for row in books]
             if self.book_ids is None and not self.full:
@@ -282,19 +280,6 @@ class TaskRebuildMetadata(CalibreTask):
         except Exception as ex:
             cdb.session.rollback()
             log.error("Rebuild: could not tidy authors: %s", ex)
-
-    def _clear_none_descriptions(self, cdb):
-        """Clear the description "None" that an old Fetch Metadata save wrote, so the lookups
-        fill it."""
-        try:
-            cleared = (cdb.session.query(db.Comments).filter(func.trim(db.Comments.text) == 'None')
-                       .delete(synchronize_session=False))
-            cdb.session.commit()
-            if cleared:
-                log.info("Rebuild: cleared the description \"None\" from %s books", cleared)
-        except Exception as ex:
-            cdb.session.rollback()
-            log.error("Rebuild: could not clear \"None\" descriptions: %s", ex)
 
     def _cover_changed(self, cdb, book_id):
         """Record a made or centred cover so its URL and thumbnails change with it."""

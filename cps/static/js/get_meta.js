@@ -35,15 +35,15 @@ $(function () {
   var needsKey = {};    // provider id -> true when a key would make it answer (Google Books)
   var rank = {};        // provider id -> its place in the server's order (Open Library before Hardcover)
   var expanded = {};    // group key -> true once "Show more" was pressed
-  var results = [];     // {uid, provider, book, descText, $el}; uid is the index
+  var results = [];     // {uid, provider, book, $el}; uid is the index
   var query = "";
   var request = null;   // what every provider is sent for the current search
   var form = null;      // the edit form's values the cards compare against
   var searchSeq = 0;    // answers to an earlier search are dropped
   var inFlight = [];    // the current search's requests, aborted by a new search
 
-  // Provider results are third-party data: the template escapes every value (<%- %>),
-  // shows descriptions as plain text and only links to http(s) URLs.
+  // Provider results are third-party data: the template escapes every value (<%- %>)
+  // and only links to http(s) URLs.
   function safeUrl(url) {
     return /^https?:\/\//i.test(String(url || "")) ? String(url) : "";
   }
@@ -54,11 +54,6 @@ $(function () {
     var parts = /^(\d{4})(?:-(\d{1,2}))?$/.exec($.trim(String(date || "")));
     if (!parts) { return date; }
     return parts[1] + "-" + ("0" + (parts[2] || "1")).slice(-2) + "-01";
-  }
-
-  function htmlToText(html) {
-    // DOMParser documents run no scripts and load no images
-    return new DOMParser().parseFromString(String(html || ""), "text/html").body.textContent || "";
   }
 
   // The form's fields by name: the book page's own ids (its h1 is #title) aren't the form's
@@ -113,7 +108,7 @@ $(function () {
   function readForm() {
     return {
       title: field("title").val(), authors: field("authors").val(), pubdate: field("pubdate").val(),
-      description: htmlToText(field("comments").val()), ids: currentIdentifiers(),
+      ids: currentIdentifiers(),
     };
   }
 
@@ -132,7 +127,6 @@ $(function () {
     add("title", msg.title, book.title, form.title, { link: book.url });
     add("authors", msg.author, authors, form.authors);
     add("pubDate", msg.pubdate, book.publishedDate, form.pubdate);
-    add("description", msg.comments, result.descText, form.description, { cls: "meta-description" });
     $.each(book.identifiers || {}, function (key, value) {
       if (value === "" || value === null) return;
       add(key, key, value, form.ids[String(key).toLowerCase()], {
@@ -163,9 +157,6 @@ $(function () {
   function populateForm(result) {
     var book = result.book;
     var updateItems = ticksOf(result.$el);
-    if (updateItems.description) {
-      set("comments", book.description || "").trigger("lily:set-html");
-    }
     // A ticked field replaces the book's value outright. Tags, the publisher, languages and
     // ratings are not Lily's: a result never brings any
     if (updateItems.authors) {
@@ -350,7 +341,7 @@ $(function () {
       if (data.name) { names[providerId] = data.name; }
       needsKey[providerId] = Boolean(data.missing_key);
       (data.results || []).forEach(function (book) {
-        var result = { uid: results.length, provider: providerId, book: book, descText: htmlToText(book.description) };
+        var result = { uid: results.length, provider: providerId, book: book };
         result.$el = renderCard(result);
         results.push(result);
       });

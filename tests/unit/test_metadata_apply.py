@@ -19,7 +19,7 @@ def env(tmp_path, temp_cwa_db):
 
 
 def _record(**kw):
-    rec = SimpleNamespace(title="", authors=[], description="", tags=[], series="",
+    rec = SimpleNamespace(title="", authors=[], tags=[], series="",
                           series_index=0, publishedDate=None, identifiers={}, cover="",
                           source=SimpleNamespace(description="Google Books"))
     rec.__dict__.update(kw)
@@ -68,7 +68,7 @@ def test_a_repeated_author_is_added_once(env, monkeypatch):
 def test_an_identifier_type_in_other_case_is_kept_not_duplicated(env, monkeypatch):
     dune = env.add_book("Dune", author="Frank Herbert")
     _sql(env, ("INSERT INTO identifiers (book, type, val) VALUES (?, 'ISBN', '9780441013593')", (dune,)))
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice.",
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"],
                                          identifiers={"isbn": "9780441172719", "google": "abc"}))
     assert helper.fetch_and_apply_metadata(dune) is True
     # The book's own ISBN stays; the new kind of identifier is added
@@ -78,7 +78,7 @@ def test_an_identifier_type_in_other_case_is_kept_not_duplicated(env, monkeypatc
 
 def test_nothing_new_is_not_an_update(env, monkeypatch):
     dune = env.add_book("Dune", author="Frank Herbert")
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice.",
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"],
                                          identifiers={"google": "abc"}, tags=["Science fiction"]))
     assert helper.fetch_and_apply_metadata(dune) is True
     before = _q(env, "SELECT title, author_sort, last_modified FROM books")
@@ -99,14 +99,14 @@ def test_a_change_bumps_last_modified_and_drops_unused_authors(env, monkeypatch)
 def test_a_cover_download_error_keeps_the_rest(env, monkeypatch):
     import requests
     dune = env.add_book("Dune", author="Frank Herbert")
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice.",
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], publishedDate="1965-08-01",
                                          cover="https://covers.example/x.jpg"))
 
     def broken(url, path):
         raise requests.exceptions.ChunkedEncodingError("broken stream")
     monkeypatch.setattr(helper.helper, "save_cover_from_url", broken)
     assert helper.fetch_and_apply_metadata(dune) is True
-    assert _q(env, "SELECT text FROM comments") == [("Spice.",)]
+    assert _q(env, "SELECT pubdate FROM books")[0][0].startswith("1965-08-01")
 
 
 def test_an_arxiv_id_cited_on_the_first_page_is_not_this_paper(env, monkeypatch):
@@ -134,7 +134,7 @@ def test_one_failing_book_does_not_stop_the_rebuild(env, monkeypatch):
     from cps.services.worker import STAT_FINISH_SUCCESS
     from cps.tasks import metadata_rebuild
     books = [env.add_book(t, author="Some One") for t in ("One", "Two", "Three")]
-    helper = _setup(monkeypatch, _record(title="Two", authors=["Some One"], description="Fine."))
+    helper = _setup(monkeypatch, _record(title="Two", authors=["Some One"], publishedDate="1965-08-01"))
     real_apply = metadata_helper._apply_record
 
     def apply(cdb, book, record, cover, **kw):
@@ -152,14 +152,15 @@ def test_one_failing_book_does_not_stop_the_rebuild(env, monkeypatch):
     assert task.stat == STAT_FINISH_SUCCESS and task.checked == 3, task.error
     assert task.updated == 1
     assert _q(env, "SELECT title FROM books ORDER BY id") == [("One",), ("Two",), ("Three",)]
-    assert _q(env, "SELECT text FROM comments") == [("Fine.",)]
+    assert _q(env, "SELECT title, substr(pubdate, 1, 10) FROM books ORDER BY id") == [
+        ("One", "2026-01-01"), ("Two", "1965-08-01"), ("Three", "2026-01-01")]
 
 
 def test_a_request_ending_during_the_cover_download_loses_nothing(env, monkeypatch):
     # A web request ending (its session removed) must not roll the lookup's changes back
     from cps import db
     dune = env.add_book("Dune", author="Unknown")
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice.",
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], publishedDate="1965-08-01",
                                          cover="https://covers.example/x.jpg"))
 
     def request_elsewhere():
@@ -176,7 +177,7 @@ def test_a_request_ending_during_the_cover_download_loses_nothing(env, monkeypat
     assert helper.fetch_and_apply_metadata(dune) is True
     assert _q(env, "SELECT b.author_sort, a.name FROM books b JOIN books_authors_link l ON l.book=b.id "
                    "JOIN authors a ON a.id=l.author") == [("Herbert, Frank", "Frank Herbert")]
-    assert _q(env, "SELECT text FROM comments") == [("Spice.",)]
+    assert _q(env, "SELECT pubdate FROM books")[0][0].startswith("1965-08-01")
 
 
 def test_an_imported_book_that_changes_moves_its_folder_and_queues_the_file_write(env, monkeypatch, tmp_path):
@@ -263,24 +264,12 @@ def test_a_less_exact_date_keeps_the_books_own(env, monkeypatch, found, kept):
     assert _q(env, "SELECT pubdate FROM books")[0][0].startswith("2019-06-04") is kept
 
 
-def test_a_description_is_cleaned_like_an_edits(env, monkeypatch):
-    # It is shown as HTML, and Open Library's and Hardcover's are written by anyone
-    book = env.add_book("Dune", author="Frank Herbert")
-    helper = _setup(monkeypatch, _record(
-        title="Dune", authors=["Frank Herbert"],
-        description='<p onclick="x()">Spice & sand.</p><script>alert(1)</script><img src=x onerror=alert(1)>'))
-    _applies_once(env, helper, book)
-    text = _q(env, "SELECT text FROM comments")[0][0]
-    assert "<p>Spice &amp; sand.</p>" in text
-    assert "<script" not in text and "onclick" not in text and "<img" not in text
-
-
 def test_a_library_author_kept_with_a_bar_matches_the_providers(env, monkeypatch):
     # calibre stores "Herbert, Frank" as "Herbert| Frank"
     book = env.add_book("Dune", author="Herbert| Frank")
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice."))
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], publishedDate="1965-08-01"))
     assert helper.fetch_and_apply_metadata(book) is True
-    assert _q(env, "SELECT text FROM comments") == [("Spice.",)]
+    assert _q(env, "SELECT pubdate FROM books")[0][0].startswith("1965-08-01")
 
 
 @pytest.mark.parametrize("title, becomes", [
@@ -306,7 +295,7 @@ def _book_tags(env, book_id):
 
 def test_a_match_with_no_subjects_leaves_the_books_tags(env, monkeypatch):
     dune = env.add_book("Dune", author="Frank Herbert", tags=("Deserts",))
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice."))
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], publishedDate="1965-08-01"))
     assert helper.fetch_and_apply_metadata(dune, force=True) is True
     assert _book_tags(env, dune) == ["Deserts"]
 
@@ -329,35 +318,21 @@ def _with_store(monkeypatch, helper, store):
     monkeypatch.setattr(helper, "CWA_DB", lambda: store)
 
 
-def _described(env, book_id, text):
-    _sql(env, ("INSERT INTO comments (book, text) VALUES (?, ?)", (book_id, text)))
-
-
 def test_a_book_with_its_own_details_keeps_them_and_gets_only_what_it_lacks(env, monkeypatch):
     dune = env.add_book("Dune", author="Frank Herbert", tags=("Deserts",))
-    _described(env, dune, "<p>My own words.</p>")
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Theirs.",
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"],
                                          tags=["Science fiction"],
                                          identifiers={"google": "abc"}))
     store, changes = _store()
     _with_store(monkeypatch, helper, store)
     assert helper.fetch_and_apply_metadata(dune, force=True) is True
-    assert _q(env, "SELECT text FROM comments") == [("<p>My own words.</p>",)]
     assert _book_tags(env, dune) == ["Deserts"]
     assert _q(env, "SELECT name FROM series") == []
 
 
-def test_a_none_description_counts_as_none(env, monkeypatch):
-    dune = env.add_book("Dune", author="Frank Herbert")
-    _sql(env, ("INSERT INTO comments (book, text) VALUES (?, 'None')", (dune,)))
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice."))
-    assert helper.fetch_and_apply_metadata(dune, force=True) is True
-    assert _q(env, "SELECT text FROM comments") == [("Spice.",)]
-
-
 def test_another_spelling_of_the_authors_names_is_kept(env, monkeypatch):
     book = env.add_book("Frankenstein", author="Mary Wollstonecraft Shelley")
-    helper = _setup(monkeypatch, _record(title="Frankenstein", authors=["Mary Shelley"], description="A monster."))
+    helper = _setup(monkeypatch, _record(title="Frankenstein", authors=["Mary Shelley"], publishedDate="1965-08-01"))
     assert helper.fetch_and_apply_metadata(book, force=True) is True
     assert _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author") == [
         ("Mary Wollstonecraft Shelley",)]
@@ -366,33 +341,23 @@ def test_another_spelling_of_the_authors_names_is_kept(env, monkeypatch):
 def test_a_book_titled_by_its_file_takes_the_matchs_details(env, monkeypatch):
     title = "Graph Drawing Algorithms for the Visualiza"  # cut at 42 by its file's name
     book = env.add_book(title, author="Ioannis Tollis")
-    _described(env, book, "Scanned by someone.")
     helper = _setup(monkeypatch, _record(title="Graph Drawing Algorithms for the Visualization of Graphs",
-                                         authors=["Giuseppe Di Battista", "Ioannis Tollis"],
-                                         description="The standard text on graph drawing."))
+                                         authors=["Giuseppe Di Battista", "Ioannis Tollis"]))
     assert helper.fetch_and_apply_metadata(book, force=True) is True
     assert _q(env, "SELECT title FROM books") == [("Graph Drawing Algorithms for the Visualization of Graphs",)]
-    assert _q(env, "SELECT text FROM comments") == [("The standard text on graph drawing.",)]
+    assert sorted(n for (n,) in _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author")) == [
+        "Giuseppe Di Battista", "Ioannis Tollis"]
 
 
 def test_a_book_edited_by_hand_keeps_its_title_and_authors(env, monkeypatch):
     book = env.add_book("dune", author="Frank Herbert")
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert", "Brian Herbert"], description="Spice."))
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert", "Brian Herbert"], publishedDate="1965-08-01"))
     store, __ = _store(hand=True)
     _with_store(monkeypatch, helper, store)
     assert helper.fetch_and_apply_metadata(book, force=True) is True
     assert _q(env, "SELECT title FROM books") == [("dune",)]
     assert _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author") == [("Frank Herbert",)]
-    assert _q(env, "SELECT text FROM comments") == [("Spice.",)]
-
-
-def test_a_description_in_another_language_is_not_given_to_an_english_book(env, monkeypatch):
-    book = env.add_book("Dracula", author="Bram Stoker")
-    helper = _setup(monkeypatch, _record(title="Dracula", authors=["Bram Stoker"], description=(
-        "Na história, um casal e seus amigos são atormentados por Conde Drácula, um vampiro "
-        "que deixa a Transilvânia para espalhar a maldição dos mortos-vivos em Londres.")))
-    assert helper.fetch_and_apply_metadata(book, force=True) is False
-    assert _q(env, "SELECT text FROM comments") == []
+    assert _q(env, "SELECT pubdate FROM books")[0][0].startswith("1965-08-01")
 
 
 def test_the_paper_sources_are_not_asked_about_an_epub(env, monkeypatch):
@@ -413,7 +378,7 @@ def test_undo_puts_back_what_a_lookup_changed(env, monkeypatch):
     from cps import metadata_helper
     book = env.add_book("dune", author="Unknown", tags=("Deserts",))
     (env.library_dir / "Unknown" / "dune").mkdir(parents=True, exist_ok=True)
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice.",
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"],
                                          tags=["Science fiction"], series="Dune Chronicles",
                                          publishedDate="1965", identifiers={"google": "abc"}))
     monkeypatch.setattr(helper, "CWA_DB", CWA_DB)
@@ -424,7 +389,6 @@ def test_undo_puts_back_what_a_lookup_changed(env, monkeypatch):
     assert metadata_helper.undo_last_change(book) is True
     assert _q(env, "SELECT title, author_sort, pubdate, series_index FROM books")[0][:2] == before[0][:2]
     assert _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author") == [("Unknown",)]
-    assert _q(env, "SELECT text FROM comments") == []
     assert _book_tags(env, book) == ["Deserts"]
     assert _q(env, "SELECT count(*) FROM books_series_link") == [(0,)]
     assert _q(env, "SELECT count(*) FROM identifiers") == [(0,)]
@@ -439,7 +403,7 @@ def test_undo_puts_back_what_a_lookup_changed(env, monkeypatch):
 ])
 def test_the_same_title_is_respelled_only_from_poor_casing(env, monkeypatch, title, found, kept):
     book = env.add_book(title, author="Unknown")
-    helper = _setup(monkeypatch, _record(title=found, authors=["J. LESSLIE HALL", "J. Lesslie Hall"], description="An epic."))
+    helper = _setup(monkeypatch, _record(title=found, authors=["J. LESSLIE HALL", "J. Lesslie Hall"]))
     assert helper.fetch_and_apply_metadata(book, force=True) is True
     assert _q(env, "SELECT title FROM books") == [(kept,)]
     assert _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author") == [("J. Lesslie Hall",)]
@@ -448,7 +412,7 @@ def test_the_same_title_is_respelled_only_from_poor_casing(env, monkeypatch, tit
 def test_the_pdf_is_read_without_holding_the_library(env, monkeypatch):
     from cps import metadata_helper
     book = env.add_book("Dune", author="Frank Herbert", fmt="PDF")
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice."))
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"]))
     held = []
 
     def read(book):
@@ -474,13 +438,12 @@ def test_one_author_spelled_two_ways_is_added_once(env, monkeypatch):
 
 def _full_rebuild_book(env):
     book = env.add_book("Dune", author="Frank Herbert")
-    _sql(env, ("INSERT INTO comments (book, text) VALUES (?, '<p>My own words.</p>')", (book,)),
-         ("INSERT INTO identifiers (book, type, val) VALUES (?, 'isbn', '9780000000002')", (book,)),
+    _sql(env, ("INSERT INTO identifiers (book, type, val) VALUES (?, 'isbn', '9780000000002')", (book,)),
          ("UPDATE books SET pubdate = '2001-01-01 00:00:00+00:00' WHERE id = ?", (book,)))
     return book
 
 
-_THEIRS = dict(title="Dune", authors=["Frank Herbert", "Brian Herbert"], description="Theirs.",
+_THEIRS = dict(title="Dune", authors=["Frank Herbert", "Brian Herbert"],
                publishedDate="1965-08-01", identifiers={"isbn": "9780441172719", "google": "abc"})
 
 
@@ -490,15 +453,15 @@ def test_a_full_rebuild_replaces_what_the_match_has(env, monkeypatch):
     store, changes = _store()
     _with_store(monkeypatch, helper, store)
     assert helper.fetch_and_apply_metadata(book, force=True, overwrite=True) is True
-    assert _q(env, "SELECT text FROM comments") == [("Theirs.",)]
     assert _q(env, "SELECT type, val FROM identifiers ORDER BY type") == [("google", "abc"), ("isbn", "9780441172719")]
     assert _q(env, "SELECT pubdate FROM books")[0][0].startswith("1965-08-01")
     assert sorted(n for (n,) in _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author")) == [
         "Brian Herbert", "Frank Herbert"]
-    # Kept for Undo: the description, date and ISBN it replaced
+    # Kept for Undo: the date and ISBN it replaced
     [(__, before)] = changes
     before = __import__("json").loads(before)
-    assert before["identifiers_changed"] == {"isbn": "9780000000002"} and "description" in before
+    assert before["identifiers_changed"] == {"isbn": "9780000000002"}
+    assert before["pubdate"].startswith("2001-01-01") and "description" not in before
 
 
 def test_a_full_rebuild_keeps_a_hand_edited_books_title_and_authors(env, monkeypatch):
@@ -508,7 +471,7 @@ def test_a_full_rebuild_keeps_a_hand_edited_books_title_and_authors(env, monkeyp
     _with_store(monkeypatch, helper, store)
     assert helper.fetch_and_apply_metadata(book, force=True, overwrite=True) is True
     assert _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author") == [("Frank Herbert",)]
-    assert _q(env, "SELECT text FROM comments") == [("Theirs.",)]
+    assert _q(env, "SELECT pubdate FROM books")[0][0].startswith("1965-08-01")
 
 
 def test_an_ordinary_rebuild_still_only_fills(env, monkeypatch):
@@ -517,7 +480,6 @@ def test_an_ordinary_rebuild_still_only_fills(env, monkeypatch):
     store, __ = _store()
     _with_store(monkeypatch, helper, store)
     helper.fetch_and_apply_metadata(book, force=True)
-    assert _q(env, "SELECT text FROM comments") == [("<p>My own words.</p>",)]
     assert ("isbn", "9780000000002") in _q(env, "SELECT type, val FROM identifiers")
 
 
@@ -530,4 +492,4 @@ def test_undo_puts_back_an_identifier_a_full_rebuild_replaced(env, monkeypatch):
     assert helper.fetch_and_apply_metadata(book, force=True, overwrite=True) is True
     assert metadata_helper.undo_last_change(book) is True
     assert _q(env, "SELECT type, val FROM identifiers") == [("isbn", "9780000000002")]
-    assert _q(env, "SELECT text FROM comments") == [("<p>My own words.</p>",)]
+    assert _q(env, "SELECT pubdate FROM books")[0][0].startswith("2001-01-01")

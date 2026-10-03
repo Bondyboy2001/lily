@@ -144,12 +144,6 @@
     <input type="hidden" name="shelves_present" value="1" disabled>
     <input type="hidden" name="shelves" id="shelves" value='{{ editable_shelves|selectattr("id", "in", book_shelf_ids)|map(attribute="name")|unique|list|tojson }}' disabled>
 
-    <section class="editbook-section">
-    <h3><label for="comments">{{_('Description')}}</label></h3>
-    <div class="form-group">
-      <textarea class="form-control lily-description" name="comments" id="comments" rows="3">{% if book.comments %}{{book.comments[0].text}}{%endif%}</textarea>
-    </div>
-    </section>
 
       {% if cc|length > 0 %}
     <section class="editbook-section">

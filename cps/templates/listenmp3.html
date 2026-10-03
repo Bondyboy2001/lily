@@ -74,13 +74,6 @@
          data-pending-text="{{ _('Saved on this device; waiting to sync') }}"
          data-synced-text="{{ _('Synced') }}"></p>
     </section>
-
-    {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
-    <section class="lily-audio-description">
-      <h2>{{_('Description')}}</h2>
-      {{ entry.comments[0].text|flatten_breaks }}
-    </section>
-    {% endif %}
   </main>
 
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

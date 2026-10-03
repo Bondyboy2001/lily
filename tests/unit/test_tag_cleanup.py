@@ -47,7 +47,7 @@ def _lookup_finds(monkeypatch, **extra):
     from cps import metadata_helper
     settings = {"auto_metadata_fetch_enabled": 1}
     monkeypatch.setattr(metadata_helper, "CWA_DB", lambda: SimpleNamespace(get_cwa_settings=lambda: settings))
-    record = SimpleNamespace(title="Abstract Algebra", authors=["Test Author"], description="",
+    record = SimpleNamespace(title="Abstract Algebra", authors=["Test Author"],
                              series="", series_index=0, publishedDate=None, identifiers={}, cover=None,
                              source=SimpleNamespace(description="Google Books"), **extra)
     monkeypatch.setattr(metadata_helper, "metadata_providers", [FakeProvider(
@@ -99,5 +99,24 @@ def test_a_new_import_keeps_its_date_but_no_publisher_language_or_rating(env):
                       "languages", "ratings"):
             assert con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0, table
         assert con.execute("SELECT pubdate FROM books WHERE id = ?", (book,)).fetchone()[0].startswith("1965-08-01")
+    finally:
+        con.close()
+
+
+def test_a_new_import_arrives_with_no_description(env):
+    from cps.tag_cleanup import clear_new_book_details
+    book = env.add_book("Dune")
+    other = env.add_book("Emma")
+    con = sqlite3.connect(env.library_dir / "metadata.db")
+    con.executemany("INSERT INTO comments (book, text) VALUES (?, ?)",
+                    [(book, "<p>Read from the file.</p>"), (other, "<p>Left alone.</p>")])
+    con.commit()
+    con.close()
+    assert clear_new_book_details(book) is True
+    con = sqlite3.connect(env.library_dir / "metadata.db")
+    try:
+        # Only the imported book's goes; its title stays
+        assert con.execute("SELECT book FROM comments").fetchall() == [(other,)]
+        assert con.execute("SELECT title FROM books WHERE id = ?", (book,)).fetchone() == ("Dune",)
     finally:
         con.close()

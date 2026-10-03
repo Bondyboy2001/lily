@@ -1,5 +1,5 @@
-"""A save that doesn't send the description leaves it as it is. The book page's Fetch Metadata
-sends it only when a result fills it; it used to be saved as the text "None"."""
+"""Lily keeps no descriptions: the editor has no Description field and a save never writes one,
+even when a form sends it. Saving doesn't touch a description already in the table either."""
 import sqlite3
 
 import pytest
@@ -49,10 +49,10 @@ def test_a_book_without_a_description_does_not_get_none(env):
     assert _description(env, book_id) in (None, "")
 
 
-def test_a_sent_description_is_still_saved(env):
+def test_a_sent_description_is_not_saved(env):
     book_id = env.add_book("Dune", author="Frank Herbert")
     _save(env, book_id, comments="<p>Desert planet.</p>")
-    assert "Desert planet." in _description(env, book_id)
+    assert _description(env, book_id) in (None, "")
 
 
 def test_a_save_in_the_editor_marks_the_book_edited_by_hand(env):

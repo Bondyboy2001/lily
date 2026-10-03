@@ -154,7 +154,7 @@ def test_status_tells_how_the_last_rebuild_ended(env, monkeypatch):
 
 
 def _provider_returning(**found):
-    record = SimpleNamespace(title="", authors=[], description="", tags=[], series="",
+    record = SimpleNamespace(title="", authors=[], tags=[], series="",
                              series_index=0, publishedDate=None, identifiers={}, cover=None,
                              source=SimpleNamespace(description="Google Books"))
     record.__dict__.update(found)
@@ -395,20 +395,6 @@ def test_the_rebuild_confirmation_only_asks(env):
     assert 'id="rebuildMetadataWhat"' not in modal and 'id="rebuildMetadataTime"' not in modal
     assert "rebuild_metadata_full" in modal
     assert 'id="retry_failed"' not in html
-
-
-@pytest.mark.unit
-def test_a_full_rebuild_clears_none_descriptions(env, monkeypatch):
-    import sqlite3
-    book = env.add_book("One")
-    con = sqlite3.connect(env.library_dir / "metadata.db")
-    con.execute("INSERT INTO comments (book, text) VALUES (?, 'None')", (book,))
-    con.commit()
-    con.close()
-    _run_rebuild(env, monkeypatch)
-    con = sqlite3.connect(env.library_dir / "metadata.db")
-    assert con.execute("SELECT count(*) FROM comments").fetchone()[0] == 0
-    con.close()
 
 
 @pytest.mark.unit

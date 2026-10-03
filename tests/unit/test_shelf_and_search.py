@@ -139,13 +139,14 @@ def test_simple_search_finds_titles_and_survives_hostile_input(env):
     assert admin.get("/search").status_code == 200  # empty query renders the search form
 
 
-def test_simple_search_finds_description_words_and_a_papers_id(env):
+def test_simple_search_finds_a_papers_id_but_not_description_words(env):
     import sqlite3
     admin = _client(env, env.admin().name, ADMIN_PASSWORD)
     novel = env.add_book("A Summer Book", author="Jane Roe")
     paper = env.add_book("Graph Growth", author="Sam Poe")
     env.add_book("Other Book", author="Ann Doe")
     con = sqlite3.connect(env.library_dir / "metadata.db")
+    # A description left in calibre's table (Lily keeps none) is never searched
     con.execute("INSERT INTO comments (book, text) VALUES (?, ?)",
                 (novel, "<p><span>Nick spends a summer next door to Daisy Buchanan.</span></p>"))
     con.execute("INSERT INTO identifiers (book, type, val) VALUES (?, 'arxiv', '2601.22106')", (paper,))
@@ -157,11 +158,11 @@ def test_simple_search_finds_description_words_and_a_papers_id(env):
         html = admin.get("/search", query_string={"query": query}, follow_redirects=True).get_data(as_text=True)
         return {t for t in ("A Summer Book", "Graph Growth", "Other Book") if t in html}
 
-    assert found("Daisy Buchanan") == {"A Summer Book"}
+    assert found("Daisy Buchanan") == set()
     for query in ("2601.22106", "arXiv:2601.22106", "https://arxiv.org/abs/2601.22106v2",
                   "10.48550/arxiv.2601.22106"):
         assert found(query) == {"Graph Growth"}, query
-    # Markup in a description and part of an id are not matches
+    # Part of an id is not a match
     assert found("span") == set() and found("2601") == set()
 
 
@@ -185,8 +186,6 @@ def test_simple_search_matches_every_word_across_fields(env):
     env.add_book("Children of Herbert", author="Ann Lee")
     paper = env.add_book("Graph Growth", author="Sam Poe")
     con = sqlite3.connect(env.library_dir / "metadata.db")
-    con.execute("INSERT INTO comments (book, text) VALUES (?, ?)",
-                (dune, "<p>A desert planet called Arrakis.</p>"))
     con.execute("INSERT INTO identifiers (book, type, val) VALUES (?, 'arxiv', '2601.22106')", (paper,))
     con.commit()
     con.close()
@@ -199,7 +198,6 @@ def test_simple_search_matches_every_word_across_fields(env):
 
     assert found("dune herbert") == {"Dune"}
     assert found("herbert fiction") == {"Dune"}  # author + tag
-    assert found("arrakis herbert") == {"Dune"}  # description + author
     assert found("dune nosuchword") == set()
     assert found("growth 2601.22106") == {"Graph Growth"}  # title + identifier
     assert found("arXiv: 2601.22106") == {"Graph Growth"}  # the whole term is one id

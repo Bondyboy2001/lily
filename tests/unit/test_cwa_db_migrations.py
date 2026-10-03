@@ -311,9 +311,10 @@ def test_migration_6_drops_the_import_merge_setting(cwa_dir):
 
 
 def _library(folder):
-    """A calibre library's linked tables, as metadata.db has them."""
+    """A calibre library's linked tables, and its descriptions, as metadata.db has them."""
     lib = sqlite3.connect(folder / "metadata.db")
     lib.execute("CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT, pubdate TEXT)")
+    lib.execute("CREATE TABLE comments (id INTEGER PRIMARY KEY, book INTEGER NOT NULL, text TEXT NOT NULL)")
     for table, column in (("tags", "tag"), ("publishers", "publisher"), ("languages", "lang_code"),
                           ("ratings", "rating")):
         lib.execute(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY, name TEXT)")
@@ -463,3 +464,48 @@ def test_migration_9_drops_language_series_and_publisher_matching(cwa_dir):
         assert db.cur.execute("SELECT normalized_title FROM cwa_duplicate_book_keys").fetchone()[0] == "dune"
     finally:
         db.close()
+
+
+@pytest.mark.unit
+def test_migration_10_clears_every_description_without_a_backup(cwa_dir, tmp_path, monkeypatch):
+    import json
+    library = tmp_path / "library"
+    library.mkdir()
+    lib = _library(library)
+    lib.executemany("INSERT INTO books VALUES (?, ?, ?)", [(1, "Dune", "1965-08-01 00:00:00+00:00"),
+                                                           (2, "Emma", "1815-12-23 00:00:00+00:00")])
+    lib.executemany("INSERT INTO comments (book, text) VALUES (?, ?)", [(1, "<p>Spice.</p>"), (2, "None")])
+    lib.execute("INSERT INTO tags VALUES (1, 'To read')")
+    lib.execute("INSERT INTO books_tags_link (book, tag) VALUES (1, 1)")
+    lib.commit()
+    lib.close()
+    dirs = tmp_path / "dirs.json"
+    dirs.write_text(json.dumps({"calibre_library_dir": str(library)}))
+    monkeypatch.setattr(cwa_db_module, "DIRS_FILE", str(dirs))
+    con = sqlite3.connect(cwa_dir / "cwa.db")
+    con.execute("CREATE TABLE cwa_settings (default_settings SMALLINT DEFAULT 1 NOT NULL)")
+    con.execute("INSERT INTO cwa_settings DEFAULT VALUES")
+    # Migrations 1-9 ran long ago: the user's tags since then must stay
+    con.execute("CREATE TABLE cwa_schema_migrations (version INTEGER PRIMARY KEY NOT NULL, name TEXT NOT NULL, "
+                "applied_at TEXT NOT NULL)")
+    con.executemany("INSERT INTO cwa_schema_migrations VALUES (?, 'old', '2026-01-01')", [(v,) for v in range(1, 10)])
+    con.commit()
+    con.close()
+
+    db = _reopen(cwa_dir)
+    try:
+        assert 10 in {row[0] for row in db.cur.execute("SELECT version FROM cwa_schema_migrations")}
+    finally:
+        db.close()
+    lib = sqlite3.connect(library / "metadata.db")
+    try:
+        assert lib.execute("SELECT COUNT(*) FROM comments").fetchone()[0] == 0
+        assert lib.execute("SELECT id, title, substr(pubdate, 1, 10) FROM books ORDER BY id").fetchall() == [
+            (1, "Dune", "1965-08-01"), (2, "Emma", "1815-12-23")]
+        assert lib.execute("SELECT name FROM tags").fetchall() == [("To read",)]
+        assert lib.execute("SELECT book, tag FROM books_tags_link").fetchall() == [(1, 1)]
+    finally:
+        lib.close()
+    # No copy of the library is kept for this one
+    assert not (cwa_dir / "metadata.db.before-description-clear").exists()
+    assert not list(cwa_dir.glob("metadata.db.before-*"))

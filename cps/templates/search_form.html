@@ -37,9 +37,6 @@
       {% call f.row(_('Author'), for_id='authors') %}
         <input type="text" class="form-control typeahead" name="authors" id="authors" value="" autocomplete="off">
       {% endcall %}
-      {% call f.row(_('Description'), for_id='comments') %}
-        <input type="text" class="form-control" name="comments" id="comments" value="">
-      {% endcall %}
       {% call f.row(_('Published'), for_id='publishstart', cls='lily-search-pair') %}
         {{ date_field('publishstart', _('Published from')) }}
         {{ date_field('publishend', _('Published to')) }}

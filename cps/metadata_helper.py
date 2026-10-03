@@ -20,7 +20,6 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, UTC
 
 from cps import logger, db, constants, cover_match, helper, page_ocr
-from cps.clean_html import clean_string
 from cps.edition import split_edition
 from cps.helper import get_sorted_author
 from cps.search_metadata import cl as metadata_providers
@@ -552,7 +551,7 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None,
     cwa.db (see _note_lookup). A book's tags are never touched: they are the user's own.
 
     With overwrite (Full rebuild) a match replaces the book's details rather than filling
-    them: its description, date and identifiers, and its title and authors unless the book
+    them: its date and identifiers, and its title and authors unless the book
     was edited by hand."""
     if not db.CalibreDB.session_factory:
         log.error("CalibreDB not initialized; skipping metadata fetch")
@@ -935,29 +934,6 @@ def lookup_mode(title: str, authors, hand_edited: bool) -> str:
     return FILL
 
 
-# Words common in English prose and rare in other languages' (no "a", "in" or "on")
-_ENGLISH_WORDS = frozenset("the and of to is was with that his her for which this from by are it "
-                           "who they their has have he she be not".split())
-
-
-def reads_as_english(text: str) -> bool:
-    """Whether a description reads as English: one in twenty of its words is a common
-    English one. A short text is given the benefit of the doubt."""
-    # Its words, not its markup: tags and entities aside
-    text = re.sub(r"<[^>]*>|&#?\w+;", " ", text or '')
-    words = re.findall(r"[^\W\d_]+", text.lower())
-    if len(words) < 12:
-        return True
-    return sum(word in _ENGLISH_WORDS for word in words) * 20 >= len(words)
-
-
-
-def _blank_description(book) -> bool:
-    """The book has no description, or only the "None" an old save wrote."""
-    text = (book.comments[0].text if book.comments else '') or ''
-    return text.strip() in ('', 'None')
-
-
 _NO_DATE_YEAR = 101  # calibre's "no date": 0101-01-01
 
 
@@ -971,16 +947,15 @@ def _apply_record(cdb, book, record, cover, mode=REPLACE, store=None, changes=No
     With mode REPLACE (see lookup_mode) the record's fields replace the book's; with FILL and
     HAND only empty fields are filled, and the title and authors change only as lookup_mode
     says (a date is also replaced by an earlier one, as a first publication is). Only fields
-    the record has are touched; a book's own identifiers are kept and new ones added. A
-    description that doesn't read as English is skipped. Tags, the publisher, languages and
-    ratings are left alone: Lily keeps none of them from a lookup. What changed is
+    the record has are touched; a book's own identifiers are kept and new ones added. The
+    description, tags, the publisher, languages and ratings are left alone: Lily keeps none of
+    them from a lookup. What changed is
     kept in `store` as it was before, for Undo, and added to `changes` as {field: [before,
     after]} for the Logs page (see described_changes)."""
     session = cdb.session
     changed = False
     dropped = []
     before = {}
-    new_description = None
     # Overwriting (Full rebuild), even a book edited by hand takes the match's other details
     filling = mode != REPLACE and not overwrite
     with session.no_autoflush:
@@ -1034,22 +1009,6 @@ def _apply_record(cdb, book, record, cover, mode=REPLACE, store=None, changes=No
                 book.author_sort = author_sort
                 changed = True
 
-        # Cleaned like an edit's: a description is shown as HTML, and a provider's can be anyone's
-        description = (record.description or '').strip()
-        description = clean_string(description, book.id) if description else ''
-        if description and not reads_as_english(description):
-            log.info(f"Skipped a description for book {book.id} that isn't in English")
-            description = ''
-        current = book.comments[0].text if book.comments else ''
-        if description and description != current and (not filling or _blank_description(book)):
-            before['description'] = current or ''
-            new_description = description
-            if book.comments:
-                book.comments[0].text = description
-            else:
-                session.add(db.Comments(description, book.id))
-            changed = True
-
         published = helper.parse_partial_date(record.publishedDate)
         date_ok = not filling or _no_date(book.pubdate) or (published and book.pubdate
                                                              and published.date() < book.pubdate.date())
@@ -1099,15 +1058,8 @@ def _apply_record(cdb, book, record, cover, mode=REPLACE, store=None, changes=No
     if before and store is not None:
         _keep_change(store, book.id, getattr(getattr(record, 'source', None), 'description', ''), before)
     if changes is not None:
-        # A comment added to a book that had none isn't on book.comments until it is read again
-        changes.update(described_changes(book, before, new_cover, new_description))
+        changes.update(described_changes(book, before, new_cover))
     return True
-
-
-def _snippet(html_text, length=160):
-    """A description as a line of plain text, cut short."""
-    text = " ".join(re.sub(r"<[^>]*>", " ", html_text or "").split())
-    return text if len(text) <= length else text[:length - 1].rstrip() + "…"
 
 
 def _date_text(value):
@@ -1119,10 +1071,9 @@ def _date_text(value):
     return '' if _no_date(value) else value.date().isoformat()
 
 
-def described_changes(book, before, new_cover=False, description=None) -> dict:
+def described_changes(book, before, new_cover=False) -> dict:
     """What a lookup changed, {field: [before, after]} as text, read from `before` (as
-    _apply_record keeps it for Undo) and the book as it is now; `description` is the one
-    applied, when there is one."""
+    _apply_record keeps it for Undo) and the book as it is now."""
     def names(rows):
         return ", ".join(row.name.replace('|', ',') for row in rows)
     changes = {}
@@ -1130,10 +1081,6 @@ def described_changes(book, before, new_cover=False, description=None) -> dict:
         changes['title'] = [before['title'], book.title]
     if 'authors' in before:
         changes['authors'] = [", ".join(n.replace('|', ',') for n in before['authors'] or []), names(book.authors)]
-    if 'description' in before:
-        if description is None:
-            description = book.comments[0].text if book.comments else ''
-        changes['description'] = [_snippet(before['description']), _snippet(description)]
     if 'pubdate' in before:
         changes['pubdate'] = [_date_text(before['pubdate']), _date_text(book.pubdate)]
     if before.get('identifiers_added') or before.get('identifiers_changed'):
@@ -1203,15 +1150,6 @@ def _restore(cdb, book, before):
             dropped += [a for a in book.authors if a not in authors]
             book.authors = authors
             book.author_sort = before.get('author_sort') or ' & '.join(a.sort for a in authors)
-        if 'description' in before:
-            text = before['description'] or ''
-            if text and book.comments:
-                book.comments[0].text = text
-            elif text:
-                session.add(db.Comments(text, book.id))
-            else:
-                for comment in list(book.comments):
-                    session.delete(comment)
         if 'pubdate' in before:
             book.pubdate = datetime.fromisoformat(before['pubdate']) if before['pubdate'] else db.Books.DEFAULT_PUBDATE
         added = set(before.get('identifiers_added') or [])

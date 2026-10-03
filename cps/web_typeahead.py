@@ -55,7 +55,7 @@ def get_book_titles_json():
                    db.Books.authors.any(func.lower(db.Authors.name).like(pattern, escape="\\")))
 
     # A suggestion shows the title, authors and cover; leave the other relationships
-    # (tags, comments, identifiers, ...) unloaded instead of one query each per keystroke.
+    # (tags, identifiers, ...) unloaded instead of one query each per keystroke.
     books = calibre_db.session.query(db.Books) \
         .options(lazyload('*'), selectinload(db.Books.authors)) \
         .filter(calibre_db.common_filters()) \

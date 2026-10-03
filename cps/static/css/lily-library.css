@@ -713,7 +713,7 @@
 
 /* "Frontispiece": a --sunk stage with the cover mounted as a plate beside the heading, the
    fact tags and the actions. The stage is one row, centred, so a tall cover never spreads
-   the heading out; the description and the related rows run under it (.book-detail-extra). */
+   the heading out. */
 .book-detail-main {
     display: grid;
     grid-template-columns: clamp(240px, 20vw, 312px) minmax(0, 1fr);
@@ -864,17 +864,6 @@ dl.book-info {
     line-height: 1.4;
 }
 
-/* Under the stage: the description, the lookup line, then what to read next. */
-.book-detail-extra {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 22px;
-    margin-top: 40px;
-    padding: 0 40px;
-    min-width: 0;
-}
-
 /* The book title is content, set as a display line (design §3.1). */
 .book-detail-meta h1#title {
     margin: 0;
@@ -959,36 +948,6 @@ dl.book-info {
 /* Delete takes the accent, red on hover. */
 .book-action-bar > .btn.is-danger:not(:hover):not(:focus-visible) { color: var(--accent); }
 
-/* The description as a pull-quote: italic reading text behind a large accent mark. */
-.book-detail-description {
-    position: relative;
-    align-self: stretch;
-    padding-left: 64px;
-}
-
-.book-detail-description::before {
-    content: "\201C";
-    position: absolute;
-    top: -22px;
-    left: 0;
-    font-family: var(--font-body);
-    font-size: 112px;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--accent);
-}
-
-.book-detail-description .comments {
-    font-family: var(--font-body);
-    font-size: 22px;
-    font-style: italic;
-    line-height: 1.6;
-    color: var(--ink-soft);
-}
-
-.book-detail-description .comments p { margin: 0 0 14px; }
-.book-detail-description .comments p:last-child { margin-bottom: 0; }
-
 /* Narrower: a smaller plate and title. */
 @media (max-width: 1499px) {
     .book-detail-main {
@@ -1002,7 +961,6 @@ dl.book-info {
 @media (max-width: 1099px) {
     .book-corner { top: 12px; right: 16px; }
     .book-detail-main { padding: 24px; gap: 24px; }
-    .book-detail-extra { padding: 0 24px; }
     .book-detail-meta h1#title { font-size: 40px; }
 }
 
@@ -1031,11 +989,6 @@ dl.book-info {
     .book-action-bar > .dropdown { flex: 1 1 0; }
     .book-action-bar > .dropdown > .btn.is-icon { width: 100%; }
     .book-action-bar > .btn.is-icon { width: auto; }
-
-    .book-detail-extra { margin-top: 22px; padding: 0; }
-    .book-detail-description { padding-left: 40px; }
-    .book-detail-description::before { top: -14px; font-size: 76px; }
-    .book-detail-description .comments { font-size: 19px; }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1248,7 +1201,7 @@ dl.book-info {
 
 .editbook-side-group { margin-top: 22px; }
 
-/* Matches .editbook-section h3 (Details, Description...) */
+/* Matches .editbook-section h3 (Book, Details, Tags...) */
 .editbook-side-group h3 {
     margin: 0 0 14px;
     font-size: var(--heading-size);
@@ -1274,8 +1227,7 @@ dl.book-info {
 #metaModal #do-search { flex: none; height: 38px; padding: 0 18px; }
 
 /* The dialog never outgrows the window: header and search stay put and only the
-   results scroll. min-width: 0 so the clamped description (a -webkit-box, whose
-   min-content is its whole unwrapped line) can't widen the dialog. */
+   results scroll. */
 #metaModal .modal-dialog { margin-top: 24px; margin-bottom: 24px; }
 /* Beside the cover rather than over it: get_meta.js sets --meta-left to 24px past the
    cover's right edge and --meta-room to the width left, when that is at least 440px */
@@ -1409,14 +1361,6 @@ dl.book-info {
 /* Fields the form already has are dimmed */
 #meta-info #book-list .media .media-body dd.meta-same { color: var(--muted); }
 
-/* A description stops after six lines */
-#meta-info dd.meta-description .meta-value {
-    display: -webkit-box;
-    -webkit-line-clamp: 6;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
 /* Providers that didn't answer, or are still being asked: a help line over the results */
 #metaModal .meta-status {
     flex: none;
@@ -1529,22 +1473,6 @@ dl.book-info {
     margin: 0 0 14px;
     font-size: var(--heading-size);
     font-weight: 600;
-}
-
-/* Description's heading is also its textarea's label */
-.editbook-section h3 label {
-    margin: 0;
-    font: inherit;
-    color: inherit;
-}
-
-/* Height follows the text (edit_books.js fit()); no drag handle. Reading text, so
-   roomier than a field: the book page's line-height and more padding */
-.editbook-form .lily-description {
-    padding: 14px 16px;
-    line-height: 1.68;
-    resize: none;
-    overflow: hidden;
 }
 
 /* Details' fields pair up, and Edition and Volume pair up the same way under the title,

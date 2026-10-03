@@ -101,15 +101,12 @@ def test_detail_rare_actions_are_icon_buttons_not_a_menu():
     assert "aria-label=\"{{ _('Shelves') }}\"" in shelves.group(0)
 
 
-def test_detail_description_has_no_heading_and_shows_in_full():
+def test_detail_page_has_no_description():
+    # Lily keeps no descriptions: no pull-quote on the page, none in the hidden save form
     html = read(TEMPLATES / "detail.html")
-    section = re.search(r'<section class="book-detail-description"(.*?)</section>', html, flags=re.S).group(0)
-    assert "<h3" not in section and "aria-label=\"{{ _('Description') }}\"" in section
-    assert 'class="comments"' in section
-    assert "is-clamped" not in html and "book-description-toggle" not in html
-    for selector, body in css_rules(read(CSS / "lily-library.css")):
-        if ".book-detail-description" in selector:
-            assert "line-clamp" not in body, selector
+    assert "book-detail-description" not in html and "book-detail-extra" not in html
+    assert "comments" not in html and "og:description" not in html
+    assert "book-detail-description" not in read(CSS / "lily-library.css")
 
 
 def test_detail_page_does_not_show_tags_or_shelves():
@@ -252,8 +249,7 @@ def test_style_css_has_no_legacy_colours():
 
 
 def test_detail_page_is_a_frontispiece_stage():
-    # docs/design.md §6.4: a --sunk stage (cover plate | heading, fact tags, actions), and under
-    # it the description, the lookup line and the related rows.
+    # docs/design.md §6.4: a --sunk stage (cover plate | heading, actions), then the details dialog.
     css = read(CSS / "lily-library.css")
     rules = css_rules(css)
     main_rules = [body for selector, body in rules if selector == ".book-detail-main"]
@@ -273,15 +269,10 @@ def test_detail_page_is_a_frontispiece_stage():
                    if selector.split(",")[-1].strip() == ".book-detail-cover-art img")
     assert "height: auto" in art_img and "max-height: 160cqw" in art_img
     assert "object-fit: cover" in art_img and "contain" not in art_img
-    description = next(body for selector, body in rules if selector == ".book-detail-description .comments")
-    assert "font-style: italic" in description
-    # The pull-quote runs the full width of the page.
-    quote = next(body for selector, body in rules if selector == ".book-detail-description")
-    assert "max-width" not in quote and "max-width" not in description
     html = read(TEMPLATES / "detail.html")
-    stage = html[html.index('<div class="book-detail-main">'):html.index('<div class="book-detail-extra">')]
+    stage = html[html.index('<div class="book-detail-main">'):html.index('<div class="meta-actions" hidden>')]
     assert 'id="readbtn"' in stage
-    extra = html[html.index('<div class="book-detail-extra">'):html.index('id="bookInfoModal"')]
+    extra = html[html.index('<div class="meta-actions" hidden>'):html.index('id="bookInfoModal"')]
     # No related rows (they were the rest of a series); the lookup lives in the details dialog.
     assert "related-series-heading" not in html and "book_row" not in html
     assert "book-metadata-lookup" not in stage and "book-metadata-lookup" not in extra
@@ -418,10 +409,10 @@ def test_editor_shows_every_field_even_when_blank():
     assert "editbook-section\"{%" not in template
     assert template.count(" hidden{% endif %}") == 5  # the two fields, the two buttons, their row
     for field in ('id="title"', 'id="edition"', 'id="volume"', 'id="author-rows"',
-                  'id="pubdate"', 'id="tag-rows"', 'id="comments"'):
+                  'id="pubdate"', 'id="tag-rows"'):
         assert field in template, field
-    # No publisher, language or rating: Lily keeps none of them
-    for gone in ('id="publisher"', 'id="languages"', "rating_input"):
+    # No publisher, language, rating or description: Lily keeps none of them
+    for gone in ('id="publisher"', 'id="languages"', "rating_input", 'id="comments"'):
         assert gone not in template, gone
     # Edition and Volume pair under the title, added by hand like authors and tags
     numbers = template.split('<div class="editbook-fields editbook-numbers">', 1)[1].split("{# One row per author", 1)[0]

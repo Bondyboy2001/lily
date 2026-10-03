@@ -185,12 +185,6 @@ def select_book_to_keep(books, strategy):
             if hasattr(book, 'tags') and book.tags:
                 score += len(book.tags) * 2
 
-            # Description/comments
-            if hasattr(book, 'comments') and book.comments:
-                for comment in book.comments:
-                    if comment.text and len(comment.text.strip()) > 50:
-                        score += 10
-
             # Published date
             if hasattr(book, 'pubdate') and book.pubdate:
                 score += 2

@@ -4,18 +4,16 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_metadata_description_apply_syncs_the_description_editor():
-    js = (REPO_ROOT / "cps/static/js/get_meta.js").read_text(encoding="utf-8")
+def test_fetch_metadata_and_the_editor_have_no_description():
+    get_meta = (REPO_ROOT / "cps/static/js/get_meta.js").read_text(encoding="utf-8")
+    edit_js = (REPO_ROOT / "cps/static/js/edit_books.js").read_text(encoding="utf-8")
+    template = (REPO_ROOT / "cps/templates/meta_fetch.html").read_text(encoding="utf-8")
+    css = (REPO_ROOT / "cps/static/css/lily-library.css").read_text(encoding="utf-8")
 
-    # The description box is a plain textarea now, not TinyMCE, so Apply sets its
-    # value and fires lily:set-html for edit_books.js to pick up.
-    assert 'set("comments", book.description || "").trigger("lily:set-html");' in js
-
-
-def test_description_editor_listens_for_lily_set_html():
-    js = (REPO_ROOT / "cps/static/js/edit_books.js").read_text(encoding="utf-8")
-
-    assert '$box.on("lily:set-html", function () {' in js
+    # Lily keeps no descriptions: a result never shows or applies one, and the editor has no box
+    assert "book.description" not in get_meta and 'set("comments"' not in get_meta
+    assert "book.description" not in template
+    assert "lily:set-html" not in edit_js and "lily-description" not in css
 
 
 def test_metadata_result_button_is_apply_not_save():
@@ -54,22 +52,6 @@ def test_fetch_metadata_has_no_provider_chips():
     assert "pill" not in js and "/metadata/provider/" not in js
 
 
-def test_description_box_fits_its_text_and_cannot_be_dragged():
-    css = (REPO_ROOT / "cps/static/css/lily-library.css").read_text(encoding="utf-8")
-    js = (REPO_ROOT / "cps/static/js/edit_books.js").read_text(encoding="utf-8")
-
-    rule = css[css.index(".editbook-form .lily-description {"):]
-    rule = rule[:rule.index("}")]
-    assert "resize: none;" in rule
-    assert "padding: 14px 16px;" in rule and "line-height: 1.68;" in rule
-    assert "min-height" not in rule
-    # At height auto a textarea keeps its rows' height, so fit() collapses it first
-    assert 'box.style.height = "0";' in js
-    # Refit after the web font loads and when the box's width changes
-    assert "document.fonts.ready.then(fit);" in js
-    assert "new ResizeObserver(" in js
-
-
 def test_saving_always_opens_the_book_page():
     template = (REPO_ROOT / "cps/templates/book_edit.html").read_text(encoding="utf-8")
 
@@ -89,7 +71,7 @@ def test_book_edit_has_no_rich_text_editor():
     template = (REPO_ROOT / "cps/templates/book_edit.html").read_text(encoding="utf-8")
     js = (REPO_ROOT / "cps/static/js/edit_books.js").read_text(encoding="utf-8")
 
-    # Descriptions and comment columns are plain textareas; the HTML is sanitised server-side.
+    # Comment columns are plain textareas; the HTML is sanitised server-side.
     assert "tinymce" not in template.lower() and "tiny_editor" not in template
     assert "tinymce" not in js.lower()
     assert not (REPO_ROOT / "cps/static/js/libs/tinymce").exists()

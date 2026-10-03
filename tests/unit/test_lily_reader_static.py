@@ -145,10 +145,10 @@ def test_advanced_search_uses_lily_form_rows():
     html = read(TEMPLATES / "search_form.html")
     assert 'import "lily_form.html" as f' in html
     assert "col-sm-" not in html and not re.search(r'\sstyle="', html)
-    for field in ("title", "authors", "comments", "read_status"):
+    for field in ("title", "authors", "read_status"):
         assert 'name="%s"' % field in html, field
-    # No publisher, rating or language filters; the published range stays
-    for gone in ('name="publisher"', "rating_input", "include_exclude('language'"):
+    # No publisher, rating, language or description filters; the published range stays
+    for gone in ('name="publisher"', "rating_input", "include_exclude('language'", 'name="comments"'):
         assert gone not in html, gone
     assert "date_field('publishstart'" in html and "date_field('publishend'" in html
 
@@ -328,13 +328,12 @@ def test_book_editor_shows_every_field_even_when_blank(client):
     resp = c.get(f"/admin/book/{book_id}")
     assert resp.status_code == 200, resp.data[:300]
     html = resp.get_data(as_text=True)
-    # The fixture book has no series or description: their fields still show, blank, and
-    # only Edition and Volume (added by hand) and the identifiers table are hidden. No publisher, language or rating.
+    # Blank fields still show; only Edition and Volume (added by hand) and the identifiers
+    # table are hidden. No series, publisher, language, rating or description.
     assert 'name="series"' not in html and 'name="series_index"' not in html
-    for gone in ('name="publisher"', 'name="languages"', 'name="rating"'):
+    for gone in ('name="publisher"', 'name="languages"', 'name="rating"', 'id="comments"', 'name="comments"'):
         assert gone not in html, gone
     assert 'name="pubdate"' in html
-    assert re.search(r'<textarea[^>]*id="comments"[^>]*></textarea>', html)
     assert "data-optional" not in html
     form = html.split('<div class="editbook-form">', 1)[1].split('<aside class="editbook-actions"', 1)[0]
     # Hidden in the form: only Edition and Volume, behind their Add buttons, and the identifiers table

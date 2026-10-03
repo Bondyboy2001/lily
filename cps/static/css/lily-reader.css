@@ -1020,20 +1020,6 @@ html.lily-reader-page:has(> body.lily-djvu),
 
 .lily-audio-player .lily-progress-status:empty { display: none; }
 
-.lily-audio-description {
-    margin-top: 22px;
-    font-family: var(--font-body);
-    font-size: 17px;
-    line-height: 1.6;
-    color: var(--ink-soft);
-}
-
-.lily-audio-description h2 {
-    margin: 0 0 14px;
-    color: var(--heading);
-    font-size: var(--heading-size);
-}
-
 /* ------------------------------------------------------------------ */
 /* Phones                                                               */
 /* ------------------------------------------------------------------ */

@@ -3,67 +3,6 @@
  */
 /* global Bloodhound, language, getPath */
 
-/* Description: a plain text box over the HTML Calibre stores. Paragraphs show as blank
-   lines; an edited description is saved back as <p> paragraphs, an untouched one keeps
-   its original HTML. Fetch Metadata fires "lily:set-html" after setting new HTML. */
-(function () {
-    var $box = $("textarea#comments");  // not the one-line Description field on Advanced Search
-    if (!$box.length) { return; }
-    var originalHtml, originalText;
-
-    function htmlToText(html) {
-        html = String(html || "");
-        if (!/<[a-z][\s\S]*>/i.test(html)) { return html.trim(); }
-        var marked = html.replace(/\s+/g, " ")
-            .replace(/<br\s*\/?>/gi, "\n")
-            .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, "\n\n");
-        var text = new DOMParser().parseFromString(marked, "text/html").body.textContent || "";
-        return text.replace(/[ \t]*\n[ \t]*/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
-    }
-
-    function textToHtml(text) {
-        return text.split(/\n\s*\n/).map(function (para) { return para.trim(); })
-            .filter(function (para) { return para.length > 0; })
-            .map(function (para) {
-                return "<p>" + $("<div>").text(para).html().replace(/\n/g, "<br>") + "</p>";
-            }).join("");
-    }
-
-    // Size the box to its text, no empty lines below. Collapse it before measuring:
-    // at height auto a textarea still reserves its rows.
-    function fit() {
-        var box = $box[0];
-        box.style.height = "0";
-        box.style.height = (box.scrollHeight + box.offsetHeight - box.clientHeight) + "px";
-    }
-
-    function load(html) {
-        originalHtml = html;
-        originalText = htmlToText(html);
-        $box.val(originalText);
-        fit();
-    }
-
-    load($box.val());
-    $box.on("input", fit);
-    // Refit once Literata loads (the first fit measured the fallback font) and
-    // whenever the box changes width
-    if (document.fonts) { document.fonts.ready.then(fit); }
-    var width = $box[0].clientWidth;
-    new ResizeObserver(function () {
-        if ($box[0].clientWidth !== width) { width = $box[0].clientWidth; fit(); }
-    }).observe($box[0]);
-    $box.on("lily:set-html", function () {
-        var html = $box.val();
-        load(html);
-        originalHtml = null; // fetched text always saves
-    });
-    $("#book_edit_frm").on("submit", function () {
-        var text = $box.val();
-        $box.val(originalHtml !== null && text === originalText ? originalHtml : textToHtml(text));
-    });
-})();
-
 $(".datepicker").datepicker({
     format: "yyyy-mm-dd",
     language: language

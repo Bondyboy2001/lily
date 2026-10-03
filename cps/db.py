@@ -213,10 +213,6 @@ class Identifiers(Base):
             return "{0}".format(self.val)
 
 
-# HTML words a description holds as markup, which a search for them would match in every book
-_MARKUP_WORDS = {"span", "strong", "class", "style", "href", "font"}
-
-
 class Comments(Base):
     __tablename__ = 'comments'
 
@@ -405,7 +401,8 @@ class Books(Base):
     # less (the book cards) opt out with lazyload(); see _card_relationships().
     authors = relationship(Authors, secondary=books_authors_link, backref='books', lazy='selectin')
     tags = relationship(Tags, secondary=books_tags_link, backref='books', order_by="Tags.name", lazy='selectin')
-    comments = relationship(Comments, backref='books', lazy='selectin')
+    # Lily keeps no descriptions (cwa_db migration 10 cleared them); calibre's table stays mapped
+    comments = relationship(Comments, backref='books')
     data = relationship(Data, backref='books', lazy='selectin')
     # Lily shows none of these; only tag_cleanup reads them, to clear what an import brought in
     ratings = relationship(Ratings, secondary=books_ratings_link, backref='books')
@@ -483,7 +480,7 @@ class CustomColumns(Base):
 
 
 def _all_book_relationships():
-    return (Books.authors, Books.tags, Books.comments, Books.data, Books.identifiers)
+    return (Books.authors, Books.tags, Books.data, Books.identifiers)
 
 
 def _card_relationships():
@@ -496,7 +493,7 @@ def card_load_options(skip_others):
 
     selectinload (not joinedload) so the paginated query isn't wrapped in a subquery and
     multiplied by authors x formats. With skip_others, the relationships
-    cards never read (comments, tags, identifiers, ...) are left unloaded.
+    cards never read (tags, identifiers, ...) are left unloaded.
     """
     card = _card_relationships()
     options = [selectinload(rel) for rel in card]
@@ -875,7 +872,7 @@ class CalibreDB:
 
         # Eagerly load template relationships to prevent DetachedInstanceError
         # during rendering under concurrent status/notification requests.
-        # The same helper feeds OPDS (comments, tags), so by default the other relationships
+        # The same helper feeds OPDS (tags, identifiers), so by default the other relationships
         # keep their model-level selectin loading: one IN query each, never per book.
         # Callers that only render book cards pass cards_only=True to skip them.
         if database == Books:
@@ -1019,9 +1016,6 @@ class CalibreDB:
             matches = [Books.tags.any(contains(Tags.name, folded)),
                        Books.authors.any(contains(Authors.name, folded)),
                        contains(Books.title, folded)]
-            # Words from a description or abstract (stored as HTML, so not a tag's name)
-            if len(word) >= 4 and word.lower() not in _MARKUP_WORDS:
-                matches.append(Books.comments.any(contains(Comments.text, folded)))
             matches += identifier_match(word)
             for c in text_columns:
                 matches.append(getattr(Books, 'custom_column_' + str(c.id)).any(

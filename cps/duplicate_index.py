@@ -155,8 +155,7 @@ def _book_query(book_ids, keys_only=False):
     if keys_only:
         # Keys never read these; loading them was half of a full rebuild. Lazy, not
         # empty, so a later keep-strategy in this session still sees the real values.
-        query = query.options(lazyload(db.Books.tags), lazyload(db.Books.comments),
-                              lazyload(db.Books.identifiers))
+        query = query.options(lazyload(db.Books.tags), lazyload(db.Books.identifiers))
     return query
 
 

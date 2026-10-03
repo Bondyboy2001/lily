@@ -4,15 +4,12 @@
 {% block header %}
     <meta property="og:type" content="book" />
     <meta property="og:title" content="{{ entry.title|truncate(35) }}" />
-    {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
-      <meta property="og:description" content="{{ entry.comments[0].text|striptags|truncate(65) }}" />
-      <meta property="og:image" content="{{url_for('web.get_cover', book_id=entry.id, resolution='og', c=entry|last_modified)}}" />
-    {% endif %}
+    <meta property="og:image" content="{{url_for('web.get_cover', book_id=entry.id, resolution='og', c=entry|last_modified)}}" />
 {% endblock %}
 {% block body %}
 <div class="discover lily-book-detail">
     {# "Frontispiece" (design §6.4): a stage with the cover as a mounted plate beside the title,
-       byline and actions; below it the description, the lookup line and what to read next. #}
+       byline and actions. #}
     <div class="book-detail-main">
         {# The edition and volume ("9th ed. · Vol. 3"), set in the editor, in the stage's top-right corner #}
         {% if edition or volume %}
@@ -148,25 +145,16 @@
         </div>
     </div>
 
-    <div class="book-detail-extra">
-        {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
-            <section class="book-detail-description" aria-label="{{ _('Description') }}">
-                <div class="comments" id="book-description">{{ entry.comments[0].text|flatten_breaks }}</div>
-            </section>
-        {% endif %}
-
-
-        {% if not current_user.is_anonymous %}
-            <div class="meta-actions" hidden>
-                <form id="have_read_form" action="{{ url_for('web.toggle_read', book_id=entry.id) }}" method="POST">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <input id="have_read_cb" data-checked="{{ _('Mark as unread') }}"
-                           data-unchecked="{{ _('Mark as read') }}" type="checkbox"
-                           {% if entry.read_status %}checked{% endif %}>
-                </form>
-            </div>
-        {% endif %}
-    </div>
+    {% if not current_user.is_anonymous %}
+        <div class="meta-actions" hidden>
+            <form id="have_read_form" action="{{ url_for('web.toggle_read', book_id=entry.id) }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input id="have_read_cb" data-checked="{{ _('Mark as unread') }}"
+                       data-unchecked="{{ _('Mark as read') }}" type="checkbox"
+                       {% if entry.read_status %}checked{% endif %}>
+            </form>
+        </div>
+    {% endif %}
     {# The details dialog: when the book came in and was last changed, then the facts the page leaves out #}
     <div class="modal fade" id="bookInfoModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="bookInfoLabel">
       <div class="modal-dialog">
@@ -252,7 +240,6 @@
         <input type="hidden" name="authors" value="{{ (entry.ordered_authors|named_authors)|map(attribute='name')|map('replace', '|', ',')|join(' & ') }}">
         <input type="hidden" name="pubdate" value="{% if entry.pubdate %}{{ entry.pubdate|formatdateinput }}{% endif %}">
         <input type="hidden" name="tags" value="{{ entry.tags|map(attribute='name')|map('trim')|join(', ') }}" disabled>
-        <input type="hidden" name="comments" value="{% if entry.comments %}{{ entry.comments[0].text }}{% endif %}" disabled>
         <input type="hidden" name="cover_url" value="" disabled>
         <input type="hidden" name="shelves_present" value="1" disabled>
         <input type="hidden" name="shelves" value='{{ shelf_menu|selectattr("1")|map(attribute="0")|map(attribute="name")|unique|list|tojson }}' disabled>

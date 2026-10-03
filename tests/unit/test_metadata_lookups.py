@@ -44,7 +44,7 @@ def _providers(monkeypatch, *providers):
 
 
 def _record(title, authors):
-    return SimpleNamespace(title=title, authors=authors, description="", tags=[], series="",
+    return SimpleNamespace(title=title, authors=authors, tags=[], series="",
                            series_index=0, publishedDate=None, identifiers={}, cover="",
                            source=SimpleNamespace(id="openlibrary", description="Open Library"))
 
@@ -236,7 +236,7 @@ def test_book_page_names_the_source_under_the_actions(env):
     assert "book-fetched-from" not in _login(env).get(f"/book/{book}").get_data(as_text=True)
     _store().save_metadata_lookup(book, "matched", "Open Library")
     html = _login(env).get(f"/book/{book}").get_data(as_text=True)
-    actions = html[html.index('<div class="book-detail-actions">'):html.index('<div class="book-detail-extra">')]
+    actions = html[html.index('<div class="book-detail-actions">'):html.index('id="bookInfoModal"')]
     assert actions.index('role="toolbar"') < actions.index(
         '<p class="book-fetched-from">Metadata fetched from Open Library</p>')
     env.add_user("reader", password="pw")
@@ -302,7 +302,7 @@ def test_applying_a_result_on_the_book_page_changes_only_what_it_fills(env):
     page = c.get(f"/book/{book}").get_data(as_text=True)
     form = re.search(r'<form action="([^"]+)" method="post" id="book_edit_frm" hidden>(.*?)</form>', page, flags=re.S)
     assert form
-    # What get_meta.js sends: the enabled fields, plus the ones a result filled (here the description)
+    # What get_meta.js sends: the enabled fields, with what a result filled (here the date)
     data = {}
     for tag in re.findall(r"<input [^>]*>", form.group(2)):
         name = html_lib.unescape(re.search(r'name="([^"]+)"', tag).group(1))
@@ -310,17 +310,17 @@ def test_applying_a_result_on_the_book_page_changes_only_what_it_fills(env):
         if " disabled" not in tag:
             data[name] = value
     assert "tags" not in data and "comments" not in data and "shelves_present" not in data
-    data.update(comments="<p>A desert planet.</p>", metadata_source="Open Library")
+    data.update(pubdate="1965-09-01", metadata_source="Open Library")
     resp = c.post(html_lib.unescape(form.group(1)), data=data)
     assert resp.status_code == 302 and resp.headers["Location"].endswith(f"/book/{book}")
     con = sqlite3.connect(env.library_dir / "metadata.db")
     try:
-        assert "A desert planet." in con.execute("SELECT text FROM comments WHERE book = ?", (book,)).fetchone()[0]
+        assert con.execute("SELECT count(*) FROM comments").fetchone()[0] == 0
         assert con.execute("SELECT t.name FROM tags t JOIN books_tags_link l ON l.tag = t.id WHERE l.book = ?",
                            (book,)).fetchall() == [("sf",)]
         assert con.execute("SELECT type, val FROM identifiers WHERE book = ?", (book,)).fetchall() == [
             ("isbn", "9780441013593")]
-        assert con.execute("SELECT pubdate FROM books WHERE id = ?", (book,)).fetchone()[0].startswith("1965-08-01")
+        assert con.execute("SELECT pubdate FROM books WHERE id = ?", (book,)).fetchone()[0].startswith("1965-09-01")
         assert con.execute("SELECT a.name FROM authors a JOIN books_authors_link l ON l.author = a.id "
                            "WHERE l.book = ?", (book,)).fetchall() == [("Test Author",)]
     finally:

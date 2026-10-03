@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Lily keeps no tags, publishers, languages or ratings but the tags a user types: calibre
-reads them from a file on import, so an import clears them again (metadata lookups never add
-any either). The file's published date stays."""
+"""Lily keeps no descriptions, publishers, languages or ratings, and no tags but the ones a user
+types: calibre reads them from a file on import, so an import clears them again (metadata
+lookups never add any either). The file's published date stays."""
 
 
 def delete_unused(session):
@@ -23,17 +23,19 @@ def delete_unused(session):
 
 
 def clear_new_book_details(book_id):
-    """Drop the tags, publisher, languages and rating calibre read from a newly imported file;
-    True when it had any."""
+    """Drop the description, tags, publisher, languages and rating calibre read from a newly
+    imported file; True when it had any."""
     from cps import db
     cdb = db.CalibreDB(expire_on_commit=False, init=True)
     try:
         book = cdb.get_book(book_id)
         if book is None:
             return False
-        if not (book.tags or book.publishers or book.languages or book.ratings):
+        description = cdb.session.query(db.Comments).filter(db.Comments.book == book_id)
+        if not (book.tags or book.publishers or book.languages or book.ratings or description.count()):
             return False
         book.tags, book.publishers, book.languages, book.ratings = [], [], [], []
+        description.delete(synchronize_session=False)
         cdb.session.flush()
         delete_unused(cdb.session)
         cdb.session.commit()

@@ -858,7 +858,7 @@ class NewBookProcessor:
 
             # calibre takes a PDF's author from the file: make it the people it names
             self.tidy_authors(self.last_added_book_ids or [])
-            # calibre turns a PDF's Keywords into tags: keep only the subjects
+            # calibre reads a description, tags, publisher and more from the file: Lily keeps none
             self.clear_details(self.last_added_book_ids or [])
             # calibre's cover for a PDF is page 1 as printed, often off-centre: centre it on the print
             self.centre_covers(self.last_added_book_ids or [])
@@ -971,7 +971,7 @@ class NewBookProcessor:
         for book_id in book_ids:
             try:
                 if clear_new_book_details(int(book_id)):
-                    print(f"[ingest-processor] Cleared the tags, publisher, languages and rating the file gave book id={book_id}", flush=True)
+                    print(f"[ingest-processor] Cleared the description, tags, publisher, languages and rating the file gave book id={book_id}", flush=True)
             except Exception as e:
                 print(f"[ingest-processor] WARN: Could not clear the details the file gave book id={book_id}: {e}", flush=True)
 

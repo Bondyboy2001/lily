@@ -196,7 +196,6 @@ def render_adv_search_results(term, offset=None, order=None, limit=None):
     book_title = term.get("title")
     pub_start = term.get("publishstart")
     pub_end = term.get("publishend")
-    description = term.get("comments")
     read_status = term.get("read_status")
     if author_name:
         author_name = strip_whitespaces(author_name).lower().replace(',', '|')
@@ -238,7 +237,7 @@ def render_adv_search_results(term, offset=None, order=None, limit=None):
             search_term.extend([("{}: {}".format(c.name, term.get('custom_column_' + str(c.id))))])
             cc_present = True
 
-    if any(tags.values()) or author_name or book_title or pub_start or pub_end or description or cc_present \
+    if any(tags.values()) or author_name or book_title or pub_start or pub_end or cc_present \
             or read_status != "Any":
         search_term, pub_start, pub_end = extend_search_term(search_term, author_name, book_title, pub_start,
                                                              pub_end, tags, read_status)
@@ -255,9 +254,6 @@ def render_adv_search_results(term, offset=None, order=None, limit=None):
         q = adv_search_tag(q, tags['include_tag'], tags['exclude_tag'])
         q = adv_search_shelf(q, tags['include_shelf'], tags['exclude_shelf'])
         q = adv_search_extension(q, tags['include_extension'], tags['exclude_extension'])
-
-        if description:
-            q = q.filter(db.Books.comments.any(func.lower(db.Comments.text).ilike("%" + description + "%")))
 
         # search custom columns
         try:

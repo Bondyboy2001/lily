@@ -254,23 +254,39 @@ def _m8_clear_publishers_languages_ratings(cur) -> None:
         clear_library_details(*found, ("publishers", "languages", "ratings"), "details-clear")
 
 
+def _m10_clear_descriptions(cur) -> None:
+    # Lily keeps no descriptions any more: the ones lookups, edits and imports added go, once,
+    # with no copy of the library kept.
+    found = _existing_library(cur)
+    if found:
+        clear_library_details(*found, ("comments",), "description-clear", backup=False)
+
+
 # What a book links to, as calibre keeps it: the table, its link table, the link's column
 _LINKED = {"tags": ("books_tags_link", "tag"), "publishers": ("books_publishers_link", "publisher"),
            "languages": ("books_languages_link", "lang_code"), "ratings": ("books_ratings_link", "rating")}
 
 
-def clear_library_details(metadata_db: str, backup_dir: str, tables, name: str) -> int:
-    """Remove every book's links to `tables` (tags, publishers, languages, ratings) in the library
-    at metadata_db, after copying it to backup_dir as metadata.db.before-<name>; returns how many
+def clear_library_details(metadata_db: str, backup_dir: str, tables, name: str, backup: bool = True) -> int:
+    """Remove every book's links to `tables` (tags, publishers, languages, ratings), or every
+    row of comments (descriptions, held per book), in the library at metadata_db, after copying
+    it to backup_dir as metadata.db.before-<name> unless backup is False; returns how many
     books had any. Nothing happens without a library."""
     if not os.path.isfile(metadata_db):
         return 0
-    backup = os.path.join(backup_dir, "metadata.db.before-" + name)
-    shutil.copy2(metadata_db, backup)
+    kept = "no copy kept"
+    if backup:
+        kept = os.path.join(backup_dir, "metadata.db.before-" + name)
+        shutil.copy2(metadata_db, kept)
+        kept = "the library before is " + kept
     con = sqlite3.connect(metadata_db, timeout=30)
     try:
         books = set()
         for table in tables:
+            if table == "comments":
+                books.update(row[0] for row in con.execute("SELECT book FROM comments"))
+                con.execute("DELETE FROM comments")
+                continue
             link, __ = _LINKED[table]
             books.update(row[0] for row in con.execute(f"SELECT book FROM {link}"))
             con.execute(f"DELETE FROM {link}")
@@ -278,8 +294,7 @@ def clear_library_details(metadata_db: str, backup_dir: str, tables, name: str) 
         con.commit()
     finally:
         con.close()
-    print(f"[cwa-db] Cleared the {', '.join(tables)} of {len(books)} books; the library before is {backup}",
-          flush=True)
+    print(f"[cwa-db] Cleared the {', '.join(tables)} of {len(books)} books; {kept}", flush=True)
     return len(books)
 
 
@@ -296,7 +311,8 @@ MIGRATIONS: list = [(1, "always detect duplicates, no Hardcover auto-fetch", _m1
                     (7, "clear every book's tags", _m7_clear_every_books_tags),
                     (8, "clear every book's publisher, languages and rating", _m8_clear_publishers_languages_ratings),
                     (9, "drop duplicate matching on language, series and publisher",
-                     _m9_drop_language_series_publisher_matching)]
+                     _m9_drop_language_series_publisher_matching),
+                    (10, "clear every book's description", _m10_clear_descriptions)]
 SCHEMA_MIGRATIONS_TABLE = "cwa_schema_migrations"
 
 

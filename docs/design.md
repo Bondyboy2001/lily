@@ -65,7 +65,7 @@ format: one token per row, the light value, then the dark value.
 | `--surface` | `#F8F6F3` | `#221B1F` | Raised: panels, menus, popovers, toasts |
 | `--sunk` | `#E7E1DC` | `#151012` | Recessed: sidebar, code wells, empty cover slots, the book page's stage |
 | `--ink` | `#2B2127` | `#F0E8EC` | Primary text |
-| `--ink-soft` | `#4A3D45` | `#D6C8CF` | Quiet button labels, resting nav rows, long-form description |
+| `--ink-soft` | `#4A3D45` | `#D6C8CF` | Quiet button labels, resting nav rows, quiet secondary copy |
 | `--muted` | `#655860` | `#B4A4AC` | Secondary text, help text, icon buttons at rest |
 | `--faint` | `#685B62` | `#A89AA2` | Tertiary text, placeholders, counts, empty-state glyphs |
 | `--line` | `#CBC1BF` | `#392F35` | Panel edges, menu edges |
@@ -151,11 +151,10 @@ title on the book page (a 52px/700 display line, `text-wrap: balance`; 46 below
 | 13px | 400 | Help text (`.lp-help`), units, values in link rows, footnotes |
 | 14px | 400 | Secondary lines: reading share under a title, `dt` labels, menu meta |
 | **15px** | 400 / 500 | **Base.** Body, buttons, fields, nav rows, row titles (500) |
-| 17–22px | 400 | Long-form reading: book description (22 italic, 19 on phones), author bio (17) |
 | 22px | 600 | `--title-size` |
 | display | 600–700 | Content only: book title 52, empty-state glyph 44 |
 
-- Line height: 1.5 body, 1.4 headings and UI rows, 1.6–1.7 long-form reading.
+- Line height: 1.5 body, 1.4 headings and UI rows.
 - Weights: 400 text, 500 emphasis and labels, 600 headings and primary
   buttons, 700 only for the book title.
 - Numbers in tables, counters and facts use `font-variant-numeric: tabular-nums`.
@@ -526,9 +525,8 @@ content (grid, panel, rows)
   "Metadata fetched from Open Library"; the date stays in the details dialog).
   There are no fact tags on the page: the
   file, date and identifiers are in the details dialog. The stage is one
-  row, so a tall cover never spreads the heading out.
-- **Under the stage** (`.book-detail-extra`, 40 below it, indented 40 to match the
-  stage padding): the description.
+  row, so a tall cover never spreads the heading out. Nothing sits under the stage:
+  Lily keeps no descriptions.
 - **≤1499px:** a smaller plate (≤268) and a 46px title. **≤1099px:** stage padding 24,
   title 40. **≤767px:** the stage stacks and centres: a 196px plate, a 30px title, Read across the full width with the icon buttons sharing the line
   under it. Reset row sizing here.
@@ -536,9 +534,6 @@ content (grid, panel, rows)
   progress, opening the reader in a new tab at the format last read). Every other action
   is a 44px square icon button named by its `title` and a hidden label; Delete comes last,
   spaced like the rest. Read state, once on, is the eye in `--success` on a 34% `--success` tint.
-- **Description:** a pull-quote: `--font-body` 22px italic, line-height 1.6, `--ink-soft`,
-  the full width of the page (no measure cap), indented 64 behind a 112px `--accent` opening mark (19px, 40 and 76 on
-  phones). There is no "not fetched yet" notice: the fetched dot already says so.
 - **Plate marks:** the plate wears exactly the grid cover's marks (`image.cover_marks`, §5.15): a
   ribbon per file type from the top edge, Finished and Fetched discs bottom-left, and the 3px
   `--success` edge once read. The read toggle updates the edge and the eye in place.
@@ -592,14 +587,12 @@ content (grid, panel, rows)
   the sixth edition, "3" for volume 3; the two fields pair side by side, also on
   phones), stored in cwa.db (`book_editions`, `book_volumes`)
   since calibre has no field for them. Then Authors; Details (published date
-  only: Lily keeps no publisher, language or rating); Tags; Description.
+  only: Lily keeps no publisher, language, rating or description); Tags.
   Authors and Tags are the same row editor: one field per value with a × beside
   it, and "Add author" / "Add tag" below (Enter, or a comma in a tag, starts the
   next row).
-  The description box fits its text (no drag handle), padding 14/16 and
-  line-height 1.68.
 - **Fetch Metadata results** are compact cards: a 128px cover column with
-  Apply under it, fields in 14px, a description clamped to six lines. The match
+  Apply under it, fields in 14px, and no description. The match
   score is a bare 24px number ("21%") in the card's top right; an exact match
   shows its pill under Apply instead. A result's cover carries no text over the art.
   A result without a cover shows an empty "No cover" slot the cover's shape, with no

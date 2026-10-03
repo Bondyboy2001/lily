@@ -38,7 +38,7 @@ def test_the_log_keeps_only_the_newest_lookups(env, monkeypatch):
 def test_a_lookup_logs_its_book_result_and_changes(env, monkeypatch):
     from cps import metadata_helper
     env, store = env
-    dune = SimpleNamespace(title="Dune", authors=["Frank Herbert"], description="<p>Spice.</p>",
+    dune = SimpleNamespace(title="Dune", authors=["Frank Herbert"],
                            tags=[], series="", series_index=0, publishedDate="1965-08-01",
                            identifiers={"isbn": "9780441172719"}, cover="",
                            source=SimpleNamespace(description="Open Library"))
@@ -54,7 +54,7 @@ def test_a_lookup_logs_its_book_result_and_changes(env, monkeypatch):
     assert (entry["book_id"], entry["title"], entry["status"], entry["source"]) == (book, "Dune", "matched", "Open Library")
     changes = json.loads(entry["changes"])
     assert changes["authors"] == ["Unknown", "Frank Herbert"]
-    assert changes["description"] == ["", "Spice."]
+    assert "description" not in changes
     assert changes["pubdate"][1] == "1965-08-01"
     assert changes["identifiers"] == ["", "isbn 9780441172719"]
 
