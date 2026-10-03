@@ -84,6 +84,7 @@ def show_duplicates():
         duplicate_groups = []
         duplicate_index_needs_full_scan = True
         duplicate_scan_auto_queued = False
+        duplicate_scan_pending = False
 
         try:
             from cps.duplicate_index import (
@@ -97,6 +98,9 @@ def show_duplicates():
                 and duplicate_index_needs_manual_full_scan(settings)
                 and not _duplicate_scan_transiently_pending()
             )
+            # A scan queued after an import (or running) hasn't counted the newest books yet:
+            # the page says it is checking rather than "No Duplicate Books"
+            duplicate_scan_pending = _duplicate_scan_transiently_pending()
             if duplicate_index_needs_full_scan:
                 # The page has no manual trigger: queue the baseline scan so the
                 # first visit after an upgrade builds the index by itself.
@@ -117,6 +121,7 @@ def show_duplicates():
                                      duplicate_groups=duplicate_groups,
                                      duplicate_index_needs_full_scan=duplicate_index_needs_full_scan,
                                      duplicate_scan_auto_queued=duplicate_scan_auto_queued,
+                                     duplicate_scan_pending=duplicate_scan_pending,
                                      title=_("Duplicates"),
                                      page="duplicates")
 
@@ -128,6 +133,7 @@ def show_duplicates():
                                      duplicate_groups=[],
                                      duplicate_index_needs_full_scan=False,
                                      duplicate_scan_auto_queued=False,
+                                     duplicate_scan_pending=False,
                                      title=_("Duplicates"),
                                      page="duplicates")
 
@@ -201,6 +207,9 @@ def get_duplicate_status():
 
         # Check if notifications are enabled
         notifications_enabled = cwa_db.cwa_settings.get('duplicate_notifications_enabled', 1)
+        # A scan queued after an import or running: the Duplicates page's "Checking New Books"
+        # waits for this to turn false, then reloads with the result
+        scan_pending = _duplicate_scan_transiently_pending()
 
         try:
             from cps.duplicate_index import library_has_books
@@ -226,7 +235,7 @@ def get_duplicate_status():
                     and duplicate_index_needs_manual_full_scan(
                         cwa_db.cwa_settings, cwa_db=cwa_db, cache_data=cache_data
                     )
-                    and not _duplicate_scan_transiently_pending()
+                    and not scan_pending
                 )
             except Exception as index_ex:
                 log.warning("[cwa-duplicates] Could not check duplicate index baseline in status endpoint: %s", str(index_ex))
@@ -242,7 +251,8 @@ def get_duplicate_status():
                     'cached': False,
                     'stale': True,
                     'needs_scan': True,
-                    'needs_full_scan': True
+                    'needs_full_scan': True,
+                    'pending': scan_pending
                 })
 
             # Cache is available; use it even if scan is pending
@@ -278,7 +288,8 @@ def get_duplicate_status():
                 'cached': True,
                 'stale': bool(cache_data.get('scan_pending')),
                 'needs_scan': duplicate_index_needs_full_scan,
-                'needs_full_scan': duplicate_index_needs_full_scan
+                'needs_full_scan': duplicate_index_needs_full_scan,
+                'pending': scan_pending
             })
 
         # Cache is missing - DO NOT trigger scan here!
@@ -296,7 +307,8 @@ def get_duplicate_status():
             'preview': [],
             'cached': False,
             'needs_scan': duplicate_index_needs_full_scan,  # Frontend can optionally show "scan needed" message
-            'needs_full_scan': duplicate_index_needs_full_scan
+            'needs_full_scan': duplicate_index_needs_full_scan,
+            'pending': scan_pending
         })
     except Exception as e:
         log.error("[cwa-duplicates] Error getting duplicate status: %s", str(e))
@@ -311,21 +323,6 @@ def get_duplicate_status():
             close = getattr(cwa_db, "close", None)
             if callable(close):
                 close()
-
-
-@duplicates.route("/duplicates/dismiss-setup-notice", methods=['POST'])
-@login_required_if_no_ano
-@admin_or_edit_required
-def dismiss_duplicate_scan_setup_notice():
-    """Remember that the current duplicate-index setup notice was dismissed."""
-    try:
-        notice_file = f"/config/cwa_duplicate_index_setup_notice_{getattr(current_user, 'id', 'unknown')}"
-        with open(notice_file, 'w') as f:
-            f.write("dismissed\n")
-        return jsonify({"success": True})
-    except Exception as e:
-        log.error("[cwa-duplicates] Failed to dismiss duplicate setup notice: %s", str(e))
-        return jsonify({"success": False, "error": 'Internal error; see server log for details'}), 500
 
 
 @duplicates.route("/duplicates/dismiss/<group_hash>", methods=['POST'])

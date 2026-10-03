@@ -445,7 +445,7 @@ $(document).ready(function() {
         $('#duplicate_scan_task_title').text('Duplicate Scan Running');
         // The bar shows how far it got; the task's own line ("Building duplicate index: n/N books") isn't shown
         $('#duplicate_scan_task_message').text('You can keep using Lily while it runs.');
-        $('#duplicate_scan_task_progress_container').show();
+        $('#duplicate_scan_task_progress_container').prop('hidden', false).show();
         $('#duplicate_scan_task_link').hide();
         $('#duplicate_scan_task_progress')
             .addClass('active')
@@ -462,7 +462,7 @@ $(document).ready(function() {
         $('#duplicate_scan_results_status').addClass('is-active');
         $('#duplicate_scan_task_title').text('Duplicate Scan Running');
         $('#duplicate_scan_task_message').text('Duplicate scan finished. Updating results...');
-        $('#duplicate_scan_task_progress_container').show();
+        $('#duplicate_scan_task_progress_container').prop('hidden', false).show();
         $('#duplicate_scan_task_link').hide();
         $('#duplicate_scan_task_progress')
             .removeClass('active')
@@ -507,6 +507,11 @@ $(document).ready(function() {
     // before this script's first poll, so treat it as already seen running.
     var autoQueuedAttr = $('#duplicate_scan_results_status').data('scan-auto-queued');
     var duplicateScanWasActive = autoQueuedAttr === true || autoQueuedAttr === 'true';
+    // A scan queued after an import waits about a minute before it starts: keep asking until it
+    // has run (following it as usual if it shows as a task), and reload after three minutes
+    // whatever happens.
+    var pendingAttr = $('#duplicate_scan_results_status').data('scan-pending');
+    var duplicateScanPendingSince = (pendingAttr === true || pendingAttr === 'true') ? Date.now() : null;
 
     var duplicateScanPollInFlight = false;
     function pollDuplicateScanTask() {
@@ -535,6 +540,21 @@ $(document).ready(function() {
                 showDuplicateScanFinishedNotice();
                 clearInterval(duplicateScanPollTimer);
                 duplicateScanPollTimer = null;
+            } else if (duplicateScanPendingSince !== null) {
+                if (Date.now() - duplicateScanPendingSince > 180000) {
+                    window.location.reload();
+                    return;
+                }
+                if (!duplicateScanPollTimer) {
+                    duplicateScanPollTimer = setInterval(pollDuplicateScanTask, 2000);
+                }
+                // The scan after an import doesn't always appear among the tasks: ask whether
+                // anything is still pending, and reload with the result once nothing is
+                $.getJSON(duplicateScanEndpoint('/duplicates/status'), function(status) {
+                    if (status && status.pending === false) {
+                        window.location.reload();
+                    }
+                });
             }
         }).always(function() {
             duplicateScanPollInFlight = false;

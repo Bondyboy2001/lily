@@ -40,7 +40,19 @@ class TestUploadStatus:
         name = f"new_{uid}_20261002_082501_450561_Salt.epub"
         aj.finish_job(aj.create_job("ingest", filename=name), "succeeded", book_id=7)
         assert client.get("/upload/status", query_string={"file": name}).get_json() == {
-            "files": [{"file": name, "state": "succeeded", "error": "", "book_id": 7}]}
+            "files": [{"file": name, "state": "succeeded", "error": "", "book_id": 7,
+                       "earlier_copy": None, "unreadable": []}]}
+
+    def test_a_finished_import_says_when_the_library_already_had_the_book(self, env):
+        import automation_jobs as aj
+        client = _login(env)
+        uid = env.admin().id
+        first = env.add_book("Salt", author="Mark Kurlansky", fmt=None)
+        again = env.add_book("salt", author="Mark Kurlansky", fmt=None)
+        name = f"new_{uid}_20261002_082501_450561_Salt.epub"
+        aj.finish_job(aj.create_job("ingest", filename=name), "succeeded", book_id=again)
+        entry = client.get("/upload/status", query_string={"file": name}).get_json()["files"][0]
+        assert entry["earlier_copy"] == first and entry["unreadable"] == []
 
     def test_names_outside_the_upload_pattern_are_refused(self, env):
         client = _login(env)
@@ -70,7 +82,8 @@ class TestUploadValidation:
         upload = FileStorage(stream=io.BytesIO(b"x"), filename="notes.xyz")
         with env.app.test_request_context():
             assert _validate_uploaded_file(upload) is False
-            assert "'xyz'" in get_flashed_messages()[0]
+            message = get_flashed_messages()[0]
+        assert ".xyz" in message and "notes.xyz" in message and "this server" not in message
 
 
 @pytest.mark.unit

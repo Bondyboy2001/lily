@@ -18,13 +18,20 @@
     </div>
   {% endif %}
 
-  <div id="duplicate_scan_results_status" class="alert alert-info dup-notice{% if duplicate_scan_auto_queued %} is-active{% endif %}"
-       data-scan-auto-queued="{{ 'true' if duplicate_scan_auto_queued else 'false' }}">
+  {% set checking = duplicate_scan_pending and not duplicate_scan_auto_queued %}
+  <div id="duplicate_scan_results_status" class="alert alert-info dup-notice{% if duplicate_scan_auto_queued or duplicate_scan_pending %} is-active{% endif %}"
+       data-scan-auto-queued="{{ 'true' if duplicate_scan_auto_queued else 'false' }}"
+       data-scan-pending="{{ 'true' if checking else 'false' }}">
     <span class="glyphicon glyphicon-refresh dup-notice-icon" aria-hidden="true"></span>
     <div id="duplicate_scan_task_notice">
+      {% if checking %}
+      <strong id="duplicate_scan_task_title" class="dup-notice-title">{{_('Checking New Books')}}</strong>
+      <p id="duplicate_scan_task_message">{{_('Books added in the last minute are being checked for duplicates.')}}</p>
+      {% else %}
       <strong id="duplicate_scan_task_title" class="dup-notice-title">{{_('Duplicate Scan Running')}}</strong>
       <p id="duplicate_scan_task_message">{{_('You can keep using Lily while it runs.')}}</p>
-      <div id="duplicate_scan_task_progress_container">
+      {% endif %}
+      <div id="duplicate_scan_task_progress_container"{% if checking %} hidden{% endif %}>
         <div class="duplicate-scan-progress-header">
           <span>{{_('Progress')}}</span>
           <span id="duplicate_scan_task_progress_label">0%</span>
@@ -151,7 +158,7 @@
         {% endfor %}
       </div>
     </div>
-  {% elif not duplicate_index_needs_full_scan %}
+  {% elif not duplicate_index_needs_full_scan and not duplicate_scan_pending %}
     <div id="no_duplicate_books_message">
       {% call f.group(None, id='results') %}
         {% call image.empty_state('glyphicon-ok-circle', _('No Duplicate Books'),

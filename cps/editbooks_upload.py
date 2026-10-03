@@ -27,6 +27,7 @@ from flask import request, url_for, abort, Response
 from .tasks.upload import TaskUpload
 from .services.worker import WorkerThread
 from . import calibre_db
+from .recent_imports import earlier_copy, unreadable_formats
 from .cw_login import current_user
 from markupsafe import escape
 import json
@@ -41,12 +42,13 @@ def _validate_uploaded_file(uploaded_file):
     so a damaged file isn't reported as a format the server refuses."""
     allowed_extensions = config.config_upload_formats.split(',')
     if '.' not in uploaded_file.filename:
-        flash(_('File to be uploaded must have an extension'), category="error")
+        flash(_("“%(name)s” has no file type at the end of its name (like .epub or .pdf), so it wasn't "
+                "added.", name=uploaded_file.filename), category="error")
         return False
     file_ext = uploaded_file.filename.rsplit('.', 1)[-1].lower()
     if file_ext not in allowed_extensions and '' not in allowed_extensions:
-        flash(_("File extension '%(ext)s' is not allowed to be uploaded to this server",
-                ext=file_ext), category="error")
+        flash(_("Lily can't open .%(ext)s files, so “%(name)s” wasn't added. Upload an EPUB, PDF or DjVu "
+                "book, or an audiobook.", ext=file_ext, name=uploaded_file.filename), category="error")
         return False
     if config.config_check_extensions and allowed_extensions != ['']:
         if not validate_mime_type(uploaded_file, allowed_extensions):
@@ -284,5 +286,8 @@ def upload_status():
                  "error": (job["error"] or "") if job else ""}
         if job and job["state"] == "succeeded" and job.get("book_id"):
             entry["book_id"] = int(job["book_id"])
+            # Said in the toast: a book the library already had, a file no reader can open
+            entry["earlier_copy"] = earlier_copy(entry["book_id"])
+            entry["unreadable"] = unreadable_formats(entry["book_id"])
         files.append(entry)
     return Response(json.dumps({"files": files}), mimetype='application/json')

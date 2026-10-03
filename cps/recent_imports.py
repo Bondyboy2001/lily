@@ -5,10 +5,14 @@
 folder added, for the toast that says so (lily.js). The point is the newest book id then,
 as ids only grow (timestamps were written in local time by older imports)."""
 
+import logging
+import os
+import zipfile
+
 from sqlalchemy import func
 from flask_babel import gettext as _, ngettext
 
-from . import calibre_db, db, logger
+from . import calibre_db, config, db, logger
 
 log = logger.create()
 
@@ -50,3 +54,73 @@ def added_summary(books):
     else:
         summary["message"] = _("No new books found")
     return summary
+
+
+def earlier_copy(book_id):
+    """The id of the oldest other book with the same title and authors as `book_id`, or None:
+    an upload of a book the library already had."""
+    try:
+        book = calibre_db.get_book(book_id)
+        if not book:
+            return None
+        authors = sorted(db.lcase(a.name) for a in book.authors)
+        others = (calibre_db.session.query(db.Books)
+                  .filter(func.lower(db.Books.title) == db.lcase(book.title))
+                  .filter(db.Books.id != book.id)
+                  .filter(calibre_db.common_filters())
+                  .order_by(db.Books.id)
+                  .all())
+        for other in others:
+            if sorted(db.lcase(a.name) for a in other.authors) == authors:
+                return other.id
+    except Exception as e:
+        log.debug("Could not look for an earlier copy of book %s: %s", book_id, e)
+    return None
+
+
+def _opens(path, book_format):
+    """Whether a reader could open the file: a PDF pypdf can read, an EPUB that is a zip with
+    its container file, a DjVu with its header. Other formats aren't checked."""
+    if book_format == "pdf":
+        pypdf_log = logging.getLogger("pypdf")
+        level = pypdf_log.level
+        pypdf_log.setLevel(logging.CRITICAL)
+        try:
+            from pypdf import PdfReader
+            with open(path, "rb") as pdf:
+                return len(PdfReader(pdf).pages) > 0
+        except Exception:
+            return False
+        finally:
+            pypdf_log.setLevel(level)
+    if book_format == "epub":
+        try:
+            with zipfile.ZipFile(path) as epub:
+                return "META-INF/container.xml" in epub.namelist()
+        except (zipfile.BadZipFile, OSError):
+            return False
+    if book_format in ("djvu", "djv"):
+        try:
+            with open(path, "rb") as djvu:
+                return djvu.read(8) == b"AT&TFORM"
+        except OSError:
+            return False
+    return True
+
+
+def unreadable_formats(book_id):
+    """The formats of `book_id` whose file is missing or can't be opened, e.g. ["PDF"]."""
+    try:
+        book = calibre_db.get_book(book_id)
+        if not book:
+            return []
+        broken = []
+        for data in book.data:
+            book_format = data.format.lower()
+            path = os.path.join(config.get_book_path(), book.path, data.name + "." + book_format)
+            if not os.path.isfile(path) or not _opens(path, book_format):
+                broken.append(data.format.upper())
+        return broken
+    except Exception as e:
+        log.debug("Could not check the files of book %s: %s", book_id, e)
+        return []

@@ -557,11 +557,34 @@
           if (reason) { lines.push(reason); }
           showMessage(lines, "error");
         } else {
-          // One new book: open it. Several: the library, newest first.
-          var added = pending.uploads.length === 1 && files[0] && files[0].book_id;
-          showMessage(uploadText("imported", pending.uploads), "done",
-                      !box ? null : added ? [box.dataset.bookUrl.replace(/0$/, String(added)), box.dataset.bookLabel]
-                                          : [box.dataset.libraryUrl, box.dataset.libraryLabel]);
+          // One new book: open it. Several: the library, newest first. A book the library
+          // already had, or a file no reader can open, is said, not left to be found later.
+          var bookUrl = function (id) { return box.dataset.bookUrl.replace(/0$/, String(id)); };
+          var again = files.filter(function (f) { return f.earlier_copy; });
+          var broken = files.filter(function (f) { return f.unreadable && f.unreadable.length; });
+          if (pending.uploads.length === 1 && files[0] && files[0].book_id) {
+            var file = files[0];
+            if (box && broken.length) {
+              showMessage(uploadText("importedUnreadable", pending.uploads), "error",
+                          [bookUrl(file.book_id), box.dataset.bookLabel]);
+            } else if (box && again.length) {
+              showMessage(uploadText("importedAgain", pending.uploads), "done",
+                          [bookUrl(file.earlier_copy), box.dataset.earlierLabel]);
+            } else {
+              showMessage(uploadText("imported", pending.uploads), "done",
+                          box ? [bookUrl(file.book_id), box.dataset.bookLabel] : null);
+            }
+          } else {
+            var lines = [uploadText("imported", pending.uploads)];
+            if (box && again.length) {
+              lines.push(box.dataset.importedAgainMany.replace("{count}", String(again.length)));
+            }
+            if (box && broken.length) {
+              lines.push(box.dataset.importedUnreadableMany.replace("{count}", String(broken.length)));
+            }
+            showMessage(lines, broken.length ? "error" : "done",
+                        box ? [box.dataset.libraryUrl, box.dataset.libraryLabel] : null);
+          }
         }
       })
       .catch(function () { setTimeout(watchUploads, POLL_MS * 2); });

@@ -17,9 +17,9 @@ from . import config, constants, logger, ub
 
 # CWA specific imports
 from datetime import datetime
-import os.path
 
 import sys
+import time
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB
 
@@ -54,18 +54,19 @@ def close_request_cwa_db(exc=None):
         db.close()
 
 
-def _duplicate_setup_notice_dismissed():
-    notice_file = f"/config/cwa_duplicate_index_setup_notice_{getattr(current_user, 'id', 'unknown')}"
-    return os.path.isfile(notice_file)
+# When this process last queued the baseline scan: at most one every half hour, so a scan that
+# fails or leaves the index unsettled isn't queued again on every page
+_BASELINE_RETRY_SECONDS = 30 * 60
+_baseline_queued_at: list[float | None] = [None]
 
 
-def duplicate_index_setup_notification(settings, cwa_db=None, cache_data=None, cache_data_loaded=False):
-    notice_file = f"/config/cwa_duplicate_index_setup_notice_{getattr(current_user, 'id', 'unknown')}"
-    if os.path.isfile(notice_file):
-        return False
-
+def queue_duplicate_baseline_if_needed(settings, cwa_db=None, cache_data=None, cache_data_loaded=False):
+    """Start the one-time full scan that builds the duplicate index, on the first page an editor
+    opens once the library has books, instead of asking them to open the Duplicates page.
+    True when the index still needs that scan (one is now queued, or will be once imports finish)."""
     try:
         from cps.duplicate_index import duplicate_index_needs_manual_full_scan, library_has_books
+        from cps.duplicates import _duplicate_scan_transiently_pending, _queue_duplicate_index_baseline
 
         if not library_has_books():
             return False
@@ -75,19 +76,15 @@ def duplicate_index_setup_notification(settings, cwa_db=None, cache_data=None, c
             needs_scan_kwargs["cache_data"] = cache_data
         if not duplicate_index_needs_manual_full_scan(settings, **needs_scan_kwargs):
             return False
-    except Exception as e:
-        log.debug("[cwa-duplicates] Failed to check duplicate setup notification state: %s", str(e))
-        return False
-
-    try:
-        message = _(
-            "Duplicate scanning needs a one-time full scan before fast duplicate checks can run after imports "
-            "and metadata changes. Open the Duplicates page to start it. "
-        )
-        flash(message, category="duplicate_scan_setup")
+        now = time.monotonic()
+        last = _baseline_queued_at[0]
+        if ((last is None or now - last > _BASELINE_RETRY_SECONDS)
+                and not _duplicate_scan_transiently_pending()
+                and _queue_duplicate_index_baseline()):
+            _baseline_queued_at[0] = now
         return True
     except Exception as e:
-        log.debug("[cwa-duplicates] Failed to show duplicate index setup notification: %s", str(e))
+        log.debug("[cwa-duplicates] Could not queue the duplicate index baseline: %s", str(e))
         return False
 
 
@@ -190,17 +187,14 @@ def render_title_template(*args, **kwargs):
             notifications_enabled = bool(cwa_db.cwa_settings.get('duplicate_notifications_enabled', 1))
             if detection_enabled:
                 cache_data = cwa_db.get_duplicate_cache()
-                duplicate_setup_notice_dismissed = _duplicate_setup_notice_dismissed()
-                duplicate_setup_notice_shown = False
-                if not duplicate_setup_notice_dismissed:
-                    duplicate_setup_notice_shown = duplicate_index_setup_notification(
-                        cwa_db.cwa_settings,
-                        cwa_db=cwa_db,
-                        cache_data=cache_data,
-                        cache_data_loaded=True,
-                    )
+                baseline_pending = queue_duplicate_baseline_if_needed(
+                    cwa_db.cwa_settings,
+                    cwa_db=cwa_db,
+                    cache_data=cache_data,
+                    cache_data_loaded=True,
+                )
 
-                if duplicate_setup_notice_shown:
+                if baseline_pending:
                     duplicate_notification = {
                         "enabled": notifications_enabled,
                         "count": 0,

@@ -169,17 +169,6 @@ $(function() {
         }
     });
 
-    $(document).on("click", ".duplicate-scan-setup-dismiss", function() {
-        var dismissUrl = $(this).data("dismiss-url");
-        if (!dismissUrl) {
-            return;
-        }
-        $.ajax({
-            method: "post",
-            url: dismissUrl
-        });
-    });
-
     // Compact pager: "…" opens a small jump-to-page form
     $(".pagination .page-jump").on("shown.bs.dropdown", function() {
         $(this).find("input[type=number]").trigger("focus");
