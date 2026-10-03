@@ -545,7 +545,8 @@ content (grid, panel, rows)
 - **Description:** a pull-quote: `--font-body` 22px italic, line-height 1.6, `--ink-soft`,
   the full width of the page (no measure cap), indented 64 behind a 112px `--accent` opening mark (19px, 40 and 76 on
   phones). There is no "not fetched yet" notice: the fetched dot already says so.
-- **Plate corner** (`.book-plate-marks`, flush with the cover's top-right corner): the fetched mark.
+- **Plate corner** (`.book-plate-marks`, flush with the cover's top-right corner, 1px in so it meets the
+  picture inside the cover's hairline, outer radius 7): the fetched mark.
 - **Edition** (`.book-edition`, everyone): set in the editor, shown as "9th ed." (full
   "9th edition" in its tooltip and for screen readers) in the stage's top-right corner, 16 down
   and 20 in (12 and 16 on phones), never on the cover. Bare text, no pill, set like the byline:

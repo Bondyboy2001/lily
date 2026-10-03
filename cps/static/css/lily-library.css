@@ -1100,11 +1100,13 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     background: var(--sunk);
 }
 
-/* The plate's top-right corner (§6.4): the fetched mark, flush with the cover's corner. */
+/* The plate's top-right corner (§6.4): the fetched mark, flush with the cover's corner. The
+   cover's 1px hairline is drawn inside its edge, so the mark sits 1px in to meet the picture
+   rather than hang over it. */
 .book-plate-marks {
     position: absolute;
-    top: 0;
-    right: 0;
+    top: 1px;
+    right: 1px;
     z-index: 1;
     display: flex;
 }
@@ -1114,6 +1116,7 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     position: static;
     width: 32px;
     height: 32px;
+    border-radius: 0 7px 0 6px;
     font-size: 14px;
 }
 
