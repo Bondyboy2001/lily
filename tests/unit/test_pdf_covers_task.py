@@ -114,7 +114,7 @@ def test_redo_covers_stops_after_the_book_under_way(env, monkeypatch):
     from cps.tasks.pdf_covers import TaskRedoPdfCovers
     for title in ("One", "Two", "Three"):
         env.add_book(title, fmt="PDF")
-    task = TaskRedoPdfCovers()
+    task = TaskRedoPdfCovers(workers=1)
     calls = _run_covers(env, monkeypatch, task,
                         fix=lambda *a: task.stop() or False)
     assert task.stat == STAT_ENDED and len(calls) == 1
@@ -181,3 +181,24 @@ def test_the_status_line_says_which_kind_of_run_it_is(env, monkeypatch):
         monkeypatch.setattr(WorkerThread, "tasks", property(lambda self, t=task: [(1, "admin", None, t, False)]))
         data = c.get(status).get_json()
         assert data["kind"] == kind and data["state"] == "running"
+
+
+@pytest.mark.unit
+def test_redo_covers_does_several_books_at_once(env, monkeypatch):
+    import threading
+    from cps.services.worker import STAT_FINISH_SUCCESS
+    from cps.tasks.pdf_covers import TaskRedoPdfCovers, default_workers
+    for title in ("One", "Two", "Three", "Four", "Five"):
+        env.add_book(title, fmt="PDF")
+    # Three books meet at the barrier, so the run only gets through if they render together
+    barrier = threading.Barrier(3, timeout=5)
+
+    def fix(pdf_path, *a):
+        if any(t in pdf_path for t in ("One", "Two", "Three")):
+            barrier.wait()
+        return "Four" in pdf_path
+    task = TaskRedoPdfCovers(workers=3)
+    calls = _run_covers(env, monkeypatch, task, fix=fix)
+    assert task.stat == STAT_FINISH_SUCCESS and len(calls) == 5 and task.covers == 1
+    assert task.message == "Done: 5 PDFs checked, 1 covers redone"
+    assert 1 <= default_workers() <= 4

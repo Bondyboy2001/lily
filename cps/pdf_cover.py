@@ -16,11 +16,15 @@ A PDF book with no cover.jpg, or only the "Cover not available" card the old imp
 for PDFs it could not render, gets page 1 as its cover (fix_cover), and one whose cover.jpg
 is there but not flagged in the library shows it again.
 
-Imports and Rebuild metadata call it. The margin maths is plain Python; Wand only reads,
-crops and writes the images."""
+Imports, Rebuild metadata and Redo PDF covers call it. Page 1 is rendered by running Ghostscript
+straight on the PDF (ImageMagick copies the whole file to /tmp first and renders one at a time,
+which made a pass over a large library take most of a day). The margin maths is plain Python;
+Wand only reads, crops and writes the images."""
 
 import hashlib
 import os
+import shutil
+import subprocess
 import threading
 from datetime import datetime, UTC
 
@@ -59,19 +63,28 @@ SAME_SHAPE = 0.01
 # The old import's "Cover not available" card (282x400 JPEG): a book whose cover is this has none
 PLACEHOLDER_SIZE = 19501
 PLACEHOLDER_MD5 = '9173cbd4f0e3c7757e27fa5ec5a982dd'
-# Ghostscript may run inside ImageMagick's process, so one render at a time
+# Ghostscript may run inside ImageMagick's process, so one render at a time on that path
 _render_lock = threading.Lock()
+# A PDF Ghostscript is still on after this long is given up on
+RENDER_TIMEOUT = 120
+# Page 1 as raw RGB on white, with the anti-aliasing and crop box ImageMagick asks for. Messages
+# go to stderr so they can't end up in the image on stdout.
+GS_ARGS = ['-q', '-sstdout=%stderr', '-dSAFER', '-dBATCH', '-dNOPAUSE', '-dNOPROMPT',
+           '-dMaxBitmap=500000000', '-dAlignToPixels=0', '-dGridFitTT=2', '-sDEVICE=ppmraw',
+           '-dTextAlphaBits=4', '-dGraphicsAlphaBits=4', f'-r{RENDER_DPI}', '-dPrinted=false',
+           '-dUseCropBox', '-dFirstPage=1', '-dLastPage=1', '-sOutputFile=-']
+
+
+# Grey level -> 1 for print, 0 for paper, for bytes.translate
+_IS_INK = bytes(1 if level < INK_LEVEL else 0 for level in range(256))
 
 
 def _ink_counts(gray, width, height):
-    """Per-column print pixel counts of a row-major 8-bit grey image."""
-    counts = [0] * width
-    for y in range(height):
-        row = gray[y * width:(y + 1) * width]
-        for x, level in enumerate(row):
-            if level < INK_LEVEL:
-                counts[x] += 1
-    return counts
+    """Per-column print pixel counts of a row-major 8-bit grey image. Done with bytes operations
+    rather than a loop over every pixel: it is many times faster, and threads rendering beside it
+    are not held up."""
+    ink = bytes(gray[:width * height]).translate(_IS_INK)
+    return [sum(ink[x::width]) for x in range(width)]
 
 
 def ink_columns(gray, width, height, start=0):
@@ -153,10 +166,29 @@ def _gray(img, size):
         return bytes(small.export_pixels(channel_map='R', storage='char'))
 
 
+def _gs_render(pdf_path):
+    """Page 1 rendered by Ghostscript itself as a Wand image, or None when there is no gs or it
+    could not render the file (ImageMagick then tries). Several can run at once."""
+    gs = shutil.which('gs')
+    if not gs:
+        return None
+    done = subprocess.run([gs, *GS_ARGS, '-f', pdf_path], capture_output=True, timeout=RENDER_TIMEOUT)
+    if done.returncode or not done.stdout.startswith(b'P6'):
+        log.debug("Ghostscript could not render %s: %s", pdf_path, done.stderr[-300:])
+        return None
+    from wand.image import Image
+    img = Image(blob=done.stdout, format='ppm')
+    img.transform_colorspace('srgb')
+    return img
+
+
 def render_first_page(pdf_path):
     """Page 1 of the PDF as a white-backed Wand image (the caller closes it)."""
     from wand.color import Color
     from wand.image import Image
+    img = _gs_render(pdf_path)
+    if img is not None:
+        return img
     img = Image()
     try:
         img.options['pdf:use-cropbox'] = 'true'
