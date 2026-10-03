@@ -1,3 +1,69 @@
+/* The reader's Font choices, self-hosted (SIL OFL, see each fonts/<name>/OFL.txt). epub.js
+   injects this sheet into the book's frame, so the faces load there. */
+@font-face {
+	font-family: "Literata";
+	font-style: normal;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url("../fonts/literata/literata-latin-wght-normal.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "Literata";
+	font-style: italic;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url("../fonts/literata/literata-latin-wght-italic.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "EB Garamond";
+	font-style: normal;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url("../fonts/eb-garamond/eb-garamond-latin-wght-normal.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "EB Garamond";
+	font-style: italic;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url("../fonts/eb-garamond/eb-garamond-latin-wght-italic.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "Source Sans 3";
+	font-style: normal;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url("../fonts/source-sans-3/source-sans-3-latin-wght-normal.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "Source Sans 3";
+	font-style: italic;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url("../fonts/source-sans-3/source-sans-3-latin-wght-italic.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "Atkinson Hyperlegible Next";
+	font-style: normal;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url("../fonts/atkinson-hyperlegible-next/atkinson-hyperlegible-next-latin-wght-normal.woff2") format("woff2");
+}
+
+@font-face {
+	font-family: "Atkinson Hyperlegible Next";
+	font-style: italic;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url("../fonts/atkinson-hyperlegible-next/atkinson-hyperlegible-next-latin-wght-italic.woff2") format("woff2");
+}
+
 .lightTheme {
 	background: #fff;
 	color: #000;
@@ -11,9 +77,4 @@
 .sepiaTheme {
 	background: #ece1ca;
 	color: #000;
-}
-
-.blackTheme {
-	background: #000;
-	color: #fff;
 }

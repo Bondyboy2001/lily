@@ -21,6 +21,7 @@ READER_EXTRAS = {
     "pdf": ["locale/locale.json", "locale/en-US", "standard_fonts"],
     "djvu": ["js/libs/djvu_html5/djvu_html5"],
     "djv": ["js/libs/djvu_html5/djvu_html5"],
+    "epub": ["fonts/eb-garamond", "fonts/source-sans-3", "fonts/atkinson-hyperlegible-next"],
     "all": ["fonts/literata"],
 }
 

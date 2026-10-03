@@ -664,7 +664,7 @@ alone takes the site's wide-screen zoom through `--reader-zoom` (same
 breakpoints as §3), so controls match the rest of the site. The epub `#viewer`
 stays unzoomed because epub.js sizes its iframe from it; its insets are
 multiplied by `--reader-zoom` by hand. The book *page* themes (Light, Sepia,
-Dark, Black in `main.css`) are content and keep their own hex values. The PDF
+Dark in `epub_themes.css`) are content and keep their own hex values. The PDF
 reader (pdf.js `viewer.css`) is outside the system; `lily-pdf.css` only zooms
 its toolbars (1.25× base, times the site zoom, from 1100px) to the site's
 control size and keeps the pages unzoomed. Its toolbar starts with a "Back to

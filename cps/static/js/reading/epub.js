@@ -353,10 +353,16 @@ var reader;
             reader.rendition.themes.fontSize(`${savedFontSize}%`);
         }
 
-        // Font (selectFont maps the saved id to its stack in window.readerFontStacks)
+        // Font (selectFont maps the saved value to its stack in window.readerFontStacks)
         let savedFont = localStorage.getItem("calibre.reader.font");
         if (savedFont && typeof selectFont === 'function') {
             selectFont(savedFont);
+        }
+        var fontSelect = document.getElementById("fontSelect");
+        if (fontSelect && typeof selectFont === 'function') {
+            fontSelect.addEventListener("change", function() {
+                selectFont(this.value);
+            });
         }
 
         // Line spacing and margins

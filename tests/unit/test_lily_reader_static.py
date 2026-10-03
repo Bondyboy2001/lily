@@ -626,7 +626,7 @@ def test_reader_chrome_is_legible_in_every_page_theme():
     # opacity; in Sepia that was 3.3:1, 2.7:1 and 1.6:1
     template = read(TEMPLATES / "read.html")
     themes = re.findall(r'"bgColor": "([^"]+)",\s*"css_path": "[^"]*",\s*"title-color": "([^"]+)"', template)
-    assert len(themes) == 4
+    assert len(themes) == 3
     css = read(CSS / "lily-reader.css")
 
     def opacity(selector):
@@ -637,6 +637,27 @@ def test_reader_chrome_is_legible_in_every_page_theme():
         assert _reader_chrome_contrast(opacity(".lily-reader #chapter-title"), ink, ground) >= 4.5
         assert _reader_chrome_contrast(opacity(".lily-reader #progress:not([role])"), ink, ground) >= 4.5
         assert _reader_chrome_contrast(opacity(".lily-reader .arrow"), ink, ground) >= 3
+
+
+@pytest.mark.unit
+def test_reader_settings_offer_three_themes_a_font_menu_and_single_or_double():
+    template = read(TEMPLATES / "read.html")
+    themes = re.findall(r'id="(\w+Theme)" aria-pressed', template)
+    assert themes == ["lightTheme", "darkTheme", "sepiaTheme"]
+    # Font is a menu like Margins: Default (the book's own) plus four self-hosted faces
+    menu = template.split('<select id="fontSelect">', 1)[1].split("</select>", 1)[0]
+    values = re.findall(r'<option value="(\w+)"', menu)
+    assert values == ["default", "Literata", "Garamond", "SourceSans", "Atkinson"]
+    assert "{{_('Default')}}" in menu and "Book default" not in template
+    assert "{{_('Single')}}" in template and "{{_('Double')}}" in template
+    faces = read(CSS / "epub_themes.css")
+    for value in values[1:]:
+        assert '"%s":' % value in template
+    for folder in ("literata", "eb-garamond", "source-sans-3", "atkinson-hyperlegible-next"):
+        assert f"../fonts/{folder}/" in faces
+        assert (CSS.parent / "fonts" / folder / "OFL.txt").exists()
+    assert "blackTheme" not in faces
+    assert 'getElementById("fontSelect")' in read(JS / "reading" / "epub.js")
 
 
 @pytest.mark.unit

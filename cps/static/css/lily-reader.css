@@ -6,7 +6,7 @@
  * vendor layout (main.css): epub.js sizes its view from it. This file only restyles the
  * chrome on top (toolbar, sidebar, settings sheet, arrows) and uses tokens only, so a
  * dark palette applies here too. The book's own page colours (the epub
- * Light/Dark/Sepia/Black themes) are content, not chrome, and stay as they are.
+ * Light/Dark/Sepia themes) are content, not chrome, and stay as they are.
  */
 
 /* The readers size everything in % of the window; lily.css' wide-screen zoom would

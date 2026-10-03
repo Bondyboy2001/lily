@@ -591,11 +591,6 @@ input:-moz-placeholder { color: #454545; }
   color: black;
 }
 
-.md-content .themes button.blackTheme {
-  background-color: black;
-  color: white;
-}
-
 /* Effect 1: Fade in and scale up */
 .md-effect-1 .md-content {
   -webkit-transform: scale(0.7);
