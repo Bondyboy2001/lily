@@ -19,11 +19,11 @@ Lily is a single-user home library read in the web reader. These are settled; do
 - Before pushing anything else, run what CI runs: `uvx ruff==0.16.9 check cps scripts tests`, `uvx vulture==2.16` (dead code: delete it, don't whitelist it), `uvx mypy==2.3.1`, then `PYTHONPATH=.:scripts .venv/bin/python -m pytest -m "smoke or unit" -n auto`.
 - Don't pipe pytest into `tail`/`head` to judge the result; read the summary line and any `FAILED` lines.
 - Run `git diff --check` before finishing changes.
-- After a change, rebuild the local container (`scripts/deploy-local.sh`, :8083) and look at the page. From a worktree, copy `docker-compose.local.yml` in and run `docker-compose -p lily -f docker-compose.local.yml up -d --build --force-recreate`.
+- After a change, rebuild the local container (`scripts/deploy-local.sh`, :8083) and look at the page. From a worktree, copy `docker-compose.local.yml` in (and delete it after) and run `docker-compose -p lily -f docker-compose.local.yml up -d --build --force-recreate`.
 
 # Git and releases
 
-- The main checkout is shared by parallel sessions and is often dirty with their unfinished work. Make each change in your own worktree off `origin/main` (`claude --worktree`, or `git worktree add ../lily-<topic> origin/main -b <topic>`), push it, then remove the worktree and its branch.
+- The main checkout is shared by parallel sessions and is often dirty with their unfinished work. Make each change in your own worktree off `origin/main`, inside the repo's ignored `.claude/worktrees/` folder (`claude --worktree`, or `git worktree add .claude/worktrees/<topic> origin/main -b <topic>`), never as a sibling folder next to `lily/`. Push it, then remove the worktree and its branch.
 - Don't start long-lived branches; merge back the same day.
 - When a change is finished and its checks pass, commit it and push to `main` straight away. Stage only the files you changed (`git add <paths>`, never `git add -A`). Don't leave finished work uncommitted.
 - If the push is rejected, `git pull --rebase origin main`, re-run the checks touching what changed, and push again. Never force-push `main`.
