@@ -1110,23 +1110,16 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     font-size: 13px;
 }
 
-/* The edition: a --surface pill in the stage's top-right corner, 16 in (12 on phones). */
+/* The edition: bare text in the stage's top-right corner, 16 in (12 on phones), set like the byline. */
 .book-edition {
     position: absolute;
     top: 16px;
-    right: 16px;
-    display: inline-flex;
-    align-items: center;
-    height: 26px;
-    padding: 0 10px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    background: var(--surface);
-    color: var(--ink);
-    font-size: 12px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
+    right: 20px;
+    font-family: var(--font-body);
+    font-size: 20px;
+    font-style: italic;
+    color: var(--accent);
+    line-height: 1.2;
     white-space: nowrap;
 }
 
@@ -1426,7 +1419,7 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 }
 
 @media (max-width: 1099px) {
-    .book-edition { top: 12px; right: 12px; }
+    .book-edition { top: 12px; right: 16px; }
     .book-detail-main { padding: 24px; gap: 24px; }
     .book-detail-extra { padding: 0 24px; }
     .book-detail-meta h1#title { font-size: 40px; }
@@ -1451,6 +1444,7 @@ dl.book-metadata:not(:has(> div)) { display: none; }
 
     .book-detail-meta h1#title { font-size: 30px; line-height: 1.08; letter-spacing: -0.015em; }
     .book-detail-meta .author { margin-top: 2px; font-size: 17px; }
+    .book-edition { font-size: 17px; }
 
     .book-action-bar > .btn.btn-primary { flex: 1 1 100%; }
     .book-action-bar > .btn.is-icon,
