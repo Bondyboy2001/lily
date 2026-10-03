@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""First-run admin: a random password printed once (or LILY_ADMIN_PASSWORD), never the
-published default, and existing app.db files left alone."""
+"""First-run admin: admin / admin123 (or LILY_ADMIN_PASSWORD), changed at first sign-in,
+and existing app.db files left alone."""
 
 import sqlite3
 
@@ -44,71 +44,63 @@ def _admin():
     return ub.session.query(ub.User).filter(ub.User.name == constants.DEFAULT_ADMIN_NAME).one()
 
 
-def _printed_passwords(out):
-    return [line.split("Password:", 1)[1].strip() for line in out.splitlines() if "Password:" in line]
-
-
-def test_new_install_gets_a_random_password_printed_once(init_db, capsys):
+def test_new_install_signs_in_as_admin_admin123(init_db):
     from cps import constants
     init_db()
-    printed = _printed_passwords(capsys.readouterr().out)
-    assert len(printed) == 1
     admin = _admin()
-    assert len(printed[0]) >= 16
-    assert check_password_hash(admin.password, printed[0])
-    assert not check_password_hash(admin.password, constants.LEGACY_DEFAULT_PASSWORD)
+    assert admin.name == "admin"
+    assert check_password_hash(admin.password, "admin123")
     assert admin.force_password_change is True
 
-    # A restart on the same app.db neither prints nor changes anything
+    # A restart on the same app.db changes nothing
     stored = admin.password
     init_db()
-    assert _printed_passwords(capsys.readouterr().out) == []
     assert _admin().password == stored
+    assert constants.DEFAULT_PASSWORD == "admin123"
 
 
-def test_each_install_gets_a_different_password(tmp_path, monkeypatch):
-    from cps import ub, constants
-    monkeypatch.delenv(constants.ADMIN_PASSWORD_ENV, raising=False)
-    assert ub._initial_admin_password()[0] != ub._initial_admin_password()[0]
-    assert ub._initial_admin_password()[1] is True
-
-
-def test_env_password_is_used_and_not_printed(init_db, capsys, monkeypatch):
+def test_env_password_is_used(init_db, monkeypatch):
     from cps import constants
     monkeypatch.setenv(constants.ADMIN_PASSWORD_ENV, "chosen-first-pw")
     init_db()
-    assert _printed_passwords(capsys.readouterr().out) == []
     admin = _admin()
     assert check_password_hash(admin.password, "chosen-first-pw")
     assert admin.force_password_change is True
 
 
-def test_existing_install_keeps_its_admin_password(init_db, capsys, monkeypatch):
+def test_existing_install_keeps_its_admin_password(init_db, monkeypatch):
     from cps import ub
     path = init_db()
     admin = _admin()
     admin.password = generate_password_hash("my-own-password")
     ub.session.commit()
-    capsys.readouterr()
 
     monkeypatch.setenv("LILY_ADMIN_PASSWORD", "ignored-after-first-run")
     init_db()
-    assert _printed_passwords(capsys.readouterr().out) == []
     assert check_password_hash(_admin().password, "my-own-password")
     with sqlite3.connect(path) as con:
         assert con.execute("SELECT COUNT(*) FROM user WHERE role & 32 = 0").fetchone()[0] == 1
 
 
-def test_app_db_without_accounts_gets_an_admin(init_db, capsys):
+def test_app_db_without_accounts_gets_an_admin(init_db):
     """An app.db holding only the Guest row (like a stripped template) gets the first admin."""
     from cps import ub, constants
     path = init_db()
     ub.session.query(ub.User).filter(ub.User.name == constants.DEFAULT_ADMIN_NAME).delete()
     ub.session.commit()
-    capsys.readouterr()
     init_db()
-    printed = _printed_passwords(capsys.readouterr().out)
-    assert len(printed) == 1
-    assert check_password_hash(_admin().password, printed[0])
+    assert check_password_hash(_admin().password, "admin123")
     with sqlite3.connect(path) as con:
         assert con.execute("SELECT COUNT(*) FROM user WHERE name='Guest'").fetchone()[0] == 1
+
+
+def test_accounts_on_either_default_password_must_change_it(init_db):
+    from cps import ub
+    init_db()
+    for pw in ("admin123", "harry10"):
+        admin = _admin()
+        admin.password = generate_password_hash(pw)
+        admin.force_password_change = False
+        ub.session.commit()
+        ub.flag_users_with_default_password(ub.session)
+        assert _admin().force_password_change is True, pw

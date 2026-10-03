@@ -84,11 +84,13 @@ DEFAULT_SIDEBAR         = (SIDEBAR_RECENT | SIDEBAR_CATEGORY | SIDEBAR_SERIES | 
                            | SIDEBAR_READ_AND_UNREAD)
 ADMIN_USER_SIDEBAR      = DEFAULT_SIDEBAR
 
-DEFAULT_ADMIN_NAME  = "harry"
-# The password every install shipped with before first-run passwords were generated. Only
-# used to spot accounts still on it (they must change it); new installs get a random one.
+# A fresh install's first admin signs in as admin / admin123 and must change the password at once
+DEFAULT_ADMIN_NAME  = "admin"
+DEFAULT_PASSWORD    = "admin123"  # nosec
+# What installs shipped with before (harry / harry10); accounts still on it must change it too
 LEGACY_DEFAULT_PASSWORD = "harry10"  # nosec
-# Set to choose the first admin password on a fresh install instead of a generated one.
+DEFAULT_PASSWORDS   = (DEFAULT_PASSWORD, LEGACY_DEFAULT_PASSWORD)
+# Set to choose the first admin password on a fresh install instead of admin123.
 ADMIN_PASSWORD_ENV  = "LILY_ADMIN_PASSWORD"
 DEFAULT_PORT        = 8083
 # Largest request body Lily accepts (Flask's MAX_CONTENT_LENGTH), so oversize uploads get a

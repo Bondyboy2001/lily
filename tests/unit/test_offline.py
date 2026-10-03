@@ -58,7 +58,7 @@ class TestRoutes:
         assert "Saved on This Device" in html
         assert '<meta name="lily-sw" content="/sw.js" data-scope="/">' in html
         assert "js/offline.js" in html and 'class="offline-books"' in html
-        assert env.admin().name not in html
+        assert env.admin().email not in html
 
     def test_csrf_tokens_last_the_session(self, env):
         # A reader page opened from the cache days later still saves positions.

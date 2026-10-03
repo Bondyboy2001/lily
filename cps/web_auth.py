@@ -189,7 +189,7 @@ def change_password():
             flash(_("Current password is incorrect"), category="error")
         elif not new_pw or new_pw != confirm_pw:
             flash(_("New passwords do not match"), category="error")
-        elif new_pw == constants.LEGACY_DEFAULT_PASSWORD or check_password_hash(str(current_user.password), new_pw):
+        elif new_pw in constants.DEFAULT_PASSWORDS or check_password_hash(str(current_user.password), new_pw):
             flash(_("Please choose a password different from the current one"), category="error")
         else:
             try:

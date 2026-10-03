@@ -9,7 +9,6 @@
 
 import atexit
 import os
-import secrets
 import sys
 import sqlite3
 import time
@@ -664,7 +663,7 @@ def flag_users_with_default_password(_session):
         ).all()
         flagged = []
         for user in candidates:
-            if user.password and check_password_hash(str(user.password), constants.LEGACY_DEFAULT_PASSWORD):
+            if user.password and any(check_password_hash(str(user.password), pw) for pw in constants.DEFAULT_PASSWORDS):
                 user.force_password_change = True
                 flagged.append(user.name)
         if flagged:
@@ -908,36 +907,20 @@ def create_anonymous_user(_session):
 
 
 def _initial_admin_password():
-    """(password, generated): LILY_ADMIN_PASSWORD if set, else a fresh random one."""
-    chosen = os.environ.get(constants.ADMIN_PASSWORD_ENV, "").strip()
-    if chosen:
-        return chosen, False
-    return secrets.token_urlsafe(12), True
-
-
-def _announce_admin_password(name, password):
-    """Print a generated first-run password once, where `docker logs` shows it."""
-    bar = "*" * 72
-    print("\n".join(("", bar,
-                     "  Lily created the admin account for this new install.",
-                     f"  Username: {name}",
-                     f"  Password: {password}",
-                     "  This password is shown only once; you must change it at first sign-in.",
-                     bar, "")), flush=True)
-    log.warning("Created admin account '%s' with a generated password (printed once to the console)", name)
+    """LILY_ADMIN_PASSWORD if set, else the default admin123."""
+    return os.environ.get(constants.ADMIN_PASSWORD_ENV, "").strip() or constants.DEFAULT_PASSWORD
 
 
 def create_admin_user(_session):
-    """Create the first admin (DEFAULT_ADMIN_NAME) with access to everything and a random
-    password, or the one in LILY_ADMIN_PASSWORD; it must be changed at first sign-in."""
-    password, generated = _initial_admin_password()
+    """Create the first admin (admin / admin123, or the password in LILY_ADMIN_PASSWORD) with
+    access to everything; the password must be changed at first sign-in."""
     user = User()
     user.name = constants.DEFAULT_ADMIN_NAME
-    user.email = "harry@example.org"
+    user.email = "admin@example.org"
     user.role = constants.ADMIN_USER_ROLES
     user.sidebar_view = constants.ADMIN_USER_SIDEBAR
 
-    user.password = generate_password_hash(password)
+    user.password = generate_password_hash(_initial_admin_password())
     # Must come after the password assignment (which clears the flag)
     user.force_password_change = True
 
@@ -947,10 +930,7 @@ def create_admin_user(_session):
     except Exception:
         _session.rollback()
         return
-    if generated:
-        _announce_admin_password(user.name, password)
-    else:
-        log.info("Created admin account '%s' with the password from %s", user.name, constants.ADMIN_PASSWORD_ENV)
+    log.info("Created admin account '%s'", user.name)
 
 
 def ensure_admin_user(_session):

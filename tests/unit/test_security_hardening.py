@@ -131,11 +131,11 @@ def app_session(monkeypatch):
 
 @pytest.mark.unit
 class TestDefaultAdmin:
-    def test_default_admin_is_harry_without_the_old_password(self, app_session, monkeypatch):
+    def test_default_admin_is_admin_admin123(self, app_session, monkeypatch):
         from werkzeug.security import check_password_hash
         from cps import ub, constants
         monkeypatch.delenv(constants.ADMIN_PASSWORD_ENV, raising=False)
         ub.create_admin_user(app_session)
         admin = app_session.query(ub.User).filter(ub.User.name == constants.DEFAULT_ADMIN_NAME).one()
-        assert admin.name == "harry"
-        assert not check_password_hash(admin.password, "harry10")
+        assert admin.name == "admin"
+        assert check_password_hash(admin.password, "admin123")
