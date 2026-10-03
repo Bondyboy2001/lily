@@ -848,6 +848,35 @@ class CWA_DB:
         return self.cur.execute("SELECT 1 FROM hand_covers WHERE book_id = ?",
                                 (book_id,)).fetchone() is not None
 
+    def save_hand_edit(self, book_id: int) -> None:
+        """Note that the book was edited by hand: lookups keep its title and authors."""
+        self.cur.execute("INSERT OR IGNORE INTO hand_edited (book_id) VALUES (?)", (book_id,))
+        self.con.commit()
+
+    def is_hand_edited(self, book_id: int) -> bool:
+        return self.cur.execute("SELECT 1 FROM hand_edited WHERE book_id = ?",
+                                (book_id,)).fetchone() is not None
+
+    def save_metadata_change(self, book_id: int, source: str, before: str) -> None:
+        """Keep what a lookup changed, as the book was before it (JSON), for Undo."""
+        self.cur.execute("INSERT INTO metadata_changes (book_id, source, changed_at, before) VALUES (?, ?, ?, ?)",
+                         (book_id, source or '', datetime.now(timezone.utc).isoformat(timespec='seconds'), before))
+        self.con.commit()
+
+    def last_metadata_change(self, book_id: int) -> dict | None:
+        """{id, source, changed_at, before} of the book's latest lookup change, or None."""
+        row = self.cur.execute("SELECT id, source, changed_at, before FROM metadata_changes WHERE book_id = ? "
+                               "ORDER BY id DESC LIMIT 1", (book_id,)).fetchone()
+        return dict(zip(("id", "source", "changed_at", "before"), row)) if row else None
+
+    def drop_metadata_change(self, change_id: int) -> None:
+        self.cur.execute("DELETE FROM metadata_changes WHERE id = ?", (change_id,))
+        self.con.commit()
+
+    def metadata_changed_ids(self) -> list[int]:
+        """The books a lookup changed that can still be undone."""
+        return [row[0] for row in self.cur.execute("SELECT DISTINCT book_id FROM metadata_changes")]
+
     def save_metadata_lookup(self, book_id: int, status: str, source: str = '') -> None:
         """Note what a metadata lookup of the book found: matched, nomatch or failed."""
         self.cur.execute("INSERT OR REPLACE INTO metadata_lookups (book_id, status, source, checked_at) "

@@ -490,16 +490,17 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
                 page_text = "\n".join((page_text, pdf_front_matter_text(book)))
             current_cover = _cover_path(book)
             page_cover = _keeps_page_cover(book)
-        missed = set()
+            papers_too = _may_be_a_paper(book)
+            mode = lookup_mode(title, authors, _hand_edited(store, book_id))
+        missed, busy = set(), set()
         # The pages after the first are read only when the searches find nothing, and not
         # while holding the library
         record = _find_record(title, authors, own_ids, page_text, missed,
-                              front_matter=lambda: pdf_front_matter_text(book))
+                              front_matter=lambda: pdf_front_matter_text(book), papers_too=papers_too, busy=busy)
         if unanswered is not None:
             unanswered.update(missed)
         if record is None:
-            # A provider that didn't answer might have it: worth asking again
-            _note_lookup(store, book_id, 'failed' if missed else 'nomatch')
+            _note_lookup(store, book_id, _missed_status(missed, busy))
             return False
         # A PDF's cover is its first page; a provider's is only taken by hand, in Fetch metadata
         url = '' if page_cover else getattr(record, 'cover', '') or ''
@@ -509,7 +510,7 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
                 cover = _download_cover(url, tmp)
             with library_lock:
                 before = _title_and_author(cdb, book)
-                changed = _apply_record(cdb, book, record, cover, replace_tags=force)
+                changed = _apply_record(cdb, book, record, cover, replace_tags=force, mode=mode, store=store)
                 cover_state = _cover_state(_cover_path(book))
                 if changed:
                     source = getattr(getattr(record, 'source', None), 'description', 'a provider')
@@ -530,6 +531,26 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
     finally:
         with library_lock:
             cdb.session.close()
+
+
+def _missed_status(missed, busy) -> str:
+    """failed when a provider that didn't answer might have the book (worth asking again),
+    else nomatch. One that only said it was out of quota (Google without a key, nearly always)
+    doesn't make it failed while another provider answered."""
+    if not missed:
+        return 'nomatch'
+    asked = {provider.__name__ for provider in _lookup_order()}
+    if missed - busy or asked <= missed:
+        return 'failed'
+    return 'nomatch'
+
+
+def _hand_edited(store, book_id) -> bool:
+    try:
+        return bool(store.is_hand_edited(book_id))
+    except Exception as e:
+        log.debug(f"Could not read whether book {book_id} was edited by hand: {e}")
+        return False
 
 
 def _note_lookup(store, book_id, status, source=''):
@@ -567,32 +588,48 @@ def _rollback(cdb):
         log.error(f"Rollback failed: {e}")
 
 
-def _no_answer(provider, what, error, unanswered) -> None:
-    """Log a provider's failure and note its name for the caller."""
+def _no_answer(provider, what, error, unanswered, busy=None) -> None:
+    """Log a provider's failure and note its name for the caller, and in `busy` too when it
+    only said it was out of quota (429)."""
     if unanswered is not None:
         unanswered.add(provider.__name__)
+    if busy is not None and (isinstance(error, ProviderBusy) or "429" in str(error)):
+        busy.add(provider.__name__)
     # Left alone after a 429: said once then, not for every book until it is asked again
     level = log.debug if isinstance(error, ProviderBusy) else log.warning
     level(f"{what} with {provider.__name__} failed: {error}")
 
 
-def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matter=None):
+# The provider that searches papers (Crossref, DataCite, Semantic Scholar, arXiv)
+PAPERS = 'googlescholar'
+
+
+def _may_be_a_paper(book) -> bool:
+    """Whether a title search should ask the paper sources: only for a book whose files are all
+    PDFs. An EPUB is a trade book, which Crossref matches to a critical edition or a chapter."""
+    formats = {d.format.upper() for d in book.data or []}
+    return not formats or formats == {'PDF'}
+
+
+def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matter=None, papers_too=True,
+                 busy=None):
     """The provider record that is exactly this book, or None. An identifier lookup
     comes first: a paper by its arXiv id or DOI, as its title is often the file name,
     which no title search matches; a book by its ISBN, its own, the one its file was named
     by or, for a book named by its file, the one its copyright page prints. Then each
-    provider's title search, unless the title is a file's name: an exact title first, then
+    provider's title search (the paper sources only when papers_too), unless the title is a
+    file's name: an exact title first, then
     one a file's name damaged (see loose_metadata_match). A book still not found is looked
     up by the ISBN on its copyright page: `front_matter` gives the text of its pages after
     the first when called. Google Books is asked last (see _lookup_order). Providers that
-    fail to answer are added to `unanswered`."""
+    fail to answer are added to `unanswered`, and to `busy` when out of quota."""
     lookup_ids = find_paper_identifiers(title, page_text, own_ids)
     named_isbn = isbn_in_title(title)
     isbn = own_ids.get('isbn') or named_isbn or (isbn_on_pages(page_text) if named_by_file(title) else '')
     if isbn:
         lookup_ids['isbn'] = isbn
     record = _find_by_identifiers(lookup_ids, unanswered, lambda found, ids: found_by_id_is_this_book(
-        found, ids, title, authors, page_text, own_ids))
+        found, ids, title, authors, page_text, own_ids), busy)
     if record is not None:
         return record
     if named_by_file(title) or named_isbn:
@@ -602,6 +639,8 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
     query = " ".join([search_title(title)] + authors)
     searched = []
     for provider in _lookup_order():
+        if provider.__id__ == PAPERS and not papers_too:
+            continue
         try:
             results = provider.search_titles(query, "", "en") or []
             # Only the record applied needs the details a provider fetches per result
@@ -609,27 +648,27 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
             if record is not None:
                 record = provider.complete(record)
         except Exception as e:
-            _no_answer(provider, f"Searching for '{query}'", e, unanswered)
+            _no_answer(provider, f"Searching for '{query}'", e, unanswered, busy)
             continue
         if record is not None:
             return record
         searched.append((provider, results))
-    record = _find_loosely(searched, title, authors, page_text, unanswered)
+    record = _find_loosely(searched, title, authors, page_text, unanswered, busy)
     if record is None and front_matter and 'isbn' not in lookup_ids:
         pages = "\n".join((page_text, front_matter()))
         printed = isbn_on_pages(pages)
         if printed:
             record = _find_by_identifiers({'isbn': printed}, unanswered, lambda found, ids: (
-                printed_isbn_is_this_book(found, title, authors, pages)))
+                printed_isbn_is_this_book(found, title, authors, pages)), busy)
         if record is None and pages.strip() != page_text.strip():
             # The title page is among them: it can confirm a title the first page could not
-            record = _find_loosely(searched, title, authors, pages, unanswered)
+            record = _find_loosely(searched, title, authors, pages, unanswered, busy)
     if record is None:
         log.info(f"No exact metadata match for '{title}'; keeping its details")
     return record
 
 
-def _find_by_identifiers(lookup_ids, unanswered, is_this_book):
+def _find_by_identifiers(lookup_ids, unanswered, is_this_book, busy=None):
     """The first record a provider finds by the identifiers it knows that
     is_this_book(record, identifiers asked for) accepts, or None."""
     for provider in _lookup_order():
@@ -639,7 +678,7 @@ def _find_by_identifiers(lookup_ids, unanswered, is_this_book):
         try:
             results = provider.search_identifiers(ids, "", "en") or []
         except Exception as e:
-            _no_answer(provider, f"Looking up {ids}", e, unanswered)
+            _no_answer(provider, f"Looking up {ids}", e, unanswered, busy)
             continue
         record = next((r for r in results if is_this_book(r, ids)), None)
         if record is not None:
@@ -647,7 +686,7 @@ def _find_by_identifiers(lookup_ids, unanswered, is_this_book):
     return None
 
 
-def _find_loosely(searched, title, authors, page_text, unanswered):
+def _find_loosely(searched, title, authors, page_text, unanswered, busy=None):
     """The first loose match (see loose_metadata_match) among the results the title
     searches gave, completed by its provider, or None."""
     for provider, results in searched:
@@ -657,7 +696,7 @@ def _find_loosely(searched, title, authors, page_text, unanswered):
         try:
             return provider.complete(record)
         except Exception as e:
-            _no_answer(provider, f"Completing '{record.title}'", e, unanswered)
+            _no_answer(provider, f"Completing '{record.title}'", e, unanswered, busy)
     return None
 
 
@@ -719,23 +758,90 @@ def _note_edition(book_id, edition):
         log.debug("Could not note book %s's edition: %s", book_id, e)
 
 
-def _apply_record(cdb, book, record, cover, replace_tags=False):
-    """Writes what the record changes and commits; True when anything changed. Only fields
+# How a match is applied (see lookup_mode)
+REPLACE, FILL, HAND = "replace", "fill", "hand"
+
+
+def lookup_mode(title: str, authors, hand_edited: bool) -> str:
+    """How much of a match a lookup applies to the book.
+
+    HAND for a book edited by hand: its title and authors stay, empty fields are filled.
+    REPLACE for a book whose details are a file's leftovers (its title is a file's name, an
+    ISBN, cut short or tailed with an edition, or it has no real author): the match replaces
+    them. FILL otherwise: the title and authors take the match's spelling only when they
+    are the same, and only empty fields are filled."""
+    if hand_edited:
+        return HAND
+    if not authors or named_by_file(title) or isbn_in_title(title) or cut_short(title) \
+            or bare_title(title) != (title or '').strip():
+        return REPLACE
+    return FILL
+
+
+# Words common in English prose and rare in other languages' (no "a", "in" or "on")
+_ENGLISH_WORDS = frozenset("the and of to is was with that his her for which this from by are it "
+                           "who they their has have he she be not".split())
+
+
+def reads_as_english(text: str) -> bool:
+    """Whether a description reads as English: one in twenty of its words is a common
+    English one. A short text is given the benefit of the doubt."""
+    # Its words, not its markup: tags and entities aside
+    text = re.sub(r"<[^>]*>|&#?\w+;", " ", text or '')
+    words = re.findall(r"[^\W\d_]+", text.lower())
+    if len(words) < 12:
+        return True
+    return sum(word in _ENGLISH_WORDS for word in words) * 20 >= len(words)
+
+
+def _wants_english(book) -> bool:
+    """Whether the book's description should be English: it is English, or has no language."""
+    codes = {lang.lang_code for lang in book.languages or []}
+    return not codes or 'eng' in codes
+
+
+def _blank_description(book) -> bool:
+    """The book has no description, or only the "None" an old save wrote."""
+    text = (book.comments[0].text if book.comments else '') or ''
+    return text.strip() in ('', 'None')
+
+
+_NO_DATE_YEAR = 101  # calibre's "no date": 0101-01-01
+
+
+def _no_date(current) -> bool:
+    return current is None or current.year <= _NO_DATE_YEAR
+
+
+def _apply_record(cdb, book, record, cover, replace_tags=False, mode=REPLACE, store=None):
+    """Writes what the record changes and commits; True when anything changed.
+
+    With mode REPLACE (see lookup_mode) the record's fields replace the book's; with FILL and
+    HAND only empty fields are filled (a date also when the record's is earlier, as a first
+    publication is), and the title and authors change only as lookup_mode says. Only fields
     the record has are touched; a book's own identifiers are kept and new ones added. The
-    rating is left alone: a provider's is its readers' average, not this library's. The
-    record's tags are added to the book's or, with replace_tags, take their place."""
+    rating is left alone: a provider's is its readers' average, not this library's. A
+    description that doesn't read as English is skipped for an English book. The record's tags
+    are added to the book's or, with replace_tags in REPLACE, take their place. What changed is
+    kept in `store` as it was before, for Undo."""
     session = cdb.session
     changed = False
     dropped = []
+    before = {}
+    filling = mode != REPLACE
     with session.no_autoflush:
         # A book that goes by the title without its subtitle (or with it) keeps going by that
-        title = (matched_title(book.title, record) or record.title or '').strip()
+        matched = matched_title(book.title, record)
+        title = (matched or record.title or '').strip()
         # "Title (9th Edition)": the edition goes to the book's Edition, unless it has one
         title, edition = split_edition(title)
         edition = edition or split_edition(record.title or '')[1]
-        if edition:
+        if edition and mode != HAND:
             _note_edition(book.id, edition)
-        if title and title != book.title:
+        # Filling, the title only takes the record's spelling of the same title
+        title_ok = mode == REPLACE or (mode == FILL and matched is not None)
+        if title and title_ok and title != book.title:
+            before['title'] = book.title
             book.title = title
             changed = True
 
@@ -746,7 +852,10 @@ def _apply_record(cdb, book, record, cover, replace_tags=False):
             name = (name or '').strip().replace(',', '|')
             if name:
                 names.setdefault(name.casefold(), name)
-        if names:
+        own = [a.name for a in book.authors if not placeholder_author(a.name.replace('|', ','))]
+        # Filling, the authors change only from none, or to the same people in another case or order
+        authors_ok = mode == REPLACE or (mode == FILL and (not own or {n.casefold() for n in own} == set(names)))
+        if names and authors_ok:
             authors = []
             for name in names.values():
                 author = _named(cdb, db.Authors, cdb.get_author_by_name, name,
@@ -758,6 +867,8 @@ def _apply_record(cdb, book, record, cover, replace_tags=False):
             # Compared as the rows found, not as the record spells them: the library finds a
             # name whatever its case, so the same author in another case is no change
             if {a.name for a in authors} != {a.name for a in book.authors} or author_sort != book.author_sort:
+                before['authors'] = [a.name for a in book.authors]
+                before['author_sort'] = book.author_sort
                 dropped += [a for a in book.authors if a not in authors]
                 book.authors = authors
                 book.author_sort = author_sort
@@ -766,7 +877,12 @@ def _apply_record(cdb, book, record, cover, replace_tags=False):
         # Cleaned like an edit's: a description is shown as HTML, and a provider's can be anyone's
         description = (record.description or '').strip()
         description = clean_string(description, book.id) if description else ''
-        if description and description != (book.comments[0].text if book.comments else ''):
+        if description and _wants_english(book) and not reads_as_english(description):
+            log.info(f"Skipped a description for book {book.id} that isn't in English")
+            description = ''
+        current = book.comments[0].text if book.comments else ''
+        if description and description != current and (not filling or _blank_description(book)):
+            before['description'] = current or ''
             if book.comments:
                 book.comments[0].text = description
             else:
@@ -774,9 +890,12 @@ def _apply_record(cdb, book, record, cover, replace_tags=False):
             changed = True
 
         publisher = (record.publisher or '').strip()
-        if publisher:
+        if publisher and (not filling or not book.publishers):
             row = _named(cdb, db.Publishers, cdb.get_publisher_by_name, publisher, publisher)
-            changed |= _only(book, 'publishers', [row], dropped)
+            old = [p.name for p in book.publishers]
+            if _only(book, 'publishers', [row], dropped):
+                before['publisher'] = old
+                changed = True
 
         # Only subjects: a provider's tags can be shop categories or the book's own title
         tags = []
@@ -787,18 +906,26 @@ def _apply_record(cdb, book, record, cover, replace_tags=False):
             tag = _named(cdb, db.Tags, cdb.get_tag_by_name, name)
             if tag not in tags:
                 tags.append(tag)
-        if replace_tags and tags:
+        old_tags = [t.name for t in book.tags]
+        if filling and book.tags:
+            # Filling, a book's own tags stay as they are
+            tags = []
+        if replace_tags and tags and not filling:
             # A record with no subjects leaves the book's alone
-            changed |= _only(book, 'tags', tags, dropped)
+            if _only(book, 'tags', tags, dropped):
+                before['tags'] = old_tags
+                changed = True
         else:
             for tag in tags:
                 if tag not in book.tags:
+                    before.setdefault('tags', old_tags)
                     book.tags.append(tag)
                     changed = True
 
         series = (record.series or '').strip()
-        if series:
+        if series and (not filling or not book.series):
             row = _named(cdb, db.Series, cdb.get_series_by_name, series, series)
+            old_series, old_index = [s.name for s in book.series], book.series_index
             new_series = _only(book, 'series', [row], dropped)
             changed |= new_series
             # A new series starts at the record's index, or 1; the same one takes the record's
@@ -806,9 +933,15 @@ def _apply_record(cdb, book, record, cover, replace_tags=False):
             if index and index != _index(book.series_index):
                 book.series_index = str(index)
                 changed = True
+            if new_series or str(old_index) != str(book.series_index):
+                before['series'] = old_series
+                before['series_index'] = old_index
 
         published = helper.parse_partial_date(record.publishedDate)
-        if published and not _has_date(book.pubdate, published):
+        date_ok = not filling or _no_date(book.pubdate) or (published and book.pubdate
+                                                             and published.date() < book.pubdate.date())
+        if published and date_ok and not _has_date(book.pubdate, published):
+            before['pubdate'] = book.pubdate.isoformat() if book.pubdate else None
             book.pubdate = published
             changed = True
 
@@ -817,6 +950,7 @@ def _apply_record(cdb, book, record, cover, replace_tags=False):
             kind, value = str(kind or '').strip().lower(), str(value or '').strip()
             if kind and value and kind not in have:
                 book.identifiers.append(db.Identifiers(value, kind, book.id))
+                before.setdefault('identifiers_added', []).append(kind)
                 have.add(kind)
                 changed = True
 
@@ -842,7 +976,17 @@ def _apply_record(cdb, book, record, cover, replace_tags=False):
     if done:
         done()
         helper.replace_cover_thumbnail_cache(book.id)
+    if before and store is not None:
+        _keep_change(store, book.id, getattr(getattr(record, 'source', None), 'description', ''), before)
     return True
+
+
+def _keep_change(store, book_id, source, before):
+    """Note what a lookup changed, for Undo; a failure here is logged, never the lookup's."""
+    try:
+        store.save_metadata_change(book_id, source, json.dumps(before, ensure_ascii=False))
+    except Exception as e:
+        log.debug(f"Could not keep the change to book {book_id}: {e}")
 
 
 def _place_cover(book, cover):

@@ -281,9 +281,9 @@ def test_an_author_with_a_comma_is_stored_as_the_library_stores_them(env, monkey
     ("2019", True),            # the year alone: the book's day in that year is more exact
     ("2019-06", True),
     ("2019-06-04", True),
-    ("2019-07", False),
-    ("1965", False),
-    ("2019-06-05", False),
+    ("2019-07", True),         # a later date is an edition's; the book keeps its own
+    ("1965", False),           # an earlier one is the first publication
+    ("2019-06-05", True),
 ])
 def test_a_less_exact_date_keeps_the_books_own(env, monkeypatch, found, kept):
     book = env.add_book("Dune", author="Frank Herbert")
@@ -334,8 +334,8 @@ def _book_tags(env, book_id):
         env, "SELECT t.name FROM books_tags_link l JOIN tags t ON t.id=l.tag WHERE l.book=?", book_id))
 
 
-def test_a_rebuilds_match_replaces_the_books_tags(env, monkeypatch):
-    dune = env.add_book("Dune", author="Frank Herbert", tags=("Ebooks", "Deserts"))
+def test_a_rebuilds_match_replaces_the_tags_of_a_book_with_no_real_author(env, monkeypatch):
+    dune = env.add_book("Dune", author="Unknown", tags=("Ebooks", "Deserts"))
     other = env.add_book("Other Book", author="Jane Roe", tags=("Deserts",))
     helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], tags=["Science fiction", "Deserts"]))
     assert helper.fetch_and_apply_metadata(dune, force=True) is True
@@ -348,7 +348,7 @@ def test_a_rebuilds_match_replaces_the_books_tags(env, monkeypatch):
 
 
 def test_a_new_books_match_adds_to_the_tags_its_file_gave(env, monkeypatch):
-    dune = env.add_book("Dune", author="Frank Herbert", tags=("Deserts",))
+    dune = env.add_book("Dune", author="Unknown", tags=("Deserts",))
     helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], tags=["Science fiction"]))
     assert helper.fetch_and_apply_metadata(dune) is True
     assert _book_tags(env, dune) == ["Deserts", "Science fiction"]
@@ -359,3 +359,106 @@ def test_a_match_with_no_subjects_leaves_the_books_tags(env, monkeypatch):
     helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice."))
     assert helper.fetch_and_apply_metadata(dune, force=True) is True
     assert _book_tags(env, dune) == ["Deserts"]
+
+
+# Filling gaps: a book with good details keeps them, one whose details are a file's leftovers
+# takes the match's, and one edited by hand keeps its title and authors
+
+
+def _store(hand=False):
+    changes = []
+    store = SimpleNamespace(get_cwa_settings=lambda: {"auto_metadata_fetch_enabled": 1},
+                            is_hand_edited=lambda book_id: hand,
+                            save_metadata_change=lambda book_id, source, before: changes.append((book_id, before)),
+                            save_metadata_lookup=lambda *a: None, get_cover_check=lambda *a: None,
+                            save_cover_check=lambda *a: None)
+    return store, changes
+
+
+def _with_store(monkeypatch, helper, store):
+    monkeypatch.setattr(helper, "CWA_DB", lambda: store)
+
+
+def _described(env, book_id, text):
+    _sql(env, ("INSERT INTO comments (book, text) VALUES (?, ?)", (book_id, text)),
+         ("INSERT OR IGNORE INTO publishers (name) VALUES ('Chilton')", ()),
+         ("INSERT INTO books_publishers_link (book, publisher) VALUES (?, (SELECT id FROM publishers WHERE name='Chilton'))",
+          (book_id,)))
+
+
+def test_a_book_with_its_own_details_keeps_them_and_gets_only_what_it_lacks(env, monkeypatch):
+    dune = env.add_book("Dune", author="Frank Herbert", tags=("Deserts",))
+    _described(env, dune, "<p>My own words.</p>")
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Theirs.",
+                                         publisher="Ace", tags=["Science fiction"], series="Dune Chronicles",
+                                         identifiers={"google": "abc"}))
+    store, changes = _store()
+    _with_store(monkeypatch, helper, store)
+    assert helper.fetch_and_apply_metadata(dune, force=True) is True
+    assert _q(env, "SELECT text FROM comments") == [("<p>My own words.</p>",)]
+    assert _q(env, "SELECT name FROM publishers p JOIN books_publishers_link l ON l.publisher=p.id") == [("Chilton",)]
+    assert _book_tags(env, dune) == ["Deserts"]
+    # What it lacked is filled, and kept for Undo as it was
+    assert _q(env, "SELECT name FROM series") == [("Dune Chronicles",)]
+    assert changes and changes[0][0] == dune and '"series": []' in changes[0][1]
+
+
+def test_a_none_description_counts_as_none(env, monkeypatch):
+    dune = env.add_book("Dune", author="Frank Herbert")
+    _sql(env, ("INSERT INTO comments (book, text) VALUES (?, 'None')", (dune,)))
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice."))
+    assert helper.fetch_and_apply_metadata(dune, force=True) is True
+    assert _q(env, "SELECT text FROM comments") == [("Spice.",)]
+
+
+def test_another_spelling_of_the_authors_names_is_kept(env, monkeypatch):
+    book = env.add_book("Frankenstein", author="Mary Wollstonecraft Shelley")
+    helper = _setup(monkeypatch, _record(title="Frankenstein", authors=["Mary Shelley"], description="A monster."))
+    assert helper.fetch_and_apply_metadata(book, force=True) is True
+    assert _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author") == [
+        ("Mary Wollstonecraft Shelley",)]
+
+
+def test_a_book_titled_by_its_file_takes_the_matchs_details(env, monkeypatch):
+    title = "Graph Drawing Algorithms for the Visualiza"  # cut at 42 by its file's name
+    book = env.add_book(title, author="Ioannis Tollis")
+    _described(env, book, "Scanned by someone.")
+    helper = _setup(monkeypatch, _record(title="Graph Drawing Algorithms for the Visualization of Graphs",
+                                         authors=["Giuseppe Di Battista", "Ioannis Tollis"],
+                                         description="The standard text on graph drawing.", publisher="Prentice Hall"))
+    assert helper.fetch_and_apply_metadata(book, force=True) is True
+    assert _q(env, "SELECT title FROM books") == [("Graph Drawing Algorithms for the Visualization of Graphs",)]
+    assert _q(env, "SELECT text FROM comments") == [("The standard text on graph drawing.",)]
+
+
+def test_a_book_edited_by_hand_keeps_its_title_and_authors(env, monkeypatch):
+    book = env.add_book("dune", author="Frank Herbert")
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert", "Brian Herbert"], description="Spice."))
+    store, __ = _store(hand=True)
+    _with_store(monkeypatch, helper, store)
+    assert helper.fetch_and_apply_metadata(book, force=True) is True
+    assert _q(env, "SELECT title FROM books") == [("dune",)]
+    assert _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author") == [("Frank Herbert",)]
+    assert _q(env, "SELECT text FROM comments") == [("Spice.",)]
+
+
+def test_a_description_in_another_language_is_not_given_to_an_english_book(env, monkeypatch):
+    book = env.add_book("Dracula", author="Bram Stoker")
+    helper = _setup(monkeypatch, _record(title="Dracula", authors=["Bram Stoker"], description=(
+        "Na história, um casal e seus amigos são atormentados por Conde Drácula, um vampiro "
+        "que deixa a Transilvânia para espalhar a maldição dos mortos-vivos em Londres.")))
+    assert helper.fetch_and_apply_metadata(book, force=True) is False
+    assert _q(env, "SELECT text FROM comments") == []
+
+
+def test_the_paper_sources_are_not_asked_about_an_epub(env, monkeypatch):
+    from cps import metadata_helper
+    epub, pdf = env.add_book("Moby Dick", author="Herman Melville"), env.add_book("Spectral Graphs", author="Fan Chung", fmt="PDF")
+    asked = []
+    papers = FakeProvider(__id__="googlescholar", __name__="Scholar", identifier_types=frozenset(),
+                          search=lambda q, *a: asked.append(q) or [])
+    _setup(monkeypatch)
+    monkeypatch.setattr(metadata_helper, "metadata_providers", [papers])
+    metadata_helper.fetch_and_apply_metadata(epub, force=True)
+    metadata_helper.fetch_and_apply_metadata(pdf, force=True)
+    assert asked == ["Spectral Graphs Fan Chung"]

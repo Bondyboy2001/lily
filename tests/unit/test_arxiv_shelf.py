@@ -87,7 +87,7 @@ def _record(title, source_id, **kw):
 
 
 def test_an_automatic_fetch_from_arxiv_files_the_paper(env, monkeypatch):
-    book = env.add_book("Attention Is All You Need")
+    book = env.add_book("Attention Is All You Need", fmt="PDF")
     helper = _fetch_setup(monkeypatch, _record("Attention Is All You Need", "googlescholar",
                                                identifiers={"ARXIV": "1706.03762"}))
     helper.fetch_and_apply_metadata(book)
@@ -95,7 +95,7 @@ def test_an_automatic_fetch_from_arxiv_files_the_paper(env, monkeypatch):
 
 
 def test_a_paper_fetched_from_elsewhere_is_not_filed(env, monkeypatch):
-    book = env.add_book("Annals Paper")
+    book = env.add_book("Annals Paper", fmt="PDF")
     helper = _fetch_setup(monkeypatch, _record("Annals Paper", "googlescholar",
                                                identifiers={"doi": "10.1214/aos/1176344136"}))
     assert helper.fetch_and_apply_metadata(book) is True
@@ -119,7 +119,7 @@ def test_a_paper_arxiv_did_not_answer_for_is_not_filed(env, monkeypatch):
 
 def test_a_shelf_failure_never_fails_the_fetch(env, monkeypatch):
     from cps.services import arxiv_shelf
-    book = env.add_book("A Paper")
+    book = env.add_book("A Paper", fmt="PDF")
     helper = _fetch_setup(monkeypatch, _record("A Paper", "googlescholar", publisher="arXiv",
                                                identifiers={"arxiv": "2401.00001"}))
 

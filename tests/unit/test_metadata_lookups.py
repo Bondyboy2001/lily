@@ -50,7 +50,11 @@ def _record(title, authors):
 
 
 def _down(*a):
-    raise RuntimeError("429")
+    raise RuntimeError("Connection refused")
+
+
+def _out_of_quota(*a):
+    raise RuntimeError("Google Books search failed (429)")
 
 
 def test_each_lookup_notes_what_it_found(env, monkeypatch):
@@ -78,6 +82,29 @@ def test_a_provider_that_did_not_answer_makes_it_failed_not_nomatch(env, monkeyp
     unanswered = set()
     assert helper.fetch_and_apply_metadata(book, force=True, unanswered=unanswered) is False
     assert unanswered == {"Google"}
+    assert _store().get_metadata_lookup(book)["status"] == "failed"
+
+
+def test_a_provider_out_of_quota_alone_leaves_it_nomatch(env, monkeypatch):
+    # Without a key Google nearly always answers 429: the book isn't counted as failed for that
+    book = env.add_book("A Book Nobody Has", author="Jane Roe")
+    helper = _providers(
+        monkeypatch,
+        FakeProvider(__id__="google", __name__="Google", identifier_types=frozenset(), search=_out_of_quota),
+        FakeProvider(__id__="openlibrary", __name__="OpenLibrary", identifier_types=frozenset(),
+                     search=lambda q, *a: []))
+    unanswered = set()
+    assert helper.fetch_and_apply_metadata(book, force=True, unanswered=unanswered) is False
+    assert unanswered == {"Google"}
+    assert _store().get_metadata_lookup(book)["status"] == "nomatch"
+
+
+def test_every_provider_out_of_quota_is_failed(env, monkeypatch):
+    book = env.add_book("A Book Nobody Has", author="Jane Roe")
+    helper = _providers(
+        monkeypatch, FakeProvider(__id__="google", __name__="Google", identifier_types=frozenset(),
+                                  search=_out_of_quota))
+    helper.fetch_and_apply_metadata(book, force=True)
     assert _store().get_metadata_lookup(book)["status"] == "failed"
 
 

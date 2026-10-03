@@ -417,6 +417,8 @@ def do_edit_book(book_id, upload_formats=None):
         _update_shelves(book.id, to_save)
         if to_save.get("metadata_source"):
             _note_matched(book.id, to_save["metadata_source"])
+        if modify_date:
+            _note_hand_edit(book.id)
 
         # Stage 4: Post-commit operations.
         if not edit_error and not title_author_error and cover_upload_success is not False:
@@ -809,6 +811,15 @@ def _note_matched(book_id, source):
         CWA_DB().save_metadata_lookup(book_id, "matched", source[:100])
     except Exception as e:
         log.debug("Could not note book %s as matched: %s", book_id, e)
+
+
+def _note_hand_edit(book_id):
+    """The book was edited by hand: automatic lookups keep its title and authors from now on."""
+    try:
+        from cwa_db import CWA_DB
+        CWA_DB().save_hand_edit(book_id)
+    except Exception as e:
+        log.debug("Could not note book %s as edited by hand: %s", book_id, e)
 
 
 def _note_hand_cover(book_id):

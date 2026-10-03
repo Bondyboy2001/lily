@@ -53,3 +53,11 @@ def test_a_sent_description_is_still_saved(env):
     book_id = env.add_book("Dune", author="Frank Herbert")
     _save(env, book_id, comments="<p>Desert planet.</p>")
     assert "Desert planet." in _description(env, book_id)
+
+
+def test_a_save_in_the_editor_marks_the_book_edited_by_hand(env):
+    from cwa_db import CWA_DB
+    book_id = env.add_book("Dune", author="Frank Herbert")
+    assert not CWA_DB().is_hand_edited(book_id)
+    _save(env, book_id, pubdate="1965-08-01")
+    assert CWA_DB().is_hand_edited(book_id)
