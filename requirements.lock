@@ -5,7 +5,7 @@
 # same commit get the same packages.
 #
 # Target: Linux x86_64/aarch64 (manylinux), CPython 3.13 -- the Dockerfile's deadsnakes
-# python3.13. Markers for other platforms (python-magic-bin on win32, iso-639 on <3.12) are
+# python3.13. Markers for other platforms (python-magic-bin on win32) are
 # resolved away, so this lock is not meant for Windows or older Pythons.
 #
 # Versions were taken from the tested dev venv (also CPython 3.13) and resolved with:
@@ -48,7 +48,6 @@ natsort==8.4.0            # via -r requirements.txt
 netifaces-plus==0.12.5    # via -r requirements.txt
 ordered-set==4.1.0        # via flask-limiter
 packaging==26.3           # via limits
-pycountry==26.2.16        # via -r requirements.txt
 pycparser==3.0            # via cffi
 pygments==2.21.0          # via rich
 pypdf==6.19.0             # via -r requirements.txt

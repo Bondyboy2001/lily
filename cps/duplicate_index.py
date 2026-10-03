@@ -53,18 +53,12 @@ SAME_DOCUMENT_BLOCK_SHARE = 0.9
 class BookKeyParts:
     normalized_title: str
     normalized_author: str
-    normalized_language: str
-    normalized_series: str
-    normalized_publisher: str
     format_signature: str
 
     def as_db_tuple(self):
         return (
             self.normalized_title,
             self.normalized_author,
-            self.normalized_language,
-            self.normalized_series,
-            self.normalized_publisher,
             self.format_signature,
         )
 
@@ -82,9 +76,6 @@ def get_effective_duplicate_criteria(settings):
     criteria = {
         "title": _setting_enabled(settings, "duplicate_detection_title", 1),
         "author": _setting_enabled(settings, "duplicate_detection_author", 1),
-        "language": _setting_enabled(settings, "duplicate_detection_language", 1),
-        "series": _setting_enabled(settings, "duplicate_detection_series", 0),
-        "publisher": _setting_enabled(settings, "duplicate_detection_publisher", 0),
         "format": _setting_enabled(settings, "duplicate_detection_format", 0),
     }
     if not any(criteria.values()):
@@ -115,21 +106,6 @@ def build_book_key_parts(book, settings):
     primary_author = _primary_author(book)
     title = book.title if getattr(book, "title", None) else "untitled"
 
-    if getattr(book, "languages", None):
-        language = book.languages[0].lang_code if book.languages[0].lang_code else "unknown"
-    else:
-        language = "unknown"
-
-    if getattr(book, "series", None):
-        series = book.series[0].name if book.series[0].name else "no_series"
-    else:
-        series = "no_series"
-
-    if getattr(book, "publishers", None):
-        publisher = book.publishers[0].name if book.publishers[0].name else "unknown_publisher"
-    else:
-        publisher = "unknown_publisher"
-
     if getattr(book, "data", None):
         formats = sorted([data.format.lower() for data in book.data if data.format])
         format_signature = ",".join(formats) if formats else "no_format"
@@ -141,27 +117,18 @@ def build_book_key_parts(book, settings):
     return BookKeyParts(
         normalized_title=normalize_title_for_duplicates(title, primary_author),
         normalized_author=normalize_author_for_duplicates(primary_author),
-        normalized_language=language.lower().strip(),
-        normalized_series=series.lower().strip(),
-        normalized_publisher=publisher.lower().strip(),
         format_signature=format_signature,
     )
 
 
 def _enabled_key_values(parts: BookKeyParts, settings):
-    """The metadata a book is matched on. Language is left out: books with no
-    language match books with one, so groups are split by language afterwards
-    (see _split_by_language)."""
+    """The metadata a book is matched on."""
     criteria = get_effective_duplicate_criteria(settings)
     values = []
     if criteria["title"]:
         values.append(("title", parts.normalized_title))
     if criteria["author"]:
         values.append(("author", parts.normalized_author))
-    if criteria["series"]:
-        values.append(("series", parts.normalized_series))
-    if criteria["publisher"]:
-        values.append(("publisher", parts.normalized_publisher))
     if criteria["format"]:
         values.append(("format", parts.format_signature))
     return values
@@ -183,16 +150,13 @@ def _book_query(book_ids, keys_only=False):
         calibre_db.session.query(db.Books)
         .options(selectinload(db.Books.data))
         .options(selectinload(db.Books.authors))
-        .options(selectinload(db.Books.languages))
-        .options(selectinload(db.Books.series))
-        .options(selectinload(db.Books.publishers))
         .filter(db.Books.id.in_(list(book_ids)))
     )
     if keys_only:
         # Keys never read these; loading them was half of a full rebuild. Lazy, not
         # empty, so a later keep-strategy in this session still sees the real values.
         query = query.options(lazyload(db.Books.tags), lazyload(db.Books.comments),
-                              lazyload(db.Books.ratings), lazyload(db.Books.identifiers))
+                              lazyload(db.Books.identifiers))
     return query
 
 
@@ -399,16 +363,12 @@ def upsert_book_keys(book_ids: Iterable[int], settings):
         cwa_db.cur.execute(
             """
             INSERT INTO cwa_duplicate_book_keys (
-                book_id, normalized_title, normalized_author, normalized_language,
-                normalized_series, normalized_publisher, format_signature,
+                book_id, normalized_title, normalized_author, format_signature,
                 duplicate_key, criteria_fingerprint, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(book_id) DO UPDATE SET
                 normalized_title = excluded.normalized_title,
                 normalized_author = excluded.normalized_author,
-                normalized_language = excluded.normalized_language,
-                normalized_series = excluded.normalized_series,
-                normalized_publisher = excluded.normalized_publisher,
                 format_signature = excluded.format_signature,
                 duplicate_key = excluded.duplicate_key,
                 criteria_fingerprint = excluded.criteria_fingerprint,
@@ -467,10 +427,9 @@ def rebuild_duplicate_index(settings, progress_callback=None):
     cwa_db.cur.executemany(
         """
         INSERT OR REPLACE INTO cwa_duplicate_book_keys (
-            book_id, normalized_title, normalized_author, normalized_language,
-            normalized_series, normalized_publisher, format_signature,
+            book_id, normalized_title, normalized_author, format_signature,
             duplicate_key, criteria_fingerprint, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         """,
         key_rows,
     )
@@ -602,20 +561,6 @@ def _union(sets):
     return list(joined.values())
 
 
-def _split_by_language(books):
-    """Split a metadata match by language. A book with no language goes with the
-    others when they share one language, and stays apart when they don't."""
-    by_language = {}
-    for book in books:
-        languages = getattr(book, "languages", None) or []
-        code = (languages[0].lang_code or "").strip().lower() if languages else ""
-        by_language.setdefault(code, []).append(book)
-    unknown = by_language.pop("", [])
-    if len(by_language) <= 1:
-        return [unknown + next(iter(by_language.values()), [])]
-    return list(by_language.values()) + [unknown]
-
-
 def _indexed_group_book_ids_for_books(settings, book_ids):
     book_ids = {int(book_id) for book_id in book_ids if book_id is not None}
     if not book_ids:
@@ -691,13 +636,6 @@ def get_duplicate_groups_from_index(settings, include_dismissed=False, user_id=N
     all_ids = set().union(*metadata_sets, *file_sets)
     # One batched load for every group; books `user_id` may not see drop out here
     books_by_id = {int(book.id): book for book in _load_books_by_ids(all_ids, user_id=user_id)}
-
-    if get_effective_duplicate_criteria(settings)["language"]:
-        split_sets = []
-        for book_ids in metadata_sets:
-            books = [books_by_id[book_id] for book_id in book_ids if book_id in books_by_id]
-            split_sets.extend({int(book.id) for book in part} for part in _split_by_language(books))
-        metadata_sets = split_sets
 
     duplicate_groups = []
     for book_ids, same_file in _merged_book_id_sets(metadata_sets, file_sets):

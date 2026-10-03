@@ -5,7 +5,7 @@
 # See CONTRIBUTORS for full list of authors.
 
 """Who sees which duplicate groups: dismissed-group filtering and the library visibility
-filters (language, tags, restricted column) for a given user. Grouping itself lives in
+filters (tags, restricted column) for a given user. Grouping itself lives in
 cps/duplicate_index.py."""
 
 from sqlalchemy import and_

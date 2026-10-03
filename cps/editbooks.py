@@ -14,29 +14,25 @@ import time
 from datetime import datetime, UTC
 import json
 
-from markupsafe import escape, Markup  # dependency of flask
+from markupsafe import Markup  # dependency of flask
 from functools import wraps
 from urllib.parse import urlsplit
 
-from flask import Blueprint, request, flash, redirect, url_for, abort, Response
+from flask import Blueprint, request, flash, redirect, url_for, abort
 from flask_babel import gettext as _
-from flask_babel import lazy_gettext as N_
 from .edition import split_edition
 from .cw_login import current_user
 from sqlalchemy.exc import OperationalError, IntegrityError, InterfaceError, InvalidRequestError
 from sqlalchemy.orm.exc import StaleDataError
 from sqlalchemy.sql.expression import func, or_
 
-from . import logger, uploader, helper, constants
+from . import logger, helper, constants
 from .clean_html import clean_string
 from . import config, ub, db, calibre_db
 from .services.arxiv_shelf import ARXIV_SHELF, arxiv_shelf
-from .services.worker import WorkerThread
-from .tasks.upload import TaskUpload
 from .render_template import render_title_template
 from .redirect import get_redirect_location
 from .shelf import check_shelf_edit_permissions
-from .file_helper import validate_mime_type
 from .usermanagement import user_login_required, login_required_if_no_ano
 from .string_helper import strip_whitespaces
 
@@ -206,9 +202,9 @@ def is_generic_cover(url):
     return urlsplit(url.strip()).path.endswith('/static/generic_cover.svg')
 
 
-def do_edit_book(book_id, upload_formats=None):
+def do_edit_book(book_id):
     request_start = time.monotonic()
-    log.debug("[edit_book] start book_id=%s user=%s upload_formats=%s", book_id, getattr(current_user, "name", "unknown"), bool(upload_formats))
+    log.debug("[edit_book] start book_id=%s user=%s", book_id, getattr(current_user, "name", "unknown"))
     modify_date = False
     edit_error = False
     refresh_cover_thumbnail_after_commit = False
@@ -242,23 +238,20 @@ def do_edit_book(book_id, upload_formats=None):
         if "title" in to_save:
             title_change = handle_title_on_edit(book, to_save["title"])
 
-        if not upload_formats:
-            new_input_authors, author_change = handle_author_on_edit(book, to_save["authors"])
-            if author_change:
-                input_authors = new_input_authors
-            # Keep the filesystem path in sync before staging relationship-heavy metadata.
-            if title_change or author_change:
-                title_author_error = helper.update_dir_structure(book.id, config.get_book_path(), input_authors[0])
-                if title_author_error:
-                    flash(title_author_error, category="error")
-                    calibre_db.session.rollback()
-                    return render_edit_book(book_id)
-                modify_date = True
-        else:
-            to_save, edit_error = upload_book_formats(upload_formats, book, book_id, book.has_cover)
+        new_input_authors, author_change = handle_author_on_edit(book, to_save["authors"])
+        if author_change:
+            input_authors = new_input_authors
+        # Keep the filesystem path in sync before staging relationship-heavy metadata.
+        if title_change or author_change:
+            title_author_error = helper.update_dir_structure(book.id, config.get_book_path(), input_authors[0])
+            if title_author_error:
+                flash(title_author_error, category="error")
+                calibre_db.session.rollback()
+                return render_edit_book(book_id)
+            modify_date = True
 
         cover_upload_success = upload_cover(request, book)
-        if cover_upload_success or to_save.get("format_cover"):
+        if cover_upload_success:
             book.has_cover = 1
             modify_date = True
         if cover_upload_success:
@@ -286,7 +279,6 @@ def do_edit_book(book_id, upload_formats=None):
                     flash(error, category="error")
 
         # Stage 2: Apply the remaining metadata changes to the database session.
-        modify_date |= edit_book_series_index(to_save.get("series_index"), book)
         # Not sent (the book page's Fetch Metadata sends it only when a result fills it): left
         # as it is. Markup(None) would save the text "None".
         comments = to_save.get('comments')
@@ -300,7 +292,6 @@ def do_edit_book(book_id, upload_formats=None):
         modify_date |= modification
 
         modify_date |= edit_book_tags(to_save.get('tags'), book)
-        modify_date |= edit_book_series(to_save.get("series"), book)
 
         modify_date |= edit_all_cc_data(book_id, book, to_save)
 
@@ -322,7 +313,7 @@ def do_edit_book(book_id, upload_formats=None):
         # The edition and volume live in cwa.db (calibre has no field for them), saved once the book is.
         # Only the editor sends the field, so other saves leave it as it is.
         edition = _UNCHANGED
-        if "edition" in to_save and not upload_formats:
+        if "edition" in to_save:
             edition = parse_edition(to_save["edition"])
             if edition is _INVALID:
                 flash(_("'%(edition)s' is not an edition. Write the number, like 6 for the sixth edition.",
@@ -330,7 +321,7 @@ def do_edit_book(book_id, upload_formats=None):
                 edit_error = True
                 edition = _UNCHANGED
         volume = _UNCHANGED
-        if "volume" in to_save and not upload_formats:
+        if "volume" in to_save:
             volume = parse_volume(to_save["volume"])
             if volume is _INVALID:
                 flash(_("'%(volume)s' is not a volume. Write the number, like 3 for volume 3.",
@@ -381,7 +372,7 @@ def do_edit_book(book_id, upload_formats=None):
         try:
             # Define metadata fields that represent actual content changes
             metadata_fields = {
-                'title', 'authors', 'series', 'series_index', 'tags', 'comments',
+                'title', 'authors', 'tags', 'comments',
                 'cover_url', 'pubdate'
             }
 
@@ -439,9 +430,6 @@ def do_edit_book(book_id, upload_formats=None):
             if modify_date:
                 _queue_duplicate_scan_after_change([book.id])
 
-        if upload_formats:
-            return Response(json.dumps({"location": url_for('edit-book.show_edit_book', book_id=book_id)}), mimetype='application/json')
-
         if "detail_view" in to_save:
             # Back to the page the editor was opened from (a shelf, a search, the grid)
             return redirect(_return_to(to_save.get("next")) or url_for('web.show_book', book_id=book.id))
@@ -459,19 +447,6 @@ def do_edit_book(book_id, upload_formats=None):
         flash(_("Couldn't save your changes to this book. Try again; if it keeps failing, check Logs in Settings."),
               category="error")
         return redirect(url_for('web.show_book', book_id=book.id))
-
-
-def merge_metadata(book, meta, to_save):
-    if meta.cover:
-        to_save['cover_format'] = meta.cover
-    for s_field, m_field in [
-            ('authors', 'author'), ('title', 'title'), ('comments', 'description')]:
-        try:
-            val = None if len(getattr(book, s_field)) else getattr(meta, m_field, '')
-        except TypeError:
-            val = None if len(str(getattr(book, s_field))) else getattr(meta, m_field, '')
-        if val:
-            to_save[s_field] = val
 
 
 def identifier_list(to_save, book):
@@ -887,31 +862,6 @@ def edit_book_tags(tags, book):
         return modify_database_object(input_tags, book.tags, db.Tags, calibre_db.session, 'tags')
     return False
 
-def edit_book_series(series, book):
-    if series is not None:
-        input_series = [strip_whitespaces(series)]
-        input_series = [x for x in input_series if x != '']
-        return modify_database_object(input_series, book.series, db.Series, calibre_db.session, 'series')
-    return False
-
-
-def edit_book_series_index(series_index, book):
-    if series_index:
-        # Add default series_index to book
-        modify_date = False
-        series_index = series_index or '1'
-        if not series_index.replace('.', '', 1).isdigit():
-            flash(_("Series number %(seriesindex)s isn't a number, so it wasn't saved. Enter a number such as 1 or 2.5.",
-                    seriesindex=series_index), category="warning")
-            return False
-        if str(book.series_index) != series_index:
-            book.series_index = series_index
-            modify_date = True
-        return modify_date
-    return False
-
-
-# Handle book comments/description
 def edit_book_comments(comments, book):
     if comments is not None:
         modify_date = False
@@ -1037,87 +987,6 @@ def edit_cc_data(book_id, book, to_save, cc):
 
 
 # returns False if an error occurs or no book is uploaded, in all other cases the ebook metadata to change is returned
-def upload_book_formats(requested_files, book, book_id, no_cover=True):
-    # Check and handle Uploaded file
-    to_save = {}
-    error = False
-    allowed_extensions = config.config_upload_formats.split(',')
-    for requested_file in requested_files:
-        current_filename = requested_file.filename
-        if config.config_check_extensions and allowed_extensions != ['']:
-            if not validate_mime_type(requested_file, allowed_extensions):
-                flash(_("File type isn't allowed to be uploaded to this server"), category="error")
-                error = True
-                continue
-        if current_filename != '':
-            if not current_user.role_upload():
-                flash(_("User has no rights to upload additional file formats"), category="error")
-                error = True
-                continue
-            if '.' in current_filename:
-                file_ext = current_filename.rsplit('.', 1)[-1].lower()
-                if file_ext not in allowed_extensions and '' not in allowed_extensions:
-                    flash(_("File extension '%(ext)s' is not allowed to be uploaded to this server", ext=file_ext),
-                          category="error")
-                    error = True
-                    continue
-            else:
-                flash(_('File to be uploaded must have an extension'), category="error")
-                error = True
-                continue
-
-            file_name = book.path.rsplit('/', 1)[-1]
-            filepath = os.path.normpath(os.path.join(config.get_book_path(), book.path))
-            saved_filename = os.path.join(filepath, file_name + '.' + file_ext)
-
-            # check if file path exists, otherwise create it, copy file to calibre path and delete temp file
-            if not os.path.exists(filepath):
-                try:
-                    os.makedirs(filepath)
-                except OSError:
-                    flash(_("Failed to create path %(path)s (Permission denied).", path=filepath),
-                          category="error")
-                    error = True
-                    continue
-            try:
-                requested_file.save(saved_filename)
-            except OSError:
-                flash(_("Failed to store file %(file)s.", file=saved_filename), category="error")
-                error = True
-                continue
-
-            file_size = os.path.getsize(saved_filename)
-
-            # Format entry already exists, no need to update the database
-            if calibre_db.get_book_format(book_id, file_ext.upper()):
-                log.warning('Book format %s already existing', file_ext.upper())
-            else:
-                try:
-                    db_format = db.Data(book_id, file_ext.upper(), file_size, file_name)
-                    calibre_db.session.add(db_format)
-                    calibre_db.session.commit()
-                    calibre_db.create_functions(config)
-                except (OperationalError, IntegrityError, StaleDataError) as e:
-                    calibre_db.session.rollback()
-                    log.error_or_exception(f"Database error: {e}")
-                    flash(_("Couldn't add the %(format)s file to this book. Try again; if it keeps failing, "
-                            "check Logs in Settings.", format=file_ext.upper()),
-                          category="error")
-                    error = True
-                    continue
-
-            # Queue uploader info
-            link = '<a href="{}">{}</a>'.format(url_for('web.show_book', book_id=book.id), escape(book.title))
-            upload_text = N_("File format %(ext)s added to %(book)s", ext=file_ext.upper(), book=link)
-            WorkerThread.add(current_user.name, TaskUpload(upload_text, escape(book.title)))
-            meta = uploader.process(
-                saved_filename,
-                *os.path.splitext(current_filename),
-                no_cover=no_cover)
-            merge_metadata(book, meta, to_save)
-    return to_save, error
-
-
 def upload_cover(cover_request, book):
     requested_file = cover_request.files.get('btn-upload-cover', None)
     if requested_file:
@@ -1221,9 +1090,7 @@ def remove_objects(db_book_object, db_session, del_elements):
 
 def add_objects(db_book_object, db_object, db_session, db_type, add_elements):
     changed = False
-    if db_type == 'languages':
-        db_filter = db_object.lang_code
-    elif db_type == 'custom':
+    if db_type == 'custom':
         db_filter = db_object.value
     else:
         db_filter = db_object.name
@@ -1235,13 +1102,9 @@ def add_objects(db_book_object, db_object, db_session, db_type, add_elements):
         if not db_element:
             if db_type == 'author':
                 new_element = db_object(add_element, helper.get_sorted_author(add_element.replace('|', ',')))
-            elif db_type == 'series':
-                new_element = db_object(add_element, add_element)
             elif db_type == 'custom':
                 new_element = db_object(value=add_element)
-            elif db_type == 'publisher':
-                new_element = db_object(add_element, None)
-            else:  # db_type should be tag or language
+            else:  # a tag
                 new_element = db_object(add_element)
             db_session.add(new_element)
             # Append new element (should not exist in collection, but check for safety)
@@ -1264,21 +1127,10 @@ def create_objects_for_addition(db_element, add_element, db_type):
     if db_type == 'custom':
         if db_element.value != add_element:
             db_element.value = add_element
-    elif db_type == 'languages':
-        if db_element.lang_code != add_element:
-            db_element.lang_code = add_element
-    elif db_type == 'series':
-        if db_element.name != add_element:
-            db_element.name = add_element
-            db_element.sort = add_element
     elif db_type == 'author':
         if db_element.name != add_element:
             db_element.name = add_element
             db_element.sort = helper.get_sorted_author(add_element.replace('|', ','))
-    elif db_type == 'publisher':
-        if db_element.name != add_element:
-            db_element.name = add_element
-            db_element.sort = None
     elif db_element.name != add_element:
         db_element.name = add_element
     return db_element
@@ -1301,7 +1153,7 @@ def modify_database_object(input_elements, db_book_object, db_object, db_session
         else:
             if rec_a.get().casefold() == rec_b.casefold() and rec_a.get() != rec_b:
                 create_objects_for_addition(rec_a, rec_b, db_type)
-        # we have all input element (authors, series, tags) names now
+        # we have all input element (authors, tags) names now
     # 1. search for elements to remove
     del_elements = search_objects_remove(db_book_object, db_type, input_elements)
     # 2. search for elements that need to be added

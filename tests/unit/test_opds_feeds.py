@@ -96,12 +96,12 @@ class TestRootCatalog:
     def test_hidden_entries_and_custom_order_respected(self, env):
         from cps import ub
         user = env.add_user("picky", password="pw", view_settings={
-            "opds": {"root_order": ["authors", "books"], "hidden_entries": ["recent", "hot"]}})
+            "opds": {"root_order": ["authors", "books"], "hidden_entries": ["recent", "categories"]}})
         ub.session.commit()
         titles = _titles(_get_feed(env, "/opds", _auth(user.name, "pw")))
         assert titles[:2] == ["Authors", "Alphabetical Books"]
         assert "Recently added Books" not in titles
-        assert "Hot Books" not in titles
+        assert "Categories" not in titles
 
     def test_osd_is_valid_opensearch(self, env):
         resp = env.app.test_client().get("/opds/osd", headers=_admin_headers(env))
@@ -142,11 +142,11 @@ class TestAcquisitionFeeds:
 
     def test_feed_hidden_when_sidebar_entry_disabled(self, env):
         from cps import constants
-        user = env.add_user("nohot", password="pw",
-                            sidebar_view=constants.ADMIN_USER_SIDEBAR & ~constants.SIDEBAR_HOT)
+        user = env.add_user("nocat", password="pw",
+                            sidebar_view=constants.ADMIN_USER_SIDEBAR & ~constants.SIDEBAR_CATEGORY)
         client = env.app.test_client()
-        assert client.get("/opds/hot", headers=_auth(user.name, "pw")).status_code == 404
-        assert "Hot Books" not in _titles(_get_feed(env, "/opds", _auth(user.name, "pw")))
+        assert client.get("/opds/category", headers=_auth(user.name, "pw")).status_code == 404
+        assert "Categories" not in _titles(_get_feed(env, "/opds", _auth(user.name, "pw")))
         # "Recently added" is deliberately always visible (User.check_visibility).
         assert client.get("/opds/new", headers=_auth(user.name, "pw")).status_code == 200
 

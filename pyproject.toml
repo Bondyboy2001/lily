@@ -26,8 +26,6 @@ dependencies = [
     "Flask-Babel>=3.0.0,<4.1.0",
     "Flask-Principal>=0.3.2,<0.5.1",
     "Flask>=3.1.3,<3.2.0",
-    "iso-639>=0.4.5,<0.5.0;python_version<'3.12'",
-    "pycountry>=26.2.16,<27.0.0;python_version>='3.12'",
     "pypdf>=6.0.0",
     "requests>=2.32.4,<3.0",
     "SQLAlchemy>=2.0.54,<2.1.0",

@@ -53,9 +53,6 @@ class _SettingsCwaDB:
     default_settings = {
         "duplicate_detection_title": 1,
         "duplicate_detection_author": 1,
-        "duplicate_detection_language": 0,
-        "duplicate_detection_series": 0,
-        "duplicate_detection_publisher": 0,
         "duplicate_detection_format": 0,
         "duplicate_scan_enabled": 1,
         "duplicate_scan_frequency": "after_import",

@@ -154,7 +154,7 @@
     <div id="no_duplicate_books_message">
       {% call f.group(None, id='results') %}
         {% call image.empty_state('glyphicon-ok-circle', _('No Duplicate Books'),
-                                  _('No two books share the same title, author, and language.')) %}
+                                  _('No two books share the same title and author.')) %}
           <button type="button" class="btn btn-primary" id="scan_duplicates">{{_('Scan for duplicates')}}</button>
         {% endcall %}
       {% endcall %}

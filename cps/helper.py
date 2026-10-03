@@ -124,22 +124,6 @@ def get_valid_filename(value, replace_whitespace=True, chars=128):
     return value
 
 
-def split_authors(values):
-    authors_list = []
-    for value in values:
-        authors = re.split('[&;]', value)
-        for author in authors:
-            commas = author.count(',')
-            if commas == 1:
-                author_split = author.split(',')
-                authors_list.append(strip_whitespaces(author_split[1]) + ' ' + strip_whitespaces(author_split[0]))
-            elif commas > 1:
-                authors_list.extend([strip_whitespaces(x) for x in author.split(',')])
-            else:
-                authors_list.append(strip_whitespaces(author))
-    return authors_list
-
-
 def get_sorted_author(value):
     value2 = None
     try:
@@ -858,10 +842,6 @@ def get_download_link(book_id, book_format):
     if not data1:
         log.error("Requested format %s for book id %s not found in database", book_format.upper(), book_id)
         abort(404)
-
-    # collect downloaded books only for registered user and not for anonymous user
-    if current_user.is_authenticated:
-        ub.update_download(book_id, int(current_user.id))
 
     file_name = book.title
     # calibre's "Unknown" stand-in is no author to name the file after

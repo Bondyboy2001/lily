@@ -8,7 +8,7 @@ Unit tests for cps/helper.py
 
 Tests cover pure Python utility functions that don't require Docker:
 - Filename sanitization (get_valid_filename)
-- Author name parsing (split_authors, get_sorted_author)
+- Author name parsing (get_sorted_author)
 - Password validation (valid_password)
 - Email and username validation (valid_email, check_email, check_username)
 - List de-duplication (uniq) and readable-format detection (check_read_formats)
@@ -27,7 +27,6 @@ from cps import config
 # Import functions from helper.py
 from cps.helper import (
     get_valid_filename,
-    split_authors,
     get_sorted_author,
     check_email,
     check_username,
@@ -158,74 +157,6 @@ class TestGetValidFilename:
         result = get_valid_filename("Author1|Author2|Author3")
         assert "|" not in result
         assert "," in result  # Pipes become commas
-
-
-# ============================================================================
-# Tests for split_authors()
-# ============================================================================
-
-class TestSplitAuthors:
-    """Test author name splitting logic"""
-
-    def test_single_author_no_delimiter(self):
-        """Test single author without delimiter"""
-        result = split_authors(["John Doe"])
-        assert result == ["John Doe"]
-
-    def test_ampersand_delimiter(self):
-        """Test authors split by ampersand"""
-        result = split_authors(["John Doe & Jane Smith"])
-        assert len(result) == 2
-        assert "John Doe" in result
-        assert "Jane Smith" in result
-
-    def test_semicolon_delimiter(self):
-        """Test authors split by semicolon"""
-        result = split_authors(["John Doe;Jane Smith"])
-        assert len(result) == 2
-        assert "John Doe" in result
-        assert "Jane Smith" in result
-
-    def test_lastname_firstname_format(self):
-        """Test 'Lastname, Firstname' format is reversed"""
-        result = split_authors(["Doe, John"])
-        assert result == ["John Doe"]
-
-    def test_multiple_commas_preserved(self):
-        """Test names with multiple commas are split"""
-        result = split_authors(["Doe, John, Jr."])
-        # Multiple commas should result in split
-        assert len(result) >= 2
-
-    def test_whitespace_stripped(self):
-        """Test whitespace is stripped from author names"""
-        result = split_authors(["  John Doe  &  Jane Smith  "])
-        assert "John Doe" in result
-        assert "Jane Smith" in result
-        # No leading/trailing whitespace
-        for author in result:
-            assert author == author.strip()
-
-    def test_mixed_delimiters(self):
-        """Test mixed delimiters in same string"""
-        result = split_authors(["John Doe & Jane Smith;Bob Jones"])
-        assert len(result) == 3
-        assert "John Doe" in result
-        assert "Jane Smith" in result
-        assert "Bob Jones" in result
-
-    def test_empty_list_returns_empty(self):
-        """Test empty list returns empty list"""
-        result = split_authors([])
-        assert result == []
-
-    def test_multiple_input_values(self):
-        """Test multiple input values are processed"""
-        result = split_authors(["John Doe", "Jane Smith & Bob Jones"])
-        assert len(result) == 3
-        assert "John Doe" in result
-        assert "Jane Smith" in result
-        assert "Bob Jones" in result
 
 
 # ============================================================================

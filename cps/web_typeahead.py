@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""JSON lookups that feed the typeahead fields (authors, publishers, tags, languages, titles).
+"""JSON lookups that feed the typeahead fields (authors, tags, titles).
 
 Routes are attached to the web blueprint; web.py imports this module at its end."""
 

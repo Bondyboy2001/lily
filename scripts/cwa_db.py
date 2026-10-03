@@ -208,6 +208,19 @@ def _m6_drop_import_merge(cur) -> None:
         cur.execute("ALTER TABLE cwa_settings DROP COLUMN auto_ingest_automerge")
 
 
+def _m9_drop_language_series_publisher_matching(cur) -> None:
+    # Duplicates are matched on title, author and format only: Lily keeps no languages,
+    # series or publishers
+    for table, columns in (("cwa_settings", ("duplicate_detection_language", "duplicate_detection_series",
+                                              "duplicate_detection_publisher")),
+                           ("cwa_duplicate_book_keys", ("normalized_language", "normalized_series",
+                                                        "normalized_publisher"))):
+        present = _columns(cur, table)
+        for column in columns:
+            if column in present:
+                cur.execute(f"ALTER TABLE {table} DROP COLUMN {column}")
+
+
 # Where the container keeps the library's location (calibre_library_dir)
 DIRS_FILE = "/app/calibre-web-automated/dirs.json"
 
@@ -281,7 +294,9 @@ MIGRATIONS: list = [(1, "always detect duplicates, no Hardcover auto-fetch", _m1
                     (5, "drop unused duplicate-scan and resolution columns", _m5_drop_unused_columns),
                     (6, "drop the import merge setting", _m6_drop_import_merge),
                     (7, "clear every book's tags", _m7_clear_every_books_tags),
-                    (8, "clear every book's publisher, languages and rating", _m8_clear_publishers_languages_ratings)]
+                    (8, "clear every book's publisher, languages and rating", _m8_clear_publishers_languages_ratings),
+                    (9, "drop duplicate matching on language, series and publisher",
+                     _m9_drop_language_series_publisher_matching)]
 SCHEMA_MIGRATIONS_TABLE = "cwa_schema_migrations"
 
 

@@ -178,7 +178,7 @@ def _load_editbooks_module(delete_key_calls):
     cps.calibre_db = calibre_db
     cps.db = db
 
-    for name in ("constants", "isoLanguages", "uploader"):
+    for name in ("constants",):
         module = _install_stub(f"cps.{name}")
         setattr(cps, name, module)
 

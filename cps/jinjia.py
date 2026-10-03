@@ -102,25 +102,6 @@ def ordinal(number):
     return f"{number}{suffix}"
 
 
-@jinjia.app_template_filter('formatfloat')
-def formatfloat(value, decimals=1):
-    # Handle None and empty string cases
-    if value is None or (isinstance(value, str) and value.strip() == ''):
-        return ''
-
-    try:
-        # Convert to float if it's a string (series_index is stored as String in DB)
-        float_value = float(value) if isinstance(value, str) else value
-        formated_value = ('{0:.' + str(decimals) + 'f}').format(float_value)
-        # Remove trailing zeros and unnecessary decimal point
-        formated_value = formated_value.rstrip('0').rstrip('.')
-        return formated_value
-    except (ValueError, TypeError) as e:
-        # If conversion fails, log the error and return empty string for safety
-        log.debug(f'formatfloat filter error: Cannot convert value "{value}" to float: {e}')
-        return ''
-
-
 @jinjia.app_template_filter('readable_formats')
 def readable_formats_filter(book):
     from .helper import check_read_formats

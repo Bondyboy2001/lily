@@ -27,8 +27,7 @@
         'title': (_('Title'), 'abc', 'zyx'),
         'published': (_('Published'), 'pubold', 'pubnew'),
         'author': (_('Author'), 'authaz', 'authza'),
-        'shelf': (_('Added to shelf'), 'shelfold', 'shelfnew'),
-        'downloads': (_('Downloads'), 'hotasc', 'hotdesc')} -%}
+        'shelf': (_('Added to shelf'), 'shelfold', 'shelfnew')} -%}
     {%- set ns = namespace(field=fields[0], desc=True) -%}
     {%- for key in fields -%}
       {%- if order == sorts[key][1] %}{% set ns.field = key %}{% set ns.desc = False %}{% endif -%}

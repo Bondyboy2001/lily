@@ -17,8 +17,8 @@ def rules():
 def _book(ts=None, formats=(), tags=(), size=0, comment=None):
     data = [SimpleNamespace(format=f, uncompressed_size=size) for f in formats]
     comments = [SimpleNamespace(text=comment)] if comment else []
-    return SimpleNamespace(timestamp=ts, data=data, tags=list(tags), series=None, ratings=[],
-                           comments=comments, publishers=[], pubdate=None, identifiers=[])
+    return SimpleNamespace(timestamp=ts, data=data, tags=list(tags),
+                           comments=comments, pubdate=None, identifiers=[])
 
 
 def test_group_hash_ignores_case_and_padding_and_has_defaults(rules):

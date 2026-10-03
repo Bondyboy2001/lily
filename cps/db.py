@@ -32,7 +32,6 @@ except ImportError:
     from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql.expression import and_, true, false, text, func, or_
-from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.sql import select, table as sql_table, column as sql_column
 from .cw_login import current_user
 from flask_babel import gettext as _
@@ -79,11 +78,6 @@ books_tags_link = Table('books_tags_link', Base.metadata,
                         Column('book', Integer, ForeignKey('books.id'), primary_key=True),
                         Column('tag', Integer, ForeignKey('tags.id'), primary_key=True)
                         )
-
-books_series_link = Table('books_series_link', Base.metadata,
-                          Column('book', Integer, ForeignKey('books.id'), primary_key=True),
-                          Column('series', Integer, ForeignKey('series.id'), primary_key=True)
-                          )
 
 books_ratings_link = Table('books_ratings_link', Base.metadata,
                            Column('book', Integer, ForeignKey('books.id'), primary_key=True),
@@ -286,28 +280,6 @@ class Authors(Base):
         return "<Authors('{0},{1}{2}')>".format(self.name, self.sort, self.link)
 
 
-class Series(Base):
-    __tablename__ = 'series'
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String(collation='NOCASE'), unique=True, nullable=False)
-    sort = Column(String(collation='NOCASE'))
-
-    def __init__(self, name, sort):
-        super().__init__()
-        self.name = name
-        self.sort = sort
-
-    def get(self):
-        return self.name
-
-    def __eq__(self, other):
-        return self.name == other
-
-    def __repr__(self):
-        return "<Series('{0},{1}')>".format(self.name, self.sort)
-
-
 class Ratings(Base):
     __tablename__ = 'ratings'
 
@@ -430,15 +402,15 @@ class Books(Base):
     # "WHERE books.id IN (...)" lookup, so templates can read them after the scoped session is torn
     # down (see fill_indexpage) and there is no N+1. 'subquery' (the old setting) re-ran the whole
     # filtered/ordered/paginated Books query once per relationship. Queries that know they need
-    # less (the Discover cards) opt out with lazyload(); see _card_relationships().
+    # less (the book cards) opt out with lazyload(); see _card_relationships().
     authors = relationship(Authors, secondary=books_authors_link, backref='books', lazy='selectin')
     tags = relationship(Tags, secondary=books_tags_link, backref='books', order_by="Tags.name", lazy='selectin')
     comments = relationship(Comments, backref='books', lazy='selectin')
     data = relationship(Data, backref='books', lazy='selectin')
-    series = relationship(Series, secondary=books_series_link, backref='books', lazy='selectin')
-    ratings = relationship(Ratings, secondary=books_ratings_link, backref='books', lazy='selectin')
-    languages = relationship(Languages, secondary=books_languages_link, backref='books', lazy='selectin')
-    publishers = relationship(Publishers, secondary=books_publishers_link, backref='books', lazy='selectin')
+    # Lily shows none of these; only tag_cleanup reads them, to clear what an import brought in
+    ratings = relationship(Ratings, secondary=books_ratings_link, backref='books')
+    languages = relationship(Languages, secondary=books_languages_link, backref='books')
+    publishers = relationship(Publishers, secondary=books_publishers_link, backref='books')
     identifiers = relationship(Identifiers, backref='books', lazy='selectin')
 
     def __init__(self, title, sort, author_sort, timestamp, pubdate, series_index, last_modified, path, has_cover,
@@ -511,20 +483,19 @@ class CustomColumns(Base):
 
 
 def _all_book_relationships():
-    return (Books.authors, Books.tags, Books.comments, Books.data, Books.series, Books.ratings,
-            Books.languages, Books.publishers, Books.identifiers)
+    return (Books.authors, Books.tags, Books.comments, Books.data, Books.identifiers)
 
 
 def _card_relationships():
-    """What a book card (image.html book_card) reads: authors, formats, rating."""
-    return (Books.authors, Books.data, Books.ratings)
+    """What a book card (image.html book_card) reads: authors and formats."""
+    return (Books.authors, Books.data)
 
 
 def card_load_options(skip_others):
     """Loader options for a page of book cards.
 
     selectinload (not joinedload) so the paginated query isn't wrapped in a subquery and
-    multiplied by authors x formats x ratings. With skip_others, the relationships
+    multiplied by authors x formats. With skip_others, the relationships
     cards never read (comments, tags, identifiers, ...) are left unloaded.
     """
     card = _card_relationships()
@@ -626,21 +597,6 @@ class CalibreDB:
         books_custom_column_links = {}
         for row in cc:
             if row.datatype not in cc_exceptions:
-                if row.datatype == 'series':
-                    dicttable = {'__tablename__': 'books_custom_column_' + str(row.id) + '_link',
-                                 'id': Column(Integer, primary_key=True),
-                                 'book': Column(Integer, ForeignKey('books.id'),
-                                                primary_key=True),
-                                 'map_value': Column('value', Integer,
-                                                     ForeignKey('custom_column_' +
-                                                                str(row.id) + '.id'),
-                                                     primary_key=True),
-                                 'extra': Column(Float),
-                                 'asoc': relationship('custom_column_' + str(row.id), uselist=False),
-                                 'value': association_proxy('asoc', 'value')
-                                 }
-                    books_custom_column_links[row.id] = type(str('books_custom_column_' + str(row.id) + '_link'),
-                                                             (Base,), dicttable)
                 if row.datatype in ['rating', 'text', 'enumeration']:
                     books_custom_column_links[row.id] = Table('books_custom_column_' + str(row.id) + '_link',
                                                               Base.metadata,
@@ -676,11 +632,6 @@ class CalibreDB:
                         relationship(cc_classes[cc_id[0]],
                                      primaryjoin=(
                                          Books.id == cc_classes[cc_id[0]].book),
-                                     backref='books'))
-            elif cc_id[1] == 'series':
-                setattr(Books,
-                        'custom_column_' + str(cc_id[0]),
-                        relationship(books_custom_column_links[cc_id[0]],
                                      backref='books'))
             else:
                 setattr(Books,
@@ -795,7 +746,7 @@ class CalibreDB:
     def get_filtered_book(self, book_id):
         self.ensure_session()
         # Eagerly load all relationships to prevent detached instance errors during editing.
-        # selectinload, not joinedload: joining nine collections multiplied the rows
+        # selectinload, not joinedload: joining five collections multiplied the rows
         # (tags x formats x identifiers x ...) for a single book.
         return (self.session.query(Books)
                 .options(*[selectinload(rel) for rel in _all_book_relationships()])
@@ -850,7 +801,7 @@ class CalibreDB:
         if not self.session.query(Metadata_Dirtied).filter(Metadata_Dirtied.book == book_id).one_or_none():
             self.session.add(Metadata_Dirtied(book_id))
 
-    # Language and content filters for displaying in the UI
+    # Tag and custom column restrictions for displaying in the UI
     def common_filters(self, viewing_tag_id=None):
         negtags_list = current_user.list_denied_tags()
         postags_list = current_user.list_allowed_tags()
@@ -924,9 +875,8 @@ class CalibreDB:
 
         # Eagerly load template relationships to prevent DetachedInstanceError
         # during rendering under concurrent status/notification requests.
-        # The same helper feeds OPDS (comments, tags, languages, publishers), so by
-        # default the other relationships keep
-        # their model-level selectin loading: one IN query each, never per book.
+        # The same helper feeds OPDS (comments, tags), so by default the other relationships
+        # keep their model-level selectin loading: one IN query each, never per book.
         # Callers that only render book cards pass cards_only=True to skip them.
         if database == Books:
             query = query.options(*card_load_options(skip_others=bool(kwargs.get('cards_only'))))
@@ -1043,7 +993,7 @@ class CalibreDB:
         json_dumps = json.dumps([dict(name=r.name.replace(*replace)) for r in entries])
         return json_dumps
 
-    def search_query(self, term, config, *join):
+    def search_query(self, term, config):
         self.ensure_session()
         self.create_functions()
 
@@ -1055,14 +1005,6 @@ class CalibreDB:
             return func.lower(column).like(like_pattern(word), escape="\\")
 
         query = self.generate_linked_query(config.config_read_column, Books)
-        if len(join) == 6:
-            query = query.outerjoin(join[0], join[1]).outerjoin(join[2]).outerjoin(join[3], join[4]).outerjoin(join[5])
-        if len(join) == 3:
-            query = query.outerjoin(join[0], join[1]).outerjoin(join[2])
-        elif len(join) == 2:
-            query = query.outerjoin(join[0], join[1])
-        elif len(join) == 1:
-            query = query.outerjoin(join[0])
 
         text_columns = [c for c in self.get_cc_columns(config, filter_config_custom_read=True)
                         if c.datatype not in ["datetime", "rating", "bool", "int", "float"]]
@@ -1076,7 +1018,6 @@ class CalibreDB:
             folded = lcase(word)
             matches = [Books.tags.any(contains(Tags.name, folded)),
                        Books.authors.any(contains(Authors.name, folded)),
-                       Books.publishers.any(contains(Publishers.name, folded)),
                        contains(Books.title, folded)]
             # Words from a description or abstract (stored as HTML, so not a tag's name)
             if len(word) >= 4 and word.lower() not in _MARKUP_WORDS:
@@ -1114,11 +1055,11 @@ class CalibreDB:
         return cc
 
     # read search results from calibre-database and return it (function is used for feed and simple search
-    def get_search_results(self, term, config, offset=None, order=None, limit=None, *join, cards_only=False):
+    def get_search_results(self, term, config, offset=None, order=None, limit=None, cards_only=False):
         self.ensure_session()
         order = order[0] if order else [Books.sort]
         pagination = None
-        query = self.search_query(term, config, *join).order_by(*order)
+        query = self.search_query(term, config).order_by(*order)
         if offset is not None and limit is not None:
             # Match on ids only, then load the visible page, instead of loading every match
             # with all its relationships. One id scan rather than a count plus a paged query,
@@ -1295,16 +1236,3 @@ _ASCII_LOWER_TABLE = str.maketrans('ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmn
 def _ascii_lower(s):
     """Lower-case ASCII letters only, mirroring SQLite's NOCASE collation."""
     return s.translate(_ASCII_LOWER_TABLE) if s is not None else None
-
-
-class Category:
-    name = None
-    id = None
-    count = None
-    rating = None
-
-    def __init__(self, name, cat_id, rating=None):
-        self.name = name
-        self.id = cat_id
-        self.rating = rating
-        self.count = 1

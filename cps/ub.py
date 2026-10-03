@@ -227,9 +227,7 @@ class User(UserBase, Base):
     role = Column(SmallInteger, default=constants.ROLE_USER)
     password = Column(String)
     shelf = relationship('Shelf', backref='user', lazy='dynamic', order_by='Shelf.name')
-    downloads = relationship('Downloads', backref='user', lazy='dynamic')
     sidebar_view = Column(Integer, default=1)
-    default_language = Column(String(3), default="all")
     denied_tags = Column(String, default="")
     allowed_tags = Column(String, default="")
     denied_column_value = Column(String, default="")
@@ -256,7 +254,6 @@ class Anonymous(AnonymousUserMixin, UserBase):
         self.allowed_column_value = None
         self.allowed_tags = None
         self.denied_tags = None
-        self.default_language = None
         self.sidebar_view = None
         self.id = None
         self.role = None
@@ -271,7 +268,6 @@ class Anonymous(AnonymousUserMixin, UserBase):
         self.role = data.role
         self.id=data.id
         self.sidebar_view = data.sidebar_view
-        self.default_language = data.default_language
         self.denied_tags = data.denied_tags
         self.allowed_tags = data.allowed_tags
         self.denied_column_value = data.denied_column_value
@@ -454,19 +450,6 @@ def receive_before_flush(session, flush_context, instances):
             change.ub_shelf.last_modified = datetime.now(UTC)
 
 
-# Baseclass representing Downloads from calibre-web in app.db
-class Downloads(Base):
-    __tablename__ = 'downloads'
-    __table_args__ = (Index('ix_downloads_user_id', 'user_id'),)
-
-    id = Column(Integer, primary_key=True)
-    book_id = Column(Integer)
-    user_id = Column(Integer, ForeignKey('user.id'))
-
-    def __repr__(self):
-        return '<Download %r' % self.book_id
-
-
 def filename(context):
     """Generate deterministic filename for thumbnails.
 
@@ -572,38 +555,6 @@ def migrate_user_table(engine, _session):
         _safe_session_rollback(_session, "user.force_password_change")
         _run_ddl_with_retry(engine, "ALTER TABLE user ADD column 'force_password_change' Boolean DEFAULT 0")
 
-    # Migration to enable duplicates sidebar for existing admin users (one-time)
-    try:
-        from . import constants
-        SIDEBAR_DUPLICATES = constants.SIDEBAR_DUPLICATES
-
-        migration_dir = os.path.join(constants.CONFIG_DIR, ".cwa_migrations")
-        migration_marker = os.path.join(migration_dir, "duplicates_sidebar_v1")
-
-        if not os.path.isfile(migration_marker):
-            # Check if any admin users don't have duplicates enabled
-            admin_users = _session.query(User).filter(
-                User.role.op('&')(constants.ROLE_ADMIN) == constants.ROLE_ADMIN
-            ).all()
-            for user in admin_users:
-                if not (user.sidebar_view & SIDEBAR_DUPLICATES):
-                    user.sidebar_view |= SIDEBAR_DUPLICATES
-                    print(f"[Migration] Enabled duplicates sidebar for admin user: {user.name}")
-
-            _session.commit()
-            try:
-                os.makedirs(migration_dir, exist_ok=True)
-                with open(migration_marker, "w", encoding="utf-8") as marker:
-                    marker.write(datetime.now(UTC).isoformat())
-            except Exception as marker_error:
-                print(
-                    f"[Migration] Warning: Could not persist duplicates sidebar migration marker: {marker_error}",
-                    flush=True,
-                )
-    except Exception as e:
-        print(f"[Migration] Warning: Could not update duplicates sidebar setting: {e}")
-        _session.rollback()
-
 # Migrate database to current version, has to be updated after every database change. Currently migration from
 # maybe 4/5 versions back to current should work.
 # Migration is done by checking if relevant columns are existing, and then adding rows with SQL commands
@@ -614,7 +565,6 @@ _PERFORMANCE_INDEXES = (
     ('ix_thumbnail_type_entity_resolution', 'thumbnail', ('type', 'entity_id', 'resolution')),
     ('ix_user_session_random_session_key', 'user_session', ('random', 'session_key')),
     ('ix_book_shelf_link_shelf', 'book_shelf_link', ('shelf',)),
-    ('ix_downloads_user_id', 'downloads', ('user_id',)),
     ('ix_bookmark_user_book', 'bookmark', ('user_id', 'book_id')),
 )
 
@@ -664,7 +614,7 @@ def migrate_default_sidebar(_session):
     marker = os.path.join(os.path.dirname(os.path.abspath(db_path)), ".lily_sidebar_trimmed")
     if os.path.exists(marker):
         return
-    keep = constants.DEFAULT_SIDEBAR | constants.DETAIL_RANDOM
+    keep = constants.DEFAULT_SIDEBAR
     try:
         for user in _session.query(User).all():
             user.sidebar_view = (user.sidebar_view or 0) & keep
@@ -719,12 +669,13 @@ _REMOVED_TABLES = (
     'metadata_suggestion', 'oauthProvider', 'opds_magic_shelf_exposure', 'opds_shelf_exposure',
     'registration',
     'remote_auth_token', 'shelf_archive',
+    'downloads',
 )
 _REMOVED_COLUMNS = {
     'user': ('kindle_mail', 'kindle_mail_subject', 'locale', 'kobo_only_shelves_sync',
              'opds_only_shelves_sync', 'hardcover_token', 'theme', 'auto_send_enabled',
              'allow_additional_ereader_emails', 'totp_secret', 'totp_enabled', 'totp_last_step',
-             'api_token_hash'),
+             'api_token_hash', 'default_language'),
     'shelf': ('kobo_sync',),
     'book_read_link': ('last_time_started_reading', 'times_started_reading'),
     'settings': (
@@ -848,27 +799,6 @@ def migrate_Database(_session):
     _safe_session_rollback(_session, "performance indexes")  # release any read lock before DDL
     migrate_performance_indexes(engine)
 
-
-# Save downloaded books per user in calibre-web's own database
-def update_download(book_id, user_id):
-    check = session.query(Downloads).filter(Downloads.user_id == user_id).filter(Downloads.book_id == book_id).first()
-
-    if not check:
-        new_download = Downloads(user_id=user_id, book_id=book_id)
-        session.add(new_download)
-        try:
-            session.commit()
-        except exc.OperationalError:
-            session.rollback()
-
-
-# Delete non existing downloaded books in calibre-web's own database
-def delete_download(book_id):
-    session.query(Downloads).filter(book_id == Downloads.book_id).delete()
-    try:
-        session.commit()
-    except exc.OperationalError:
-        session.rollback()
 
 # Generate user Guest (translated text), as anonymous user, no rights
 def create_anonymous_user(_session):

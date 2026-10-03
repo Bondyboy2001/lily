@@ -14,7 +14,7 @@ const password = process.env.LILY_PASSWORD || 'admin123';
 const newPassword = process.env.NEW_PASSWORD || 'Sm0ke-test-pw-91!';
 
 const PAGES = ['/', '/duplicates', '/me', '/cwa-settings', '/logs', '/admin/usertable', '/shelf/create',
-  '/advsearch', '/author', '/category'];
+  '/advsearch', '/author'];
 
 const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH || undefined });
 const page = await browser.newPage();

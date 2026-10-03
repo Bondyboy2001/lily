@@ -25,7 +25,6 @@ _._lily_fetched_ids  # cached on g, read back with g.get() (jinjia.metadata_fetc
 # SQLAlchemy model columns, relationships and hybrid properties
 _.atom_timestamp
 _.custom_extra_fill
-_.downloads
 _.dismissed_at
 
 # SQLAlchemy event listeners + Flask-Login callbacks (invoked by the framework)
@@ -57,6 +56,7 @@ _.expires
 
 # Wand/Pillow drawing attributes (read by the imaging library)
 _.compression_quality
+_.alpha_channel
 _.background_color
 _.font_size
 _.font

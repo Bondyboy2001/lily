@@ -7,12 +7,12 @@ import pytest
 def app_db(tmp_path):
     from sqlalchemy import create_engine, text
     from sqlalchemy.orm import sessionmaker
-    from cps import ub, constants
+    from cps import ub
 
     engine = create_engine("sqlite:///" + str(tmp_path / "app.db"))
     ub.Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine)()
-    everything = (constants.SIDEBAR_DUPLICATES << 1) - 1
+    everything = (1 << 20) - 1
     session.add(ub.User(name="reader", email="reader@example.org", role=0, sidebar_view=everything))
     session.execute(text("CREATE TABLE settings (id INTEGER PRIMARY KEY, config_default_show INTEGER)"))
     session.execute(text("INSERT INTO settings VALUES (1, :v)"), {"v": everything})
@@ -26,7 +26,7 @@ def test_existing_sidebars_and_default_are_trimmed_once(app_db, tmp_path):
     from sqlalchemy import text
     from cps import ub, constants
 
-    expected = constants.DEFAULT_SIDEBAR | constants.DETAIL_RANDOM
+    expected = constants.DEFAULT_SIDEBAR
     ub.migrate_default_sidebar(app_db)
 
     assert app_db.query(ub.User).one().sidebar_view == expected
@@ -36,16 +36,16 @@ def test_existing_sidebars_and_default_are_trimmed_once(app_db, tmp_path):
 
 @pytest.mark.unit
 def test_entries_switched_back_on_survive_later_starts(app_db):
-    from cps import ub, constants
+    from cps import ub
 
     ub.migrate_default_sidebar(app_db)
     user = app_db.query(ub.User).one()
-    user.sidebar_view |= constants.SIDEBAR_HOT
+    user.sidebar_view |= 1 << 4  # any bit outside the defaults
     app_db.commit()
 
     ub.migrate_default_sidebar(app_db)
 
-    assert app_db.query(ub.User).one().sidebar_view & constants.SIDEBAR_HOT
+    assert app_db.query(ub.User).one().sidebar_view & (1 << 4)
 
 
 @pytest.mark.unit
@@ -55,9 +55,6 @@ def test_default_sidebar_is_the_core_views():
     for flag in (constants.SIDEBAR_RECENT, constants.SIDEBAR_AUTHOR,
                  constants.SIDEBAR_CATEGORY, constants.SIDEBAR_READ_AND_UNREAD):
         assert constants.DEFAULT_SIDEBAR & flag
-    for flag in (constants.SIDEBAR_HOT, constants.SIDEBAR_DOWNLOAD, constants.SIDEBAR_RANDOM,
-                 constants.SIDEBAR_FORMAT, constants.SIDEBAR_DUPLICATES):
-        assert not constants.DEFAULT_SIDEBAR & flag
 
 
 @pytest.mark.unit

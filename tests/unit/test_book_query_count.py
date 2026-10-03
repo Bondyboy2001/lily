@@ -78,9 +78,9 @@ def test_opds_page_query_count_does_not_grow_with_books(tmp_path):
 def test_relationships_load_by_primary_key_not_by_rerunning_the_page_query(tmp_path):
     statements = _opds_new_statements(tmp_path, 5)
     loads = _relationship_loads(statements)
-    # one query per Books relationship (authors, tags, comments, data, series, ratings,
-    # languages, publishers, identifiers), each keyed on the page's book ids
-    assert len(loads) == 9, loads
+    # one query per Books relationship (authors, tags, comments, data, identifiers), each
+    # keyed on the page's book ids
+    assert len(loads) == 5, loads
     for statement in loads:
         assert " IN (" in statement, statement
         assert "FROM (SELECT" not in statement, f"relationship load re-runs the page query: {statement}"
@@ -100,12 +100,11 @@ def test_cards_only_page_skips_relationships_cards_do_not_render(tmp_path):
                 # what image.html's book_card reads must already be loaded
                 for entry in entries:
                     assert entry.Books.authors and entry.Books.data
-                    _ = entry.Books.ratings
             loaded = " ".join(statements)
         assert len(entries) == 4
-        for table in ("comments", "tags", "identifiers", "publishers", "languages"):
+        for table in ("comments", "tags", "identifiers", "publishers", "languages", "ratings"):
             assert f"FROM {table}" not in loaded and f"JOIN {table} " not in loaded, table
-        # count + page query + authors/data/ratings (+ the random "Discover" row if enabled)
-        assert len(_relationship_loads(statements)) <= 7, statements
+        # count + page query + authors/data
+        assert len(_relationship_loads(statements)) <= 4, statements
     finally:
         env_cm.__exit__(None, None, None)

@@ -29,14 +29,11 @@ log = logger.create()
 
 OPDS_ROOT_ORDER_DEFAULT = [
     'books',
-    'hot',
     'recent',
-    'random',
     'read',
     'unread',
     'authors',
     'categories',
-    'formats',
     'shelves',
 ]
 
@@ -47,23 +44,11 @@ OPDS_ROOT_ENTRY_DEFS = {
         'description': 'Books sorted alphabetically',
         'visible': lambda user, allow_anonymous: True,
     },
-    'hot': {
-        'endpoint': 'opds.feed_hot',
-        'title': 'Hot Books',
-        'description': 'Popular publications from this catalog based on Downloads.',
-        'visible': lambda user, __: user.check_visibility(constants.SIDEBAR_HOT),
-    },
     'recent': {
         'endpoint': 'opds.feed_new',
         'title': 'Recently added Books',
         'description': 'The latest Books',
         'visible': lambda user, __: user.check_visibility(constants.SIDEBAR_RECENT),
-    },
-    'random': {
-        'endpoint': 'opds.feed_discover',
-        'title': 'Random Books',
-        'description': 'Show Random Books',
-        'visible': lambda user, __: user.check_visibility(constants.SIDEBAR_RANDOM),
     },
     'read': {
         'endpoint': 'opds.feed_read_books',
@@ -88,12 +73,6 @@ OPDS_ROOT_ENTRY_DEFS = {
         'title': 'Categories',
         'description': 'Books ordered by category',
         'visible': lambda user, __: user.check_visibility(constants.SIDEBAR_CATEGORY),
-    },
-    'formats': {
-        'endpoint': 'opds.feed_formatindex',
-        'title': 'File formats',
-        'description': 'Books ordered by file formats',
-        'visible': lambda user, __: user.check_visibility(constants.SIDEBAR_FORMAT),
     },
     'shelves': {
         'endpoint': 'opds.feed_shelfindex',
@@ -220,41 +199,6 @@ def feed_new():
     return render_xml_template('feed.xml', entries=entries, pagination=pagination)
 
 
-@opds.route("/opds/discover")
-@requires_basic_auth_if_no_ano
-def feed_discover():
-    if not auth.current_user().check_visibility(constants.SIDEBAR_RANDOM):
-        abort(404)
-    query = calibre_db.generate_linked_query(config.config_read_column, db.Books)
-    entries = query.filter(calibre_db.common_filters()).order_by(func.random()).limit(config.config_books_per_page)
-    pagination = Pagination(1, config.config_books_per_page, int(config.config_books_per_page))
-    return render_xml_template('feed.xml', entries=entries, pagination=pagination)
-
-
-@opds.route("/opds/hot")
-@requires_basic_auth_if_no_ano
-def feed_hot():
-    if not auth.current_user().check_visibility(constants.SIDEBAR_HOT):
-        abort(404)
-    off = request.args.get("offset") or 0
-    all_books = ub.session.query(ub.Downloads, func.count(ub.Downloads.book_id)).order_by(
-        func.count(ub.Downloads.book_id).desc()).group_by(ub.Downloads.book_id)
-    hot_books = all_books.offset(off).limit(config.config_books_per_page)
-    entries = []
-    for book in hot_books:
-        query = calibre_db.generate_linked_query(config.config_read_column, db.Books)
-        download_book = query.filter(calibre_db.common_filters()).filter(
-            book.Downloads.book_id == db.Books.id).first()
-        if download_book:
-            entries.append(download_book)
-        else:
-            ub.delete_download(book.Downloads.book_id)
-    num_books = entries.__len__()
-    pagination = Pagination((int(off) / (int(config.config_books_per_page)) + 1),
-                            config.config_books_per_page, num_books)
-    return render_xml_template('feed.xml', entries=entries, pagination=pagination)
-
-
 @opds.route("/opds/author")
 @requires_basic_auth_if_no_ano
 def feed_authorindex():
@@ -317,36 +261,6 @@ def feed_letter_category(book_id):
 @requires_basic_auth_if_no_ano
 def feed_category(book_id):
     return render_xml_dataset(db.Tags, book_id)
-
-
-@opds.route("/opds/formats")
-@requires_basic_auth_if_no_ano
-def feed_formatindex():
-    if not auth.current_user().check_visibility(constants.SIDEBAR_FORMAT):
-        abort(404)
-    off = request.args.get("offset") or 0
-    entries = calibre_db.session.query(db.Data).join(db.Books)\
-        .filter(calibre_db.common_filters()) \
-        .group_by(db.Data.format)\
-        .order_by(db.Data.format).all()
-    pagination = Pagination((int(off) / (int(config.config_books_per_page)) + 1), config.config_books_per_page,
-                            len(entries))
-    element = []
-    for entry in entries:
-        element.append(FeedObject(entry.format, entry.format))
-    return render_xml_template('feed.xml', listelements=element, folder='opds.feed_format', pagination=pagination)
-
-
-@opds.route("/opds/formats/<book_id>")
-@requires_basic_auth_if_no_ano
-def feed_format(book_id):
-    off = request.args.get("offset") or 0
-    entries, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1), 0,
-                                                        db.Books,
-                                                        db.Books.data.any(db.Data.format == book_id.upper()),
-                                                        [db.Books.timestamp.desc()],
-                                                        True, config.config_read_column)
-    return render_xml_template('feed.xml', entries=entries, pagination=pagination)
 
 
 @opds.route("/opds/shelfindex")
@@ -447,20 +361,6 @@ def feed_unread_books():
     off = request.args.get("offset") or 0
     result, pagination = render_read_books(int(off) / (int(config.config_books_per_page)) + 1, False, True)
     return render_xml_template('feed.xml', entries=result, pagination=pagination)
-
-
-class FeedObject:
-    def __init__(self, rating_id, rating_name):
-        self.rating_id = rating_id
-        self.rating_name = rating_name
-
-    @property
-    def id(self):
-        return self.rating_id
-
-    @property
-    def name(self):
-        return self.rating_name
 
 
 def feed_search(term):

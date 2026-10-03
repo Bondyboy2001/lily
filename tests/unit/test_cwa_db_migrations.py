@@ -431,3 +431,35 @@ def test_migration_8_clears_publishers_languages_and_ratings_but_not_dates(cwa_d
     finally:
         lib.close()
     assert (cwa_dir / "metadata.db.before-details-clear").exists()
+
+
+@pytest.mark.unit
+def test_migration_9_drops_language_series_and_publisher_matching(cwa_dir):
+    db_file = str(cwa_dir / "cwa.db")
+    con = sqlite3.connect(db_file)
+    con.execute("CREATE TABLE cwa_settings (default_settings SMALLINT DEFAULT 1 NOT NULL, "
+                "duplicate_detection_title SMALLINT DEFAULT 1 NOT NULL, "
+                "duplicate_detection_language SMALLINT DEFAULT 1 NOT NULL, "
+                "duplicate_detection_series SMALLINT DEFAULT 0 NOT NULL, "
+                "duplicate_detection_publisher SMALLINT DEFAULT 0 NOT NULL)")
+    con.execute("INSERT INTO cwa_settings DEFAULT VALUES")
+    con.execute("CREATE TABLE cwa_duplicate_book_keys (book_id INTEGER PRIMARY KEY, "
+                "normalized_title TEXT NOT NULL DEFAULT '', normalized_language TEXT NOT NULL DEFAULT '', "
+                "normalized_series TEXT NOT NULL DEFAULT '', normalized_publisher TEXT NOT NULL DEFAULT '', "
+                "duplicate_key TEXT NOT NULL, criteria_fingerprint TEXT NOT NULL)")
+    con.execute("INSERT INTO cwa_duplicate_book_keys (book_id, normalized_title, duplicate_key, criteria_fingerprint) "
+                "VALUES (1, 'dune', 'k', 'f')")
+    con.commit()
+    con.close()
+
+    db = _reopen(cwa_dir)
+    try:
+        settings = _columns(db_file, "cwa_settings")
+        assert not {"duplicate_detection_language", "duplicate_detection_series",
+                    "duplicate_detection_publisher"} & set(settings)
+        assert "duplicate_detection_title" in settings
+        assert not {"normalized_language", "normalized_series", "normalized_publisher"} & set(
+            _columns(db_file, "cwa_duplicate_book_keys"))
+        assert db.cur.execute("SELECT normalized_title FROM cwa_duplicate_book_keys").fetchone()[0] == "dune"
+    finally:
+        db.close()

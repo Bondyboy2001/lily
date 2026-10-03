@@ -185,25 +185,11 @@ def select_book_to_keep(books, strategy):
             if hasattr(book, 'tags') and book.tags:
                 score += len(book.tags) * 2
 
-            # Series
-            if hasattr(book, 'series') and book.series:
-                score += 5
-
-            # Rating
-            if hasattr(book, 'ratings') and book.ratings:
-                for rating in book.ratings:
-                    if rating.rating and rating.rating > 0:
-                        score += 3
-
             # Description/comments
             if hasattr(book, 'comments') and book.comments:
                 for comment in book.comments:
                     if comment.text and len(comment.text.strip()) > 50:
                         score += 10
-
-            # Publisher
-            if hasattr(book, 'publishers') and book.publishers:
-                score += 2
 
             # Published date
             if hasattr(book, 'pubdate') and book.pubdate:

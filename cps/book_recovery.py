@@ -58,7 +58,6 @@ APP_TABLES = {
     "bookmark": {"book": "book_id", "refs": {"user_id": "user"}},
     "web_reader_progress": {"book": "book_id", "refs": {"user_id": "user"}},
     "reader_position": {"book": "book_id", "refs": {"user_id": "user"}},
-    "downloads": {"book": "book_id", "refs": {"user_id": "user"}},
 }
 
 LINK_TABLES = {

@@ -128,9 +128,6 @@ class _FakeCwaDB:
                 book_id INTEGER PRIMARY KEY,
                 normalized_title TEXT NOT NULL DEFAULT '',
                 normalized_author TEXT NOT NULL DEFAULT '',
-                normalized_language TEXT NOT NULL DEFAULT '',
-                normalized_series TEXT NOT NULL DEFAULT '',
-                normalized_publisher TEXT NOT NULL DEFAULT '',
                 format_signature TEXT NOT NULL DEFAULT '',
                 duplicate_key TEXT NOT NULL,
                 criteria_fingerprint TEXT NOT NULL,
@@ -254,9 +251,6 @@ def _book(
     book_id,
     title,
     author,
-    language="eng",
-    series=None,
-    publisher=None,
     formats=None,
     timestamp=None,
 ):
@@ -264,9 +258,6 @@ def _book(
         id=book_id,
         title=title,
         authors=[SimpleNamespace(name=author)],
-        languages=[SimpleNamespace(lang_code=language)] if language is not None else [],
-        series=[SimpleNamespace(name=series)] if series is not None else [],
-        publishers=[SimpleNamespace(name=publisher)] if publisher is not None else [],
         data=[SimpleNamespace(format=fmt, uncompressed_size=0, name=title) for fmt in (formats or [])],
         path=f"Author/Book ({book_id})",
         timestamp=timestamp or datetime(2024, 1, book_id, tzinfo=timezone.utc),
@@ -302,9 +293,6 @@ def test_effective_criteria_falls_back_to_title_author(duplicate_index):
         {
             "duplicate_detection_title": 0,
             "duplicate_detection_author": 0,
-            "duplicate_detection_language": 0,
-            "duplicate_detection_series": 0,
-            "duplicate_detection_publisher": 0,
             "duplicate_detection_format": 0,
         }
     )
@@ -312,22 +300,19 @@ def test_effective_criteria_falls_back_to_title_author(duplicate_index):
     assert criteria == {
         "title": True,
         "author": True,
-        "language": False,
-        "series": False,
-        "publisher": False,
         "format": False,
     }
 
 
 def test_fingerprint_changes_when_effective_criteria_change(duplicate_index):
     title_author = duplicate_index.get_criteria_fingerprint(
-        {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+        {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_format": 0}
     )
-    title_author_language = duplicate_index.get_criteria_fingerprint(
-        {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 1}
+    title_author_format = duplicate_index.get_criteria_fingerprint(
+        {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_format": 1}
     )
 
-    assert title_author != title_author_language
+    assert title_author != title_author_format
 
 
 def test_build_book_key_parts_matches_python_duplicate_fallbacks(duplicate_index):
@@ -335,9 +320,6 @@ def test_build_book_key_parts_matches_python_duplicate_fallbacks(duplicate_index
         1,
         "Homer, The Iliad",
         "Homer",
-        language=None,
-        series=None,
-        publisher=None,
         formats=["EPUB", "PDF"],
     )
 
@@ -345,15 +327,12 @@ def test_build_book_key_parts_matches_python_duplicate_fallbacks(duplicate_index
 
     assert parts.normalized_title == "the iliad"
     assert parts.normalized_author == "homer"
-    assert parts.normalized_language == "unknown"
-    assert parts.normalized_series == "no_series"
-    assert parts.normalized_publisher == "unknown_publisher"
     assert parts.format_signature == "epub,pdf"
 
 
 def test_title_only_key_parts_still_strip_primary_author_prefix(duplicate_index):
     book = _book(1, "Homer, The Iliad", "Homer")
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 0, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 0}
 
     parts = duplicate_index.build_book_key_parts(book, settings)
     key_values = duplicate_index._enabled_key_values(parts, settings)
@@ -366,7 +345,7 @@ def test_title_only_key_parts_still_strip_primary_author_prefix(duplicate_index)
 def test_upsert_and_delete_book_keys(duplicate_index):
     books = [_book(1, "Dune", "Frank Herbert"), _book(2, "Dune", "Frank Herbert")]
     duplicate_index.calibre_db.session = _Session(books)
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
 
     result = duplicate_index.upsert_book_keys({1, 2}, settings)
     cwa_db = _FakeCwaDB()
@@ -393,7 +372,7 @@ def test_upsert_and_delete_book_keys(duplicate_index):
 def test_grouped_index_queries_and_dismissed_filtering(duplicate_index):
     books = [_book(1, "Dune", "Frank Herbert"), _book(2, "Dune", "Frank Herbert"), _book(3, "Other", "Writer")]
     duplicate_index.calibre_db.session = _Session(books)
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
     duplicate_index.upsert_book_keys({1, 2, 3}, settings)
 
     groups = duplicate_index.get_duplicate_groups_from_index(settings, include_dismissed=True)
@@ -446,7 +425,7 @@ def test_a_group_of_books_with_no_author_shows_none_and_keeps_its_legacy_hash(du
 def test_cache_merge_keeps_serialization_shape(duplicate_index):
     books = [_book(1, "Dune", "Frank Herbert"), _book(2, "Dune", "Frank Herbert"), _book(3, "Other", "Writer")]
     duplicate_index.calibre_db.session = _Session(books)
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
     duplicate_index.upsert_book_keys({1, 2, 3}, settings)
 
     result = duplicate_index.merge_affected_groups_into_cache({1}, settings)
@@ -467,7 +446,7 @@ def test_cache_merge_preserves_retained_group_book_ids(duplicate_index):
         _book(4, "Foundation", "Isaac Asimov"),
     ]
     duplicate_index.calibre_db.session = _Session(books)
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
     duplicate_index.upsert_book_keys({1, 2, 3, 4}, settings)
 
     cwa_db = _FakeCwaDB()
@@ -500,7 +479,7 @@ def test_cache_merge_preserves_retained_group_book_ids(duplicate_index):
 def test_cache_merge_deletes_key_rows_for_missing_candidate_ids(duplicate_index):
     books = [_book(1, "Dune", "Frank Herbert"), _book(2, "Dune", "Frank Herbert")]
     duplicate_index.calibre_db.session = _Session(books)
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
     duplicate_index.upsert_book_keys({1, 2}, settings)
     metadata = duplicate_index.rebuild_duplicate_index(settings)
     groups = duplicate_index.get_duplicate_groups_from_index(settings, include_dismissed=True)
@@ -519,7 +498,7 @@ def test_cache_merge_deletes_key_rows_for_missing_candidate_ids(duplicate_index)
 def test_rebuild_duplicate_index_replaces_active_fingerprint_and_removes_orphans(duplicate_index):
     books = [_book(1, "Dune", "Frank Herbert"), _book(2, "Dune", "Frank Herbert")]
     duplicate_index.calibre_db.session = _Session(books)
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
     fingerprint = duplicate_index.get_criteria_fingerprint(settings)
 
     cwa_db = _FakeCwaDB()
@@ -569,7 +548,7 @@ def _seed_cache(scan_pending=False, last_scanned_book_id=1):
 
 def test_has_valid_duplicate_index_baseline_states(duplicate_index):
     books = [_book(1, "Dune", "Frank Herbert"), _book(2, "Dune", "Frank Herbert")]
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
 
     duplicate_index.calibre_db.session = _Session(books)
     duplicate_index.upsert_book_keys({1, 2}, settings)
@@ -601,7 +580,7 @@ def test_has_valid_duplicate_index_baseline_requires_candidate_to_cover_missing_
         _book(3, "Children of Dune", "Frank Herbert"),
         _book(4, "God Emperor of Dune", "Frank Herbert"),
     ]
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
 
     duplicate_index.calibre_db.session = _Session(books)
     duplicate_index.upsert_book_keys({1, 2, 3}, settings)
@@ -613,7 +592,7 @@ def test_has_valid_duplicate_index_baseline_requires_candidate_to_cover_missing_
 
 def test_has_valid_duplicate_index_baseline_allows_initial_incremental_when_candidates_cover_library(duplicate_index):
     books = [_book(1, "Dune", "Frank Herbert")]
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
 
     duplicate_index.calibre_db.session = _Session(books)
 
@@ -629,7 +608,7 @@ def test_manual_full_scan_not_needed_for_new_books_during_dirty_ingest(duplicate
         _book(3, "Children of Dune", "Frank Herbert"),
         _book(4, "God Emperor of Dune", "Frank Herbert"),
     ]
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
     dirty_file = tmp_path / "cwa_ingest_batch_dirty"
 
     duplicate_index.calibre_db.session = _Session(books)
@@ -648,7 +627,7 @@ def test_manual_full_scan_not_needed_for_new_books_during_running_ingest_follow_
         _book(1, "Dune", "Frank Herbert"),
         _book(2, "Dune Messiah", "Frank Herbert"),
     ]
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
     dirty_file = tmp_path / "cwa_ingest_batch_dirty"
 
     duplicate_index.calibre_db.session = _Session(books)
@@ -662,7 +641,7 @@ def test_manual_full_scan_not_needed_for_new_books_during_running_ingest_follow_
 
 def test_manual_full_scan_not_needed_while_ingest_active(duplicate_index, monkeypatch, tmp_path):
     books = [_book(1, "Dune", "Frank Herbert")]
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
     active_file = tmp_path / "cwa_ingest_batch_active"
 
     duplicate_index.calibre_db.session = _Session(books)
@@ -675,7 +654,7 @@ def test_manual_full_scan_not_needed_while_ingest_active(duplicate_index, monkey
 
 def test_initial_manual_full_scan_not_needed_during_dirty_ingest(duplicate_index, monkeypatch, tmp_path):
     books = [_book(1, "Dune", "Frank Herbert")]
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
     dirty_file = tmp_path / "cwa_ingest_batch_dirty"
 
     duplicate_index.calibre_db.session = _Session(books)
@@ -691,7 +670,7 @@ def test_manual_full_scan_not_needed_when_pending_cache_has_complete_index(dupli
         _book(1, "Dune", "Frank Herbert"),
         _book(2, "Dune Messiah", "Frank Herbert"),
     ]
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
 
     duplicate_index.calibre_db.session = _Session(books)
     duplicate_index.upsert_book_keys({1, 2}, settings)
@@ -706,7 +685,7 @@ def test_manual_full_scan_needed_for_old_missing_book_even_during_dirty_ingest(d
         _book(2, "Dune Messiah", "Frank Herbert"),
         _book(3, "Children of Dune", "Frank Herbert"),
     ]
-    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+    settings = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
     dirty_file = tmp_path / "cwa_ingest_batch_dirty"
 
     duplicate_index.calibre_db.session = _Session(books)
@@ -761,7 +740,7 @@ def library(duplicate_index, tmp_path, monkeypatch):
     return tmp_path
 
 
-TITLE_AUTHOR = {"duplicate_detection_title": 1, "duplicate_detection_author": 1, "duplicate_detection_language": 0}
+TITLE_AUTHOR = {"duplicate_detection_title": 1, "duplicate_detection_author": 1}
 
 
 def test_byte_identical_files_are_duplicates_whatever_their_metadata(duplicate_index, library):
@@ -913,20 +892,6 @@ def test_titles_and_authors_match_across_punctuation_case_and_initials(duplicate
     duplicate_index.rebuild_duplicate_index(TITLE_AUTHOR)
 
     assert sorted(_groups(duplicate_index)) == [[1, 2], [3, 4]]
-
-
-def test_language_only_separates_books_that_both_have_one(duplicate_index):
-    settings = {**TITLE_AUTHOR, "duplicate_detection_language": 1}
-    books = [_book(1, "Graph Theory", "Ronald Gould", language=None),
-             _book(2, "Graph Theory", "Ronald Gould", language="eng"),
-             _book(3, "Dune", "Frank Herbert", language="eng"),
-             _book(4, "Dune", "Frank Herbert", language="fra"),
-             _book(5, "Dune", "Frank Herbert", language="eng")]
-    duplicate_index.calibre_db.session = _Session(books)
-
-    duplicate_index.rebuild_duplicate_index(settings)
-
-    assert sorted(_groups(duplicate_index, settings)) == [[1, 2], [3, 5]]
 
 
 def test_forgetting_a_deleted_book_updates_the_cache_without_moving_the_scan_mark(duplicate_index):

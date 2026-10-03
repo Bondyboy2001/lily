@@ -95,16 +95,6 @@ def get_sidebar_config():
     sidebar = []
     sidebar.append({"glyph": "glyphicon-book", "text": _('Books'), "link": 'web.index', "id": "new",
                     "visibility": constants.SIDEBAR_RECENT, 'public': True, "page": "newest"})
-    sidebar.append({"glyph": "glyphicon-fire", "text": _('Hot Books'), "link": 'web.books_list', "id": "hot",
-                    "visibility": constants.SIDEBAR_HOT, 'public': True, "page": "hot"})
-    if current_user.role_admin():
-        sidebar.append({"glyph": "glyphicon-download", "text": _('Downloaded Books'), "link": 'web.download_list',
-                        "id": "download", "visibility": constants.SIDEBAR_DOWNLOAD, 'public': (not current_user.is_anonymous),
-                        "page": "download"})
-    else:
-        sidebar.append({"glyph": "glyphicon-download", "text": _('Downloaded Books'), "link": 'web.books_list',
-                        "id": "download", "visibility": constants.SIDEBAR_DOWNLOAD, 'public': (not current_user.is_anonymous),
-                        "page": "download"})
     # Reading and Finished always show for signed-in users (SIDEBAR_RECENT is the always-visible flag).
     sidebar.append({"glyph": "glyphicon-education", "text": _('Reading'), "link": 'web.books_list', "id": "inprogress",
                     "visibility": constants.SIDEBAR_RECENT, 'public': (not current_user.is_anonymous),
@@ -117,9 +107,6 @@ def get_sidebar_config():
          "visibility": constants.SIDEBAR_READ_AND_UNREAD, 'public': (not current_user.is_anonymous), "page": "unread"})
     sidebar.append({"glyph": "glyphicon-user", "text": _('Authors'), "link": 'web.author_list', "id": "author",
                     "visibility": constants.SIDEBAR_AUTHOR, 'public': True, "page": "author"})
-    sidebar.append({"glyph": "glyphicon-file", "text": _('File formats'), "link": 'web.formats_list', "id": "format",
-                    "visibility": constants.SIDEBAR_FORMAT, 'public': True,
-                    "page": "format"})
     g.shelves_access = ub.session.query(ub.Shelf).filter(
         or_(ub.Shelf.is_public == 1, ub.Shelf.user_id == current_user.id)).order_by(ub.Shelf.name).all()
     g.shelf_book_counts = shelf_book_counts([shelf.id for shelf in g.shelves_access])

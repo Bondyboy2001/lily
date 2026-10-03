@@ -7,7 +7,6 @@
 
 import sys
 import os
-from collections import namedtuple
 
 # APP_MODE - production, development, or test
 APP_MODE            = os.environ.get('APP_MODE', 'production')
@@ -61,20 +60,14 @@ ALL_ROLES = {
                 "viewer_role": ROLE_VIEWER,
             }
 
-DETAIL_RANDOM           = 1 <<  0
 SIDEBAR_CATEGORY        = 1 <<  3
-SIDEBAR_HOT             = 1 <<  4
-SIDEBAR_RANDOM          = 1 <<  5
 SIDEBAR_AUTHOR          = 1 <<  6
 SIDEBAR_READ_AND_UNREAD = 1 <<  8
 SIDEBAR_RECENT          = 1 <<  9
-SIDEBAR_FORMAT          = 1 << 14
-SIDEBAR_DOWNLOAD        = 1 << 16
-SIDEBAR_DUPLICATES      = 1 << 18
 
 ADMIN_USER_ROLES        = sum(r for r in ALL_ROLES.values()) & ~ROLE_ANONYMOUS
-# Lily's default sidebar: the core browse views only. The other entries stay available
-# to switch on per user in the profile's sidebar settings.
+# Lily's sidebar: the views it shows. Bits other than these, left in a user's sidebar_view
+# by older versions, are ignored.
 DEFAULT_SIDEBAR         = (SIDEBAR_RECENT | SIDEBAR_CATEGORY | SIDEBAR_AUTHOR
                            | SIDEBAR_READ_AND_UNREAD)
 ADMIN_USER_SIDEBAR      = DEFAULT_SIDEBAR
@@ -127,10 +120,6 @@ def selected_roles(dictionary):
     return sum(v for k, v in ALL_ROLES.items() if k in dictionary)
 
 
-# :rtype: BookMeta
-BookMeta = namedtuple('BookMeta', 'file_path, extension, title, author, cover, description, tags, series, '
-                                  'series_id, languages, publisher, pubdate, identifiers')
-
 def _read_text(path: str, default: str = "") -> str:
     try:
         with open(path, 'r') as f:
@@ -162,4 +151,4 @@ COVER_THUMBNAIL_MEDIUM   = 2
 COVER_THUMBNAIL_LARGE    = 4
 
 # clean-up the module namespace
-del sys, os, namedtuple
+del sys, os

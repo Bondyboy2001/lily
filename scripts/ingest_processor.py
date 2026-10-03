@@ -821,10 +821,6 @@ class NewBookProcessor:
                 # Coalesce metadata to safe strings
                 _title = str(meta[2]) if meta[2] else Path(staged_path).stem
                 _authors = str(meta[3]) if meta[3] else ""
-                _tags = str(meta[6]) if meta[6] else ""
-                _series = str(meta[7]) if meta[7] else ""
-                _series_index = str(meta[8]) if meta[8] is not None and meta[8] != "" else None
-                _languages = str(meta[9]) if meta[9] else ""
                 _cover = meta[4] if meta[4] and isinstance(meta[4], str) else None
 
                 add_command = [
@@ -835,14 +831,6 @@ class NewBookProcessor:
                     add_command.extend(["--title", _title])
                 if _authors:
                     add_command.extend(["--authors", _authors])
-                if _tags:
-                    add_command.extend(["--tags", _tags])
-                if _series:
-                    add_command.extend(["--series", _series])
-                if _series_index:
-                    add_command.extend(["--series-index", str(_series_index)])
-                if _languages:
-                    add_command.extend(["--languages", _languages])
                 if _cover and os.path.exists(_cover):
                     add_command.extend(["--cover", _cover])
 

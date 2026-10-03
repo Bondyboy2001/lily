@@ -183,9 +183,7 @@ def render_adv_search_results(term, offset=None, order=None, limit=None):
     cc = calibre_db.get_cc_columns(config, filter_config_custom_read=True)
     calibre_db.create_functions()
     query = calibre_db.generate_linked_query(config.config_read_column, db.Books)
-    q = query.outerjoin(db.books_series_link, db.Books.id == db.books_series_link.c.book)\
-        .outerjoin(db.Series)\
-        .filter(calibre_db.common_filters())
+    q = query.filter(calibre_db.common_filters())
 
     # parse multi selects to a complete dict
     tags = dict()
@@ -317,13 +315,7 @@ def render_prepare_search_form(cc):
 
 def render_search_results(term, offset=None, order=None, limit=None):
     if term:
-        join = db.books_series_link, db.Books.id == db.books_series_link.c.book, db.Series
-        entries, result_count, pagination = calibre_db.get_search_results(term,
-                                                                          config,
-                                                                          offset,
-                                                                          order,
-                                                                          limit,
-                                                                          *join,
+        entries, result_count, pagination = calibre_db.get_search_results(term, config, offset, order, limit,
                                                                           cards_only=True)
     else:
         entries = list()

@@ -19,7 +19,7 @@ from flask import session as flask_session
 from flask_babel import gettext as _
 from .cw_login import current_user
 from sqlalchemy.exc import IntegrityError, InvalidRequestError, OperationalError
-from sqlalchemy.sql.expression import func, and_
+from sqlalchemy.sql.expression import and_
 
 from . import constants, logger, helper
 from . import db, ub, config, app
@@ -27,7 +27,6 @@ from . import calibre_db
 from .recent_imports import added_summary, books_added_after, newest_book_id
 from .search import render_search_results, render_adv_search_results
 from .helper import check_read_formats, edit_book_read_status
-from .pagination import Pagination
 from .usermanagement import login_required_if_no_ano
 from .render_template import render_title_template
 from . import list_filters
@@ -535,15 +534,6 @@ def update_view():
     return "1", 200
 
 
-def generate_char_list(entries): # data_colum, db_link):
-    char_list = list()
-    for entry in entries:
-        upper_char = entry[0].name[0].upper()
-        if upper_char not in char_list:
-            char_list.append(upper_char)
-    return char_list
-
-
 def get_sort_function(sort_param, data):
     order = [db.Books.timestamp.desc()]
     if sort_param == 'stored':
@@ -570,10 +560,6 @@ def get_sort_function(sort_param, data):
         order = [db.Books.author_sort.asc(), db.Books.sort]
     if sort_param == 'authza':
         order = [db.Books.author_sort.desc(), db.Books.sort.desc()]
-    if sort_param == 'hotdesc':
-        order = [func.count(ub.Downloads.book_id).desc()]
-    if sort_param == 'hotasc':
-        order = [func.count(ub.Downloads.book_id).asc()]
     if sort_param is None:
         sort_param = "new"
     return order, sort_param
@@ -620,16 +606,8 @@ def render_books_list(data, sort_param, book_id, page):
         return render_read_books(page, True, order=order)
     elif data == "inprogress":
         return render_reading_books(page, order=order)
-    elif data == "hot":
-        return render_hot_books(page, order)
-    elif data == "download":
-        return render_downloaded_books(page, order, book_id)
     elif data == "author":
         return render_author_books(page, book_id, order)
-    elif data == "formats":
-        return render_formats_books(page, book_id, order)
-    elif data == "category":
-        return render_category_books(page, book_id, order)
     elif data == "search":
         term = request.args.get('query', None)
         offset = int(int(config.config_books_per_page) * (page - 1))
@@ -642,10 +620,7 @@ def render_books_list(data, sort_param, book_id, page):
         website = data or "newest"
         entries, pagination = calibre_db.fill_indexpage(page, 0, db.Books,
                                                                 list_filters.filter_expression(), order[0],
-                                                                True, config.config_read_column,
-                                                                db.books_series_link,
-                                                                db.Books.id == db.books_series_link.c.book,
-                                                                db.Series, cards_only=True)
+                                                                True, config.config_read_column, cards_only=True)
 
         try:
             title = _('Books (%(count)s)', count=pagination.total_count)
@@ -740,91 +715,13 @@ def _book_resume(user_id, book_id, reader_list):
         return None
 
 
-def render_hot_books(page, order):
-    if current_user.check_visibility(constants.SIDEBAR_HOT):
-        if order[1] not in ['hotasc', 'hotdesc']:
-            order = [func.count(ub.Downloads.book_id).desc()], 'hotdesc'
-
-        off = int(config.config_books_per_page) * (page - 1)
-
-        # Get total count for pagination
-        total_hot_books = ub.session.query(func.count(ub.Downloads.book_id.distinct())).scalar()
-
-        # Get the book_ids for the current page
-        hot_book_ids_query = (ub.session.query(ub.Downloads.book_id)
-                              .group_by(ub.Downloads.book_id)
-                              .order_by(*order[0])
-                              .offset(off)
-                              .limit(config.config_books_per_page))
-
-        hot_book_ids = [item[0] for item in hot_book_ids_query]
-
-        entries = []
-        if hot_book_ids:
-            query = calibre_db.generate_linked_query(config.config_read_column, db.Books)
-            # Fetch all book details in one query
-            book_details = query.filter(calibre_db.common_filters()).filter(db.Books.id.in_(hot_book_ids)).all()
-
-            # Create a dictionary for quick lookups
-            book_map = {book.Books.id: book for book in book_details}
-
-            # Reorder the entries to match the "hotness" order
-            for book_id in hot_book_ids:
-                if book_id in book_map:
-                    entries.append(book_map[book_id])
-                else:
-                    # This book might have been deleted from calibre but still in downloads table
-                    ub.delete_download(book_id)
-
-        pagination = Pagination(page, config.config_books_per_page, total_hot_books)
-        return render_title_template('index.html', entries=entries, pagination=pagination,
-                                     title=_("Hot Books (Most Downloaded)"), page="hot", order=order[1])
-    else:
-        abort(404)
-
-
-def render_downloaded_books(page, order, user_id):
-    if current_user.role_admin():
-        user_id = int(user_id)
-    else:
-        user_id = current_user.id
-    user = ub.session.query(ub.User).filter(ub.User.id == user_id).first()
-    if current_user.check_visibility(constants.SIDEBAR_DOWNLOAD) and user:
-        entries, pagination = calibre_db.fill_indexpage(page,
-                                                            0,
-                                                            db.Books,
-                                                            ub.Downloads.user_id == user_id,
-                                                            order[0],
-                                                            True, config.config_read_column,
-                                                            db.books_series_link,
-                                                            db.Books.id == db.books_series_link.c.book,
-                                                            db.Series,
-                                                            ub.Downloads, db.Books.id == ub.Downloads.book_id, cards_only=True)
-        for book in entries:
-            if not (calibre_db.session.query(db.Books).filter(calibre_db.common_filters())
-                    .filter(db.Books.id == book.Books.id).first()):
-                ub.delete_download(book.Books.id)
-        return render_title_template('index.html',
-                                     entries=entries,
-                                     pagination=pagination,
-                                     id=user_id,
-                                     title=_("Downloaded Books by %(user)s", user=user.name),
-                                     page="download",
-                                     order=order[1])
-    else:
-        abort(404)
-
-
 def render_author_books(page, author_id, order):
     entries, pagination = calibre_db.fill_indexpage(page, 0,
                                                         db.Books,
                                                         and_(db.Books.authors.any(db.Authors.id == author_id),
                                                              list_filters.filter_expression()),
-                                                        [order[0][0], db.Series.name, db.Books.series_index],
-                                                        True, config.config_read_column,
-                                                        db.books_series_link,
-                                                        db.books_series_link.c.book == db.Books.id,
-                                                        db.Series, cards_only=True)
+                                                        order[0],
+                                                        True, config.config_read_column, cards_only=True)
     if entries is None or (not len(entries) and not list_filters.active_filters()):
         flash(_("That author has no books in your library any more."),
               category="error")
@@ -837,70 +734,6 @@ def render_author_books(page, author_id, order):
     return render_title_template('author.html', entries=entries, pagination=pagination, id=author_id,
                                  title=_("Author: %(name)s", name=author_name), page="author", order=order[1],
                                  list_filters=list_filters.filter_context())
-
-
-def render_formats_books(page, book_id, order):
-    if book_id == '-1':
-        name = _("Unknown")
-        entries, pagination = calibre_db.fill_indexpage(page, 0,
-                                                                db.Books,
-                                                                db.Data.format == None,
-                                                                [order[0][0]],
-                                                                True, config.config_read_column,
-                                                                db.Data, cards_only=True)
-
-    else:
-        name = calibre_db.session.query(db.Data).filter(db.Data.format == book_id.upper()).first()
-        if name:
-            name = name.format
-            entries, pagination = calibre_db.fill_indexpage(page, 0,
-                                                                    db.Books,
-                                                                    db.Books.data.any(
-                                                                        db.Data.format == book_id.upper()),
-                                                                    [order[0][0]],
-                                                                    True, config.config_read_column, cards_only=True)
-        else:
-            abort(404)
-
-    return render_title_template('index.html', pagination=pagination, entries=entries, id=book_id,
-                                 title=_("File Format: %(format)s", format=name),
-                                 page="formats",
-                                 order=order[1])
-
-
-def render_category_books(page, book_id, order):
-    if book_id == '-1':
-        entries, pagination = calibre_db.fill_indexpage(page, 0,
-                                                                db.Books,
-                                                                db.Tags.name == None,
-                                                                [order[0][0], db.Series.name, db.Books.series_index],
-                                                                True, config.config_read_column,
-                                                                db.books_tags_link,
-                                                                db.Books.id == db.books_tags_link.c.book,
-                                                                db.Tags,
-                                                                db.books_series_link,
-                                                                db.Books.id == db.books_series_link.c.book,
-                                                                db.Series, cards_only=True)
-        tagsname = _("Unknown")
-    else:
-        tagsname = calibre_db.session.query(db.Tags).filter(db.Tags.id == book_id).first()
-        if tagsname:
-            # Issue #906: Pass viewing_tag_id to allow this tag even if not in allowed tags
-            entries, pagination = calibre_db.fill_indexpage(page, 0,
-                                                                    db.Books,
-                                                                    db.Books.tags.any(db.Tags.id == book_id),
-                                                                    [order[0][0], db.Series.name,
-                                                                     db.Books.series_index],
-                                                                    True, config.config_read_column,
-                                                                    db.books_series_link,
-                                                                    db.Books.id == db.books_series_link.c.book,
-                                                                    db.Series,
-                                                                    viewing_tag_id=book_id, cards_only=True)
-            tagsname = tagsname.name
-        else:
-            abort(404)
-    return render_title_template('index.html', entries=entries, pagination=pagination, id=book_id,
-                                 title=_("Tag: %(name)s", name=tagsname), page="category", order=order[1])
 
 
 def render_read_books(page, are_read, as_xml=False, order=None):
@@ -927,10 +760,7 @@ def render_read_books(page, are_read, as_xml=False, order=None):
                                                             db.Books,
                                                             db_filter,
                                                             sort_param,
-                                                            True, config.config_read_column,
-                                                            db.books_series_link,
-                                                            db.Books.id == db.books_series_link.c.book,
-                                                            db.Series, cards_only=not as_xml)
+                                                            True, config.config_read_column, cards_only=not as_xml)
 
     if as_xml:
         return entries, pagination
@@ -950,10 +780,7 @@ def render_reading_books(page, order):
     "reading" list filter uses)."""
     entries, pagination = calibre_db.fill_indexpage(page, 0, db.Books,
                                                     list_filters.filter_expression({"status": "reading"}),
-                                                    order[0], True, config.config_read_column,
-                                                    db.books_series_link,
-                                                    db.Books.id == db.books_series_link.c.book,
-                                                    db.Series, cards_only=True)
+                                                    order[0], True, config.config_read_column, cards_only=True)
     name = _('Reading') + ' (' + str(pagination.total_count) + ')'
     progress = {}
     try:
