@@ -344,6 +344,28 @@ test("only lines that weren't there before fade in", async () => {
     assert.deepEqual(lines(output).map((p) => p.classList.contains("is-new")), [true, false]);
 });
 
+test("a redraw keeps the lines already shown and adds only the new ones", async () => {
+    const one = "2026-10-03 20:00:00.1  one";
+    const fx = scripted([
+        { success: true, version: "v1", text: "===== Lily web app (current) =====\n" + one },
+        { success: true, version: "v2", text: "===== Lily web app (current) =====\n" + one + "\n2026-10-03 20:00:01.1  two" },
+        { success: true, version: "v3", text: "===== Ingest service (current) =====\n2026-10-03 20:00:02.1  three" },
+    ]);
+    const { output, tick } = loadLogs(fx.fetch);
+    await flush();
+    const first = lines(output)[0];
+    tick();
+    await flush();
+    assert.deepEqual(texts(output), ["two", "one"]);
+    assert.equal(lines(output)[1], first);
+    // Last time's new line is no longer marked once newer ones arrive
+    tick();
+    await flush();
+    assert.deepEqual(texts(output), ["three"]);
+    assert.deepEqual(output.querySelectorAll(".logs-source").map((h) => h.textContent), ["Ingest service"]);
+    assert.equal(lines(output)[0].classList.contains("is-new"), true);
+});
+
 test("newest first; a reader at the top sees new lines, one scrolled down keeps their place", async () => {
     const one = "2026-10-03 20:00:00.1  one";
     const two = one + "\n2026-10-03 20:00:01.1  two\n2026-10-03 20:00:01.2  three\n2026-10-03 20:00:01.3  four";

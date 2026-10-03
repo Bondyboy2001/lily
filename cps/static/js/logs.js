@@ -133,7 +133,8 @@
         var version = "";
         var latest = null; // newest text from the server
         var shown = null; // text on screen
-        var seen = null; // raw line -> its element on screen, so new ones can be marked
+        var seen = null; // raw lines on screen, so new ones can be marked
+        var fresh = []; // lines marked new by the last redraw
         var inFlight = false;
         var timer = null;
         var view = 0;
@@ -189,9 +190,10 @@
             }
         }
 
-        function line(entry, fresh) {
+        function line(entry, isNew) {
             var p = document.createElement("p");
-            p.className = "logs-line" + (entry.level ? " is-" + entry.level : "") + (fresh ? " is-new" : "");
+            p.className = "logs-line" + (entry.level ? " is-" + entry.level : "") + (isNew ? " is-new" : "");
+            p.logKey = entry.key;
             var time = document.createElement("time");
             time.textContent = entry.time;
             if (entry.date) {
@@ -228,49 +230,81 @@
             return group.name ? group.name + ", " + day : day;
         }
 
+        /* Brings `box`'s children from `first` on in line with `wanted`, keeping every element
+         * already in place: a busy log changes a few lines a poll, not thousands. */
+        function sync(box, first, wanted, same, make) {
+            var child = first;
+            wanted.forEach(function (want) {
+                if (child && same(child, want)) {
+                    child = child.nextElementSibling;
+                } else {
+                    box.insertBefore(make(want), child);
+                }
+            });
+            while (child) {
+                var gone = child;
+                child = child.nextElementSibling;
+                box.removeChild(gone);
+            }
+        }
+
         function renderApp() {
             if (latest === null || latest === shown || selecting()) {
                 return;
             }
             var mark = view === 0 ? place(output) : null;
-            var markKey = null;
-            if (mark) {
-                for (var key in seen) {
-                    if (seen[key] === mark.el) {
-                        markKey = key;
-                        break;
-                    }
-                }
-            }
             var groups = parse(latest).reverse();
             var next = {};
-            var frag = document.createDocumentFragment();
-            groups.forEach(function (group) {
+            fresh.forEach(function (p) {
+                p.classList.remove("is-new");
+            });
+            fresh = [];
+            function make(entry) {
+                var isNew = seen !== null && !seen[entry.key];
+                var p = line(entry, isNew);
+                if (isNew) {
+                    fresh.push(p);
+                }
+                return p;
+            }
+            if (output.firstElementChild && !output.firstElementChild.classList.contains("logs-group")) {
+                output.textContent = "";
+            }
+            sync(output, output.firstElementChild, groups, function (box, group) {
+                return box.logName === group.name;
+            }, function (group) {
                 var box = document.createElement("div");
                 box.className = "logs-group";
+                box.logName = group.name;
                 var head = document.createElement("p");
                 head.className = "logs-source";
-                head.textContent = groupLabel(group);
                 box.appendChild(head);
-                group.lines.slice().reverse().forEach(function (entry) {
-                    var p = line(entry, seen !== null && !seen[entry.key]);
-                    box.appendChild(p);
-                    next[entry.key] = p;
+                return box;
+            });
+            Array.prototype.forEach.call(output.children, function (box, i) {
+                var group = groups[i];
+                var label = groupLabel(group);
+                if (box.firstElementChild.textContent !== label) {
+                    box.firstElementChild.textContent = label;
+                }
+                var lines = group.lines.slice().reverse();
+                lines.forEach(function (entry) {
+                    next[entry.key] = true;
                 });
-                frag.appendChild(box);
+                sync(box, box.firstElementChild.nextElementSibling, lines, function (p, entry) {
+                    return p.logKey === entry.key;
+                }, make);
             });
             if (!groups.length) {
                 var empty = document.createElement("p");
                 empty.className = "logs-empty";
                 empty.textContent = emptyMessage;
-                frag.appendChild(empty);
+                output.appendChild(empty);
             }
-            output.textContent = "";
-            output.appendChild(frag);
             seen = next;
             shown = latest;
             setCopyEnabled();
-            keepPlace(mark, markKey === null ? null : next[markKey]);
+            keepPlace(mark, mark && mark.el);
         }
 
         function appendLookups(html) {
