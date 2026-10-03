@@ -15,7 +15,9 @@ from flask import request
 
 
 def request_username():
-    return request.authorization.username
+    # OPDS rate-limit key: requests without credentials fall back to the client address
+    auth = request.authorization
+    return (auth.username if auth else None) or request.remote_addr
 
 
 def main():

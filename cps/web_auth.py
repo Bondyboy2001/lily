@@ -9,7 +9,8 @@
 Routes are attached to the web blueprint; web.py imports this module at its end."""
 
 
-from flask import request, redirect, flash, abort, url_for
+from flask import request, redirect, flash, abort, url_for, current_app
+from flask_limiter import RateLimitExceeded
 from flask import session as flask_session
 from flask_babel import gettext as _
 from .cw_login import login_user, logout_user, current_user
@@ -80,12 +81,32 @@ def login():
     return render_login()
 
 
+def _normalise_login_name(raw):
+    return strip_whitespaces(raw or "").lower().replace("\n", "").replace("\r", "")
+
+
+def _login_limit_key():
+    # Normalised exactly as login_post does, so every spelling that signs in as the same
+    # user shares one bucket, while other usernames behind the same address keep theirs.
+    return (request.remote_addr or "") + "|" + _normalise_login_name(request.form.get("username", ""))
+
+
 @web.route('/login', methods=['POST'])
+@limiter.limit("5/minute", key_func=_login_limit_key)
 def login_post():
     form = request.form.to_dict()
-    username = strip_whitespaces(form.get('username', "")).lower().replace("\n","").replace("\r","")
+    username = _normalise_login_name(form.get('username', ""))
     if current_user is not None and current_user.is_authenticated:
         return redirect(url_for('web.index'))
+    # The shared limiter runs with auto_check=False, so the limit above only applies
+    # through an explicit check (as OPDS basic auth does in usermanagement.verify_password).
+    if current_app.config.get("RATELIMIT_ENABLED", True):
+        try:
+            limiter.check()
+        except RateLimitExceeded:
+            log.warning('Login rate limit hit for user "{}" IP-address: {}'.format(username, request.remote_addr))
+            flash(_("Too many sign-in attempts. Wait a minute and try again."), category="error")
+            return render_login(username), 429
     user = ub.session.query(ub.User).filter(func.lower(ub.User.name) == username).first()
     remember_me = bool(form.get('remember_me'))
 
