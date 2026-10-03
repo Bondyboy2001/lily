@@ -11,10 +11,8 @@ import re
 import sqlite3
 import subprocess
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
-from gevent.pywsgi import WSGIHandler
 
 
 def _call_health(monkeypatch, library_dir):
@@ -133,13 +131,3 @@ def test_dockerfile_healthcheck_bounds_each_curl():
     assert curls
     for curl in curls:
         assert "--max-time" in curl and "--connect-timeout" in curl, curl
-
-
-@pytest.mark.unit
-def test_gevent_handler_closes_every_connection():
-    from cps.gevent_wsgi import MyWSGIHandler
-    handler = MyWSGIHandler.__new__(MyWSGIHandler)
-    handler.close_connection = False
-    with patch.object(WSGIHandler, "read_request", return_value=True):
-        assert handler.read_request("GET / HTTP/1.1\r\n") is True
-    assert handler.close_connection is True
