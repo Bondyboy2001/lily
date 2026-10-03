@@ -275,7 +275,78 @@
 
 .lily-format-pdf { background-image: url("../icons/formats/pdf.svg"); }
 .lily-format-epub { background-image: url("../icons/formats/epub.svg"); }
+.lily-format-djvu { background-image: url("../icons/formats/djvu.svg"); }
 .lily-format-other { background-image: url("../icons/formats/file.svg"); }
+
+/* Grid covers hang one ribbon per file type from the top edge: the format's own colour (like
+   the marks above, as palette tokens) with its icon knocked out in --on-format. */
+.cover .lily-cover-ribbons {
+    position: absolute;
+    top: 0;
+    left: 12px;
+    z-index: 1;
+    display: flex;
+    gap: 4px;
+    pointer-events: none;
+}
+
+.lily-ribbon {
+    position: relative;
+    width: 22px;
+    height: 34px;
+    background: var(--ribbon);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
+}
+
+.lily-ribbon::before {
+    content: "";
+    position: absolute;
+    top: 6px;
+    left: 4px;
+    width: 14px;
+    height: 14px;
+    background: var(--on-format);
+    -webkit-mask: var(--glyph) center / contain no-repeat;
+    mask: var(--glyph) center / contain no-repeat;
+}
+
+.lily-ribbon-pdf { --ribbon: var(--format-pdf); --glyph: url("../icons/formats/pdf.svg"); }
+.lily-ribbon-epub { --ribbon: var(--format-epub); --glyph: url("../icons/formats/epub.svg"); }
+.lily-ribbon-djvu { --ribbon: var(--format-djvu); --glyph: url("../icons/formats/djvu.svg"); }
+.lily-ribbon-other { --ribbon: var(--format-other); --glyph: url("../icons/formats/file.svg"); }
+
+/* Finished and Fetched: small --surface discs in the bottom-left corner, clear of the quick
+   actions on the right. */
+.cover .lily-cover-marks {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    z-index: 1;
+    display: flex;
+    gap: 4px;
+    pointer-events: none;
+}
+
+.cover .lily-cover-marks > .badge,
+.container-fluid .lily-book .cover .lily-cover-marks > .badge,
+.cover .lily-cover-marks > .lily-fetched {
+    position: static;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    width: 22px;
+    min-width: 0;
+    height: 22px;
+    padding: 0;
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--success);
+    font-size: 11px;
+}
+
+.cover .lily-cover-marks > .badge.read { font-size: 13px; }
+
 
 .lily-book .cover .lily-cover-count { left: auto; right: 6px; }
 
@@ -485,6 +556,9 @@
    (the 44px hit area comes from .icon-btn::after). */
 @media (hover: none) {
     .lily-cover-actions { --btn-size: 36px; gap: 8px; }
+
+    /* The actions stay out along the foot, so Finished and Fetched move to the top-right. */
+    .lily-book .cover .lily-cover-marks { top: 8px; right: 8px; bottom: auto; left: auto; }
 }
 
 /* Grid cards show the title only; list rows keep the authors. */
@@ -578,16 +652,25 @@ body[data-book-view="list"] .lily-grid > .lily-book .cover .img {
 /* The fetched mark shrinks to a 12px corner tab on the 28px thumbnail; at the grid's 26px it
    would hide the cover. Its corners follow the thumbnail's 3px radius. */
 body[data-book-view="list"] .lily-grid > .lily-book .cover .lily-fetched {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: var(--success);
+    color: var(--surface);
     width: 12px;
     height: 12px;
     border-radius: 0 3px 0 3px;
     font-size: 7px;
 }
 
-/* The title's dot carries the read state, so the thumbnail keeps no badge. */
+/* The title's dot carries the read state and the Formats column the file types, so the thumbnail
+   drops the ribbons and the eye and keeps only the fetched tab. */
+body[data-book-view="list"] .lily-grid > .lily-book .cover .lily-cover-ribbons,
 body[data-book-view="list"] .lily-grid > .lily-book .cover .badge.read {
     display: none;
 }
+
+body[data-book-view="list"] .lily-grid > .lily-book .cover .lily-cover-marks { display: contents; }
 
 body[data-book-view="list"] .lily-grid > .lily-book .meta > * {
     grid-row: 1 / span 2;
@@ -1076,21 +1159,16 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 /* The plate's top-right corner (§6.4): the fetched mark, flush with the cover's corner. The
    cover's 1px hairline is drawn inside its edge, so the mark sits 1px in to meet the picture
    rather than hang over it. */
-.book-plate-marks {
+/* A read book's plate is edged in green, like its grid cover. */
+.book-detail-cover.is-read .book-detail-cover-art::after {
+    content: "";
     position: absolute;
-    top: 1px;
-    right: 1px;
-    z-index: 1;
-    display: flex;
-}
-
-/* The fetched mark on the plate: the grid's green check, a little larger. */
-.book-detail-cover .lily-fetched {
-    position: static;
-    width: 32px;
-    height: 32px;
-    border-radius: 0 7px 0 6px;
-    font-size: 14px;
+    inset: 0;
+    z-index: 2;
+    border-radius: 8px;
+    outline: 3px solid var(--success);
+    outline-offset: -3px;
+    pointer-events: none;
 }
 
 /* The edition: bare text in the stage's top-right corner, 16 in (12 on phones), set like the byline. */

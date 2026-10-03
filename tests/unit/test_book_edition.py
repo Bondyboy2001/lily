@@ -116,9 +116,9 @@ def test_the_fetched_mark_stays_on_the_plate_without_the_edition(env):
     CWA_DB().set_book_edition(book, 2)
     CWA_DB().save_metadata_lookup(book, "matched", "Open Library")
     html = _login(env).get(f"/book/{book}").get_data(as_text=True)
-    corner = html[html.index('<div class="book-plate-marks">'):]
-    corner = corner[:corner.index("</div>")]
-    assert 'id="book-fetched-dot"' in corner and "book-edition" not in corner
+    marks = html[html.index('<span class="lily-cover-marks">'):]
+    marks = marks[:marks.index("</div>")]
+    assert 'id="book-fetched-dot"' in marks and "book-edition" not in marks
 
 
 @pytest.mark.parametrize("title, split", [

@@ -298,9 +298,13 @@ def test_detail_page_is_a_frontispiece_stage():
     assert '<dl class="book-info">' in dialog
     assert dialog.index("entry.timestamp|formatdate") < dialog.index("entry.last_modified|formatdate")
     assert dialog.index('<div class="book-metadata-lookup">') < dialog.index("_('Book ID')")
-    # A matched lookup puts the green check on the cover plate's top-right corner.
-    plate = stage[stage.index('<div class="book-detail-cover">'):stage.index('<div class="book-detail-head">')]
-    assert "metadata_lookup.status == 'matched'" in plate and "image.fetched_mark(fetched, id='book-fetched-dot')" in plate
+    # The plate wears the grid card's marks (ribbons, Finished, Fetched) and its green read edge.
+    plate = stage[stage.index('{# The plate wears'):stage.index('<div class="book-detail-head">')]
+    assert "metadata_lookup.status == 'matched'" in plate
+    assert "image.cover_marks(entry.data|map(attribute='format')|map('lower')|list, entry.read_status, fetched, fetched_id='book-fetched-dot')" in plate
+    assert "{{ ' is-read' if entry.read_status }}" in plate
+    edge = next(body for selector, body in rules if selector == ".book-detail-cover.is-read .book-detail-cover-art::after")
+    assert "outline: 3px solid var(--success)" in edge
     dot = next(body for selector, body in rules if selector == ".lily-fetched")
     assert "position: absolute" in dot and "background: var(--success)" in dot
     # A flush corner square, not a ringed disc.
@@ -634,3 +638,38 @@ def test_book_byline_names_are_accent_and_the_ampersand_is_ink():
     byline = css.split(".book-detail-meta .author {", 1)[1].split("}", 1)[0]
     assert "color: var(--ink);" in byline
     assert ".book-detail-meta .author a { color: var(--accent); }" in css
+
+
+def test_grid_covers_hang_a_ribbon_per_file_type():
+    image = read(TEMPLATES / "image.html")
+    card = re.search(r"{% macro book_card.*?{%- endmacro %}", image, flags=re.S).group(0)
+    assert "{{ cover_marks(formats, is_read, _('Metadata fetched') if book.id|metadata_fetched) }}" in \
+        card[card.index('<span class="img">'):card.index("</a>")]
+    cover = re.search(r"{% macro cover_marks.*?{%- endmacro %}", image, flags=re.S).group(0)
+    # Icon only, one ribbon per format, named for screen readers and with no popup over the cover (§5.6).
+    ribbons = cover[cover.index('<span class="lily-cover-ribbons"'):cover.index('<span class="lily-cover-marks">')]
+    assert 'role="img" aria-label=' in ribbons and "title=" not in ribbons
+    assert "lily-ribbon lily-ribbon-{{ f if f in ['epub', 'pdf', 'djvu'] else 'other' }}" in ribbons
+    # Finished and Fetched share the bottom-left marks, and lily.js puts the eye back there first.
+    marks = cover[cover.index('<span class="lily-cover-marks">'):]
+    assert marks.index("badge read") < marks.index("fetched_mark(")
+    js = read(JS / "lily.js")
+    assert '.find(".cover .lily-cover-marks")' in js and ".prependTo($marks)" in js
+    rules = css_rules(read(CSS / "lily-library.css"))
+    rule = lambda sel: next(body for selector, body in rules if selector == sel)
+    hang = rule(".cover .lily-cover-ribbons")
+    assert "top: 0" in hang and "left: 12px" in hang and "pointer-events: none" in hang
+    ribbon = rule(".lily-ribbon")
+    assert "clip-path: polygon(" in ribbon and "background: var(--ribbon)" in ribbon
+    assert "mask: var(--glyph)" in rule(".lily-ribbon::before")
+    for kind in ("pdf", "epub", "djvu", "other"):
+        assert "--glyph: url(" in rule(f".lily-ribbon-{kind}"), kind
+    assert (REPO_ROOT / "cps/static/icons/formats/djvu.svg").is_file()
+    corner = rule(".cover .lily-cover-marks")
+    assert "left: 8px" in corner and "bottom: 8px" in corner
+    # List rows show types in their Formats column and read state as a dot; only the fetched tab stays.
+    hidden = rule('body[data-book-view="list"] .lily-grid > .lily-book .cover .lily-cover-ribbons,\n'
+                  'body[data-book-view="list"] .lily-grid > .lily-book .cover .badge.read')
+    assert "display: none" in hidden
+    tab = rule('body[data-book-view="list"] .lily-grid > .lily-book .cover .lily-fetched')
+    assert "position: absolute" in tab and "top: 0" in tab and "right: 0" in tab

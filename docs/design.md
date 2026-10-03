@@ -77,6 +77,11 @@ format: one token per row, the light value, then the dark value.
 | `--warning` | `#A13F0E` | `#FF9E64` | Needs attention |
 | `--danger` | `#B3261E` | `#F7768E` | Failed (status text and tints) |
 | `--on-accent` | `#FFFFFF` | `#1A1517` | Text and marks drawn on an accent fill |
+| `--format-pdf` | `#E53935` | `#E53935` | PDF ribbon on grid covers |
+| `--format-epub` | `#689F38` | `#689F38` | EPUB ribbon on grid covers |
+| `--format-djvu` | `#1E88E5` | `#1E88E5` | DjVu ribbon on grid covers |
+| `--format-other` | `#78909C` | `#78909C` | Ribbon for any other file type |
+| `--on-format` | `#FFFFFF` | `#FFFFFF` | The icon knocked out of a ribbon |
 
 Also defined per theme: `--menu-shadow` (§4.4).
 
@@ -87,7 +92,7 @@ on all three grounds. Any new token must keep this true.
 
 **Never** write a hex, `rgb()` or `hsl()` value outside the two palette blocks
 in `lily.css`. Tints are `color-mix()` of a token (§2.3). The only colour
-exceptions are format badges (PDF/EPUB icons keep their own colours) and the
+exceptions are format badges (PDF/EPUB/DjVu icons keep their own colours) and the
 reader's in-book page themes, which are content (§6.7).
 
 ### 2.3 Derived states
@@ -435,10 +440,10 @@ its first page has that page cropped to even side margins around the print on im
 on Rebuild metadata (`cps/pdf_cover.py`), no wider than the tile, so the anchor rarely
 trims those. A cover more than 5% wider than A4 (a publisher's 3:4 front) still fills the
 tile — covers never letterbox — but is marked `.cover-wide` by `lily.js` and centred, so
-the crop comes evenly off both sides. Read state is a 3px `--success` inset outline plus a corner eye badge titled "Finished" on grid
+the crop comes evenly off both sides. Grid covers mark their file types with ribbons (`.lily-ribbon`): one 22×34 notched ribbon per format hanging from the top edge, 12px in, in the format's own colour (PDF red, EPUB green, DjVu blue, anything else grey) with its icon knocked out in white; icon only, the group named by its `aria-label`. Finished and Fetched are 22px `--surface` discs with a `--success` glyph in the bottom-left corner, 8px in (top-right on touch screens, where the quick actions stay out). Read state is a 3px `--success` inset outline plus that eye disc titled "Finished" on grid
 covers, and a green dot in list view. Mark-as-read controls use the eye
 glyph (`glyphicon-eye-open`), the same mark as the sidebar's Finished row. For editors, a book a metadata lookup has
-matched carries the green fetched mark (`.lily-fetched`, §6.4) on its cover's top-right corner.
+matched carries the green fetched tick (`.lily-fetched`, §6.4): a disc beside the eye on grid covers, a corner tab on list thumbnails and the book plate.
 
 ---
 
@@ -545,17 +550,17 @@ content (grid, panel, rows)
 - **Description:** a pull-quote: `--font-body` 22px italic, line-height 1.6, `--ink-soft`,
   the full width of the page (no measure cap), indented 64 behind a 112px `--accent` opening mark (19px, 40 and 76 on
   phones). There is no "not fetched yet" notice: the fetched dot already says so.
-- **Plate corner** (`.book-plate-marks`, flush with the cover's top-right corner, 1px in so it meets the
-  picture inside the cover's hairline, outer radius 7): the fetched mark.
+- **Plate marks:** the plate wears exactly the grid cover's marks (`image.cover_marks`, §5.15): a
+  ribbon per file type from the top edge, Finished and Fetched discs bottom-left, and the 3px
+  `--success` edge once read. The read toggle updates the edge and the eye in place.
 - **Edition** (`.book-edition`, everyone): set in the editor, shown as "9th ed." (full
   "9th edition" in its tooltip and for screen readers) in the stage's top-right corner, 16 down
   and 20 in (12 and 16 on phones), never on the cover. Bare text, no pill, set like the byline:
   `--font-body` 20px italic `--accent` (17 on phones). Grid cards don't show it.
-- **Fetched mark** (`.lily-fetched`, `image.fetched_mark`, editors only): a filled 32px `--success`
-  square with a `--surface` check and no ring, flush in the cover's top-right corner (outer
-  corner radius 8 to follow the cover, inner corner 6), once a metadata
-  lookup has matched the book; its tooltip and label say where from and when ("Metadata fetched
-  from Open Library on ‹date›"). Grid cards carry the same mark at 26px, and list rows at 12px
+- **Fetched mark** (`.lily-fetched`, `image.fetched_mark`, editors only): a 22px `--surface` disc
+  with a `--success` check beside the Finished eye, bottom-left on the plate and on grid covers, once a
+  metadata lookup has matched the book; its tooltip and label say where from and when ("Metadata
+  fetched from Open Library on ‹date›"). List rows show it as a 12px `--success` corner tab
   (radius 0 3 0 3, to fit the 28px thumbnail).
   No dot before a lookup, or after one that found nothing.
 - **Details dialog** (`#bookInfoModal`, §5.7): the info button in the action bar opens
@@ -602,9 +607,8 @@ content (grid, panel, rows)
   A result without a cover shows an empty "No cover" slot the cover's shape, with no
   tick box. The dialog opens beside the cover (the editor's or the book page's plate), not over it, whenever 440px
   of window is left (get_meta.js).
-  A field starts ticked only when the book has nothing there, when its title was cut
-  short by a file name, or when the result is an exact match; the rating never is, and
-  ticks are not remembered between books. Where a value would replace the book's own,
+  Every field starts ticked; only the cover starts unticked, and ticks are not remembered
+  between books. Where a value would replace the book's own,
   the card shows that under it ("Now: …", 13px `--muted`). Results from one provider
   with the same title collapse behind a link-style "Show 2 more like this from ‹source›"
   under the best. A `--muted` 14px status line over the results names providers that

@@ -18,19 +18,18 @@
         {% if edition %}
         <span class="book-edition" id="book-edition" title="{{ _('%(nth)s edition', nth=edition|ordinal) }}">{{ _('%(nth)s ed.', nth=edition|ordinal) }}<span class="sr-only"> ({{ _('%(nth)s edition', nth=edition|ordinal) }})</span></span>
         {% endif %}
-        <div class="book-detail-cover">
+        {# The plate wears the grid card's marks: format ribbons, and Finished and Fetched (editors only) #}
+        {% set fetched = none %}
+        {% if metadata_lookup and metadata_lookup.status == 'matched' %}
+        {% set fetched = _('Metadata fetched from %(source)s on %(date)s', source=metadata_lookup.source, date=metadata_lookup.checked|formatdate) if metadata_lookup.source
+                         else _('Metadata fetched on %(date)s', date=metadata_lookup.checked|formatdate) %}
+        {% endif %}
+        <div class="book-detail-cover{{ ' is-read' if entry.read_status }}">
             <div class="book-detail-cover-art cover">
                 <img id="detailcover" alt="{{ entry.title }}"
                      src="{{ url_for('web.get_cover', book_id=entry.id, resolution='og', c=entry|last_modified) }}"/>
+                {{ image.cover_marks(entry.data|map(attribute='format')|map('lower')|list, entry.read_status, fetched, fetched_id='book-fetched-dot') }}
             </div>
-            {# The plate's top-right corner: a green check once a metadata lookup has found the book (editors only) #}
-            {% if metadata_lookup and metadata_lookup.status == 'matched' %}
-            <div class="book-plate-marks">
-                {% set fetched = _('Metadata fetched from %(source)s on %(date)s', source=metadata_lookup.source, date=metadata_lookup.checked|formatdate) if metadata_lookup.source
-                                 else _('Metadata fetched on %(date)s', date=metadata_lookup.checked|formatdate) %}
-                {{ image.fetched_mark(fetched, id='book-fetched-dot') }}
-            </div>
-            {% endif %}
         </div>
         <div class="book-detail-head">
             <div class="book-detail-meta">
@@ -332,6 +331,13 @@
                     var label = isRead ? $cb.data("checked") : $cb.data("unchecked");
                     $btn.toggleClass("is-on", isRead).attr("title", label)
                         .find(".book-action-label").text(label);
+                    // The plate shows the read state like a grid cover: the green edge and the eye.
+                    var $plate = $(".book-detail-cover").toggleClass("is-read", isRead);
+                    $plate.find(".lily-cover-marks .badge.read").remove();
+                    if (isRead) {
+                        $("<span class='badge read is-new glyphicon glyphicon-eye-open' aria-hidden='true'></span>")
+                            .prependTo($plate.find(".lily-cover-marks"));
+                    }
                 },
                 error: function () {
                     $cb.prop("checked", !nextChecked);

@@ -61,6 +61,12 @@
     --danger: #B3261E;
     /* Text drawn on an accent fill (primary buttons). */
     --on-accent: #FFFFFF;
+    /* File-type ribbons on grid covers keep their format's colour in both themes. */
+    --format-pdf: #E53935;
+    --format-epub: #689F38;
+    --format-djvu: #1E88E5;
+    --format-other: #78909C;
+    --on-format: #FFFFFF;
 
     --hover: color-mix(in srgb, var(--accent) 10%, transparent);
     --selected: color-mix(in srgb, var(--accent) 17%, transparent);
@@ -102,6 +108,12 @@
     --warning: #FF9E64;
     --danger: #F7768E;
     --on-accent: #1A1517;
+    /* File-type ribbons on grid covers keep their format's colour in both themes. */
+    --format-pdf: #E53935;
+    --format-epub: #689F38;
+    --format-djvu: #1E88E5;
+    --format-other: #78909C;
+    --on-format: #FFFFFF;
     --menu-shadow: 0 1px 2px color-mix(in srgb, #000 30%, transparent), 0 8px 24px color-mix(in srgb, #000 45%, transparent);
 }
 

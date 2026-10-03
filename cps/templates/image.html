@@ -210,6 +210,17 @@
 
 {# The green check on a cover's top-right corner once a metadata lookup has matched the book
    (editors only): on grid cards and the book page's plate (design §6.3, §6.4) #}
+{# The marks a cover carries, the same on a grid card and the book page's plate: one ribbon per file
+   type hanging from the top edge, and Finished and Fetched discs in the bottom-left corner (lily.js and
+   the book page's read toggle add and remove the eye there). #}
+{% macro cover_marks(formats, is_read=False, fetched=None, fetched_id=None) -%}
+    {% if formats %}<span class="lily-cover-ribbons" role="img" aria-label="{{ formats|unique|map('upper')|join(', ') }}">{% for f in formats|unique %}<span class="lily-ribbon lily-ribbon-{{ f if f in ['epub', 'pdf', 'djvu'] else 'other' }}"></span>{% endfor %}</span>{% endif %}
+    <span class="lily-cover-marks">
+      {% if is_read %}<span class="badge read glyphicon glyphicon-eye-open" aria-hidden="true"></span>{% endif %}
+      {% if fetched %}{{ fetched_mark(fetched, id=fetched_id) }}{% endif %}
+    </span>
+{%- endmacro %}
+
 {% macro fetched_mark(label, id=None) -%}
 <span class="lily-fetched"{% if id %} id="{{ id }}"{% endif %} role="img" title="{{ label }}" aria-label="{{ label }}"><span class="glyphicon glyphicon-ok" aria-hidden="true"></span></span>
 {%- endmacro %}
@@ -223,8 +234,7 @@
         <a href="{{ url_for('web.show_book', book_id=book.id) }}" class="book-cover-link" data-book-id="{{ book.id }}">
           <span class="img">
             {{ book_cover(book, alt=alt) }}
-            {% if is_read %}<span class="badge read glyphicon glyphicon-eye-open" aria-hidden="true"></span>{% endif %}
-            {% if book.id|metadata_fetched %}{{ fetched_mark(_('Metadata fetched')) }}{% endif %}
+            {{ cover_marks(formats, is_read, _('Metadata fetched') if book.id|metadata_fetched) }}
           </span>
         </a>
         {{ cover_actions(book, user, formats, is_read) }}
@@ -276,7 +286,7 @@
         {% endif %}
         {# List rows show the file types and year as columns; grid cards mark the types on the cover instead. #}
         {% if formats %}
-        <span class="lily-list-formats">{% for f in formats|unique %}<span class="lily-format lily-format-{{ f if f in ['epub', 'pdf'] else 'other' }}" role="img" aria-label="{{ f|upper }}" title="{{ f|upper }}"></span>{% endfor %}</span>
+        <span class="lily-list-formats">{% for f in formats|unique %}<span class="lily-format lily-format-{{ f if f in ['epub', 'pdf', 'djvu'] else 'other' }}" role="img" aria-label="{{ f|upper }}" title="{{ f|upper }}"></span>{% endfor %}</span>
         {% endif %}
         <span class="lily-list-year">{% if book.pubdate and (book.pubdate|string)[:10] != '0101-01-01' %}{{ (book.pubdate|string)[:4] }}{% endif %}</span>
       </div>

@@ -20,11 +20,10 @@
 // author, an ISBN, a DOI or an arXiv id; the server says which providers to ask, and each
 // is asked separately so its results show as soon as they arrive, ranked with the rest.
 // A line under the search box names any provider that didn't answer.
-// Apply fills #book_edit_frm with a result's ticked fields and saves. A field starts ticked
-// only when the book has nothing there, when the book's title is one a file's name cut
-// short, or when the result is an exact (identifier) match; the rating never is. Ticks are
-// per card and not remembered. On the book page that form is hidden: the fields only a
-// result may change start disabled, so an untouched one is not sent and the save leaves it
+// Apply fills #book_edit_frm with a result's ticked fields and saves. Every field starts
+// ticked; only the cover starts unticked, so a PDF keeps its first page unless a cover is
+// chosen. Ticks are per card and not remembered. On the book page that form is hidden: the
+// fields only a result may change start disabled, so an untouched one is not sent and the save leaves it
 // as it is.
 $(function () {
   var msg = i18nMsg;
@@ -131,12 +130,6 @@ $(function () {
     return !text || text === "unknown" || text === "none";
   }
 
-  // A title as long as a file's name lets it be, so probably cut off there (metadata_helper.cut_short)
-  function cutShort(title) {
-    var length = $.trim(String(title || "")).length;
-    return length === 41 || length === 42;
-  }
-
   // The form's values, read once per render rather than once per card
   function readForm() {
     return {
@@ -145,16 +138,6 @@ $(function () {
       rating: ratingValue(), description: htmlToText(field("comments").val()),
       tags: field("tags").val(), languages: field("languages").val(), ids: currentIdentifiers(),
     };
-  }
-
-  // Whether a field starts ticked: the book has nothing there, its title is one a file's
-  // name cut short and the result's begins with it, or the result is an exact match. Never
-  // the rating (a provider's is its readers' average) or a value the book already has.
-  function ticked(key, text, current, isSame, book) {
-    if (key === "rating" || isSame) { return false; }
-    if (blank(current)) { return true; }
-    if (key === "title" && cutShort(current) && squash(text).indexOf(squash(current)) === 0) { return true; }
-    return Boolean(book.exact_match);
   }
 
   // What the book has now, shown under a value it would replace; a long one is cut
@@ -172,7 +155,7 @@ $(function () {
       if (text === undefined || text === null || text === "") return;
       var field = $.extend({ key: key, label: label, text: String(text), same: same(text, current) }, extra || {});
       field.current = blank(current) || field.same ? "" : shortened(current);
-      field.tick = ticked(key, field.text, current, field.same, book);
+      field.tick = true;
       fields.push(field);
     }
     var authors = (book.authors || []).join(" & ");

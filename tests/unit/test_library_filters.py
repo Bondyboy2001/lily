@@ -77,6 +77,26 @@ class TestFilterChips:
         assert _titles(_get(client, "/", status="reading")) == ["Pdf German"]
         assert _titles(_get(client, "/", status="unread")) == ["Epub German"]
 
+    def test_grid_cards_show_finished_books_and_a_ribbon_per_format(self, env):
+        self._library(env)
+        client = _login(env)
+        from cps import ub, calibre_db, db
+        ids = {b.title: b.id for b in calibre_db.session.query(db.Books).all()}
+        admin = env.admin()
+        for title, status in (("Epub English", ub.ReadBook.STATUS_FINISHED),
+                              ("Pdf German", ub.ReadBook.STATUS_IN_PROGRESS)):
+            ub.session.add(ub.ReadBook(user_id=admin.id, book_id=ids[title], read_status=status))
+        ub.session.commit()
+        html = _get(client, "/")
+        cards = {title: html[html.index('data-book-id="%d"' % book_id) - 400:html.index('<p title="%s"' % title)]
+                 for title, book_id in ids.items()}
+        # The row is (book, read status): only the finished book carries the read class and the eye.
+        assert "lily-book is-read" in cards["Epub English"] and "badge read" in cards["Epub English"]
+        for title in ("Pdf German", "Epub German"):
+            assert "is-read" not in cards[title] and "badge read" not in cards[title], title
+        assert '<span class="lily-ribbon lily-ribbon-epub">' in cards["Epub English"]
+        assert 'aria-label="PDF"' in cards["Pdf German"] and "lily-ribbon-pdf" in cards["Pdf German"]
+
     def test_last_read_sort_puts_the_latest_read_first_and_unread_last(self, env):
         from datetime import datetime, timedelta, timezone
         self._library(env)
