@@ -10,6 +10,7 @@ The integration fixtures bind-mount temp folders into a test container. Where th
 container can't see them (a remote Docker daemon), files go in with `docker cp`.
 """
 
+import json
 import os
 import sys
 import pytest
@@ -332,13 +333,19 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_docker_integration)
 
 
+SHARD_WEIGHTS = Path(__file__).parent / "shard_weights.json"
+
+
 class _ShardPlugin:
     """LILY_TEST_SHARD=i/n keeps only shard i of n (CI runs the shards in parallel).
 
-    Whole files go to one shard, so module fixtures aren't built twice, and the
-    files are dealt out biggest first to the emptiest shard, which keeps the
-    shards within a few tests of each other. Every xdist worker computes the
-    same split, since it depends only on the collected items.
+    Whole files go to one shard, so module fixtures aren't built twice. Files are
+    dealt out heaviest first to the lightest shard, weighed by the seconds they took
+    (tests/shard_weights.json): by test count alone, one shard got the files with
+    slow app fixtures and ran twice as long as another. A file not in the weights
+    counts its tests at the average per-test time. Every xdist worker computes the
+    same split, since it depends only on the collected items and that file.
+    Regenerate the weights with LILY_WRITE_SHARD_WEIGHTS=1 on a full unit run.
     """
 
     def __init__(self, index: int, total: int):
@@ -350,12 +357,16 @@ class _ShardPlugin:
         for item in items:
             path = item.nodeid.split("::")[0]
             counts[path] = counts.get(path, 0) + 1
-        loads = [0] * self.total
+        weights = json.loads(SHARD_WEIGHTS.read_text()) if SHARD_WEIGHTS.exists() else {}
+        known = [p for p in counts if p in weights]
+        per_test = (sum(weights[p] for p in known) / sum(counts[p] for p in known)) if known else 1.0
+        weight = {p: weights.get(p, n * per_test) for p, n in counts.items()}
+        loads = [0.0] * self.total
         owner = {}
-        for path, count in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
-            emptiest = loads.index(min(loads))
-            owner[path] = emptiest
-            loads[emptiest] += count
+        for path in sorted(counts, key=lambda p: (-weight[p], p)):
+            lightest = loads.index(min(loads))
+            owner[path] = lightest
+            loads[lightest] += weight[path]
         keep, drop = [], []
         for item in items:
             (keep if owner[item.nodeid.split("::")[0]] == self.index - 1 else drop).append(item)
@@ -363,11 +374,31 @@ class _ShardPlugin:
         items[:] = keep
 
 
+class _ShardWeightsWriter:
+    """LILY_WRITE_SHARD_WEIGHTS=1: writes each test file's total seconds (setup, call
+    and teardown) to tests/shard_weights.json at the end of the run."""
+
+    def __init__(self):
+        self.seconds: dict[str, float] = {}
+
+    def pytest_runtest_logreport(self, report):
+        path = report.nodeid.split("::")[0]
+        self.seconds[path] = self.seconds.get(path, 0.0) + report.duration
+
+    def pytest_sessionfinish(self, session):
+        if hasattr(session.config, "workerinput"):  # xdist workers; the controller writes
+            return
+        rounded = {p: round(s, 2) for p, s in sorted(self.seconds.items())}
+        SHARD_WEIGHTS.write_text(json.dumps(rounded, indent=1) + "\n")
+
+
 def pytest_configure(config):
     shard = os.environ.get("LILY_TEST_SHARD")
     if shard:
         index, total = (int(part) for part in shard.split("/"))
         config.pluginmanager.register(_ShardPlugin(index, total), "lily-shard")
+    if os.environ.get("LILY_WRITE_SHARD_WEIGHTS"):
+        config.pluginmanager.register(_ShardWeightsWriter(), "lily-shard-weights")
 
 
 # ============================================================================
