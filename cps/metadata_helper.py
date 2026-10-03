@@ -280,12 +280,14 @@ def isbns_on_pages(page_text: str) -> list[str]:
     """The ISBNs printed on the pages, the book's own likely first: a series list before the
     title page names its other books "(ISBN 0-8176-3967-5)", in brackets after their titles,
     so a bracketed ISBN comes after any that isn't."""
-    found: list[tuple[str, bool]] = []
+    plain: list[str] = []
+    bracketed: list[str] = []
     for match in _ISBN_ON_PAGE.finditer(page_text or ""):
         isbn = compact_isbn(match.group(1))
-        if ISBN_RE.fullmatch(isbn) and _isbn_checks(isbn) and isbn not in (i for i, _ in found):
-            found.append((isbn, page_text[max(match.start() - 1, 0):match.start()] == "("))
-    return [isbn for isbn, bracketed in sorted(found, key=lambda f: f[1])]
+        if ISBN_RE.fullmatch(isbn) and _isbn_checks(isbn) and isbn not in plain + bracketed:
+            in_brackets = page_text[max(match.start() - 1, 0):match.start()] == "("
+            (bracketed if in_brackets else plain).append(isbn)
+    return plain + bracketed
 
 
 def isbn_on_pages(page_text: str) -> str:
