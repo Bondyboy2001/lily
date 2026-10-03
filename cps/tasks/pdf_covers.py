@@ -75,7 +75,7 @@ def _redo_one(book_id):
     with library_lock:
         book_db = db.CalibreDB(expire_on_commit=False, init=True)
         try:
-            job = _cover_job(book_db, book_id, store)
+            job = _cover_job(book_db, book_id, store=store)
         finally:
             book_db.session.close()
     return pdf_cover.try_fix_cover(job, book_id)

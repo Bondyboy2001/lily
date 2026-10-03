@@ -307,7 +307,7 @@ def test_a_stopped_rebuild_is_carried_on_from_where_it_got_to(env, monkeypatch):
     task, looked_up = _run_rebuild(env, monkeypatch, stop_after=ids[1])
     assert looked_up == ids[:2] and task.message == "Stopped: 2 of 4 books checked, 2 updated"
     assert saved_progress() == {"next_book_id": ids[2], "checked": 2, "updated": 2, "covers": 0, "total": 4,
-                                "full": False, "done": []}
+                                "full": False}
 
     status = _login(env).get("/cwa-settings/rebuild-metadata/status").get_json()
     assert status == {"state": "idle", "message": "The last rebuild stopped after 2 of 4 books.",
@@ -470,11 +470,13 @@ def test_continuing_a_stopped_full_rebuild_keeps_it_full(env, monkeypatch):
 
 
 @pytest.mark.unit
-def test_a_carried_on_rebuild_skips_the_books_already_checked_past_its_mark(env, monkeypatch):
+def test_a_carried_on_full_rebuild_skips_the_books_it_already_looked_up(env, monkeypatch):
     # Books run several at once, so a later one can finish before an earlier one
     from cwa_db import CWA_DB
     ids = [env.add_book(t) for t in ("One", "Two", "Three", "Four", "Five")]
-    CWA_DB().save_rebuild_progress(ids[1], 2, 2, 0, 5, full=True, done=[ids[3]])
+    store = CWA_DB()
+    store.save_rebuild_progress(ids[1], 2, 2, 0, 5, full=True)
+    store.save_metadata_lookup(ids[3], "matched")
     task, looked_up = _run_rebuild(env, monkeypatch, resume=True)
     assert looked_up == [ids[1], ids[2], ids[4]]
     assert task.message == "Done: 5 books checked, 5 updated"

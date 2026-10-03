@@ -340,15 +340,6 @@ class CWA_DB:
         # Support both Docker and CI environments for schema path
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.schema_path = os.path.join(script_dir, "cwa_schema.sql")
-        self.stats_tables = [
-            "cwa_enforcement",
-            "cwa_duplicate_cache",
-            "cwa_duplicate_book_keys",
-            "cwa_duplicate_file_matches",
-            "cwa_duplicate_resolutions",
-            "cwa_operation_jobs",
-            "metadata_rebuild_progress",
-        ]
         self.tables, self.schema = _read_schema_file(self.schema_path)
         self.cwa_default_settings = self.get_cwa_default_settings()
 
@@ -746,7 +737,8 @@ class CWA_DB:
         a newer version) are preserved and logged.
         """
         schema_columns = parse_schema_columns(self.tables)
-        for table in self.stats_tables:
+        # cwa_settings has its own sync (ensure_settings_schema_match)
+        for table in [t for t in schema_columns if t != "cwa_settings"]:
             try:
                 existing = [row[1] for row in self.cur.execute(f"PRAGMA table_info('{table}')").fetchall()]
             except sqlite3.OperationalError:
@@ -754,10 +746,6 @@ class CWA_DB:
             # Table missing: make_tables() creates it from the schema
             if not existing:
                 continue
-            if table not in schema_columns:
-                print(f"[cwa-db] Warning: Table '{table}' in stats_tables but not found in schema")
-                continue
-
             for column, definition in schema_columns[table].items():
                 if column in existing:
                     continue
@@ -936,23 +924,20 @@ class CWA_DB:
 
     def get_rebuild_progress(self) -> dict | None:
         """How far an unfinished Rebuild metadata run got, or None when the last one finished.
-        `full` says it was a Full rebuild; `done` lists the books above next_book_id it checked."""
-        row = self.cur.execute("SELECT next_book_id, checked, updated, covers, total, full, done "
+        `full` says it was a Full rebuild."""
+        row = self.cur.execute("SELECT next_book_id, checked, updated, covers, total, full "
                                "FROM metadata_rebuild_progress WHERE id = 1").fetchone()
         if not row:
             return None
-        progress = dict(zip(("next_book_id", "checked", "updated", "covers", "total"), row[:5]))
-        progress["full"] = bool(row[5])
-        progress["done"] = sorted(int(i) for i in (row[6] or "").split(",") if i.strip().isdigit())
+        progress = dict(zip(("next_book_id", "checked", "updated", "covers", "total", "full"), row))
+        progress["full"] = bool(progress["full"])
         return progress
 
     def save_rebuild_progress(self, next_book_id: int, checked: int, updated: int, covers: int, total: int,
-                              full: bool = False, done=()) -> None:
+                              full: bool = False) -> None:
         self.cur.execute("INSERT OR REPLACE INTO metadata_rebuild_progress "
-                         "(id, next_book_id, checked, updated, covers, total, full, done) "
-                         "VALUES (1, ?, ?, ?, ?, ?, ?, ?)",
-                         (next_book_id, checked, updated, covers, total, int(bool(full)),
-                          ",".join(str(i) for i in sorted(done))))
+                         "(id, next_book_id, checked, updated, covers, total, full) VALUES (1, ?, ?, ?, ?, ?, ?)",
+                         (next_book_id, checked, updated, covers, total, full))
         self.con.commit()
 
     def clear_rebuild_progress(self) -> None:
