@@ -85,6 +85,8 @@ def test_the_editor_hides_the_field_behind_add_edition_until_there_is_one(env):
     client = _login(env)
     html = client.get(f"/admin/book/{book}").get_data(as_text=True)
     assert re.search(r'<div class="row" id="edition-field" hidden>', html)
+    # The Edition heading shows even before there is one, over the "Add edition" button
+    assert re.search(r'<div id="edition_div" class="form-group">\s*<label for="edition">Edition</label>', html)
     assert re.search(r'<button type="button" class="btn btn-default btn-sm" id="edition-add">', html)
     assert 'name="edition" id="edition" value=""' in html
     _save(env, client, book, edition="9")

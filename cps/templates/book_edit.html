@@ -85,17 +85,20 @@
         <input type="number" step="0.01" min="0" placeholder="1" class="form-control" name="series_index" id="series_index" value="{{book.series_index|formatfloat(2)}}">
       </div>
     </div>
-    {# The edition is the one optional field added by hand: "Add edition" shows it, and a
-       cleared number removes it. The book page shows it on the cover plate ("9th ed.") #}
-    <div class="row" id="edition-field"{% if not edition %} hidden{% endif %}>
-      <div class="col-sm-3 form-group">
-        <label for="edition">{{_('Edition')}}</label>
-        <input type="number" min="1" max="999" step="1" placeholder="6" class="form-control" name="edition" id="edition" value="{{ edition or '' }}">
+    {# The edition is the one optional field added by hand: its heading always shows, "Add
+       edition" reveals the number under it, and a cleared number removes it. The book page
+       shows it on the cover plate ("9th ed.") #}
+    <div id="edition_div" class="form-group">
+      <label for="edition">{{_('Edition')}}</label>
+      <div class="row" id="edition-field"{% if not edition %} hidden{% endif %}>
+        <div class="col-sm-3">
+          <input type="number" min="1" max="999" step="1" placeholder="6" class="form-control" name="edition" id="edition" value="{{ edition or '' }}">
+        </div>
       </div>
+      <button type="button" class="btn btn-default btn-sm" id="edition-add"{% if edition %} hidden{% endif %}>
+        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> {{_('Add edition')}}
+      </button>
     </div>
-    <button type="button" class="btn btn-default btn-sm" id="edition-add"{% if edition %} hidden{% endif %}>
-      <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> {{_('Add edition')}}
-    </button>
     </section>
 
     <section class="editbook-section"{% if not details_shown %} hidden{% endif %}>
