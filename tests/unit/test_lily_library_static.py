@@ -189,7 +189,7 @@ def test_page_numbers_sit_in_the_toolbar_after_sort():
     for name in ("index.html", "author.html", "search.html", "shelf.html"):
         html = read(TEMPLATES / name)
         toolbar = html[html.index('<div class="lily-list-toolbar">'):]
-        toolbar = toolbar[:toolbar.index("image.list_head()")]
+        toolbar = toolbar[:toolbar.index('<div class="row display-flex lily-grid')]
         assert "image.pager(pagination)" in toolbar, name
         if "image.sort_menu(" in toolbar:
             assert toolbar.index("image.sort_menu(") < toolbar.index("image.pager("), name
@@ -305,10 +305,6 @@ def test_detail_page_is_a_frontispiece_stage():
     # A flush corner square, not a ringed disc.
     assert "border-radius: 0 8px 0 6px" in dot and "border:" not in dot
     assert "top: 0" in dot and "right: 0" in dot
-    # On a list row's 28px thumbnail it shrinks to a corner tab instead of covering it.
-    tab = next(body for selector, body in rules
-               if selector == 'body[data-book-view="list"] .lily-grid > .lily-book .cover .lily-fetched')
-    assert "width: 12px" in tab and "height: 12px" in tab and "border-radius: 0 3px 0 3px" in tab
     assert "position: relative" in next(body for selector, body in rules if selector == ".book-detail-cover")
     info = next(body for selector, body in rules if selector == "dl.book-info")
     assert "display: grid" in info and "border" not in info
@@ -702,9 +698,3 @@ def test_grid_covers_hang_a_ribbon_per_file_type():
     # The fetched disc is filled green so it reads on light and dark covers alike.
     disc = rule(".cover .lily-cover-marks > .lily-fetched")
     assert "background: var(--success)" in disc and "color: var(--surface)" in disc
-    # List rows show types in their Formats column and read state as a dot; only the fetched tab stays.
-    hidden = rule('body[data-book-view="list"] .lily-grid > .lily-book .cover .lily-cover-ribbons,\n'
-                  'body[data-book-view="list"] .lily-grid > .lily-book .cover .badge.read')
-    assert "display: none" in hidden
-    tab = rule('body[data-book-view="list"] .lily-grid > .lily-book .cover .lily-fetched')
-    assert "position: absolute" in tab and "top: 0" in tab and "right: 0" in tab

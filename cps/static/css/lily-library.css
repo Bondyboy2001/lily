@@ -37,42 +37,6 @@
     margin: 0 0 22px;
 }
 
-/* Grid/List icons: the toolbar's top right, with room kept so the
-   toolbar's own controls never run underneath. */
-.lily-list-toolbar { position: relative; }
-
-.lily-list-toolbar:has(> .lily-view-switch) { --toolbar-end-room: 92px; padding-right: var(--toolbar-end-room); }
-
-.lily-list-toolbar > .lily-view-switch {
-    position: absolute;
-    top: 0;
-    right: 0;
-    display: flex;
-    gap: 2px;
-}
-
-/* Same size as the top bar's icons: 38px control, 21px glyph. */
-.lily-view-switch .icon-btn,
-.lily-toolbar-end .dropdown > .icon-btn {
-    width: 38px;
-    height: 38px;
-    font-size: 21px;
-}
-
-/* The same corner when a page adds its own ⋯ menu beside the Grid/List icons */
-.lily-list-toolbar:has(> .lily-toolbar-end) { --toolbar-end-room: 132px; padding-right: var(--toolbar-end-room); }
-
-.lily-list-toolbar > .lily-toolbar-end {
-    position: absolute;
-    top: 0;
-    right: 0;
-    display: flex;
-    align-items: center;
-    gap: 2px;
-}
-
-.lily-toolbar-end .lily-view-switch { display: flex; gap: 2px; }
-
 .lily-actions {
     display: flex;
     flex-wrap: wrap;
@@ -520,13 +484,13 @@
     .lily-book:hover .meta .title { color: var(--accent); }
 
     @media (hover: hover) {
-        body:not([data-book-view="list"]) .lily-cover-actions {
+        .lily-cover-actions {
             transform: translateY(4px);
             transition: transform .3s cubic-bezier(.25, .46, .45, .94), opacity .12s ease-out;
         }
 
-        body:not([data-book-view="list"]) .lily-book:hover .lily-cover-actions,
-        body:not([data-book-view="list"]) .lily-book:focus-within .lily-cover-actions { transform: none; }
+        .lily-book:hover .lily-cover-actions,
+        .lily-book:focus-within .lily-cover-actions { transform: none; }
     }
 
     .lily-cover-actions .icon-btn { transition: background-color .12s, color .12s; }
@@ -556,260 +520,8 @@
     .lily-book .cover .lily-cover-marks { top: 8px; right: 8px; bottom: auto; left: auto; }
 }
 
-/* Grid cards show the title only; list rows keep the authors. */
-body:not([data-book-view="list"]) .lily-book .meta .author { display: none; }
-
-/* A list row has no cover box to hold the progress bar, nor a column for the share read */
-body[data-book-view="list"] .lily-grid > .lily-book .continue-reading-progress,
-body[data-book-view="list"] .lily-grid > .lily-book .continue-reading-percent { display: none; }
-
-/* List view, "Ledger" (the top bar's List icon sets body[data-book-view]): one table-like row per book.
-   The rules are anchored on ".lily-grid > .lily-book" to outrank the grid card rules above.
-   The cover box is dissolved (display: contents) so its link and its action bar become cells of
-   the row: thumbnail | title, author, formats, year, rating | actions. The .meta columns come from
-   --ledger-cols, which .lily-list-head shares so the column labels sit over their cells.
-   Rows are told apart by alternate tints, not rules; a dot before the title marks read books. */
-body[data-book-view="list"] {
-    --ledger-cols: minmax(0, 2.4fr) minmax(0, 1.4fr) 72px 48px 76px;
-    --ledger-gap: 14px;
-}
-
-.lily-list-head { display: none; }
-
-body[data-book-view="list"] .lily-list-head,
-body[data-book-view="list"] .lily-grid > .lily-book {
-    display: grid;
-    grid-template-columns: 28px minmax(0, 1fr) 96px;
-    column-gap: var(--ledger-gap);
-    align-items: center;
-    padding: 0 10px;
-}
-
-body[data-book-view="list"] .lily-list-head .lily-list-head-cols,
-body[data-book-view="list"] .lily-grid > .lily-book .meta {
-    display: grid;
-    grid-template-columns: var(--ledger-cols);
-    column-gap: var(--ledger-gap);
-    align-items: center;
-}
-
-body[data-book-view="list"] .lily-list-head {
-    padding-bottom: 8px;
-    color: var(--heading);
-    font-family: var(--font-body);
-    font-size: var(--heading-size);
-    font-weight: 600;
-}
-
-body[data-book-view="list"] .lily-list-head .lily-list-head-cols { grid-column: 2; }
-
-body[data-book-view="list"] .row.lily-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book {
-    min-height: 48px;
-    padding-top: 6px;
-    padding-bottom: 6px;
-    border-bottom: 0;
-    border-radius: var(--control-radius);
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book:nth-child(odd of .lily-book) {
-    background: color-mix(in srgb, var(--ink) 3%, transparent);
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book:hover,
-body[data-book-view="list"] .lily-grid > .lily-book:focus-within { background: var(--hover); }
-
-body[data-book-view="list"] .lily-grid > .lily-book .cover { display: contents; }
-
-body[data-book-view="list"] .lily-grid > .lily-book .cover::after { display: none; }
-
-body[data-book-view="list"] .lily-grid > .lily-book .cover > a {
-    grid-column: 1;
-    grid-row: 1;
-    position: relative;
-    height: auto;
-    aspect-ratio: 1 / 1.414;
-    border-radius: 3px;
-    background: var(--sunk);
-    overflow: hidden;
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book .cover .img {
-    border-radius: 3px;
-    outline: 1px solid var(--line-soft);
-    outline-offset: -1px;
-}
-
-/* The fetched mark shrinks to a 12px corner tab on the 28px thumbnail; at the grid's 26px it
-   would hide the cover. Its corners follow the thumbnail's 3px radius. */
-body[data-book-view="list"] .lily-grid > .lily-book .cover .lily-fetched {
-    position: absolute;
-    top: 0;
-    right: 0;
-    background: var(--success);
-    color: var(--surface);
-    width: 12px;
-    height: 12px;
-    border-radius: 0 3px 0 3px;
-    font-size: 7px;
-}
-
-/* The title's dot carries the read state and the Formats column the file types, so the thumbnail
-   drops the ribbons and the eye and keeps only the fetched tab. */
-body[data-book-view="list"] .lily-grid > .lily-book .cover .lily-cover-ribbons,
-body[data-book-view="list"] .lily-grid > .lily-book .cover .badge.read {
-    display: none;
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book .cover .lily-cover-marks { display: contents; }
-
-body[data-book-view="list"] .lily-grid > .lily-book .meta > * {
-    grid-row: 1 / span 2;
-    margin: 0;
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book .meta > a {
-    grid-column: 1;
-    grid-row: 1;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book .meta > a::before {
-    content: "";
-    flex: none;
-    width: 7px;
-    height: 7px;
-    border: 1.5px solid var(--line-strong);
-    border-radius: 50%;
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book.is-read .meta > a::before {
-    border-color: var(--success);
-    background: var(--success);
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book .meta .title,
-body[data-book-view="list"] .lily-grid > .lily-book .meta .author {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book .meta .title { margin: 0; font-weight: 500; }
-
-body[data-book-view="list"] .lily-grid > .lily-book .meta .author {
-    grid-column: 2;
-    color: var(--ink-soft);
-    font-size: 14px;
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book .meta .author a { color: inherit; }
-
-body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-formats {
-    grid-column: 3;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-formats .lily-format {
-    width: 20px;
-    height: 20px;
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-year {
-    grid-column: 4;
-    display: block;
-    color: var(--muted);
-    font-size: 13px;
-    font-variant-numeric: tabular-nums;
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-year:empty::before { content: "\2014"; }
-
-body[data-book-view="list"] .lily-grid > .lily-book .meta .rating {
-    grid-column: 5;
-    white-space: nowrap;
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions {
-    --btn-size: 30px;
-    --btn-bg: transparent;
-    --btn-hover-bg: var(--control-tint);
-    --btn-border: transparent;
-    --btn-radius: var(--control-radius);
-    --btn-ink: var(--faint);
-    --btn-hover-ink: var(--ink);
-    --btn-shadow: none;
-    grid-column: 3;
-    grid-row: 1;
-    position: static;
-    justify-content: end;
-    padding: 0;
-    gap: 2px;
-    background: none;
-}
-
-/* The read eye keeps its green disc even in list rows, where the other
-   quick actions go square and flat. */
-body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read {
-    border-radius: 50%;
-}
-
-body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read.is-on,
-body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read.is-on:hover,
-body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-toggle-read.is-on:focus {
-    width: calc(var(--btn-size) - 4px);
-    height: calc(var(--btn-size) - 4px);
-    margin: 2px;
-    border-radius: 50%;
-    border-color: var(--success);
-    background: var(--success);
-    color: var(--surface);
-}
-
-/* Grid cards only: the list rows have columns for these. */
-.lily-list-formats,
-.lily-list-year { display: none; }
-
-/* Narrow screens drop the year and rating columns, then phones fold the row to
-   thumbnail | title over author | actions, with the column labels gone. */
-@media (max-width: 1099px) {
-    body[data-book-view="list"] { --ledger-cols: minmax(0, 2fr) minmax(0, 1.2fr) 72px; }
-
-    body[data-book-view="list"] .lily-list-head .lily-list-head-cols > :nth-child(n + 4),
-    body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-year,
-    body[data-book-view="list"] .lily-grid > .lily-book .meta .rating { display: none; }
-}
-
-@media (max-width: 767px) {
-    body[data-book-view="list"] .lily-list-head { display: none; }
-
-    body[data-book-view="list"] .lily-grid > .lily-book {
-        column-gap: 12px;
-        padding: 8px 6px;
-    }
-
-    body[data-book-view="list"] .lily-grid > .lily-book .meta { grid-template-columns: minmax(0, 1fr); }
-
-    body[data-book-view="list"] .lily-grid > .lily-book .meta > * { grid-row: auto; }
-
-    body[data-book-view="list"] .lily-grid > .lily-book .meta .author {
-        grid-column: 1;
-        padding-left: calc(7px + 8px);
-        font-size: 13px;
-    }
-
-    body[data-book-view="list"] .lily-grid > .lily-book .meta .lily-list-formats { display: none; }
-}
+/* Grid cards show the title only. */
+.lily-book .meta .author { display: none; }
 
 @media (max-width: 767px) {
     .row.lily-grid {
@@ -2101,11 +1813,8 @@ dl.book-info {
     line-height: 38px;
 }
 
-/* Phones: the page numbers take their own line under Sort, so they may run under the
-   Grid/List icons' room too, and every chip is at least 38 square. */
+/* Phones: the page numbers take their own line under Sort, and every chip is at least 38 square. */
 @media (max-width: 767px) {
-    .lily-list-toolbar > .pagination { margin-right: calc(-1 * var(--toolbar-end-room, 0px)); }
-
     .lily-list-toolbar .pagination > li > a {
         justify-content: center;
         min-width: 38px;

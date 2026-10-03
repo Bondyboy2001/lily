@@ -1,6 +1,5 @@
 {% import 'image.html' as image %}
 {% extends "layout.html" %}
-{% block view_switch %}{{ image.view_switch(current_user.get_view_property('books', 'view') or 'grid') }}{% endblock %}
 {% block body %}
 <div class="discover">
     {% if entries|length < 1 %}
@@ -18,14 +17,11 @@
     {% else %}
       <h2>{{ ngettext('%(num)s Result for “%(term)s”', '%(num)s Results for “%(term)s”', result_count, term=adv_searchterm) }}</h2>
       <div class="lily-list-toolbar">
-        {# Grid/List icons, pinned to the toolbar's top right #}
-        {{ self.view_switch() }}
       {{ image.sort_menu(order, url_for('web.books_list', data=page, sort_param='SORT_PARAM', query=query), ['added', 'title', 'author', 'published']) }}
       {{ image.pager(pagination) }}
       </div>
   {% endif %}
 
-  {% if entries %}{{ image.list_head() }}{% endif %}
   <div class="row display-flex lily-grid">
     {% for entry in entries %}
     {{ image.book_card(entry.Books, current_user, entry[1] == True, g.config_authors_max, extra_class='isotope-item') }}

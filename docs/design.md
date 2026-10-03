@@ -186,7 +186,7 @@ reused for layout. Don't introduce 15, 18, 20, 26 or 30 for layout gaps (§12).
 
 | Radius | Use |
 | --- | --- |
-| 3 | Thumbnails ≤ 60px wide (typeahead, duplicates, list view) |
+| 3 | Thumbnails ≤ 60px wide (typeahead, duplicates) |
 | 4 | Inline `code`, `pre` |
 | 5 | Navigation rows (sidebar, settings rail), draggable order rows |
 | **6** (`--control-radius`) | Buttons, chips, icon buttons, menu items, list-view rows |
@@ -235,7 +235,7 @@ Use these widths only (tested). Write `max-width: N` and `min-width: N + 1`.
 | --- | --- | --- |
 | 600 | Small phone | Dialog and duplicates layouts tighten; reader labels hide |
 | 767 / 768 | Phone | Sidebar becomes a drawer; top bar wraps; book grid 2-up; book page stacks; content padding 16 |
-| 1099 / 1100 | Tablet | List view drops year and rating; book editor goes two-column; book stage padding 24, title 40 |
+| 1099 / 1100 | Tablet | Book editor goes two-column; book stage padding 24, title 40 |
 | 1499 / 1500 | Wide | Book page's plate and title shrink (plate ≤268, title 46) |
 | 1400, 1700 | Zoom | Whole page zooms 1.1 / 1.2 (`--page-zoom`); size full-height boxes with `calc(100vh / var(--page-zoom))` |
 
@@ -395,8 +395,7 @@ one level deep.
 - **Table:** no borders, no zebra. Column heads are headings (`--heading-size`,
   `--heading`). Cells 8×10, tabular numbers. Hover `--hover`, selected
   `--selected`. Sorted column shows ↑/↓ in `--muted`.
-- **List row:** radius 6, hover `--hover`, selected `--selected`. Long lists
-  (list view) may alternate rows with ink 3%.
+- **List row:** radius 6, hover `--hover`, selected `--selected`.
 - **Navigation row** (sidebar `.lily-nav`, settings rail): min-height 28,
   padding 4×10, radius 5, 15px `--ink-soft`; hover `--row-hover`; current
   `--row-active`, `--ink`, 500, with `aria-current="page"`. Neutral, not
@@ -442,9 +441,9 @@ on Rebuild metadata (`cps/pdf_cover.py`), no wider than the tile, so the anchor 
 trims those. A cover more than 5% wider than A4 (a publisher's 3:4 front) still fills the
 tile — covers never letterbox — but is marked `.cover-wide` by `lily.js` and centred, so
 the crop comes evenly off both sides. Grid covers mark their file types with ribbons (`.lily-ribbon`): one 22×34 notched ribbon per format hanging from the top edge, 12px in, in the format's own colour (PDF red, EPUB green, DjVu blue, anything else grey) with its icon knocked out in white; icon only, the group named by its `aria-label`. Finished and Fetched are 22px `--surface` discs with a `--success` glyph in the bottom-left corner, 8px in (top-right on touch screens, where the quick actions stay out). Read state is a 3px `--success` inset outline plus that eye disc titled "Finished" on grid
-covers, and a green dot in list view. Mark-as-read controls use the eye
+covers. Mark-as-read controls use the eye
 glyph (`glyphicon-eye-open`), the same mark as the sidebar's Finished row. For editors, a book a metadata lookup has
-matched carries the green fetched tick (`.lily-fetched`, §6.4): a disc beside the eye on grid covers, a corner tab on list thumbnails and the book plate.
+matched carries the green fetched tick (`.lily-fetched`, §6.4): a disc beside the eye on grid covers and the book plate.
 
 ---
 
@@ -493,8 +492,6 @@ content (grid, panel, rows)
   discs with a 1px `--line` edge and `--menu-shadow`, `--ink` icons, `--accent` on hover. They rise and fade in
   on hover/focus and stay visible on touch (36px, 8 apart). Read state fills the eye's disc
   `--success` with a `--surface` eye. No popups over the cover or its buttons (§5.6).
-- **List view ("ledger"):** one shared `--ledger-cols` track list for header and
-  rows; rows radius 6, alternate ink 3%, hover `--hover`; read state is a dot.
 - **Browse lists** (`list.html`: categories, authors, publishers…): one
   `.lily-list` flowed into 300px CSS columns, gap 22, so each count sits
   beside its name; lists of 12 or fewer stay one column, max 560. Rows are
@@ -818,7 +815,7 @@ transitions are turned off in `lily.js`.
 | --- | --- |
 | `lily.css` | Tokens, element defaults, every shared component. The **only** place a colour value is written. |
 | `lily-shell.css` | Sidebar, top bar, flashes, toast, drawer |
-| `lily-library.css` | Grid, list view, toolbar, book page, editor, search, pickers |
+| `lily-library.css` | Grid, toolbar, book page, editor, search, pickers |
 | `lily-admin.css` | Settings frame (`.lp-*`), admin pages, logs, error page |
 | `lily-duplicates.css` | Duplicates page |
 | `lily-reader.css` | Reader chrome (loaded only by reader templates) |

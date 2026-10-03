@@ -159,16 +159,6 @@
     <li{% if active %} class="active"{% endif %}><a{% if disabled %} class="disabled"{% endif %} href="{{ href }}"{% if active %} aria-current="true"{% endif %}>{{ label }}</a></li>
 {%- endmacro %}
 
-{# Grid/List icons at the top right of a list page (a CSS switch, no reload). #}
-{% macro view_switch(current) -%}
-    <div class="lily-view-switch" role="group" aria-label="{{ _('View') }}">
-      {% for view, glyph, label in [('grid', 'glyphicon-th-large', _('Grid')), ('list', 'glyphicon-th-list', _('List'))] %}
-      <button type="button" class="icon-btn" data-view="{{ view }}" aria-pressed="{{ 'true' if current == view else 'false' }}"
-              title="{{ label }}" aria-label="{{ label }}"><span class="glyphicon {{ glyph }}" aria-hidden="true"></span></button>
-      {% endfor %}
-    </div>
-{%- endmacro %}
-
 {# Quick actions on a grid cover: icon bar over the cover's foot, revealed on hover or focus (lily.js wires them). #}
 {% macro cover_actions(book, user, formats, is_read=False) -%}
     {%- set readable = book|readable_formats -%}
@@ -192,14 +182,6 @@
       {% if user.role_edit() %}
       <a class="icon-btn" href="{{ url_for('edit-book.show_edit_book', book_id=book.id) }}" aria-label="{{ _('Edit %(name)s', name=book.title) }}"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></span></a>
       {% endif %}
-    </div>
-{%- endmacro %}
-
-{# Column labels over the list view's rows; hidden in grid view. Decorative, so screen readers skip them. #}
-{% macro list_head() -%}
-    <div class="lily-list-head" aria-hidden="true">
-      <span></span>
-      <div class="lily-list-head-cols"><span>{{ _('Title') }}</span><span>{{ _('Author') }}</span><span>{{ _('Format') }}</span><span>{{ _('Year') }}</span><span>{{ _('Rating') }}</span></div>
     </div>
 {%- endmacro %}
 
@@ -269,11 +251,6 @@
           {% for number in range(5 - stars) %}<span class="glyphicon glyphicon-star-empty" aria-hidden="true"></span>{% endfor %}
         </div>
         {% endif %}
-        {# List rows show the file types and year as columns; grid cards mark the types on the cover instead. #}
-        {% if formats %}
-        <span class="lily-list-formats">{% for f in formats|unique %}<span class="lily-format lily-format-{{ f if f in ['epub', 'pdf', 'djvu'] else 'other' }}" role="img" aria-label="{{ f|upper }}" title="{{ f|upper }}"></span>{% endfor %}</span>
-        {% endif %}
-        <span class="lily-list-year">{% if book.pubdate and (book.pubdate|string)[:10] != '0101-01-01' %}{{ (book.pubdate|string)[:4] }}{% endif %}</span>
       </div>
     </div>
 {%- endmacro %}

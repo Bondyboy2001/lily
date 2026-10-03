@@ -294,20 +294,17 @@ def test_sort_direction_is_one_toggle_button_not_a_dropdown():
     assert "lily-order-toggle" in js and '"#asc"' not in js and '"#desc"' not in js
 
 
-def test_list_view_is_a_ledger_with_shared_columns_and_a_read_dot():
+def test_books_show_only_as_a_grid():
+    # The list view and its Grid/List switch are gone: every book list is the grid
     css = read(CSS / "lily-library.css")
-    # Rows and the column labels share one track list, so labels sit over their cells.
-    assert "--ledger-cols:" in css and css.count("grid-template-columns: var(--ledger-cols);") == 1
-    assert "body[data-book-view=\"list\"] .lily-list-head .lily-list-head-cols,\nbody[data-book-view=\"list\"] .lily-grid > .lily-book .meta {" in css
-    # Rows are told apart by alternate tints; read state is a green dot before the title.
-    assert ":nth-child(odd of .lily-book)" in css
-    dot = re.search(r'\.lily-book\.is-read \.meta > a::before \{([^}]*)\}', css)
-    assert dot and "var(--success)" in dot.group(1)
-    assert ":has(.badge.read)" not in css
+    assert "data-book-view" not in css and "--ledger-cols" not in css and "lily-view-switch" not in css
     image = read(TEMPLATES / "image.html")
-    assert "macro list_head()" in image and 'class="lily-list-year"' in image
+    assert "macro view_switch(" not in image and "macro list_head()" not in image and "lily-list-year" not in image
     for name in ("index", "shelf", "author", "search"):
-        assert "image.list_head()" in read(TEMPLATES / f"{name}.html"), name
+        html = read(TEMPLATES / f"{name}.html")
+        assert "view_switch" not in html and "list_head" not in html, name
+    assert "data-book-view" not in read(TEMPLATES / "layout.html")
+    assert "lily-view-switch" not in read(REPO_ROOT / "cps/static/js/main.js")
 
 
 # docs/design.md is the design guide. These tests keep it and the stylesheets in step.

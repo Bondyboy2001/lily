@@ -1,17 +1,13 @@
 {% import 'image.html' as image %}
 {% extends "layout.html" %}
-{% block view_switch %}{{ image.view_switch(current_user.get_view_property('books', 'view') or 'grid') }}{% endblock %}
 {% block body %}
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
 <div class="discover load-more">
   <div class="lily-list-toolbar">
-    {# Grid/List icons, pinned to the toolbar's top right #}
-    {{ self.view_switch() }}
     {{ image.sort_menu(order, url_for('web.books_list', data='author', book_id=id, sort_param='SORT_PARAM', **(list_filters.args if list_filters else {})), ['added', 'title', 'published']) }}
     {{ image.pager(pagination) }}
   </div>
-  {% if entries %}{{ image.list_head() }}{% endif %}
   <div class="row display-flex lily-grid">
     {% for entry in entries %}
     {{ image.book_card(entry.Books, current_user, entry[1] == True, g.config_authors_max, extra_class='books') }}

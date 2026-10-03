@@ -247,23 +247,4 @@ $(function() {
         $(this).parent().find("span.author-hidden-divider").toggle();
         $(this).html() === $(this).data("collapse-caption") ? $(this).html("(...)") : $(this).html($(this).data("collapse-caption"));
     });
-
-    // Grid/List icons in the list toolbar: the page switches in place and the choice is saved
-    $(".lily-view-switch [data-view]").click(function(e) {
-        var $btn = $(this);
-        var view = $btn.data("view");
-        e.preventDefault();
-        if ($btn.attr("aria-pressed") === "true") { return; }
-        document.body.setAttribute("data-book-view", view);
-        $btn.siblings("[data-view]").addBack().each(function() {
-            $(this).attr("aria-pressed", $(this).data("view") === view ? "true" : "false");
-        });
-        $.ajax({
-            method: "post",
-            contentType: "application/json; charset=utf-8",
-            dataType: "json",
-            url: getPath() + "/ajax/view",
-            data: JSON.stringify({books: {view: view}})
-        });
-    });
 });
