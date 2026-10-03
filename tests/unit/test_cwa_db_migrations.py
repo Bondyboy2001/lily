@@ -289,3 +289,22 @@ def test_a_new_cwa_db_runs_every_migration(cwa_dir):
 def test_a_new_cwa_db_is_not_copied_aside(cwa_dir):
     CWA_DB().close()
     assert not list(cwa_dir.glob("cwa.db.before-migration-*"))
+
+
+@pytest.mark.unit
+def test_migration_6_drops_the_import_merge_setting(cwa_dir):
+    db_file = str(cwa_dir / "cwa.db")
+    con = sqlite3.connect(db_file)
+    con.execute("CREATE TABLE cwa_settings (default_settings SMALLINT DEFAULT 1 NOT NULL, "
+                "auto_backup_imports SMALLINT DEFAULT 0 NOT NULL, "
+                "auto_ingest_automerge TEXT DEFAULT 'new_record' NOT NULL)")
+    con.execute("INSERT INTO cwa_settings (auto_ingest_automerge) VALUES ('overwrite')")
+    con.commit()
+    con.close()
+
+    db = _reopen(cwa_dir)
+    try:
+        assert "auto_ingest_automerge" not in _columns(db_file, "cwa_settings")
+        assert "auto_ingest_automerge" not in db.get_cwa_settings()
+    finally:
+        db.close()

@@ -52,7 +52,7 @@ class TestCWADBSettings:
         """Verify all expected settings keys are present"""
         settings = temp_cwa_db.get_cwa_settings()
 
-        expected_keys = ['auto_backup_imports', 'auto_ingest_automerge', 'auto_ingest_ignored_formats']
+        expected_keys = ['auto_backup_imports', 'auto_ingest_ignored_formats']
         for key in expected_keys:
             assert key in settings, f"Missing expected setting: {key}"
 

@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS cwa_settings(
     auto_backup_imports SMALLINT DEFAULT 1 NOT NULL,
     cwa_update_notifications SMALLINT DEFAULT 1 NOT NULL,
     auto_ingest_ignored_formats TEXT DEFAULT "" NOT NULL,
-    auto_ingest_automerge TEXT DEFAULT "new_record" NOT NULL,
     ingest_timeout_minutes INTEGER DEFAULT 15 NOT NULL,
     ingest_stale_temp_minutes INTEGER DEFAULT 120 NOT NULL,
     ingest_stale_temp_interval INTEGER DEFAULT 600 NOT NULL,

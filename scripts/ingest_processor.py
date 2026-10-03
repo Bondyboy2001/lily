@@ -57,6 +57,10 @@ def _bounded_reason(text: str, limit: int = 800) -> str:
 
 
 # A browser upload is saved as "new_<user id>_<UTC stamp>_<file name>" (editbooks_upload.py)
+# A book already in the library is imported again beside it: both copies are kept, and
+# Duplicates can resolve them
+IMPORT_MERGE = "new_record"
+
 _UPLOAD_PREFIX = re.compile(r"^new_\d+_\d{8}_\d{6}_\d{6}_(?=.)")
 
 
@@ -794,7 +798,7 @@ class NewBookProcessor:
         try:
             if text:
                 add_command = [
-                    "calibredb", "add", str(staged_path), "--automerge", self.cwa_settings['auto_ingest_automerge'], f"--library-path={self.library_dir}"
+                    "calibredb", "add", str(staged_path), "--automerge", IMPORT_MERGE, f"--library-path={self.library_dir}"
                 ]
                 # An EPUB with no cover image gets a title card rather than calibre's edge-to-edge
                 # render of its first page. calibredb only applies --cover to a new record; a merge
@@ -829,7 +833,7 @@ class NewBookProcessor:
                 _cover = meta[4] if meta[4] and isinstance(meta[4], str) else None
 
                 add_command = [
-                    "calibredb", "add", str(staged_path), "--automerge", self.cwa_settings['auto_ingest_automerge'],
+                    "calibredb", "add", str(staged_path), "--automerge", IMPORT_MERGE,
                     f"--library-path={self.library_dir}",
                 ]
                 if _title:
@@ -901,28 +905,6 @@ class NewBookProcessor:
                             print(f"[ingest-processor] INFO: Set timestamp to {now} for newly imported book id={self.last_added_book_id}.", flush=True)
                 except Exception as e:
                     print(f"[ingest-processor] WARN: Failed to set timestamp for new book: {e}", flush=True)
-
-            # If we overwrote an existing book, Calibre does not bump books.timestamp, only last_modified.
-            # Update timestamp to last_modified for the book(s) this import merged into, so sorting by
-            # 'new' reflects overwrites. Only those ids: books edited in the web app also have a recent
-            # last_modified, and their date added must not change.
-            merged_ids = sorted({int(i) for i in (self.last_added_book_ids or [])}
-                                | ({self.last_added_book_id} if self.last_added_book_id is not None else set()))
-            if self.cwa_settings.get('auto_ingest_automerge') == 'overwrite' and merged_ids:
-                try:
-                    with sqlite3.connect(self.metadata_db, timeout=30) as con:
-                        cur = con.cursor()
-                        if not self._register_title_sort_function(con):
-                            print("[ingest-processor] INFO: Skipping timestamp adjust (title_sort SQL function unavailable).", flush=True)
-                            return imported
-                        placeholders = ",".join("?" * len(merged_ids))
-                        cur.execute(f'UPDATE books SET timestamp = last_modified WHERE id IN ({placeholders}) '
-                                    'AND timestamp < last_modified', merged_ids)
-                        affected = cur.rowcount
-                        if affected:
-                            print(f"[ingest-processor] INFO: Updated timestamp for {affected} overwritten book(s) to reflect latest import.", flush=True)
-                except Exception as e:
-                    print(f"[ingest-processor] WARN: Failed to adjust timestamps after overwrite import: {e}", flush=True)
 
         except subprocess.CalledProcessError as e:
             print(f"[ingest-processor] {staged_path.stem} was not able to be added to the Calibre Library due to the following error:\nCALIBREDB EXIT/ERROR CODE: {e.returncode}\n{e.stderr}", flush=True)

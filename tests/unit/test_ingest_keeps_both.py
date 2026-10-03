@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Overwrite-merge imports bump the date added of the merged book only, never of books
-that were merely edited recently."""
+"""An import keeps both copies of a book already in the library: calibredb never merges, so no
+existing book's date added changes."""
 
 import sqlite3
 import subprocess
@@ -33,10 +33,8 @@ def _processor(ip, tmp_path):
     metadata_db = tmp_path / "metadata.db"
     con = sqlite3.connect(metadata_db)
     con.execute("CREATE TABLE books (id INTEGER PRIMARY KEY, timestamp TEXT, last_modified TEXT)")
-    # 1: the book the import merges into; 2: a book edited in the web app a moment ago;
-    # 3: untouched
-    con.executemany("INSERT INTO books VALUES (?, ?, ?)",
-                    [(1, OLD, EDITED), (2, OLD, EDITED), (3, OLD, OLD)])
+    # 1: a book edited in the web app a moment ago; 2: untouched
+    con.executemany("INSERT INTO books VALUES (?, ?, ?)", [(1, OLD, EDITED), (2, OLD, OLD)])
     con.commit()
     con.close()
 
@@ -47,6 +45,7 @@ def _processor(ip, tmp_path):
     nbp.staging_dir = str(staging)
     nbp.library_dir = str(tmp_path / "library")
     nbp.calibre_env = {}
+    # A merge setting left in an old cwa.db changes nothing
     nbp.cwa_settings = {"auto_ingest_automerge": "overwrite", "auto_backup_imports": False}
     nbp.last_added_book_id = None
     nbp.last_added_book_ids = []
@@ -67,17 +66,23 @@ def _timestamps(tmp_path):
         con.close()
 
 
-def test_overwrite_merge_only_touches_the_merged_book(ip, tmp_path, monkeypatch):
+def test_an_import_keeps_both_copies(ip, tmp_path, monkeypatch):
     nbp = _processor(ip, tmp_path)
-    monkeypatch.setattr(ip.subprocess, "run", lambda cmd, **kw: subprocess.CompletedProcess(
-        cmd, 0, stdout="Merged book ids: 1\n", stderr=""))
+    commands = []
+
+    def run(cmd, **kw):
+        commands.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout="Added book ids: 3\n", stderr="")
+    monkeypatch.setattr(ip.subprocess, "run", run)
     source = tmp_path / "Book.pdf"
     source.write_bytes(b"pdf")
 
     assert nbp.add_book_to_library(str(source)) is True
+    add = commands[0]
+    assert add[add.index("--automerge") + 1] == "new_record"
+    # Books already there keep their date added
     stamps = _timestamps(tmp_path)
-    assert stamps[2] == OLD and stamps[3] == OLD  # the edited book keeps its date added
-    assert stamps[1] == EDITED  # the merged one reflects the import
+    assert stamps[1] == OLD and stamps[2] == OLD
 
 
 def test_added_and_merged_ids_are_both_parsed(ip):

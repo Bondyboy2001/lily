@@ -200,6 +200,12 @@ def _m5_drop_unused_columns(cur) -> None:
                 cur.execute(f"ALTER TABLE {table} DROP COLUMN {column}")
 
 
+def _m6_drop_import_merge(cur) -> None:
+    # Imports always keep both copies of a book already there (ingest_processor.IMPORT_MERGE)
+    if "auto_ingest_automerge" in _columns(cur, "cwa_settings"):
+        cur.execute("ALTER TABLE cwa_settings DROP COLUMN auto_ingest_automerge")
+
+
 # The lookups the Logs page can list (metadata_lookup_log): a full rebuild's worth is too many
 LOOKUP_LOG_KEEP = 5000
 
@@ -208,7 +214,8 @@ MIGRATIONS: list = [(1, "always detect duplicates, no Hardcover auto-fetch", _m1
                     (2, "drop exact-hash duplicate file keys", _m2_drop_duplicate_file_keys),
                     (3, "drop the settings and tables of removed features", _m3_drop_removed_features),
                     (4, "drop the unread import log", _m4_drop_import_log),
-                    (5, "drop unused duplicate-scan and resolution columns", _m5_drop_unused_columns)]
+                    (5, "drop unused duplicate-scan and resolution columns", _m5_drop_unused_columns),
+                    (6, "drop the import merge setting", _m6_drop_import_merge)]
 SCHEMA_MIGRATIONS_TABLE = "cwa_schema_migrations"
 
 
@@ -498,14 +505,14 @@ class CWA_DB:
         try:
             self.cur.execute(
                 "SELECT duplicate_scan_cron, duplicate_format_priority, "
-                "auto_ingest_ignored_formats, auto_ingest_automerge "
+                "auto_ingest_ignored_formats "
                 "FROM cwa_settings"
             )
             row = self.cur.fetchone()
             if not row:
                 return
 
-            cron_value, format_priority, _, _ = row
+            cron_value, format_priority, _ = row
             fixes_made = []
 
             def _strip_quotes(value: str | None) -> str | None:
@@ -544,7 +551,7 @@ class CWA_DB:
                     fixes_made.append("duplicate_format_priority: reset to default due to malformed JSON")
 
             # Generic cleanup: strip wrapped quotes for TEXT settings and normalize
-            # format/automerge-like values without hardcoding each column.
+            # format-like values without hardcoding each column.
             try:
                 self.cur.execute("SELECT * FROM cwa_settings")
                 headers = [header[0] for header in self.cur.description]
@@ -574,7 +581,7 @@ class CWA_DB:
 
                         normalized_value = cleaned_value
 
-                        # Normalize format/automerge-like values for consistency
+                        # Normalize format-like values for consistency
                         if column_name not in json_settings:
                             column_lower = column_name.lower()
                             if ',' in cleaned_value and 'format' in column_lower:
@@ -583,7 +590,7 @@ class CWA_DB:
                                 parts = [p for p in parts if p]
                                 parts = [p.lower() for p in parts]
                                 normalized_value = ','.join(parts)
-                            elif 'format' in column_lower or 'automerge' in column_lower:
+                            elif 'format' in column_lower:
                                 normalized_value = cleaned_value.strip().lower()
 
                         if normalized_value != raw_value:

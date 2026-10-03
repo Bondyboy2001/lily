@@ -16,10 +16,7 @@ pytestmark = pytest.mark.unit
 
 def build_processor(ingest_processor, tmp_path):
     processor = object.__new__(ingest_processor.NewBookProcessor)
-    processor.cwa_settings = {
-        "auto_ingest_automerge": "ignore",
-        "auto_backup_imports": False,
-    }
+    processor.cwa_settings = {"auto_backup_imports": False}
     processor.metadata_db = str(tmp_path / "metadata.db")
     processor.staging_dir = str(tmp_path / "staging")
     processor.calibre_env = {}
