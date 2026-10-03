@@ -191,17 +191,30 @@ def test_page_one_is_rendered_by_ghostscript_on_the_pdf_itself(monkeypatch):
     import subprocess
     from types import SimpleNamespace
     ran = []
-    monkeypatch.setattr(pdf_cover.shutil, "which", lambda name: "/usr/bin/gs" if name == "gs" else None)
+    monkeypatch.setattr(pdf_cover.shutil, "which", lambda name: f"/usr/bin/{name}")
     monkeypatch.setattr(subprocess, "run", lambda args, **kw: ran.append((args, kw)) or
                         SimpleNamespace(returncode=1, stdout=b"", stderr=b"broken"))
     assert pdf_cover._gs_render("/books/A Paper.pdf") is None
     args, kw = ran[0]
-    assert args[0] == "/usr/bin/gs" and args[-2:] == ["-f", "/books/A Paper.pdf"]
+    # Below the web app's priority, so a library-wide run can use every idle core
+    assert args[:4] == ["/usr/bin/nice", "-n", "10", "/usr/bin/gs"]
+    assert args[-2:] == ["-f", "/books/A Paper.pdf"]
     # Same page box and anti-aliasing as ImageMagick's render; messages kept out of the image
     for flag in ("-dUseCropBox", "-dFirstPage=1", "-dLastPage=1", "-r100", "-dTextAlphaBits=4",
                  "-dGraphicsAlphaBits=4", "-sstdout=%stderr", "-sOutputFile=-", "-dSAFER"):
         assert flag in args, flag
     assert kw["timeout"] == pdf_cover.RENDER_TIMEOUT and kw["capture_output"]
+
+
+def test_without_nice_ghostscript_still_renders(monkeypatch):
+    import subprocess
+    from types import SimpleNamespace
+    ran = []
+    monkeypatch.setattr(pdf_cover.shutil, "which", lambda name: "/usr/bin/gs" if name == "gs" else None)
+    monkeypatch.setattr(subprocess, "run", lambda args, **kw: ran.append(args) or
+                        SimpleNamespace(returncode=1, stdout=b"", stderr=b"broken"))
+    pdf_cover._gs_render("/books/A Paper.pdf")
+    assert ran[0][0] == "/usr/bin/gs"
 
 
 def test_without_ghostscript_imagemagick_renders(monkeypatch):

@@ -6,8 +6,11 @@ PDF covers), with no metadata lookups, so it is much quicker than a full rebuild
 
 Each PDF's page 1 is rendered as it is printed (cps/pdf_cover.py), and only a cover.jpg that
 holds a different picture is rewritten, so a second run changes nothing. Covers picked by hand
-are kept, as cover_job says. Books are done a few at a time
-(one Ghostscript each), leaving a core for the web app.
+are kept, as cover_job says. Books are done several at a time, two per core (one Ghostscript
+each): on the NAS's hard disks a render spends much of its time waiting for its PDF to be read,
+so one per core left the CPU two-thirds idle. Ghostscript runs at a low priority, so the web app
+still comes first. Each worker asks its own cwa.db connection about hand-picked covers instead of
+opening one a book.
 
 Changed covers are recorded in batches (RECORD_BATCH books a commit): on the NAS each commit
 syncs the disk (~45 ms a sync), and one per book, plus a dozen per book for its thumbnails,
@@ -22,6 +25,7 @@ carry on), no duplicate-index touch (covers don't affect it)."""
 
 import os
 import sys
+import threading
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime, UTC
 
@@ -39,20 +43,39 @@ log = logger.create()
 
 # Changed covers recorded per commit
 RECORD_BATCH = 200
+# Books rendered at once, at most: each Ghostscript holds a page bitmap (~3 MB) and its PDF open
+MAX_WORKERS = 8
+
+# Each pool thread's CWA_DB, closed when the thread ends
+_local = threading.local()
 
 
 def default_workers():
-    """One book per core but one, at most 4: rendering is CPU bound, and the web app keeps a core."""
-    return max(1, min(4, (os.cpu_count() or 2) - 1))
+    """Two books per core, at most MAX_WORKERS: a render waits on the disk for much of its time,
+    and the extra ones keep the cores busy meanwhile."""
+    return max(2, min(MAX_WORKERS, 2 * (os.cpu_count() or 2)))
+
+
+def _worker_store():
+    """This pool thread's CWA_DB, opened at its first book; None when it can't be opened (then
+    each book opens its own)."""
+    store = getattr(_local, 'store', None)
+    if store is None:
+        try:
+            store = _local.store = CWA_DB()
+        except Exception as ex:
+            log.debug("Redo covers: no cwa.db for this worker: %s", ex)
+    return store
 
 
 def _redo_one(book_id):
     """One book's cover in the pool; True when it changed."""
     from cps.metadata_helper import library_lock
+    store = _worker_store()
     with library_lock:
         book_db = db.CalibreDB(expire_on_commit=False, init=True)
         try:
-            job = _cover_job(book_db, book_id)
+            job = _cover_job(book_db, book_id, store)
         finally:
             book_db.session.close()
     return pdf_cover.try_fix_cover(job, book_id)

@@ -29,6 +29,9 @@ from cps import logger
 
 log = logger.create()
 
+# Ghostscript runs below the web app's priority: a run over the library can take every idle core
+# without making pages slow
+NICE = 10
 # Ghostscript resolution of the render: 850x1100 for US Letter, 827x1169 for A4. The largest
 # cover thumbnail is 1020px tall (cps/tasks/thumbnail.py), so this is just over it.
 RENDER_DPI = 100
@@ -54,7 +57,9 @@ def _gs_render(pdf_path):
     gs = shutil.which('gs')
     if not gs:
         return None
-    done = subprocess.run([gs, *GS_ARGS, '-f', pdf_path], capture_output=True, timeout=RENDER_TIMEOUT)
+    nice = shutil.which('nice')
+    command = [nice, '-n', str(NICE), gs] if nice else [gs]
+    done = subprocess.run([*command, *GS_ARGS, '-f', pdf_path], capture_output=True, timeout=RENDER_TIMEOUT)
     if done.returncode or not done.stdout.startswith(b'P6'):
         log.debug("Ghostscript could not render %s: %s", pdf_path, done.stderr[-300:])
         return None
@@ -144,26 +149,29 @@ def fix_cover(pdf_path, cover_path, has_cover, replace=False):
     return not has_cover
 
 
-def _hand_cover(book_id):
-    """True when the book's cover was chosen by hand, or when that cannot be told (keep it)."""
+def _hand_cover(book_id, store=None):
+    """True when the book's cover was chosen by hand, or when that cannot be told (keep it).
+    A caller doing many books passes its open CWA_DB as store."""
     try:
-        from cwa_db import CWA_DB
-        return CWA_DB().has_hand_cover(book_id)
+        if store is None:
+            from cwa_db import CWA_DB
+            store = CWA_DB()
+        return store.has_hand_cover(book_id)
     except Exception as e:
         log.debug("Could not tell whether book %s has a hand-picked cover: %s", book_id, e)
         return True
 
 
-def cover_job(book, library_path):
+def cover_job(book, library_path, store=None):
     """(PDF path, cover.jpg path, has a cover, replace its cover) of a PDF book, or None for a
     book with no PDF. The cover is replaced by page 1 when PDFs are the book's only files and
-    nobody chose its cover by hand."""
+    nobody chose its cover by hand (asked of store, a CWA_DB, when given)."""
     pdf = next((d for d in book.data if d.format.upper() == 'PDF'), None)
     if pdf is None:
         return None
     folder = os.path.join(library_path, book.path)
     only_pdf = all(d.format.upper() == 'PDF' for d in book.data)
-    replace = only_pdf and not _hand_cover(book.id)
+    replace = only_pdf and not _hand_cover(book.id, store)
     return (os.path.join(folder, pdf.name + '.pdf'), os.path.join(folder, 'cover.jpg'),
             bool(book.has_cover), replace)
 

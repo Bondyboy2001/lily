@@ -371,6 +371,6 @@ def _look_up(fetch, book_id, make_covers, overwrite=False):
     return updated, pdf_cover.try_fix_cover(cover, book_id), unanswered
 
 
-def _cover_job(cdb, book_id):
+def _cover_job(cdb, book_id, store=None):
     book = cdb.session.get(db.Books, book_id)
-    return pdf_cover.cover_job(book, config.get_book_path()) if book else None
+    return pdf_cover.cover_job(book, config.get_book_path(), store) if book else None

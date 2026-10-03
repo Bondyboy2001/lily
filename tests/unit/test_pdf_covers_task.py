@@ -201,7 +201,24 @@ def test_redo_covers_does_several_books_at_once(env, monkeypatch):
     calls = _run_covers(env, monkeypatch, task, fix=fix)
     assert task.stat == STAT_FINISH_SUCCESS and len(calls) == 5 and task.covers == 1
     assert task.message == "Done: 5 PDFs checked, 1 covers redone"
-    assert 1 <= default_workers() <= 4
+    # Renders wait on the disk, so more run than there are cores
+    assert 2 <= default_workers() <= 8
+
+
+@pytest.mark.unit
+def test_a_redo_worker_opens_cwa_db_once_not_once_a_book(env, monkeypatch):
+    from cps.tasks import pdf_covers
+    monkeypatch.setattr(pdf_covers, "_local", __import__("threading").local())
+    opened = []
+    real = pdf_covers.CWA_DB
+    monkeypatch.setattr(pdf_covers, "CWA_DB", lambda: opened.append(1) or real())
+    ids = [env.add_book(t, fmt="PDF") for t in ("One", "Two", "Three")]
+    asked = []
+    monkeypatch.setattr(pdf_covers.pdf_cover, "_hand_cover", lambda book_id, store=None: asked.append(store) or False)
+    monkeypatch.setattr(pdf_covers.pdf_cover, "fix_cover", lambda *a: False)
+    for book_id in ids:
+        pdf_covers._redo_one(book_id)
+    assert len(opened) == 1 and len(asked) == 3 and all(s is asked[0] and s is not None for s in asked)
 
 
 @pytest.mark.unit
