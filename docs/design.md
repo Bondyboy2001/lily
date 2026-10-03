@@ -573,7 +573,9 @@ content (grid, panel, rows)
   other identifiers.
 - **Editor** (`book_edit.html`): three columns, centred: the cover column (cover,
   a quiet Read in a new tab when the book has a readable format, Replace Cover, then
-  Delete book and per-format deletes last, 22px apart from the rest), the fields
+  the dangerous actions 22px apart from the rest: Clear metadata (which asks once,
+  empties every fetched field — title, authors and shelves stay — and saves at
+  once), Delete book and per-format deletes), the fields
   (at most 640px), and a sticky panel of Save (the one Primary) and Cancel. Fetch
   Metadata sits at the end of the Book heading, since it fills the whole form.
   Below 1100px the panel drops under the cover; on phones it is a bar pinned to the

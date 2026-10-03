@@ -35,6 +35,7 @@ ICONS = {
     "download": "download-simple",
     "download-alt": "download-simple",
     "edit": "pencil-simple-line",
+    "erase": "eraser",
     "eye-close": "eye-slash",
     "eye-open": "eye",
     "filter": "funnel",

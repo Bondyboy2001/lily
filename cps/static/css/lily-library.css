@@ -1214,7 +1214,7 @@ dl.book-info {
 
 .editbook-cover-section .form-group { margin-bottom: 8px; }
 
-/* Delete sits last in the cover column, apart from the everyday tools: a quiet
+/* Clear and Delete sit last in the cover column, apart from the everyday tools: a quiet
    .is-danger that turns red only on hover. */
 .editbook-danger { margin-top: 22px; }
 .editbook-danger .btn + .btn { margin-top: 8px; }

@@ -267,3 +267,23 @@ $("#book_edit_frm").on("lily:show-number", function (e, field) { lilyShowNumber(
         e.returnValue = "";
     });
 })();
+
+/* Clear metadata: after the dialog's confirm, every fetched field is emptied and the form
+   saved, so the book keeps only its title, authors and shelves. The save treats an empty
+   field as "remove it", the same as clearing it by hand. */
+$("#clear_metadata_confirm").on("click", function () {
+    var $form = $("#book_edit_frm");
+    $("#edition, #volume").val("");
+    /* Every datepicker (the published date and the custom columns) has a clear button that
+       also hides its friendly-date overlay */
+    $form.find(".datepicker_delete").trigger("click");
+    /* Tags post from the hidden field the row editor reads; change redraws the rows empty.
+       Authors use the same widget and stay. */
+    $("#tags").val("").trigger("change");
+    /* Identifiers post one row each: no rows left, nothing to keep */
+    $("#identifier-table tbody tr").remove();
+    /* Custom columns: selects back to their empty first option */
+    $form.find("select[name^='custom_column_']").prop("selectedIndex", 0);
+    $form.find("input[name^='custom_column_'], textarea[name^='custom_column_']").val("");
+    $form.trigger("submit");
+});

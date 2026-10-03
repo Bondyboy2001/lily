@@ -33,9 +33,10 @@
         </div>
       </div>
       {% endif %}
-      {# Delete sits last, on its own, away from the everyday tools #}
-      {% if current_user.role_delete_books() %}
+      {# Clear and Delete sit last, away from the everyday tools #}
       <div class="editbook-danger">
+      <button type="button" class="btn btn-default btn-block is-danger" id="clear_metadata" data-toggle="modal" data-target="#clearMetaModal"><span class="glyphicon glyphicon-erase" aria-hidden="true"></span> {{_('Clear metadata')}}</button>
+      {% if current_user.role_delete_books() %}
       <button type="button" class="btn btn-default btn-block editbook-delete is-danger" id="delete" data-toggle="modal" data-delete-id="{{ book.id }}" data-delete-title="{{ book.title }}" data-target="#deleteModal"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span> {{_("Delete book")}}</button>
       {# Per-format deletes, shown only when the book has more than one file #}
       {% if book.data|length > 1 %}
@@ -43,8 +44,8 @@
       <button type="button" class="btn btn-default btn-block is-danger editbook-delete-format" id="delete_format_{{ file.format|lower }}" data-toggle="modal" data-delete-id="{{ book.id }}" data-delete-format="{{ file.format }}" data-delete-title="{{ book.title }}" data-target="#deleteModal">{{_('Delete %(format)s', format=file.format)}}</button>
       {% endfor %}
       {% endif %}
-      </div>
       {% endif %}
+      </div>
     </div>
   </div>
 
@@ -233,6 +234,21 @@
 {% block modal %}
 {{ delete_book(current_user.role_delete_books()) }}
 {{ delete_confirm_modal() }}
+
+<div class="modal fade" id="clearMetaModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="clearMetaLabel" aria-describedby="clearMetaText">
+  <div class="modal-dialog modal-sm" role="document">
+    <div class="modal-content">
+      <div class="modal-header"><h4 class="modal-title" id="clearMetaLabel">{{_('Clear Metadata?')}}</h4></div>
+      <div class="modal-body">
+        <p id="clearMetaText">{{_('Edition, volume, published date, tags, identifiers and custom columns are removed; the title, authors and shelves stay.')}}</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">{{_('Cancel')}}</button>
+        <button type="button" class="btn btn-danger" id="clear_metadata_confirm">{{_('Clear metadata')}}</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 {{ meta_fetch.meta_modal(book.id) }}
 {% endblock %}

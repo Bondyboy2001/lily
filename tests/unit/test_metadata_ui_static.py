@@ -147,3 +147,27 @@ def test_fetch_metadata_breaks_near_ties_by_provider_order_not_arrival():
     js = (REPO_ROOT / "cps/static/js/get_meta.js").read_text(encoding="utf-8")
     assert "rank[provider.id] = i;" in js
     assert "(scoreBand(b) - scoreBand(a)) ||\n        ((rank[a.provider] || 0) - (rank[b.provider] || 0))" in js
+
+
+def test_clear_metadata_empties_every_fetched_field_but_keeps_title_authors_and_shelves():
+    template = (REPO_ROOT / "cps/templates/book_edit.html").read_text(encoding="utf-8")
+    js = (REPO_ROOT / "cps/static/js/edit_books.js").read_text(encoding="utf-8")
+
+    # The button sits with the deletes, away from the everyday tools, and opens a confirm
+    danger = template.split('<div class="editbook-danger">', 1)[1].split("</div>", 1)[0]
+    assert danger.index('id="clear_metadata"') < danger.index('id="delete"')
+    assert 'data-target="#clearMetaModal"' in danger
+    assert 'id="clearMetaModal"' in template and 'id="clear_metadata_confirm"' in template
+
+    # Confirming empties the fetched fields and saves; title, authors and shelves
+    # (the fields kept by hand or on the book page) are never cleared
+    clear = js[js.index('$("#clear_metadata_confirm").on("click"'):]
+    for needle in ('$("#edition, #volume").val("");',
+                   '$form.find(".datepicker_delete").trigger("click")',
+                   '$("#tags").val("").trigger("change")',
+                   '$("#identifier-table tbody tr").remove()',
+                   '[name^=\'custom_column_\']',
+                   '$form.trigger("submit")'):
+        assert needle in clear, needle
+    for kept in ('$("#title")', '$("#authors")', '$("#shelves")'):
+        assert kept not in clear, kept
