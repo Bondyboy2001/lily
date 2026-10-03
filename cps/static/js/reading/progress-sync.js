@@ -32,11 +32,7 @@
 
     function csrfToken() {
         var input = document.querySelector("input[name='csrf_token']");
-        if (input && input.value) {
-            return input.value;
-        }
-        var meta = document.querySelector("meta[name='csrf-token']");
-        return meta ? meta.getAttribute("content") || "" : "";
+        return input ? input.value || "" : "";
     }
 
     function toMillis(updated) {

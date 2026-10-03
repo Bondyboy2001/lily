@@ -38,7 +38,7 @@ files that attach their routes to **one** blueprint, so endpoint names (`web.log
 
 | Blueprint | Files |
 |---|---|
-| `web` | `web.py` (browsing, details, reader entry), `web_auth.py` (sign-in, password, profile), `web_lists.py` (author/series/... lists), `web_files.py` (covers, serving, downloads), `web_typeahead.py` |
+| `web` | `web.py` (browsing, details, reader entry), `web_auth.py` (sign-in, password, profile), `web_lists.py` (author, publisher and other lists), `web_files.py` (covers, serving, downloads), `web_typeahead.py` |
 | `admin` | `admin.py` (users and their restrictions, maintenance endpoints) |
 | `edit-book` | `editbooks.py` (editing, deletion), `editbooks_upload.py`, `editbooks_bulk.py` |
 

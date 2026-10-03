@@ -610,7 +610,7 @@
 
 /*
  * Name-list dropdowns (image.list_menu): tick the picked option and show it on the toggle.
- * filter_list.js / filter_grid.js call this; it returns false when the option was already picked.
+ * filter_list.js calls this; it returns false when the option was already picked.
  */
 window.lilyPickOption = function (item) {
   "use strict";
@@ -627,15 +627,13 @@ window.lilyPickOption = function (item) {
   var toggle = menu.parentNode.querySelector(".dropdown-toggle");
   if (toggle) {
     toggle.querySelector(".lily-sort-value").textContent = item.textContent;
-    var icon = item.getAttribute("data-icon");
-    if (icon) { toggle.querySelector(".glyphicon").className = "glyphicon " + icon; }
   }
   return true;
 };
 
 /*
  * Name-list direction button (image.list_menu): flip data-dir, swap the icon, label and tooltip,
- * and return the new direction ("asc" or "desc"). filter_list.js / filter_grid.js call this.
+ * and return the new direction ("asc" or "desc"). filter_list.js calls this.
  */
 window.lilyToggleSortDir = function (btn) {
   "use strict";

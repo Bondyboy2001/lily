@@ -435,7 +435,6 @@ def test_volumes(tmp_path_factory) -> dict:
     config_dir = volumes["config"]
     (config_dir / "processed_books" / "imported").mkdir(parents=True, exist_ok=True)
     (config_dir / "processed_books" / "failed").mkdir(parents=True, exist_ok=True)
-    (config_dir / "log_archive").mkdir(exist_ok=True)
     (config_dir / ".cwa_conversion_tmp").mkdir(exist_ok=True)
 
     # Create empty Calibre library (CWA will initialize it)

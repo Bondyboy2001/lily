@@ -39,7 +39,7 @@ def author_list():
             .filter(func.lower(db.Authors.name) != constants.UNKNOWN_AUTHOR.lower()) \
             .group_by(text('books_authors_link.author')).order_by(order).all()
         # No initials filter on the authors page: the list is sorted, so the letter menu only adds noise
-        return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=[],
+        return render_title_template('list.html', entries=entries, charlist=[],
                                      title="Authors", page="authorlist", data='author', order=order_no)
     abort(404)
 
@@ -59,7 +59,7 @@ def download_list():
         char_list = ub.session.query(func.upper(func.substr(ub.User.name, 1, 1)).label('char')) \
             .filter(ub.User.role.op('&')(constants.ROLE_ANONYMOUS) != constants.ROLE_ANONYMOUS) \
             .group_by(func.upper(func.substr(ub.User.name, 1, 1))).all()
-        return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=char_list,
+        return render_title_template('list.html', entries=entries, charlist=char_list,
                                      title=_("Downloads"), page="downloadlist", data="download", order=order_no)
     abort(404)
 
@@ -99,7 +99,7 @@ def publisher_list():
         char_list = [entry[0].name[0].upper() for entry in entries if entry[0].name]
         char_list = sorted(set(char_list))
 
-        return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=char_list,
+        return render_title_template('list.html', entries=entries, charlist=char_list,
                                      title=_("Publishers"), page="publisherlist", data="publisher", order=order_no)
     abort(404)
 
@@ -140,7 +140,7 @@ def ratings_list():
             else: # descending
                 entries.append(none_rating_entry)
 
-        return render_title_template('list.html', entries=entries, folder='web.books_list',
+        return render_title_template('list.html', entries=entries,
                                      title=_("Ratings"), page="ratingslist", data="ratings", order=order_no)
     abort(404)
 
@@ -166,7 +166,7 @@ def formats_list():
                            .count())
         if no_format_count:
             entries.append([db.Category(_("Unknown"), "-1"), no_format_count])
-        return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=[],
+        return render_title_template('list.html', entries=entries, charlist=[],
                                      title=_("File Formats List"), page="formatslist", data="formats", order=order_no)
     abort(404)
 
@@ -178,7 +178,7 @@ def language_overview():
         order_no = 0 if current_user.get_view_property('language', 'dir') == 'desc' else 1
         languages = calibre_db.speaking_language(reverse_order=not order_no, with_count=True)
         char_list = generate_char_list(languages)
-        return render_title_template('list.html', entries=languages, folder='web.books_list', charlist=char_list,
+        return render_title_template('list.html', entries=languages, charlist=char_list,
                                      title=_("Languages"), page="langlist", data="language", order=order_no)
     abort(404)
 
@@ -205,6 +205,6 @@ def category_list():
             entries.append([db.Category(_("Unknown"), "-1"), no_tag_count])
         entries = sorted(entries, key=lambda x: x[0].name.lower(), reverse=not order_no)
         char_list = generate_char_list(entries)
-        return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=char_list,
+        return render_title_template('list.html', entries=entries, charlist=char_list,
                                      title=_("Tags"), page="catlist", data="category", order=order_no)
     abort(404)

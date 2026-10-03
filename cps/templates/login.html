@@ -21,9 +21,6 @@
     <div class="alert alert-{{ 'danger' if category == 'error' else category }}" {% if category == "error" %}role="alert"{% else %}role="status"{% endif %}>{{ message }}</div>
     {% endif %}
     {% endfor %}
-    {% if error %}
-    <div class="alert alert-danger" role="alert">{{ error }}</div>
-    {% endif %}
     <input type="hidden" name="next" value="{{next_url}}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">

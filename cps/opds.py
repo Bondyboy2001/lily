@@ -591,8 +591,8 @@ def feed_search(term):
         entries, __, ___ = calibre_db.get_search_results(term, config=config)
         entries_count = len(entries) if len(entries) > 0 else 1
         pagination = Pagination(1, entries_count, entries_count)
-        return render_xml_template('feed.xml', searchterm=term, entries=entries, pagination=pagination)
-    return render_xml_template('feed.xml', searchterm="")
+        return render_xml_template('feed.xml', entries=entries, pagination=pagination)
+    return render_xml_template('feed.xml')
 
 
 

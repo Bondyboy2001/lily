@@ -35,7 +35,7 @@
       window.scriptRoot = {{ request.script_root|tojson }};
     </script>
   </head>
-  <body class="{{ page }} {{ bodyClass }}" data-text="{{_('Home')}}" data-textback="{{_('Back')}}" data-user-id="{{ current_user.id if current_user.is_authenticated else 'anonymous' }}">
+  <body class="{{ page }} {{ bodyClass }}" data-user-id="{{ current_user.id if current_user.is_authenticated else 'anonymous' }}">
     <a class="lily-skip-link" href="#lily-content">{{_('Skip to content')}}</a>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% set show_sidebar = current_user.is_authenticated or g.allow_anonymous %}

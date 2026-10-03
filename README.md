@@ -78,7 +78,7 @@ whose metadata is fetched from arXiv lands on a shared **arXiv** shelf.
 <td valign="top">
 
 ### A tidy library
-Shelves, series, authors and categories. An OPDS feed for reading apps. Light and
+Shelves, authors and categories. An OPDS feed for reading apps. Light and
 dark themes that both get the same care.
 
 </td>

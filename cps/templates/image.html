@@ -106,7 +106,7 @@
 {%- endmacro %}
 
 {# The same Sort / direction pair as sort_menu, for name lists (categories, authors…).
-   filter_list.js / filter_grid.js sort and filter the rows in place, so the options are buttons
+   filter_list.js sorts and filters the rows in place, so the options are buttons
    keyed by id, not links. `chars` is the list of initials: the letter filter only appears when a
    list is long enough to need it. #}
 {% macro list_menu(order, data, chars, filterable=False) -%}
@@ -162,7 +162,7 @@
 {# Quick actions on a grid cover: icon bar over the cover's foot, revealed on hover or focus (lily.js wires them). #}
 {% macro cover_actions(book, user, formats, is_read=False) -%}
     {%- set readable = book|readable_formats -%}
-    <div class="lily-cover-actions" data-book-id="{{ book.id }}" data-book-formats="{{ readable|join(',') }}">
+    <div class="lily-cover-actions" data-book-id="{{ book.id }}">
       {% if readable and user.role_viewer() %}
       <button type="button" class="icon-btn lily-read-now" aria-label="{{ _('Read %(name)s', name=book.title) }}"
               data-reader-url="{{ url_for('web.read_book', book_id=book.id, book_format=readable[0]) }}"><span class="glyphicon glyphicon-book" aria-hidden="true"></span></button>

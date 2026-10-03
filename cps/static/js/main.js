@@ -22,7 +22,7 @@ function getPath() {
 
 // Submits a POST form; the server answers with the redirect, so a page to land on (the
 // optional redirectLocation) is sent along and only followed once the POST has succeeded.
-function postButton(event, action, redirectLocation=""){
+function postButton(event, action){
     event.preventDefault();
     var newForm = jQuery('<form>', {
         "action": action,
@@ -33,13 +33,6 @@ function postButton(event, action, redirectLocation=""){
         'value': $("input[name=\'csrf_token\']").val(),
         'type': 'hidden'
     })).appendTo('body')
-    if(redirectLocation !== "") {
-        newForm.append(jQuery('<input>', {
-            'name': 'location',
-            'value': redirectLocation,
-            'type': 'hidden'
-        })).appendTo('body');
-    }
     newForm.submit();
 }
 
@@ -139,8 +132,7 @@ $("#delete_confirm").click(function(event) {
     if (bookFormat) {
         postButton(event, getPath() + "/delete/" + deleteId + "/" + bookFormat);
     } else {
-        var loc = $(this).data("back");
-        postButton(event, getPath() + "/delete/" + deleteId, loc);
+        postButton(event, getPath() + "/delete/" + deleteId);
     }
 });
 
@@ -222,12 +214,6 @@ $(function() {
 
     $("#user_submit").click(function() {
         this.closest("form").submit();
-    });
-
-    $('.collapse').on('shown.bs.collapse', function(){
-        $(this).parent().find(".glyphicon-plus").removeClass("glyphicon-plus").addClass("glyphicon-minus");
-    }).on('hidden.bs.collapse', function(){
-    $(this).parent().find(".glyphicon-minus").removeClass("glyphicon-minus").addClass("glyphicon-plus");
     });
 
     $("#delete_shelf").click(function(event) {

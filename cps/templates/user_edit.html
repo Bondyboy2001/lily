@@ -42,7 +42,7 @@
     <div class="lp-actions{% if profile %} is-save{% endif %}">
       {% if current_user and current_user.role_admin() and not profile and not new_user and not content.role_anonymous() %}
       {# Left of the bar, away from Save, and behind a confirm dialog. #}
-      <button id="btndeluser" class="btn btn-default is-danger" type="button" data-value="{{ content.id }}" data-remote="false">{{_('Delete user')}}</button>
+      <button id="btndeluser" class="btn btn-default is-danger" type="button" data-value="{{ content.id }}">{{_('Delete user')}}</button>
       {% endif %}
       <span class="lp-spacer"></span>
       {% if not profile %}
