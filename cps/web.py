@@ -1308,10 +1308,8 @@ def read_book(book_id, book_format):
     elif book_format.lower() == "pdf":
         log.debug("Start pdf reader for %d", book_id)
         # The linearized copy opens on page 1 in a few ranges; until it's made, the file itself
-        source = _pdf_source(book)
-        fast = bool(source and pdf_fast.ready(book_id, source))
-        if source and not fast:
-            pdf_fast.prepare(book_id, source)
+        source = pdf_fast.source(book)
+        fast = bool(source) and pdf_fast.ready_or_queue(book_id, source)
         return render_title_template('readpdf.html', pdffile=book_id, title=book.title,
                                      pdf_fast=fast, **progress_args)
     elif book_format.lower() in ["djvu", "djv"]:
@@ -1415,9 +1413,8 @@ def show_book(book_id):
         entry.arxiv_id = paper_ids(entry.identifiers)[1]
 
         # Have the reader's fast copy of a big PDF ready by the time Read is pressed
-        source = _pdf_source(entry)
-        if source and entry.reader_list:
-            pdf_fast.prepare(book_id, source)
+        if "pdf" in entry.reader_list:
+            pdf_fast.ready_or_queue(book_id, pdf_fast.source(entry))
 
         entry.audio_entries = []
         for media_format in entry.data:
@@ -1461,14 +1458,6 @@ def show_book(book_id):
         flash(_("That book isn't in your library any more, or its file can't be read."),
               category="error")
         return redirect(url_for("web.index"))
-
-def _pdf_source(book):
-    """The path of the book's PDF file, or None when it has none."""
-    for data in book.data:
-        if data.format.upper() == "PDF":
-            return os.path.join(config.get_book_path(), book.path, data.name + ".pdf")
-    return None
-
 
 def _metadata_lookup(cwa_db, book_id):
     """What the book's last metadata lookup found, for its Metadata fact: {status, source,

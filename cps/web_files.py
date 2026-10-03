@@ -150,10 +150,11 @@ def serve_book(book_id, book_format, anyname):
     if not data:
         return "File not in Database"
     range_header = request.headers.get('Range', None)
+    book_dir = os.path.join(config.get_book_path(), book.path)
+    file_name = data.name + "." + book_format
 
     if book_format.upper() == 'EPUB':
-        original_path = os.path.join(config.get_book_path(), book.path, data.name + "." + book_format)
-        fixed_path = _repair_epub_container_if_needed(book_id, original_path)
+        fixed_path = _repair_epub_container_if_needed(book_id, os.path.join(book_dir, file_name))
         if fixed_path:
             response = make_response(send_file(fixed_path, mimetype="application/epub+zip"))
             if not range_header:
@@ -163,8 +164,7 @@ def serve_book(book_id, book_format, anyname):
     if book_format.upper() == 'TXT':
         log.info('Serving book: %s', data.name)
         try:
-            rawdata = open(os.path.join(config.get_book_path(), book.path, data.name + "." + book_format),
-                           "rb").read()
+            rawdata = open(os.path.join(book_dir, file_name), "rb").read()
             result = chardet.detect(rawdata)
             try:
                 text_data = rawdata.decode(result['encoding']).encode('utf-8')
@@ -180,15 +180,11 @@ def serve_book(book_id, book_format, anyname):
             return "File Not Found"
     # The PDF reader asks for the linearized copy (?fast=1) only once it exists (pdf_fast)
     if book_format.upper() == 'PDF' and request.args.get('fast'):
-        source = os.path.join(config.get_book_path(), book.path, data.name + ".pdf")
-        fast_path = pdf_fast.ready(book_id, source)
+        fast_path = pdf_fast.copy_path(book_id, os.path.join(book_dir, file_name))
         if fast_path:
-            response = make_response(send_file(fast_path, mimetype="application/pdf", conditional=True))
-            response.headers['Accept-Ranges'] = 'bytes'
-            return response
+            return send_file(fast_path, mimetype="application/pdf", conditional=True)
     # enable byte range read of pdf
-    response = make_response(
-        send_from_directory(os.path.join(config.get_book_path(), book.path), data.name + "." + book_format))
+    response = make_response(send_from_directory(book_dir, file_name))
     if not range_header:
         log.info('Serving book: %s', data.name)
         response.headers['Accept-Ranges'] = 'bytes'

@@ -44,10 +44,10 @@ def _wait():
 @needs_qpdf
 def test_prepare_makes_a_linearized_copy_once(cache):
     source = _pdf(cache / "lib" / "book.pdf")
-    assert pdf_fast.ready(7, source) is None
-    pdf_fast.prepare(7, source)
+    assert pdf_fast.ready_or_queue(7, source) is False
     _wait()
-    copy = pdf_fast.ready(7, source)
+    copy = pdf_fast.copy_path(7, source)
+    assert pdf_fast.ready_or_queue(7, source) is True
     assert copy and copy.startswith(str(cache / "config" / "pdf_fast"))
     with open(copy, "rb") as f:
         assert b"/Linearized" in f.read(1024)
@@ -59,36 +59,43 @@ def test_prepare_makes_a_linearized_copy_once(cache):
 @needs_qpdf
 def test_a_changed_file_gets_a_new_copy_and_the_old_one_goes(cache):
     source = _pdf(cache / "lib" / "book.pdf")
-    pdf_fast.prepare(7, source)
+    pdf_fast.ready_or_queue(7, source)
     _wait()
-    old = pdf_fast.ready(7, source)
+    old = pdf_fast.copy_path(7, source)
     _pdf(cache / "lib" / "book.pdf", pages=5)
     os.utime(source, (1, 1))
-    assert pdf_fast.ready(7, source) is None
-    pdf_fast.prepare(7, source)
+    assert pdf_fast.copy_path(7, source) is None
+    pdf_fast.ready_or_queue(7, source)
     _wait()
-    assert pdf_fast.ready(7, source) and not os.path.exists(old)
+    assert pdf_fast.copy_path(7, source) and not os.path.exists(old)
 
 
 def test_small_or_already_linearized_files_are_skipped(cache, monkeypatch):
+    calls = []
+    monkeypatch.setattr(pdf_fast, "_QPDF", "/usr/bin/qpdf")
+    monkeypatch.setattr(pdf_fast._executor, "submit", lambda *a: calls.append(a))
     source = _pdf(cache / "lib" / "book.pdf")
     monkeypatch.setattr(pdf_fast, "MIN_SIZE", 10 ** 9)
-    assert not pdf_fast._wanted(source)
+    pdf_fast.ready_or_queue(7, source)
+    assert calls == []
     monkeypatch.setattr(pdf_fast, "MIN_SIZE", 0)
-    assert pdf_fast._wanted(source)
     (cache / "lin.pdf").write_bytes(b"%PDF-1.4\n1 0 obj << /Linearized 1 >> endobj\n")
-    assert not pdf_fast._wanted(str(cache / "lin.pdf"))
+    pdf_fast.ready_or_queue(8, str(cache / "lin.pdf"))
+    assert calls == []
+    pdf_fast.ready_or_queue(7, source)
+    assert len(calls) == 1
+    pdf_fast._pending.clear()
 
 
 def test_a_failed_file_is_not_retried(cache, monkeypatch):
     source = _pdf(cache / "lib" / "book.pdf")
-    monkeypatch.setattr(pdf_fast.shutil, "which", lambda name: "/bin/false")
-    path = pdf_fast._cache_path(7, source)
+    monkeypatch.setattr(pdf_fast, "_QPDF", "/bin/false")
+    path = pdf_fast._cache_path(7, os.stat(source))
     os.makedirs(os.path.dirname(path))
     open(path + ".failed", "w").close()
     calls = []
     monkeypatch.setattr(pdf_fast._executor, "submit", lambda *a: calls.append(a))
-    pdf_fast.prepare(7, source)
+    pdf_fast.ready_or_queue(7, source)
     assert calls == []
 
 
@@ -104,10 +111,8 @@ def test_prune_drops_the_oldest_copies_past_the_cap(cache, monkeypatch):
 
 
 @needs_qpdf
-def test_reader_uses_the_fast_copy_once_it_exists(tmp_path, monkeypatch):
-    monkeypatch.setattr(pdf_fast.constants, "CONFIG_DIR", str(tmp_path / "config"))
-    monkeypatch.setattr(pdf_fast, "MIN_SIZE", 0)
-    with lily_env(tmp_path) as env:
+def test_reader_uses_the_fast_copy_once_it_exists(cache):
+    with lily_env(cache) as env:
         env.app.jinja_env.globals.setdefault("csrf_token", lambda: "test-token")
         _register_remaining_blueprints(env.app)
         book_id = env.add_book("Big Book", fmt="PDF")
@@ -118,7 +123,7 @@ def test_reader_uses_the_fast_copy_once_it_exists(tmp_path, monkeypatch):
         html = c.get(f"/read/{book_id}/pdf").get_data(as_text=True)
         assert f'"/show/{book_id}/pdf"' in html
         _wait()
-        assert pdf_fast.ready(book_id, source)
+        assert pdf_fast.copy_path(book_id, source)
         html = c.get(f"/read/{book_id}/pdf").get_data(as_text=True)
         assert f'"/show/{book_id}/pdf?fast=1"' in html
         fast = c.get(f"/show/{book_id}/pdf?fast=1", headers={"Range": "bytes=0-1023"})

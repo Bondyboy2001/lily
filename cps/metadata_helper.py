@@ -332,11 +332,10 @@ def pdf_front_matter_text(book) -> str:
 
 
 def _pdf_text(book, first: int, last: int) -> str:
-    from cps import config
-    pdf = next((d for d in book.data or [] if (d.format or "").upper() == "PDF"), None)
-    if pdf is None:
+    from cps.pdf_fast import source
+    path = source(book)
+    if path is None:
         return ""
-    path = os.path.join(config.get_book_path(), book.path, pdf.name + ".pdf")
     try:
         return _read_pages(path, os.path.getmtime(path), first, last)
     except OSError:
