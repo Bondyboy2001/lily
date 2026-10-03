@@ -1,5 +1,4 @@
 {% extends "layout.html" %}
-{% import 'image.html' as image %}
 {% import 'meta_fetch.html' as meta_fetch %}
 {% block body %}
 {% if book %}
@@ -164,13 +163,6 @@
               <input type="text" class="form-control" name="{{ 'custom_column_' ~ c.id }}" id="{{ 'custom_column_' ~ c.id }}"
               {% if book['custom_column_' ~ c.id]|length > 0 %}
               value="{% for column in book['custom_column_' ~ c.id] %}{{ column.value.strip() }}{% if not loop.last %}, {% endif %}{% endfor %}"{% endif %}>
-            {% endif %}
-
-            {% if c.datatype == 'series' %}
-              <input type="text" class="form-control" name="{{ 'custom_column_' ~ c.id }}" id="{{ 'custom_column_' ~ c.id }}"
-              {% if book['custom_column_' ~ c.id]|length > 0 %}
-                value="{% for column in book['custom_column_' ~ c.id] %} {{ '%s [%s]' % (book['custom_column_' ~ c.id][0].value, book['custom_column_' ~ c.id][0].extra|formatfloat(2)) }}{% if not loop.last %}, {% endif %}{% endfor %}"
-              {% endif %}>
             {% endif %}
 
             {% if c.datatype == 'datetime' %}

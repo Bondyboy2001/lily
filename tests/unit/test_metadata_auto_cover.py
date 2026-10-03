@@ -44,7 +44,7 @@ def env(tmp_path, temp_cwa_db, monkeypatch):
 def _fetch(env, monkeypatch, cover, has_cover, old=None, largest=0, fmt="EPUB"):
     """Looks up a book (with a cover.jpg holding old, when given) and returns (changed, cover bytes)."""
     from cps import metadata_helper
-    record = SimpleNamespace(title="Dune", authors=["Frank Herbert"], description="", publisher="",
+    record = SimpleNamespace(title="Dune", authors=["Frank Herbert"], description="",
                              tags=[], series="", series_index=0, publishedDate="", identifiers={},
                              cover=cover, cover_max_pixels=largest,
                              source=SimpleNamespace(description="Google Books"))

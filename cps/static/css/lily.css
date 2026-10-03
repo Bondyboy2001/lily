@@ -51,7 +51,7 @@
     /* Darkened so dividers and field edges read clearly (≈2:1 and 1.6:1 on paper). */
     --line: #CBC1BF;
     --line-soft: #DAD3D0;
-    /* Control edges and empty rating stars: ≥3:1 on paper, surface and sunk (WCAG 1.4.11).
+    /* Control edges: ≥3:1 on paper, surface and sunk (WCAG 1.4.11).
        --line stays the subtle divider. */
     --line-strong: #85767C;
     --accent: #854A73;

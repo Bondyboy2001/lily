@@ -131,27 +131,6 @@ def get_email_status_json():
     return jsonify(render_task_status(tasks))
 
 
-# The audio player's single resume point. The book readers keep a list (reader_bookmarks).
-@web.route("/ajax/bookmark/<int:book_id>/<book_format>", methods=['POST'])
-@user_login_required
-def set_bookmark(book_id, book_format):
-    bookmark_key = request.form["bookmark"]
-    ub.session.query(ub.Bookmark).filter(and_(ub.Bookmark.user_id == int(current_user.id),
-                                              ub.Bookmark.book_id == book_id,
-                                              ub.Bookmark.format == book_format)).delete()
-    if not bookmark_key:
-        ub.session_commit()
-        return "", 204
-
-    l_bookmark = ub.Bookmark(user_id=current_user.id,
-                             book_id=book_id,
-                             format=book_format,
-                             bookmark_key=bookmark_key)
-    ub.session.merge(l_bookmark)
-    ub.session_commit("Bookmark for user {} in book {} created".format(current_user.id, book_id))
-    return "", 201
-
-
 WEB_PROGRESS_CFI_MAX_LEN = 4096
 WEB_PROGRESS_FINISHED_AT = 0.99
 # A finished book read again from (near) the start counts as being read again.
@@ -1103,13 +1082,6 @@ def read_book(book_id, book_format):
 
     book.ordered_authors = calibre_db.order_authors([book], False)
 
-    # The audio player's resume point (the book readers fetch their bookmark list themselves)
-    bookmark = None
-    if current_user.is_authenticated and book_format.lower() in constants.EXTENSIONS_AUDIO:
-        bookmark = ub.session.query(ub.Bookmark).filter(and_(ub.Bookmark.user_id == int(current_user.id),
-                                                             ub.Bookmark.book_id == book_id,
-                                                             ub.Bookmark.format == book_format.upper())).first()
-
     fmt_lower = book_format.lower()
     user_key = str(current_user.id) if current_user.is_authenticated else "anonymous"
     progress_args = {}
@@ -1145,7 +1117,7 @@ def read_book(book_id, book_format):
                 entries = calibre_db.get_filtered_book(book_id)
                 log.debug("Start mp3 listening for %d", book_id)
                 return render_title_template('listenmp3.html', mp3file=book_id, audioformat=book_format.lower(),
-                                             entry=entries, bookmark=bookmark, **progress_args)
+                                             entry=entries, **progress_args)
         log.debug("Selected book is unavailable. File does not exist or is not accessible")
         flash(_("That book isn't in your library any more, or its file can't be read."),
               category="error")

@@ -154,7 +154,7 @@ def test_status_tells_how_the_last_rebuild_ended(env, monkeypatch):
 
 
 def _provider_returning(**found):
-    record = SimpleNamespace(title="", authors=[], description="", publisher="", tags=[], series="",
+    record = SimpleNamespace(title="", authors=[], description="", tags=[], series="",
                              series_index=0, publishedDate=None, identifiers={}, cover=None,
                              source=SimpleNamespace(description="Google Books"))
     record.__dict__.update(found)

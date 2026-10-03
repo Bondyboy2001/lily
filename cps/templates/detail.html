@@ -267,7 +267,6 @@
 
 {% block js %}
 {% if current_user.role_edit() %}{{ meta_fetch.meta_scripts() }}{% endif %}
-<script src="{{ url_for('static', filename='js/details.js') }}"></script>
 <script src="{{ url_for('static', filename='js/shelves.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fullscreen.js') }}"></script>
 <script type="text/javascript">
@@ -284,10 +283,7 @@
                 url: $form[0].action,
                 method: "post",
                 data: $form.serialize(),
-                success: function (data) {
-                    if (typeof handleResponse === "function") {
-                        handleResponse(data);
-                    }
+                success: function () {
                     var isRead = $cb.prop("checked");
                     var $btn = $("#toggle-read-btn");
                     var label = isRead ? $cb.data("checked") : $cb.data("unchecked");

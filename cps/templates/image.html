@@ -204,9 +204,9 @@
 
 {# One book in a cover grid (index, author, search, shelf). Cards are plain: cover, title, authors. #}
 {# progress: the share read (0-100) of a book in progress, drawn along the cover's foot (Reading list) #}
-{% macro book_card(book, user, is_read=False, authors_max=0, alt=None, extra_class='', progress=None) -%}
+{% macro book_card(book, user, is_read=False, authors_max=0, alt=None, progress=None) -%}
     {%- set formats = book.data|map(attribute='format')|map('lower')|list -%}
-    <div class="book lily-book{{ " is-read" if is_read }} {{ extra_class }}">
+    <div class="book lily-book{{ " is-read" if is_read }}">
       <div class="cover">
         <a href="{{ url_for('web.show_book', book_id=book.id) }}" class="book-cover-link" data-book-id="{{ book.id }}">
           <span class="img">

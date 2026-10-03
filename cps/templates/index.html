@@ -36,7 +36,7 @@
 
   <div class="row display-flex lily-grid">
     {% for entry in entries if entry %}
-    {{ image.book_card(entry.Books, current_user, entry[1] == True, g.config_authors_max, extra_class='books',
+    {{ image.book_card(entry.Books, current_user, entry[1] == True, g.config_authors_max,
                        progress=(reading_progress or {}).get(entry.Books.id)) }}
     {% endfor %}
   </div>

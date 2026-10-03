@@ -219,7 +219,7 @@ def test_advanced_search_pickers_are_fields():
 def test_cover_grid_is_a_css_grid_not_isotope():
     css = read(CSS / "lily-library.css")
     assert re.search(r"\.row\.lily-grid\s*\{[^}]*display:\s*grid", css)
-    # Only the series grid (#list, filter_grid.js) still uses Isotope; main.js lays out nothing.
+    # No Isotope anywhere: main.js lays out nothing, and the plugin bundle is gone.
     assert "isotope" not in read(JS / "main.js")
 
 

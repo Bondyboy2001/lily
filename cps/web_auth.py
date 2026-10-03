@@ -66,7 +66,6 @@ def render_login(username="", password=""):
     return render_title_template('login.html',
                                  title=_("Login"),
                                  next_url=next_url,
-                                 config=config,
                                  username=username,
                                  password=password,
                                  page="login")

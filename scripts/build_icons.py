@@ -10,9 +10,10 @@ app uses as the matching Phosphor icon (cps/static/icons/phosphor, Regular weigh
     python3 scripts/build_icons.py
 
 Templates keep their <span class="glyphicon glyphicon-..."> markup, so JS that
-swaps icon classes keeps working. A class missing from ICONS falls back to the
-Glyphicons font. To add one, drop the SVG from @phosphor-icons/core (assets/regular) into the
-icons folder, map it below and rerun.
+swaps icon classes keeps working. The Glyphicons font is not shipped, so a class missing
+from ICONS draws nothing (test_lily_design_static checks every class in use is mapped). To
+add one, drop the SVG from @phosphor-icons/core (assets/regular) into the icons folder, map
+it below and rerun.
 """
 import re
 from pathlib import Path
@@ -40,10 +41,8 @@ ICONS = {
     "file": "file",
     "filter": "funnel",
     "fire": "flame",
-    "flag": "flag",
     "flash": "lightning",
     "fullscreen": "corners-out",
-    "inbox": "tray",
     "info-sign": "info",
     "link": "link",
     "list": "books",
@@ -61,14 +60,10 @@ ICONS = {
     "search": "magnifying-glass",
     "sort": "arrows-down-up",
     "sort-by-attributes": "sort-ascending",
-    "star": "star-fill",
-    "star-empty": "star",
-    "text-size": "text-aa",
+    "sort-by-attributes-alt": "sort-descending",
     # Not Glyphicons: the top bar's Light / Dark / System theme button (layout.html).
     "theme-dark": "moon",
     "theme-light": "sun",
-    "th-large": "squares-four",
-    "th-list": "list",
     "trash": "trash",
     "upload": "upload-simple",
     "user": "user",

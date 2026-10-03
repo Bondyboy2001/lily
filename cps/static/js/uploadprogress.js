@@ -165,22 +165,6 @@
         progress: function(/*ProgressEvent*/e) {
             var percent = Math.round((e.loaded / e.total) * 100);
             this.setProgress(percent);
-        },
-
-        // replaceForm replaces the contents of the current form
-        // with the form in the html argument.
-        // We use the id of the current form to find the new form in the html
-        replaceForm: function(html) {
-            var newForm;
-            var formId = this.$form.attr("id");
-            if ( typeof formId !== "undefined") {
-                newForm = $(html).find("#" + formId);
-            } else {
-                newForm = $(html).find("form");
-            }
-            // add the filestyle again
-            newForm.find(":file").filestyle({buttonBefore: true});
-            this.$form.html(newForm.children());
         }
     };
 

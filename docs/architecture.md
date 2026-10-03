@@ -25,7 +25,7 @@ guarded by `cps/internal_api.py` (`@internal_only`, shared secret from
 |---|---|---|
 | `metadata.db` | Calibre | The library: books, authors, tags, comments, identifiers (`cps/db.py`). |
 | `app.db` | Lily | Users, shelves, read status, sessions, queues, server settings (`cps/ub.py`, `cps/config_sql.py`). |
-| `cwa.db` | Lily | Lily settings and statistics (`scripts/cwa_db.py`, schema in `scripts/cwa_schema.sql`). |
+| `cwa.db` | Lily | Lily's own settings and records: metadata lookups, duplicates, jobs (`scripts/cwa_db.py`, schema in `scripts/cwa_schema.sql`). |
 
 New `app.db` columns and tables are added by the migrations in `ub.py`; new `cwa.db`
 settings are columns in `cwa_schema.sql`, which is synced on start.
@@ -38,8 +38,8 @@ files that attach their routes to **one** blueprint, so endpoint names (`web.log
 
 | Blueprint | Files |
 |---|---|
-| `web` | `web.py` (browsing, details, reader entry), `web_auth.py` (sign-in, password, profile), `web_lists.py` (author, publisher and other lists), `web_files.py` (covers, serving, downloads), `web_typeahead.py` |
-| `admin` | `admin.py` (users and their restrictions, maintenance endpoints) |
+| `web` | `web.py` (browsing, details, reader entry), `web_auth.py` (sign-in, password, profile), `web_lists.py` (the authors list), `web_files.py` (covers, serving, downloads), `web_typeahead.py` |
+| `admin` | `admin.py` (users and their restrictions) |
 | `edit-book` | `editbooks.py` (editing, deletion), `editbooks_upload.py`, `editbooks_bulk.py` |
 
 The main file imports its siblings **at the bottom**, after everything they import from

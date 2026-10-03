@@ -205,9 +205,7 @@ def delete_shelf_helper(cur_shelf):
 
 
 def change_shelf_order(shelf_id, order):
-    result = calibre_db.session.query(db.Books).outerjoin(db.books_series_link,
-                                                          db.Books.id == db.books_series_link.c.book)\
-        .outerjoin(db.Series).join(ub.BookShelf, ub.BookShelf.book_id == db.Books.id) \
+    result = calibre_db.session.query(db.Books).join(ub.BookShelf, ub.BookShelf.book_id == db.Books.id) \
         .filter(ub.BookShelf.shelf == shelf_id).order_by(*order).all()
     for index, entry in enumerate(result):
         book = ub.session.query(ub.BookShelf).filter(ub.BookShelf.shelf == shelf_id) \
@@ -216,40 +214,31 @@ def change_shelf_order(shelf_id, order):
     ub.session_commit(f"Shelf-id:{shelf_id} - Order changed")
 
 
+# The shelf's sort menu (shelf.html): each choice reorders the shelf once, and is remembered
+SHELF_ORDERS = {
+    'pubnew': lambda: [db.Books.pubdate.desc()],
+    'pubold': lambda: [db.Books.pubdate],
+    'shelfnew': lambda: [ub.BookShelf.date_added.desc()],
+    'shelfold': lambda: [ub.BookShelf.date_added],
+    'abc': lambda: [db.Books.sort],
+    'zyx': lambda: [db.Books.sort.desc()],
+    'new': lambda: [db.Books.timestamp.desc()],
+    'old': lambda: [db.Books.timestamp],
+    'authaz': lambda: [db.Books.author_sort.asc(), db.Books.sort],
+    'authza': lambda: [db.Books.author_sort.desc(), db.Books.sort.desc()],
+}
+
+
 def render_show_shelf(shelf_id, page_no, sort_param):
     shelf = ub.session.query(ub.Shelf).filter(ub.Shelf.id == shelf_id).first()
-    # The shelf page no longer offers the "Change order" lock, so a lock saved
-    # before it went must not freeze the sort menu.
-    status = 'off'
     # check user is allowed to access shelf
     if shelf and check_shelf_view_permissions(shelf):
-        if status != 'on':
-            if sort_param == 'stored':
-                sort_param = current_user.get_view_property("shelf", 'stored')
-            else:
-                current_user.set_view_property("shelf", 'stored', sort_param)
-            if sort_param == 'pubnew':
-                change_shelf_order(shelf_id, [db.Books.pubdate.desc()])
-            if sort_param == 'pubold':
-                change_shelf_order(shelf_id, [db.Books.pubdate])
-            if sort_param == 'shelfnew':
-                change_shelf_order(shelf_id, [ub.BookShelf.date_added.desc()])
-            if sort_param == 'shelfold':
-                change_shelf_order(shelf_id, [ub.BookShelf.date_added])
-            if sort_param == 'abc':
-                change_shelf_order(shelf_id, [db.Books.sort])
-            if sort_param == 'zyx':
-                change_shelf_order(shelf_id, [db.Books.sort.desc()])
-            if sort_param == 'new':
-                change_shelf_order(shelf_id, [db.Books.timestamp.desc()])
-            if sort_param == 'old':
-                change_shelf_order(shelf_id, [db.Books.timestamp])
-            if sort_param == 'authaz':
-                change_shelf_order(shelf_id, [db.Books.author_sort.asc(), db.Series.name, db.Books.series_index])
-            if sort_param == 'authza':
-                change_shelf_order(shelf_id, [db.Books.author_sort.desc(),
-                                              db.Series.name.desc(),
-                                              db.Books.series_index.desc()])
+        if sort_param == 'stored':
+            sort_param = current_user.get_view_property("shelf", 'stored')
+        else:
+            current_user.set_view_property("shelf", 'stored', sort_param)
+        if sort_param in SHELF_ORDERS:
+            change_shelf_order(shelf_id, SHELF_ORDERS[sort_param]())
 
         result, pagination = calibre_db.fill_indexpage(page_no, 0,
                                                            db.Books,
@@ -279,7 +268,6 @@ def render_show_shelf(shelf_id, page_no, sort_param):
                                      title=_("Shelf: %(name)s", name=shelf.name),
                                      shelf=shelf,
                                      page="shelf",
-                                     status=status,
                                      order=sort_param)
     flash(_("Error opening shelf. Shelf does not exist or is not accessible"), category="error")
     return redirect(url_for("web.index"))

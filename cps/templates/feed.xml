@@ -49,15 +49,7 @@
         <name>{{author.name}}</name>
       </author>
     {% endfor %}
-    {% if entry.Books.publishers.__len__() > 0 %}
-      <publisher>
-        <name>{{entry.Books.publishers[0].name}}</name>
-      </publisher>
-    {% endif %}
     <published>{{entry.Books.pubdate.strftime("%Y-%m-%dT%H:%M:%S+00:00")}}</published>
-    {% for lang in entry.Books.languages %}
-      <dcterms:language>{{lang.lang_code}}</dcterms:language>
-    {% endfor %}
     {% for tag in entry.Books.tags %}
     <category scheme="http://www.bisg.org/standards/bisac_subject/index.html"
               term="{{tag.name}}"

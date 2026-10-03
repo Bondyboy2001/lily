@@ -47,7 +47,7 @@ def _lookup_finds(monkeypatch, **extra):
     from cps import metadata_helper
     settings = {"auto_metadata_fetch_enabled": 1}
     monkeypatch.setattr(metadata_helper, "CWA_DB", lambda: SimpleNamespace(get_cwa_settings=lambda: settings))
-    record = SimpleNamespace(title="Abstract Algebra", authors=["Test Author"], description="", publisher="",
+    record = SimpleNamespace(title="Abstract Algebra", authors=["Test Author"], description="",
                              series="", series_index=0, publishedDate=None, identifiers={}, cover=None,
                              source=SimpleNamespace(description="Google Books"), **extra)
     monkeypatch.setattr(metadata_helper, "metadata_providers", [FakeProvider(

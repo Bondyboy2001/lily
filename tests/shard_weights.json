@@ -37,7 +37,6 @@
  "tests/unit/test_health.py": 0.26,
  "tests/unit/test_helper.py": 0.03,
  "tests/unit/test_ingest_batch_dirty.py": 0.01,
- "tests/unit/test_ingest_overwrite_timestamps.py": 0.01,
  "tests/unit/test_ingest_processor_startup.py": 0.08,
  "tests/unit/test_ingest_safety_processor.py": 0.93,
  "tests/unit/test_ingest_safety_service.py": 2.51,

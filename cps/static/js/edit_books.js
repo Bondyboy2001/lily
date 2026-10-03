@@ -1,7 +1,7 @@
 /**
  * Created by SpeedProg on 05.04.2015.
  */
-/* global Bloodhound, language, Modernizr, getPath */
+/* global Bloodhound, language, getPath */
 
 /* Description: a plain text box over the HTML Calibre stores. Paragraphs show as blank
    lines; an edited description is saved back as <p> paragraphs, an untouched one keeps

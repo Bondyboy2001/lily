@@ -62,8 +62,8 @@ Search by title, ISBN, DOI or arXiv id.
 <td valign="top">
 
 ### Read anywhere
-EPUB, PDF, DjVu and audiobooks open in the browser. Lily saves your place, and
-**Continue Reading** brings you straight back to it.
+EPUB, PDF, DjVu and audiobooks open in the browser. Lily saves your place, and the
+**Reading** list brings you straight back to it.
 
 </td>
 <td valign="top">
@@ -132,8 +132,8 @@ password before anything else.
 
 > [!TIP]
 > Keep the three folders separate rather than nested. Move only finished files into the
-> ingest folder, because it is emptied after each import. To upload from the browser,
-> turn on uploads under **Settings → Import & Metadata**.
+> ingest folder, because it is emptied after each import. Anyone with the Upload
+> permission can also upload from the browser.
 
 ## Configuration
 

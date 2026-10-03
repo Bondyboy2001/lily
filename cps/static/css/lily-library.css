@@ -376,7 +376,7 @@
 
 /* Quick actions: a row of round buttons floating at the cover's bottom right, shown on hover or
    keyboard focus. Each is a --surface disc with the floating-layer shadow, so it reads on
-   pale and dark covers alike. They are skinned through the --btn-* variables, which list view overrides. */
+   pale and dark covers alike. They are skinned through the --btn-* variables. */
 .lily-cover-actions {
     --btn-size: 32px;
     --btn-bg: var(--surface);
@@ -483,9 +483,6 @@
     /* The actions stay out along the foot, so Finished and Fetched move to the top-right. */
     .lily-book .cover .lily-cover-marks { top: 8px; right: 8px; bottom: auto; left: auto; }
 }
-
-/* Grid cards show the title only. */
-.lily-book .meta .author { display: none; }
 
 @media (max-width: 767px) {
     .row.lily-grid {
@@ -622,7 +619,7 @@
 .lily-setup-hint { color: var(--muted); font-size: 13px; }
 
 /* ------------------------------------------------------------------ */
-/* Category / publisher lists (list.html)                              */
+/* Browse lists (list.html)                                            */
 /* ------------------------------------------------------------------ */
 /* One list flowed into ~300px columns, so a count never strays far from its name.
    Short lists stay a single narrow column rather than one entry per column. */
@@ -919,13 +916,6 @@ dl.book-info {
 
 .book-detail-meta .author a { color: var(--accent); }
 
-.book-detail-meta #detail-rating-block {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    margin-top: 2px;
-}
-
 /* Read is the one Primary, with its word; the rest are 44px square icon buttons, Quiet,
    and Delete sits apart at the end. */
 .book-action-bar {
@@ -1114,9 +1104,7 @@ dl.book-info {
 
 .bootstrap-select > .dropdown-toggle,
 .bootstrap-select > .dropdown-toggle.btn,
-.bootstrap-select > .dropdown-toggle.btn-default,
-.bootstrap-select > .dropdown-toggle.btn-primary,
-.bootstrap-select > .dropdown-toggle.btn-danger {
+.bootstrap-select > .dropdown-toggle.btn-default {
     height: 30px;
     padding: 0 28px 0 10px;
     border: 1px solid var(--line-strong);
@@ -1575,8 +1563,8 @@ dl.book-info {
     overflow: hidden;
 }
 
-/* Details: the publisher takes a row, the shorter fields pair up beneath it. Edition and
-   Volume pair up the same way under the title, and stay paired on phones */
+/* Details' fields pair up, and Edition and Volume pair up the same way under the title,
+   staying paired on phones */
 .editbook-fields {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1652,8 +1640,6 @@ dl.book-info {
     .editbook-actions .btn { width: auto; }
 }
 
-#detail-rating-block .glyphicon { top: 0; font-size: 16px; }
-
 /* ------------------------------------------------------------------ */
 /* Sort controls (image.sort_menu): a field chip and a direction chip */
 /* ------------------------------------------------------------------ */
@@ -1673,7 +1659,7 @@ dl.book-info {
 
 .lily-list-nomatch { margin: 22px 0; color: var(--muted); }
 
-/* Toolbar chips share the row with the 38px Grid/List icons, so they take the same height. */
+/* Toolbar chips are 38px tall, as the page numbers beside them. */
 .lily-list-toolbar .btn.lily-chip {
     height: 38px;
     line-height: 38px;

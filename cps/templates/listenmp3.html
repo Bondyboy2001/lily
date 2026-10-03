@@ -86,8 +86,6 @@
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <script>
     window.calibre = {
-      bookmarkUrl: "{{ url_for('web.set_bookmark', book_id=mp3file, book_format=audioformat.upper()) }}",
-      bookmark: "{{ bookmark.bookmark_key if bookmark != None }}",
       progressUrl: "{{ progress_url }}",
       progressKey: "{{ progress_key }}",
       progressFormat: "{{ progress_format }}",

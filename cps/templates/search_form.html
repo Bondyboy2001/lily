@@ -1,6 +1,5 @@
 {% extends "layout.html" %}
 {% import "lily_form.html" as f with context %}
-{% import "image.html" as image %}
 
 {#- A "from / to" pair of date fields; edit_books.js wires .datepicker and .datepicker_delete. -#}
 {% macro date_field(name, label) -%}
@@ -92,7 +91,7 @@
           </select>
           {% elif c.datatype == 'rating' %}
           <input type="number" min="1" max="5" step="0.5" class="form-control" name="{{ cid }}" id="{{ cid }}">
-          {% elif c.datatype in ['text', 'series', 'comments'] %}
+          {% elif c.datatype in ['text', 'comments'] %}
           <input type="text" class="form-control" name="{{ cid }}" id="{{ cid }}" value="">
           {% endif %}
         {% endcall %}

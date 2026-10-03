@@ -39,19 +39,6 @@
 </div>
 {%- endmacro %}
 
-{#- A select. `options` is a list of (value, text) pairs; `selected` is compared as a string. -#}
-{% macro select(name, label, options, selected, help=None, id=None, attrs='') -%}
-{% set fid = id or name %}
-<div class="lp-row">
-  <div class="lp-text"><label for="{{ fid }}">{{ label }}</label>{% if help %}<p class="lp-help">{{ help }}</p>{% endif %}</div>
-  <div class="lp-control">
-    <select name="{{ name }}" id="{{ fid }}" class="form-control" {{ attrs|safe }}>
-      {% for value, text in options %}<option value="{{ value }}"{% if value|string == selected|string %} selected{% endif %}>{{ text }}</option>{% endfor %}
-    </select>
-  </div>
-</div>
-{%- endmacro %}
-
 {#- One checkbox in a .lp-checks grid. -#}
 {% macro check(name, label, checked, id=None, attrs='') -%}
 <label class="lp-check" for="{{ id or name }}"><input type="checkbox" name="{{ name }}" id="{{ id or name }}"{% if checked %} checked{% endif %} {{ attrs|safe }}>{{ label }}</label>

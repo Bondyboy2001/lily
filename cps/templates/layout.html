@@ -1,5 +1,4 @@
 {% from 'modal_dialogs.html' import delete_book, delete_confirm_modal %}
-{% import 'image.html' as image %}
 
 <!DOCTYPE html>
 <html lang="en">
@@ -213,8 +212,6 @@
     <script src="{{ url_for('static', filename='js/libs/bootstrap.min.js') }}"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="{{ url_for('static', filename='js/libs/underscore-umd-min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/libs/plugins.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/libs/jquery.form.min.js') }}"></script>
     {% if show_sidebar %}
     <script src="{{ url_for('static', filename='js/libs/typeahead.bundle.js') }}"></script>
     {% endif %}

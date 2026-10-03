@@ -113,15 +113,6 @@ class TestReaderBookmarks:
         assert client.post(f"/ajax/bookmarks/{bid}/EPUB", json={"key": "epubcfi(/6/12)"}).status_code == 201
         assert len(_keys(client, f"/ajax/bookmarks/{bid}/EPUB")) == 2
 
-    def test_audio_resume_point_keeps_its_single_bookmark(self, env):
-        from cps import ub
-        client = _login(env)
-        bid = env.add_book("Listened", fmt="MP3")
-        for key in ("time:12", "time:30"):
-            assert client.post(f"/ajax/bookmark/{bid}/MP3", data={"bookmark": key}).status_code == 201
-        rows = ub.session.query(ub.Bookmark).filter_by(book_id=bid).all()
-        assert [r.bookmark_key for r in rows] == ["time:30"]
-
 
 @pytest.mark.unit
 def test_bookmark_columns_are_added_to_old_databases(tmp_path):

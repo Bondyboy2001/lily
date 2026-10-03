@@ -39,8 +39,8 @@ def test_a_lookup_logs_its_book_result_and_changes(env, monkeypatch):
     from cps import metadata_helper
     env, store = env
     dune = SimpleNamespace(title="Dune", authors=["Frank Herbert"], description="<p>Spice.</p>",
-                           tags=[], series="", series_index=0, publishedDate="1965-08-01", rating=None,
-                           identifiers={"isbn": "9780441172719"}, cover="", languages=[],
+                           tags=[], series="", series_index=0, publishedDate="1965-08-01",
+                           identifiers={"isbn": "9780441172719"}, cover="",
                            source=SimpleNamespace(description="Open Library"))
     nothing = _provider("openlibrary", by_text=[])
     found = _provider("openlibrary", by_text=[dune])

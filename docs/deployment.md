@@ -71,6 +71,7 @@ taken before the upgrade.
 
 ## Releases
 
-Pushing a `v*` tag builds amd64 and arm64 images and publishes them to
-`ghcr.io/bondyboy2001/lily`, and to Docker Hub when its secrets are set
+Every push to `main` builds amd64 and arm64 images and, once the checks pass, publishes
+them to `ghcr.io/bondyboy2001/lily` (and Docker Hub when its secrets are set) as `:latest`.
+Pushing a `vX.Y.Z` tag also adds `:X.Y.Z` and `:X.Y` to roll back to
 (`.github/workflows/release.yml`).

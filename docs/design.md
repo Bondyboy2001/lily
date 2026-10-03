@@ -171,7 +171,7 @@ title on the book page (a 52px/700 display line, `text-wrap: balance`; 46 below
 
 | Step | Use |
 | --- | --- |
-| 2 | Between icons in a tight cluster (top-bar actions, view switch) |
+| 2 | Between icons in a tight cluster (top-bar actions) |
 | 4 | Label to the thing it labels; focus-ring breathing room |
 | 6 | Between chips |
 | 8 | Inside a row or control cluster; between buttons |
@@ -189,7 +189,7 @@ reused for layout. Don't introduce 15, 18, 20, 26 or 30 for layout gaps (§12).
 | 3 | Thumbnails ≤ 60px wide (typeahead, duplicates) |
 | 4 | Inline `code`, `pre` |
 | 5 | Navigation rows (sidebar, settings rail), draggable order rows |
-| **6** (`--control-radius`) | Buttons, chips, icon buttons, menu items, list-view rows |
+| **6** (`--control-radius`) | Buttons, chips, icon buttons, menu items, list rows |
 | 7 | Fields, select toggles, input-group addons |
 | 8 | Book covers in the grid, file tiles |
 | **10** | Panels, notices, menus, popovers, dialogs, toasts |
@@ -470,13 +470,13 @@ matched carries the green fetched tick (`.lily-fetched`, §6.4): a disc beside t
 
 ```
 top bar title
-[toolbar: chips / sort / view switch]       ← margin-bottom 22
+[toolbar: chips / sort / pages]             ← margin-bottom 22
 ## Section heading                           ← --heading-size, margin-bottom 14
 content (grid, panel, rows)
                                              ← 22 between sections
 ```
 
-### 6.3 Library grid and list
+### 6.3 Library grid
 
 - **Grid** (`.lily-grid`): `repeat(auto-fill, minmax(190px, 1fr))`, gap 26;
   phones 2-up, gap 22×14. Card: cover (§5.15), then title 15/500 clamped to
@@ -485,7 +485,7 @@ content (grid, panel, rows)
   discs with a 1px `--line` edge and `--menu-shadow`, `--ink` icons, `--accent` on hover. They rise and fade in
   on hover/focus and stay visible on touch (36px, 8 apart). Read state fills the eye's disc
   `--success` with a `--surface` eye. No popups over the cover or its buttons (§5.6).
-- **Browse lists** (`list.html`: authors, file formats…): one
+- **Browse lists** (`list.html`: the authors list): one
   `.lily-list` flowed into 300px CSS columns, gap 22, so each count sits
   beside its name; lists of 12 or fewer stay one column, max 560. Rows are
   list rows (§5.11), min-height 40; long names wrap. A list of more than 24
@@ -501,9 +501,9 @@ content (grid, panel, rows)
   (no Series page or OPDS feed, no "Book N of", no "Next in" row, no series on
   cards, in Fetch Metadata or in Advanced Search), and metadata lookups don't write
   one. Calibre still stores a book's series; nothing in Lily reads it for display.
-- **Toolbar** (`.lily-list-toolbar`): chips and sort on the left, view switch
-  (large icon buttons) top-right, margin-bottom 22. Toolbar chips are 38 tall
-  so they sit level with the view switch. The direction chip shows only its
+- **Toolbar** (`.lily-list-toolbar`): chips and sort, margin-bottom 22. Books show
+  only as a grid: there is no list view or Grid/List switch. Toolbar chips are 38
+  tall. The direction chip shows only its
   arrow (38 square, the word kept for screen readers and the tooltip naming
   the next order). Page numbers (`image.pager`) sit after the sort chips on
   the same row, 38 tall, wrapping under them when narrow; lists have no pager
@@ -649,8 +649,8 @@ use `.lily-standalone` with max-width 560.
 
 ### 6.7 Reader
 
-Every way into the reader (Read/Continue, a cover's read button, Continue
-Reading) opens it in a new tab, so the library stays where it was. The
+Every way into the reader (Read/Continue, a cover's read button) opens it in a
+new tab, so the library stays where it was. The
 exception is Lily installed as an app (`display-mode: standalone`), where a new
 tab would leave the app for the browser: there `lily.js` opens the reader in
 place (links carry `data-reader-link`) and the reader's Back link returns.

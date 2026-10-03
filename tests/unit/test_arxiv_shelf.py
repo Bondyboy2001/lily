@@ -79,8 +79,8 @@ def _fetch_setup(monkeypatch, record):
 
 
 def _record(title, source_id, **kw):
-    rec = SimpleNamespace(title=title, authors=["Test Author"], description="", publisher="", tags=[],
-                          series="", series_index=0, publishedDate=None, rating=None, identifiers={},
+    rec = SimpleNamespace(title=title, authors=["Test Author"], description="", tags=[],
+                          series="", series_index=0, publishedDate=None, identifiers={},
                           cover="", source=SimpleNamespace(id=source_id, description="arXiv"))
     rec.__dict__.update(kw)
     return rec
@@ -120,7 +120,7 @@ def test_a_paper_arxiv_did_not_answer_for_is_not_filed(env, monkeypatch):
 def test_a_shelf_failure_never_fails_the_fetch(env, monkeypatch):
     from cps.services import arxiv_shelf
     book = env.add_book("A Paper", fmt="PDF")
-    helper = _fetch_setup(monkeypatch, _record("A Paper", "googlescholar", publisher="arXiv",
+    helper = _fetch_setup(monkeypatch, _record("A Paper", "googlescholar",
                                                identifiers={"arxiv": "2401.00001"}))
 
     def broken(ids):

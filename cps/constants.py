@@ -62,7 +62,6 @@ ALL_ROLES = {
             }
 
 DETAIL_RANDOM           = 1 <<  0
-SIDEBAR_SERIES          = 1 <<  2
 SIDEBAR_CATEGORY        = 1 <<  3
 SIDEBAR_HOT             = 1 <<  4
 SIDEBAR_RANDOM          = 1 <<  5
@@ -76,7 +75,7 @@ SIDEBAR_DUPLICATES      = 1 << 18
 ADMIN_USER_ROLES        = sum(r for r in ALL_ROLES.values()) & ~ROLE_ANONYMOUS
 # Lily's default sidebar: the core browse views only. The other entries stay available
 # to switch on per user in the profile's sidebar settings.
-DEFAULT_SIDEBAR         = (SIDEBAR_RECENT | SIDEBAR_CATEGORY | SIDEBAR_SERIES | SIDEBAR_AUTHOR
+DEFAULT_SIDEBAR         = (SIDEBAR_RECENT | SIDEBAR_CATEGORY | SIDEBAR_AUTHOR
                            | SIDEBAR_READ_AND_UNREAD)
 ADMIN_USER_SIDEBAR      = DEFAULT_SIDEBAR
 

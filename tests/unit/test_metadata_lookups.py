@@ -44,8 +44,8 @@ def _providers(monkeypatch, *providers):
 
 
 def _record(title, authors):
-    return SimpleNamespace(title=title, authors=authors, description="", publisher="", tags=[], series="",
-                           series_index=0, publishedDate=None, rating=None, identifiers={}, cover="",
+    return SimpleNamespace(title=title, authors=authors, description="", tags=[], series="",
+                           series_index=0, publishedDate=None, identifiers={}, cover="",
                            source=SimpleNamespace(id="openlibrary", description="Open Library"))
 
 

@@ -486,3 +486,25 @@ def test_touch_text_buttons_and_nav_rows_reach_44px():
     assert re.search(r"\.close::after\s*{[^}]*inset: -7px;", lily)
     assert ".lily-nav li > a { min-height: 44px; }" in read(CSS / "lily-shell.css")
     assert ".lp-rail-item { min-height: 44px; }" in read(CSS / "lily-admin.css")
+
+
+def test_every_icon_in_use_is_drawn_and_no_other():
+    # The Glyphicons font isn't shipped: lily-icons.css (scripts/build_icons.py) draws each
+    # glyphicon-* class as a Phosphor icon, so one it doesn't map would show nothing.
+    sources = [p for folder in ("cps/templates", "cps/static/js") for p in (REPO_ROOT / folder).rglob("*")
+               if p.suffix in (".html", ".js", ".xml") and "/libs/" not in str(p)]
+    sources += [p for p in CSS.glob("*.css") if p.name != "lily-icons.css"]
+    sources += list((REPO_ROOT / "cps").glob("*.py"))  # the sidebar's glyphs (render_template.py)
+    used = set()
+    for path in sources:
+        text = read(path)
+        used.update(re.findall(r"glyphicon-([a-z][a-z0-9-]*[a-z0-9])(?![-a-z0-9])", text))
+        # Classes built from a stem, e.g. "glyphicon-sort-by-attributes" + "-alt"
+        if "glyphicon-sort-by-attributes" in text and "-alt" in text:
+            used.add("sort-by-attributes-alt")
+    used -= {"spin"}  # a modifier (lily.css spins any icon), not an icon
+    icons = read(CSS / "lily-icons.css")
+    drawn = set(re.findall(r"^\.glyphicon-([a-z0-9-]+) \{ --lily-icon:", icons, flags=re.M))
+    assert used - drawn == set(), "used but not drawn"
+    assert drawn - used == set(), "drawn but never used"
+    assert not list(CSS.glob("fonts/glyphicons-halflings-regular.*"))
