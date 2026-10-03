@@ -593,11 +593,12 @@ class NewBookProcessor:
         """
         try:
             import re
-            m = re.search(r"(?:Added|Merged|Updated) book id[s]?:\s*([0-9,\s]+)", output, flags=re.IGNORECASE)
-            if not m:
-                return []
-            nums = m.group(1)
-            ids = [int(x.strip()) for x in nums.split(',') if x.strip().isdigit()]
+            ids: list[int] = []
+            # calibredb prints separate "Added book ids:" and "Merged book ids:" lines
+            for nums in re.findall(r"(?:Added|Merged|Updated) book id[s]?:[ \t]*([0-9, \t]+)", output, flags=re.IGNORECASE):
+                for part in nums.split(','):
+                    if part.strip().isdigit() and int(part) not in ids:
+                        ids.append(int(part))
             return ids
         except Exception:
             return []
@@ -784,16 +785,6 @@ class NewBookProcessor:
     def add_book_to_library(self, book_path:str, text: bool=True, format: str="text" ) -> bool:
         """Import book_path into the library. Returns True only once calibredb has accepted it;
         on False the caller is responsible for preserving the ingest source in failed/."""
-        # Capture the current max(timestamp) in Calibre DB so we can detect rows whose last_modified was bumped by an overwrite
-        pre_import_max_timestamp = None
-        if self.cwa_settings.get('auto_ingest_automerge') == 'overwrite':
-            try:
-                with sqlite3.connect(self.metadata_db, timeout=30) as con:
-                    cur = con.cursor()
-                    pre_import_max_timestamp = cur.execute('SELECT MAX(timestamp) FROM books').fetchone()[0]
-            except Exception as e:
-                print(f"[ingest-processor] WARN: Could not read pre-import max timestamp: {e}", flush=True)
-
         print("[ingest-processor]: Importing new book to CWA...")
         source_path = Path(book_path)
         if not source_path.exists() or source_path.stat().st_size == 0:
@@ -921,19 +912,21 @@ class NewBookProcessor:
                     print(f"[ingest-processor] WARN: Failed to set timestamp for new book: {e}", flush=True)
 
             # If we overwrote an existing book, Calibre does not bump books.timestamp, only last_modified.
-            # Update timestamp to last_modified for any rows changed by this import so sorting by 'new' reflects overwrites.
-            if self.cwa_settings.get('auto_ingest_automerge') == 'overwrite':
+            # Update timestamp to last_modified for the book(s) this import merged into, so sorting by
+            # 'new' reflects overwrites. Only those ids: books edited in the web app also have a recent
+            # last_modified, and their date added must not change.
+            merged_ids = sorted({int(i) for i in (self.last_added_book_ids or [])}
+                                | ({self.last_added_book_id} if self.last_added_book_id is not None else set()))
+            if self.cwa_settings.get('auto_ingest_automerge') == 'overwrite' and merged_ids:
                 try:
                     with sqlite3.connect(self.metadata_db, timeout=30) as con:
                         cur = con.cursor()
                         if not self._register_title_sort_function(con):
                             print("[ingest-processor] INFO: Skipping timestamp adjust (title_sort SQL function unavailable).", flush=True)
                             return imported
-                        # pre_import_max_timestamp may be None (empty library) -> update all rows where timestamp < last_modified
-                        if pre_import_max_timestamp is None:
-                            cur.execute('UPDATE books SET timestamp = last_modified WHERE timestamp < last_modified')
-                        else:
-                            cur.execute('UPDATE books SET timestamp = last_modified WHERE last_modified > ? AND timestamp < last_modified', (pre_import_max_timestamp,))
+                        placeholders = ",".join("?" * len(merged_ids))
+                        cur.execute(f'UPDATE books SET timestamp = last_modified WHERE id IN ({placeholders}) '
+                                    'AND timestamp < last_modified', merged_ids)
                         affected = cur.rowcount
                         if affected:
                             print(f"[ingest-processor] INFO: Updated timestamp for {affected} overwritten book(s) to reflect latest import.", flush=True)
