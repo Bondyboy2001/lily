@@ -37,10 +37,11 @@ def test_create_shelf_add_books_and_delete(env):
     assert admin.post("/shelf/create", data={"title": "Favs"}).status_code == 302
     sid = _shelf_id(env, "Favs")
 
-    resp = admin.post("/shelf/add_selected_to_shelf", json={"shelf_id": sid, "book_ids": [b1, b2, 9999]})
-    assert resp.status_code == 207  # partial success: the unknown id is reported, the rest are added
-    again = admin.post("/shelf/add_selected_to_shelf", json={"shelf_id": sid, "book_ids": [b1]})
-    assert "already" in again.get_data(as_text=True)
+    for book in (b1, b2):
+        assert admin.post(f"/shelf/{sid}/book/{book}", json={"on": True}).get_json()["on"] is True
+    assert admin.post(f"/shelf/{sid}/book/9999", json={"on": True}).status_code == 404
+    # Putting a book on twice keeps one entry
+    assert admin.post(f"/shelf/{sid}/book/{b1}", json={"on": True}).get_json()["count"] == 2
 
     html = admin.get(f"/shelf/{sid}").get_data(as_text=True)
     assert "First" in html and "Second" in html
@@ -97,7 +98,7 @@ def test_private_shelf_is_hidden_from_other_users_and_not_editable(env):
     book = env.add_book("Secret Book")
     admin.post("/shelf/create", data={"title": "Mine"})
     sid = _shelf_id(env, "Mine")
-    admin.post("/shelf/add_selected_to_shelf", json={"shelf_id": sid, "book_ids": [book]})
+    admin.post(f"/shelf/{sid}/book/{book}", json={"on": True})
 
     env.add_user("other", password="pw2")
     other = _client(env, "other", "pw2")
@@ -105,19 +106,20 @@ def test_private_shelf_is_hidden_from_other_users_and_not_editable(env):
     assert resp.status_code == 302 and f"/shelf/{sid}" not in resp.headers["Location"]
     assert "not accessible" in other.get(f"/shelf/{sid}", follow_redirects=True).get_data(as_text=True)
 
-    denied = other.post("/shelf/add_selected_to_shelf", json={"shelf_id": sid, "book_ids": [book]})
+    denied = other.post(f"/shelf/{sid}/book/{book}", json={"on": True})
     assert denied.status_code == 403
     other.post(f"/shelf/delete/{sid}")
     env.ub.session.expire_all()
     assert env.ub.session.query(env.ub.Shelf).filter(env.ub.Shelf.id == sid).first() is not None
 
 
-def test_add_to_missing_shelf_and_empty_selection(env):
+def test_add_to_missing_shelf_or_without_on_flag(env):
     admin = _client(env, env.admin().name, ADMIN_PASSWORD)
-    assert admin.post("/shelf/add_selected_to_shelf", json={"shelf_id": 4242, "book_ids": [1]}).status_code == 404
+    book = env.add_book("Loose")
+    assert admin.post(f"/shelf/4242/book/{book}", json={"on": True}).status_code == 404
     admin.post("/shelf/create", data={"title": "Empty"})
     sid = _shelf_id(env, "Empty")
-    assert admin.post("/shelf/add_selected_to_shelf", json={"shelf_id": sid, "book_ids": []}).status_code == 400
+    assert admin.post(f"/shelf/{sid}/book/{book}", json={}).status_code == 400
 
 
 def test_simple_search_finds_titles_and_survives_hostile_input(env):

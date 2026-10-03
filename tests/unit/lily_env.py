@@ -181,9 +181,8 @@ def lily_env(tmp_path, **config_overrides):
         admin.password = generate_password_hash(ADMIN_PASSWORD, method=FAST_HASH)
         ub.session.commit()
 
-        key, _ = config_sql.get_encryption_key(str(tmp_path))
-        config_sql.load_configuration(ub.session, key)
-        config.init_config(ub.session, key, None)
+        config_sql.load_configuration(ub.session)
+        config.init_config(ub.session, None)
         config.config_calibre_dir = str(library_dir)
         config.config_anonbrowse = 0
         config.config_books_per_page = 60

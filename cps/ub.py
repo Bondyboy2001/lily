@@ -42,8 +42,6 @@ session: Session | None = None
 app_DB_path = None
 Base = declarative_base()
 
-logged_in = dict()
-
 
 def _safe_session_rollback(_session, label=""):
     try:
@@ -1057,22 +1055,6 @@ def get_new_session_instance():
 
     return new_session
 
-
-def dispose():
-    global session
-
-    old_session = session
-    session = None
-    if old_session:
-        try:
-            old_session.close()
-        except Exception:
-            pass
-        if old_session.bind:
-            try:
-                old_session.bind.dispose()
-            except Exception:
-                pass
 
 def session_commit(success=None, _session=None):
     s = _session if _session else session

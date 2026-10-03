@@ -874,5 +874,5 @@ delete the line. Don't copy any of these.
   library's `!important`).
 
 **Legacy**
-- `style.css` still holds dead rules (`.cwa_stats_*`, old book card,
-  `.stats_see_more_btn`). Delete them.
+- `style.css` still holds the old book-card rules (`.container-fluid .book …`)
+  that the cover grids inherit. Move them into `lily-library.css`.

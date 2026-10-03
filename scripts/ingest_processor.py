@@ -17,7 +17,6 @@ import time
 import shutil
 import sqlite3
 import fcntl
-import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -50,10 +49,6 @@ backup_destinations = {}
 process_lock = None
 _runtime_initialized = False
 _runtime_init_attempted = False
-
-# Debounced duplicate scan timer
-_duplicate_scan_timer = None
-_duplicate_scan_lock = threading.Lock()
 
 
 def _bounded_reason(text: str, limit: int = 800) -> str:

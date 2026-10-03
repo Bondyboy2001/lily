@@ -24,8 +24,6 @@ from sqlalchemy import String, Integer, Boolean, TIMESTAMP, Float
 from sqlalchemy.orm import relationship, sessionmaker, scoped_session, joinedload, object_session
 from sqlalchemy.orm import selectinload, lazyload
 from sqlalchemy.orm.attributes import set_committed_value
-from sqlalchemy.orm.collections import InstrumentedList
-from sqlalchemy.ext.declarative import DeclarativeMeta
 from sqlalchemy.exc import OperationalError
 try:
     # Compatibility with sqlalchemy 2.0
@@ -533,48 +531,6 @@ def card_load_options(skip_others):
         card_keys = {rel.key for rel in card}
         options += [lazyload(rel) for rel in _all_book_relationships() if rel.key not in card_keys]
     return options
-
-
-class AlchemyEncoder(json.JSONEncoder):
-
-    def default(self, o):
-        if isinstance(o.__class__, DeclarativeMeta):
-            # an SQLAlchemy class
-            fields = {}
-            for field in [x for x in dir(o) if not x.startswith('_') and x != 'metadata' and x != "password"]:
-                if field == 'books':
-                    continue
-                data = o.__getattribute__(field)
-                try:
-                    if isinstance(data, str):
-                        data = data.replace("'", "\'")
-                    elif isinstance(data, InstrumentedList):
-                        el = list()
-                        for ele in data:
-                            if hasattr(ele, 'value'):       # converter for custom_column values
-                                if isinstance(ele.value, datetime):
-                                    el.append(ele.value.date().isoformat())
-                                else:
-                                    el.append(str(ele.value))
-                            elif ele.get:
-                                el.append(ele.get())
-                            else:
-                                el.append(json.dumps(ele, cls=AlchemyEncoder))
-                        if field == 'authors':
-                            data = " & ".join(el)
-                        else:
-                            data = ",".join(el)
-                        if data == '[]':
-                            data = ""
-                    else:
-                        json.dumps(data)
-                    fields[field] = data
-                except Exception:
-                    fields[field] = ""
-            # a json-encodable dict
-            return fields
-
-        return json.JSONEncoder.default(self, o)
 
 
 class CalibreDB:

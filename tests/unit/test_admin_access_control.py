@@ -7,7 +7,7 @@ from tests.unit.lily_env import lily_env, ADMIN_PASSWORD
 pytestmark = pytest.mark.unit
 
 ADMIN_GETS = ["/admin/user/new", "/admin/usertable", "/logs"]
-ADMIN_POSTS = ["/admin/user/new", "/shutdown"]
+ADMIN_POSTS = ["/admin/user/new"]
 # Settings pages that were deleted outright: not hidden, not redirected, gone.
 REMOVED = ["/admin/view", "/admin/config", "/admin/dbconfig", "/admin/viewconfig", "/admin/scheduledtasks",
            "/admin/db_backups", "/admin/ingest_failures", "/admin/book-recovery", "/admin/metadata/suggestions",

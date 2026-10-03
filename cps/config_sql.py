@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Persistent server configuration stored in app.db, including the encrypted-settings key file."""
+"""Persistent server configuration stored in app.db."""
 
 import os
 import sys
@@ -14,9 +14,6 @@ import json
 from sqlalchemy import Column, String, Integer, SmallInteger, Boolean, BLOB, JSON
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql.expression import text
-from cryptography.fernet import Fernet
-import cryptography.exceptions
-from base64 import urlsafe_b64decode
 try:
     # Compatibility with sqlalchemy 2.0
     from sqlalchemy.orm import declarative_base
@@ -25,7 +22,6 @@ except ImportError:
 
 from . import constants, logger
 from .subproc_wrapper import process_wait
-from .string_helper import strip_whitespaces
 
 log = logger.create()
 _Base = declarative_base()
@@ -121,12 +117,11 @@ class ConfigSQL(object):
         self.__dict__["dirty"] = list()
         self.cli = None
 
-    def init_config(self, session, secret_key, cli):
+    def init_config(self, session, cli):
         self._session = session
         self._settings = None
         self.db_configured = None
         self.config_calibre_dir = None
-        self._fernet = Fernet(secret_key)
         self.cli = cli
         self.load()
 
@@ -179,49 +174,6 @@ class ConfigSQL(object):
             return self.cli.ip_address or ""
         return ""
 
-    def _has_role(self, role_flag):
-        return constants.has_flag(self.config_default_role, role_flag)
-
-    def role_admin(self):
-        return self._has_role(constants.ROLE_ADMIN)
-
-    def role_download(self):
-        return self._has_role(constants.ROLE_DOWNLOAD)
-
-    def role_viewer(self):
-        return self._has_role(constants.ROLE_VIEWER)
-
-    def role_upload(self):
-        return self._has_role(constants.ROLE_UPLOAD)
-
-    def role_edit(self):
-        return self._has_role(constants.ROLE_EDIT)
-
-    def role_passwd(self):
-        return self._has_role(constants.ROLE_PASSWD)
-
-    def role_edit_shelfs(self):
-        return self._has_role(constants.ROLE_EDIT_SHELFS)
-
-    def role_delete_books(self):
-        return self._has_role(constants.ROLE_DELETE_BOOKS)
-
-    def list_denied_tags(self):
-        mct = self.config_denied_tags or ""
-        return [strip_whitespaces(t) for t in mct.split(",")]
-
-    def list_allowed_tags(self):
-        mct = self.config_allowed_tags or ""
-        return [strip_whitespaces(t) for t in mct.split(",")]
-
-
-    def to_dict(self):
-        storage = {}
-        for k, v in self.__dict__.items():
-            if k[0] != '_' and not k.endswith("_e") and k != "cli" and 'api' not in k.lower():
-                storage[k] = v
-        return storage
-
     def load(self):
         """Load all configuration values from the underlying storage."""
         s = self._read_from_storage()  # type: _Settings
@@ -232,13 +184,7 @@ class ConfigSQL(object):
                     column = s.__class__.__dict__.get(k)
                     if column.default is not None:
                         v = column.default.arg
-                if k.endswith("_e") and v is not None:
-                    try:
-                        setattr(self, k, self._fernet.decrypt(v).decode())
-                    except cryptography.fernet.InvalidToken:
-                        setattr(self, k, "")
-                else:
-                    setattr(self, k, v)
+                setattr(self, k, v)
 
         # Enforce unified logging to stdout for Docker deployments
         if self.config_logfile not in (logger.LOG_TO_STDOUT, logger.LOG_TO_STDERR):
@@ -306,10 +252,7 @@ class ConfigSQL(object):
             if k[0] == '_':
                 continue
             if hasattr(s, k):
-                if k.endswith("_e"):
-                    setattr(s, k, self._fernet.encrypt(self.__dict__[k].encode()))
-                else:
-                    setattr(s, k, self.__dict__[k])
+                setattr(s, k, self.__dict__[k])
 
         log.debug("_ConfigSQL updating storage")
         self._session.merge(s)
@@ -346,7 +289,7 @@ class ConfigSQL(object):
         self.__dict__["dirty"].append(attr_name)
 
 
-def _migrate_table(session, orm_class, secret_key=None):
+def _migrate_table(session, orm_class):
     changed = False
 
     for column_name, column in orm_class.__dict__.items():
@@ -410,15 +353,15 @@ def autodetect_calibre_binaries():
     return ""
 
 
-def _migrate_database(session, secret_key):
+def _migrate_database(session):
     # make sure the table is created, if it does not exist
     _Base.metadata.create_all(session.bind)
-    _migrate_table(session, _Settings, secret_key)
+    _migrate_table(session, _Settings)
     _migrate_table(session, _Flask_Settings)
 
 
-def load_configuration(session, secret_key):
-    _migrate_database(session, secret_key)
+def load_configuration(session):
+    _migrate_database(session)
     if not session.query(_Settings).count():
         session.add(_Settings())
         session.commit()
@@ -431,28 +374,3 @@ def get_flask_session_key(_session):
         _session.add(flask_settings)
         _session.commit()
     return flask_settings.flask_session_key
-
-
-def get_encryption_key(key_path):
-    key_file = os.path.join(key_path, ".key")
-    generate = True
-    error = ""
-    key = None
-    if os.path.exists(key_file) and os.path.getsize(key_file) > 32:
-        with open(key_file, "rb") as f:
-            key = f.read()
-        try:
-            urlsafe_b64decode(key)
-            generate = False
-        except ValueError:
-            pass
-    if generate:
-        key = Fernet.generate_key()
-        try:
-            fd = os.open(key_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            with os.fdopen(fd, "wb") as f:
-                f.write(key)
-            os.chmod(key_file, 0o600)
-        except PermissionError as e:
-            error = e
-    return key, error

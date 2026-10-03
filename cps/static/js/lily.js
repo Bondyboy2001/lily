@@ -174,7 +174,7 @@
     $(document).on("mouseup", function (e) {
       $(".dropdown-menu:visible").each(function () {
         var $menu = $(this);
-        if ($menu.is(".datepicker, .dropdown-context") || $menu.closest(".open, .dropdown, .btn-group, .bootstrap-select").length) { return; }
+        if ($menu.is(".datepicker") || $menu.closest(".open, .dropdown, .btn-group, .bootstrap-select").length) { return; }
         if (!$menu.is(e.target) && $menu.has(e.target).length === 0) { $menu.hide(); }
       });
     });

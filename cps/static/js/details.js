@@ -58,7 +58,7 @@ $("#have_read_cb").on("change", function() {
 
 // Tooltips for the icon-only toolbar buttons on the book page; labelled buttons don't need one
 $(function () {
-    var $toolbarButtons = $(".book-action-bar .action-icon-btn, .book-action-bar .dropdown-toggle");
+    var $toolbarButtons = $(".book-action-bar .dropdown-toggle");
     if (!$toolbarButtons.length) {
         return;
     }

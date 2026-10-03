@@ -28,14 +28,8 @@ from sqlalchemy.exc import InvalidRequestError, OperationalError
 from werkzeug.datastructures import Headers
 from urllib.parse import quote
 
-try:
-    from . import cw_advocate
-    from .cw_advocate.exceptions import UnacceptableAddressException
-    use_advocate = True
-except ImportError:
-    use_advocate = False
-    advocate = requests
-    UnacceptableAddressException = MissingSchema = BaseException
+from . import cw_advocate
+from .cw_advocate.exceptions import UnacceptableAddressException
 
 from . import calibre_db, cli_param
 from .string_helper import strip_whitespaces
@@ -627,13 +621,7 @@ def save_cover_from_url(url, book_path):
     img = None
     download_start = time.monotonic()
     try:
-        if cli_param.allow_localhost:
-            fetch = requests.get
-        elif use_advocate:
-            fetch = cw_advocate.get
-        else:
-            log.error("python module advocate is not installed but is needed")
-            return False, _("Python module 'advocate' is not installed but is needed for cover uploads")
+        fetch = requests.get if cli_param.allow_localhost else cw_advocate.get
         # Follow redirects by hand so every hop goes back through advocate's address check
         # (e.g. covers.openlibrary.org answers with a 302 to archive.org)
         for _hop in range(6):

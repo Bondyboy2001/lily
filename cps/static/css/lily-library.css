@@ -1001,33 +1001,6 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 .lily-list-row .rating { font-size: 12px; letter-spacing: 1px; }
 
 /* ------------------------------------------------------------------ */
-/* Author page                                                           */
-/* ------------------------------------------------------------------ */
-.author-bio {
-    display: flow-root;
-    max-width: 720px;
-    margin: 0 0 22px;
-    font-family: var(--font-body);
-    font-size: 17px;
-    line-height: 1.6;
-    color: var(--ink);
-}
-
-.author-bio .author-photo {
-    float: left;
-    width: 96px;
-    height: auto;
-    margin: 0 22px 8px 0;
-    border-radius: 10px;
-}
-
-.author-source {
-    font-family: var(--font-ui);
-    font-size: 12px;
-    color: var(--muted);
-}
-
-/* ------------------------------------------------------------------ */
 /* Search results and shelves                                           */
 /* ------------------------------------------------------------------ */
 
@@ -1658,9 +1631,6 @@ dl.book-info {
 .lily-stars .lily-stars-clear { margin-left: 4px; }
 
 .lily-stars-none:checked:not(:focus-visible) + .lily-stars-clear { visibility: hidden; }
-
-/* Pushes the following items in a flex row to the far end. */
-.lily-spacer { flex: 1; }
 
 
 /* ------------------------------------------------------------------ */

@@ -115,11 +115,8 @@ def create_app():
     cli_param.init()
 
     ub.init_db(cli_param.settings_path)
-    # pylint: disable=no-member
-    encrypt_key, error = config_sql.get_encryption_key(os.path.dirname(cli_param.settings_path))
-
-    config_sql.load_configuration(ub.session, encrypt_key)
-    config.init_config(ub.session, encrypt_key, cli_param)
+    config_sql.load_configuration(ub.session)
+    config.init_config(ub.session, cli_param)
 
     # Secure cookies when served over HTTPS (config flag or SESSION_COOKIE_SECURE env var)
     if getattr(config, 'config_use_https', False):
@@ -128,9 +125,6 @@ def create_app():
     else:
         app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'False').lower() == 'true'
     log.info(f"SESSION_COOKIE_SECURE set to {app.config['SESSION_COOKIE_SECURE']}")
-
-    if error:
-        log.error(error)
 
     ub.password_change(cli_param.user_credentials)
 

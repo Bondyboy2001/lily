@@ -215,11 +215,7 @@
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="{{ url_for('static', filename='js/libs/jquery.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/libs/jquery-migrate.min.js') }}"></script>
-    <script>jQuery.migrateMute = true; // set to false to see jQuery 3 migration warnings in the console</script>
     <script src="{{ url_for('static', filename='js/libs/bootstrap.min.js') }}"></script>
-
-  <!-- Patch: Define global bootstrap object for plugins expecting Bootstrap 5+ -->
-  <script>window.bootstrap = window.bootstrap || {};</script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="{{ url_for('static', filename='js/libs/underscore-umd-min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/libs/plugins.js') }}"></script>

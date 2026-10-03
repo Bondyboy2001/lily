@@ -43,12 +43,6 @@ function postButton(event, action, redirectLocation=""){
     newForm.submit();
 }
 
-$(document).on("click", ".postAction", function (event) {
-    // $(".sendbutton").on("click", "body", function(event) {
-    postButton(event, $(this).data('action'));
-});
-
-
 // Syntax has to be bind not on, otherwise problems with firefox
 $(".container-fluid").bind("dragenter dragover", function () {
     if($("#btn-upload").length && !$('body').hasClass('shelforder')) {
@@ -109,24 +103,8 @@ $(document).ready(function() {
     }
 });
 
-$(".session").click(function() {
-    window.sessionStorage.setItem("back", window.location.pathname);
-    window.sessionStorage.setItem("search", window.location.search);
-});
-
 $("#back").click(function() {
-   var loc = sessionStorage.getItem("back");
-   var param = sessionStorage.getItem("search");
-   if (!loc) {
-       loc = $(this).data("back");
-   }
-   sessionStorage.removeItem("back");
-   sessionStorage.removeItem("search");
-   if (param === null) {
-       param = "";
-   }
-   window.location.href = loc + param;
-
+   window.location.href = $(this).data("back");
 });
 
 function confirmDialog(id, dialogid, dataValue, yesFn, noFn) {
@@ -161,11 +139,7 @@ $("#delete_confirm").click(function(event) {
     if (bookFormat) {
         postButton(event, getPath() + "/delete/" + deleteId + "/" + bookFormat);
     } else {
-        var loc = sessionStorage.getItem("back");
-        if (!loc) {
-            loc = $(this).data("back");
-        }
-        sessionStorage.removeItem("back");
+        var loc = $(this).data("back");
         postButton(event, getPath() + "/delete/" + deleteId, loc);
     }
 });
@@ -212,23 +186,6 @@ $(function() {
             method: "post",
             url: dismissUrl
         });
-    });
-
-    let selectedLayoutMode;
-
-    if ($("body").hasClass("blur")) {
-        selectedLayoutMode = "fitRowsCentered";
-    } else {
-        selectedLayoutMode = "fitRows";
-    }
-
-    // Lily's cover grids (.lily-grid) are CSS grids; Isotope only lays out the older rows.
-    $(".discover .row").not(".lily-grid").filter(function() {
-        return $(this).find(".book").length > 0;
-    }).isotope({
-        // options
-        itemSelector : ".book",
-        layoutMode : selectedLayoutMode
     });
 
     // Compact pager: "…" opens a small jump-to-page form
@@ -285,24 +242,10 @@ $(function() {
 
     });
 
-    var isotopeResizeTimer = null;
-    $(window).resize(function() {
-        // Debounce: re-layout once resizing settles instead of on every event
-        clearTimeout(isotopeResizeTimer);
-        isotopeResizeTimer = setTimeout(function() {
-            $(".discover .row").filter(function() {
-                return !!$(this).data("isotope");
-            }).isotope("layout");
-        }, 150);
-    });
-
     $(".author-expand").click(function() {
         $(this).parent().find("a.author-name").slice($(this).data("authors-max")).toggle();
         $(this).parent().find("span.author-hidden-divider").toggle();
         $(this).html() === $(this).data("collapse-caption") ? $(this).html("(...)") : $(this).html($(this).data("collapse-caption"));
-        $(".discover .row").filter(function() {
-            return !!$(this).data("isotope");
-        }).isotope("layout");
     });
 
     // Grid/List icons in the list toolbar. Book pages switch in place; the series

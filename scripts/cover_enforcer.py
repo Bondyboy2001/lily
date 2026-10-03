@@ -323,8 +323,6 @@ class Enforcer:
         self.args = args
         self.calibre_library = self.get_calibre_library()
 
-        self.illegal_characters = ["<", ">", ":", '"', "/", "\\", "|", "?", "*"]
-
         self.calibre_env = os.environ.copy()
         # Enables Calibre plugins to be used from /config/plugins
         self.calibre_env["HOME"] = "/config"

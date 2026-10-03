@@ -1,17 +1,3 @@
-/* Fix z-index issues with specific elements that show through modals */
-body.modal-open .book-meta > .author > a:first-of-type:before,
-body.modal-open div.tags > p > span.glyphicon.glyphicon-tags {
-    z-index: -1 !important;
-}
-/* Dim and indicate globally disabled metadata providers in modal */
-.provider-disabled {
-  opacity: .4;
-  cursor: not-allowed;
-}
-.provider-disabled .glyphicon-ok {
-  display: none;
-}
-
 /* Target only specific selectpicker dropdowns (Tags and other form elements) */
 
 /* #include_serie + .btn-group .dropdown-menu,

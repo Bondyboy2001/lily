@@ -17,7 +17,7 @@ from flask_babel import gettext as _
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from . import constants, logger, helper, cli_param
-from . import calibre_db, ub, web_server, config
+from . import calibre_db, ub, config
 from werkzeug.security import generate_password_hash
 from .helper import check_email, valid_email, check_username
 from .render_template import render_title_template
@@ -82,35 +82,6 @@ def before_request():
             request.endpoint not in ('web.login', 'web.login_post', 'web.logout'):
         abort(503, description=_("No Calibre library found at /calibre-library. Mount a library "
                                  "folder containing metadata.db there and restart Lily."))
-
-
-@admi.route("/shutdown", methods=["POST"])
-@user_login_required
-@admin_required
-def shutdown():
-    task = request.get_json().get('parameter', -1)
-    show_text = {}
-    if task in (0, 1):  # valid commandos received
-        # close all database connections
-        calibre_db.dispose()
-        ub.dispose()
-
-        if task == 0:
-            show_text['text'] = _('Server restarted, please reload page.')
-        else:
-            show_text['text'] = _('Performing Server shutdown, please close window.')
-        # stop gevent/tornado server
-        web_server.stop(task == 0)
-        return json.dumps(show_text)
-
-    if task == 2:
-        log.warning("reconnecting to calibre database")
-        calibre_db.reconnect_db(config, ub.app_DB_path)
-        show_text['text'] = _('Database reconnected')
-        return json.dumps(show_text)
-
-    show_text['text'] = _('Unknown command')
-    return json.dumps(show_text), 400
 
 
 # method is available without login and not protected by CSRF to make it easy reachable, is per default switched off

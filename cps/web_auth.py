@@ -111,7 +111,6 @@ def login_post():
     # Use request.remote_addr (already corrected by ProxyFix) instead of raw header
     ip_address = request.remote_addr
     if user and check_password_hash(str(user.password), form.get('password', '')) and user.name != "Guest":
-        config.config_is_initial = False
         log.debug(u"You are now logged in as: '{}'".format(user.name))
         return handle_login_user(user, remember_me, None, "success")
     else:

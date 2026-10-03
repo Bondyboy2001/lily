@@ -119,8 +119,7 @@ body { margin: 0; }
     font-weight: 500;
 }
 
-.lily-nav .glyphicon,
-.lily-nav .nav-icon {
+.lily-nav .glyphicon {
     flex: none;
     width: 14px;
     top: 0;
@@ -291,12 +290,6 @@ body { margin: 0; }
 .lily-search + .icon-btn { margin-left: -2px; }
 
 .lily-topbar-actions .dropdown { position: relative; }
-
-.lily-profile-menu .lily-profile-name {
-    padding: 7px 11px 4px;
-    color: var(--faint);
-    font-size: 12px;
-}
 
 /* Upload: a transparent file input over the icon button. The empty-library
    page's "Upload books" label (.lily-upload-btn) opens the same input. */

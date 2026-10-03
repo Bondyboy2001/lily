@@ -16,7 +16,7 @@
  *   book files, covers    network first, the saved copy offline (byte ranges sliced for pdf.js)
  *   everything else       untouched (API calls, uploads, POSTs)
  *
- * offline.js on the page sends: keep {book}, drop {id}, status {id}, list, sync {books}.
+ * offline.js on the page sends: drop {id}, list, sync {books}.
  */
 const VERSION = {{ version|tojson }};
 const SCOPE = {{ scope|tojson }};
@@ -86,7 +86,7 @@ async function inParallel(items, worker) {
   await Promise.all(runners);
 }
 
-// Index of kept books: {id: {id, title, author, format, reader, page, cover, picked, auto,
+// Index of kept books: {id: {id, title, author, format, reader, page, cover, auto,
 // excluded, savedAt, bytes, pages:[], files:[], statics:[]}}
 async function readIndex() {
   const res = await (await caches.open(META_CACHE)).match(INDEX_URL);
@@ -166,7 +166,6 @@ async function keepBook(book, how) {
   const entry = {
     id: book.id, title: book.title, author: book.author || "", format: book.format,
     reader: abs(book.reader), page: abs(book.page), cover: book.cover ? abs(book.cover) : "",
-    picked: how.picked === undefined ? !!old.picked : how.picked,
     auto: how.auto === undefined ? !!old.auto : how.auto,
     excluded: false, savedAt: Date.now(), bytes: bytes,
     pages: [...touched.pages], files: [...touched.files], statics: [...touched.statics]
@@ -201,7 +200,7 @@ async function dropBook(id, keepTombstone) {
   if (!old) { return null; }
   if (keepTombstone) {
     // A book still in progress would come straight back; remember it was taken off.
-    index[id] = { id: id, excluded: true, auto: true, picked: false, pages: [], files: [], statics: [] };
+    index[id] = { id: id, excluded: true, auto: true, pages: [], files: [], statics: [] };
   } else {
     delete index[id];
   }
@@ -217,18 +216,16 @@ async function patchEntry(id, fields) {
   await writeIndex(index);
 }
 
-// The books in progress, as the library page hands them over: keep those books, let go of the ones that left
-// (unless they were picked), and forget "taken off" marks for books no longer in progress.
+// The books in progress, as the library page hands them over: keep those books, let go of the ones that left,
+// and forget "taken off" marks for books no longer in progress.
 async function syncAuto(books) {
   const wanted = new Map(books.map((b) => [String(b.id), b]));
   for (const [id, entry] of Object.entries(await readIndex())) {
     if (wanted.has(id)) { continue; }
     if (entry.excluded) {
       await patchEntry(id, null);
-    } else if (entry.auto && !entry.picked) {
-      await dropBook(id, false);
     } else if (entry.auto) {
-      await patchEntry(id, { auto: false });
+      await dropBook(id, false);
     }
   }
   for (const book of books) {
@@ -245,7 +242,7 @@ async function syncAuto(books) {
 
 function summary(entry) {
   return { id: entry.id, title: entry.title, author: entry.author, format: entry.format, reader: entry.reader,
-           page: entry.page, cover: entry.cover, picked: entry.picked, auto: entry.auto, bytes: entry.bytes,
+           page: entry.page, cover: entry.cover, auto: entry.auto, bytes: entry.bytes,
            savedAt: entry.savedAt };
 }
 

@@ -15,17 +15,9 @@
  *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-let selectedLayoutMode;
-
-if ($("body").hasClass("blur")) {
-    selectedLayoutMode = "fitRowsCentered";
-} else {
-    selectedLayoutMode = "fitRows";
-}
-
 var $list = $("#list").isotope({
     itemSelector: ".book",
-    layoutMode: selectedLayoutMode,
+    layoutMode: "fitRows",
     getSortData: {
         title: ".title"
     },

@@ -25,7 +25,6 @@ BookMeta = namedtuple(
 )
 
 NO_JPEG_EXTENSIONS = [".png", ".webp", ".bmp"]
-COVER_EXTENSIONS = [".png", ".webp", ".bmp", ".jpg", ".jpeg"]
 
 
 def cover_processing(tmp_file_path, img, extension):

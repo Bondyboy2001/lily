@@ -25,7 +25,6 @@
       });
     });
   }
-  window.LilyOffline = { ask: ask };
 
   function formatSize(bytes) {
     if (!bytes) { return ""; }

@@ -1,22 +1,6 @@
-@font-face {
-  font-family: 'fontello';
-  src: url('fonts/fontello.eot?60518104');
-  src:
-    url('fonts/fontello.eot?60518104#iefix') format('embedded-opentype'),
-    url('fonts/fontello.woff?60518104') format('woff'),
-    url('fonts/fontello.ttf?60518104') format('truetype'),
-    url('fonts/fontello.svg?60518104#fontello') format('svg');
-  font-weight: normal;
-  font-style: normal;
-}
-
 body {
   background: #4e4e4e;
   overflow: hidden;
-}
-
-.myselect {
-    overflow: visible !important;
 }
 
 #main {
@@ -324,11 +308,6 @@ input:-moz-placeholder { color: #454545; }
   padding: 5px 0;
 }
 
-#settingsPanel li {
-  font-size: 1em;
-  color: #f1f1f1;
-}
-
 #searchResults li {
   margin-bottom: 10px;
   width: 225px;
@@ -468,10 +447,6 @@ input:-moz-placeholder { color: #454545; }
   margin-top: 5px;
 }
 
-#settingsPanel {
-  display: none;
-}
-
 .md-content h3 {
   margin: 0;
   padding: 6px;
@@ -487,23 +462,6 @@ input:-moz-placeholder { color: #454545; }
   margin: 0;
   padding: 0 0 30px 20px;
 }
-
-#settingsPanel h3 {
-  color: #f1f1f1;
-  font-family: var(--font-ui);
-  margin-bottom: 10px;
-}
-
-#settingsPanel ul {
-  margin-top: 60px;
-  list-style-type: none;
-}
-
-#settingsPanel .xsmall { font-size: x-small; }
-#settingsPanel .small { font-size: small; }
-#settingsPanel .medium { font-size: medium; }
-#settingsPanel .large { font-size: large; }
-#settingsPanel .xlarge { font-size: x-large; }
 
 .highlight { background-color: yellow; }
 
@@ -576,21 +534,6 @@ input:-moz-placeholder { color: #454545; }
   font-size: 16px;
 }
 
-.md-content .themes button.darkTheme {
-  background-color: #202124;
-  color: white;
-}
-
-.md-content .themes button.whiteTheme {
-  background-color: white;
-  color: black;
-}
-
-.md-content .themes button.sepiaTheme {
-  background-color: #ece1ca;
-  color: black;
-}
-
 /* Effect 1: Fade in and scale up */
 .md-effect-1 .md-content {
   -webkit-transform: scale(0.7);
@@ -630,49 +573,6 @@ input:-moz-placeholder { color: #454545; }
 }
 
 /* Page geometry (all screen sizes) lives in lily-reader.css. */
-
-[class^="icon-"]::before,
-[class*=" icon-"]::before {
-  font-family: "fontello", serif;
-  font-style: normal;
-  font-weight: normal;
-  speak: none;
-  display: inline-block;
-  text-decoration: inherit;
-  width: 1em;
-  margin-right: 0.2em;
-  text-align: center;
-
-  /* For safety - reset parent styles, that can break glyph codes */
-  font-variant: normal;
-  text-transform: none;
-
-  /* you can be more comfortable with increased icons size */
-  font-size: 112%;
-}
-
-.icon-search::before { content: '\e807'; } /* '' */
-.icon-resize-full-1::before { content: '\e804'; } /* '' */
-.icon-cancel-circled2::before { content: '\e80f'; } /* '' */
-.icon-link::before { content: '\e80d'; } /* '' */
-.icon-bookmark::before { content: '\e805'; } /* '' */
-.icon-bookmark-empty::before { content: '\e806'; } /* '' */
-.icon-download-cloud::before { content: '\e811'; } /* '' */
-.icon-edit::before { content: '\e814'; } /* '' */
-.icon-menu::before { content: '\e802'; } /* '' */
-.icon-cog::before { content: '\e813'; } /* '' */
-.icon-resize-full::before { content: '\e812'; } /* '' */
-.icon-cancel-circled::before { content: '\e80e'; } /* '' */
-.icon-up-dir::before { content: '\e80c'; } /* '' */
-.icon-right-dir::before { content: '\e80b'; } /* '' */
-.icon-angle-right::before { content: '\e809'; } /* '' */
-.icon-angle-down::before { content: '\e80a'; } /* '' */
-.icon-right::before { content: '\e815'; } /* '' */
-.icon-list-1::before { content: '\e803'; } /* '' */
-.icon-list-numbered::before { content: '\e801'; } /* '' */
-.icon-columns::before { content: '\e810'; } /* '' */
-.icon-list::before { content: '\e800'; } /* '' */
-.icon-resize-small::before { content: '\e808'; } /* '' */
 
 #progress{
     right: 4rem;

@@ -22,8 +22,6 @@ _.google_site_verification
 _.allow_upload
 
 # Per-user / per-task attributes assigned dynamically and read elsewhere
-_.config_is_initial
-_.illegal_characters
 _.flask_httpauth_user
 _._lily_cwa_db
 _._lily_fetched_ids  # cached on g, read back with g.get() (jinjia.metadata_fetched)
@@ -33,7 +31,6 @@ _.atom_timestamp
 _.custom_extra_fill
 _.downloads
 _.dismissed_at
-logged_in
 
 # SQLAlchemy event listeners + Flask-Login callbacks (invoked by the framework)
 exc_info
@@ -52,9 +49,8 @@ _.has_prev
 _.has_next
 _.iter_pages
 
-# Conditional-import fallbacks (the "advocate not installed" path)
-advocate
-MissingSchema
+# Flask reads app.secret_key to sign sessions
+_.secret_key
 
 # werkzeug Response.cache_control attributes
 _.no_cache
