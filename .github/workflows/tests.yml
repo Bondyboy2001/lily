@@ -24,29 +24,20 @@ concurrency:
 
 jobs:
   # ============================================================================
-  # Lint: rules that catch real bugs (undefined names, syntax errors,
-  # shadowed definitions). Ruleset lives in pyproject.toml [tool.ruff].
+  # Lint: ruff, vulture and mypy at the pins in scripts/check.sh (same as release.yml)
   # ============================================================================
   lint:
-    name: Lint (ruff)
+    name: Lint (ruff, vulture, mypy)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Run ruff
-        run: pipx run ruff==0.16.9 check cps scripts tests
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.2.0
 
-      # Dead-code detection: unused functions, methods, classes, attributes and
-      # variables (config + whitelist in pyproject.toml [tool.vulture]).
-      - name: Run vulture
-        run: pipx run vulture==2.16
-
-      # Newer, self-contained modules are type-checked (file list in pyproject.toml [tool.mypy]).
-      # cps/ modules run separately because mypy maps cps/ and scripts/ to clashing module names.
-      - name: Run mypy
-        run: |
-          pipx run mypy
+      - name: Run checks
+        run: scripts/check.sh
 
   # ============================================================================
   # JOB 1: Fast Tests (Smoke + Unit)
@@ -191,7 +182,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt -c requirements.lock
           pip install -r requirements-dev.txt -c requirements.lock
-          pip install --force-reinstall --no-cache-dir docker
 
       - name: Build Docker image
         uses: docker/build-push-action@v7

@@ -17,8 +17,6 @@ install -d -o abc -g abc "$out"/cwa-book-ingest "$out"/calibre-library
 # Ownership and permissions
 chown -R abc:abc "$out"/etc/s6-overlay
 chmod +x "$out"/etc/s6-overlay/s6-rc.d/{cwa-auto-library,cwa-ingest-service,cwa-init,cwa-process-recovery,metadata-change-detector,calibre-binaries-setup,svc-calibre-web-automated}/run
-chmod +x scripts/check-cwa-services.sh
-chmod 775 cps/editbooks.py cps/admin.py
 
 # Aliases for `docker exec -it lily bash` (root's .bashrc reads ~/.bash_aliases)
 install -d -m 700 "$out"/root

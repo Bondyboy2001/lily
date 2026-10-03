@@ -1,19 +1,15 @@
 # requirements-dev.txt
-# Development and testing dependencies for Calibre-Web Automated
+# Development and testing dependencies for Lily
 
 # Testing framework
 pytest>=9.1.1
-pytest-flask>=1.3.0
 pytest-cov>=4.1.0
-pytest-mock>=3.12.0
-pytest-timeout>=2.4.0
 pytest-xdist>=3.5.0
 
 # Integration testing
 testcontainers>=3.7.0
 docker>=7,<8                  # Required for testcontainers DockerCompose; explicit pin avoids CI cache issues
 requests>=2.31.0
-requests-mock>=1.11.0
 
 # Code quality
 ruff>=0.1.0                  # Fast Python linter
