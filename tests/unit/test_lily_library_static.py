@@ -491,6 +491,15 @@ def test_delete_dialog_names_the_book_and_promises_no_restore():
     assert 'data("delete-title")' in js
 
 
+def test_deleting_a_book_navigates_only_after_the_post():
+    # Passing `location=loc` assigned window.location, which left the page before the delete
+    # POST went out. The page to land on travels with the form; the server redirects there.
+    js = read(JS / "main.js")
+    assert 'postButton(event, getPath() + "/delete/" + deleteId, loc);' in js
+    assert "location=" not in js.replace(" ", "")
+    assert 'function postButton(event, action, redirectLocation=""){' in js
+
+
 def test_book_title_is_the_page_h1_and_the_top_bar_has_none():
     # docs/design.md §6.1: the book title is the book page's h1; the top bar renders no
     # (empty) h1 there. The title keeps its 52px/700 display look (§3.1).

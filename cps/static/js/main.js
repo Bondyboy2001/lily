@@ -20,7 +20,9 @@ function getPath() {
     return jsFileLocation.substr(0, jsFileLocation.search("/static/js/libs/jquery.min.js"));  // the js folder path
 }
 
-function postButton(event, action, location=""){
+// Submits a POST form; the server answers with the redirect, so a page to land on (the
+// optional redirectLocation) is sent along and only followed once the POST has succeeded.
+function postButton(event, action, redirectLocation=""){
     event.preventDefault();
     var newForm = jQuery('<form>', {
         "action": action,
@@ -31,10 +33,10 @@ function postButton(event, action, location=""){
         'value': $("input[name=\'csrf_token\']").val(),
         'type': 'hidden'
     })).appendTo('body')
-    if(location !== "") {
+    if(redirectLocation !== "") {
         newForm.append(jQuery('<input>', {
             'name': 'location',
-            'value': location,
+            'value': redirectLocation,
             'type': 'hidden'
         })).appendTo('body');
     }
@@ -213,7 +215,7 @@ $("#delete_confirm").click(function(event) {
         postButton(event, getPath() + "/delete/" + deleteId + "/" + bookFormat);
     } else {
         if (ajaxResponse) {
-            path = getPath() + "/ajax/delete/" + deleteId;
+            var path = getPath() + "/ajax/delete/" + deleteId;
             $.ajax({
                 method:"post",
                 url: path,
@@ -238,7 +240,7 @@ $("#delete_confirm").click(function(event) {
                 loc = $(this).data("back");
             }
             sessionStorage.removeItem("back");
-            postButton(event, getPath() + "/delete/" + deleteId, location=loc);
+            postButton(event, getPath() + "/delete/" + deleteId, loc);
         }
     }
 });
