@@ -64,6 +64,9 @@ var DJVU_CONTEXT = {
         var failed = false;
         var progress = null;
         var bookmarks = null;   // LilyBookmarks.paged(), once the pages are known
+        var zoomList = "";      // the viewer's zoom options last copied into ui.zoom
+        // One trackpad swipe turns at most one page (see the wheel listener).
+        var swipe = {page: 0, at: 0};
 
         if (container.getAttribute("data-progress-key")) {
             progress = LilyProgress.create({
@@ -113,7 +116,16 @@ var DJVU_CONTEXT = {
         }
 
         // The zoom list matches the viewer's, with its "Fit width"/"Fit page" in the page's language.
+        // The viewer rebuilds its list once the first page's resolution is known, so this
+        // runs again whenever the list changes.
         function fillZoom() {
+            var values = Array.prototype.map.call(viewer.zoomSelect.options, function (option) {
+                return option.value;
+            }).join("|");
+            if (values === zoomList) {
+                return;
+            }
+            zoomList = values;
             var labels = {"Fit width": ui.zoom.getAttribute("data-fit-width"),
                           "Fit page": ui.zoom.getAttribute("data-fit-page")};
             ui.zoom.textContent = "";
@@ -209,13 +221,13 @@ var DJVU_CONTEXT = {
                 pages = count;
                 ui.count.textContent = ui.count.getAttribute("data-template").replace("%(count)s", pages);
                 ui.page.style.width = (String(pages).length + 2) + "ch";
-                fillZoom();
                 [ui.page, ui.zoom].forEach(function (control) { setDisabled(control, false); });
                 // The page box and zoom stay hidden until there is a document to drive.
                 Array.prototype.forEach.call(document.querySelectorAll(".djvu-controls[hidden]"),
                                              function (group) { group.hidden = false; });
                 ready();
             }
+            fillZoom();
             var current = parseInt(viewer.pageSelect.value, 10) || 1;
             if (current !== page) {
                 page = current;
@@ -306,9 +318,10 @@ var DJVU_CONTEXT = {
         ui.page.addEventListener("focus", function () { ui.page.select(); });
 
         // Left/right turn the page, as in the epub reader; the viewer keeps its own keys.
+        // The zoom menu keeps focus after a pick and only needs up/down, so it passes them on.
         document.addEventListener("keydown", function (event) {
             if (!viewer || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey
-                    || /^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName)) {
+                    || (event.target !== ui.zoom && /^(INPUT|SELECT|TEXTAREA)$/.test(event.target.tagName))) {
                 return;
             }
             if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
@@ -316,6 +329,24 @@ var DJVU_CONTEXT = {
                 event.preventDefault();
             }
         });
+
+        // At a page's edge the viewer turns the page on every wheel event, so a trackpad
+        // swipe and its momentum ran through several pages. Once a page has turned, the
+        // rest of that stream of wheel events is dropped; a pause starts a new swipe.
+        container.addEventListener("wheel", function (event) {
+            if (!viewer || event.ctrlKey) {
+                return;     // ctrl + wheel (and pinch) is the viewer's zoom
+            }
+            var current = viewer.pageSelect.selectedIndex;
+            if (event.timeStamp - swipe.at > 200) {
+                swipe.page = current;
+            }
+            swipe.at = event.timeStamp;
+            if (current !== swipe.page) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        }, {capture: true, passive: false});
 
         if (document.fullscreenEnabled) {
             ui.fullscreen.hidden = false;
