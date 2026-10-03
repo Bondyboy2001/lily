@@ -600,9 +600,7 @@ def cwa_get_num_books_in_library() -> int:
 
 def render_books_list(data, sort_param, book_id, page):
     order = get_sort_function(sort_param, data)
-    if data == "unread":
-        return render_read_books(page, False, order=order)
-    elif data == "read":
+    if data == "read":
         return render_read_books(page, True, order=order)
     elif data == "inprogress":
         return render_reading_books(page, order=order)
@@ -764,15 +762,10 @@ def render_read_books(page, are_read, as_xml=False, order=None):
 
     if as_xml:
         return entries, pagination
-    else:
-        if are_read:
-            name = _('Finished') + ' (' + str(pagination.total_count) + ')'
-            page_name = "read"
-        else:
-            name = _('Unread') + ' (' + str(pagination.total_count) + ')'
-            page_name = "unread"
-        return render_title_template('index.html', entries=entries, pagination=pagination,
-                                     title=name, page=page_name, order=order[1])
+    # The library shows only Finished; unread books are the OPDS feed's
+    name = _('Finished') + ' (' + str(pagination.total_count) + ')'
+    return render_title_template('index.html', entries=entries, pagination=pagination,
+                                 title=name, page="read", order=order[1])
 
 
 def render_reading_books(page, order):

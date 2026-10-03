@@ -102,9 +102,6 @@ def get_sidebar_config():
     sidebar.append({"glyph": "glyphicon-eye-open", "text": _('Finished'), "link": 'web.books_list', "id": "read",
                     "visibility": constants.SIDEBAR_RECENT, 'public': (not current_user.is_anonymous),
                     "page": "read"})
-    sidebar.append(
-        {"glyph": "glyphicon-eye-close", "text": _('Unread'), "link": 'web.books_list', "id": "unread",
-         "visibility": constants.SIDEBAR_READ_AND_UNREAD, 'public': (not current_user.is_anonymous), "page": "unread"})
     sidebar.append({"glyph": "glyphicon-user", "text": _('Authors'), "link": 'web.author_list', "id": "author",
                     "visibility": constants.SIDEBAR_AUTHOR, 'public': True, "page": "author"})
     g.shelves_access = ub.session.query(ub.Shelf).filter(

@@ -87,3 +87,12 @@ def test_saving_the_profile_leaves_the_sidebar_alone():
     source = (Path(__file__).resolve().parents[2] / "cps/web_auth.py").read_text(encoding="utf-8")
     assert "current_user.sidebar_view =" not in source
     assert "key.startswith('show')" not in source
+
+
+@pytest.mark.unit
+def test_sidebar_has_no_unread_entry():
+    from pathlib import Path
+
+    source = (Path(__file__).resolve().parents[2] / "cps/render_template.py").read_text(encoding="utf-8")
+    assert "_('Unread')" not in source
+    assert '"page": "unread"' not in source
