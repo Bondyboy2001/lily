@@ -67,7 +67,8 @@ export CALIBRE_DBPATH=/config
 
 if [[ ! -f /config/app.db ]]; then
   echo "First time run, creating app.db..."
-  cd /app/calibre-web-automated && s6-setuidgid abc python3 /app/calibre-web-automated/cps.py -d > /dev/null 2>&1
+  # stdout is kept: it carries the generated admin password, shown once in `docker logs`
+  cd /app/calibre-web-automated && s6-setuidgid abc python3 /app/calibre-web-automated/cps.py -d 2>/dev/null
 fi
 
 #------------------------------------------------------------------------------------------------------------------------

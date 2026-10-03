@@ -158,9 +158,9 @@ class TestSetupChecklist:
         from cps import constants, ub
         from werkzeug.security import generate_password_hash
         admin = env.admin()
-        admin.password = generate_password_hash(constants.DEFAULT_PASSWORD)
+        admin.password = generate_password_hash(constants.LEGACY_DEFAULT_PASSWORD)
         ub.session.commit()
-        html = _get(_login(env, password=constants.DEFAULT_PASSWORD), "/")
+        html = _get(_login(env, password=constants.LEGACY_DEFAULT_PASSWORD), "/")
         assert "The admin account still accepts the default password." in html
 
     def test_changed_password_counts_as_done(self, env):

@@ -90,6 +90,7 @@ class TestDefaultPasswordFlag:
         from cps import ub, constants
         ub.create_admin_user(app_session)
         admin = app_session.query(ub.User).filter(ub.User.name == constants.DEFAULT_ADMIN_NAME).one()
+        admin.password = generate_password_hash(constants.LEGACY_DEFAULT_PASSWORD)  # an old install
         admin.force_password_change = False
         other = ub.User(name="other", email="o@example.org", role=constants.ROLE_ADMIN,
                         password=generate_password_hash("not-default"))
@@ -149,8 +150,8 @@ class TestForcedPasswordChangeFlow:
         from cps import constants
         client = _login(forced)
         client.post("/change-password", data={"current_password": ADMIN_PASSWORD,
-                                              "new_password": constants.DEFAULT_PASSWORD,
-                                              "confirm_password": constants.DEFAULT_PASSWORD})
+                                              "new_password": constants.LEGACY_DEFAULT_PASSWORD,
+                                              "confirm_password": constants.LEGACY_DEFAULT_PASSWORD})
         forced.ub.session.expire_all()
         assert forced.admin().force_password_change is True
 

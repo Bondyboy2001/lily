@@ -1,7 +1,7 @@
 // Browser smoke test: sign in to a running Lily, visit the main pages, and fail on any
 // non-2xx response, CSP violation or uncaught page error.
 //
-//   BASE_URL=http://localhost:8083 LILY_USER=harry LILY_PASSWORD=harry10 node tests/e2e/smoke.mjs
+//   BASE_URL=http://localhost:8083 LILY_USER=harry LILY_PASSWORD=<first-run password> node tests/e2e/smoke.mjs
 //
 // A fresh instance forces a password change on first login; the script handles that and
 // uses NEW_PASSWORD (default below) for the rest of the run. PLAYWRIGHT_CHROMIUM_PATH
@@ -10,7 +10,11 @@ import { chromium } from 'playwright';
 
 const base = process.env.BASE_URL || 'http://localhost:8083';
 const user = process.env.LILY_USER || 'harry';
-const password = process.env.LILY_PASSWORD || 'harry10';
+const password = process.env.LILY_PASSWORD;
+if (!password) {
+  console.error('Set LILY_PASSWORD (the first-run admin password, or LILY_ADMIN_PASSWORD given to the container)');
+  process.exit(2);
+}
 const newPassword = process.env.NEW_PASSWORD || 'Sm0ke-test-pw-91!';
 
 const PAGES = ['/', '/duplicates', '/me', '/cwa-settings', '/logs', '/admin/usertable', '/shelf/create',

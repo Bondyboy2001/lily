@@ -382,6 +382,10 @@ def test_volumes(tmp_path_factory) -> dict:
         print(f"Warning: Could not clean up test volumes: {e}")
 
 
+# First-run admin password for test containers (LILY_ADMIN_PASSWORD in the container)
+TEST_ADMIN_PASSWORD = os.getenv("LILY_ADMIN_PASSWORD", "lily-test-admin-pw")
+
+
 @pytest.fixture(scope="session")
 def cwa_container(docker_compose_file: str, test_volumes: dict) -> Generator:
     """
@@ -421,6 +425,7 @@ services:
       - PGID={test_gid}
       - TZ=UTC
       - NETWORK_SHARE_MODE=false
+      - LILY_ADMIN_PASSWORD={TEST_ADMIN_PASSWORD}
     volumes:
       - {test_volumes['config']}:/config
       - {test_volumes['ingest']}:/cwa-book-ingest

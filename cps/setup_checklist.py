@@ -30,7 +30,7 @@ def _uses_default_password(user):
     cached = _default_password_cache.get(stored)
     if cached is None:
         try:
-            cached = check_password_hash(stored, constants.DEFAULT_PASSWORD)
+            cached = check_password_hash(stored, constants.LEGACY_DEFAULT_PASSWORD)
         except (ValueError, TypeError):
             cached = False
         if len(_default_password_cache) > 64:

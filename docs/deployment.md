@@ -35,6 +35,7 @@ forces polling anywhere.
 | `HARDCOVER_TOKEN` | — | Hardcover API key |
 | `CROSSREF_MAILTO` | — | Contact address for Crossref paper searches |
 | `SEMANTIC_SCHOLAR_API_KEY` | — | Semantic Scholar API key for paper searches |
+| `LILY_ADMIN_PASSWORD` | generated | First admin (`harry`) password on a fresh install; unset, one is generated and printed once in the log. Ignored once `app.db` exists |
 | `SECRET_KEY` | generated | Session signing key |
 | `TRUSTED_PROXY_COUNT` | `0` | See above |
 | `SESSION_COOKIE_SECURE` | `false` | Secure cookies over HTTPS |

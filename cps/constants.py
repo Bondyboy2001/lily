@@ -85,7 +85,11 @@ DEFAULT_SIDEBAR         = (SIDEBAR_RECENT | SIDEBAR_CATEGORY | SIDEBAR_SERIES | 
 ADMIN_USER_SIDEBAR      = DEFAULT_SIDEBAR
 
 DEFAULT_ADMIN_NAME  = "harry"
-DEFAULT_PASSWORD    = "harry10"  # nosec
+# The password every install shipped with before first-run passwords were generated. Only
+# used to spot accounts still on it (they must change it); new installs get a random one.
+LEGACY_DEFAULT_PASSWORD = "harry10"  # nosec
+# Set to choose the first admin password on a fresh install instead of a generated one.
+ADMIN_PASSWORD_ENV  = "LILY_ADMIN_PASSWORD"
 DEFAULT_PORT        = 8083
 env_CWA_PORT_OVERRIDE = os.environ.get("CWA_PORT_OVERRIDE")
 if env_CWA_PORT_OVERRIDE:

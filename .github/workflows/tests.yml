@@ -137,6 +137,7 @@ jobs:
           docker run -d --name lily-smoke -e PUID=$(id -u) -e PGID=$(id -g) \
             -v "$PWD/smoke/config:/config" -v "$PWD/smoke/ingest:/cwa-book-ingest" \
             -v "$PWD/smoke/library:/calibre-library" -p 8083:8083 \
+            -e LILY_ADMIN_PASSWORD=smoke-admin-pw \
             lily:pr-${{ github.event.pull_request.number }}
           for i in $(seq 1 60); do
             if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8083/health)" = "200" ]; then
@@ -153,7 +154,7 @@ jobs:
         run: |
           npm install --no-save --no-audit --no-fund playwright
           npx playwright install --with-deps chromium
-          BASE_URL=http://localhost:8083 node smoke.mjs || { docker logs lily-smoke; exit 1; }
+          BASE_URL=http://localhost:8083 LILY_PASSWORD=smoke-admin-pw node smoke.mjs || { docker logs lily-smoke; exit 1; }
 
   # ============================================================================
   # JOB 2: Integration Tests (Docker)

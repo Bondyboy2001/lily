@@ -9,6 +9,7 @@
 
 import atexit
 import os
+import secrets
 import sys
 import sqlite3
 import time
@@ -663,7 +664,7 @@ def flag_users_with_default_password(_session):
         ).all()
         flagged = []
         for user in candidates:
-            if user.password and check_password_hash(str(user.password), constants.DEFAULT_PASSWORD):
+            if user.password and check_password_hash(str(user.password), constants.LEGACY_DEFAULT_PASSWORD):
                 user.force_password_change = True
                 flagged.append(user.name)
         if flagged:
@@ -906,15 +907,37 @@ def create_anonymous_user(_session):
         _session.rollback()
 
 
-# Generate the default admin user (DEFAULT_ADMIN_NAME / DEFAULT_PASSWORD) with access to everything
+def _initial_admin_password():
+    """(password, generated): LILY_ADMIN_PASSWORD if set, else a fresh random one."""
+    chosen = os.environ.get(constants.ADMIN_PASSWORD_ENV, "").strip()
+    if chosen:
+        return chosen, False
+    return secrets.token_urlsafe(12), True
+
+
+def _announce_admin_password(name, password):
+    """Print a generated first-run password once, where `docker logs` shows it."""
+    bar = "*" * 72
+    print("\n".join(("", bar,
+                     "  Lily created the admin account for this new install.",
+                     f"  Username: {name}",
+                     f"  Password: {password}",
+                     "  This password is shown only once; you must change it at first sign-in.",
+                     bar, "")), flush=True)
+    log.warning("Created admin account '%s' with a generated password (printed once to the console)", name)
+
+
 def create_admin_user(_session):
+    """Create the first admin (DEFAULT_ADMIN_NAME) with access to everything and a random
+    password, or the one in LILY_ADMIN_PASSWORD; it must be changed at first sign-in."""
+    password, generated = _initial_admin_password()
     user = User()
     user.name = constants.DEFAULT_ADMIN_NAME
     user.email = "harry@example.org"
     user.role = constants.ADMIN_USER_ROLES
     user.sidebar_view = constants.ADMIN_USER_SIDEBAR
 
-    user.password = generate_password_hash(constants.DEFAULT_PASSWORD)
+    user.password = generate_password_hash(password)
     # Must come after the password assignment (which clears the flag)
     user.force_password_change = True
 
@@ -923,6 +946,24 @@ def create_admin_user(_session):
         _session.commit()
     except Exception:
         _session.rollback()
+        return
+    if generated:
+        _announce_admin_password(user.name, password)
+    else:
+        log.info("Created admin account '%s' with the password from %s", user.name, constants.ADMIN_PASSWORD_ENV)
+
+
+def ensure_admin_user(_session):
+    """An app.db holding no real accounts gets the first admin, just like a brand-new one."""
+    try:
+        has_user = _session.query(User).filter(
+            User.role.op('&')(constants.ROLE_ANONYMOUS) != constants.ROLE_ANONYMOUS).first()
+    except Exception as e:
+        log.error("Could not check for existing accounts: %s", e)
+        _safe_session_rollback(_session, "admin account check")
+        return
+    if has_user is None:
+        create_admin_user(_session)
 
 
 def _set_app_db_pragmas(dbapi_connection, connection_record):
@@ -979,6 +1020,7 @@ def init_db(app_db_path):
     if os.path.exists(app_db_path):
         Base.metadata.create_all(engine)
         migrate_Database(session)
+        ensure_admin_user(session)
     else:
         Base.metadata.create_all(engine)
         create_admin_user(session)

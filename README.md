@@ -126,8 +126,10 @@ services:
 docker compose up -d
 ```
 
-Open **<http://localhost:8083>** and sign in as `harry` / `harry10`. Lily asks for a
-new password before anything else.
+Open **<http://localhost:8083>** and sign in as `harry` with the password printed once in
+the container log on first start (`docker compose logs lily | grep -A3 Password`), or the
+one you set in `LILY_ADMIN_PASSWORD` before that start. Lily asks for a new password
+before anything else.
 
 > [!TIP]
 > Keep the three folders separate rather than nested. Move only finished files into the
@@ -142,6 +144,7 @@ new password before anything else.
 | `HARDCOVER_TOKEN` | — | Turns on [Hardcover](https://docs.hardcover.app/api/getting-started/) metadata |
 | `CROSSREF_MAILTO` | — | Optional contact address sent to [Crossref](https://www.crossref.org/documentation/retrieve-metadata/rest-api/tips-for-using-the-crossref-rest-api/), which serves such requests from a less crowded pool |
 | `SEMANTIC_SCHOLAR_API_KEY` | — | Optional [Semantic Scholar key](https://www.semanticscholar.org/product/api#api-key-form), so paper searches aren't turned away when its shared pool is busy |
+| `LILY_ADMIN_PASSWORD` | generated | First admin password on a fresh install; ignored once `app.db` exists |
 | `SECRET_KEY` | generated | Session signing key |
 | `TRUSTED_PROXY_COUNT` | `0` | Set to `1` behind nginx, Caddy or similar |
 | `SESSION_COOKIE_SECURE` | `false` | Set to `true` when served over HTTPS |
