@@ -41,7 +41,9 @@ from .tasks_status import render_task_status
 from .usermanagement import user_login_required
 
 # CWA Imports
+import shutil
 import sqlite3
+import subprocess
 import time
 
 import sys
@@ -1215,10 +1217,48 @@ def render_reading_books(page, order):
 
 # ################################### Health Check ##################################################################
 
-@web.route("/health")
-def health_check():
-    uptime = time.time() - _start_time
+# Longruns the container needs beyond the web app itself: the ingest service moves new
+# files from the ingest folder into the library, and the metadata change detector writes
+# metadata edits back into the book files. Either one dying leaves the app serving pages
+# with imports or write-back silently broken, so /health reports it.
+_CRITICAL_LONGRUNS = ("cwa-ingest-service", "metadata-change-detector")
 
+# s6-overlay v3 keeps its binaries in /command, which isn't always on the app's PATH
+_S6_RC_FALLBACKS = ("/command/s6-rc", "/package/admin/s6-rc/command/s6-rc")
+
+
+def _find_s6_rc():
+    found = shutil.which("s6-rc")
+    if found:
+        return found
+    return next((path for path in _S6_RC_FALLBACKS if os.access(path, os.X_OK)), None)
+
+
+def _check_s6_service_status():
+    """Return {service: "up" | "down" | "unknown"} for each critical longrun.
+
+    Uses ``s6-rc -a list`` (the services s6-rc currently has up), which reads
+    world-readable state and so works for the unprivileged abc user the app runs as;
+    scripts/check-cwa-services.sh uses the same primitive. Outside the container (tests,
+    local dev) there is no s6-rc, and a probe that fails or times out tells us nothing,
+    so both report "unknown", which never marks the app unhealthy.
+    """
+    unknown = {service: "unknown" for service in _CRITICAL_LONGRUNS}
+    s6_rc = _find_s6_rc()
+    if not s6_rc:
+        return unknown
+    try:
+        completed = subprocess.run([s6_rc, "-a", "list"], capture_output=True, text=True,
+                                   timeout=2, check=False)
+    except (subprocess.SubprocessError, OSError):
+        return unknown
+    if completed.returncode != 0:
+        return unknown
+    active = {line.strip() for line in completed.stdout.splitlines() if line.strip()}
+    return {service: ("up" if service in active else "down") for service in _CRITICAL_LONGRUNS}
+
+
+def _metadata_db_readable():
     try:
         db_path = os.path.join(cwa_get_library_location(), "metadata.db")
         # Read-only URI so a missing library reports unhealthy instead of creating
@@ -1228,15 +1268,25 @@ def health_check():
             conn.execute("SELECT count(*) FROM sqlite_master").fetchone()
         finally:
             conn.close()
-        db_up = True
+        return True
     except Exception:
-        db_up = False
+        return False
+
+
+@web.route("/health")
+def health_check():
+    uptime = time.time() - _start_time
+    db_up = _metadata_db_readable()
+    services = _check_s6_service_status()
+    healthy = db_up and "down" not in services.values()
 
     return jsonify({
-        "status": "ok" if db_up else "degraded",
+        "status": "ok" if healthy else "degraded",
         "uptime": uptime,
         "version": f"Lily/{constants.INSTALLED_VERSION}",
-    }), 200 if db_up else 503
+        "database": "ok" if db_up else "unreadable",
+        "services": services,
+    }), 200 if healthy else 503
 
 # ################################### View Books list ##################################################################
 

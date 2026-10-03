@@ -249,6 +249,8 @@ VOLUME ["/config", "/cwa-book-ingest", "/calibre-library"]
 
 # Health check for container orchestration
 # Uses shell form to support environment variable substitution for CWA_PORT_OVERRIDE
-# /health returns 503 when metadata.db can't be read, so a broken library marks the container unhealthy
+# /health returns 503 when metadata.db can't be read or the ingest / metadata services are down,
+# so a broken library marks the container unhealthy; curl's own time limits keep a wedged app
+# from leaving probes hanging until Docker's timeout
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
-  CMD curl -fs http://localhost:${CWA_PORT_OVERRIDE:-8083}/health || curl -fs -k https://localhost:${CWA_PORT_OVERRIDE:-8083}/health || exit 1
+  CMD curl -fs --connect-timeout 2 --max-time 4 http://localhost:${CWA_PORT_OVERRIDE:-8083}/health || curl -fs -k --connect-timeout 2 --max-time 4 https://localhost:${CWA_PORT_OVERRIDE:-8083}/health || exit 1
