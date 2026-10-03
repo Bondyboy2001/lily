@@ -25,30 +25,27 @@
                 data-url="{{ url_for('cwa_settings.rebuild_metadata') }}" data-status-url="{{ url_for('cwa_settings.rebuild_metadata_status') }}">
           <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> {{ _('Rebuild') }}
         </button>
-        {% if lookups.get('failed') %}
-        {# Looks up again only the books whose last lookup failed #}
-        <button type="button" class="btn btn-default" id="retry_failed">{{ _('Retry failed') }}</button>
-        {% endif %}
         <button type="button" class="btn btn-default" id="rebuild_metadata_stop" hidden
                 data-url="{{ url_for('cwa_settings.stop_rebuild_metadata') }}">{{ _('Stop') }}</button>
       {% endcall %}
-      {# What each book's last lookup found; the library's Metadata filter lists them #}
+    {% endcall %}
+
+    {# Only the books a lookup couldn't help; the library's Metadata filter lists them #}
+    {% if lookups.get('failed') or lookups.get('nomatch') %}
+    {% set retry %}{% if lookups.get('failed') %}<button type="button" class="btn btn-default" id="retry_failed">{{ _('Retry failed') }}</button>{% endif %}{% endset %}
+    {% call f.group(_('Lookup Problems'), id='section-lookup-problems', actions=retry) %}
       {% if lookups.get('failed') %}
       {{ f.link(url_for('web.index', metadata='failed'), _('Lookup failed'),
-         help=_('A provider that might have the book didn’t answer. Retry failed asks again.'),
+         help=_('A provider didn’t answer, so the book may still be found. Retry failed asks again.'),
          value=lookups['failed'], id='lookups_failed') }}
       {% endif %}
       {% if lookups.get('nomatch') %}
       {{ f.link(url_for('web.index', metadata='nomatch'), _('No match'),
-         help=_('Every provider answered, but none has the book under this title and author.'),
+         help=_('Every provider answered, but none has a book with this title and author.'),
          value=lookups['nomatch'], id='lookups_nomatch') }}
       {% endif %}
-      {% if lookups.get('changed') %}
-      {{ f.link(url_for('web.index', metadata='changed'), _('Changed by lookups'),
-         help=_('Each book’s Book Details can undo its lookup.'),
-         value=lookups['changed'], id='lookups_changed') }}
-      {% endif %}
     {% endcall %}
+    {% endif %}
 
     <div class="lp-actions is-save">
       <span class="lp-spacer"></span>

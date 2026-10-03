@@ -92,15 +92,14 @@ def _duration(books):
 
 
 def _lookup_counts(cwa_db):
-    """{status: books} from the books' last metadata lookups, and {changed: books} a lookup changed
-    that can be undone, counting only books still in the library."""
+    """{status: books} for the books whose last metadata lookup failed or found no match,
+    counting only books still in the library."""
     from .. import calibre_db, db
     try:
         books = {row[0] for row in calibre_db.session.query(db.Books.id)}
         counts = {}
         for status in ("failed", "nomatch"):
             counts[status] = sum(1 for book_id in cwa_db.metadata_lookup_ids(status) if book_id in books)
-        counts["changed"] = sum(1 for book_id in cwa_db.metadata_changed_ids() if book_id in books)
         return counts
     except Exception as e:
         log.debug("No metadata lookups to count: %s", e)

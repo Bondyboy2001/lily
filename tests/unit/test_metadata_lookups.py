@@ -159,11 +159,17 @@ def test_settings_page_counts_lookups(env):
     row = re.search(r'<a class="lp-row" href="([^"]+)" id="lookups_failed".*?</a>', html, flags=re.S)
     assert row and "metadata=failed" in row.group(1) and '<span class="lp-value">1</span>' in row.group(0)
     assert 'id="lookups_nomatch"' in html
+    # Both sit in their own section, with Retry failed in its heading
+    section = html[html.index('id="section-lookup-problems"'):]
+    section = section[:section.index('</section>')]
+    assert 'Lookup Problems' in section and 'id="retry_failed"' in section
+    assert 'id="lookups_failed"' in section and 'id="lookups_nomatch"' in section
 
 
 def test_settings_page_hides_failed_row_when_nothing_failed(env):
     html = _login(env).get("/cwa-settings").get_data(as_text=True)
     assert 'id="lookups_failed"' not in html
+    assert 'id="section-lookup-problems"' not in html
 
 
 def test_retry_looks_up_only_those_books_and_keeps_a_rebuilds_progress(env, monkeypatch):
@@ -293,7 +299,8 @@ def test_a_lookups_change_is_listed_and_undone_from_book_details(env):
     client = _login(env)
     html = client.get("/", query_string={"metadata": "changed"}).get_data(as_text=True)
     assert re.findall(r'<p title="([^"]+)" class="title"', html) == ["Dune"]
-    assert 'id="lookups_changed"' in client.get("/cwa-settings").get_data(as_text=True)
+    # Settings lists only lookup problems, not books a lookup changed
+    assert 'id="lookups_changed"' not in client.get("/cwa-settings").get_data(as_text=True)
     page = client.get(f"/book/{book}").get_data(as_text=True)
     dialog = page[page.index('id="bookInfoModal"'):]
     assert f'action="/admin/book/{book}/undo-lookup"' in dialog and 'id="undo-lookup"' in dialog
