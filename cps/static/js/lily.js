@@ -9,6 +9,20 @@
 (function () {
   "use strict";
 
+  // Offline reading is gone: let go of the service worker an earlier version installed, and of
+  // the copies it kept, so no page is served from them again.
+  if (typeof navigator !== "undefined" && "serviceWorker" in navigator && window.isSecureContext) {
+    navigator.serviceWorker.getRegistrations().then(function (regs) {
+      regs.forEach(function (reg) { reg.unregister(); });
+    }).catch(function () {});
+    if (window.caches) {
+      window.caches.keys().then(function (names) {
+        names.filter(function (n) { return n.indexOf("lily-") === 0; })
+          .forEach(function (n) { window.caches.delete(n); });
+      }).catch(function () {});
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     var app = document.querySelector(".lily-app");
     var toggle = document.querySelector(".lily-drawer-toggle");

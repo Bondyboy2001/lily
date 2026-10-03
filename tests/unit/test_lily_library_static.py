@@ -93,8 +93,8 @@ def test_detail_rare_actions_are_icon_buttons_not_a_menu():
         btn = re.search(r'<button[^>]*' + re.escape(needle) + r'[^>]*>', html, flags=re.S)
         assert btn, needle
         assert "aria-label=\"{{ _('" + label + "') }}\"" in btn.group(0)
-    # No archive button, nor the old Keep offline one (Save offline is #offline-btn)
-    for gone in ("toggle-archive-btn", "keep-offline-btn"):
+    # No archive button, and no offline reading
+    for gone in ("toggle-archive-btn", "keep-offline-btn", "offline-btn"):
         assert gone not in html
     shelves = re.search(r'<button[^>]*id="book-shelves-btn"[^>]*>', html, flags=re.S)
     assert shelves and 'class="btn is-icon dropdown-toggle"' in shelves.group(0)
@@ -698,3 +698,17 @@ def test_grid_covers_hang_a_ribbon_per_file_type():
     # The fetched disc is filled green so it reads on light and dark covers alike.
     disc = rule(".cover .lily-cover-marks > .lily-fetched")
     assert "background: var(--success)" in disc and "color: var(--surface)" in disc
+
+
+def test_there_is_no_offline_reading_and_old_workers_are_let_go():
+    # No service worker, page script or Save offline button any more
+    for gone in ("cps/offline.py", "cps/templates/sw.js", "cps/static/js/offline.js"):
+        assert not (REPO_ROOT / gone).exists(), gone
+    layout = read(TEMPLATES / "layout.html")
+    assert "lily-sw" not in layout and "js/offline.js" not in layout
+    assert "offline-btn" not in read(TEMPLATES / "detail.html")
+    assert "lily-offline-auto" not in read(TEMPLATES / "index.html")
+    # A browser that installed the worker before drops it and its caches on the next visit
+    js = read(REPO_ROOT / "cps/static/js/lily.js")
+    assert "navigator.serviceWorker.getRegistrations()" in js and "reg.unregister()" in js
+    assert 'n.indexOf("lily-") === 0' in js and "window.caches.delete(n)" in js

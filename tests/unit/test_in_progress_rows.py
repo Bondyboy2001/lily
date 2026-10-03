@@ -5,7 +5,7 @@
 # See CONTRIBUTORS for full list of authors.
 
 """The in-progress books query (web._in_progress_rows), which orders the Reading list's
-progress and the offline auto-download list."""
+progress."""
 
 from datetime import datetime, timedelta, timezone
 

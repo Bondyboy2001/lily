@@ -25,13 +25,8 @@
   </ul>
 </section>
 {% endif %}
-{% if offline_auto is defined and offline_auto is not none %}
-{# The books being read, for the service worker, which keeps them for offline reading (offline.js). #}
-<script type="application/json" id="lily-offline-auto">{{ offline_auto|tojson }}</script>
-{% endif %}
 <div class="discover load-more">
   <div class="lily-list-toolbar">
-    {# Grid/List icons, pinned to the toolbar's top right #}
     {% if page == 'hot' %}{% set sort_fields = ['downloads'] %}
     {% else %}{% set sort_fields = ['added', 'fetched', 'title', 'author', 'published'] %}{% endif %}
     {% if list_filters and list_filters.active.get('metadata') %}{{ image.metadata_chips(list_filters) }}{% endif %}

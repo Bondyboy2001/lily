@@ -69,7 +69,6 @@
  "tests/unit/test_metadata_suggestions.py": 0.0,
  "tests/unit/test_metadata_ui_static.py": 0.01,
  "tests/unit/test_nav_links.py": 3.54,
- "tests/unit/test_offline.py": 1.04,
  "tests/unit/test_opds.py": 0.0,
  "tests/unit/test_opds_feeds.py": 3.0,
  "tests/unit/test_pdf_cover.py": 0.62,

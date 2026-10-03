@@ -683,45 +683,11 @@ def render_books_list(data, sort_param, book_id, page):
         except (AttributeError, TypeError):
             title = _('Books (%(count)s)', count=cwa_get_num_books_in_library())
 
-        offline_auto = None
-        if website == "newest" and page == 1 and not list_filters.active_filters():
-            # The books in progress, so the service worker can keep them offline and let go of
-            # ones that left the list (offline.js; empty means "none in progress").
-            offline_auto = []
-            for item in get_in_progress_entries():
-                book = item['entry'].Books
-                fmt = (item.get('format') or '').lower()
-                if fmt and fmt in {d.format.lower() for d in book.data}:
-                    spec = offline_book_spec(book, fmt)
-                    if spec:
-                        offline_auto.append(spec)
-
         return render_title_template('index.html', entries=entries, pagination=pagination,
                                      title=title, page=website, order=order[1],
-                                     offline_auto=offline_auto,
                                      list_filters=list_filters.filter_context(),
                                      setup_checklist=(setup_checklist() if website == "newest" and page == 1
                                                       else None))
-
-
-IN_PROGRESS_LIMIT = 12
-
-# Formats the service worker can keep for reading offline (audio streams stay online-only).
-OFFLINE_FORMATS = ("epub", "pdf", "djvu", "djv")
-
-
-def offline_book_spec(book, fmt):
-    """What offline.js hands the service worker to keep one book: its reader, page and cover URLs
-    (the worker finds the file and assets in the reader page), or None for a format it can't keep."""
-    fmt = (fmt or "").lower()
-    if fmt not in OFFLINE_FORMATS:
-        return None
-    authors = [a.name.replace('|', ',') for a in book.authors if not constants.is_unknown_author(a.name)]
-    return {"id": book.id, "title": book.title, "author": authors[0] if authors else "", "format": fmt,
-            "reader": url_for('web.read_book', book_id=book.id, book_format=fmt),
-            "page": url_for('web.show_book', book_id=book.id),
-            "cover": url_for('web.get_cover', book_id=book.id, resolution='md',
-                             c=str(int(book.last_modified.timestamp())))}
 
 
 def _latest_reader_positions(session, user_id, library_uuid, book_ids=None):
@@ -803,33 +769,6 @@ def _book_resume(user_id, book_id, reader_list):
                 'format': fmt if fmt in reader_list else None}
     except (TypeError, ValueError, OperationalError, InvalidRequestError):
         return None
-
-
-def get_in_progress_entries(limit=IN_PROGRESS_LIMIT):
-    """Books the current user is reading, as index-style entries plus a 'progress' percentage."""
-    if current_user.is_anonymous or not current_user.is_authenticated:
-        return []
-    try:
-        library_uuid = _library_uuid()
-        rows = _in_progress_rows(ub.session, int(current_user.id), limit, library_uuid)
-        if not rows:
-            return []
-        books = (calibre_db.generate_linked_query(config.config_read_column, db.Books)
-                 .filter(calibre_db.common_filters())
-                 .filter(db.Books.id.in_([book_id for book_id, __, __ in rows]))
-                 .all())
-        by_id = {row.Books.id: row for row in books}
-        entries = []
-        for book_id, percent, fmt in rows:
-            if book_id in by_id:
-                entries.append({'entry': by_id[book_id], 'progress': percent,
-                                'format': fmt})
-                if len(entries) >= limit:
-                    break
-        return entries
-    except Exception as ex:
-        log.debug("Could not load the books in progress: %s", ex)
-        return []
 
 
 def render_rated_books(page, book_id, order):
@@ -1384,13 +1323,6 @@ def show_book(book_id):
         if read_book == ub.ReadBook.STATUS_IN_PROGRESS and current_user.is_authenticated:
             resume = _book_resume(int(current_user.id), book_id, entry.reader_list)
 
-        # Save offline: the format the reader opens, when the service worker can keep it
-        offline_book = None
-        if current_user.role_viewer():
-            candidates = [(resume or {}).get('format')] + list(entry.reader_list)
-            offline_fmt = next((f for f in candidates if f in OFFLINE_FORMATS), None)
-            offline_book = offline_book_spec(entry, offline_fmt) if offline_fmt else None
-
         metadata_lookup = _metadata_lookup(CWA_DB(), book_id) if current_user.role_edit() else None
         metadata_change = _metadata_change(CWA_DB(), book_id) if current_user.role_edit() else None
 
@@ -1406,7 +1338,6 @@ def show_book(book_id):
         return render_title_template('detail.html',
                                      entry=entry,
                                      resume=resume,
-                                     offline_book=offline_book,
                                      is_xhr=request.headers.get('X-Requested-With') == 'XMLHttpRequest',
                                      title=entry.title,
                                      metadata_lookup=metadata_lookup,

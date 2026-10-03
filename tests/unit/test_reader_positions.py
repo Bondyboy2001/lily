@@ -212,7 +212,8 @@ class TestInProgressReadingPositions:
         rows = in_progress_rows(ub.session, admin.id,
                                          library_uuid=lib)
         assert rows == [(bid, pytest.approx(90.0))]
-        html = _login(env).get("/").get_data(as_text=True)
+        # Continue opens the format last read in
+        html = _login(env).get(f"/book/{bid}").get_data(as_text=True)
         assert f"/read/{bid}/pdf" in html
 
     def test_missing_format_offers_no_reader_link(self, env):
@@ -225,8 +226,8 @@ class TestInProgressReadingPositions:
                                          book_id=bid, format="pdf",
                                          cfi="page:3", percent=0.3))
         ub.session_commit()
-        html = _login(env).get("/").get_data(as_text=True)
-        assert f"/read/{bid}/pdf" not in html
+        html = _login(env).get(f"/book/{bid}").get_data(as_text=True)
+        assert f"/read/{bid}/pdf" not in html and f"/read/{bid}/epub" in html
 
     def test_other_library_positions_ignored(self, env):
         from cps import ub

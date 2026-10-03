@@ -141,10 +141,9 @@ def _build_app():
     from cps.search_metadata import meta
     from cps.duplicates import duplicates
     from cps.logs import logs
-    from cps.offline import offline
     for bp in (library_refresh, cwa_settings, cwa_internal,
                admi, jinjia, web, opds, shelf, search, meta, editbook,
-               duplicates, logs, offline):
+               duplicates, logs):
         app.register_blueprint(bp)
 
     @app.teardown_appcontext
@@ -218,6 +217,6 @@ def lily_env(tmp_path, **config_overrides):
 
 def in_progress_rows(session, user_id, limit=None, library_uuid=None):
     """[(book_id, percent)] from web._in_progress_rows, the in-progress books query."""
-    from cps.web import IN_PROGRESS_LIMIT, _in_progress_rows
+    from cps.web import _in_progress_rows
     return [(book_id, percent) for book_id, percent, __ in
-            _in_progress_rows(session, user_id, limit or IN_PROGRESS_LIMIT, library_uuid)]
+            _in_progress_rows(session, user_id, limit or 12, library_uuid)]

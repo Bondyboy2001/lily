@@ -106,8 +106,8 @@ limiter = Limiter(key_func=True, headers_enabled=True, auto_check=False, swallow
 
 
 def create_app():
-    # Tokens last as long as the session rather than an hour: a reader page kept for offline
-    # reading is opened from the cache days later and must still be able to save positions.
+    # Tokens last as long as the session rather than an hour: a reader left open for hours must
+    # still be able to save its position.
     app.config['WTF_CSRF_TIME_LIMIT'] = None
     csrf.init_app(app)
 
