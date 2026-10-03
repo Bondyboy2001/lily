@@ -273,7 +273,10 @@ def do_edit_book(book_id, upload_formats=None):
 
         # Stage 2: Apply the remaining metadata changes to the database session.
         modify_date |= edit_book_series_index(to_save.get("series_index"), book)
-        modify_date |= edit_book_comments(Markup(to_save.get('comments')).unescape(), book)
+        # Not sent (the book page's Fetch Metadata sends it only when a result fills it): left
+        # as it is. Markup(None) would save the text "None".
+        comments = to_save.get('comments')
+        modify_date |= edit_book_comments(None if comments is None else Markup(comments).unescape(), book)
 
         input_identifiers = identifier_list(to_save, book)
         modification, warning = modify_identifiers(input_identifiers, book.identifiers, calibre_db.session)
@@ -302,6 +305,7 @@ def do_edit_book(book_id, upload_formats=None):
             # A result from Fetch Metadata may give only the year, or the year and month
             pubdate = helper.parse_partial_date(to_save["pubdate"])
             if pubdate:
+                modify_date |= _same_day(book.pubdate) != pubdate.date()
                 book.pubdate = pubdate
             else:
                 # The book keeps the date it had
@@ -309,6 +313,7 @@ def do_edit_book(book_id, upload_formats=None):
                         date=to_save["pubdate"]), category="error")
                 edit_error = True
         else:
+            modify_date |= _same_day(book.pubdate) != db.Books.DEFAULT_PUBDATE.date()
             book.pubdate = db.Books.DEFAULT_PUBDATE
 
         # The edition lives in cwa.db (calibre has no field for it), saved once the book is.
@@ -791,6 +796,11 @@ def _save_edition(book_id, edition):
         flash(_("The edition couldn't be saved."), category="error")
 
 
+def _same_day(value):
+    """A stored date as its day, for telling whether a save changed it; None for none."""
+    return value.date() if value else None
+
+
 def _note_matched(book_id, source):
     """A Fetch Metadata result was applied by hand: the book counts as matched by that provider,
     whatever its last automatic lookup found, for the library's Metadata filter."""
@@ -884,6 +894,7 @@ def edit_book_comments(comments, book):
                 calibre_db.session.add(new_comment)
                 modify_date = True
         return modify_date
+    return False
 
 
 def edit_book_languages(languages, book, upload_mode=False, invalid=None):
