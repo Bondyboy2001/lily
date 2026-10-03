@@ -20,6 +20,15 @@
         <button type="button" class="btn btn-default" id="rebuild_metadata_stop" hidden
                 data-url="{{ url_for('cwa_settings.stop_rebuild_metadata') }}">{{ _('Stop') }}</button>
       {% endcall %}
+      {# No confirmation: the run only re-renders covers, and its Stop sits beside the button #}
+      {% call f.row(_('Redo PDF covers'), cls='is-actions',
+         help=_('Renders page 1 of each PDF again as its cover, centred on the print. Covers you picked yourself are kept. Nothing is looked up, so it is much quicker than a rebuild.')) %}
+        <button type="button" class="btn btn-default" id="redo_pdf_covers"
+                data-url="{{ url_for('cwa_settings.redo_pdf_covers') }}">
+          <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> {{ _('Redo') }}</button>
+        <button type="button" class="btn btn-default" id="redo_pdf_covers_stop" hidden
+                data-url="{{ url_for('cwa_settings.stop_rebuild_metadata') }}">{{ _('Stop') }}</button>
+      {% endcall %}
     {% endcall %}
 
     {# Only the books a lookup couldn't help; the library's Metadata filter lists them #}

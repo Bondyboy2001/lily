@@ -80,7 +80,8 @@ def test_rebuild_route_queues_one_task_for_admins(env, monkeypatch):
     assert len(queued) == 1
 
     status = "/cwa-settings/rebuild-metadata/status"
-    assert c.get(status).get_json() == {"state": "running", "message": "Waiting to start…", "resume": ""}
+    assert c.get(status).get_json() == {"state": "running", "message": "Waiting to start…", "resume": "",
+                                        "kind": "metadata"}
 
     from cps.services.worker import STAT_ENDED, STAT_STARTED, STAT_STOPPING
     queued[0].stat = STAT_STARTED
@@ -144,11 +145,11 @@ def test_status_tells_how_the_last_rebuild_ended(env, monkeypatch):
     with env.app.test_request_context():
         task.start(None)
     assert c.get(status).get_json() == {"state": "done", "message": "Done: 1 books checked, 0 updated",
-                                        "resume": ""}
+                                        "resume": "", "kind": "metadata"}
 
     task._handleError("disk full")
     assert c.get(status).get_json() == {"state": "failed", "message": "The rebuild failed: disk full",
-                                        "resume": ""}
+                                        "resume": "", "kind": "metadata"}
     env.add_user("reader", password="pw")
     assert _login(env, "reader", "pw").get(status).status_code in (302, 403)
 

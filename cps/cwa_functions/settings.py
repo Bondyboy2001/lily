@@ -106,6 +106,22 @@ def rebuild_metadata():
     return jsonify({"success": True, "task_id": str(task.id)})
 
 
+@cwa_settings.route("/cwa-settings/redo-pdf-covers", methods=["POST"])
+@login_required_if_no_ano
+@admin_required
+def redo_pdf_covers():
+    """Start a pass over every PDF book that renders page 1 as its cover again, centred by the
+    current cropper. No provider lookups, so it is much quicker than a full rebuild."""
+    from ..services.worker import WorkerThread
+    from ..tasks.pdf_covers import TaskRedoPdfCovers
+    with _rebuild_start_lock:
+        if _running_rebuilds(including_stopping=True):
+            return jsonify({"success": True, "running": True})
+        task = TaskRedoPdfCovers()
+        WorkerThread.add_parallel(current_user.name, task)
+    return jsonify({"success": True, "task_id": str(task.id)})
+
+
 @cwa_settings.route("/cwa-settings/rebuild-metadata/stop", methods=["POST"])
 @login_required_if_no_ano
 @admin_required
@@ -126,6 +142,7 @@ def rebuild_metadata_status():
     server started) or the task's own (TaskRebuildMetadata.state). `resume` says how far an
     unfinished rebuild got, when the next can carry on."""
     from ..tasks.metadata_rebuild import saved_progress
+    from ..tasks.pdf_covers import TaskRedoPdfCovers
     rebuilds = _rebuilds()
     task = rebuilds[-1] if rebuilds else None
     resume = ""
@@ -137,7 +154,8 @@ def rebuild_metadata_status():
     if task is None:
         # None since the server started: one cut short by the restart shows as stopped
         return jsonify({"state": "idle", "message": resume, "resume": resume})
-    return jsonify({"state": task.state, "message": str(task.status_line), "resume": resume})
+    return jsonify({"state": task.state, "message": str(task.status_line), "resume": resume,
+                    "kind": "covers" if isinstance(task, TaskRedoPdfCovers) else "metadata"})
 
 
 def _rebuilds():

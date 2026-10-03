@@ -282,11 +282,22 @@ class TaskRebuildMetadata(CalibreTask):
             log.error("Rebuild: could not tidy authors: %s", ex)
 
     def _cover_changed(self, cdb, book_id):
-        """Record a made or centred cover so its URL and thumbnails change with it."""
+        """Record a made or centred cover so its URL and thumbnails change with it.
+
+        The cover bumps the book's last_modified, which a later rebuild reads as "changed
+        since its lookup" and looks it up again; when it was up to date, the lookup is stamped
+        again instead so it still counts as fresh."""
         cdb.session.expire_all()
         book = cdb.session.get(db.Books, book_id)
         if book is None:
             return
+        before = book.last_modified
+        record = None
+        if self._store:
+            try:
+                record = self._store.get_metadata_lookup(book_id)
+            except Exception as ex:
+                log.debug("Rebuild: could not read the lookup of book %s: %s", book_id, ex)
         try:
             pdf_cover.mark_cover_changed(book)
             cdb.session.commit()
@@ -296,6 +307,12 @@ class TaskRebuildMetadata(CalibreTask):
             return
         self.covers += 1
         helper.replace_cover_thumbnail_cache(book_id)
+        if record and record["status"] in ("matched", "nomatch", "manual") and \
+                not _changed_since(before, record["checked_at"]):
+            try:
+                self._store.save_metadata_lookup(book_id, record["status"], record["source"])
+            except Exception as ex:
+                log.debug("Rebuild: could not re-stamp the lookup of book %s: %s", book_id, ex)
 
 
 def _changed_since(last_modified, checked_at) -> bool:

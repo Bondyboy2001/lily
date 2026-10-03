@@ -1,11 +1,14 @@
 /*
- * Settings → Metadata → Rebuild metadata (templates/cwa_settings.html): confirm, start the
- * rebuild, then show its progress in a help line under the label until it finishes, with Stop
- * beside it meanwhile. A stopped rebuild is followed until the books under way are done.
- * Opening the page while a rebuild runs picks it up again. After a rebuild that was stopped
- * or cut short, the dialog offers to continue from there. Retry failed starts
- * a run of only the books whose last lookup failed, and the dialog's Full rebuild one that
- * forgets earlier lookups and looks every book up again, both shown the same way.
+ * Settings → Metadata → Rebuild metadata and Redo PDF covers
+ * (templates/cwa_settings.html): confirm, queue the task, then show its progress in a help
+ * line under its own row until it finishes, with Stop beside it meanwhile. A stopped run is
+ * followed until the books under way are done; only one runs at a time, and whichever runs
+ * disables both buttons. Opening the page while one runs picks it up again (the status
+ * endpoint's `kind` says which). After a rebuild that was stopped or cut short, the dialog
+ * offers to continue from there. Retry failed starts a run of only the books whose last
+ * lookup failed, and the dialog's Full rebuild one that forgets earlier lookups and looks
+ * every book up again. Redo PDF covers needs no confirm: it only re-renders page 1 of each
+ * PDF as its cover.
  */
 (function () {
   "use strict";
@@ -17,20 +20,36 @@
   var resumeText = document.getElementById("rebuildMetadataResume");
   var retryBtn = document.getElementById("retry_failed");
   var fullBtn = document.getElementById("rebuild_metadata_full");
+  var redoBtn = document.getElementById("redo_pdf_covers");
+  var redoStopBtn = document.getElementById("redo_pdf_covers_stop");
   // How far an unfinished rebuild got, in words; empty when there is none to continue
   var resume = "";
-  var glyph = btn.querySelector(".glyphicon");
+  var glyphs = { metadata: btn.querySelector(".glyphicon"),
+                 covers: redoBtn ? redoBtn.querySelector(".glyphicon") : null };
+  var stops = { metadata: stopBtn, covers: redoStopBtn };
   var timer = null;
-  // The row has no help text of its own: the line appears once there is progress to show
-  var help = document.createElement("p");
-  help.className = "lp-help";
-  help.hidden = true;
-  help.setAttribute("role", "status");
-  btn.closest(".lp-row").querySelector(".lp-text").appendChild(help);
+  // Each row shows its own progress: the rebuild row has no help text of its own, so the
+  // line appears under its label; the covers row's goes after its static help
+  var lines = {};
+  lines.metadata = statusLine(btn);
+  lines.covers = redoBtn ? statusLine(redoBtn) : null;
 
-  function say(text) {
-    help.textContent = text;
-    help.hidden = !text;
+  function statusLine(button) {
+    var help = document.createElement("p");
+    help.className = "lp-help";
+    help.hidden = true;
+    help.setAttribute("role", "status");
+    button.closest(".lp-row").querySelector(".lp-text").appendChild(help);
+    return help;
+  }
+
+  function say(kind, text) {
+    for (var k in lines) {
+      if (lines[k]) {
+        lines[k].textContent = k === kind ? text : "";
+        lines[k].hidden = k !== kind || !text;
+      }
+    }
   }
 
   function csrfHeaders() {
@@ -49,12 +68,18 @@
       .then(json);
   }
 
-  function busy(on) {
-    btn.disabled = on;
-    if (retryBtn) { retryBtn.disabled = on; }
-    glyph.classList.toggle("glyphicon-spin", on);
-    stopBtn.hidden = !on;
-    stopBtn.disabled = false;
+  // While anything runs, every start button is off and only the running kind's Stop shows
+  function busy(active, kind) {
+    btn.disabled = active;
+    if (retryBtn) { retryBtn.disabled = active; }
+    if (redoBtn) { redoBtn.disabled = active; }
+    for (var k in glyphs) {
+      if (glyphs[k]) { glyphs[k].classList.toggle("glyphicon-spin", active && k === kind); }
+      if (stops[k]) {
+        stops[k].hidden = !(active && k === kind);
+        stops[k].disabled = false;
+      }
+    }
   }
 
   function follow() {
@@ -62,12 +87,13 @@
   }
 
   // state: idle, running, stopping (finishing the books under way), stopped, done or failed
-  // (cwa_functions/settings.py), with the line to show
+  // (cwa_functions/settings.py); kind: metadata or covers, which row the line belongs to
   function show(status) {
+    var kind = status.kind || "metadata";
     var active = status.state === "running" || status.state === "stopping";
-    busy(active);
-    stopBtn.disabled = status.state === "stopping";
-    say(status.message);
+    busy(active, kind);
+    if (active && stops[kind]) { stops[kind].disabled = status.state === "stopping"; }
+    say(kind, status.message);
     resume = status.resume || "";
     if (active) {
       follow();
@@ -84,19 +110,20 @@
       .catch(function () { /* the next tick tries again */ });
   }
 
-  // data: what to send (resume, or failed for Retry failed)
-  function start(data) {
+  // data: what to send (resume, or failed for Retry failed); kind: which button's url and line
+  function start(data, kind) {
+    kind = kind || "metadata";
     $("#rebuildMetadataModal").modal("hide");
-    busy(true);
-    say("Waiting to start…");
-    post(btn.dataset.url, data)
+    busy(true, kind);
+    say(kind, "Waiting to start…");
+    post(kind === "covers" ? redoBtn.dataset.url : btn.dataset.url, data)
       .then(function () {
         follow();
         poll();
       })
       .catch(function () {
         busy(false);
-        say("Couldn’t start the rebuild. Try again.");
+        say(kind, "Couldn’t start it. Try again.");
       });
   }
 
@@ -113,10 +140,18 @@
   if (retryBtn) {
     retryBtn.addEventListener("click", function () { start({ failed: "1" }); });
   }
-  stopBtn.addEventListener("click", function () {
-    stopBtn.disabled = true;
-    post(stopBtn.dataset.url).then(poll).catch(function () { stopBtn.disabled = false; });
-  });
+  if (redoBtn) {
+    redoBtn.addEventListener("click", function () { start(null, "covers"); });
+  }
+  for (var k in stops) {
+    (function (stop) {
+      if (!stop) { return; }
+      stop.addEventListener("click", function () {
+        stop.disabled = true;
+        post(stop.dataset.url).then(poll).catch(function () { stop.disabled = false; });
+      });
+    })(stops[k]);
+  }
 
   poll();
 })();
