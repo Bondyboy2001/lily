@@ -75,7 +75,6 @@ SIDEBAR_PUBLISHER       = 1 << 12
 SIDEBAR_RATING          = 1 << 13
 SIDEBAR_FORMAT          = 1 << 14
 SIDEBAR_DOWNLOAD        = 1 << 16
-SIDEBAR_LIST            = 1 << 17
 SIDEBAR_DUPLICATES      = 1 << 18
 
 ADMIN_USER_ROLES        = sum(r for r in ALL_ROLES.values()) & ~ROLE_ANONYMOUS

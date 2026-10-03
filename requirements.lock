@@ -18,14 +18,14 @@
 # tests/unit/test_requirements_sync.py checks every requirement is pinned and in range.
 apscheduler==3.11.3       # via -r requirements.txt
 babel==2.18.0             # via flask-babel, -r requirements.txt
-bleach==6.2.0             # via -r requirements.txt
+bleach==6.4.0             # via -r requirements.txt
 blinker==1.9.0            # via flask, flask-principal
 certifi==2026.7.22        # via requests, -r requirements.txt
 cffi==2.1.1               # via cryptography
 chardet==5.2.0            # via -r requirements.txt
 charset-normalizer==3.5.1  # via requests, -r requirements.txt
 click==8.5.0              # via flask
-cryptography==43.0.3      # via -r requirements.txt
+cryptography==46.0.7      # via -r requirements.txt
 deprecated==3.0.0         # via limits
 flask==3.1.3              # via flask-babel, flask-httpauth, flask-limiter, flask-principal, flask-wtf, -r requirements.txt
 flask-babel==4.0.0        # via -r requirements.txt
@@ -33,8 +33,8 @@ flask-httpauth==4.8.1     # via -r requirements.txt
 flask-limiter==3.12       # via -r requirements.txt
 flask-principal==0.4.0    # via -r requirements.txt
 flask-wtf==1.2.2          # via -r requirements.txt
-gevent==24.11.1           # via -r requirements.txt
-greenlet==3.1.1           # via gevent, sqlalchemy, -r requirements.txt
+gevent==26.9.0           # via -r requirements.txt
+greenlet==3.5.6           # via gevent, sqlalchemy, -r requirements.txt
 idna==3.20                # via requests, -r requirements.txt
 itsdangerous==2.2.0       # via flask, flask-wtf
 jinja2==3.1.6             # via flask, flask-babel
