@@ -545,15 +545,16 @@ content (grid, panel, rows)
 - **Description:** a pull-quote: `--font-body` 22px italic, line-height 1.6, `--ink-soft`,
   the full width of the page (no measure cap), indented 64 behind a 112px `--accent` opening mark (19px, 40 and 76 on
   phones). There is no "not fetched yet" notice: the fetched dot already says so.
-- **Plate corner** (`.book-plate-marks`, 6 from the cover plate's top-right corner): the fetched mark.
+- **Plate corner** (`.book-plate-marks`, flush with the cover's top-right corner): the fetched mark.
 - **Edition** (`.book-edition`, everyone): set in the editor, shown as "9th ed." (full
   "9th edition" in its tooltip and for screen readers) in the stage's top-right corner, 16 down
   and 20 in (12 and 16 on phones), never on the cover. Bare text, no pill, set like the byline:
   `--font-body` 20px italic `--accent` (17 on phones). Grid cards don't show it.
-- **Fetched mark** (`.lily-fetched`, `image.fetched_mark`, editors only): a filled 26px `--success`
-  disc with a `--surface` check and ring, once a metadata
+- **Fetched mark** (`.lily-fetched`, `image.fetched_mark`, editors only): a filled 32px `--success`
+  square with a `--surface` check and no ring, flush in the cover's top-right corner (outer
+  corner radius 8 to follow the cover, inner corner 6), once a metadata
   lookup has matched the book; its tooltip and label say where from and when ("Metadata fetched
-  from Open Library on ‹date›"). Grid cards carry the same mark at 22px, 6 from the cover's corner.
+  from Open Library on ‹date›"). Grid cards carry the same mark at 26px.
   No dot before a lookup, or after one that found nothing.
 - **Details dialog** (`#bookInfoModal`, §5.7): the info button in the action bar opens
   "Book Details", a two-column `dl.book-info` (label `--muted`, value `--ink`, 15px, rows

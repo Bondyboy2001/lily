@@ -279,20 +279,20 @@
 
 .lily-book .cover .lily-cover-count { left: auto; right: 6px; }
 
-/* Fetched mark: a filled --success disc with a check on the cover's top-right corner once a
-   metadata lookup has matched the book (editors only). A --surface ring keeps it clear of the cover. */
+/* Fetched mark: a filled --success square tucked into the cover's top-right corner once a
+   metadata lookup has matched the book (editors only). No ring: its outer corner follows the
+   cover's 8px radius and the inner one is softened to 6. */
 .lily-fetched {
     position: absolute;
-    top: 6px;
-    right: 6px;
+    top: 0;
+    right: 0;
     z-index: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
-    border: 2px solid var(--surface);
-    border-radius: 999px;
+    width: 26px;
+    height: 26px;
+    border-radius: 0 8px 0 6px;
     background: var(--success);
     color: var(--surface);
     font-size: 11px;
@@ -1091,11 +1091,11 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     background: var(--sunk);
 }
 
-/* The plate's top-right corner (§6.4): the fetched mark. */
+/* The plate's top-right corner (§6.4): the fetched mark, flush with the cover's corner. */
 .book-plate-marks {
     position: absolute;
-    top: 6px;
-    right: 6px;
+    top: 0;
+    right: 0;
     z-index: 1;
     display: flex;
 }
@@ -1103,9 +1103,9 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 /* The fetched mark on the plate: the grid's green check, a little larger. */
 .book-detail-cover .lily-fetched {
     position: static;
-    width: 26px;
-    height: 26px;
-    font-size: 13px;
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
 }
 
 /* The edition: bare text in the stage's top-right corner, 16 in (12 on phones), set like the byline. */

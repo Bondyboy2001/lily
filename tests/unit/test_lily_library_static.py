@@ -302,8 +302,10 @@ def test_detail_page_is_a_frontispiece_stage():
     plate = stage[stage.index('<div class="book-detail-cover">'):stage.index('<div class="book-detail-head">')]
     assert "metadata_lookup.status == 'matched'" in plate and "image.fetched_mark(fetched, id='book-fetched-dot')" in plate
     dot = next(body for selector, body in rules if selector == ".lily-fetched")
-    assert "position: absolute" in dot and "background: var(--success)" in dot and "border-radius: 999px" in dot
-    assert "top: 6px" in dot and "right: 6px" in dot
+    assert "position: absolute" in dot and "background: var(--success)" in dot
+    # A flush corner square, not a ringed disc.
+    assert "border-radius: 0 8px 0 6px" in dot and "border:" not in dot
+    assert "top: 0" in dot and "right: 0" in dot
     assert "position: relative" in next(body for selector, body in rules if selector == ".book-detail-cover")
     info = next(body for selector, body in rules if selector == "dl.book-info")
     assert "display: grid" in info and "border" not in info
