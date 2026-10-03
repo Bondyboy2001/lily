@@ -31,10 +31,12 @@ def test_default_pages_have_no_unsafe_eval(client):
         assert "'unsafe-inline'" in csp
 
 
-def test_edit_and_reader_pages_keep_unsafe_eval(client):
+def test_edit_book_and_reader_pages_keep_unsafe_eval(client, temp_cwa_db):
+    # The book page and the editor both hold the Fetch Metadata dialog, whose result card is
+    # an underscore template; without 'unsafe-eval' get_meta.js stops at _.template
     env, c = client
     book = env.add_book("Edit Me")
-    for path in (f"/admin/book/{book}", f"/read/{book}/epub"):
+    for path in (f"/admin/book/{book}", f"/book/{book}", f"/read/{book}/epub"):
         resp = c.get(path)
         assert resp.status_code == 200, path
         assert "'unsafe-eval'" in resp.headers["Content-Security-Policy"], path
@@ -46,3 +48,12 @@ def test_other_headers_present(client):
     assert h["Referrer-Policy"] == "same-origin"
     assert "X-XSS-Protection" not in h
     assert h["X-Content-Type-Options"] == "nosniff"
+
+
+def test_metadata_search_pages_load_result_covers_from_anywhere(client, temp_cwa_db):
+    env, c = client
+    book = env.add_book("Covers")
+    for path in (f"/admin/book/{book}", f"/book/{book}"):
+        csp = c.get(path).headers["Content-Security-Policy"]
+        assert "img-src 'self' data: *" in csp, path
+    assert "img-src 'self' data: *" not in c.get("/").headers["Content-Security-Policy"]

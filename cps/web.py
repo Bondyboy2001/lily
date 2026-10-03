@@ -64,8 +64,11 @@ sqlalchemy_version2 = ([int(x) for x in sql_version.split('.')] >= [2, 0, 0])
 _start_time = time.time()
 
 # Pages whose scripts build functions from strings (underscore templates in the metadata
-# search, the in-browser readers). Everything else runs without 'unsafe-eval'.
-_EVAL_ENDPOINTS = frozenset({"web.read_book", "edit-book.show_edit_book"})
+# search, on the book page and in the editor; the in-browser readers). Everything else runs
+# without 'unsafe-eval'.
+_EVAL_ENDPOINTS = frozenset({"web.read_book", "web.show_book", "edit-book.show_edit_book"})
+# Pages showing metadata search results, whose covers come from the providers' own sites
+_META_SEARCH_ENDPOINTS = frozenset({"web.show_book", "edit-book.show_edit_book"})
 
 
 @app.after_request
@@ -80,7 +83,7 @@ def add_security_headers(resp):
         csp += " blob: "
     csp += "; img-src 'self'"
     csp += " data:"
-    if request.endpoint == "edit-book.show_edit_book":
+    if request.endpoint in _META_SEARCH_ENDPOINTS:
         csp += " *"
     if request.endpoint == "web.read_book":
         csp += " blob: ; style-src-elem 'self' blob: 'unsafe-inline'"
