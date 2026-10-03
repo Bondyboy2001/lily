@@ -741,3 +741,10 @@ def test_grid_cards_show_no_authors():
     card = re.search(r"{% macro book_card.*?{%- endmacro %}", image, flags=re.S).group(0)
     assert "author" not in card.split("-%}", 1)[1]
     assert ".lily-book .meta .author" not in read(CSS / "lily-library.css")
+
+
+def test_grid_covers_ask_for_a_thumbnail_at_least_as_tall_as_they_are_shown():
+    # A card shows its cover up to ~425px tall: the 255px small thumbnail was stretched on 1x
+    # screens and the 510px medium one on 2x, so 1x gets medium and 2x and up get large.
+    from cps import jinjia
+    assert jinjia.COVER_SRCSET == (("md", "1x"), ("lg", "2x"))

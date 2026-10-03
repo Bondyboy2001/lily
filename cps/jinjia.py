@@ -99,18 +99,17 @@ def book_last_modified(book):
     return str(int(book.last_modified.timestamp()))
 
 
+# Grid covers show up to ~425px tall (a 300px card, A4), so each screen density gets the
+# thumbnail at least that many device pixels tall: medium (510px) on 1x screens, large (1020px)
+# on 2x and up. The small one (255px) was stretched ~1.4x and looked soft.
+COVER_SRCSET = (('md', '1x'), ('lg', '2x'))
+
+
 @jinjia.app_template_filter('get_cover_srcset')
 def get_cover_srcset(book):
-    srcset = []
-    resolutions = {
-        constants.COVER_THUMBNAIL_SMALL: 'sm',
-        constants.COVER_THUMBNAIL_MEDIUM: 'md',
-        constants.COVER_THUMBNAIL_LARGE: 'lg'
-    }
-    for resolution, shortname in resolutions.items():
-        url = url_for('web.get_cover', book_id=book.id, resolution=shortname, c=book_last_modified(book))
-        srcset.append(f'{url} {resolution}x')
-    return ', '.join(srcset)
+    return ', '.join(
+        f"{url_for('web.get_cover', book_id=book.id, resolution=size, c=book_last_modified(book))} {density}"
+        for size, density in COVER_SRCSET)
 
 
 @jinjia.app_template_filter('filesizeformat_binary')
