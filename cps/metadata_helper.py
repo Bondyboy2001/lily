@@ -63,27 +63,36 @@ def matched_title(title: str, record):
     return next((form for form in title_forms(record) if titles_match(title, form)), None)
 
 
-def best_metadata_match(title: str, authors, results):
+def best_metadata_match(title: str, authors, results, page_text: str = ""):
     """Return the result that is exactly this book, or None.
 
     The title must match exactly (see titles_match), with or without the result's subtitle,
     and, when both sides list authors, they must share a surname. A result naming the
-    authors wins over one that names none.
-    """
+    authors wins over one that names none. A book with no author has only its title to go
+    by, and titles like "Calculus" are shared by many books: one of the result's authors must
+    be printed on the book's pages (author_on_pages)."""
     book_surnames = surnames(authors)
     title_only = None
     for result in results or []:
         if matched_title(title, result) is None:
             continue
+        if not book_surnames:
+            if author_on_pages(result, page_text):
+                return result
+            continue
         result_surnames = surnames(getattr(result, 'authors', None))
-        if book_surnames and result_surnames:
+        if result_surnames:
             if book_surnames & result_surnames:
                 return result
-        elif result_surnames or not book_surnames:
-            return result
         elif title_only is None:
             title_only = result
     return title_only
+
+
+def author_on_pages(record, page_text: str) -> bool:
+    """Whether the surname of one of the record's authors is printed on the pages, as a word."""
+    names = surnames(getattr(record, 'authors', None))
+    return bool(names) and bool(names & set(_normalise(page_text).split()))
 
 
 # calibre keeps a title to 42 characters in a file's name. A book imported under its file's
@@ -492,14 +501,17 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
         # Its PDF is read without holding the library: a page takes ~0.5 s on a NAS, and the
         # rebuild's other lookups would queue behind it
         page_text = pdf_first_page_text(book)
-        if named_by_file(title):
-            # What it is shows on its title page, and its ISBN on the copyright page
-            page_text = "\n".join((page_text, pdf_front_matter_text(book)))
+        front_matter = functools.partial(pdf_front_matter_text, book)
+        if named_by_file(title) or not authors:
+            # What it is shows on its title page, its author there too, and its ISBN on the
+            # copyright page
+            page_text = "\n".join((page_text, front_matter()))
+            front_matter = str
         missed, busy = set(), set()
-        # The pages after the first are read only when the searches find nothing, and not
-        # while holding the library
+        # Otherwise the pages after the first are read only when the searches find nothing,
+        # and not while holding the library
         record = _find_record(title, authors, own_ids, page_text, missed,
-                              front_matter=lambda: pdf_front_matter_text(book), papers_too=papers_too, busy=busy)
+                              front_matter=front_matter, papers_too=papers_too, busy=busy)
         if unanswered is not None:
             unanswered.update(missed)
         if record is None:
@@ -607,6 +619,20 @@ def _no_answer(provider, what, error, unanswered, busy=None) -> None:
 PAPERS = 'googlescholar'
 
 
+# A paper's first page heads its summary "Abstract"; a book's rarely does
+_ABSTRACT = re.compile(r"^\s*abstract\b", re.I | re.M)
+
+
+def _search_order(lookup_ids, page_text):
+    """The providers in the order a title search weighs their answers: the paper sources
+    after Google Books, unless the first page reads as a paper's. A textbook shares its title
+    with articles, and with reviews of it that name other authors."""
+    providers = _lookup_order()
+    if 'arxiv' in lookup_ids or _ABSTRACT.search(page_text or ''):
+        return providers
+    return sorted(providers, key=lambda provider: provider.__id__ == PAPERS)
+
+
 def _may_be_a_paper(book) -> bool:
     """Whether a title search should ask the paper sources: only for a book whose files are all
     PDFs. An EPUB is a trade book, which Crossref matches to a critical edition or a chapter."""
@@ -624,7 +650,8 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
     file's name: an exact title first, then
     one a file's name damaged (see loose_metadata_match). A book still not found is looked
     up by the ISBN on its copyright page: `front_matter` gives the text of its pages after
-    the first when called. Google Books is asked last (see _lookup_order). Providers that
+    the first when called. Google Books is asked last of the book sources (see _lookup_order),
+    and the paper sources weighed after it for a book (see _search_order). Providers that
     fail to answer are added to `unanswered`, and to `busy` when out of quota."""
     lookup_ids = find_paper_identifiers(title, page_text, own_ids)
     named_isbn = isbn_in_title(title)
@@ -641,7 +668,7 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
         return None
     query = " ".join([search_title(title)] + authors)
     searched = []
-    providers = [p for p in _lookup_order() if p.__id__ != PAPERS or papers_too]
+    providers = [p for p in _search_order(lookup_ids, page_text) if p.__id__ != PAPERS or papers_too]
     # Every provider but Google is asked at once, and the first in order with a match wins;
     # Google only when none has one, as its daily quota is soon used up
     at_once = [p for p in providers if p.__id__ != 'google']
@@ -653,7 +680,7 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
                 results = (asked[provider].result() if provider in asked
                            else provider.search_titles(query, "", "en")) or []
                 # Only the record applied needs the details a provider fetches per result
-                record = best_metadata_match(title, authors, results)
+                record = best_metadata_match(title, authors, results, page_text)
                 if record is not None:
                     record = provider.complete(record)
             except Exception as e:
@@ -862,16 +889,18 @@ def _apply_record(cdb, book, record, cover, replace_tags=False, mode=REPLACE, st
             changed = True
 
         # calibre keeps a name's comma as "|" (MetaRecord already turned "Last, First" round);
-        # names differing only in case are one author
+        # names differing only in case, spacing or punctuation are one author: Open Library
+        # lists "J.R.R. Tolkien" and "J. R. R. Tolkien"
         names = {}
         for name in record.authors or []:
             name = (name or '').strip().replace(',', '|')
+            key = _squash(name)
             # "J. LESSLIE HALL" gives way to "J. Lesslie Hall"
-            if name and (name.casefold() not in names or names[name.casefold()].isupper()):
-                names[name.casefold()] = name
+            if key and (key not in names or names[key].isupper()):
+                names[key] = name
         own = [a.name for a in book.authors if not placeholder_author(a.name.replace('|', ','))]
         # Filling, the authors change only from none, or to the same people in another case or order
-        authors_ok = mode == REPLACE or (mode == FILL and (not own or {n.casefold() for n in own} == set(names)))
+        authors_ok = mode == REPLACE or (mode == FILL and (not own or {_squash(n) for n in own} == set(names)))
         if names and authors_ok:
             authors = []
             for name in names.values():

@@ -184,7 +184,8 @@ def test_a_lookup_names_the_providers_that_did_not_answer(monkeypatch):
 
 def test_title_searches_run_at_once_and_the_first_provider_in_order_wins(monkeypatch):
     # A book none has waited for every provider in turn; now they search together. The first
-    # in order with a match still wins, and Google is asked only when none has one (its quota)
+    # in order with a match still wins, and Google is asked only when the providers before it
+    # have none (its quota); for a book the paper sources come after it
     import threading
     from cps import metadata_helper
     from cps.services.Metadata import MetaRecord, MetaSourceInfo
@@ -214,7 +215,25 @@ def test_title_searches_run_at_once_and_the_first_provider_in_order_wins(monkeyp
     found = metadata_helper._find_record("Dune", ["Frank Herbert"], {}, "")
     assert found.source.id == "openlibrary" and ("openlibrary", True) in calls
     assert "google" not in [name for name, __ in calls]
-    # Nobody has it: Google is asked, last
+    # Nobody has it: Google is asked too
     del calls[:]
     assert metadata_helper._find_record("Emma", ["Jane Austen"], {}, "") is None
-    assert calls[-1] == ("google", True)
+    assert ("google", True) in calls
+
+
+@pytest.mark.parametrize("title, tokens", [
+    ("Dune: Messiah, (Book 2)", ["Dune", "Messiah", "Book", "2"]),
+    ("Golden Son (Red Rising)", ["Golden", "Son", "Red", "Rising"]),
+    ("Calculus (2nd ed.)", ["Calculus"]),
+    ("Physics [Revised Edition] Vol 1", ["Physics", "Vol", "1"]),
+])
+def test_a_google_search_drops_punctuation_and_only_edition_brackets(title, tokens):
+    from cps.services.Metadata import Metadata
+    assert list(Metadata.get_title_tokens(title, strip_joiners=False)) == tokens
+
+
+def test_a_hardcover_edition_with_only_an_isbn_10_keeps_it():
+    from cps.metadata_provider.hardcover import Hardcover
+    book = {"id": 7, "slug": "dune", "editions": [{"id": 1, "title": "Dune", "isbn_13": None, "isbn_10": "0441172717"}]}
+    [edition] = Hardcover()._parse_edition_results(book, "", "en")
+    assert edition.identifiers["isbn"] == "0441172717"

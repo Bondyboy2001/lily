@@ -109,7 +109,8 @@ def test_an_ordinary_title_is_still_searched_without_reading_more_pages(env, mon
 def test_a_numeric_author_is_left_out_of_the_search(env, monkeypatch):
     calls = []
     dune = SimpleNamespace(title="Dune", authors=["Frank Herbert"])
-    helper, applied = _setup(monkeypatch, [_provider("google", {"isbn"}, by_text=[dune], calls=calls)])
+    helper, applied = _setup(monkeypatch, [_provider("google", {"isbn"}, by_text=[dune], calls=calls)],
+                             front="DUNE\nFrank Herbert")
     book_id = env.add_book("Dune", author="0000253", fmt="PDF")
     assert helper.fetch_and_apply_metadata(book_id) is True
     assert calls == [("google", "text", "Dune")]

@@ -169,15 +169,15 @@ class Metadata:
                     r"mass\s*market|edition|ed\.)[\])}]",
                     "",
                 ),
-                # Remove any strings that contain the substring edition inside
-                # parentheses
-                (r"(?i)[({\[].*?(edition|ed.).*?[\]})]", ""),
+                # Remove brackets that name an edition: "(2nd ed.)", "[Revised Edition]",
+                # not "(Red Rising)"
+                (r"(?i)[({\[][^)\]}]*?\b(edition|ed\.)[^)\]}]*?[\])}]", ""),
                 # Remove commas used a separators in numbers
                 (r"(\d+),(\d+)", r"\1\2"),
                 # Remove hyphens only if they have whitespace before them
                 (r"(\s-)", " "),
                 # Replace other special chars with a space
-                (r"""[:,;!@$%^&*(){}.`~"\s\[\]/]《》「」“”""", " "),
+                (r"""[:,;!@$%^&*(){}.`~"\s\[\]/《》「」“”]""", " "),
             ]
         ]
 

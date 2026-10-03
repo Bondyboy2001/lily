@@ -63,9 +63,15 @@ def test_missing_authors_on_result_lets_title_decide():
     assert best_metadata_match("Tide Tables for Beginners", ["Marian Hollis"], [result]) is result
 
 
-def test_unknown_book_author_lets_title_decide():
-    result = record("Tide Tables for Beginners", ["Marian Hollis"])
-    assert best_metadata_match("Tide Tables for Beginners", ["Unknown"], [result]) is result
+def test_a_book_with_no_author_needs_an_author_printed_on_its_pages():
+    # "Calculus" is many books: the title alone can't say which
+    spivak = record("Calculus", ["Michael Spivak"])
+    stewart = record("Calculus", ["James Stewart"])
+    assert best_metadata_match("Calculus", ["Unknown"], [spivak, stewart]) is None
+    assert best_metadata_match("Calculus", [], [spivak, stewart], "CALCULUS\nJames Stewart\nMcMaster") is stewart
+    # A surname inside another word doesn't count, nor does a record naming no one
+    assert best_metadata_match("Calculus", [], [spivak], "Spivakovsky lectures") is None
+    assert best_metadata_match("Calculus", [], [record("Calculus")], "Calculus by someone") is None
 
 
 def test_result_naming_the_author_beats_one_naming_none():

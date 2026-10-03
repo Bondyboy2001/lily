@@ -198,7 +198,8 @@ class Hardcover(Metadata):
                 "hardcover-slug": result.get("slug", ""),
                 "hardcover-edition": edition.get("id", ""),
             }
-            isbn = edition.get("isbn_13", edition.get("isbn_10"))
+            # Both keys always come, null when the edition has no such ISBN
+            isbn = edition.get("isbn_13") or edition.get("isbn_10")
             if isbn:
                 match.identifiers["isbn"] = isbn
             rf_id = edition.get("reading_format_id")

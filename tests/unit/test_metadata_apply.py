@@ -26,9 +26,12 @@ def _record(**kw):
     return rec
 
 
-def _setup(monkeypatch, record=None, by_id=(), id_types=(), page="", settings=None):
+def _setup(monkeypatch, record=None, by_id=(), id_types=(), page=None, settings=None):
     from cps import metadata_helper
     settings = settings or {"auto_metadata_fetch_enabled": 1}
+    if page is None:
+        # Its title page prints the authors, which a book with none is matched by
+        page = " ".join(getattr(record, "authors", None) or [])
     monkeypatch.setattr(metadata_helper, "CWA_DB", lambda: SimpleNamespace(get_cwa_settings=lambda: settings))
     monkeypatch.setattr(metadata_helper, "pdf_first_page_text", lambda book: page)
     provider = FakeProvider(__id__="google", __name__="Google", identifier_types=frozenset(id_types),
@@ -505,3 +508,12 @@ def test_the_pdf_is_read_without_holding_the_library(env, monkeypatch):
     monkeypatch.setattr(helper, "pdf_first_page_text", read)
     helper.fetch_and_apply_metadata(book, force=True)
     assert held == [False]
+
+
+def test_one_author_spelled_two_ways_is_added_once(env, monkeypatch):
+    # Open Library lists both spellings of the same person
+    book = env.add_book("The Hobbit", author="Unknown")
+    helper = _setup(monkeypatch, _record(title="The Hobbit", authors=["J.R.R. Tolkien", "J. R. R. Tolkien"]),
+                    page="The Hobbit by J.R.R. Tolkien")
+    assert helper.fetch_and_apply_metadata(book) is True
+    assert _q(env, "SELECT a.name FROM authors a JOIN books_authors_link l ON l.author = a.id") == [("J.R.R. Tolkien",)]
