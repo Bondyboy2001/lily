@@ -91,14 +91,6 @@ $(function () {
     return ticks;
   }
 
-  function getUniqueValues(attribute_name, book) {
-    var presentArray = $.map(String(field(attribute_name).val() || "").split(","), $.trim).filter(Boolean);
-    $.each(book[attribute_name] || [], function (i, el) {
-      if ($.inArray(el, presentArray) === -1) presentArray.push(el);
-    });
-    return presentArray;
-  }
-
   // The book's identifiers (ISBN, DOI, arXiv...) from the edit form, for exact lookups
   function currentIdentifiers() {
     var ids = {};
@@ -115,8 +107,9 @@ $(function () {
       .filter(function (a) { return a && a.toLowerCase() !== "unknown"; });
   }
 
+  // Equal as written: a result that only fixes the case ("the modern prometheus") is a change
   function same(a, b) {
-    return String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+    return String(a || "").trim() === String(b || "").trim();
   }
 
   // Letters and digits only, for comparing titles
@@ -212,22 +205,23 @@ $(function () {
     if (updateItems.description) {
       set("comments", book.description || "").trigger("lily:set-html");
     }
+    // A ticked field replaces the book's value outright, tags and languages included
     if (updateItems.tags) {
-      set("tags", getUniqueValues("tags", book).join(", ")).trigger("change");
+      set("tags", (book.tags || []).join(", ")).trigger("change");
     }
     if (updateItems.languages) {
-      set("languages", getUniqueValues("languages", book).join(", "));
+      set("languages", (book.languages || []).join(", "));
     }
     if (updateItems.authors) {
       set("authors", (book.authors || []).join(" & ")).trigger("change");
     }
     if (updateItems.title) {
-      // "Title (9th Edition)": the edition comes off the title and fills an empty Edition
-      // field (cps/edition.py does the same on save)
+      // "Title (9th Edition)": the edition comes off the title and replaces the Edition field
+      // (cps/edition.py splits a typed title the same way on save)
       var split = splitEdition(book.title || "");
       set("title", split.title);
       var $edition = $("#edition");
-      if (split.edition && $edition.length && !$.trim($edition.val())) {
+      if (split.edition && $edition.length) {
         $edition.val(split.edition).trigger("change");
         $("#edition-field").prop("hidden", false);
         $("#edition-add").prop("hidden", true);

@@ -127,3 +127,17 @@ def test_fetch_metadata_cards_stack_on_phones():
     phone = phone[:phone.index("\n}\n")]
     assert "#meta-info #book-list .media { flex-direction: column; }" in phone
     assert ".meta-score + .media-body { padding: 10px 14px 14px; }" in phone
+
+
+def test_a_ticked_field_replaces_the_books_value():
+    js = (REPO_ROOT / "cps/static/js/get_meta.js").read_text(encoding="utf-8")
+    # Tags and languages are the result's, not merged into the book's
+    assert 'set("tags", (book.tags || []).join(", "))' in js
+    assert 'set("languages", (book.languages || []).join(", "))' in js
+    assert "getUniqueValues" not in js
+    # A title's "(2nd Edition)" replaces the Edition field, filled or not
+    assert "if (split.edition && $edition.length) {" in js
+    # A case-only difference counts as a change, so it shows "Now: …" and applies
+    same = js[js.index("function same(a, b)"):]
+    same = same[:same.index("}")]
+    assert "toLowerCase" not in same
