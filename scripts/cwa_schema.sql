@@ -58,9 +58,7 @@ CREATE TABLE IF NOT EXISTS cwa_duplicate_cache (
     duplicate_groups_json TEXT,  -- JSON serialized duplicate groups
     total_count INTEGER DEFAULT 0,
     scan_pending INTEGER DEFAULT 1,  -- 1=needs scan, 0=cache valid
-    last_scanned_book_id INTEGER DEFAULT 0,  -- Track last scanned book for incremental updates
-    scan_duration_seconds REAL DEFAULT 0,  -- Performance tracking
-    scan_method_used TEXT DEFAULT 'python'  -- Track which method was used: 'sql', 'python', 'hybrid'
+    last_scanned_book_id INTEGER DEFAULT 0  -- Track last scanned book for incremental updates
 );
 
 -- Insert default row for cache table
@@ -112,7 +110,6 @@ CREATE TABLE IF NOT EXISTS cwa_duplicate_resolutions (
     deleted_book_ids TEXT NOT NULL,  -- JSON array of deleted IDs
     strategy TEXT NOT NULL,  -- 'newest', 'highest_quality_format', 'most_metadata', 'largest_file_size'
     trigger_type TEXT NOT NULL,  -- 'manual', 'scheduled', 'automatic'
-    backed_up INTEGER DEFAULT 1,  -- 1=yes, 0=no
     user_id INTEGER,  -- NULL for automatic, admin user ID for manual
     notes TEXT
 );

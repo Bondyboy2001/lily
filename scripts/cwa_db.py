@@ -186,10 +186,25 @@ def _m4_drop_import_log(cur) -> None:
     cur.execute("DROP TABLE IF EXISTS cwa_import")
 
 
+# Columns nothing has read or written since the duplicate scan's timing report and the
+# resolution backups went
+_UNUSED_COLUMNS = {"cwa_duplicate_cache": ("scan_duration_seconds", "scan_method_used"),
+                   "cwa_duplicate_resolutions": ("backed_up",)}
+
+
+def _m5_drop_unused_columns(cur) -> None:
+    for table, columns in _UNUSED_COLUMNS.items():
+        present = _columns(cur, table)
+        for column in columns:
+            if column in present:
+                cur.execute(f"ALTER TABLE {table} DROP COLUMN {column}")
+
+
 MIGRATIONS: list = [(1, "always detect duplicates, no Hardcover auto-fetch", _m1_settings_page_defaults),
                     (2, "drop exact-hash duplicate file keys", _m2_drop_duplicate_file_keys),
                     (3, "drop the settings and tables of removed features", _m3_drop_removed_features),
-                    (4, "drop the unread import log", _m4_drop_import_log)]
+                    (4, "drop the unread import log", _m4_drop_import_log),
+                    (5, "drop unused duplicate-scan and resolution columns", _m5_drop_unused_columns)]
 SCHEMA_MIGRATIONS_TABLE = "cwa_schema_migrations"
 
 

@@ -13,7 +13,7 @@ REMOVED = ["/admin/view", "/admin/config", "/admin/dbconfig", "/admin/viewconfig
            "/admin/db_backups", "/admin/ingest_failures", "/admin/book-recovery", "/admin/metadata/suggestions",
            "/admin/hardcover/review-matches", "/cwa-stats-show", "/stats", "/tasks", "/account/security",
            "/reading", "/ajax/pathchooser/", "/ajax/deleteuser", "/metadata_backup",
-           "/admin/debug", "/ajax/canceltask", "/cwa-check-monitoring"]
+           "/admin/debug", "/ajax/canceltask", "/cwa-check-monitoring", "/opds/stats"]
 
 
 @pytest.fixture

@@ -242,6 +242,38 @@ def test_migration_3_drops_the_settings_and_tables_of_removed_features(cwa_dir):
 
 
 @pytest.mark.unit
+def test_migration_5_drops_the_unused_duplicate_columns(cwa_dir):
+    db_file = str(cwa_dir / "cwa.db")
+    con = sqlite3.connect(db_file)
+    # Both tables as an older cwa.db had them
+    con.execute("CREATE TABLE cwa_duplicate_cache (id INTEGER PRIMARY KEY CHECK (id = 1), "
+                "scan_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, duplicate_groups_json TEXT, "
+                "total_count INTEGER DEFAULT 0, scan_pending INTEGER DEFAULT 1, "
+                "last_scanned_book_id INTEGER DEFAULT 0, scan_duration_seconds REAL DEFAULT 0, "
+                "scan_method_used TEXT DEFAULT 'python')")
+    con.execute("INSERT INTO cwa_duplicate_cache (id, total_count) VALUES (1, 7)")
+    con.execute("CREATE TABLE cwa_duplicate_resolutions (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, group_hash TEXT NOT NULL, group_title TEXT, "
+                "group_author TEXT, kept_book_id INTEGER NOT NULL, deleted_book_ids TEXT NOT NULL, "
+                "strategy TEXT NOT NULL, trigger_type TEXT NOT NULL, backed_up INTEGER DEFAULT 1, "
+                "user_id INTEGER, notes TEXT)")
+    con.execute("INSERT INTO cwa_duplicate_resolutions (group_hash, kept_book_id, deleted_book_ids, strategy, "
+                "trigger_type) VALUES ('abc', 1, '[2]', 'newest', 'manual')")
+    con.commit()
+    con.close()
+
+    db = _reopen(cwa_dir)
+    try:
+        assert not {"scan_duration_seconds", "scan_method_used"} & set(_columns(db_file, "cwa_duplicate_cache"))
+        assert "backed_up" not in _columns(db_file, "cwa_duplicate_resolutions")
+        # Rows and kept columns survive
+        assert db.cur.execute("SELECT total_count FROM cwa_duplicate_cache").fetchone()[0] == 7
+        assert db.cur.execute("SELECT group_hash FROM cwa_duplicate_resolutions").fetchone()[0] == "abc"
+    finally:
+        db.close()
+
+
+@pytest.mark.unit
 def test_a_new_cwa_db_runs_every_migration(cwa_dir):
     # Migration 1 pins a Hardcover setting a new cwa.db no longer has
     db = CWA_DB()
