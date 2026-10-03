@@ -620,7 +620,6 @@ Build every settings page from the macros. Never hand-write rows.
 | `f.input(…)` / `f.select(…)` | Row with a field |
 | `f.check(…)` inside `.lp-checks` | Checkbox grid |
 | `f.link(href, label, help, value)` | Navigational row with value and chevron |
-| `f.sub(related)` | Dependent rows, indented 22, shown when their control is on |
 
 - Frame: rail (180px) | pane, gap 40. Under 760px of container width the rail
   becomes a scrolling chip strip.

@@ -12,11 +12,6 @@
 </section>
 {%- endmacro %}
 
-{#- Rows that only apply while `related` is on (main.js shows/hides [data-related]). -#}
-{% macro sub(related, style=None) -%}
-<div class="lp-sub" data-related="{{ related }}"{% if style %} style="{{ style }}"{% endif %}>{{ caller() }}</div>
-{%- endmacro %}
-
 {#- Label and help on the left, whatever the caller renders on the right. -#}
 {% macro row(label, for_id=None, help=None, wide=False, cls='', attrs='') -%}
 <div class="lp-row{% if wide %} is-wide{% endif %}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>
@@ -26,10 +21,10 @@
 {%- endmacro %}
 
 {#- An on/off setting. Posts "on" when checked, exactly like the checkbox it replaces. -#}
-{% macro toggle(name, label, checked, help=None, id=None, control=None, attrs='') -%}
+{% macro toggle(name, label, checked, help=None, id=None, attrs='') -%}
 <div class="lp-row is-toggle">
   <div class="lp-text"><label for="{{ id or name }}">{{ label }}</label>{% if help %}<p class="lp-help">{{ help }}</p>{% endif %}</div>
-  <input type="checkbox" class="lp-switch" id="{{ id or name }}" name="{{ name }}"{% if control %} data-control="{{ control }}"{% endif %}{% if checked %} checked{% endif %} {{ attrs|safe }}>
+  <input type="checkbox" class="lp-switch" id="{{ id or name }}" name="{{ name }}"{% if checked %} checked{% endif %} {{ attrs|safe }}>
 </div>
 {%- endmacro %}
 

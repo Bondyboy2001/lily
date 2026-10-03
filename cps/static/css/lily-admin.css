@@ -258,9 +258,6 @@ ul.lp-help li { margin: 2px 0; }
 .lp-control > .progress { flex: 1 0 100%; margin: 4px 0 0; padding: 0; font-size: 13px; color: var(--muted); list-style: none; }
 .lp-control > .error-list:empty { display: none; }
 
-/* Settings that only apply while their parent is on sit indented under it. */
-.lp-sub > .lp-row { padding-left: 22px; }
-
 /* ---- Rows whose whole job is a link (overview) ---- */
 a.lp-row {
     margin: 0 -16px;
@@ -460,7 +457,6 @@ input[type="checkbox"].lp-switch:disabled { opacity: .4; cursor: not-allowed; }
 /* A save bar that waits for a change: the shell arms it, and it shows once the form is edited. */
 .lp-actions.is-save.is-armed:not(.is-dirty) { display: none; }
 .lp-actions .lp-spacer { margin-right: auto; }
-.lp-actions [data-related] { display: inline-flex; gap: 8px; }
 
 /* ---- Narrow: the rail becomes a strip of chips over the page ---- */
 @container lp-settings (max-width: 760px) {
@@ -506,7 +502,6 @@ input[type="checkbox"].lp-switch:disabled { opacity: .4; cursor: not-allowed; }
     .lp-control { justify-content: flex-start; }
     a.lp-row { grid-template-columns: minmax(0, 1fr) auto; }
     a.lp-row .lp-value { display: none; }
-    .lp-sub > .lp-row { padding-left: 14px; }
 }
 
 /* ---- Logs: a live tail in a pre under the pane heading, Copy in its top-right corner ---- */
