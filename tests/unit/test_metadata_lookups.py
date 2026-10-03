@@ -328,19 +328,11 @@ def test_applying_a_result_on_the_book_page_changes_only_what_it_fills(env):
     assert _store().get_metadata_lookup(book)["status"] == "matched"
 
 
-def test_a_lookups_change_is_undone_from_book_details(env):
-    import json
+def test_book_details_has_no_undo_lookup(env):
     book = env.add_book("Dune")
-    store = _store()
-    store.save_metadata_lookup(book, "matched", "Open Library")
-    store.save_metadata_change(book, "Open Library", json.dumps({"title": "dune"}))
-    client = _login(env)
-    # Settings lists only lookup problems, not books a lookup changed
-    assert 'id="lookups_changed"' not in client.get("/cwa-settings").get_data(as_text=True)
-    page = client.get(f"/book/{book}").get_data(as_text=True)
-    dialog = page[page.index('id="bookInfoModal"'):]
-    assert f'action="/admin/book/{book}/undo-lookup"' in dialog and 'id="undo-lookup"' in dialog
-    client.post(f"/admin/book/{book}/undo-lookup")
-    assert store.last_metadata_change(book) is None and store.is_hand_edited(book)
-    page = client.get(f"/book/{book}").get_data(as_text=True)
-    assert 'id="undo-lookup"' not in page
+    _store().save_metadata_lookup(book, "matched", "Open Library")
+    page = _login(env).get(f"/book/{book}").get_data(as_text=True)
+    dialog = page[page.index('id="bookInfoModal"'):page.index('id="deleteModal"')]
+    assert "Open Library" in dialog
+    assert "undo-lookup" not in dialog and "modal-footer" not in dialog
+    assert _login(env).post(f"/admin/book/{book}/undo-lookup").status_code in (404, 405)

@@ -91,23 +91,6 @@ def edit_book(book_id):
     return do_edit_book(book_id)
 
 
-@editbook.route("/admin/book/<int:book_id>/undo-lookup", methods=['POST'])
-@login_required_if_no_ano
-@edit_required
-def undo_lookup(book_id):
-    """Book Details' Undo: put back what the book's latest metadata lookup changed."""
-    from .metadata_helper import undo_last_change
-    try:
-        if undo_last_change(book_id):
-            flash(_("The lookup's changes were undone."), category="success")
-        else:
-            flash(_("There's no lookup to undo for this book."), category="warning")
-    except Exception as e:
-        log.error("Could not undo the lookup of book %s: %s", book_id, e)
-        flash(_("Couldn't undo the lookup. Check Logs in Settings."), category="error")
-    return redirect(url_for('web.show_book', book_id=book_id))
-
-
 def _queue_duplicate_scan_after_change(book_ids=None):
     """Queue a debounced duplicate scan after manual changes."""
     try:

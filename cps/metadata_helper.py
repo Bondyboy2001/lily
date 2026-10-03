@@ -616,8 +616,7 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None,
             changes = {}
             with library_lock:
                 before = _title_and_author(cdb, book)
-                changed = _apply_record(cdb, book, record, cover, mode=mode, store=store, overwrite=overwrite,
-                                        changes=changes)
+                changed = _apply_record(cdb, book, record, cover, mode=mode, overwrite=overwrite, changes=changes)
                 cover_state = _cover_state(_cover_path(book))
                 title = book.title
                 if changed:
@@ -941,7 +940,7 @@ def _no_date(current) -> bool:
     return current is None or current.year <= _NO_DATE_YEAR
 
 
-def _apply_record(cdb, book, record, cover, mode=REPLACE, store=None, changes=None, overwrite=False):
+def _apply_record(cdb, book, record, cover, mode=REPLACE, changes=None, overwrite=False):
     """Writes what the record changes and commits; True when anything changed.
 
     With mode REPLACE (see lookup_mode) the record's fields replace the book's; with FILL and
@@ -950,8 +949,7 @@ def _apply_record(cdb, book, record, cover, mode=REPLACE, store=None, changes=No
     the record has are touched; a book's own identifiers are kept and new ones added. The
     description, tags, the publisher, languages and ratings are left alone: Lily keeps none of
     them from a lookup. What changed is
-    kept in `store` as it was before, for Undo, and added to `changes` as {field: [before,
-    after]} for the Logs page (see described_changes)."""
+    added to `changes` as {field: [before, after]} for the Logs page (see described_changes)."""
     session = cdb.session
     changed = False
     dropped = []
@@ -1003,7 +1001,6 @@ def _apply_record(cdb, book, record, cover, mode=REPLACE, store=None, changes=No
             # name whatever its case, so the same author in another case is no change
             if {a.name for a in authors} != {a.name for a in book.authors} or author_sort != book.author_sort:
                 before['authors'] = [a.name for a in book.authors]
-                before['author_sort'] = book.author_sort
                 dropped += [a for a in book.authors if a not in authors]
                 book.authors = authors
                 book.author_sort = author_sort
@@ -1055,8 +1052,6 @@ def _apply_record(cdb, book, record, cover, mode=REPLACE, store=None, changes=No
     if done:
         done()
         helper.replace_cover_thumbnail_cache(book.id)
-    if before and store is not None:
-        _keep_change(store, book.id, getattr(getattr(record, 'source', None), 'description', ''), before)
     if changes is not None:
         changes.update(described_changes(book, before, new_cover))
     return True
@@ -1073,7 +1068,7 @@ def _date_text(value):
 
 def described_changes(book, before, new_cover=False) -> dict:
     """What a lookup changed, {field: [before, after]} as text, read from `before` (as
-    _apply_record keeps it for Undo) and the book as it is now."""
+    _apply_record keeps it) and the book as it is now."""
     def names(rows):
         return ", ".join(row.name.replace('|', ',') for row in rows)
     changes = {}
@@ -1092,80 +1087,6 @@ def described_changes(book, before, new_cover=False) -> dict:
     if new_cover:
         changes['cover'] = ['', 'new']
     return changes
-
-
-def _keep_change(store, book_id, source, before):
-    """Note what a lookup changed, for Undo; a failure here is logged, never the lookup's."""
-    try:
-        store.save_metadata_change(book_id, source, json.dumps(before, ensure_ascii=False))
-    except Exception as e:
-        log.debug(f"Could not keep the change to book {book_id}: {e}")
-
-
-def undo_last_change(book_id: int) -> bool:
-    """Put back what the book's latest lookup changed, as it was before; True when there was
-    one. The book then counts as edited by hand, so the next lookup only fills its gaps. A
-    cover the lookup set stays."""
-    store = CWA_DB()
-    change = store.last_metadata_change(book_id)
-    if not change:
-        return False
-    before = json.loads(change["before"])
-    with library_lock:
-        cdb = db.CalibreDB(expire_on_commit=False, init=True)
-    try:
-        with library_lock:
-            book = cdb.get_book(book_id)
-            if not book:
-                return False
-            old = _title_and_author(cdb, book)
-            _restore(cdb, book, before)
-            _follow_up(cdb, book_id, old, bool(store.get_cwa_settings().get('auto_metadata_enforcement')))
-    except Exception:
-        with library_lock:
-            _rollback(cdb)
-        raise
-    finally:
-        with library_lock:
-            cdb.session.close()
-    store.drop_metadata_change(change["id"])
-    store.save_hand_edit(book_id)
-    log.info(f"Undid the {change['source'] or 'metadata'} lookup of book {book_id}")
-    return True
-
-
-def _restore(cdb, book, before):
-    """Set the book's fields back to `before` (see _apply_record) and commit."""
-    session = cdb.session
-    dropped = []
-    with session.no_autoflush:
-        if 'title' in before:
-            book.title = before['title']
-        if 'authors' in before:
-            authors = []
-            for name in before['authors'] or []:
-                author = _named(cdb, db.Authors, cdb.get_author_by_name, name, get_sorted_author(name.replace('|', ',')))
-                if author not in authors:
-                    authors.append(author)
-            dropped += [a for a in book.authors if a not in authors]
-            book.authors = authors
-            book.author_sort = before.get('author_sort') or ' & '.join(a.sort for a in authors)
-        if 'pubdate' in before:
-            book.pubdate = datetime.fromisoformat(before['pubdate']) if before['pubdate'] else db.Books.DEFAULT_PUBDATE
-        added = set(before.get('identifiers_added') or [])
-        replaced = before.get('identifiers_changed') or {}
-        for identifier in list(book.identifiers):
-            if identifier.type.lower() in added:
-                book.identifiers.remove(identifier)
-                session.delete(identifier)
-            elif identifier.type.lower() in replaced:
-                identifier.val = replaced[identifier.type.lower()]
-    book.last_modified = datetime.now(UTC)
-    session.flush()
-    for row in dropped:
-        if _unused(session, row):
-            session.delete(row)
-    session.commit()
 
 
 def _place_cover(book, cover):

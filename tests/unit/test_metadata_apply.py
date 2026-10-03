@@ -308,8 +308,9 @@ def _store(hand=False):
     changes = []
     store = SimpleNamespace(get_cwa_settings=lambda: {"auto_metadata_fetch_enabled": 1},
                             is_hand_edited=lambda book_id: hand,
-                            save_metadata_change=lambda book_id, source, before: changes.append((book_id, before)),
-                            save_metadata_lookup=lambda *a: None, get_cover_check=lambda *a: None,
+                            save_metadata_lookup=lambda *a: None,
+                            log_metadata_lookup=lambda book_id, title, status, source, changed: changes.append(changed),
+                            get_cover_check=lambda *a: None,
                             save_cover_check=lambda *a: None)
     return store, changes
 
@@ -373,30 +374,6 @@ def test_the_paper_sources_are_not_asked_about_an_epub(env, monkeypatch):
     assert asked == ["Spectral Graphs Fan Chung"]
 
 
-def test_undo_puts_back_what_a_lookup_changed(env, monkeypatch):
-    from cwa_db import CWA_DB
-    from cps import metadata_helper
-    book = env.add_book("dune", author="Unknown", tags=("Deserts",))
-    (env.library_dir / "Unknown" / "dune").mkdir(parents=True, exist_ok=True)
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"],
-                                         tags=["Science fiction"], series="Dune Chronicles",
-                                         publishedDate="1965", identifiers={"google": "abc"}))
-    monkeypatch.setattr(helper, "CWA_DB", CWA_DB)
-    CWA_DB().update_cwa_settings({"auto_metadata_fetch_enabled": 1})
-    before = _q(env, "SELECT title, author_sort, pubdate, series_index FROM books")
-    assert helper.fetch_and_apply_metadata(book, force=True) is True
-    assert _q(env, "SELECT title FROM books") == [("Dune",)]
-    assert metadata_helper.undo_last_change(book) is True
-    assert _q(env, "SELECT title, author_sort, pubdate, series_index FROM books")[0][:2] == before[0][:2]
-    assert _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author") == [("Unknown",)]
-    assert _book_tags(env, book) == ["Deserts"]
-    assert _q(env, "SELECT count(*) FROM books_series_link") == [(0,)]
-    assert _q(env, "SELECT count(*) FROM identifiers") == [(0,)]
-    # Undone once; the book now counts as edited by hand
-    assert metadata_helper.undo_last_change(book) is False
-    assert CWA_DB().is_hand_edited(book)
-
-
 @pytest.mark.parametrize("title, found, kept", [
     ("Beowulf: An Anglo-Saxon Epic Poem", "Beowulf an Anglo-Saxon Epic Poem", "Beowulf: An Anglo-Saxon Epic Poem"),
     ("The war of the worlds", "The War of the Worlds", "The War of the Worlds"),
@@ -457,11 +434,11 @@ def test_a_full_rebuild_replaces_what_the_match_has(env, monkeypatch):
     assert _q(env, "SELECT pubdate FROM books")[0][0].startswith("1965-08-01")
     assert sorted(n for (n,) in _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author")) == [
         "Brian Herbert", "Frank Herbert"]
-    # Kept for Undo: the date and ISBN it replaced
-    [(__, before)] = changes
-    before = __import__("json").loads(before)
-    assert before["identifiers_changed"] == {"isbn": "9780000000002"}
-    assert before["pubdate"].startswith("2001-01-01") and "description" not in before
+    # Logged: the date and ISBN it replaced
+    [changed] = changes
+    changed = __import__("json").loads(changed)
+    assert changed["identifiers"][0] == "isbn 9780000000002"
+    assert changed["pubdate"] == ["2001-01-01", "1965-08-01"] and "description" not in changed
 
 
 def test_a_full_rebuild_keeps_a_hand_edited_books_title_and_authors(env, monkeypatch):
@@ -481,15 +458,3 @@ def test_an_ordinary_rebuild_still_only_fills(env, monkeypatch):
     _with_store(monkeypatch, helper, store)
     helper.fetch_and_apply_metadata(book, force=True)
     assert ("isbn", "9780000000002") in _q(env, "SELECT type, val FROM identifiers")
-
-
-def test_undo_puts_back_an_identifier_a_full_rebuild_replaced(env, monkeypatch):
-    from cwa_db import CWA_DB
-    from cps import metadata_helper
-    book = _full_rebuild_book(env)
-    helper = _setup(monkeypatch, _record(**_THEIRS))
-    monkeypatch.setattr(helper, "CWA_DB", CWA_DB)
-    assert helper.fetch_and_apply_metadata(book, force=True, overwrite=True) is True
-    assert metadata_helper.undo_last_change(book) is True
-    assert _q(env, "SELECT type, val FROM identifiers") == [("isbn", "9780000000002")]
-    assert _q(env, "SELECT pubdate FROM books")[0][0].startswith("2001-01-01")

@@ -224,17 +224,6 @@
               </div>
             </dl>
           </div>
-          {# Puts back what the latest automatic lookup changed (editors only; metadata_helper.undo_last_change).
-             The header's × closes the dialog, so the footer is only there for this. #}
-          {% if metadata_change %}
-          <div class="modal-footer">
-            <form method="post" action="{{ url_for('edit-book.undo_lookup', book_id=entry.id) }}" class="book-undo-lookup">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-default" id="undo-lookup"
-                      title="{{ _('Put back the details from before the %(source)s lookup on %(date)s', source=metadata_change.source or _('metadata'), date=metadata_change.changed|formatdate) }}">{{ _('Undo lookup') }}</button>
-            </form>
-          </div>
-          {% endif %}
         </div>
       </div>
     </div>
