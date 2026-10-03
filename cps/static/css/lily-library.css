@@ -1753,7 +1753,7 @@ dl.book-record {
    min-content is its whole unwrapped line) can't widen the dialog. */
 #metaModal .modal-dialog { margin-top: 24px; margin-bottom: 24px; }
 /* Beside the cover rather than over it: get_meta.js sets --meta-left to 24px past the
-   cover's right edge and --meta-room to the width left, when that is at least 600px */
+   cover's right edge and --meta-room to the width left, when that is at least 440px */
 #metaModal .modal-dialog.meta-beside-cover {
     width: min(900px, var(--meta-room));
     margin-left: var(--meta-left);

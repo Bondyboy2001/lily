@@ -450,6 +450,9 @@ def test_fetch_metadata_opens_beside_the_cover():
     js = read(JS / "get_meta.js")
     assert "cover.getBoundingClientRect().right / zoom + 24" in js
     assert 'dialog.classList.toggle("meta-beside-cover", fits);' in js
+    # Beside the book page's whole plate, on any window but a phone's
+    assert '$(".editbook-cover-section .cover, .book-detail-cover")[0]' in js
+    assert "var fits = left > 0 && room >= 440;" in js
     css = read(CSS / "lily-library.css")
     assert "#metaModal .modal-dialog.meta-beside-cover {" in css
     assert "margin-left: var(--meta-left);" in css

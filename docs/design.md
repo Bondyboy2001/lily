@@ -597,7 +597,7 @@ content (grid, panel, rows)
   score is a bare 24px number ("21%") in the card's top right; an exact match
   shows its pill under Apply instead. A result's cover carries no text over the art.
   A result without a cover shows an empty "No cover" slot the cover's shape, with no
-  tick box. The dialog opens beside the cover (the editor's or the book page's plate), not over it, whenever 600px
+  tick box. The dialog opens beside the cover (the editor's or the book page's plate), not over it, whenever 440px
   of window is left (get_meta.js).
 
 ### 6.5 Settings (`settings_layout.html`, `lily_form.html`)
