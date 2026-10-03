@@ -14,14 +14,13 @@ from functools import wraps
 from flask import Blueprint, flash, redirect, url_for, abort, request, g
 from .cw_login import current_user
 from flask_babel import gettext as _
-from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from . import constants, logger, helper, cli_param
 from . import calibre_db, ub, web_server, config
 from werkzeug.security import generate_password_hash
 from .helper import check_email, valid_email, check_username
-from .render_template import render_title_template, get_sidebar_config
+from .render_template import render_title_template
 from .usermanagement import user_login_required
 
 log = logger.create()
@@ -162,47 +161,15 @@ def load_dialogtexts(element_id):
 @admin_required
 def new_user():
     content = ub.User()
-    languages = calibre_db.speaking_language()
     if request.method == "POST":
         to_save = request.form.to_dict()
-        _handle_new_user(to_save, content, languages)
+        _handle_new_user(to_save, content)
     else:
         content.role = config.config_default_role
         content.sidebar_view = config.config_default_show
         content.default_language = config.config_default_language
-    opds_context = _build_opds_context(content)
     return render_title_template("user_edit.html", new_user=1, content=content,
-                                 config=config,
-                                 languages=languages, title=_("Add New User"), page="newuser",
-                                 opds_root_order_string=opds_context["opds_root_order_string"],
-                                 opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
-                                 opds_root_labels=opds_context["opds_root_labels"])
-
-
-def _build_opds_context(user):
-    from .opds import (
-        get_opds_root_order_for_user,
-        get_opds_hidden_entries_for_user,
-        OPDS_ROOT_ENTRY_DEFS,
-        OPDS_ROOT_ORDER_DEFAULT,
-    )
-    opds_root_order = get_opds_root_order_for_user(user)
-    opds_root_order_string = ",".join(opds_root_order)
-    opds_hidden_entries = list(get_opds_hidden_entries_for_user(user))
-    opds_hidden_entries_string = ",".join(opds_hidden_entries)
-    opds_root_labels = [
-        {
-            "key": key,
-            "label": _(OPDS_ROOT_ENTRY_DEFS[key]['title']),
-        }
-        for key in OPDS_ROOT_ORDER_DEFAULT
-        if key in OPDS_ROOT_ENTRY_DEFS
-    ]
-    return {
-        "opds_root_order_string": opds_root_order_string,
-        "opds_hidden_entries_string": opds_hidden_entries_string,
-        "opds_root_labels": opds_root_labels,
-    }
+                                 config=config, title=_("Add New User"), page="newuser")
 
 
 @admi.route("/admin/user/<int:user_id>", methods=["GET", "POST"])
@@ -213,31 +180,22 @@ def edit_user(user_id):
     if not content or (not config.config_anonbrowse and content.name == "Guest"):
         flash(_("User not found"), category="error")
         return redirect(url_for('admin.edit_user_table'))
-    languages = calibre_db.speaking_language(return_all_languages=True)
-
     if request.method == "POST":
         to_save = request.form.to_dict()
-        resp = _handle_edit_user(to_save, content, languages)
+        resp = _handle_edit_user(to_save, content)
         if resp:
             return resp
-    opds_context = _build_opds_context(content)
     return render_title_template("user_edit.html",
-                                 languages=languages,
                                  new_user=0,
                                  content=content,
                                  config=config,
-                                 opds_root_order_string=opds_context["opds_root_order_string"],
-                                 opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
-                                 opds_root_labels=opds_context["opds_root_labels"],
                                  title=_("Edit User %(nick)s", nick=content.name),
                                  page="edituser")
 
 
-def _handle_new_user(to_save, content, languages):
-    content.default_language = to_save.get("default_language", config.config_default_language)
-
-    shown = [int(key[5:]) for key in to_save if key.startswith('show_')]
-    content.sidebar_view = sum(shown) if shown else config.config_default_show
+def _handle_new_user(to_save, content):
+    content.default_language = config.config_default_language
+    content.sidebar_view = config.config_default_show
 
     content.role = constants.selected_roles(to_save)
     try:
@@ -250,13 +208,8 @@ def _handle_new_user(to_save, content, languages):
         content.name = check_username(to_save["name"])
     except Exception as ex:
         flash(str(ex), category="error")
-        opds_context = _build_opds_context(content)
         return render_title_template("user_edit.html", new_user=1, content=content,
-                                     config=config,
-                                     languages=languages, title=_("Add New User"), page="newuser",
-                                     opds_root_order_string=opds_context["opds_root_order_string"],
-                                     opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
-                                     opds_root_labels=opds_context["opds_root_labels"])
+                                     config=config, title=_("Add New User"), page="newuser")
     try:
         content.allowed_tags = config.config_allowed_tags
         content.denied_tags = config.config_denied_tags
@@ -301,7 +254,7 @@ def _delete_user(content):
         raise Exception(_("No admin user remaining, can't delete user"))
 
 
-def _handle_edit_user(to_save, content, languages):
+def _handle_edit_user(to_save, content):
     if to_save.get("delete"):
         try:
             flash(_delete_user(content), category="success")
@@ -315,57 +268,6 @@ def _handle_edit_user(to_save, content, languages):
         flash(_("No admin user remaining, can't remove admin role"), category="error")
         return redirect(url_for('admin.edit_user_table'))
 
-    # The user form no longer shows sidebar or OPDS options, so those keep their values.
-    val = [int(k[5:]) for k in to_save if k.startswith('show_')]
-    if val:
-        sidebar, __ = get_sidebar_config()
-        for element in sidebar:
-            value = element['visibility']
-            if value in val and not content.check_visibility(value):
-                content.sidebar_view |= value
-            elif value not in val and content.check_visibility(value):
-                content.sidebar_view &= ~value
-
-    # OPDS root order
-    opds_order_raw = to_save.get("opds_root_order", "").strip()
-    if "opds_root_order" not in to_save:
-        pass
-    elif opds_order_raw:
-        from .opds import normalize_opds_root_order
-        opds_order_list = [item.strip() for item in opds_order_raw.split(',') if item.strip()]
-        normalized_order = normalize_opds_root_order(opds_order_list)
-        if content.view_settings is None:
-            content.view_settings = {}
-        content.view_settings.setdefault('opds', {})['root_order'] = normalized_order
-        flag_modified(content, "view_settings")
-    else:
-        if content.view_settings and content.view_settings.get('opds', {}).get('root_order'):
-            content.view_settings['opds'].pop('root_order', None)
-            if not content.view_settings['opds']:
-                content.view_settings.pop('opds', None)
-            flag_modified(content, "view_settings")
-
-    # OPDS hidden entries
-    opds_hidden_raw = to_save.get("opds_hidden_entries", "").strip()
-    if "opds_hidden_entries" not in to_save:
-        pass
-    elif opds_hidden_raw:
-        from .opds import OPDS_ROOT_ENTRY_DEFS
-        hidden_entries = [item.strip() for item in opds_hidden_raw.split(',') if item.strip()]
-        hidden_entries = [key for key in hidden_entries if key in OPDS_ROOT_ENTRY_DEFS]
-        if content.view_settings is None:
-            content.view_settings = {}
-        content.view_settings.setdefault('opds', {})['hidden_entries'] = hidden_entries
-        flag_modified(content, "view_settings")
-    else:
-        if content.view_settings and content.view_settings.get('opds', {}).get('hidden_entries'):
-            content.view_settings['opds'].pop('hidden_entries', None)
-            if not content.view_settings['opds']:
-                content.view_settings.pop('opds', None)
-            flag_modified(content, "view_settings")
-
-    if to_save.get("default_language"):
-        content.default_language = to_save["default_language"]
     try:
         anonymous = content.is_anonymous
         content.role = constants.selected_roles(to_save)
@@ -390,15 +292,10 @@ def _handle_edit_user(to_save, content, languages):
     except Exception as ex:
         log.error(ex)
         flash(str(ex), category="error")
-        opds_context = _build_opds_context(content)
         return render_title_template("user_edit.html",
-                                     languages=languages,
                                      new_user=0,
                                      content=content,
                                      config=config,
-                                     opds_root_order_string=opds_context["opds_root_order_string"],
-                                     opds_hidden_entries_string=opds_context["opds_hidden_entries_string"],
-                                     opds_root_labels=opds_context["opds_root_labels"],
                                      title=_("Edit User %(nick)s", nick=content.name),
                                      page="edituser")
     try:

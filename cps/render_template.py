@@ -7,16 +7,14 @@
 
 """render_title_template: wraps Flask templates with the sidebar, notifications and per-user settings."""
 
-from flask import render_template, g, abort, request, flash
+from flask import render_template, g, abort, flash
 from flask import after_this_request, has_app_context, has_request_context
 from flask_babel import gettext as _
-from werkzeug.local import LocalProxy
 from .cw_login import current_user
 from sqlalchemy.sql.expression import or_
 from sqlalchemy import func
 
 from . import config, constants, logger, ub
-from .ub import User
 
 # CWA specific imports
 from datetime import datetime
@@ -94,72 +92,54 @@ def duplicate_index_setup_notification(settings, cwa_db=None, cache_data=None, c
         return False
 
 
-def get_sidebar_config(kwargs=None):
-    kwargs = kwargs or []
-    simple = bool([e for e in ['kindle', 'tolino', "kobo", "bookeen"]
-                   if (e in request.headers.get('User-Agent', "").lower())])
-    if 'content' in kwargs:
-        content = kwargs['content']
-        content = isinstance(content, (User, LocalProxy)) and not content.role_anonymous()
-    else:
-        content = 'conf' in kwargs
+def get_sidebar_config():
     sidebar = list()
     sidebar.append({"glyph": "glyphicon-book", "text": _('Books'), "link": 'web.index', "id": "new",
-                    "visibility": constants.SIDEBAR_RECENT, 'public': True, "page": "newest",
-                    "show_text": _('Show recent books'), "config_show":False})
+                    "visibility": constants.SIDEBAR_RECENT, 'public': True, "page": "newest"})
     sidebar.append({"glyph": "glyphicon-fire", "text": _('Hot Books'), "link": 'web.books_list', "id": "hot",
-                    "visibility": constants.SIDEBAR_HOT, 'public': True, "page": "hot",
-                    "show_text": _('Show Hot Books'), "config_show": True})
+                    "visibility": constants.SIDEBAR_HOT, 'public': True, "page": "hot"})
     if current_user.role_admin():
         sidebar.append({"glyph": "glyphicon-download", "text": _('Downloaded Books'), "link": 'web.download_list',
                         "id": "download", "visibility": constants.SIDEBAR_DOWNLOAD, 'public': (not current_user.is_anonymous),
-                        "page": "download", "show_text": _('Show Downloaded Books'),
-                        "config_show": content})
+                        "page": "download"})
     else:
         sidebar.append({"glyph": "glyphicon-download", "text": _('Downloaded Books'), "link": 'web.books_list',
                         "id": "download", "visibility": constants.SIDEBAR_DOWNLOAD, 'public': (not current_user.is_anonymous),
-                        "page": "download", "show_text": _('Show Downloaded Books'),
-                        "config_show": content})
+                        "page": "download"})
     sidebar.append(
         {"glyph": "glyphicon-star", "text": _('Top Rated Books'), "link": 'web.books_list', "id": "rated",
-         "visibility": constants.SIDEBAR_BEST_RATED, 'public': True, "page": "rated",
-         "show_text": _('Show Top Rated Books'), "config_show": True})
+         "visibility": constants.SIDEBAR_BEST_RATED, 'public': True, "page": "rated"})
     # Reading and Finished always show for signed-in users (SIDEBAR_RECENT is the always-visible flag).
     sidebar.append({"glyph": "glyphicon-education", "text": _('Reading'), "link": 'web.books_list', "id": "inprogress",
                     "visibility": constants.SIDEBAR_RECENT, 'public': (not current_user.is_anonymous),
-                    "page": "inprogress", "show_text": _('Show Reading'), "config_show": False})
+                    "page": "inprogress"})
     sidebar.append({"glyph": "glyphicon-eye-open", "text": _('Finished'), "link": 'web.books_list', "id": "read",
                     "visibility": constants.SIDEBAR_RECENT, 'public': (not current_user.is_anonymous),
-                    "page": "read", "show_text": _('Show Read and Unread'), "config_show": content})
+                    "page": "read"})
     sidebar.append(
         {"glyph": "glyphicon-eye-close", "text": _('Unread'), "link": 'web.books_list', "id": "unread",
-         "visibility": constants.SIDEBAR_READ_AND_UNREAD, 'public': (not current_user.is_anonymous), "page": "unread",
-         "show_text": _('Show unread'), "config_show": False})
+         "visibility": constants.SIDEBAR_READ_AND_UNREAD, 'public': (not current_user.is_anonymous), "page": "unread"})
     sidebar.append({"glyph": "glyphicon-inbox", "text": _('Tags'), "link": 'web.category_list', "id": "cat",
-                    "visibility": constants.SIDEBAR_CATEGORY, 'public': True, "page": "category",
-                    "show_text": _('Show Category Section'), "config_show": True})
+                    "visibility": constants.SIDEBAR_CATEGORY, 'public': True, "page": "category"})
     sidebar.append({"glyph": "glyphicon-user", "text": _('Authors'), "link": 'web.author_list', "id": "author",
-                    "visibility": constants.SIDEBAR_AUTHOR, 'public': True, "page": "author",
-                    "show_text": _('Show Author Section'), "config_show": True})
+                    "visibility": constants.SIDEBAR_AUTHOR, 'public': True, "page": "author"})
     sidebar.append(
         {"glyph": "glyphicon-text-size", "text": _('Publishers'), "link": 'web.publisher_list', "id": "publisher",
-         "visibility": constants.SIDEBAR_PUBLISHER, 'public': True, "page": "publisher",
-         "show_text": _('Show Publisher Section'), "config_show":True})
+         "visibility": constants.SIDEBAR_PUBLISHER, 'public': True, "page": "publisher"})
     sidebar.append({"glyph": "glyphicon-flag", "text": _('Languages'), "link": 'web.language_overview', "id": "lang",
                     "visibility": constants.SIDEBAR_LANGUAGE, 'public': (current_user.filter_language() == 'all'),
-                    "page": "language",
-                    "show_text": _('Show Language Section'), "config_show": True})
+                    "page": "language"})
     sidebar.append({"glyph": "glyphicon-star-empty", "text": _('Ratings'), "link": 'web.ratings_list', "id": "rate",
                     "visibility": constants.SIDEBAR_RATING, 'public': True,
-                    "page": "rating", "show_text": _('Show Ratings Section'), "config_show": True})
+                    "page": "rating"})
     sidebar.append({"glyph": "glyphicon-file", "text": _('File formats'), "link": 'web.formats_list', "id": "format",
                     "visibility": constants.SIDEBAR_FORMAT, 'public': True,
-                    "page": "format", "show_text": _('Show File Formats Section'), "config_show": True})
+                    "page": "format"})
     g.shelves_access = ub.session.query(ub.Shelf).filter(
         or_(ub.Shelf.is_public == 1, ub.Shelf.user_id == current_user.id)).order_by(ub.Shelf.name).all()
     g.shelf_book_counts = shelf_book_counts([shelf.id for shelf in g.shelves_access])
 
-    return sidebar, simple
+    return sidebar
 
 
 def shelf_book_counts(shelf_ids):
@@ -223,7 +203,7 @@ def cwa_update_notification() -> None:
 
 # Returns the template for rendering and includes the instance name
 def render_title_template(*args, **kwargs):
-    sidebar, simple = get_sidebar_config(kwargs)
+    sidebar = get_sidebar_config()
     if current_user.role_admin():
         try:
             cwa_update_notification()
@@ -299,7 +279,7 @@ def render_title_template(*args, **kwargs):
     except Exception as e:
         log.debug("[cwa-duplicates] Failed to build duplicate notification context: %s", str(e))
     try:
-        return render_template(instance=config.config_calibre_web_title, sidebar=sidebar, simple=simple,
+        return render_template(instance=config.config_calibre_web_title, sidebar=sidebar,
                        accept=config.config_upload_formats.split(','),
                        duplicate_notification=duplicate_notification,
                        *args, **kwargs)

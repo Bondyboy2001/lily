@@ -16,12 +16,10 @@ from flask_babel import gettext as _
 from .cw_login import login_user, logout_user, current_user
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.sql.expression import func
-from sqlalchemy.orm.attributes import flag_modified
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from . import constants
 from . import ub, config
-from . import calibre_db
 from .helper import check_email, check_username, \
     valid_email, \
     valid_password
@@ -210,7 +208,7 @@ def change_password():
 
 
 # ################################### Users own configuration #########################################################
-def change_profile(languages):
+def change_profile():
     to_save = request.form.to_dict()
     try:
         if current_user.role_passwd() or current_user.role_admin():
@@ -225,77 +223,12 @@ def change_profile(languages):
             if to_save.get("name", current_user.name) != current_user.name:
                 # Query username, if not existing, change
                 current_user.name = check_username(to_save.get("name"))
-        # The profile form only shows account fields; anything it doesn't send keeps its value.
-        if "default_language" in to_save:
-            current_user.default_language = to_save["default_language"]
-
-        # OPDS root order
-        opds_order_raw = to_save.get("opds_root_order", "").strip()
-        if "opds_root_order" not in to_save:
-            pass
-        elif opds_order_raw:
-            from .opds import normalize_opds_root_order
-            opds_order_list = [item.strip() for item in opds_order_raw.split(',') if item.strip()]
-            normalized_order = normalize_opds_root_order(opds_order_list)
-            if current_user.view_settings is None:
-                current_user.view_settings = {}
-            current_user.view_settings.setdefault('opds', {})['root_order'] = normalized_order
-            flag_modified(current_user, "view_settings")
-        else:
-            if current_user.view_settings and current_user.view_settings.get('opds', {}).get('root_order'):
-                current_user.view_settings['opds'].pop('root_order', None)
-                if not current_user.view_settings['opds']:
-                    current_user.view_settings.pop('opds', None)
-                flag_modified(current_user, "view_settings")
-
-        # OPDS hidden entries
-        opds_hidden_raw = to_save.get("opds_hidden_entries", "").strip()
-        if "opds_hidden_entries" not in to_save:
-            pass
-        elif opds_hidden_raw:
-            from .opds import OPDS_ROOT_ENTRY_DEFS
-            hidden_entries = [item.strip() for item in opds_hidden_raw.split(',') if item.strip()]
-            hidden_entries = [key for key in hidden_entries if key in OPDS_ROOT_ENTRY_DEFS]
-            if current_user.view_settings is None:
-                current_user.view_settings = {}
-            current_user.view_settings.setdefault('opds', {})['hidden_entries'] = hidden_entries
-            flag_modified(current_user, "view_settings")
-        else:
-            if current_user.view_settings and current_user.view_settings.get('opds', {}).get('hidden_entries'):
-                current_user.view_settings['opds'].pop('hidden_entries', None)
-                if not current_user.view_settings['opds']:
-                    current_user.view_settings.pop('opds', None)
-                flag_modified(current_user, "view_settings")
-
     except Exception as ex:
         flash(str(ex), category="error")
-        from .opds import (
-            get_opds_root_order_for_user,
-            get_opds_hidden_entries_for_user,
-            OPDS_ROOT_ENTRY_DEFS,
-            OPDS_ROOT_ORDER_DEFAULT,
-        )
-        opds_root_order = get_opds_root_order_for_user(current_user)
-        opds_root_order_string = ",".join(opds_root_order)
-        opds_hidden_entries = list(get_opds_hidden_entries_for_user(current_user))
-        opds_hidden_entries_string = ",".join(opds_hidden_entries)
-        opds_root_labels = [
-            {
-                "key": key,
-                "label": _(OPDS_ROOT_ENTRY_DEFS[key]['title']),
-            }
-            for key in OPDS_ROOT_ORDER_DEFAULT
-            if key in OPDS_ROOT_ENTRY_DEFS
-        ]
-
         return render_title_template("user_edit.html",
                                      content=current_user,
                                      config=config,
                                      profile=1,
-                                     languages=languages,
-                                     opds_root_order_string=opds_root_order_string,
-                                     opds_hidden_entries_string=opds_hidden_entries_string,
-                                     opds_root_labels=opds_root_labels,
                                      title=_("%(name)s's Profile", name=current_user.name.capitalize()),
                                      page="me")
 
@@ -318,31 +251,12 @@ def change_profile(languages):
 @web.route("/me", methods=["GET", "POST"])
 @user_login_required
 def profile():
-    languages = calibre_db.speaking_language()
     if request.method == "POST":
-        return change_profile(languages)
-
-    from .opds import get_opds_root_order_for_user, get_opds_hidden_entries_for_user, OPDS_ROOT_ENTRY_DEFS, OPDS_ROOT_ORDER_DEFAULT
-    opds_root_order = get_opds_root_order_for_user(current_user)
-    opds_root_order_string = ",".join(opds_root_order)
-    opds_hidden_entries = list(get_opds_hidden_entries_for_user(current_user))
-    opds_hidden_entries_string = ",".join(opds_hidden_entries)
-    opds_root_labels = [
-        {
-            "key": key,
-            "label": _(OPDS_ROOT_ENTRY_DEFS[key]['title'])
-        }
-        for key in OPDS_ROOT_ORDER_DEFAULT
-        if key in OPDS_ROOT_ENTRY_DEFS
-    ]
+        return change_profile()
 
     return render_title_template("user_edit.html",
                                  profile=1,
-                                 languages=languages,
                                  content=current_user,
                                  config=config,
-                                 opds_root_order_string=opds_root_order_string,
-                                 opds_hidden_entries_string=opds_hidden_entries_string,
-                                 opds_root_labels=opds_root_labels,
                                  title=_("%(name)s's Profile", name=current_user.name.capitalize()),
                                  page="me")
