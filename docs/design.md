@@ -424,15 +424,15 @@ advanced search (a custom rating column is a plain number field).
 
 ### 5.15 Book cover
 
-Aspect ratio **1 : 1.414**, `object-fit: cover` anchored `left center` (a US Letter
-page, wider than A4, loses its right margin rather than half of arXiv's left-margin
-stamp), `--sunk` behind, a 1px
-`--line-soft` inset hairline (`outline-offset: -1px`), no shadow. A PDF whose cover is
-its first page has that page cropped to even side margins around the print on import and
-on Rebuild metadata (`cps/pdf_cover.py`), no wider than the tile, so the anchor rarely
-trims those. A cover more than 5% wider than A4 (a publisher's 3:4 front) still fills the
-tile — covers never letterbox — but is marked `.cover-wide` by `lily.js` and centred, so
-the crop comes evenly off both sides. Grid covers mark their file types with ribbons (`.lily-ribbon`): one 22×34 notched ribbon per format hanging from the top edge, 12px in, in the format's own colour (PDF red, EPUB green, DjVu blue, anything else grey) with its icon knocked out in white; icon only, the group named by its `aria-label`. Finished and Fetched are 22px `--surface` discs with a `--success` glyph in the bottom-left corner, 8px in (top-right on touch screens, where the quick actions stay out). Read state is a 3px `--success` inset outline plus that eye disc titled "Finished" on grid
+A shelf: each grid card keeps an A4 slot (**1 : 1.414**) so titles line up, and the cover
+inside it takes the image's own shape (`--r`, width / height, set by `lily.js` on load),
+standing on the slot's foot and centred across it. Nothing is cropped or letterboxed: a US
+Letter page or a publisher's 3:4 front is a little shorter than the slot, a 2:3 jacket a
+little narrower. Only outliers past 1:2 or 1:1 are clamped and trimmed. `--sunk` behind
+while it loads, a 1px `--line-soft` inset hairline (`outline-offset: -1px`), no shadow; the
+ribbons, marks and actions sit on the cover's own edges. A PDF whose cover is its first page
+has that page cropped to even side margins around the print on import and on Rebuild
+metadata (`cps/pdf_cover.py`). Grid covers mark their file types with ribbons (`.lily-ribbon`): one 22×34 notched ribbon per format hanging from the top edge, 12px in, in the format's own colour (PDF red, EPUB green, DjVu blue, anything else grey) with its icon knocked out in white; icon only, the group named by its `aria-label`. Finished and Fetched are 22px `--surface` discs with a `--success` glyph in the bottom-left corner, 8px in (top-right on touch screens, where the quick actions stay out). Read state is a 3px `--success` inset outline plus that eye disc titled "Finished" on grid
 covers. Mark-as-read controls use the eye
 glyph (`glyphicon-eye-open`), the same mark as the sidebar's Finished row. For editors, a book a metadata lookup has
 matched carries the green fetched tick (`.lily-fetched`, §6.4): a disc beside the eye on grid covers and the book plate.
