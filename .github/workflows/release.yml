@@ -166,15 +166,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
       # The smoke test pulls the new image, which shares all but its app layers with the
-      # last release. Fetching that one now, while buildx starts and the build runs,
-      # leaves the smoke test only the few MB that changed (a full pull took ~15 s).
+      # last release. Fetching that one while the build runs leaves the smoke test only
+      # the few MB that changed (a full pull took ~15 s). It starts after buildx's own
+      # image pull, which it slowed by ~7 s.
       - name: Pre-pull the last release for the smoke test
         if: matrix.platform == 'linux/amd64'
         run: nohup docker pull -q "ghcr.io/${GITHUB_REPOSITORY,,}:latest" > /dev/null 2>&1 &
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
 
       - name: Log in to Docker Hub
         if: env.HAS_DOCKERHUB == 'true'
