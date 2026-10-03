@@ -68,7 +68,7 @@ See https://github.com/adobe-type-tools/cmap-resources
         var phone = window.matchMedia('(max-width: 600px)').matches;
         PDFViewerApplicationOptions.set('defaultZoomValue', phone ? 'page-width' : 'auto');
         PDFViewerApplicationOptions.set('workerSrc', "{{ url_for('static', filename='js/libs/pdf.worker.mjs') }}");
-        PDFViewerApplicationOptions.set('defaultUrl',"{{ url_for('web.serve_book', book_id=pdffile, book_format='pdf') }}")
+        PDFViewerApplicationOptions.set('defaultUrl',"{{ url_for('web.serve_book', book_id=pdffile, book_format='pdf', fast=1 if pdf_fast else None) }}")
     });
     </script>
 

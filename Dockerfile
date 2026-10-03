@@ -70,6 +70,7 @@ RUN \
   apt-get install -y --no-install-recommends \
   imagemagick \
   ghostscript \
+  qpdf \
   libmagic1 \
   libxi6 \
   libxslt1.1 \

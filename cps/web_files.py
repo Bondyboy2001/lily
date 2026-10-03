@@ -20,6 +20,7 @@ from .cw_login import current_user
 from . import constants
 from . import config
 from . import calibre_db
+from . import pdf_fast
 from .helper import get_book_cover, get_series_cover_thumbnail, get_download_link
 from .usermanagement import login_required_if_no_ano
 
@@ -177,6 +178,14 @@ def serve_book(book_id, book_format, anyname):
         except FileNotFoundError:
             log.error("File Not Found")
             return "File Not Found"
+    # The PDF reader asks for the linearized copy (?fast=1) only once it exists (pdf_fast)
+    if book_format.upper() == 'PDF' and request.args.get('fast'):
+        source = os.path.join(config.get_book_path(), book.path, data.name + ".pdf")
+        fast_path = pdf_fast.ready(book_id, source)
+        if fast_path:
+            response = make_response(send_file(fast_path, mimetype="application/pdf", conditional=True))
+            response.headers['Accept-Ranges'] = 'bytes'
+            return response
     # enable byte range read of pdf
     response = make_response(
         send_from_directory(os.path.join(config.get_book_path(), book.path), data.name + "." + book_format))
