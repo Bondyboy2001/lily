@@ -1052,7 +1052,8 @@ class CalibreDB:
             (title.like(like_pattern(folded)[1:], escape="\\"), 2),
             (holds(title, folded), 3),
             (and_(*[holds(title, word) for word in words]), 4),
-            (and_(*[Books.authors.any(holds(func.lower(Authors.name), word)) for word in words]), 5),
+            (and_(*[books_named(books_authors_link.c.author, Authors, like_pattern(word))
+                    for word in words]), 5),
             else_=6,
         )
 
