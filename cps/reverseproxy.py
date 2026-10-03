@@ -60,10 +60,16 @@ class ReverseProxied(object):
         }
     """
 
-    def __init__(self, application):
+    def __init__(self, application, enabled=True):
         self.app = application
+        # With no trusted proxy in front (TRUSTED_PROXY_COUNT=0) these headers come
+        # straight from the client, so honouring them would let anyone spoof the
+        # host, scheme and URL prefix.
+        self.enabled = enabled
 
     def __call__(self, environ, start_response):
+        if not self.enabled:
+            return self.app(environ, start_response)
         script_name = environ.get('HTTP_X_SCRIPT_NAME', '')
         if script_name:
             environ['SCRIPT_NAME'] = script_name

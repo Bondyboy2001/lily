@@ -12,9 +12,9 @@ class _StubApp:
         return iter([b"ok"])
 
 
-def _run(environ):
+def _run(environ, enabled=True):
     app = _StubApp()
-    proxied = ReverseProxied(app)
+    proxied = ReverseProxied(app, enabled=enabled)
     result = b"".join(proxied(dict(environ), lambda *a, **k: None))
     assert result == b"ok"
     return app.seen
@@ -56,3 +56,24 @@ class TestReverseProxied:
         assert seen["HTTP_HOST"] == "internal:8083"
         assert seen["wsgi.url_scheme"] == "http"
         assert "SCRIPT_NAME" not in seen
+
+    def test_disabled_ignores_spoofed_headers(self):
+        # TRUSTED_PROXY_COUNT=0: a direct client can't rewrite host, scheme or prefix.
+        seen = _run({"HTTP_X_SCRIPT_NAME": "/evil",
+                     "HTTP_X_SCHEME": "https",
+                     "HTTP_X_FORWARDED_PROTO": "https",
+                     "HTTP_X_FORWARDED_HOST": "evil.test",
+                     "PATH_INFO": "/evil/admin",
+                     "HTTP_HOST": "internal:8083",
+                     "wsgi.url_scheme": "http"}, enabled=False)
+        assert seen["HTTP_HOST"] == "internal:8083"
+        assert seen["wsgi.url_scheme"] == "http"
+        assert seen["PATH_INFO"] == "/evil/admin"
+        assert "SCRIPT_NAME" not in seen
+
+
+@pytest.mark.unit
+def test_app_wires_proxy_trust_to_trusted_proxy_count():
+    import pathlib
+    src = pathlib.Path(__file__).resolve().parents[2].joinpath("cps", "__init__.py").read_text()
+    assert "ReverseProxied(app.wsgi_app, enabled=(num_proxies > 0))" in src
