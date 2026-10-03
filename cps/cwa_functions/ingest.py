@@ -5,7 +5,7 @@
 # See CONTRIBUTORS for full list of authors.
 
 """Library refresh, ingest status helpers and the internal endpoints the ingest
-process calls (auto-send scheduling, debounced duplicate scans, DB reconnect)."""
+process calls (debounced duplicate scans, DB reconnect)."""
 
 from flask import request, jsonify, current_app, url_for, abort
 from flask_babel import gettext as _, lazy_gettext as _l
@@ -78,15 +78,15 @@ def _library_refresh_timeout() -> int:
 def _automation_jobs():
     try:
         from scripts.automation_jobs import (
-            create_job, finish_job, get_job, list_jobs, active_job,
+            create_job, finish_job, get_job, active_job,
             claim_job, failed_children,
         )
     except ImportError:
         from automation_jobs import (
-            create_job, finish_job, get_job, list_jobs, active_job,
+            create_job, finish_job, get_job, active_job,
             claim_job, failed_children,
         )
-    return create_job, finish_job, get_job, list_jobs, active_job, claim_job, failed_children
+    return create_job, finish_job, get_job, active_job, claim_job, failed_children
 
 
 def _finish_refresh_job(finish_job, job_id, return_code, app, failed_children=None):
@@ -133,8 +133,8 @@ def _finish_refresh_job(finish_job, job_id, return_code, app, failed_children=No
 
 
 def refresh_library(app, job_id=None):
-    _create, finish_job, _get, _list, _active, _claim, failed_children = \
-        ([None] * 7) if not job_id else _automation_jobs()
+    _create, finish_job, _get, _active, _claim, failed_children = \
+        ([None] * 6) if not job_id else _automation_jobs()
     return_code = -1
     try:
         with app.app_context():  # Create app context for session
@@ -201,7 +201,7 @@ def cwa_library_refresh():
 def library_refresh_job(job_id):
     if not re.fullmatch(r"[0-9a-fA-F]{32}", job_id or ""):
         abort(404)
-    _create, _finish, get_job, _list, _active, _claim, _fc = _automation_jobs()
+    _create, _finish, get_job, _active, _claim, _fc = _automation_jobs()
     job = get_job(job_id)
     if job is None or job["kind"] != "refresh":
         return jsonify({"error": "Unknown job"}), 404

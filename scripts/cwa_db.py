@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""cwa.db: Lily's settings and statistics database, its schema sync and migrations."""
+"""cwa.db: Lily's own settings and records (lookups, duplicates, jobs), its schema sync and migrations."""
 
 import json
 import shutil

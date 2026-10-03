@@ -9,7 +9,7 @@
     common        blueprints, logger, shared paths
     settings      /cwa-settings page + metadata-provider settings helpers
     ingest        library refresh, ingest helpers, internal endpoints used by the
-                  ingest process (auto-send, debounced duplicate scans, DB reconnect)
+                  ingest process (debounced duplicate scans, DB reconnect)
 
 Everything other modules import from ``cps.cwa_functions`` is re-exported here.
 Module-level state (e.g. the duplicate-scan debounce timer and lock) lives only in

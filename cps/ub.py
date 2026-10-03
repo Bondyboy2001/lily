@@ -485,7 +485,7 @@ def filename(context):
     file_format = params.get('format', 'jpeg')
     entity_id = params.get('entity_id')
     resolution = params.get('resolution')
-    thumb_type = params.get('type')  # cover or series
+    thumb_type = params.get('type')  # a cover's (THUMBNAIL_TYPE_COVER)
     uuid_val = params.get('uuid')
 
     # map format 'jpeg' -> extension jpg
@@ -498,8 +498,6 @@ def filename(context):
         if entity_id is not None and resolution is not None and thumb_type is not None:
             if thumb_type == constants.THUMBNAIL_TYPE_COVER:
                 return f"book_{entity_id}_r{resolution}.{ext}"
-            if thumb_type == constants.THUMBNAIL_TYPE_SERIES:
-                return f"series_{entity_id}_r{resolution}.{ext}"
     except Exception:
         # fall back to uuid naming if anything unexpected occurs
         pass

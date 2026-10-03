@@ -23,8 +23,7 @@ from pathlib import Path
 import title_card  # stdlib only at import time; Wand loads when a card is drawn
 
 # ── Lazy-initialization sentinels ──────────────────────────────────────────
-# Heavy modules (metadata fetch, audiobook support,
-# EPUB fixing) are NOT imported at module level.  All globals below start as
+# Heavy modules (metadata fetch, audiobook support) are NOT imported at module level.  All globals below start as
 # None / empty and are populated by initialize_runtime().  This allows main()
 # to fast-exit on missing/stale ingest targets without importing cps.* (which
 # triggers Flask app init) or creating process-lock files.
@@ -41,7 +40,6 @@ fetch_and_apply_metadata = None
 clear_new_book_tags = None
 tidy_new_book_authors = None
 recentre_new_book_cover = None
-_ub = None
 CWA_DB = None
 audiobook = None
 requests = None
@@ -247,7 +245,7 @@ def _load_runtime_dependencies() -> None:
 
 def _load_optional_cps_modules() -> None:
     global _CPS_AVAILABLE, _cps_config, fetch_and_apply_metadata, clear_new_book_tags, tidy_new_book_authors, \
-        recentre_new_book_cover, _ub
+        recentre_new_book_cover
 
     if _CPS_AVAILABLE:
         return
@@ -279,7 +277,6 @@ def _load_optional_cps_modules() -> None:
             clear_new_book_tags = loaded_clear_new_book_tags
             tidy_new_book_authors = loaded_tidy_new_book_authors
             recentre_new_book_cover = loaded_recentre_new_book_cover
-            _ub = loaded_ub
             _CPS_AVAILABLE = True
             print("[ingest-processor] Metadata functionality available", flush=True)
         except ImportError as e:
@@ -288,7 +285,6 @@ def _load_optional_cps_modules() -> None:
             clear_new_book_tags = None
             tidy_new_book_authors = None
             recentre_new_book_cover = None
-            _ub = None
             _CPS_AVAILABLE = False
 
     except Exception as e:
@@ -801,8 +797,7 @@ class NewBookProcessor:
                     "calibredb", "add", str(staged_path), "--automerge", IMPORT_MERGE, f"--library-path={self.library_dir}"
                 ]
                 # An EPUB with no cover image gets a title card rather than calibre's edge-to-edge
-                # render of its first page. calibredb only applies --cover to a new record; a merge
-                # into an existing book keeps that book's cover.
+                # render of its first page.
                 card_path = staged_path.with_name(staged_path.stem + ".title-card.jpg")
                 if staged_path.suffix.lower() == ".epub":
                     try:

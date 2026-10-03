@@ -885,7 +885,7 @@ def _named(cdb, model, lookup, name, *extra):
 
 
 def _only(book, attr, rows, dropped) -> bool:
-    """Make rows the book's only tags, or its one publisher or series; False when they
+    """Make rows the book's only tags, or its one publisher; False when they
     already are. The rows they replace are added to `dropped`."""
     current = getattr(book, attr)
     if {r.name for r in current} == {r.name for r in rows}:
@@ -896,7 +896,7 @@ def _only(book, attr, rows, dropped) -> bool:
 
 
 def _unused(session, row) -> bool:
-    """Whether no book has the author, tag, publisher or series any more. Asked of the
+    """Whether no book has the author, tag or publisher any more. Asked of the
     library, as row.books would load every book that has it: thousands, for a common tag."""
     model = type(row)
     return session.query(model.id).filter(model.id == row.id, model.books.any()).first() is None
@@ -1224,16 +1224,11 @@ def _restore(cdb, book, before):
             else:
                 for comment in list(book.comments):
                     session.delete(comment)
-        for attr, model, lookup in (('publisher', db.Publishers, cdb.get_publisher_by_name),
-                                    ('series', db.Series, cdb.get_series_by_name)):
-            if attr not in before:
-                continue
-            # A publisher's and a series' rows take their sort name too, as _apply_record makes them
-            rows = [_named(cdb, model, lookup, name, name)
-                    for name in before[attr] or []]
-            _only(book, 'publishers' if attr == 'publisher' else attr, rows, dropped)
-        if 'series_index' in before:
-            book.series_index = before['series_index']
+        if 'publisher' in before:
+            # The publisher's row takes its sort name too, as _apply_record makes it
+            rows = [_named(cdb, db.Publishers, cdb.get_publisher_by_name, name, name)
+                    for name in before['publisher'] or []]
+            _only(book, 'publishers', rows, dropped)
         if 'pubdate' in before:
             book.pubdate = datetime.fromisoformat(before['pubdate']) if before['pubdate'] else db.Books.DEFAULT_PUBDATE
         added = set(before.get('identifiers_added') or [])

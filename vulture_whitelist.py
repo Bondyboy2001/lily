@@ -17,9 +17,6 @@ _.login_view
 _.anonymous_user
 _.session_protection
 
-# Request-scoped `g` attributes read from templates
-_.allow_upload
-
 # Per-user / per-task attributes assigned dynamically and read elsewhere
 _.flask_httpauth_user
 _._lily_cwa_db

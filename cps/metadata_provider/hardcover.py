@@ -43,7 +43,6 @@ class Hardcover(Metadata):
         "query BookEditions($query: Int!) { "
         "books(where: {id: {_eq: $query}}) { "
         "  id slug description "
-        "  book_series { position series { name } } "
         "  editions { "
         "    id title release_date isbn_13 isbn_10 reading_format_id "
         "    image { url } "
@@ -134,10 +133,6 @@ class Hardcover(Metadata):
             if not document:
                 return None
 
-            series_info = self._safe_get(document, "featured_series", default={})
-            series = self._safe_get(document, "featured_series", "series", "name", default="")
-            series_index = self._safe_get(series_info, "position", default="")
-
             match = MetaRecord(
                 id=self._safe_get(document, "id", default=""),
                 title=self._safe_get(document, "title", default=""),
@@ -148,7 +143,6 @@ class Hardcover(Metadata):
                     description=Hardcover.DESCRIPTION,
                     link=Hardcover.META_URL,
                 ),
-                series=series,
             )
 
             image_data = self._safe_get(document, "image", default={})
@@ -156,7 +150,6 @@ class Hardcover(Metadata):
 
             match.description = self._safe_get(document, "description", default="")
             match.publishedDate = self._safe_get(document, "release_date", default="")
-            match.series_index = series_index
             match.identifiers = {
                 "hardcover-id": match.id,
                 "hardcover-slug": self._safe_get(document, "slug", default=""),
@@ -182,13 +175,11 @@ class Hardcover(Metadata):
                     description=Hardcover.DESCRIPTION,
                     link=Hardcover.META_URL,
                 ),
-                series=(result.get("book_series") or [{}])[0].get("series", {}).get("name", ""),
             )
             match.cover = (edition.get("image") or {}).get("url", generic_cover)
             match.description = result.get("description", "")
             match.publisher = (edition.get("publisher") or {}).get("name", "")
             match.publishedDate = edition.get("release_date", "")
-            match.series_index = (result.get("book_series") or [{}])[0].get("position", "")
             match.languages = self._parse_languages(edition, locale)
             match.identifiers = {
                 "hardcover-id": book_id,

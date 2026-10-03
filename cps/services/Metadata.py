@@ -49,8 +49,6 @@ class MetaRecord:
     source: MetaSourceInfo
     cover: str = os.path.join(constants.STATIC_DIR, 'generic_cover.svg')
     description: str | None = ""
-    series: str | None = None
-    series_index: int | float | None = 0
     identifiers: dict[str, str | int] = dataclasses.field(default_factory=dict)
     publisher: str | None = None
     publishedDate: str | None = None

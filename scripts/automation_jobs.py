@@ -129,38 +129,15 @@ def mark_stale_interrupted(db=None):
             c.con.close()
 
 
-def list_jobs(limit=25, kind=None):
-    """Newest jobs first; running rows whose owner PID is verifiably dead are
-    marked interrupted."""
-    with _connect() as c:
-        mark_stale_interrupted(db=c)
-        if kind:
-            c.cur.execute(
-                "SELECT id, kind, user_id, filename, parent_id, state, started_utc, "
-                "finished_utc, error, pid FROM cwa_operation_jobs WHERE kind=? "
-                "ORDER BY started_utc DESC LIMIT ?", (kind, int(limit)))
-        else:
-            c.cur.execute(
-                "SELECT id, kind, user_id, filename, parent_id, state, started_utc, "
-                "finished_utc, error, pid FROM cwa_operation_jobs "
-                "ORDER BY started_utc DESC LIMIT ?", (int(limit),))
-        return [_job_dict(r) for r in c.cur.fetchall()]
-
-
-def active_job(kind, create=False, user_id=None, filename=""):
-    """The id of the running job of this kind, or None. With create=True,
-    returns claim_job(kind, ...)[0] instead of None."""
+def active_job(kind):
+    """The id of the running job of this kind, or None."""
     with _connect() as c:
         mark_stale_interrupted(db=c)
         c.cur.execute(
             "SELECT id FROM cwa_operation_jobs WHERE kind=? AND state='running' "
             "ORDER BY started_utc DESC LIMIT 1", (kind,))
         row = c.cur.fetchone()
-    if row:
-        return row[0]
-    if not create:
-        return None
-    return claim_job(kind, user_id=user_id, filename=filename)[0]
+    return row[0] if row else None
 
 
 def failed_children(job_id):

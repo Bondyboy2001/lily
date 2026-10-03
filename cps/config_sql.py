@@ -44,7 +44,6 @@ class _Settings(_Base):
 
     id = Column(Integer, primary_key=True)
     config_calibre_dir = Column(String)
-    config_calibre_uuid = Column(String)
     config_calibre_split = Column(Boolean, default=False)
     config_calibre_split_dir = Column(String)
     config_certfile = Column(String)
@@ -269,17 +268,6 @@ class ConfigSQL:
 
     def get_book_path(self):
         return self.config_calibre_split_dir if self.config_calibre_split else self.config_calibre_dir
-
-    def store_calibre_uuid(self, calibre_db, Library_table):
-        from . import app
-        try:
-            with app.app_context():
-                calibre_uuid = calibre_db.session.query(Library_table).one_or_none()
-                if self.config_calibre_uuid != calibre_uuid.uuid:
-                    self.config_calibre_uuid = calibre_uuid.uuid
-                    self.save()
-        except AttributeError:
-            pass
 
     def __setattr__(self, attr_name, attr_value):
         super().__setattr__(attr_name, attr_value)

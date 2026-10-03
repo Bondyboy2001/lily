@@ -27,7 +27,6 @@ class CliParameter:
         self.user_credentials = None
         self.ip_address = None
         self.allow_localhost = None
-        self.reconnect_enable = None
         self.memory_backend = None
         self.dry_run = None
         self.certfilepath = None
@@ -60,8 +59,6 @@ class CliParameter:
         parser.add_argument('-l', action='store_true', help='Allow loading covers from localhost')
         parser.add_argument('-d', action='store_true', help='Create the settings and user databases '
                                                             'if missing, then exit Lily (used by the Docker first run)')
-        parser.add_argument('-r', action='store_true', help='Enable public database reconnect '
-                                                            'route under /reconnect')
         args = parser.parse_args()
 
         self.logpath = args.o or ""
@@ -101,8 +98,6 @@ class CliParameter:
         self.memory_backend = args.m or None
         # initialise the databases and exit
         self.dry_run = args.d or None
-        # enable reconnect endpoint for docker database reconnect
-        self.reconnect_enable = args.r or os.environ.get("CALIBRE_RECONNECT", None)
         # load covers from localhost
         self.allow_localhost = args.l or os.environ.get("CALIBRE_LOCALHOST", None)
         # handle and check ip address argument

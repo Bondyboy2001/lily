@@ -170,7 +170,6 @@ def create_app():
     else:
         babel.init_app(app, locale_selector=get_locale)
 
-    config.store_calibre_uuid(calibre_db, db.Library_Id)
     # Configure rate limiter
     # https://limits.readthedocs.io/en/stable/storage.html
     app.config.update(RATELIMIT_ENABLED=config.config_ratelimiter)

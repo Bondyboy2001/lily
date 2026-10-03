@@ -725,7 +725,7 @@ class Enforcer:
 
 
     def record_failed_enforcement(self, log_info: dict, error: Exception | str) -> None:
-        """Record a failed enforcement attempt so admins can see it in stats."""
+        """Record a failed enforcement attempt in the enforcement history (cover-enforcer --history)."""
         try:
             # Ensure file_path exists for DB insert
             if not log_info.get('file_path'):

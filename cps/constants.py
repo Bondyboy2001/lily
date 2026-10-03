@@ -159,7 +159,6 @@ CACHE_TYPE_THUMBNAILS    = 'thumbnails'
 
 # Thumbnail Types
 THUMBNAIL_TYPE_COVER     = 1
-THUMBNAIL_TYPE_SERIES    = 2
 
 # Thumbnails Sizes
 COVER_THUMBNAIL_ORIGINAL = 0

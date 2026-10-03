@@ -65,7 +65,7 @@ def get_languages_json():
 def get_book_titles_json():
     # Suggestions for the top bar search box: books whose title or authors hold every word of
     # the query (split like the full search, db.search_words), folding case and accents.
-    # common_filters() keeps hidden/archived books out of the suggestions, exactly as the lists do.
+    # common_filters() keeps hidden books out of the suggestions, exactly as the lists do.
     query = strip_whitespaces(request.args.get('q') or '')
     if len(query) < 2:
         return json.dumps([])

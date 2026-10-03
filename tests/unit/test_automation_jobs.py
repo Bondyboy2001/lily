@@ -8,6 +8,13 @@ import threading
 
 import pytest
 
+def _jobs(aj, kind):
+    """The jobs of this kind, newest first."""
+    with aj._connect() as c:
+        c.cur.execute("SELECT id FROM cwa_operation_jobs WHERE kind=? ORDER BY started_utc DESC", (kind,))
+        return [aj.get_job(row[0]) for row in c.cur.fetchall()]
+
+
 @pytest.fixture
 def jobs_db(temp_cwa_db):
     import automation_jobs
@@ -60,15 +67,15 @@ class TestOperationJobs:
 
     def test_active_refresh_job_single_winner(self, jobs_db):
         aj, _ = jobs_db
-        first = aj.active_job("refresh", create=True)
-        second = aj.active_job("refresh", create=True)
+        first = aj.claim_job("refresh")[0]
+        second = aj.claim_job("refresh")[0]
         assert first == second
         got = []
 
         def worker():
-            got.append(aj.active_job("refresh", create=True))
+            got.append(aj.claim_job("refresh")[0])
         aj.finish_job(first, "succeeded")
-        third = aj.active_job("refresh", create=True)
+        third = aj.claim_job("refresh")[0]
         assert third != first
         threads = [threading.Thread(target=worker) for _ in range(4)]
         aj.finish_job(third, "failed")
@@ -77,7 +84,7 @@ class TestOperationJobs:
         for t in threads:
             t.join()
         assert len(set(got)) == 1
-        assert len(aj.list_jobs(kind="refresh")) >= 2
+        assert len(_jobs(aj, "refresh")) >= 2
 
     def test_get_job_unknown(self, jobs_db):
         aj, _ = jobs_db
@@ -218,7 +225,7 @@ class TestRefreshRouteFailures:
             monkeypatch.setattr(ingest, "Thread", BoomThread)
             resp = client.post("/cwa-library-refresh")
             assert resp.status_code == 503
-            job = automation_jobs.list_jobs(kind="refresh")[0]
+            job = _jobs(automation_jobs, "refresh")[0]
             assert job["state"] == "failed"
             assert "could not start" in job["error"]
         finally:

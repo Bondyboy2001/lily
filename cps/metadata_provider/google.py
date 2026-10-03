@@ -111,7 +111,6 @@ class Google(Metadata):
         match.publisher = volume_info.get("publisher", "")
         match.publishedDate = self._parse_date(volume_info.get("publishedDate", ""))
         match.rating = volume_info.get("averageRating", 0)
-        match.series, match.series_index = "", 1
 
         match.identifiers = {"google": match.id}
         match = self._parse_isbn(result=result, match=match)

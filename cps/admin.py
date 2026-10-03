@@ -15,7 +15,7 @@ from .cw_login import current_user
 from flask_babel import gettext as _
 from sqlalchemy.exc import IntegrityError, OperationalError
 
-from . import constants, logger, helper, cli_param
+from . import constants, logger, helper
 from . import calibre_db, ub, config
 from werkzeug.security import generate_password_hash
 from .helper import check_email, valid_email, check_username
@@ -79,17 +79,6 @@ def before_request():
             request.endpoint not in ('web.login', 'web.login_post', 'web.logout'):
         abort(503, description=_("No Calibre library found at /calibre-library. Mount a library "
                                  "folder containing metadata.db there and restart Lily."))
-
-
-# method is available without login and not protected by CSRF to make it easy reachable, is per default switched off
-# needed for docker applications, as changes on metadata.db from host are not visible to application
-@admi.route("/reconnect", methods=['GET'])
-def reconnect():
-    if cli_param.reconnect_enable:
-        calibre_db.reconnect_db(config, ub.app_DB_path)
-        return json.dumps({})
-    log.debug("'/reconnect' was accessed but is not enabled")
-    abort(404)
 
 
 @admi.route("/admin/usertable")

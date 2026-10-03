@@ -6,7 +6,7 @@
 
 # custom jinja filters
 
-from markupsafe import Markup, escape
+from markupsafe import Markup
 import datetime
 import mimetypes
 import re
@@ -119,11 +119,6 @@ def formatfloat(value, decimals=1):
         # If conversion fails, log the error and return empty string for safety
         log.debug(f'formatfloat filter error: Cannot convert value "{value}" to float: {e}')
         return ''
-
-
-@jinjia.app_template_filter('escapedlink')
-def escapedlink_filter(url, text):
-    return f"<a href='{url}'>{escape(text)}</a>"
 
 
 @jinjia.app_template_filter('readable_formats')
