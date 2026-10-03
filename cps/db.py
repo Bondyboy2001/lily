@@ -506,44 +506,8 @@ class CustomColumns(Base):
     label = Column(String)
     name = Column(String)
     datatype = Column(String)
-    mark_for_delete = Column(Boolean)
-    editable = Column(Boolean)
-    display = Column(String)
     is_multiple = Column(Boolean)
     normalized = Column(Boolean)
-
-    def get_display_dict(self):
-        display_dict = json.loads(self.display)
-        return display_dict
-
-    def to_json(self, value, extra, sequence):
-        content = dict()
-        content['table'] = "custom_column_" + str(self.id)
-        content['column'] = "value"
-        content['datatype'] = self.datatype
-        content['is_multiple'] = None if not self.is_multiple else "|"
-        content['kind'] = "field"
-        content['name'] = self.name
-        content['search_terms'] = ['#' + self.label]
-        content['label'] = self.label
-        content['colnum'] = self.id
-        content['display'] = self.get_display_dict()
-        content['is_custom'] = True
-        content['is_category'] = self.datatype in ['text', 'rating', 'enumeration', 'series']
-        content['link_column'] = "value"
-        content['category_sort'] = "value"
-        content['is_csp'] = False
-        content['is_editable'] = self.editable
-        content['rec_index'] = sequence + 22     # toDo why ??
-        if isinstance(value, datetime):
-            content['#value#'] = {"__class__": "datetime.datetime",
-                                  "__value__": value.strftime("%Y-%m-%dT%H:%M:%S+00:00")}
-        else:
-            content['#value#'] = value
-        content['#extra#'] = extra
-        content['is_multiple2'] = {} if not self.is_multiple else {"cache_to_list": "|", "ui_to_list": ",",
-                                                                   "list_to_ui": ", "}
-        return json.dumps(content, ensure_ascii=False)
 
 
 def _all_book_relationships():

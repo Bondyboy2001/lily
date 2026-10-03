@@ -766,6 +766,7 @@ _REMOVED_COLUMNS = {
         'config_allow_reverse_proxy_header_login', 'config_reverse_proxy_auto_create_users',
         'config_oauth_redirect_host', 'config_disable_standard_login',
         'config_enable_oauth_group_admin_management', 'schedule_generate_series_covers',
+        'schedule_reconnect', 'schedule_metadata_backup',
     ),
 }
 APP_DB_SCHEMA_BACKUP_SUFFIX = ".before-schema-cleanup"

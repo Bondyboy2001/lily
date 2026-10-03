@@ -227,7 +227,7 @@ def create_app():
     app.teardown_appcontext(close_request_cwa_db)
 
     from .schedule import register_scheduled_tasks, register_startup_tasks
-    register_scheduled_tasks(config.schedule_reconnect)
+    register_scheduled_tasks()
     register_startup_tasks()
 
     return app

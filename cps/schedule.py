@@ -14,28 +14,18 @@ from . import config, constants, logger
 from .services.background_scheduler import BackgroundScheduler, CronTrigger
 # Re-exported: cps.admin reads the feature flag as `schedule.use_APScheduler`.
 from .services.background_scheduler import use_APScheduler  # noqa: F401
-from .tasks.database import TaskReconnectDatabase
 from .tasks.clean import TaskClean
 from .tasks.thumbnail import TaskGenerateCoverThumbnails, TaskClearCoverThumbnailCache
 from .tasks.thumbnail_migration import check_and_migrate_thumbnails
 from .services.worker import WorkerThread
-from .tasks.metadata_backup import TaskBackupMetadata
 
 log = logger.create()
 
 
-def get_scheduled_tasks(reconnect=True):
+def get_scheduled_tasks():
     tasks = list()
-    # Reconnect Calibre database (metadata.db) based on config.schedule_reconnect
-    if reconnect:
-        tasks.append([lambda: TaskReconnectDatabase(), 'reconnect', False])
-
     # Delete temp folder
     tasks.append([lambda: TaskClean(), 'delete temp', True])
-
-    # Generate metadata.opf file for each changed book
-    if config.schedule_metadata_backup:
-        tasks.append([lambda: TaskBackupMetadata("en"), 'backup metadata', False])
 
     # Generate all missing book cover thumbnails
     if config.schedule_generate_book_covers:
@@ -52,7 +42,7 @@ def end_scheduled_tasks():
             worker.end_task(task.id)
 
 
-def register_scheduled_tasks(reconnect=True):
+def register_scheduled_tasks():
     scheduler = BackgroundScheduler()
 
     if scheduler:
@@ -64,7 +54,7 @@ def register_scheduled_tasks(reconnect=True):
 
         # Register scheduled tasks
         timezone_info = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
-        scheduler.schedule_tasks(tasks=get_scheduled_tasks(reconnect), trigger=CronTrigger(hour=start,
+        scheduler.schedule_tasks(tasks=get_scheduled_tasks(), trigger=CronTrigger(hour=start,
                                                    timezone=timezone_info))
         _schedule_duplicate_scan(scheduler, timezone_info)
         end_time = calclulate_end_time(start, duration)
@@ -78,7 +68,7 @@ def register_scheduled_tasks(reconnect=True):
 
         # Kick-off tasks, if they should currently be running
         if should_task_be_running(start, duration):
-            scheduler.schedule_tasks_immediately(tasks=get_scheduled_tasks(reconnect))
+            scheduler.schedule_tasks_immediately(tasks=get_scheduled_tasks())
 
 
 def register_startup_tasks():
@@ -105,7 +95,7 @@ def register_startup_tasks():
         # Run scheduled tasks immediately for development and testing
         # Ignore tasks that should currently be running, as these will be added when registering scheduled tasks
         if constants.APP_MODE in ['development', 'test'] and not should_task_be_running(start, duration):
-            scheduler.schedule_tasks_immediately(tasks=get_scheduled_tasks(False))
+            scheduler.schedule_tasks_immediately(tasks=get_scheduled_tasks())
         else:
             scheduler.schedule_tasks_immediately(tasks=[[lambda: TaskClean(), 'delete temp', True]])
 

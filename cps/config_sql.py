@@ -96,8 +96,6 @@ class _Settings(_Base):
     schedule_duration = Column(Integer, default=10)
     # Controls scheduled thumbnail refresh only - thumbnails are always generated on-demand regardless
     schedule_generate_book_covers = Column(Boolean, default=True)
-    schedule_reconnect = Column(Boolean, default=False)
-    schedule_metadata_backup = Column(Boolean, default=False)
 
     config_password_policy = Column(Boolean, default=True)
     config_password_min_length = Column(Integer, default=8)
