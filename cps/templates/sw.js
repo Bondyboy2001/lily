@@ -171,7 +171,6 @@ async function keepBook(book, how) {
   fresh[book.id] = entry;
   await removeUnused(old, fresh);
   await writeIndex(fresh);
-  return summary(entry);
 }
 
 async function removeUnused(old, index) {
