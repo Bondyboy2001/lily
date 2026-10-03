@@ -6,15 +6,15 @@
 
 """Retention for /config/processed_books.
 
-With auto_backup_imports on (the default) every import is copied into
-processed_books/imported, and failed ingests land in processed_books/failed.
-Nothing used to clean either, so /config grew without bound. Files older than
+Failed ingests land in processed_books/failed; files there older than
 processed_books_retention_days (default 30, 0 = keep forever) are deleted
-nightly. duplicate_resolutions/ is left alone: those are the only copies of
-books deleted by duplicate resolution.
+nightly. Imports no longer keep a copy of each file, so processed_books/imported
+(where they used to) is removed whole. duplicate_resolutions/ is left alone:
+those are the only copies of books deleted by duplicate resolution.
 """
 
 import os
+import shutil
 import sys
 import time
 
@@ -25,7 +25,18 @@ from cps.services.worker import CalibreTask
 
 DEFAULT_RETENTION_DAYS = 30
 PROCESSED_BOOKS_ROOT = "/config/processed_books"
-PRUNED_SUBDIRS = ("imported", "failed")
+PRUNED_SUBDIRS = ("failed",)
+# Where every import used to be copied; nothing writes there any more
+RETIRED_SUBDIR = "imported"
+
+
+def remove_import_copies(root: str) -> bool:
+    """Delete root/imported and everything in it (never following a symlink); True when it existed."""
+    path = os.path.join(root, RETIRED_SUBDIR)
+    if os.path.islink(path) or not os.path.isdir(path):
+        return False
+    shutil.rmtree(path, ignore_errors=True)
+    return True
 
 
 def normalize_retention_days(value, default: int = DEFAULT_RETENTION_DAYS) -> int:
@@ -85,7 +96,7 @@ def get_retention_days() -> int:
 
 
 class TaskCleanProcessedBooks(CalibreTask):
-    """Nightly retention cleanup of /config/processed_books/{imported,failed}."""
+    """Nightly retention cleanup of /config/processed_books: failed/ by age, imported/ whole."""
 
     def __init__(self, task_message=N_('Cleaning up processed book backups'), root=PROCESSED_BOOKS_ROOT):
         super().__init__(task_message)
@@ -93,6 +104,8 @@ class TaskCleanProcessedBooks(CalibreTask):
         self.root = root
 
     def run(self, worker_thread):
+        if remove_import_copies(self.root):
+            self.log.info("Removed processed_books/imported: imports keep no copies")
         days = get_retention_days()
         if days <= 0:
             self.log.debug("processed_books retention disabled (keep forever)")

@@ -74,7 +74,8 @@ fi
 #  Make sure required directories exist
 #------------------------------------------------------------------------------------------------------------------------
 
-install -d -o abc -g abc /config/processed_books/imported
+# Imports keep no copy of their file any more: the folder they used to go to is removed
+rm -rf /config/processed_books/imported
 install -d -o abc -g abc /config/processed_books/failed
 install -d -o abc -g abc /config/processed_books/duplicate_resolutions
 install -d -o abc -g abc -m 700 /config/logs

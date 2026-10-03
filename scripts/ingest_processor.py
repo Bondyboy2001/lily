@@ -297,8 +297,7 @@ def _ensure_processed_books_dirs() -> None:
     try:
         processed_root = "/config/processed_books"
         os.makedirs(processed_root, exist_ok=True)
-        for name in ("imported", "failed"):
-            os.makedirs(os.path.join(processed_root, name), exist_ok=True)
+        os.makedirs(os.path.join(processed_root, "failed"), exist_ok=True)
     except Exception as e:
         print(f"[ingest-processor] WARN: Could not ensure processed_books directories: {e}", flush=True)
 
@@ -853,9 +852,7 @@ class NewBookProcessor:
             # calibredb accepted the file; everything below is best-effort follow-up
             imported = True
             print(f"[ingest-processor] Added {staged_path.stem} to Calibre database", flush=True)
-
-            if self.cwa_settings['auto_backup_imports']:
-                self.backup(str(staged_path), backup_type="imported")
+            # No copy of the imported file is kept: the library holds it
 
             mark_ingest_batch_dirty()
 
@@ -944,8 +941,6 @@ class NewBookProcessor:
             added = True
             print(f"[ingest-processor] Added new format for book id {book_id}: {os.path.basename(str(staged_path))}", flush=True)
             mark_ingest_batch_dirty()
-            if self.cwa_settings['auto_backup_imports']:
-                self.backup(str(staged_path), backup_type="imported")
         except subprocess.CalledProcessError as e:
             stderr_output = e.stderr if e.stderr else "No error details available"
             print(f"[ingest-processor] Failed to add format for book id {book_id}: {os.path.basename(str(staged_path))}\nCALIBREDB EXIT/ERROR CODE: {e.returncode}\nError details: {stderr_output}", flush=True)

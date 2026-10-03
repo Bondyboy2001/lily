@@ -144,14 +144,22 @@ def test_prune_processed_books(tmp_path):
 
     assert prune_processed_books(str(tmp_path), 0, now=now) == []
     removed = prune_processed_books(str(tmp_path), 30, now=now)
-    assert len(removed) == 4
-    for sub in ("imported", "failed"):
+    assert len(removed) == 2
+    # The retired import copies aren't pruned by age: the nightly task removes the folder whole
+    assert (tmp_path / "imported" / "old.epub").exists()
+    for sub in ("failed",):
         assert (tmp_path / sub / "new.epub").exists()
         assert not (tmp_path / sub / "old.epub").exists()
         assert not (tmp_path / sub / "nested").exists()
         assert (tmp_path / sub).is_dir()
     # Duplicate-resolution backups are never pruned
     assert (tmp_path / "duplicate_resolutions" / "old.epub").exists()
+
+    from cps.tasks.processed_cleanup import remove_import_copies
+    assert remove_import_copies(str(tmp_path)) is True
+    assert not (tmp_path / "imported").exists() and (tmp_path / "failed").is_dir()
+    assert (tmp_path / "duplicate_resolutions" / "old.epub").exists()
+    assert remove_import_copies(str(tmp_path)) is False
 
     assert normalize_retention_days("30") == 30
     assert normalize_retention_days("0") == 0

@@ -172,8 +172,8 @@ def _schedule_library_mirror(scheduler, start_hour, timezone_info):
 
 
 def _schedule_processed_books_cleanup(scheduler, start_hour, timezone_info):
-    """Nightly retention cleanup of /config/processed_books/{imported,failed}
-    (cwa_settings.processed_books_retention_days, default 30, 0 = keep forever)."""
+    """Nightly cleanup of /config/processed_books: the retired imported/ copies go whole, failed/
+    by age (cwa_settings.processed_books_retention_days, default 30, 0 = keep forever)."""
     try:
         from .tasks.processed_cleanup import TaskCleanProcessedBooks
         scheduler.schedule_task(lambda: TaskCleanProcessedBooks(), user='System',
