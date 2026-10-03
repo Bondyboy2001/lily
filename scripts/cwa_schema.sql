@@ -167,8 +167,7 @@ CREATE TABLE IF NOT EXISTS hand_edited(
     book_id INTEGER PRIMARY KEY
 );
 
--- What each automatic lookup changed, kept as the book was before it: Book Details' Undo and
--- the library's Changed filter read it
+-- What each automatic lookup changed, kept as the book was before it: Book Details' Undo reads it
 CREATE TABLE IF NOT EXISTS metadata_changes(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     book_id INTEGER NOT NULL,

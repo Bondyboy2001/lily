@@ -875,10 +875,6 @@ class CWA_DB:
         self.cur.execute("DELETE FROM metadata_changes WHERE id = ?", (change_id,))
         self.con.commit()
 
-    def metadata_changed_ids(self) -> list[int]:
-        """The books a lookup changed that can still be undone."""
-        return [row[0] for row in self.cur.execute("SELECT DISTINCT book_id FROM metadata_changes")]
-
     def save_metadata_lookup(self, book_id: int, status: str, source: str = '') -> None:
         """Note what a metadata lookup of the book found: matched, nomatch or failed."""
         self.cur.execute("INSERT OR REPLACE INTO metadata_lookups (book_id, status, source, checked_at) "

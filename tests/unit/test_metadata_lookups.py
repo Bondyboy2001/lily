@@ -136,16 +136,17 @@ def test_library_metadata_filter_lists_books_by_what_their_lookup_found(env):
         return sorted(set(re.findall(r'<p title="([^"]+)" class="title"', html))), html
 
     assert titles("failed")[0] == ["Failed Book"]
-    assert titles("matched")[0] == ["Matched Book"]
-    assert titles("unchecked")[0] == ["Unchecked Book"]
     names, html = titles("failed")
+    # Only the problems are choices: no Matched, Not looked up or Changed
+    assert re.findall(r'<a id="metadata_(\w+)"', html) == ["nomatch", "failed"]
     # The chips let it switch, and the chosen one turns the filter off
     assert 'id="metadata_failed"' in html and 'aria-current="true"' in html
     chosen = re.search(r'<a id="metadata_failed"[^>]*href="([^"]*)"', html)
     assert chosen and "metadata=" not in chosen.group(1)
-    # An unknown choice is no filter, and no chips
-    names, html = titles("bogus")
-    assert len(names) == 3 and 'id="metadata_failed"' not in html
+    # An unknown or retired choice is no filter, and no chips
+    for choice in ("bogus", "matched", "unchecked", "changed"):
+        names, html = titles(choice)
+        assert len(names) == 3 and 'id="metadata_failed"' not in html
 
 
 def test_settings_page_counts_lookups(env):
@@ -290,15 +291,13 @@ def test_applying_a_result_on_the_book_page_changes_only_what_it_fills(env):
     assert _store().get_metadata_lookup(book)["status"] == "matched"
 
 
-def test_a_lookups_change_is_listed_and_undone_from_book_details(env):
+def test_a_lookups_change_is_undone_from_book_details(env):
     import json
     book = env.add_book("Dune")
     store = _store()
     store.save_metadata_lookup(book, "matched", "Open Library")
     store.save_metadata_change(book, "Open Library", json.dumps({"title": "dune"}))
     client = _login(env)
-    html = client.get("/", query_string={"metadata": "changed"}).get_data(as_text=True)
-    assert re.findall(r'<p title="([^"]+)" class="title"', html) == ["Dune"]
     # Settings lists only lookup problems, not books a lookup changed
     assert 'id="lookups_changed"' not in client.get("/cwa-settings").get_data(as_text=True)
     page = client.get(f"/book/{book}").get_data(as_text=True)
