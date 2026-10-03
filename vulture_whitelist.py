@@ -26,6 +26,7 @@ _.config_is_initial
 _.illegal_characters
 _.flask_httpauth_user
 _._lily_cwa_db
+_._lily_fetched_ids  # cached on g, read back with g.get() (jinjia.metadata_fetched)
 
 # SQLAlchemy model columns, relationships and hybrid properties
 _.atom_timestamp
