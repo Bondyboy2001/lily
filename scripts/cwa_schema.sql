@@ -154,19 +154,10 @@ CREATE TABLE IF NOT EXISTS hand_covers(
     book_id INTEGER PRIMARY KEY
 );
 
--- Books edited by hand (in the editor, by applying a Fetch Metadata result, or by undoing a
--- lookup): automatic lookups keep their title and authors and only fill empty fields
+-- Books edited by hand (in the editor or by applying a Fetch Metadata result): automatic lookups
+-- keep their title and authors and only fill empty fields
 CREATE TABLE IF NOT EXISTS hand_edited(
     book_id INTEGER PRIMARY KEY
-);
-
--- What each automatic lookup changed, kept as the book was before it: Book Details' Undo reads it
-CREATE TABLE IF NOT EXISTS metadata_changes(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    book_id INTEGER NOT NULL,
-    source TEXT NOT NULL DEFAULT '',  -- the provider whose record was applied
-    changed_at TEXT NOT NULL,  -- UTC, ISO 8601
-    before TEXT NOT NULL  -- JSON: the fields the lookup changed, as they were
 );
 
 -- What the last metadata lookup of each book found, for the library's Metadata filter and Retry failed

@@ -314,7 +314,7 @@ def _changed_since(last_modified, checked_at) -> bool:
 
 def _backup_library():
     """Copy the library's metadata.db beside cwa.db before a full rebuild overwrites it; a
-    failure is logged, and the rebuild goes on (each change can still be undone)."""
+    failure is logged, and the rebuild goes on (the copy is there to restore the library from)."""
     target = os.path.join(os.environ.get("CWA_DB_PATH", "/config"), "metadata.db.before-full-rebuild")
     try:
         source = sqlite3.connect(os.path.join(config.config_calibre_dir, "metadata.db"), timeout=30)

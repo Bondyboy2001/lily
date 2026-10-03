@@ -365,7 +365,7 @@ def test_book_page_details_dialog(client, temp_cwa_db):
     assert labels[:2] == ["Date added", "Last edited"] and labels[-1] == "Book ID"
     # No Reading row: the details are about the file, not the reader's progress
     assert "Reading" not in labels
-    # The header's × closes it; no footer Close button (nor footer) without an undo
+    # The header's × closes it; there is no Close button and no footer
     dialog = dialog[:dialog.find('class="modal fade')]
     assert 'class="close" data-dismiss="modal"' in dialog
     assert ">Close</button>" not in dialog and "modal-footer" not in dialog

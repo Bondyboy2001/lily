@@ -553,10 +553,8 @@ content (grid, panel, rows)
   published date, each file, each identifier, the
   last metadata lookup (editors only: what it found and when, "Open Library · ‹date›",
   "No match" or "Lookup failed") and the book ID. Dates appear nowhere
-  else on the page. The header's × is the only close control; there is no Close button.
-  For editors, when an automatic lookup changed the book, the footer holds a secondary
-  "Undo lookup" (its tooltip names the source and date) that puts back the details from
-  before; otherwise the dialog has no footer.
+  else on the page. The header's × is the only close control; there is no Close button and
+  the dialog has no footer.
 - Tags are not shown on the book page; they are edited on the edit page.
 - **Shelves line** (`.book-on-shelves`, signed-in users): 20 under the action bar, 14px
   `--muted`, the Shelves glyph (named "Shelves" for screen readers) then each shelf the book is on

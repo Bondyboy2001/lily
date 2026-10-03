@@ -262,6 +262,11 @@ def _m10_clear_descriptions(cur) -> None:
         clear_library_details(*found, ("comments",), "description-clear", backup=False)
 
 
+def _m11_drop_metadata_changes(cur) -> None:
+    # Book Details' Undo is gone, and nothing else reads what a lookup changed: its table goes
+    cur.execute("DROP TABLE IF EXISTS metadata_changes")
+
+
 # What a book links to, as calibre keeps it: the table, its link table, the link's column
 _LINKED = {"tags": ("books_tags_link", "tag"), "publishers": ("books_publishers_link", "publisher"),
            "languages": ("books_languages_link", "lang_code"), "ratings": ("books_ratings_link", "rating")}
@@ -312,7 +317,8 @@ MIGRATIONS: list = [(1, "always detect duplicates, no Hardcover auto-fetch", _m1
                     (8, "clear every book's publisher, languages and rating", _m8_clear_publishers_languages_ratings),
                     (9, "drop duplicate matching on language, series and publisher",
                      _m9_drop_language_series_publisher_matching),
-                    (10, "clear every book's description", _m10_clear_descriptions)]
+                    (10, "clear every book's description", _m10_clear_descriptions),
+                    (11, "drop the table of changes a lookup made", _m11_drop_metadata_changes)]
 SCHEMA_MIGRATIONS_TABLE = "cwa_schema_migrations"
 
 
@@ -963,22 +969,6 @@ class CWA_DB:
         return self.cur.execute("SELECT 1 FROM hand_edited WHERE book_id = ?",
                                 (book_id,)).fetchone() is not None
 
-    def save_metadata_change(self, book_id: int, source: str, before: str) -> None:
-        """Keep what a lookup changed, as the book was before it (JSON), for Undo."""
-        self.cur.execute("INSERT INTO metadata_changes (book_id, source, changed_at, before) VALUES (?, ?, ?, ?)",
-                         (book_id, source or '', datetime.now(UTC).isoformat(timespec='seconds'), before))
-        self.con.commit()
-
-    def last_metadata_change(self, book_id: int) -> dict | None:
-        """{id, source, changed_at, before} of the book's latest lookup change, or None."""
-        row = self.cur.execute("SELECT id, source, changed_at, before FROM metadata_changes WHERE book_id = ? "
-                               "ORDER BY id DESC LIMIT 1", (book_id,)).fetchone()
-        return dict(zip(("id", "source", "changed_at", "before"), row)) if row else None
-
-    def drop_metadata_change(self, change_id: int) -> None:
-        self.cur.execute("DELETE FROM metadata_changes WHERE id = ?", (change_id,))
-        self.con.commit()
-
     def save_metadata_lookup(self, book_id: int, status: str, source: str = '') -> None:
         """Note what a metadata lookup of the book found: matched, nomatch, failed or manual."""
         self.cur.execute("INSERT OR REPLACE INTO metadata_lookups (book_id, status, source, checked_at) "
@@ -1045,7 +1035,7 @@ class CWA_DB:
 
     def clear_lookup_records(self) -> None:
         """Forget what earlier lookups found, the covers they weighed and a rebuild's progress,
-        for a full rebuild. Hand edits and the changes Undo can put back are kept."""
+        for a full rebuild. Hand edits are kept."""
         self.cur.execute("DELETE FROM metadata_lookups")
         self.cur.execute("DELETE FROM metadata_cover_checks")
         self.cur.execute("DELETE FROM metadata_rebuild_progress")
