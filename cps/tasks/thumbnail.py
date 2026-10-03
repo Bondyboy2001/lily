@@ -236,6 +236,33 @@ class TaskGenerateCoverThumbnails(CalibreTask):
         return True
 
 
+def clear_cover_thumbnails(book_ids):
+    """Delete these books' cached cover thumbnails, files and rows, in one commit; they are made
+    again when next shown (helper.get_book_cover_internal). For many covers changed at once,
+    where a TaskClearCoverThumbnailCache and a TaskGenerateCoverThumbnails per book meant a dozen
+    commits each and thumbnails nobody had asked for."""
+    book_ids = list(book_ids)
+    if not book_ids:
+        return
+    session = ub.get_new_session_instance()
+    cache = fs.FileSystem()
+    try:
+        query = session.query(ub.Thumbnail) \
+            .filter(ub.Thumbnail.type == constants.THUMBNAIL_TYPE_COVER) \
+            .filter(ub.Thumbnail.entity_id.in_(book_ids))
+        for thumbnail in query.all():
+            cache.delete_cache_file(thumbnail.filename, constants.CACHE_TYPE_THUMBNAILS)
+        query.delete(synchronize_session=False)
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.remove()
+    from .. import helper
+    helper._pending_thumbnail_books.difference_update(book_ids)
+
+
 class TaskClearCoverThumbnailCache(CalibreTask):
     def __init__(self, book_id, task_message=N_('Clearing cover thumbnail cache')):
         super().__init__(task_message)

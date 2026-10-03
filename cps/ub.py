@@ -6,7 +6,6 @@
 
 """The application database (app.db): users, shelves, read status, sessions, queues, and its schema migrations."""
 
-import atexit
 import os
 import sys
 import sqlite3
@@ -30,6 +29,7 @@ try:
 except ImportError:
     from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker, Session, scoped_session
+from sqlalchemy.pool import NullPool
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from . import constants, logger
@@ -970,13 +970,15 @@ def password_change(user_credentials=None):
 
 
 def get_new_session_instance():
+    """A session of a background task's own on app.db; the task calls remove() when done.
+
+    No connection pool, and nothing keeps the engine once the task lets the session go: every
+    thumbnail job makes one, and a pooled engine held by an atexit hook kept its app.db file
+    open for the life of the process, so a long cover run hit "Too many open files"."""
     new_engine = create_engine(f'sqlite:///{app_DB_path}', echo=False,
-                               connect_args={'timeout': 30})
+                               connect_args={'timeout': 30}, poolclass=NullPool)
     new_session = scoped_session(sessionmaker())
     new_session.configure(bind=new_engine)
-
-    atexit.register(lambda: new_session.remove() if new_session else True)
-
     return new_session
 
 

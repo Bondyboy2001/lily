@@ -202,3 +202,51 @@ def test_redo_covers_does_several_books_at_once(env, monkeypatch):
     assert task.stat == STAT_FINISH_SUCCESS and len(calls) == 5 and task.covers == 1
     assert task.message == "Done: 5 PDFs checked, 1 covers redone"
     assert 1 <= default_workers() <= 4
+
+
+@pytest.mark.unit
+def test_redo_covers_records_in_batches_and_drops_only_the_changed_books_thumbnails(env, monkeypatch):
+    from cps import constants, ub
+    from cps.tasks import pdf_covers
+    from cps.tasks.pdf_covers import TaskRedoPdfCovers
+    # A batch of two, so five changed covers take three commits
+    monkeypatch.setattr(pdf_covers, "RECORD_BATCH", 2)
+    changed = [env.add_book(f"Paper {i}", fmt="PDF") for i in range(5)]
+    kept = env.add_book("Kept", fmt="PDF")
+    for book_id in changed + [kept]:
+        ub.session.add(ub.Thumbnail(entity_id=book_id, type=constants.THUMBNAIL_TYPE_COVER,
+                                    filename=f"t{book_id}.jpg"))
+    ub.session.commit()
+    commits = []
+    real_record = TaskRedoPdfCovers._record_covers
+    monkeypatch.setattr(TaskRedoPdfCovers, "_record_covers",
+                        lambda self, cdb: commits.append(len(self._changed)) or real_record(self, cdb))
+    task = TaskRedoPdfCovers(workers=1)
+    _run_covers(env, monkeypatch, task, fix=lambda pdf_path, *a: "Paper" in pdf_path)
+    assert task.covers == 5 and task.message == "Done: 6 PDFs checked, 5 covers redone"
+    assert [n for n in commits if n] == [2, 2, 1]
+    left = {t.entity_id for t in ub.session.query(ub.Thumbnail).all()}
+    assert left == {kept}
+
+
+@pytest.mark.unit
+def test_a_dropped_cwa_db_closes_its_connection(temp_cwa_db):
+    # Most callers make one per use; left open, a long run used up the process's files
+    import sqlite3
+    from cwa_db import CWA_DB
+    store = CWA_DB()
+    con = store.con
+    del store
+    with pytest.raises(sqlite3.ProgrammingError):
+        con.execute("SELECT 1")
+
+
+@pytest.mark.unit
+def test_a_background_tasks_app_db_session_keeps_no_connection_pool():
+    from sqlalchemy.pool import NullPool
+    from cps import ub
+    session = ub.get_new_session_instance()
+    try:
+        assert isinstance(session.get_bind().pool, NullPool)
+    finally:
+        session.remove()

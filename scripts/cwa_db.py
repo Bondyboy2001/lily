@@ -436,6 +436,14 @@ class CWA_DB:
                 pass
 
 
+    def __del__(self):
+        # Most callers make one per use and never close it. Left to the garbage collector, its
+        # file stays open, and SQLite keeps a closed connection's file open while another
+        # connection holds a lock on it: a cover redo over 17k books used up the process's
+        # 1024 files ("Too many open files") and stopped the server answering.
+        self.close()
+
+
     def __enter__(self):
         return self
 
