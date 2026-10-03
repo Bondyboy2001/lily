@@ -19,7 +19,7 @@ from cps.metadata_provider.hardcover import Hardcover
 from cps.metadata_provider.openlibrary import OpenLibrary
 from cps.metadata_provider.scholar import google_scholar
 from cps.services.Metadata import ProviderBusy
-from cps.services.identifiers import normalise_identifiers, parse_identifier
+from cps.services.identifiers import identifier_pages, normalise_identifiers, parse_identifier
 from . import logger
 from .usermanagement import user_login_required
 
@@ -201,6 +201,8 @@ def metadata_search():
         item = asdict(record)
         item["exact_match"] = exact and _pinned(record, file_ids, form_ids, page_text, authors)
         item["score"] = score(record)
+        # So the card can link each identifier to the page it is about
+        item["identifier_urls"] = identifier_pages(record.identifiers)
         data.append(item)
     # The dialog names a provider that didn't answer, and says when a key would help
     return make_response(jsonify({"results": data, "status": status, "name": provider.__name__,

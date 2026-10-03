@@ -603,7 +603,10 @@ content (grid, panel, rows)
   of window is left (get_meta.js).
   Every field starts ticked; only the cover starts unticked, and ticks are not remembered
   between books. Where a value would replace the book's own,
-  the card shows that under it ("Now: …", 13px `--muted`). Results from one provider
+  the card shows that under it ("Now: …", 13px `--muted`). An identifier a result carries
+  links to the page it identifies (Open Library's work, the Hardcover book, the Google
+  Books volume, an ISBN, a DOI, an arXiv id); a type with no page of its own
+  (Hardcover's ids) stays plain text rather than guessing a URL. Results from one provider
   with the same title collapse behind a link-style "Show 2 more like this from ‹source›"
   under the best. A `--muted` 14px status line over the results names providers that
   didn't answer and why, adding the Google Books key hint when that would help.

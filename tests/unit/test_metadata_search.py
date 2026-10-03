@@ -4,7 +4,8 @@ and arXiv lookups."""
 import pytest
 
 from cps.services.Metadata import MetaRecord, MetaSourceInfo
-from cps.services.identifiers import arxiv_id_from_doi, parse_identifier
+from cps.services.identifiers import (arxiv_id_from_doi, identifier_pages, identifier_url,
+                                      parse_identifier)
 
 pytestmark = pytest.mark.unit
 
@@ -34,6 +35,39 @@ def test_ordinary_text_is_not_an_identifier(query):
 def test_arxiv_doi_names_the_arxiv_id():
     assert arxiv_id_from_doi("10.48550/ARXIV.1706.03762") == "1706.03762"
     assert arxiv_id_from_doi("10.1038/nature14539") == ""
+
+
+@pytest.mark.parametrize("id_type, val, expected", [
+    ("openlibrary", "OL23751478W", "https://openlibrary.org/works/OL23751478W"),
+    ("OpenLibrary", " OL23751478W ", "https://openlibrary.org/works/OL23751478W"),
+    ("hardcover-slug", "dune", "https://hardcover.app/books/dune"),
+    ("google", "9Xk3RkZ2Z2", "https://books.google.com/books?id=9Xk3RkZ2Z2"),
+    ("isbn", "9780441172719", "https://openlibrary.org/isbn/9780441172719"),
+    ("doi", "10.1038/nature14539", "https://doi.org/10.1038/nature14539"),
+    ("arxiv", "2601.22106", "https://arxiv.org/abs/2601.22106"),
+    # An old-style arXiv id is a path of its own, so its slash stays
+    ("arxiv", "hep-th/9901001", "https://arxiv.org/abs/hep-th/9901001"),
+    # A type with no page of its own, an empty value, an unknown type
+    ("hardcover-id", "12345", ""),
+    ("hardcover-edition", "98765", ""),
+    ("openlibrary", "", ""),
+    ("openlibrary", None, ""),
+    ("calibre", "42", ""),
+])
+def test_an_identifier_leads_to_the_page_it_is_about(id_type, val, expected):
+    assert identifier_url(id_type, val) == expected
+
+
+def test_a_value_is_escaped_into_the_url_it_is_put_in():
+    # The host is ours, so a value can't send a reader elsewhere
+    assert identifier_url("hardcover-slug", "dune?x=1") == \
+        "https://hardcover.app/books/dune%3Fx%3D1"
+
+
+def test_only_the_identifiers_with_a_page_are_sent_to_the_card():
+    assert identifier_pages({"openlibrary": "OL23751478W", "hardcover-id": "12345"}) == {
+        "openlibrary": "https://openlibrary.org/works/OL23751478W"}
+    assert identifier_pages({}) == {} and identifier_pages(None) == {}
 
 
 def test_books_identifiers_are_normalised():

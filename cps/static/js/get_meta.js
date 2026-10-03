@@ -130,6 +130,9 @@ $(function () {
     $.each(book.identifiers || {}, function (key, value) {
       if (value === "" || value === null) return;
       add(key, key, value, form.ids[String(key).toLowerCase()], {
+        // The value links to the page that identifier is about, where it has one
+        // (the server builds the URL; a type without a page arrives with none)
+        link: (book.identifier_urls || {})[key],
         // Editions found by that id are the exact matches; others offer the lookup
         editions: key === "hardcover-id" && !book.exact_match ? value : "",
       });

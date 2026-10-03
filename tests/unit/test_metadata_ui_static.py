@@ -32,6 +32,20 @@ def test_metadata_source_links_to_the_result_itself():
     assert 'href="<%- safeUrl(book.url) || safeUrl(book.source.link) %>"' in template
 
 
+def test_an_identifier_value_links_to_the_page_it_identifies():
+    js = (REPO_ROOT / "cps/static/js/get_meta.js").read_text(encoding="utf-8")
+    search = (REPO_ROOT / "cps/search_metadata.py").read_text(encoding="utf-8")
+    template = (REPO_ROOT / "cps/templates/meta_fetch.html").read_text(encoding="utf-8")
+
+    # The server builds each identifier's URL; the card shows it as the value's link
+    assert 'item["identifier_urls"] = identifier_pages(record.identifiers)' in search
+    assert "link: (book.identifier_urls || {})[key]," in js
+    # And a value with a link is an anchor, still through the http(s) guard
+    assert 'if (f.link) { %><a href="<%- safeUrl(f.link) %>"' in template
+    # A type with no page of its own arrives with no link, so it stays a span
+    assert 'else { %><span class="meta-value"><%- f.text %></span><% } %>' in template
+
+
 def test_match_score_is_a_big_number_in_the_cards_top_right():
     template = (REPO_ROOT / "cps/templates/meta_fetch.html").read_text(encoding="utf-8")
     css = (REPO_ROOT / "cps/static/css/lily-library.css").read_text(encoding="utf-8")
