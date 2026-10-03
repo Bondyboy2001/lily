@@ -155,3 +155,17 @@ def test_a_cited_doi_on_the_first_page_is_not_pinned_as_exact():
     assert _pinned(cited, file_ids, {}, page) is False
     # The book's own DOI, typed into its identifiers, is trusted
     assert _pinned(cited, file_ids, {"doi": "10.1038/nature16961"}, page) is True
+
+
+@pytest.mark.parametrize("given, expected", [
+    ("Garcia, Stephan Ramon", "Stephan Ramon Garcia"),
+    ("Miller,  Steven J.", "Steven J. Miller"),
+    ("Steven J. Miller", "Steven J. Miller"),
+    ("King, Jr.", "King, Jr."),
+    ("Martin Luther King, Jr.", "Martin Luther King, Jr."),
+    ("Smith, John, III", "Smith, John, III"),
+    ("", ""),
+])
+def test_fetched_authors_read_first_name_first(given, expected):
+    from cps.search_metadata import natural_author
+    assert natural_author(given) == expected

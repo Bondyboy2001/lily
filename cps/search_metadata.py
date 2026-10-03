@@ -9,6 +9,7 @@
 
 import concurrent.futures
 import json
+import re
 import sys
 from dataclasses import asdict
 
@@ -131,6 +132,21 @@ def _scorer(form, query=""):
     return score
 
 
+# A trailing part after the comma that is a suffix, not a first name ("King, Jr.")
+_NAME_SUFFIX = re.compile(r"^(jr|sr|i{1,3}|iv|v|phd|md|esq)\.?$", re.I)
+
+
+def natural_author(name):
+    """An author as "First Last": providers and library catalogues often give
+    "Last, First", which flips; "King, Jr." and names without a comma are left alone."""
+    name = " ".join((name or "").split())
+    last, sep, first = name.partition(",")
+    last, first = last.strip(), first.strip()
+    if not sep or not last or not first or "," in first or _NAME_SUFFIX.match(first):
+        return name
+    return f"{first} {last}"
+
+
 def _run_search(provider, query, identifiers):
     """The provider's identifier lookup and text search, run at once. Returns
     (record, exact) pairs, exact ones first, and the status: ok, error or timeout."""
@@ -187,6 +203,7 @@ def metadata_search():
         if key in seen:
             continue
         seen.add(key)
+        record.authors = [natural_author(a) for a in record.authors or []]
         item = asdict(record)
         item["exact_match"] = exact and _pinned(record, file_ids, form_ids, page_text)
         item["score"] = score(record)

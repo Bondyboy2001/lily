@@ -623,3 +623,10 @@ def test_duplicate_scan_notice_does_not_show_the_tasks_progress_line():
     js = read(JS / "duplicates.js")
     notice = js[js.index("function setDuplicateScanNotice"):js.index("function showDuplicateScanFinishedNotice")]
     assert "taskMessage" not in notice
+
+
+def test_book_byline_names_are_accent_and_the_ampersand_is_ink():
+    css = read(CSS / "lily-library.css")
+    byline = css.split(".book-detail-meta .author {", 1)[1].split("}", 1)[0]
+    assert "color: var(--ink);" in byline
+    assert ".book-detail-meta .author a { color: var(--accent); }" in css

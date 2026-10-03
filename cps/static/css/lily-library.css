@@ -1256,14 +1256,16 @@ dl.book-info {
 
 .book-detail-meta #book_of a { font-weight: 500; }
 
-/* The byline: italic, in the accent. */
+/* The byline: italic; the author names in the accent, the "&" between them in ink. */
 .book-detail-meta .author {
     margin: 6px 0 0;
     font-family: var(--font-body);
     font-size: 20px;
     font-style: italic;
-    color: var(--accent);
+    color: var(--ink);
 }
+
+.book-detail-meta .author a { color: var(--accent); }
 
 .book-detail-meta #detail-rating-block {
     display: flex;
