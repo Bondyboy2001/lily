@@ -529,27 +529,19 @@ content (grid, panel, rows)
   (`max-height: 160cqw`, `object-fit: cover`), so one deformed cover cannot stretch the
   stage. On the right, centred against it: the heading (series line, the book
   title as a display line (§3.1), the authors as an italic `--accent` byline at 20px,
-  the rating), then the fact tags, then the action bar, 22 apart. The stage is one
+  the rating), then the action bar, 22 apart. There are no fact tags on the page: the
+  file, date and identifiers are in the details dialog. The stage is one
   row, so a tall cover never spreads the heading out.
 - **Under the stage** (`.book-detail-extra`, 40 below it, indented 40 to match the
   stage padding): the description, then the related row ("Next in ‹Series›")
   under the description.
 - **≤1499px:** a smaller plate (≤268) and a 46px title. **≤1099px:** stage padding 24,
-  title 40. **≤767px:** the stage stacks and centres: a 196px plate, a 30px title, the
-  tags centred, Read across the full width with the icon buttons sharing the line
+  title 40. **≤767px:** the stage stacks and centres: a 196px plate, a 30px title, Read across the full width with the icon buttons sharing the line
   under it. Reset row sizing here.
 - Read is the Primary and wears its word ("Read", or "Continue · 33%" for a book in
   progress, opening the reader in a new tab at the format last read). Every other action
   is a 44px square icon button named by its `title` and a hidden label; Delete comes last,
   spaced like the rest. Read state, once on, is the eye in `--success` on a 34% `--success` tint.
-- **Fact tags** (`dl.book-metadata`, one `.book-fact` per fact): radius 999, 30 tall,
-  padding 0 14, 14px/500, `--control-tint` with `--ink-soft`; a tag holding a link takes
-  `--accent-soft` with an `--accent` label (`--selected` on hover). Each tag keeps its `dt`
-  for screen readers and shows it (in `--muted`) only where the value alone is unclear:
-  "arXiv 2608.24965". Only these, in order: each file (type mark, format, size), an arXiv
-  paper's id linked to its abstract page, the published date. Publisher, languages, other
-  identifiers and custom columns stay off the page (they're in the editor). Tags wrap;
-  they never scroll.
 - **Description:** a pull-quote: `--font-body` 22px italic, line-height 1.6, `--ink-soft`,
   the full width of the page (no measure cap), indented 64 behind a 112px `--accent` opening mark (19px, 40 and 76 on
   phones). There is no "not fetched yet" notice: the fetched dot already says so.
@@ -567,7 +559,7 @@ content (grid, panel, rows)
   "Book Details", a two-column `dl.book-info` (label `--muted`, value `--ink`, 15px, rows
   10 apart, no dividers): Date added, Last edited, then whichever the book has of
   published date, publisher, series, language, each file, each identifier, the
-  last metadata lookup (editors only: what it found and when, "From Open Library · ‹date›",
+  last metadata lookup (editors only: what it found and when, "Open Library · ‹date›",
   "No match" or "Lookup failed") and the book ID. Dates appear nowhere
   else on the page. A Close button ends the footer.
 - Tags and shelves are not shown on the book page; both stay editable on the
@@ -580,10 +572,8 @@ content (grid, panel, rows)
   it off at once, plus "New shelf"; sidebar counts follow without a reload (`shelves.js`).
   The edit page's Shelves rows change them too. There is no archive and no Keep offline button.
   Shelf pages offer no remove action on covers either.
-- Papers: the arXiv tag shows the id, linked to the abstract page; its DOI isn't
-  shown. Other identifiers (a non-arXiv paper's DOI included) are linked tags named by
-  their type. The Citations tag fills in after load from OpenAlex and stays hidden when
-  the paper isn't found; a count above zero links to the citing works there.
+- Papers: the arXiv id, linked to its abstract page, is in the details dialog with the
+  other identifiers.
 - **Editor** (`book_edit.html`): Title, authors and shelves always show, and are
   the only things added by hand. Series, publisher, published date, language,
   rating, tags and description show only when the book has a value, which Fetch

@@ -1334,50 +1334,6 @@ dl.book-info {
 /* Delete takes the accent, red on hover. */
 .book-action-bar > .btn.is-danger:not(:hover):not(:focus-visible) { color: var(--accent); }
 
-/* The book's facts as tags (design §6.4): neutral on --control-tint, a linked one in the
-   accent. A label shows only where the value alone is unclear ("arXiv", "Citations"). */
-dl.book-metadata {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin: 0;
-}
-
-dl.book-metadata:not(:has(> div)) { display: none; }
-
-.book-fact {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 30px;
-    padding: 0 14px;
-    border-radius: 999px;
-    background: var(--control-tint);
-    color: var(--ink-soft);
-    font-size: 14px;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-}
-
-.book-fact[hidden] { display: none; }
-
-.book-fact dt {
-    color: var(--muted);
-    font-weight: 400;
-}
-
-.book-fact dd {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0;
-}
-
-.book-fact:has(a) { background: var(--accent-soft); }
-.book-fact:has(a):hover { background: var(--selected); }
-.book-fact a { color: var(--accent); }
-.book-fact .lily-format { flex: none; width: 16px; height: 16px; }
-
 /* The description as a pull-quote: italic reading text behind a large accent mark. */
 .book-detail-description {
     position: relative;
@@ -1439,7 +1395,6 @@ dl.book-metadata:not(:has(> div)) { display: none; }
     .book-detail-cover { width: 196px; padding: 8px; }
     .book-detail-head { align-items: center; width: 100%; }
     .book-detail-meta { align-items: center; }
-    dl.book-metadata { justify-content: center; }
     .book-detail-actions { width: 100%; }
 
     .book-detail-meta h1#title { font-size: 30px; line-height: 1.08; letter-spacing: -0.015em; }

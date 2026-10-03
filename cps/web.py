@@ -36,7 +36,6 @@ from . import list_filters
 from . import pdf_fast
 from .setup_checklist import setup_checklist
 from .services.worker import WorkerThread
-from .services.citations import paper_ids
 from .tasks_status import render_task_status
 from .usermanagement import user_login_required
 
@@ -1449,7 +1448,6 @@ def show_book(book_id):
         entry.ordered_authors = calibre_db.order_authors([entry])
 
         entry.reader_list = check_read_formats(entry)
-        entry.arxiv_id = paper_ids(entry.identifiers)[1]
 
         # Have the reader's fast copy of a big PDF ready by the time Read is pressed
         if "pdf" in entry.reader_list:

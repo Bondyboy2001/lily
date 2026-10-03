@@ -12,7 +12,7 @@
 {% block body %}
 <div class="discover lily-book-detail">
     {# "Frontispiece" (design §6.4): a stage with the cover as a mounted plate beside the title,
-       byline, fact tags and actions; below it the description, the lookup line and what to read next. #}
+       byline and actions; below it the description, the lookup line and what to read next. #}
     <div class="book-detail-main">
         {# The edition ("9th ed."), set in the editor, in the stage's top-right corner #}
         {% if edition %}
@@ -56,32 +56,6 @@
                 </div>
                 {% endif %}
             </div>
-
-            {# The facts as tags under the byline (design §6.4): each file, an arXiv paper's link and
-               the date, nothing else. Each keeps its label for screen readers; the arXiv tag shows
-               it too. Empty fields are left out. #}
-            <dl class="book-metadata">
-                {% for format in entry.data %}
-                    {% set f = format.format|lower %}
-                    <div class="book-fact formats">
-                        <dt class="sr-only">{{ _('File') }}</dt>
-                        <dd>{% if f in ['epub', 'pdf'] %}<span class="lily-format lily-format-{{ f }}" aria-hidden="true"></span>{% endif %}{{ format.format }} · {{ format.uncompressed_size|filesizeformat_binary }}</dd>
-                    </div>
-                {% endfor %}
-                {# An arXiv paper shows its id, linked to the abstract page #}
-                {% if entry.arxiv_id %}
-                    <div class="book-fact arxiv">
-                        <dt>{{ _('arXiv') }}</dt>
-                        <dd><a href="https://arxiv.org/abs/{{ entry.arxiv_id }}" target="_blank" rel="noopener">{{ entry.arxiv_id }}</a></dd>
-                    </div>
-                {% endif %}
-                {% if (entry.pubdate|string)[:10] != '0101-01-01' %}
-                    <div class="book-fact publishing-date">
-                        <dt class="sr-only">{{ _('Published') }}</dt>
-                        <dd>{{ entry.pubdate|formatdate }}</dd>
-                    </div>
-                {% endif %}
-            </dl>
 
             <div class="book-detail-actions">
                 {# Read is the one Primary and wears its word; every other action is a square icon button
@@ -268,7 +242,7 @@
                 <dt>{{ _('Metadata') }}</dt>
                 <dd>
                   {%- if metadata_lookup.status == 'matched' -%}
-                    {{ _('From %(source)s', source=metadata_lookup.source) if metadata_lookup.source else _('Matched') }}
+                    {{ metadata_lookup.source if metadata_lookup.source else _('Matched') }}
                   {%- else -%}
                     {{ lookup_words.get(metadata_lookup.status, metadata_lookup.status) }}
                   {%- endif -%}

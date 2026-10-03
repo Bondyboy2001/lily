@@ -277,11 +277,6 @@ def test_detail_page_is_a_frontispiece_stage():
                    if selector.split(",")[-1].strip() == ".book-detail-cover-art img")
     assert "height: auto" in art_img and "max-height: 160cqw" in art_img
     assert "object-fit: cover" in art_img and "contain" not in art_img
-    # The facts are tags, not a side panel.
-    facts = next(body for selector, body in rules if selector == "dl.book-metadata")
-    assert "display: flex" in facts and "flex-wrap: wrap" in facts and "background" not in facts
-    tag = next(body for selector, body in rules if selector == ".book-fact")
-    assert "border-radius: 999px" in tag and "background: var(--control-tint)" in tag
     description = next(body for selector, body in rules if selector == ".book-detail-description .comments")
     assert "font-style: italic" in description
     # The pull-quote runs the full width of the page.
@@ -289,7 +284,7 @@ def test_detail_page_is_a_frontispiece_stage():
     assert "max-width" not in quote and "max-width" not in description
     html = read(TEMPLATES / "detail.html")
     stage = html[html.index('<div class="book-detail-main">'):html.index('<div class="book-detail-extra">')]
-    assert '<dl class="book-metadata">' in stage and 'id="readbtn"' in stage
+    assert 'id="readbtn"' in stage
     extra = html[html.index('<div class="book-detail-extra">'):html.index('id="bookInfoModal"')]
     # The related rows come after the description; the lookup lives in the details dialog.
     assert extra.index('class="book-detail-description"') < extra.index("related-series-heading")
@@ -313,14 +308,10 @@ def test_detail_page_is_a_frontispiece_stage():
     assert "display: grid" in info and "border" not in info
 
 
-def test_detail_fact_tags_are_file_arxiv_and_date_only():
-    # Design §6.4: each file, an arXiv paper's link, the date, and nothing else.
-    html = read(TEMPLATES / "detail.html")
-    start = html.index('<dl class="book-metadata">')
-    facts = html[start:html.index("</dl>", start)]
-    kinds = re.findall(r'<div class="book-fact ([\w-]+)"', facts)
-    assert kinds == ["formats", "arxiv", "publishing-date"]
-    assert 'href="https://arxiv.org/abs/{{ entry.arxiv_id }}"' in facts
+def test_detail_page_has_no_fact_tags():
+    # The file, date and arXiv link live in the details dialog, not under the byline.
+    assert "book-fact" not in read(TEMPLATES / "detail.html")
+    assert "book-fact" not in read(CSS / "lily-library.css")
 
 
 def test_site_has_no_horizontal_separator_borders():
