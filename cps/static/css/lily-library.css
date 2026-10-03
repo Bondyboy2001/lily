@@ -347,6 +347,9 @@
 
 .cover .lily-cover-marks > .badge.read { font-size: 13px; }
 
+/* Fetched fills green so it reads on any cover; the eye stays a quiet --surface disc. */
+.cover .lily-cover-marks > .lily-fetched { background: var(--success); color: var(--surface); }
+
 
 .lily-book .cover .lily-cover-count { left: auto; right: 6px; }
 

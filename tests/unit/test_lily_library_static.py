@@ -704,6 +704,9 @@ def test_grid_covers_hang_a_ribbon_per_file_type():
     assert (REPO_ROOT / "cps/static/icons/formats/djvu.svg").is_file()
     corner = rule(".cover .lily-cover-marks")
     assert "left: 8px" in corner and "bottom: 8px" in corner
+    # The fetched disc is filled green so it reads on light and dark covers alike.
+    disc = rule(".cover .lily-cover-marks > .lily-fetched")
+    assert "background: var(--success)" in disc and "color: var(--surface)" in disc
     # List rows show types in their Formats column and read state as a dot; only the fetched tab stays.
     hidden = rule('body[data-book-view="list"] .lily-grid > .lily-book .cover .lily-cover-ribbons,\n'
                   'body[data-book-view="list"] .lily-grid > .lily-book .cover .badge.read')

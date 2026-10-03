@@ -557,8 +557,8 @@ content (grid, panel, rows)
   their tooltips and for screen readers), joined by " · " when a book has both, in the stage's top-right corner, 16 down
   and 20 in (12 and 16 on phones), never on the cover. Bare text, no pill, set like the byline:
   `--font-body` 20px italic `--accent` (17 on phones). Grid cards don't show it.
-- **Fetched mark** (`.lily-fetched`, `image.fetched_mark`, editors only): a 22px `--surface` disc
-  with a `--success` check beside the Finished eye, bottom-left on the plate and on grid covers, once a
+- **Fetched mark** (`.lily-fetched`, `image.fetched_mark`, editors only): a 22px filled `--success` disc
+  with a `--surface` check beside the Finished eye, bottom-left on the plate and on grid covers, once a
   metadata lookup has matched the book; its tooltip and label say where from and when ("Metadata
   fetched from Open Library on ‹date›"). List rows show it as a 12px `--success` corner tab
   (radius 0 3 0 3, to fit the 28px thumbnail).
