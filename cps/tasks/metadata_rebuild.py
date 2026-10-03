@@ -15,9 +15,14 @@ How far a run has got is saved after every book (cwa.db), so one that was stoppe
 a restart, can be carried on from there instead of starting again.
 
 A rebuild skips a book that is up to date: its last lookup matched it or found nothing, and it
-hasn't changed since. A full rebuild first forgets what earlier lookups found (cwa.db) and looks
-every book up again."""
+hasn't changed since, and fills only what a matched book lacks. A full rebuild first copies the
+library's metadata.db to /config/metadata.db.before-full-rebuild, forgets what earlier lookups
+found (cwa.db) and looks every book up again, and a match replaces the book's details rather
+than filling them: its description, date and identifiers, and its title and authors unless it
+was edited by hand. A book with no match keeps what it has."""
 
+import os
+import sqlite3
 import sys
 from collections import Counter
 from datetime import datetime, timedelta, UTC
@@ -127,6 +132,7 @@ class TaskRebuildMetadata(CalibreTask):
         try:
             progress = self._store.get_rebuild_progress() if self.resume and self._store else None
             if self.full and not progress and self._store:
+                _backup_library()
                 self._store.clear_lookup_records()
             with library_lock:
                 if not progress and self.book_ids is None:
@@ -154,7 +160,8 @@ class TaskRebuildMetadata(CalibreTask):
                         self._finish(cdb, running)
                     if self.stop_requested:
                         break
-                    running[pool.submit(_look_up, fetch_and_apply_metadata, book_id, centre_covers)] = book_id
+                    running[pool.submit(_look_up, fetch_and_apply_metadata, book_id, centre_covers,
+                                        self.full)] = book_id
                 else:
                     self._unsubmitted = None
                 # A stop lets the books under way finish
@@ -320,7 +327,26 @@ def _changed_since(last_modified, checked_at) -> bool:
     return last_modified > checked + timedelta(seconds=5)
 
 
-def _look_up(fetch, book_id, centre_covers):
+def _backup_library():
+    """Copy the library's metadata.db beside cwa.db before a full rebuild overwrites it; a
+    failure is logged, and the rebuild goes on (each change can still be undone)."""
+    target = os.path.join(os.environ.get("CWA_DB_PATH", "/config"), "metadata.db.before-full-rebuild")
+    try:
+        source = sqlite3.connect(os.path.join(config.config_calibre_dir, "metadata.db"), timeout=30)
+        try:
+            copy = sqlite3.connect(target)
+            try:
+                source.backup(copy)
+            finally:
+                copy.close()
+        finally:
+            source.close()
+        log.info("Rebuild: copied the library to %s before the full rebuild", target)
+    except Exception as ex:
+        log.error("Rebuild: could not copy the library before the full rebuild: %s", ex)
+
+
+def _look_up(fetch, book_id, centre_covers, overwrite=False):
     """One book's work in the pool: the lookup, then making or centring a PDF's cover.
     Returns (updated, cover changed, providers that failed to answer).
 
@@ -329,7 +355,9 @@ def _look_up(fetch, book_id, centre_covers):
     after the lookup, which moves the book's folder when the title or first author changes."""
     from cps.metadata_helper import library_lock
     unanswered = set()
-    updated = fetch(book_id, force=True, unanswered=unanswered)
+    # Only a full rebuild overwrites; the keyword stays out otherwise (tests pass bare fetchers)
+    extra = {"overwrite": True} if overwrite else {}
+    updated = fetch(book_id, force=True, unanswered=unanswered, **extra)
     if not centre_covers:
         return updated, False, unanswered
     with library_lock:

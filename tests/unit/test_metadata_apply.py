@@ -496,3 +496,67 @@ def test_one_author_spelled_two_ways_is_added_once(env, monkeypatch):
                     page="The Hobbit by J.R.R. Tolkien")
     assert helper.fetch_and_apply_metadata(book) is True
     assert _q(env, "SELECT a.name FROM authors a JOIN books_authors_link l ON l.author = a.id") == [("J.R.R. Tolkien",)]
+
+
+# Full rebuild: a match replaces the book's details instead of filling them
+
+
+def _full_rebuild_book(env):
+    book = env.add_book("Dune", author="Frank Herbert")
+    _sql(env, ("INSERT INTO comments (book, text) VALUES (?, '<p>My own words.</p>')", (book,)),
+         ("INSERT INTO identifiers (book, type, val) VALUES (?, 'isbn', '9780000000002')", (book,)),
+         ("UPDATE books SET pubdate = '2001-01-01 00:00:00+00:00' WHERE id = ?", (book,)))
+    return book
+
+
+_THEIRS = dict(title="Dune", authors=["Frank Herbert", "Brian Herbert"], description="Theirs.",
+               publishedDate="1965-08-01", identifiers={"isbn": "9780441172719", "google": "abc"})
+
+
+def test_a_full_rebuild_replaces_what_the_match_has(env, monkeypatch):
+    book = _full_rebuild_book(env)
+    helper = _setup(monkeypatch, _record(**_THEIRS))
+    store, changes = _store()
+    _with_store(monkeypatch, helper, store)
+    assert helper.fetch_and_apply_metadata(book, force=True, overwrite=True) is True
+    assert _q(env, "SELECT text FROM comments") == [("Theirs.",)]
+    assert _q(env, "SELECT type, val FROM identifiers ORDER BY type") == [("google", "abc"), ("isbn", "9780441172719")]
+    assert _q(env, "SELECT pubdate FROM books")[0][0].startswith("1965-08-01")
+    assert sorted(n for (n,) in _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author")) == [
+        "Brian Herbert", "Frank Herbert"]
+    # Kept for Undo: the description, date and ISBN it replaced
+    [(__, before)] = changes
+    before = __import__("json").loads(before)
+    assert before["identifiers_changed"] == {"isbn": "9780000000002"} and "description" in before
+
+
+def test_a_full_rebuild_keeps_a_hand_edited_books_title_and_authors(env, monkeypatch):
+    book = _full_rebuild_book(env)
+    helper = _setup(monkeypatch, _record(**_THEIRS))
+    store, __ = _store(hand=True)
+    _with_store(monkeypatch, helper, store)
+    assert helper.fetch_and_apply_metadata(book, force=True, overwrite=True) is True
+    assert _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author") == [("Frank Herbert",)]
+    assert _q(env, "SELECT text FROM comments") == [("Theirs.",)]
+
+
+def test_an_ordinary_rebuild_still_only_fills(env, monkeypatch):
+    book = _full_rebuild_book(env)
+    helper = _setup(monkeypatch, _record(**_THEIRS))
+    store, __ = _store()
+    _with_store(monkeypatch, helper, store)
+    helper.fetch_and_apply_metadata(book, force=True)
+    assert _q(env, "SELECT text FROM comments") == [("<p>My own words.</p>",)]
+    assert ("isbn", "9780000000002") in _q(env, "SELECT type, val FROM identifiers")
+
+
+def test_undo_puts_back_an_identifier_a_full_rebuild_replaced(env, monkeypatch):
+    from cwa_db import CWA_DB
+    from cps import metadata_helper
+    book = _full_rebuild_book(env)
+    helper = _setup(monkeypatch, _record(**_THEIRS))
+    monkeypatch.setattr(helper, "CWA_DB", CWA_DB)
+    assert helper.fetch_and_apply_metadata(book, force=True, overwrite=True) is True
+    assert metadata_helper.undo_last_change(book) is True
+    assert _q(env, "SELECT type, val FROM identifiers") == [("isbn", "9780000000002")]
+    assert _q(env, "SELECT text FROM comments") == [("<p>My own words.</p>",)]

@@ -539,7 +539,7 @@ def _remember_cover(store, book_id, url, state) -> None:
         log.debug(f"Could not note the cover check of book {book_id}: {e}")
 
 
-def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None) -> bool:
+def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None, overwrite: bool = False) -> bool:
     """Look the book up and apply an exact match; True when the book changed.
 
     Runs for a new book when "Fetch metadata for new books" is on, and for every book in
@@ -549,7 +549,11 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
     title or first author moves the book's folder, and with "Write edits into book files"
     on, the change is queued for the files. The names of providers that failed to answer
     are added to `unanswered` (a set) when one is given. What the lookup found is noted in
-    cwa.db (see _note_lookup). A book's tags are never touched: they are the user's own."""
+    cwa.db (see _note_lookup). A book's tags are never touched: they are the user's own.
+
+    With overwrite (Full rebuild) a match replaces the book's details rather than filling
+    them: its description, date and identifiers, and its title and authors unless the book
+    was edited by hand."""
     if not db.CalibreDB.session_factory:
         log.error("CalibreDB not initialized; skipping metadata fetch")
         return False
@@ -575,7 +579,8 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
             # These load the book's files too, so the PDF reads below need no library access
             page_cover = _keeps_page_cover(book)
             papers_too = _may_be_a_paper(book)
-        mode = lookup_mode(title, authors, _hand_edited(store, book_id))
+        hand_edited = _hand_edited(store, book_id)
+        mode = (HAND if hand_edited else REPLACE) if overwrite else lookup_mode(title, authors, hand_edited)
         # Its PDF is read without holding the library: a page takes ~0.5 s on a NAS, and the
         # rebuild's other lookups would queue behind it
         # A scan's pages are read by OCR
@@ -612,7 +617,7 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
             changes = {}
             with library_lock:
                 before = _title_and_author(cdb, book)
-                changed = _apply_record(cdb, book, record, cover, mode=mode, store=store,
+                changed = _apply_record(cdb, book, record, cover, mode=mode, store=store, overwrite=overwrite,
                                         changes=changes)
                 cover_state = _cover_state(_cover_path(book))
                 title = book.title
@@ -960,7 +965,7 @@ def _no_date(current) -> bool:
     return current is None or current.year <= _NO_DATE_YEAR
 
 
-def _apply_record(cdb, book, record, cover, mode=REPLACE, store=None, changes=None):
+def _apply_record(cdb, book, record, cover, mode=REPLACE, store=None, changes=None, overwrite=False):
     """Writes what the record changes and commits; True when anything changed.
 
     With mode REPLACE (see lookup_mode) the record's fields replace the book's; with FILL and
@@ -976,7 +981,8 @@ def _apply_record(cdb, book, record, cover, mode=REPLACE, store=None, changes=No
     dropped = []
     before = {}
     new_description = None
-    filling = mode != REPLACE
+    # Overwriting (Full rebuild), even a book edited by hand takes the match's other details
+    filling = mode != REPLACE and not overwrite
     with session.no_autoflush:
         # A book that goes by the title without its subtitle (or with it) keeps going by that
         matched = matched_title(book.title, record)
@@ -1060,6 +1066,13 @@ def _apply_record(cdb, book, record, cover, mode=REPLACE, store=None, changes=No
                 before.setdefault('identifiers_added', []).append(kind)
                 have.add(kind)
                 changed = True
+            elif kind and value and overwrite:
+                # Overwriting, the match's value replaces the book's own of that kind
+                for identifier in book.identifiers:
+                    if identifier.type.lower() == kind and identifier.val != value:
+                        before.setdefault('identifiers_changed', {})[kind] = identifier.val
+                        identifier.val = value
+                        changed = True
 
         new_cover = bool(cover) and _cover_wins(book, cover)
         if new_cover:
@@ -1123,10 +1136,12 @@ def described_changes(book, before, new_cover=False, description=None) -> dict:
         changes['description'] = [_snippet(before['description']), _snippet(description)]
     if 'pubdate' in before:
         changes['pubdate'] = [_date_text(before['pubdate']), _date_text(book.pubdate)]
-    if before.get('identifiers_added'):
-        added = set(before['identifiers_added'])
-        changes['identifiers'] = ['', ", ".join(f"{i.type} {i.val}" for i in book.identifiers
-                                                if i.type.lower() in added)]
+    if before.get('identifiers_added') or before.get('identifiers_changed'):
+        added = set(before.get('identifiers_added') or [])
+        replaced = before.get('identifiers_changed') or {}
+        changes['identifiers'] = [", ".join(f"{kind} {val}" for kind, val in replaced.items()),
+                                  ", ".join(f"{i.type} {i.val}" for i in book.identifiers
+                                            if i.type.lower() in added or i.type.lower() in replaced)]
     if new_cover:
         changes['cover'] = ['', 'new']
     return changes
@@ -1200,10 +1215,13 @@ def _restore(cdb, book, before):
         if 'pubdate' in before:
             book.pubdate = datetime.fromisoformat(before['pubdate']) if before['pubdate'] else db.Books.DEFAULT_PUBDATE
         added = set(before.get('identifiers_added') or [])
+        replaced = before.get('identifiers_changed') or {}
         for identifier in list(book.identifiers):
             if identifier.type.lower() in added:
                 book.identifiers.remove(identifier)
                 session.delete(identifier)
+            elif identifier.type.lower() in replaced:
+                identifier.val = replaced[identifier.type.lower()]
     book.last_modified = datetime.now(UTC)
     session.flush()
     for row in dropped:

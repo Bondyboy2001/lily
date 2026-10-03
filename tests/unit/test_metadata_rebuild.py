@@ -281,9 +281,11 @@ def _run_rebuild(env, monkeypatch, stop_after=None, fail=None, **options):
     from cps.tasks.metadata_rebuild import TaskRebuildMetadata
     task = TaskRebuildMetadata(workers=1, **options)
     looked_up = []
+    task.overwrote = []
 
-    def fake_fetch(book_id, force=False, unanswered=None):
+    def fake_fetch(book_id, force=False, unanswered=None, overwrite=False):
         looked_up.append(book_id)
+        task.overwrote.append(overwrite)
         if book_id == stop_after:
             task.stop()
         if fail and book_id in fail:
@@ -446,3 +448,22 @@ def test_the_full_rebuild_button_is_offered_and_sent(env, monkeypatch):
     c.post("/cwa-settings/rebuild-metadata", data={"full": "1"})
     c.post("/cwa-settings/rebuild-metadata")
     assert [task.full for task in queued] == [True, False]
+
+
+@pytest.mark.unit
+def test_a_full_rebuild_overwrites_after_copying_the_library(env, monkeypatch):
+    import os
+    first, second = env.add_book("A"), env.add_book("B")
+    task, looked_up = _run_rebuild(env, monkeypatch, full=True)
+    assert looked_up == [first, second] and task.overwrote == [True, True]
+    backup = os.path.join(os.environ["CWA_DB_PATH"], "metadata.db.before-full-rebuild")
+    assert os.path.isfile(backup)
+    import sqlite3
+    con = sqlite3.connect(backup)
+    try:
+        assert con.execute("SELECT COUNT(*) FROM books").fetchone()[0] == 2
+    finally:
+        con.close()
+    # An ordinary rebuild only fills
+    task, __ = _run_rebuild(env, monkeypatch)
+    assert not any(task.overwrote)
