@@ -104,7 +104,7 @@
         <label for="pubdate">{{_('Published Date')}}</label>
         <div class="input-group">
           <input type="text" class="datepicker form-control" name="pubdate" id="pubdate" value="{% if book.pubdate %}{{book.pubdate|formatdateinput}}{% endif %}">
-          <input type="text" class="form-control fake-input hidden" id="fake_pubdate" value="{% if book.pubdate %}{{book.pubdate|formatdate}}{% endif %}">
+          <input type="text" class="form-control fake-input hidden" id="fake_pubdate" value="{% if book.pubdate %}{{book.pubdate|formatpubdate}}{% endif %}">
           <span class="input-group-btn">
             <button type="button" id="pubdate_delete" class="datepicker_delete btn btn-default" title="{{_('Clear date')}}" aria-label="{{_('Clear date')}}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></button>
           </span>

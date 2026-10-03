@@ -186,7 +186,7 @@
               {% if (entry.pubdate|string)[:10] != '0101-01-01' %}
               <div>
                 <dt>{{ _('Published') }}</dt>
-                <dd>{{ entry.pubdate|formatdate }}</dd>
+                <dd>{{ entry.pubdate|formatpubdate }}</dd>
               </div>
               {% endif %}
               {% for format in entry.data %}

@@ -67,6 +67,16 @@ def formatdate_filter(val):
         return val
 
 
+@jinjia.app_template_filter('formatpubdate')
+def formatpubdate_filter(val):
+    """A published date: just the year for 1 January, which is how a year alone is stored
+    (Open Library and most files give only the year)."""
+    day = val.date() if isinstance(val, datetime.datetime) else val
+    if isinstance(day, datetime.date) and day.month == 1 and day.day == 1:
+        return str(day.year)
+    return formatdate_filter(val)
+
+
 @jinjia.app_template_filter('formatdateinput')
 def format_date_input(val):
     if isinstance(val, datetime.datetime):

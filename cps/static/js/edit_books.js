@@ -12,8 +12,12 @@ $(".datepicker").datepicker({
     var results = /(\d{4})[-\/\\](\d{1,2})[-\/\\](\d{1,2})/.exec(this.value); // YYYY-MM-DD
     if (results) {
         pubDate = new Date(results[1], parseInt(results[2], 10) - 1, results[3]) || new Date(this.value);
+        // The month in words ("2 Oct 1993" / "Oct 2, 1993", in the browser's own order), never
+        // 10/2/1993, which reads two ways. 1 January is how a year alone is stored: just the year.
+        var yearOnly = pubDate.getMonth() === 0 && pubDate.getDate() === 1;
         $(this).next('input')
-            .val(pubDate.toLocaleDateString(language.replaceAll("_","-")))
+            .val(yearOnly ? String(pubDate.getFullYear())
+                          : pubDate.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }))
             .removeClass("hidden");
     }
 }).trigger("change");
