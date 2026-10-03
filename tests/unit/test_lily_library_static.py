@@ -287,11 +287,18 @@ def test_detail_page_is_a_frontispiece_stage():
     assert extra.index('class="book-detail-description"') < extra.index('<dl class="book-record">') \
         < extra.index("related-author-heading")
     assert "book-metadata-lookup" in extra and "book-metadata-lookup" not in stage
-    # Date added and Last edited sit quietly in the stage's top-right corner.
-    assert '<dl class="book-dates">' in stage
-    assert "entry.timestamp|formatdate" in stage and "entry.last_modified|formatdate" in stage
-    dates = next(body for selector, body in rules if selector == "dl.book-dates")
-    assert "position: absolute" in dates and "right:" in dates and "var(--muted)" in dates
+    # Date added and Last edited live in the details dialog, opened from the action bar.
+    assert "book-dates" not in html and "entry.timestamp" not in stage
+    assert 'id="book-info-btn"' in stage and 'data-target="#bookInfoModal"' in stage
+    dialog = html[html.index('id="bookInfoModal"'):]
+    assert '<dl class="book-info">' in dialog
+    assert dialog.index("entry.timestamp|formatdate") < dialog.index("entry.last_modified|formatdate")
+    # A matched lookup puts a green dot in the stage's top-right corner.
+    assert "metadata_lookup.status == 'matched'" in stage and 'class="book-fetched-dot"' in stage
+    dot = next(body for selector, body in rules if selector == ".book-fetched-dot")
+    assert "position: absolute" in dot and "var(--success)" in dot and "border-radius: 999px" in dot
+    info = next(body for selector, body in rules if selector == "dl.book-info")
+    assert "display: grid" in info and "border" not in info
 
 
 def test_detail_fact_tags_are_file_arxiv_and_date_only():

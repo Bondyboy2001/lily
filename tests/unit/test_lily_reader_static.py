@@ -401,6 +401,17 @@ def test_book_page_title_is_the_only_h1(client, temp_cwa_db):
 
 
 @pytest.mark.unit
+def test_book_page_details_dialog(client, temp_cwa_db):
+    env, c, book_id = client
+    html = c.get(f"/book/{book_id}").get_data(as_text=True)
+    dialog = html[html.index('id="bookInfoModal"'):]
+    assert 'aria-labelledby="bookInfoLabel"' in dialog and ">Book Details</h4>" in dialog
+    labels = re.findall(r"<dt>([^<]*)</dt>", dialog[:dialog.index("</dl>")])
+    assert labels[:2] == ["Date added", "Last edited"] and labels[-1] == "Book ID"
+    assert "Reading" in labels and "%" not in dialog[:dialog.index("</dl>")].replace("%(", "")
+
+
+@pytest.mark.unit
 def test_grid_quick_actions_name_their_book(client):
     env, c, _ = client
     html = c.get("/").get_data(as_text=True)

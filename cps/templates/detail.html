@@ -13,17 +13,12 @@
     {# "Frontispiece" (design §6.4): a stage with the cover as a mounted plate beside the title,
        byline, fact tags and actions; below it the description, the lookup line and what to read next. #}
     <div class="book-detail-main">
-        {# When the book came in and was last changed, quiet in the stage's top-right corner (design §6.4) #}
-        <dl class="book-dates">
-            <div class="book-date-added">
-                <dt>{{ _('Added') }}</dt>
-                <dd>{{ entry.timestamp|formatdate }}</dd>
-            </div>
-            <div class="book-last-modified">
-                <dt>{{ _('Edited') }}</dt>
-                <dd>{{ entry.last_modified|formatdate }}</dd>
-            </div>
-        </dl>
+        {# A green dot in the stage's top-right corner once a metadata lookup has found the book (editors only) #}
+        {% if metadata_lookup and metadata_lookup.status == 'matched' %}
+            {% set fetched = _('Metadata fetched from %(source)s on %(date)s', source=metadata_lookup.source, date=metadata_lookup.checked|formatdate) if metadata_lookup.source
+                             else _('Metadata fetched on %(date)s', date=metadata_lookup.checked|formatdate) %}
+            <span class="book-fetched-dot" id="book-fetched-dot" role="img" title="{{ fetched }}" aria-label="{{ fetched }}"></span>
+        {% endif %}
         <div class="book-detail-cover">
             <div class="book-detail-cover-art cover">
                 <img id="detailcover" alt="{{ entry.title }}"
@@ -128,6 +123,11 @@
                             <span id="read-icon" class="glyphicon glyphicon-eye-open" aria-hidden="true"></span><span class="book-action-label sr-only">{{ read_label }}</span>
                         </button>
                     {% endif %}
+                    {# Everything else worth knowing (dates, files, identifiers…) in a dialog (design §6.4) #}
+                    <button type="button" class="btn is-icon" id="book-info-btn" title="{{ _('View details') }}" aria-label="{{ _('View details') }}"
+                            data-toggle="modal" data-target="#bookInfoModal">
+                        <span class="glyphicon glyphicon-info-sign" aria-hidden="true"></span>
+                    </button>
                     {% if current_user.role_edit() %}
                         {# Opens the editor with the metadata lookup already running (get_meta.js reads ?fetch=1) #}
                         <a href="{{ url_for('edit-book.show_edit_book', book_id=entry.id, fetch=1) }}" id="fetch_book_meta" class="btn is-icon"
@@ -203,6 +203,84 @@
                 </form>
             </div>
         {% endif %}
+    </div>
+    {# The details dialog: when the book came in and was last changed, then the facts the page leaves out #}
+    <div class="modal fade" id="bookInfoModal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="bookInfoLabel">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h4 class="modal-title" id="bookInfoLabel">{{ _('Book Details') }}</h4>
+            <button type="button" class="close" data-dismiss="modal" aria-label="{{ _('Close') }}"><span aria-hidden="true">&times;</span></button>
+          </div>
+          <div class="modal-body">
+            <dl class="book-info">
+              <div class="book-date-added">
+                <dt>{{ _('Date added') }}</dt>
+                <dd>{{ entry.timestamp|formatdate }}</dd>
+              </div>
+              <div class="book-last-modified">
+                <dt>{{ _('Last edited') }}</dt>
+                <dd>{{ entry.last_modified|formatdate }}</dd>
+              </div>
+              {% if (entry.pubdate|string)[:10] != '0101-01-01' %}
+              <div>
+                <dt>{{ _('Published') }}</dt>
+                <dd>{{ entry.pubdate|formatdate }}</dd>
+              </div>
+              {% endif %}
+              {% if entry.publishers|length %}
+              <div>
+                <dt>{{ _('Publisher') }}</dt>
+                <dd>{{ entry.publishers[0].name }}</dd>
+              </div>
+              {% endif %}
+              {% if entry.series|length %}
+              <div>
+                <dt>{{ _('Series') }}</dt>
+                <dd>{{ entry.series[0].name }} · {{ entry.series_index|formatfloat(2) }}</dd>
+              </div>
+              {% endif %}
+              {% if entry.languages|length %}
+              <div>
+                <dt>{{ _('Language') }}</dt>
+                <dd>{% for language in entry.languages %}{{ language.language_name }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>
+              </div>
+              {% endif %}
+              {% for format in entry.data %}
+              <div>
+                <dt>{{ _('File') if loop.length == 1 else format.format }}</dt>
+                <dd>{{ format.format }} · {{ format.uncompressed_size|filesizeformat_binary }}</dd>
+              </div>
+              {% endfor %}
+              {% for identifier in entry.identifiers %}
+              <div>
+                <dt>{{ identifier.type|upper }}</dt>
+                <dd class="book-info-id">{{ identifier.val }}</dd>
+              </div>
+              {% endfor %}
+              {% if not current_user.is_anonymous %}
+              <div>
+                <dt>{{ _('Reading') }}</dt>
+                <dd>{% if entry.read_status %}{{ _('Finished') }}{% elif resume %}{{ _('In progress · %(percent)s%%', percent=resume.percent) }}{% else %}{{ _('Not started') }}{% endif %}</dd>
+              </div>
+              {% endif %}
+              {% if metadata_lookup %}
+              <div>
+                <dt>{{ _('Metadata') }}</dt>
+                <dd>{{ _('Looked up %(date)s', date=metadata_lookup.checked|formatdate) }}</dd>
+              </div>
+              {% endif %}
+              <div>
+                <dt>{{ _('Book ID') }}</dt>
+                <dd>{{ entry.id }}</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">{{ _('Close') }}</button>
+          </div>
+        </div>
+      </div>
     </div>
     {{ delete_book(current_user.role_delete_books() and current_user.role_edit()) }}
 </div>

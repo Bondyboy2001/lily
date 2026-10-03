@@ -555,13 +555,19 @@ content (grid, panel, rows)
 - **Lookup line** (`dl.book-record`, editors only): one 13px `--muted` line under the
   description, aligned with its text, saying what the last metadata lookup found
   ("From Open Library", "No match" or "Lookup failed", with the date in its tooltip).
-- **Dates** (`dl.book-dates`): Date added and Last edited, two right-aligned 13px lines
-  ("Added ‹date›", "Edited ‹date›"; label `--muted`, date `--ink-soft`) pinned in the
-  stage's top-right corner, 14 from the top and 20 from the right. On phones they drop
-  into the flow under the actions, centred on one line.
+- **Fetched dot** (`.book-fetched-dot`, editors only): a filled 12px `--success` circle
+  16 from the stage's top-right corner once a metadata lookup has matched the book; its
+  tooltip and label say where from and when ("Metadata fetched from Open Library on ‹date›").
+  No dot before a lookup, or after one that found nothing.
+- **Details dialog** (`#bookInfoModal`, §5.7): the info button in the action bar opens
+  "Book Details", a two-column `dl.book-info` (label `--muted`, value `--ink`, 15px, rows
+  10 apart, no dividers): Date added, Last edited, then whichever the book has of
+  published date, publisher, series, language, each file, each identifier, the
+  reader's progress, the last metadata lookup and the book ID. Dates appear nowhere
+  else on the page. A Close button ends the footer.
 - Tags and shelves are not shown on the book page; both stay editable on the
   edit page.
-- The action bar is Read, Download, Mark as read, Fetch metadata (the magnifying glass,
+- The action bar is Read, Download, Mark as read, View details (the info sign), Fetch metadata (the magnifying glass,
   opening the editor with the lookup running, `?fetch=1`), Edit metadata and Delete. A book's
   shelves are changed on its edit page (the Shelves rows), never from the book page.
   There is no archive and no Keep offline button. On a shelf page each cover gets a

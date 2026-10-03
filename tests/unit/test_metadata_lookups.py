@@ -161,9 +161,18 @@ def test_book_page_shows_the_lookup_to_editors(env):
     html = _login(env).get(f"/book/{book}").get_data(as_text=True)
     fact = re.search(r'<div class="book-metadata-lookup">.*?</div>', html, flags=re.S)
     assert fact and ">From Open Library</dd>" in fact.group(0) and 'title="Looked up ' in fact.group(0)
+    dot = re.search(r'<span class="book-fetched-dot"[^>]*>', html)
+    assert dot and 'aria-label="Metadata fetched from Open Library on ' in dot.group(0)
     env.add_user("reader", password="pw")
     html = _login(env, "reader", "pw").get(f"/book/{book}").get_data(as_text=True)
-    assert "book-metadata-lookup" not in html
+    assert "book-metadata-lookup" not in html and "book-fetched-dot" not in html
+
+
+def test_book_page_shows_no_dot_until_a_lookup_matches(env):
+    book = env.add_book("Dune")
+    assert "book-fetched-dot" not in _login(env).get(f"/book/{book}").get_data(as_text=True)
+    _store().save_metadata_lookup(book, "nomatch")
+    assert "book-fetched-dot" not in _login(env).get(f"/book/{book}").get_data(as_text=True)
 
 
 @pytest.mark.parametrize("before", ["failed", "nomatch"])
