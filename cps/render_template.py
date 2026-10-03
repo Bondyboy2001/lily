@@ -118,8 +118,6 @@ def get_sidebar_config():
     sidebar.append(
         {"glyph": "glyphicon-eye-close", "text": _('Unread'), "link": 'web.books_list', "id": "unread",
          "visibility": constants.SIDEBAR_READ_AND_UNREAD, 'public': (not current_user.is_anonymous), "page": "unread"})
-    sidebar.append({"glyph": "glyphicon-inbox", "text": _('Tags'), "link": 'web.category_list', "id": "cat",
-                    "visibility": constants.SIDEBAR_CATEGORY, 'public': True, "page": "category"})
     sidebar.append({"glyph": "glyphicon-user", "text": _('Authors'), "link": 'web.author_list', "id": "author",
                     "visibility": constants.SIDEBAR_AUTHOR, 'public': True, "page": "author"})
     sidebar.append(

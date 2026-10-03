@@ -172,7 +172,6 @@ def test_rebuilt_book_moves_folder_sorts_author_and_queues_the_file_write(env, m
                         [_provider_returning(title="Abstract Algebra", authors=["Alexander Paulin"])])
     # Its title page names the author it lacks
     monkeypatch.setattr(metadata_helper, "pdf_first_page_text", lambda book: "Abstract Algebra\nAlexander Paulin")
-    monkeypatch.setattr(metadata_rebuild, "tidy_library_tags", lambda session: (0, 0))
     logs = tmp_path / "change_logs"
     logs.mkdir()
     monkeypatch.setattr(metadata_helper, "CHANGE_LOGS_DIR", str(logs))

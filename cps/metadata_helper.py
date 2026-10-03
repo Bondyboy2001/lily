@@ -28,7 +28,6 @@ from cps.services import arxiv_shelf
 from cps.services.Metadata import ProviderBusy
 from cps.services.identifiers import (ARXIV_ID, DOI_RE, ISBN_RE, arxiv_id_from_doi, compact_isbn,
                                       normalise_identifiers, parse_identifier)
-from cps.tag_cleanup import clean_tags
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB  # noqa: E402
 from metadata_suggestions import normalise_title, surnames, title_forms  # noqa: E402
@@ -550,8 +549,7 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
     title or first author moves the book's folder, and with "Write edits into book files"
     on, the change is queued for the files. The names of providers that failed to answer
     are added to `unanswered` (a set) when one is given. What the lookup found is noted in
-    cwa.db (see _note_lookup). A rebuild's match replaces the book's tags; a new book's adds
-    to them."""
+    cwa.db (see _note_lookup). A book's tags are never touched: they are the user's own."""
     if not db.CalibreDB.session_factory:
         log.error("CalibreDB not initialized; skipping metadata fetch")
         return False
@@ -614,7 +612,7 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
             changes = {}
             with library_lock:
                 before = _title_and_author(cdb, book)
-                changed = _apply_record(cdb, book, record, cover, replace_tags=force, mode=mode, store=store,
+                changed = _apply_record(cdb, book, record, cover, mode=mode, store=store,
                                         changes=changes)
                 cover_state = _cover_state(_cover_path(book))
                 title = book.title
@@ -978,7 +976,7 @@ def _no_date(current) -> bool:
     return current is None or current.year <= _NO_DATE_YEAR
 
 
-def _apply_record(cdb, book, record, cover, replace_tags=False, mode=REPLACE, store=None, changes=None):
+def _apply_record(cdb, book, record, cover, mode=REPLACE, store=None, changes=None):
     """Writes what the record changes and commits; True when anything changed.
 
     With mode REPLACE (see lookup_mode) the record's fields replace the book's; with FILL and
@@ -986,8 +984,8 @@ def _apply_record(cdb, book, record, cover, replace_tags=False, mode=REPLACE, st
     publication is), and the title and authors change only as lookup_mode says. Only fields
     the record has are touched; a book's own identifiers are kept and new ones added. The
     rating is left alone: a provider's is its readers' average, not this library's. A
-    description that doesn't read as English is skipped for an English book. The record's tags
-    are added to the book's or, with replace_tags in REPLACE, take their place. What changed is
+    description that doesn't read as English is skipped for an English book. Tags are left
+    alone: they are the user's own (and providers' are shop categories). What changed is
     kept in `store` as it was before, for Undo, and added to `changes` as {field: [before,
     after]} for the Logs page (see described_changes)."""
     session = cdb.session
@@ -1071,31 +1069,6 @@ def _apply_record(cdb, book, record, cover, replace_tags=False, mode=REPLACE, st
                 before['publisher'] = old
                 changed = True
 
-        # Only subjects: a provider's tags can be shop categories or the book's own title
-        tags = []
-        for name in clean_tags(record.tags or [], title=book.title,
-                               authors=[a.name for a in book.authors],
-                               publishers=[p.name for p in book.publishers],
-                               series=[s.name for s in book.series]):
-            tag = _named(cdb, db.Tags, cdb.get_tag_by_name, name)
-            if tag not in tags:
-                tags.append(tag)
-        old_tags = [t.name for t in book.tags]
-        if filling and book.tags:
-            # Filling, a book's own tags stay as they are
-            tags = []
-        if replace_tags and tags and not filling:
-            # A record with no subjects leaves the book's alone
-            if _only(book, 'tags', tags, dropped):
-                before['tags'] = old_tags
-                changed = True
-        else:
-            for tag in tags:
-                if tag not in book.tags:
-                    before.setdefault('tags', old_tags)
-                    book.tags.append(tag)
-                    changed = True
-
         published = helper.parse_partial_date(record.publishedDate)
         date_ok = not filling or _no_date(book.pubdate) or (published and book.pubdate
                                                              and published.date() < book.pubdate.date())
@@ -1175,8 +1148,6 @@ def described_changes(book, before, new_cover=False, description=None) -> dict:
         changes['description'] = [_snippet(before['description']), _snippet(description)]
     if 'publisher' in before:
         changes['publisher'] = [", ".join(before['publisher'] or []), names(book.publishers)]
-    if 'tags' in before:
-        changes['tags'] = [", ".join(before['tags'] or []), names(book.tags)]
     if 'pubdate' in before:
         changes['pubdate'] = [_date_text(before['pubdate']), _date_text(book.pubdate)]
     if before.get('identifiers_added'):
@@ -1254,12 +1225,11 @@ def _restore(cdb, book, before):
                 for comment in list(book.comments):
                     session.delete(comment)
         for attr, model, lookup in (('publisher', db.Publishers, cdb.get_publisher_by_name),
-                                    ('tags', db.Tags, cdb.get_tag_by_name),
                                     ('series', db.Series, cdb.get_series_by_name)):
             if attr not in before:
                 continue
             # A publisher's and a series' rows take their sort name too, as _apply_record makes them
-            rows = [_named(cdb, model, lookup, name, *(() if model is db.Tags else (name,)))
+            rows = [_named(cdb, model, lookup, name, name)
                     for name in before[attr] or []]
             _only(book, 'publishers' if attr == 'publisher' else attr, rows, dropped)
         if 'series_index' in before:

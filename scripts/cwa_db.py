@@ -6,6 +6,8 @@
 
 """cwa.db: Lily's settings and statistics database, its schema sync and migrations."""
 
+import json
+import shutil
 import sqlite3
 import os
 import threading
@@ -206,6 +208,44 @@ def _m6_drop_import_merge(cur) -> None:
         cur.execute("ALTER TABLE cwa_settings DROP COLUMN auto_ingest_automerge")
 
 
+# Where the container keeps the library's location (calibre_library_dir)
+DIRS_FILE = "/app/calibre-web-automated/dirs.json"
+
+
+def _m7_clear_every_books_tags(cur) -> None:
+    # Tags are the user's own from now on: lookups and imports add none, and the ones they
+    # added before go, once. Not on a new install, whose library's tags were never Lily's.
+    if not cur.execute("SELECT COUNT(*) FROM cwa_settings").fetchone()[0]:
+        return
+    try:
+        with open(DIRS_FILE) as f:
+            library = json.load(f)["calibre_library_dir"]
+    except (OSError, ValueError, KeyError):
+        return
+    clear_library_tags(os.path.join(library, "metadata.db"),
+                       os.path.dirname(cur.execute("PRAGMA database_list").fetchone()[2]))
+
+
+def clear_library_tags(metadata_db: str, backup_dir: str) -> int:
+    """Remove every tag from every book in the library at metadata_db, after copying it to
+    backup_dir as metadata.db.before-tag-clear; returns how many books had tags. Nothing
+    happens without a library."""
+    if not os.path.isfile(metadata_db):
+        return 0
+    shutil.copy2(metadata_db, os.path.join(backup_dir, "metadata.db.before-tag-clear"))
+    con = sqlite3.connect(metadata_db, timeout=30)
+    try:
+        books = con.execute("SELECT COUNT(DISTINCT book) FROM books_tags_link").fetchone()[0]
+        con.execute("DELETE FROM books_tags_link")
+        con.execute("DELETE FROM tags")
+        con.commit()
+    finally:
+        con.close()
+    print(f"[cwa-db] Cleared the tags of {books} books; the library before is {backup_dir}/metadata.db.before-tag-clear",
+          flush=True)
+    return books
+
+
 # The lookups the Logs page can list (metadata_lookup_log): a full rebuild's worth is too many
 LOOKUP_LOG_KEEP = 5000
 
@@ -215,7 +255,8 @@ MIGRATIONS: list = [(1, "always detect duplicates, no Hardcover auto-fetch", _m1
                     (3, "drop the settings and tables of removed features", _m3_drop_removed_features),
                     (4, "drop the unread import log", _m4_drop_import_log),
                     (5, "drop unused duplicate-scan and resolution columns", _m5_drop_unused_columns),
-                    (6, "drop the import merge setting", _m6_drop_import_merge)]
+                    (6, "drop the import merge setting", _m6_drop_import_merge),
+                    (7, "clear every book's tags", _m7_clear_every_books_tags)]
 SCHEMA_MIGRATIONS_TABLE = "cwa_schema_migrations"
 
 

@@ -3,8 +3,7 @@
 
 """Task that looks every book up again with the metadata providers (Settings → Metadata → Rebuild).
 
-It first makes each author the people it names (cps/author_cleanup.py) and clears tags that are
-not subjects (ISBNs, publisher lines, shop listing scraps), and after each lookup gives a PDF
+It first makes each author the people it names (cps/author_cleanup.py), and after each lookup gives a PDF
 with no cover its first page, or centres a page-render cover on what is printed
 (cps/pdf_cover.py).
 
@@ -31,7 +30,6 @@ from cps import config, db, helper, logger, pdf_cover
 from cps.services.worker import (CalibreTask, STAT_FAIL, STAT_FINISH_SUCCESS, STAT_STARTED, STAT_STOPPING,
                                  STAT_WAITING)
 from cps.author_cleanup import tidy_authors
-from cps.tag_cleanup import tidy_library_tags
 from cps.ub import init_db_thread
 sys.path.insert(1, '/app/calibre-web-automated/scripts/')
 from cwa_db import CWA_DB  # noqa: E402
@@ -133,7 +131,6 @@ class TaskRebuildMetadata(CalibreTask):
             with library_lock:
                 if not progress and self.book_ids is None:
                     self._tidy_authors(cdb)
-                    self._tidy_tags(cdb)
                     self._clear_none_descriptions(cdb)
                 books = cdb.session.query(db.Books.id, db.Books.last_modified).order_by(db.Books.id).all()
             book_ids = [row[0] for row in books]
@@ -278,16 +275,6 @@ class TaskRebuildMetadata(CalibreTask):
         except Exception as ex:
             cdb.session.rollback()
             log.error("Rebuild: could not tidy authors: %s", ex)
-
-    def _tidy_tags(self, cdb):
-        """Clear out tags that are not subjects first: it takes seconds, the lookups take hours."""
-        self.message = N_('Tidying tags')
-        try:
-            changed, removed = tidy_library_tags(cdb.session)
-            log.info("Rebuild: tidied the tags of %s books, removed %s unused tags", changed, removed)
-        except Exception as ex:
-            cdb.session.rollback()
-            log.error("Rebuild: could not tidy tags: %s", ex)
 
     def _clear_none_descriptions(self, cdb):
         """Clear the description "None" that an old Fetch Metadata save wrote, so the lookups

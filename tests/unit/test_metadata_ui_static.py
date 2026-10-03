@@ -131,9 +131,9 @@ def test_fetch_metadata_cards_stack_on_phones():
 
 def test_a_ticked_field_replaces_the_books_value():
     js = (REPO_ROOT / "cps/static/js/get_meta.js").read_text(encoding="utf-8")
-    # Tags and languages are the result's, not merged into the book's
-    assert 'set("tags", (book.tags || []).join(", "))' in js
+    # Languages are the result's, not merged into the book's; a result never brings tags
     assert 'set("languages", (book.languages || []).join(", "))' in js
+    assert 'set("tags"' not in js and "msg.tags" not in js
     assert "getUniqueValues" not in js
     # A title's "(2nd Edition)" replaces the Edition field, filled or not
     assert "if (split.edition && $edition.length) {" in js
@@ -144,11 +144,11 @@ def test_a_ticked_field_replaces_the_books_value():
 
 
 def test_fetch_metadata_breaks_near_ties_by_provider_order_not_arrival():
-    """Open Library comes before Hardcover in the server's order (search_metadata.cl); a
-    result as good from each lists Open Library's first, whichever answered first."""
+    """Hardcover comes before Open Library in the server's order (search_metadata.cl); a
+    result as good from each lists Hardcover's first, whichever answered first."""
     from cps.search_metadata import cl
     ids = [c.__id__ for c in cl]
-    assert ids.index("openlibrary") < ids.index("hardcover")
+    assert ids.index("hardcover") < ids.index("openlibrary")
     js = (REPO_ROOT / "cps/static/js/get_meta.js").read_text(encoding="utf-8")
     assert "rank[provider.id] = i;" in js
     assert "(scoreBand(b) - scoreBand(a)) ||\n        ((rank[a.provider] || 0) - (rank[b.provider] || 0))" in js

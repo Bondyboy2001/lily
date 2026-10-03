@@ -38,7 +38,7 @@ import title_card  # stdlib only at import time; Wand loads when a card is drawn
 _CPS_AVAILABLE = False
 _cps_config = None
 fetch_and_apply_metadata = None
-tidy_new_book_tags = None
+clear_new_book_tags = None
 tidy_new_book_authors = None
 recentre_new_book_cover = None
 _ub = None
@@ -246,7 +246,7 @@ def _load_runtime_dependencies() -> None:
 
 
 def _load_optional_cps_modules() -> None:
-    global _CPS_AVAILABLE, _cps_config, fetch_and_apply_metadata, tidy_new_book_tags, tidy_new_book_authors, \
+    global _CPS_AVAILABLE, _cps_config, fetch_and_apply_metadata, clear_new_book_tags, tidy_new_book_authors, \
         recentre_new_book_cover, _ub
 
     if _CPS_AVAILABLE:
@@ -267,7 +267,7 @@ def _load_optional_cps_modules() -> None:
         # Import metadata functionality
         try:
             from cps.metadata_helper import fetch_and_apply_metadata as loaded_fetch_and_apply_metadata
-            from cps.tag_cleanup import tidy_new_book_tags as loaded_tidy_new_book_tags
+            from cps.tag_cleanup import clear_new_book_tags as loaded_clear_new_book_tags
             from cps.author_cleanup import tidy_new_book_authors as loaded_tidy_new_book_authors
             from cps.pdf_cover import recentre_new_book_cover as loaded_recentre_new_book_cover
             from cps import ub as loaded_ub
@@ -276,7 +276,7 @@ def _load_optional_cps_modules() -> None:
             # Filing a paper on the arXiv shelf opens app.db by this path
             loaded_ub.app_DB_path = loaded_ub.app_DB_path or get_app_db_path()
             fetch_and_apply_metadata = loaded_fetch_and_apply_metadata
-            tidy_new_book_tags = loaded_tidy_new_book_tags
+            clear_new_book_tags = loaded_clear_new_book_tags
             tidy_new_book_authors = loaded_tidy_new_book_authors
             recentre_new_book_cover = loaded_recentre_new_book_cover
             _ub = loaded_ub
@@ -285,7 +285,7 @@ def _load_optional_cps_modules() -> None:
         except ImportError as e:
             print(f"[ingest-processor] Metadata functionality not available: {e}", flush=True)
             fetch_and_apply_metadata = None
-            tidy_new_book_tags = None
+            clear_new_book_tags = None
             tidy_new_book_authors = None
             recentre_new_book_cover = None
             _ub = None
@@ -879,7 +879,7 @@ class NewBookProcessor:
             # calibre takes a PDF's author from the file: make it the people it names
             self.tidy_authors(self.last_added_book_ids or [])
             # calibre turns a PDF's Keywords into tags: keep only the subjects
-            self.tidy_tags(self.last_added_book_ids or [])
+            self.clear_tags(self.last_added_book_ids or [])
             # calibre's cover for a PDF is page 1 as printed, often off-centre: centre it on the print
             self.centre_covers(self.last_added_book_ids or [])
 
@@ -987,15 +987,15 @@ class NewBookProcessor:
             except Exception as e:
                 print(f"[ingest-processor] WARN: Could not tidy the authors of book id={book_id}: {e}", flush=True)
 
-    def tidy_tags(self, book_ids) -> None:
-        if not _CPS_AVAILABLE or tidy_new_book_tags is None:
+    def clear_tags(self, book_ids) -> None:
+        if not _CPS_AVAILABLE or clear_new_book_tags is None:
             return
         for book_id in book_ids:
             try:
-                if tidy_new_book_tags(int(book_id)):
-                    print(f"[ingest-processor] Removed tags that are not subjects from book id={book_id}", flush=True)
+                if clear_new_book_tags(int(book_id)):
+                    print(f"[ingest-processor] Cleared the tags the file gave book id={book_id}", flush=True)
             except Exception as e:
-                print(f"[ingest-processor] WARN: Could not tidy the tags of book id={book_id}: {e}", flush=True)
+                print(f"[ingest-processor] WARN: Could not clear the tags of book id={book_id}: {e}", flush=True)
 
     def centre_covers(self, book_ids) -> None:
         if not _CPS_AVAILABLE or recentre_new_book_cover is None:

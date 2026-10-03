@@ -52,7 +52,7 @@ def _processor(ip, tmp_path):
     nbp.failure_reason = ""
     nbp.fetch_metadata_if_enabled = lambda *a, **k: None
     nbp.tidy_authors = lambda ids: None
-    nbp.tidy_tags = lambda ids: None
+    nbp.clear_tags = lambda ids: None
     nbp.centre_covers = lambda ids: None
     nbp._register_title_sort_function = lambda con: True
     return nbp

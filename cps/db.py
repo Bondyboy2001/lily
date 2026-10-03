@@ -845,10 +845,6 @@ class CalibreDB:
         self.ensure_session()
         return self.session.query(Authors).filter(Authors.name == name).first()
 
-    def get_tag_by_name(self, name):
-        self.ensure_session()
-        return self.session.query(Tags).filter(Tags.name == name).first()
-
     def get_series_by_name(self, name):
         self.ensure_session()
         return self.session.query(Series).filter(Series.name == name).first()

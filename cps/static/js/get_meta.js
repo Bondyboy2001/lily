@@ -125,7 +125,7 @@ $(function () {
       title: field("title").val(), authors: field("authors").val(), publisher: field("publisher").val(),
       pubdate: field("pubdate").val(),
       rating: ratingValue(), description: htmlToText(field("comments").val()),
-      tags: field("tags").val(), languages: field("languages").val(), ids: currentIdentifiers(),
+      languages: field("languages").val(), ids: currentIdentifiers(),
     };
   }
 
@@ -149,9 +149,6 @@ $(function () {
       add("rating", msg.rating, book.rating + " / 5", form.rating ? form.rating + " / 5" : "");
     }
     add("description", msg.comments, result.descText, form.description, { cls: "meta-description" });
-    if (book.tags && book.tags.length) {
-      add("tags", msg.tags, book.tags.join(", "), form.tags);
-    }
     if (book.languages && book.languages.length) {
       add("languages", msg.languages, book.languages.join(", "), form.languages);
     }
@@ -188,10 +185,8 @@ $(function () {
     if (updateItems.description) {
       set("comments", book.description || "").trigger("lily:set-html");
     }
-    // A ticked field replaces the book's value outright, tags and languages included
-    if (updateItems.tags) {
-      set("tags", (book.tags || []).join(", ")).trigger("change");
-    }
+    // A ticked field replaces the book's value outright, languages included. Tags are the
+    // user's own: a result never brings any
     if (updateItems.languages) {
       set("languages", (book.languages || []).join(", "));
     }

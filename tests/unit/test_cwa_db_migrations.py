@@ -308,3 +308,76 @@ def test_migration_6_drops_the_import_merge_setting(cwa_dir):
         assert "auto_ingest_automerge" not in db.get_cwa_settings()
     finally:
         db.close()
+
+
+@pytest.mark.unit
+def test_migration_7_clears_every_books_tags_once_after_a_backup(cwa_dir, tmp_path, monkeypatch):
+    import json
+    library = tmp_path / "library"
+    library.mkdir()
+    lib = sqlite3.connect(library / "metadata.db")
+    lib.execute("CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT)")
+    lib.execute("CREATE TABLE books_tags_link (id INTEGER PRIMARY KEY, book INTEGER, tag INTEGER)")
+    lib.executemany("INSERT INTO tags VALUES (?, ?)", [(1, "Mathematics"), (2, "Springer 2011")])
+    lib.executemany("INSERT INTO books_tags_link (book, tag) VALUES (?, ?)", [(1, 1), (1, 2), (2, 1)])
+    lib.commit()
+    lib.close()
+    dirs = tmp_path / "dirs.json"
+    dirs.write_text(json.dumps({"calibre_library_dir": str(library)}))
+    monkeypatch.setattr(cwa_db_module, "DIRS_FILE", str(dirs))
+    # An existing install: its cwa.db already has its settings
+    con = sqlite3.connect(cwa_dir / "cwa.db")
+    con.execute("CREATE TABLE cwa_settings (default_settings SMALLINT DEFAULT 1 NOT NULL)")
+    con.execute("INSERT INTO cwa_settings DEFAULT VALUES")
+    con.commit()
+    con.close()
+
+    db = _reopen(cwa_dir)
+    db.close()
+    lib = sqlite3.connect(library / "metadata.db")
+    try:
+        assert lib.execute("SELECT COUNT(*) FROM books_tags_link").fetchone()[0] == 0
+        assert lib.execute("SELECT COUNT(*) FROM tags").fetchone()[0] == 0
+        # Tags added afterwards stay: it ran once
+        lib.execute("INSERT INTO tags VALUES (3, 'To read')")
+        lib.execute("INSERT INTO books_tags_link (book, tag) VALUES (1, 3)")
+        lib.commit()
+    finally:
+        lib.close()
+    backup = sqlite3.connect(cwa_dir / "metadata.db.before-tag-clear")
+    try:
+        assert backup.execute("SELECT COUNT(*) FROM books_tags_link").fetchone()[0] == 3
+    finally:
+        backup.close()
+    _reopen(cwa_dir).close()
+    lib = sqlite3.connect(library / "metadata.db")
+    try:
+        assert lib.execute("SELECT name FROM tags").fetchall() == [("To read",)]
+    finally:
+        lib.close()
+
+
+@pytest.mark.unit
+def test_migration_7_leaves_a_new_installs_library_alone(tmp_path, monkeypatch):
+    import json
+    library = tmp_path / "library"
+    library.mkdir()
+    lib = sqlite3.connect(library / "metadata.db")
+    lib.execute("CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT)")
+    lib.execute("CREATE TABLE books_tags_link (id INTEGER PRIMARY KEY, book INTEGER, tag INTEGER)")
+    lib.execute("INSERT INTO tags VALUES (1, 'Mathematics')")
+    lib.execute("INSERT INTO books_tags_link (book, tag) VALUES (1, 1)")
+    lib.commit()
+    lib.close()
+    dirs = tmp_path / "dirs.json"
+    dirs.write_text(json.dumps({"calibre_library_dir": str(library)}))
+    monkeypatch.setattr(cwa_db_module, "DIRS_FILE", str(dirs))
+    fresh = tmp_path / "fresh"
+    fresh.mkdir()
+    monkeypatch.setenv("CWA_DB_PATH", str(fresh))
+    _reopen(fresh).close()
+    lib = sqlite3.connect(library / "metadata.db")
+    try:
+        assert lib.execute("SELECT COUNT(*) FROM books_tags_link").fetchone()[0] == 1
+    finally:
+        lib.close()

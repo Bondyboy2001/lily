@@ -16,7 +16,7 @@ from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata, get_pati
 
 log = logger.create()
 
-SEARCH_FIELDS = "key,title,subtitle,author_name,first_publish_year,cover_i,subject,language"
+SEARCH_FIELDS = "key,title,subtitle,author_name,first_publish_year,cover_i,language"
 
 
 class OpenLibrary(Metadata):
@@ -56,7 +56,7 @@ class OpenLibrary(Metadata):
         isbn = identifiers.get("isbn")
         if not isbn:
             return []
-        # The work (authors, subjects) and the edition (publisher, date) come separately
+        # The work (authors) and the edition (publisher, date) come separately
         with ThreadPoolExecutor(max_workers=2) as pool:
             docs = pool.submit(self._search_docs, {"isbn": isbn, "limit": 1})
             edition = pool.submit(self._get_json, f"/isbn/{isbn}.json")
@@ -115,7 +115,6 @@ class OpenLibrary(Metadata):
         )
         year = doc.get("first_publish_year")
         match.publishedDate = f"{year:04d}-01-01" if year else ""
-        match.tags = doc.get("subject", [])[:10]
         match.languages = self._parse_languages(doc.get("language", []), locale)
         match.identifiers = {"openlibrary": work_id}
         return match

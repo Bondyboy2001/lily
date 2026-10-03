@@ -168,7 +168,6 @@ def test_one_failing_book_does_not_stop_the_rebuild(env, monkeypatch):
         return real_apply(cdb, book, record, cover, **kw)
     monkeypatch.setattr(helper, "_apply_record", apply)
     monkeypatch.setattr("cps.duplicate_index.mark_duplicate_index_pending", lambda reason=None: None)
-    monkeypatch.setattr(metadata_rebuild, "tidy_library_tags", lambda s: (0, 0))
     task = metadata_rebuild.TaskRebuildMetadata()
     with env.app.test_request_context():
         task.start(None)
@@ -328,26 +327,6 @@ def _tags(env):
 def _book_tags(env, book_id):
     return sorted(name for (name,) in _q(
         env, "SELECT t.name FROM books_tags_link l JOIN tags t ON t.id=l.tag WHERE l.book=?", book_id))
-
-
-def test_a_rebuilds_match_replaces_the_tags_of_a_book_with_no_real_author(env, monkeypatch):
-    dune = env.add_book("Dune", author="Unknown", tags=("Ebooks", "Deserts"))
-    other = env.add_book("Other Book", author="Jane Roe", tags=("Deserts",))
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], tags=["Science fiction", "Deserts"]))
-    assert helper.fetch_and_apply_metadata(dune, force=True) is True
-    assert _book_tags(env, dune) == ["Deserts", "Science fiction"]
-    # A tag no book has any more goes; one another book has stays
-    assert _tags(env) == ["Deserts", "Science fiction"]
-    assert _book_tags(env, other) == ["Deserts"]
-    # The same tags again are no update
-    assert helper.fetch_and_apply_metadata(dune, force=True) is False
-
-
-def test_a_new_books_match_adds_to_the_tags_its_file_gave(env, monkeypatch):
-    dune = env.add_book("Dune", author="Unknown", tags=("Deserts",))
-    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], tags=["Science fiction"]))
-    assert helper.fetch_and_apply_metadata(dune) is True
-    assert _book_tags(env, dune) == ["Deserts", "Science fiction"]
 
 
 def test_a_match_with_no_subjects_leaves_the_books_tags(env, monkeypatch):

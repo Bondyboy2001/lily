@@ -44,7 +44,7 @@ class google_scholar(Metadata):
     ARXIV_ABS_URL = "https://arxiv.org/abs/"
     DATACITE_URL = "https://api.datacite.org/dois"
     S2_MATCH_URL = "https://api.semanticscholar.org/graph/v1/paper/search/match"
-    S2_FIELDS = "title,authors,abstract,publicationDate,year,venue,journal,externalIds,fieldsOfStudy,url"
+    S2_FIELDS = "title,authors,abstract,publicationDate,year,venue,journal,externalIds,url"
     CROSSREF_URL = "https://api.crossref.org/works"
     # Crossref's types for a whole book, whose ISBN is the record's own; a chapter's
     # ISBN is its book's, good for a cover but not an identifier
@@ -209,9 +209,6 @@ class google_scholar(Metadata):
         match.description = " ".join(tags.first("citation_abstract").split())
         match.publisher = "arXiv"
         match.publishedDate = tags.first("citation_date").replace("/", "-")[:10]
-        subjects = re.search(r'class="tablecell subjects">(.*?)</td>', page, re.S)
-        subjects = re.sub(r"<[^>]+>", "", subjects.group(1)) if subjects else ""
-        match.tags = _subject_names(html.unescape(subjects).split(";"))
         match.identifiers = {"arxiv": arxiv_id}
         # The journal's DOI once published, otherwise arXiv's own
         match.identifiers["doi"] = tags.first("citation_doi") or ARXIV_DOI_PREFIX + arxiv_id
@@ -239,9 +236,6 @@ class google_scholar(Metadata):
         match.description = " ".join((entry.findtext(ATOM + "summary") or "").split())
         match.publisher = "arXiv"
         match.publishedDate = (entry.findtext(ATOM + "published") or "")[:10]
-        match.tags = [
-            c.get("term") for c in entry.findall(ATOM + "category") if c.get("term")
-        ]
         match.identifiers = {"arxiv": arxiv_id}
         # The journal's DOI once published, otherwise arXiv's own
         match.identifiers["doi"] = entry.findtext(ARXIV_NS + "doi") or ARXIV_DOI_PREFIX + arxiv_id
@@ -304,8 +298,6 @@ class google_scholar(Metadata):
         submitted = sorted(d.get("date") or "" for d in attrs.get("dates", [])
                            if d.get("dateType") == "Submitted")
         match.publishedDate = submitted[0][:10] if submitted else str(attrs.get("publicationYear") or "")
-        match.tags = _subject_names(s.get("subject") or "" for s in attrs.get("subjects", [])
-                                    if s.get("subjectScheme") == "arXiv")
         match.identifiers = {"arxiv": arxiv_id}
         # The journal's DOI once published, otherwise arXiv's own
         journal_doi = next((r.get("relatedIdentifier") for r in attrs.get("relatedIdentifiers", [])
@@ -352,7 +344,6 @@ class google_scholar(Metadata):
         match.description = " ".join((hit.get("abstract") or "").split())
         match.publisher = (hit.get("journal") or {}).get("name") or hit.get("venue") or ""
         match.publishedDate = hit.get("publicationDate") or str(hit.get("year") or "")
-        match.tags = hit.get("fieldsOfStudy") or []
         ids = hit.get("externalIds") or {}
         match.identifiers = {}
         if ids.get("ArXiv"):
@@ -367,7 +358,7 @@ class google_scholar(Metadata):
         doi = DOI_RE.search(query)
         params = {
             "rows": self.MAX_RESULTS,
-            "select": "DOI,title,author,publisher,container-title,issued,abstract,subject,URL,type,ISBN",
+            "select": "DOI,title,author,publisher,container-title,issued,abstract,URL,type,ISBN",
         }
         if doi:
             params["filter"] = "doi:" + doi.group(0)
@@ -463,7 +454,6 @@ class google_scholar(Metadata):
         if parts and parts[0]:
             parts = list(parts) + [1] * (3 - len(parts))
             match.publishedDate = "{:04d}-{:02d}-{:02d}".format(*parts[:3])
-        match.tags = item.get("subject", [])
         match.identifiers = {"doi": doi}
         isbn = _crossref_isbn(item)
         if isbn and item.get("type") in self.CROSSREF_BOOKS:
@@ -474,16 +464,6 @@ class google_scholar(Metadata):
 def _crossref_isbn(item: dict) -> str:
     """The first ISBN Crossref gives for a work, compacted; '' for none (a journal's article)."""
     return compact_isbn((item.get("ISBN") or [""])[0])
-
-
-def _subject_names(subjects) -> list[str]:
-    """arXiv's "Computation and Language (cs.CL)" subjects as their names, once each."""
-    names: list[str] = []
-    for subject in subjects:
-        name = re.sub(r"\s*\([^()]*\)\s*$", "", " ".join(subject.split()))
-        if name and name not in names:
-            names.append(name)
-    return names
 
 
 class _CitationTags(HTMLParser):

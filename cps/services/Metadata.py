@@ -56,7 +56,6 @@ class MetaRecord:
     publishedDate: str | None = None
     rating: int | None = 0
     languages: list[str] | None = dataclasses.field(default_factory=list)
-    tags: list[str] | None = dataclasses.field(default_factory=list)
     format: str | None = None
     subtitle: str | None = None
     # The most pixels the cover can have, when the provider knows: a book whose own cover is

@@ -28,8 +28,9 @@ meta = Blueprint("metadata", __name__)
 
 log = logger.create()
 
-# Every provider, in the order an import's lookups try them: books, then papers
-cl = [Google(), OpenLibrary(), Hardcover(), google_scholar()]
+# Every provider, in the order an import's lookups try them: books, Hardcover first, then papers
+# (Google Books is asked last of all: metadata_helper._lookup_order)
+cl = [Google(), Hardcover(), OpenLibrary(), google_scholar()]
 
 
 def _providers_to_ask(typed, providers=cl):
