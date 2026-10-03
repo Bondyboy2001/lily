@@ -120,6 +120,31 @@ select = ["E9", "F63", "F7", "F82", "F401", "F811", "F601", "F523", "F841", "B02
 # Generated data file; its generator decides the whitespace.
 "cps/iso_language_names.py" = ["W291", "W292"]
 
+# coverage.py (pytest --cov) reads these; it ignores [coverage:*] sections in pytest.ini.
+[tool.coverage.run]
+source = ["cps", "scripts"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+    "cps/static/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
 # Type checking is introduced incrementally: run `mypy` (see requirements-dev.txt) on modules
 # as they are refactored. Unlisted modules are ignored so legacy code does not block CI.
 [tool.mypy]
