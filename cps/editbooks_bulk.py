@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Bulk and list-editing endpoints: selected-books actions, merge, sort values and author/title swap.
+"""Bulk endpoints for the duplicates page: list, delete and merge the selected books.
 
 Routes are attached to the editbook blueprint; editbooks.py imports this module at its end."""
 
@@ -14,10 +14,7 @@ import json
 
 from flask import request, Response, jsonify
 from flask_babel import gettext as _
-from sqlalchemy.exc import OperationalError, IntegrityError
-from sqlalchemy.orm.exc import StaleDataError
 
-from . import helper
 from . import calibre_db, ub
 from .book_recovery import RecoveryError
 from .cw_login import current_user
@@ -88,46 +85,6 @@ def delete_selected_books():
     _queue_duplicate_scan_after_change(
         [e["book_id"] for e in results if e["status"] == "succeeded"])
     return batch_response(results)
-
-@editbook.route("/ajax/readselectedbooks", methods=['POST'])
-@user_login_required
-@edit_required
-def read_selected_books():
-    d = request.get_json(silent=True)
-    if not isinstance(d, dict):
-        return batch_response([], status=400)
-    ids, error = parse_batch_ids(d.get('selections'))
-    if error is not None:
-        return error
-    if 'markAsRead' not in d or not isinstance(d['markAsRead'], bool):
-        return batch_response([], status=400)
-    markAsRead = d['markAsRead']
-    results = []
-    for book_id in ids:
-        entry = {"book_id": book_id, "status": "failed", "message": ""}
-        try:
-            if not calibre_db.get_filtered_book(book_id):
-                entry["message"] = str(_("Book not found"))
-            else:
-                ret = helper.edit_book_read_status(book_id, markAsRead)
-                # edit_book_read_status returns an error message (truthy) or "" on success
-                if ret:
-                    entry["message"] = str(ret)
-                else:
-                    entry["status"] = "succeeded"
-        except (OperationalError, IntegrityError, StaleDataError) as e:
-            calibre_db.session.rollback()
-            ub.session.rollback()
-            log.error_or_exception("Database error: {}".format(e))
-            entry["message"] = str(_("Database error: %(err)s",
-                                     err=str(e.orig if hasattr(e, "orig") else e)))
-        except Exception as e:
-            calibre_db.session.rollback()
-            ub.session.rollback()
-            entry["message"] = str(e)
-        results.append(entry)
-    return batch_response(results)
-
 
 @editbook.route("/ajax/mergebooks", methods=['POST'])
 @user_login_required

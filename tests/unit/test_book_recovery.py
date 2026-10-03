@@ -409,9 +409,6 @@ class TestMergeSafety:
         payload = client.post("/ajax/deleteselectedbooks",
                               json={"selections": [hidden]}).get_json()
         assert payload["results"][0]["status"] == "failed"
-        payload = client.post("/ajax/editselectedbooks",
-                              json={"selections": [hidden], "title": "X"}).get_json()
-        assert payload["results"][0]["status"] == "failed"
         payload = client.post("/ajax/mergebooks",
                               json={"Merge_books": [target, hidden]}).get_json()
         by_id = {r["book_id"]: r for r in payload["results"]}
@@ -466,52 +463,6 @@ class TestBatchTruthfulness:
         other = _login(env, "nodelete", "pw")
         assert other.post("/ajax/deleteselectedbooks",
                           json={"selections": [bid]}).status_code == 403
-        from cps import calibre_db
-        assert calibre_db.get_book(bid) is not None
-
-    def test_batch_edit_reports_missing_book(self, env):
-        bid = env.add_book("EditMe", author="Batch Author", fmt="EPUB")
-        _write_files(env, bid, {"EditMe.epub": b"e"})
-        client = _login(env)
-        payload = client.post("/ajax/editselectedbooks",
-                              json={"selections": [bid, 4242], "title": "New Title"}).get_json()
-        by_id = {r["book_id"]: r for r in payload["results"]}
-        assert by_id[4242]["status"] == "failed"
-        assert by_id[bid]["status"] == "succeeded"
-        assert payload["success"] is False
-
-    def test_batch_edit_rename_failure_is_reported(self, env, monkeypatch):
-        from cps import helper
-        bid = env.add_book("NoRename", author="Batch Author", fmt="EPUB")
-        _write_files(env, bid, {"NoRename.epub": b"e"})
-        monkeypatch.setattr(helper, "update_dir_structure", lambda *a, **k: "disk full")
-        client = _login(env)
-        payload = client.post("/ajax/editselectedbooks",
-                              json={"selections": [bid], "title": "Moved"}).get_json()
-        assert payload["success"] is False
-        assert payload["results"][0]["status"] == "failed"
-        assert "disk full" in payload["results"][0]["message"]
-
-    def test_read_status_per_book_results(self, env):
-        bid = env.add_book("ReadMe", author="Batch Author", fmt="EPUB")
-        _write_files(env, bid, {"ReadMe.epub": b"e"})
-        client = _login(env)
-        payload = client.post("/ajax/readselectedbooks",
-                              json={"selections": [bid, 31337], "markAsRead": True}).get_json()
-        by_id = {r["book_id"]: r for r in payload["results"]}
-        assert by_id[bid]["status"] == "succeeded"
-        assert by_id[31337]["status"] == "failed"
-
-    def test_strict_bool_and_field_types(self, env):
-        bid = env.add_book("Strict", author="Batch Author", fmt="EPUB")
-        _write_files(env, bid, {"Strict.epub": b"e"})
-        client = _login(env)
-        assert client.post("/ajax/readselectedbooks",
-                           json={"selections": [bid]}).status_code == 400
-        assert client.post("/ajax/readselectedbooks",
-                           json={"selections": [bid], "markAsRead": 1}).status_code == 400
-        assert client.post("/ajax/editselectedbooks",
-                           json={"selections": [bid], "title": {"bad": "dict"}}).status_code == 400
         from cps import calibre_db
         assert calibre_db.get_book(bid) is not None
 
