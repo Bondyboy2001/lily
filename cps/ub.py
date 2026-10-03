@@ -348,18 +348,6 @@ class Shelf(Base):
         return '<Shelf %d:%r>' % (self.id, self.name)
 
 
-class OpdsShelfExposure(Base):
-    __tablename__ = 'opds_shelf_exposure'
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True)
-    shelf_id = Column(Integer, ForeignKey('shelf.id'), nullable=False, index=True)
-
-    __table_args__ = (
-        UniqueConstraint('user_id', 'shelf_id', name='unique_user_opds_shelf_exposure'),
-    )
-
-
 class DismissedDuplicateGroup(Base):
     __tablename__ = 'dismissed_duplicate_groups'
 
@@ -542,8 +530,6 @@ class Thumbnail(Base):
 def add_missing_tables(engine, _session):
     if not engine.dialect.has_table(engine.connect(), "thumbnail"):
         Thumbnail.__table__.create(bind=engine, checkfirst=True)
-    if not engine.dialect.has_table(engine.connect(), "opds_shelf_exposure"):
-        OpdsShelfExposure.__table__.create(bind=engine, checkfirst=True)
     if not engine.dialect.has_table(engine.connect(), "web_reader_progress"):
         WebReaderProgress.__table__.create(bind=engine, checkfirst=True)
     if not engine.dialect.has_table(engine.connect(), "reader_position"):
@@ -731,13 +717,15 @@ def migrate_restore_emptied_sidebars(_session):
 
 # Tables and columns left by removed features: Kobo and KOReader sync, email and send-to-eReader,
 # LDAP, OAuth, registration, 2FA and API tokens, archiving, Hardcover sync and its review queue,
-# metadata suggestions, magic shelves, translations, themes and reading statistics. Nothing reads them;
+# metadata suggestions, magic shelves, translations, themes, reading statistics, per-shelf OPDS
+# exposure, and the series-cover, metadata-backup and reconnect schedules. Nothing reads them;
 # migrate_drop_removed_schema() drops them once, after copying app.db aside.
 _REMOVED_TABLES = (
     'archived_book', 'flask_dance_oauth', 'hardcover_book_blacklist', 'hardcover_match_queue',
     'hidden_magic_shelf_templates', 'kobo_annotation_sync', 'kobo_bookmark', 'kobo_reading_state',
     'kobo_statistics', 'kobo_synced_books', 'kosync_progress', 'magic_shelf', 'magic_shelf_cache',
-    'metadata_suggestion', 'oauthProvider', 'opds_magic_shelf_exposure', 'registration',
+    'metadata_suggestion', 'oauthProvider', 'opds_magic_shelf_exposure', 'opds_shelf_exposure',
+    'registration',
     'remote_auth_token', 'shelf_archive',
 )
 _REMOVED_COLUMNS = {
