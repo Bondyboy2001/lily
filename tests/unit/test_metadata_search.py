@@ -82,7 +82,25 @@ def test_arxiv_entry_without_journal_doi_gets_arxivs_doi():
 
 def test_a_text_search_asks_every_enabled_provider():
     from cps.search_metadata import _providers_to_ask, cl
-    assert _providers_to_ask({}, cl) == list(cl)
+    assert _providers_to_ask({}, cl) == [c for c in cl if c.available()]
+
+
+def test_hardcover_is_asked_only_with_a_token(monkeypatch):
+    from cps.search_metadata import _providers_to_ask, cl
+    monkeypatch.delenv("HARDCOVER_TOKEN", raising=False)
+    assert "hardcover" not in [c.__id__ for c in _providers_to_ask({}, cl)]
+    monkeypatch.setenv("HARDCOVER_TOKEN", "t")
+    assert "hardcover" in [c.__id__ for c in _providers_to_ask({}, cl)]
+
+
+def test_google_without_a_key_says_a_key_would_help(monkeypatch):
+    from cps import config
+    from cps.metadata_provider.google import Google
+    monkeypatch.setattr(config, "config_google_books_api_key", "", raising=False)
+    monkeypatch.delenv("GOOGLE_BOOKS_API_KEY", raising=False)
+    assert Google().missing_key()
+    monkeypatch.setattr(config, "config_google_books_api_key", "k", raising=False)
+    assert not Google().missing_key()
 
 
 def _record(title, authors=()):

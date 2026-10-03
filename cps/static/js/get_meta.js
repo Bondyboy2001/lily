@@ -19,17 +19,22 @@
 // Fetch Metadata on the edit page and the book page. One search box takes a title and
 // author, an ISBN, a DOI or an arXiv id; the server says which providers to ask, and each
 // is asked separately so its results show as soon as they arrive, ranked with the rest.
-// Apply fills #book_edit_frm with a result's ticked fields and saves. On the book page that
-// form is hidden: the fields only a result may change start disabled, so an untouched one
-// is not sent and the save leaves it as it is.
+// A line under the search box names any provider that didn't answer.
+// Apply fills #book_edit_frm with a result's ticked fields and saves. A field starts ticked
+// only when the book has nothing there, when the book's title is one a file's name cut
+// short, or when the result is an exact (identifier) match; the rating never is. Ticks are
+// per card and not remembered. On the book page that form is hidden: the fields only a
+// result may change start disabled, so an untouched one is not sent and the save leaves it
+// as it is.
 $(function () {
   var msg = i18nMsg;
   var $form = $("#book_edit_frm");
-  var metaSelectionKey = "cwa.metaSelection";
-  var metaSelectionCache = null;
-  var FAILED = { error: true, timeout: true };
+  var FAILED = { error: true, timeout: true, busy: true };
 
-  var status = {};      // provider id -> "loading" | "ok" | "skipped" | "error" | "timeout"
+  var status = {};      // provider id -> "loading" | "ok" | "skipped" | "busy" | "error" | "timeout"
+  var names = {};       // provider id -> its name
+  var needsKey = {};    // provider id -> true when a key would make it answer (Google Books)
+  var expanded = {};    // group key -> true once "Show more" was pressed
   var results = [];     // {uid, provider, book, descText, $el}; uid is the index
   var query = "";
   var request = null;   // what every provider is sent for the current search
@@ -78,33 +83,6 @@ $(function () {
 
   var bookResultTemplate = _.template($("#template-book-result").html());
 
-  function getMetaSelections() {
-    if (metaSelectionCache !== null) {
-      return metaSelectionCache;
-    }
-    try {
-      var stored = localStorage.getItem(metaSelectionKey);
-      metaSelectionCache = stored ? JSON.parse(stored) : {};
-    } catch (e) {
-      metaSelectionCache = {};
-    }
-    if (typeof metaSelectionCache !== "object" || metaSelectionCache === null) {
-      metaSelectionCache = {};
-    }
-    // The cover starts unticked every time: it is chosen per book, never remembered
-    delete metaSelectionCache.cover;
-    return metaSelectionCache;
-  }
-
-  function saveMetaSelections(changes) {
-    var selections = $.extend(getMetaSelections(), changes);
-    try {
-      localStorage.setItem(metaSelectionKey, JSON.stringify(selections));
-    } catch (e) {
-      // Ignore storage failures (quota/private mode)
-    }
-  }
-
   // A card's ticks as field -> checked
   function ticksOf($card) {
     var ticks = {};
@@ -112,14 +90,6 @@ $(function () {
       ticks[this.dataset.metaValue] = this.checked;
     });
     return ticks;
-  }
-
-  function applyTicks($card, ticks) {
-    $card.find("[data-meta-value]").each(function () {
-      if (Object.prototype.hasOwnProperty.call(ticks, this.dataset.metaValue)) {
-        this.checked = ticks[this.dataset.metaValue];
-      }
-    });
   }
 
   function getUniqueValues(attribute_name, book) {
@@ -150,6 +120,23 @@ $(function () {
     return String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
   }
 
+  // Letters and digits only, for comparing titles
+  function squash(text) {
+    return String(text || "").toLowerCase().replace(/[^0-9a-z\u00c0-\uffff]+/g, "");
+  }
+
+  // Nothing worth keeping: empty, calibre's "Unknown", or the "None" an old save wrote
+  function blank(value) {
+    var text = $.trim(String(value || "")).toLowerCase();
+    return !text || text === "unknown" || text === "none";
+  }
+
+  // A title as long as a file's name lets it be, so probably cut off there (metadata_helper.cut_short)
+  function cutShort(title) {
+    var length = $.trim(String(title || "")).length;
+    return length === 41 || length === 42;
+  }
+
   // The form's values, read once per render rather than once per card
   function readForm() {
     return {
@@ -160,16 +147,33 @@ $(function () {
     };
   }
 
-  // The rows a result card shows: what the provider has, dimmed where the form already has it
+  // Whether a field starts ticked: the book has nothing there, its title is one a file's
+  // name cut short and the result's begins with it, or the result is an exact match. Never
+  // the rating (a provider's is its readers' average) or a value the book already has.
+  function ticked(key, text, current, isSame, book) {
+    if (key === "rating" || isSame) { return false; }
+    if (blank(current)) { return true; }
+    if (key === "title" && cutShort(current) && squash(text).indexOf(squash(current)) === 0) { return true; }
+    return Boolean(book.exact_match);
+  }
+
+  // What the book has now, shown under a value it would replace; a long one is cut
+  function shortened(text) {
+    text = $.trim(String(text || ""));
+    return text.length > 140 ? text.slice(0, 139) + "…" : text;
+  }
+
+  // The rows a result card shows: what the provider has, dimmed where the form already has
+  // it, with the book's own value under it where they differ
   function buildFields(result) {
     var book = result.book;
     var fields = [];
     function add(key, label, text, current, extra) {
       if (text === undefined || text === null || text === "") return;
-      fields.push($.extend({
-        key: key, label: label, text: String(text),
-        same: same(text, current),
-      }, extra || {}));
+      var field = $.extend({ key: key, label: label, text: String(text), same: same(text, current) }, extra || {});
+      field.current = blank(current) || field.same ? "" : shortened(current);
+      field.tick = ticked(key, field.text, current, field.same, book);
+      fields.push(field);
     }
     var authors = (book.authors || []).join(" & ");
     add("title", msg.title, book.title, form.title, { link: book.url });
@@ -342,9 +346,34 @@ $(function () {
     $("#meta-info").empty().append($("<p>", { "class": isError ? "text-danger" : "text-muted" }).text(text));
   }
 
+  // The line under the search box: providers still being asked, and any that didn't answer
+  function renderStatus() {
+    var waiting = [], failed = [];
+    Object.keys(status).forEach(function (id) {
+      var name = names[id] || id;
+      if (status[id] === "loading") {
+        waiting.push(name);
+      } else if (FAILED[status[id]]) {
+        var why = status[id] === "busy" ? msg.busy : status[id] === "timeout" ? msg.timeout : msg.failed;
+        failed.push(name + " " + why + (status[id] === "busy" && needsKey[id] ? " " + msg.needs_key : ""));
+      }
+    });
+    var parts = failed.slice();
+    if (waiting.length && results.length) {
+      parts.push(msg.waiting + " " + waiting.join(", ") + "…");
+    }
+    $("#meta-status").text(parts.join(" ")).prop("hidden", !parts.length);
+  }
+
+  // Results from one provider with the same title: the best shows, the rest behind "Show more"
+  function groupKey(r) {
+    return ((r.book.source && r.book.source.description) || r.provider) + "|" + squash(r.book.title);
+  }
+
   // Exact identifier matches first, then the best match to the book; cards are
   // moved, not redrawn, so ticks survive new results arriving
   function renderResults() {
+    renderStatus();
     var shown = results.slice();
     shown.sort(function (a, b) {
       return (b.book.exact_match - a.book.exact_match) ||
@@ -355,8 +384,8 @@ $(function () {
       if (loading) {
         showMessage(msg.loading);
       } else if (query) {
-        var failed = Object.keys(status).some(function (id) { return FAILED[status[id]]; });
-        showMessage(failed ? msg.search_error : msg.no_result, failed);
+        var answered = Object.keys(status).some(function (id) { return !FAILED[status[id]]; });
+        showMessage(answered ? msg.no_result : msg.search_error, !answered);
       }
       return;
     }
@@ -365,8 +394,28 @@ $(function () {
       $list = $('<ul id="book-list" class="media-list"></ul>');
       $("#meta-info").empty().append($list);
     }
+    $list.children(".meta-more").remove();
     $list.children().detach();
-    shown.forEach(function (r) { $list.append(r.$el); });
+    var groups = {};
+    shown.forEach(function (r) {
+      var key = groupKey(r);
+      var group = groups[key];
+      if (group && !r.book.exact_match && !expanded[key]) {
+        group.hidden += 1;
+        return;
+      }
+      if (!group) { groups[key] = { first: r, hidden: 0 }; }
+      $list.append(r.$el);
+    });
+    $.each(groups, function (key, group) {
+      if (!group.hidden) { return; }
+      var source = (group.first.book.source && group.first.book.source.description) || "";
+      var label = (group.hidden === 1 ? msg.one_more : msg.more.replace("%(count)s", group.hidden))
+        .replace("%(source)s", source);
+      $("<li>", { "class": "meta-more" })
+        .append($("<button>", { type: "button", "class": "btn btn-link meta-more-btn" }).text(label).data("group", key))
+        .insertAfter(group.first.$el);
+    });
   }
 
   function searchProvider(providerId, seq) {
@@ -379,10 +428,11 @@ $(function () {
     }).done(function (data) {
       if (seq !== searchSeq) return;
       status[providerId] = data.status || "ok";
+      if (data.name) { names[providerId] = data.name; }
+      needsKey[providerId] = Boolean(data.missing_key);
       (data.results || []).forEach(function (book) {
         var result = { uid: results.length, provider: providerId, book: book, descText: htmlToText(book.description) };
         result.$el = renderCard(result);
-        applyTicks(result.$el, getMetaSelections());
         results.push(result);
       });
     }).fail(function () {
@@ -396,9 +446,12 @@ $(function () {
   // Asks every provider the server picks for the query
   function searchAll() {
     var seq = searchSeq;
-    inFlight.push($.getJSON(getPath() + "/metadata/provider", { query: query }).done(function (ids) {
+    inFlight.push($.getJSON(getPath() + "/metadata/provider", { query: query }).done(function (providers) {
       if (seq !== searchSeq) return;
-      ids.forEach(function (id) { searchProvider(id, seq); });
+      providers.forEach(function (provider) {
+        names[provider.id] = provider.name;
+        searchProvider(provider.id, seq);
+      });
       renderResults();
     }));
   }
@@ -410,6 +463,8 @@ $(function () {
     inFlight = [];
     results = [];
     status = {};
+    expanded = {};
+    $("#meta-status").text("").prop("hidden", true);
     form = readForm();
     request = {
       query: query,
@@ -428,13 +483,6 @@ $(function () {
 
   // ---- Events ----
 
-  $(document).on("change", '#meta-info input[type="checkbox"][data-meta-value]', function () {
-    if (this.dataset.metaValue === "cover") { return; }
-    var change = {};
-    change[this.dataset.metaValue] = this.checked;
-    saveMetaSelections(change);
-  });
-
   function resultFor(el) {
     return results[Number($(el).closest("li.media").data("uid"))];
   }
@@ -445,6 +493,11 @@ $(function () {
       populateForm(r);
       save();
     }
+  });
+
+  $("#meta-info").on("click", ".meta-more-btn", function () {
+    expanded[$(this).data("group")] = true;
+    renderResults();
   });
 
   $("#meta-info").on("click", ".meta-editions", function (e) {

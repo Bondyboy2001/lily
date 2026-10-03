@@ -19,6 +19,7 @@ from cps.metadata_provider.google import Google
 from cps.metadata_provider.hardcover import Hardcover
 from cps.metadata_provider.openlibrary import OpenLibrary
 from cps.metadata_provider.scholar import google_scholar
+from cps.services.Metadata import ProviderBusy
 from cps.services.identifiers import normalise_identifiers, parse_identifier
 from . import logger
 from .usermanagement import user_login_required
@@ -34,18 +35,19 @@ cl = [Google(), OpenLibrary(), Hardcover(), google_scholar()]
 
 def _providers_to_ask(typed, providers=cl):
     """The providers to search: for a typed identifier, those that can look up its
-    type, otherwise all of them."""
+    type, otherwise all of them. One that can't be asked (Hardcover without a token) is left out."""
+    providers = [c for c in providers if c.available()]
     if typed:
         return [c for c in providers if c.identifier_types & typed.keys()]
-    return list(providers)
+    return providers
 
 
 @meta.route("/metadata/provider")
 @user_login_required
 def metadata_provider():
-    """The ids of the providers to search for `query`."""
+    """The providers to search for `query`, as {id, name}."""
     ask = _providers_to_ask(parse_identifier(request.args.get("query")))
-    return make_response(jsonify([c.__id__ for c in ask]))
+    return make_response(jsonify([{"id": c.__id__, "name": c.__name__} for c in ask]))
 
 
 # A provider that hasn't answered by then is reported as timed out
@@ -133,7 +135,8 @@ def _scorer(form, query=""):
 
 def _run_search(provider, query, identifiers):
     """The provider's identifier lookup and text search, run at once. Returns
-    (record, exact) pairs, exact ones first, and the status: ok, error or timeout."""
+    (record, exact) pairs, exact ones first, and the status: ok, busy (it answered "too many
+    requests"), error or timeout."""
     static_cover = url_for("static", filename="generic_cover.svg")
     locale = get_locale()
     jobs = []
@@ -156,7 +159,9 @@ def _run_search(provider, query, identifiers):
             records += [(r, exact) for r in future.result() or [] if r]
         except Exception as exc:
             log.warning("Metadata provider %s failed: %s", provider.__class__.__name__, exc)
-            status = "error"
+            busy = isinstance(exc, ProviderBusy) or "429" in str(exc)
+            if status != "timeout":
+                status = "busy" if busy else "error"
     return records, status
 
 
@@ -191,4 +196,6 @@ def metadata_search():
         item["exact_match"] = exact and _pinned(record, file_ids, form_ids, page_text)
         item["score"] = score(record)
         data.append(item)
-    return make_response(jsonify({"results": data, "status": status}))
+    # The dialog names a provider that didn't answer, and says when a key would help
+    return make_response(jsonify({"results": data, "status": status, "name": provider.__name__,
+                                  "missing_key": provider.missing_key()}))

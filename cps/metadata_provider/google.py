@@ -51,6 +51,9 @@ class Google(Metadata):
             return []
         return self._fetch("isbn:" + isbn, generic_cover, locale)
 
+    def missing_key(self) -> bool:
+        return not self._api_key()
+
     @staticmethod
     def _api_key() -> str:
         # Without a key, Google shares a small anonymous quota per IP and soon answers 429

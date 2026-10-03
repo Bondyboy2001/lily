@@ -99,3 +99,31 @@ def test_fetch_metadata_closes_from_its_header_cross_only():
     html = (REPO_ROOT / "cps/templates/meta_fetch.html").read_text(encoding="utf-8")
     assert 'class="close" data-dismiss="modal"' in html
     assert "modal-footer" not in html and "meta_close" not in html
+
+
+def test_fetch_metadata_ticks_only_what_the_book_lacks_and_remembers_nothing():
+    js = (REPO_ROOT / "cps/static/js/get_meta.js").read_text(encoding="utf-8")
+    template = (REPO_ROOT / "cps/templates/meta_fetch.html").read_text(encoding="utf-8")
+    # Ticks come from the result and the book, per card, never from earlier books
+    assert "localStorage" not in js and "metaSelection" not in js
+    assert '<% if (f.tick) { %> checked<% } %>' in template
+    assert 'if (key === "rating" || isSame) { return false; }' in js
+    assert "return Boolean(book.exact_match);" in js
+    # The book's own value shows under one that would replace it
+    assert '<span class="meta-current">' in template
+
+
+def test_fetch_metadata_names_providers_that_did_not_answer():
+    js = (REPO_ROOT / "cps/static/js/get_meta.js").read_text(encoding="utf-8")
+    template = (REPO_ROOT / "cps/templates/meta_fetch.html").read_text(encoding="utf-8")
+    assert '<p id="meta-status" class="meta-status" role="status" hidden></p>' in template
+    assert "function renderStatus()" in js and "needsKey[id]" in js
+    assert "Search error!" not in template
+
+
+def test_fetch_metadata_cards_stack_on_phones():
+    css = (REPO_ROOT / "cps/static/css/lily-library.css").read_text(encoding="utf-8")
+    phone = css[css.index("/* Phones: the card stacks"):]
+    phone = phone[:phone.index("\n}\n")]
+    assert "#meta-info #book-list .media { flex-direction: column; }" in phone
+    assert ".meta-score + .media-body { padding: 10px 14px 14px; }" in phone

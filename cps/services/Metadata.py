@@ -141,6 +141,14 @@ class Metadata:
         """The record with the details search_titles left out."""
         return record
 
+    def available(self) -> bool:
+        """Whether the provider can be asked at all (Hardcover needs a token)."""
+        return True
+
+    def missing_key(self) -> bool:
+        """Whether a key would make the provider answer more often (Google Books)."""
+        return False
+
     @staticmethod
     def get_title_tokens(
         title: str, strip_joiners: bool = True

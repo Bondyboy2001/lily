@@ -599,6 +599,15 @@ content (grid, panel, rows)
   A result without a cover shows an empty "No cover" slot the cover's shape, with no
   tick box. The dialog opens beside the cover (the editor's or the book page's plate), not over it, whenever 440px
   of window is left (get_meta.js).
+  A field starts ticked only when the book has nothing there, when its title was cut
+  short by a file name, or when the result is an exact match; the rating never is, and
+  ticks are not remembered between books. Where a value would replace the book's own,
+  the card shows that under it ("Now: …", 13px `--muted`). Results from one provider
+  with the same title collapse behind a link-style "Show 2 more like this from ‹source›"
+  under the best. A `--muted` 14px status line over the results names providers that
+  didn't answer and why, adding the Google Books key hint when that would help.
+  On phones (≤600px) the card stacks: a 56px cover beside Apply and the source, the
+  fields under it at full width.
 
 ### 6.5 Settings (`settings_layout.html`, `lily_form.html`)
 

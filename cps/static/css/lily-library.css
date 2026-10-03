@@ -1861,8 +1861,44 @@ dl.book-info {
     overflow: hidden;
 }
 
+/* What the book has now, under a value that would replace it */
+#meta-info #book-list .media .media-body dd .meta-current {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+/* Providers that didn't answer, or are still being asked: a help line over the results */
+#metaModal .meta-status {
+    flex: none;
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+/* "Show 2 more like this from Open Library": the same title's other results */
+#meta-info #book-list .meta-more { margin: -2px 0 10px; }
+#meta-info #book-list .meta-more .btn-link { padding: 0 2px; font-size: 14px; }
+
+/* Phones: the card stacks, a small cover beside Apply and the source on top, the fields
+   under it at full width, so a value never wraps a letter at a time */
 @media (max-width: 600px) {
-    #meta-info #book-list .media .media-image { width: 96px; padding: 10px; }
+    #meta-info #book-list .media { flex-direction: column; }
+    #meta-info #book-list .media .media-image {
+        width: auto;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        padding: 12px 72px 0 12px;
+        text-align: left;
+    }
+    #meta-info #book-list .media .media-image-wrapper,
+    #meta-info #book-list .media .media-image .meta-no-cover { width: 56px; flex: none; }
+    #meta-info #book-list .media .media-image .meta-no-cover { font-size: 11px; }
+    #meta-info #book-list .media .media-body,
+    #meta-info #book-list .media .meta-score + .media-body { padding: 10px 14px 14px; }
 }
 
 /* Row editor (Edit Metadata authors, tags, shelves): one input per value, × beside it. */

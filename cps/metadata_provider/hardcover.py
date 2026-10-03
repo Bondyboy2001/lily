@@ -99,6 +99,9 @@ class Hardcover(Metadata):
             return []
         return val
 
+    def available(self) -> bool:
+        return bool(getattr(config, "config_hardcover_token", None) or getenv("HARDCOVER_TOKEN"))
+
     def _query(self, gql: str, variable) -> Optional[Dict]:
         """Runs a GraphQL query. None without a token (Hardcover is off until HARDCOVER_TOKEN
         is set), quietly: a library rebuild asks once a book. A failed request is raised."""
