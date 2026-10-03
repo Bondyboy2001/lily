@@ -1,13 +1,65 @@
 {% extends "settings_layout.html" %}
 {% block pane_class %} is-wide{% endblock %}
 {% block settings %}
-<div class="lp lily-logs" data-logs-url="{{ url_for('logs.logs_data') }}" data-empty-message="{{ _('No logs captured yet.') }}">
+<div class="lp">
+{# The latest metadata lookups (cwa.db's metadata_lookup_log), newest first: the book, what the
+   lookup found and every field it changed, before → after. #}
+<section class="lp-group lily-lookups" id="section-lookups" aria-labelledby="lookups-heading">
+  <div class="lp-group-head"><h2 class="lp-label" id="lookups-heading">{{ _('Metadata Lookups') }}</h2></div>
+  {% if lookups %}
+  <table class="table lookups-table">
+    <thead>
+      <tr><th scope="col">{{ _('When') }}</th><th scope="col">{{ _('Book') }}</th>
+          <th scope="col">{{ _('Result') }}</th><th scope="col">{{ _('Changes') }}</th></tr>
+    </thead>
+    <tbody>
+      {% for lookup in lookups %}
+      <tr class="lookup is-{{ lookup.status }}">
+        <td class="lookup-when"><time datetime="{{ lookup.iso }}">{{ lookup.when }}</time></td>
+        <td class="lookup-book">
+          {% if lookup.exists %}<a href="{{ url_for('web.show_book', book_id=lookup.book_id) }}">{{ lookup.title }}</a>
+          {% else %}<span class="lookup-gone" title="{{ _('No longer in the library') }}">{{ lookup.title }}</span>{% endif %}
+        </td>
+        <td class="lookup-result">
+          {% if lookup.status == 'matched' %}<span class="label label-success">{{ _('Matched') }}</span>
+          {% elif lookup.status == 'failed' %}<span class="label label-danger">{{ _('Failed') }}</span>
+          {% else %}<span class="label">{{ _('No match') }}</span>{% endif %}
+          {% if lookup.source %}<span class="lookup-source">{{ lookup.source }}</span>{% endif %}
+        </td>
+        <td class="lookup-changes">
+          {% if lookup.changes %}
+          <ul>
+            {% for label, before, after in lookup.changes %}
+            <li><span class="lookup-field">{{ label }}</span>
+              {% if before %}<span class="lookup-before">{{ before }}</span> <span class="lookup-arrow" aria-label="{{ _('changed to') }}">→</span>{% endif %}
+              <span class="lookup-after">{{ after or _('(none)') }}</span></li>
+            {% endfor %}
+          </ul>
+          {% elif lookup.status == 'matched' %}<span class="lookup-none">{{ _('Nothing new') }}</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="lookups-count">
+    {{ _('Showing the latest %(shown)s of %(total)s lookups.', shown=lookups|length, total=lookups_total) }}
+    {% if more %}<a href="{{ url_for('logs.show_logs', lookups=more) }}">{{ _('Show more') }}</a>{% endif %}
+  </p>
+  {% else %}
+  <p class="lookups-count">{{ _('No lookups yet. Books are looked up when they are imported with Fetch metadata for new books on, or by Rebuild metadata.') }}</p>
+  {% endif %}
+</section>
+
+<section class="lp-group lily-logs" id="section-service-logs" aria-labelledby="service-logs-heading"
+         data-logs-url="{{ url_for('logs.logs_data') }}" data-empty-message="{{ _('No logs captured yet.') }}">
+  <div class="lp-group-head"><h2 class="lp-label" id="service-logs-heading">{{ _('Service Logs') }}</h2></div>
   <p id="logs_status" class="logs-status" role="status" aria-live="polite"></p>
   {# Copy sits in the log's top-right corner; the log keeps a right gutter so no line runs under it. #}
   <div class="logs-frame">
     <button type="button" id="log_copy" class="icon-btn logs-copy" title="{{ _('Copy logs') }}" disabled><span class="glyphicon glyphicon-copy" aria-hidden="true"></span><span class="sr-only logs-copy-label" aria-live="polite" data-done="{{ _('Copied') }}" data-failed="{{ _('Couldn’t copy. Select the text and press Ctrl+C or ⌘C.') }}">{{ _('Copy logs') }}</span></button>
-    <pre id="log_output" class="logs-output" tabindex="0" aria-labelledby="lp-heading"></pre>
+    <pre id="log_output" class="logs-output" tabindex="0" aria-labelledby="service-logs-heading"></pre>
   </div>
+</section>
 </div>
 {% endblock %}
 

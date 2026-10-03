@@ -4,16 +4,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Admin Logs page: a live, bounded tail of the app log and the captured service output."""
+"""Admin Logs page: the latest metadata lookups, each with what it changed, over a live,
+bounded tail of the app log and the captured service output."""
 
 import hashlib
+import json
 import logging
 import os
 import re
 import stat
+from datetime import datetime
 
 from flask import Blueprint, jsonify, make_response, request
-from flask_babel import gettext as _
+from flask_babel import format_datetime, gettext as _
 
 from . import logger
 from .admin import admin_required
@@ -193,11 +196,65 @@ def _no_store(response):
     return response
 
 
+# Lookups listed at first, and how many more "Show more" adds
+LOOKUPS_SHOWN = 100
+
+
+def _field_labels():
+    return {'title': _('Title'), 'authors': _('Authors'), 'description': _('Description'),
+            'publisher': _('Publisher'), 'tags': _('Tags'), 'pubdate': _('Published'),
+            'identifiers': _('Identifiers'), 'cover': _('Cover')}
+
+
+def _lookup_rows(limit):
+    """The newest lookups for the page, newest first, and how many there are in all. Each is
+    {book_id, title, exists, status, source, when, iso, changes: [(label, before, after)]}."""
+    import sys
+    if '/app/calibre-web-automated/scripts/' not in sys.path:
+        sys.path.insert(1, '/app/calibre-web-automated/scripts/')
+    from cwa_db import CWA_DB
+    from . import calibre_db, db
+    try:
+        store = CWA_DB()
+        entries, total = store.recent_metadata_lookups(limit), store.count_metadata_lookups()
+    except Exception as e:
+        log.debug("No metadata lookups to list: %s", e)
+        return [], 0
+    ids = {entry['book_id'] for entry in entries}
+    present = {row[0] for row in calibre_db.session.query(db.Books.id).filter(db.Books.id.in_(ids))} if ids else set()
+    labels = _field_labels()
+    rows = []
+    for entry in entries:
+        try:
+            changes = json.loads(entry['changes'] or '{}')
+        except ValueError:
+            changes = {}
+        try:
+            when = datetime.fromisoformat(entry['checked_at'])
+            shown = format_datetime(when, 'd MMM, HH:mm')
+        except (TypeError, ValueError):
+            shown = entry['checked_at']
+        rows.append({
+            'book_id': entry['book_id'], 'title': entry['title'] or _('Book %(id)s', id=entry['book_id']),
+            'exists': entry['book_id'] in present, 'status': entry['status'], 'source': entry['source'],
+            'when': shown, 'iso': entry['checked_at'],
+            'changes': [(labels.get(field, field), old, new) for field, (old, new) in changes.items()],
+        })
+    return rows, total
+
+
 @logs.route("/logs")
 @user_login_required
 @admin_required
 def show_logs():
-    return _no_store(make_response(render_title_template('logs.html', title=_('Logs'), page='logs')))
+    try:
+        limit = min(max(int(request.args.get('lookups', LOOKUPS_SHOWN)), LOOKUPS_SHOWN), 5000)
+    except ValueError:
+        limit = LOOKUPS_SHOWN
+    lookups, total = _lookup_rows(limit)
+    return _no_store(make_response(render_title_template(
+        'logs.html', title=_('Logs'), page='logs', lookups=lookups, lookups_total=total,
+        more=min(limit + LOOKUPS_SHOWN * 4, 5000) if total > limit else None)))
 
 
 @logs.route("/logs/data")

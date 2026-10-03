@@ -509,6 +509,32 @@ input[type="checkbox"].lp-switch:disabled { opacity: .4; cursor: not-allowed; }
     a.lp-row .lp-value { display: none; }
 }
 
+/* ---- Logs: the latest metadata lookups, a table (§5.11): when, book, result, before → after ---- */
+.lily-lookups .lookups-table { margin: 0; }
+.lookups-table > tbody > tr > td { vertical-align: top; }
+.lookups-table .lookup-when { white-space: nowrap; font-size: 13px; color: var(--muted); }
+.lookups-table .lookup-book a { color: var(--ink); font-weight: 500; }
+.lookups-table .lookup-gone { color: var(--muted); }
+.lookups-table .lookup-result { white-space: nowrap; }
+.lookups-table .lookup-source { display: block; margin-top: 4px; font-size: 13px; color: var(--muted); }
+.lookups-table .lookup-changes ul { margin: 0; padding: 0; list-style: none; }
+.lookups-table .lookup-changes li { font-size: 13px; overflow-wrap: anywhere; }
+.lookups-table .lookup-changes li + li { margin-top: 4px; }
+.lookups-table .lookup-field { margin-right: 6px; font-weight: 600; color: var(--ink-soft); }
+.lookups-table .lookup-before { color: var(--muted); }
+.lookups-table .lookup-arrow { color: var(--faint); }
+.lookups-table .lookup-none { font-size: 13px; color: var(--muted); }
+.lily-lookups .lookups-count { margin: 8px 4px 0; font-size: 13px; color: var(--muted); }
+
+/* A narrow pane: each lookup stacks, its result and changes under the book */
+@container lp-settings (max-width: 760px) {
+    .lookups-table > thead { display: none; }
+    .lookups-table > tbody > tr { display: block; padding: 8px 0; }
+    .lookups-table > tbody > tr > td { display: block; padding: 2px 10px; }
+    .lookups-table .lookup-result { white-space: normal; }
+    .lookups-table .lookup-source { display: inline; margin: 0 0 0 6px; }
+}
+
 /* ---- Logs: a live tail in a pre under the pane heading, Copy in its top-right corner ---- */
 .lily-logs .logs-status { min-height: 18px; margin: 0 4px 8px; font-size: 13px; color: var(--muted); }
 .lily-logs .logs-status.is-error { color: var(--danger); }

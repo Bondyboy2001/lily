@@ -200,6 +200,10 @@ def _m5_drop_unused_columns(cur) -> None:
                 cur.execute(f"ALTER TABLE {table} DROP COLUMN {column}")
 
 
+# The lookups the Logs page can list (metadata_lookup_log): a full rebuild's worth is too many
+LOOKUP_LOG_KEEP = 5000
+
+
 MIGRATIONS: list = [(1, "always detect duplicates, no Hardcover auto-fetch", _m1_settings_page_defaults),
                     (2, "drop exact-hash duplicate file keys", _m2_drop_duplicate_file_keys),
                     (3, "drop the settings and tables of removed features", _m3_drop_removed_features),
@@ -881,6 +885,26 @@ class CWA_DB:
                          "VALUES (?, ?, ?, ?)",
                          (book_id, status, source or '', datetime.now(UTC).isoformat(timespec='seconds')))
         self.con.commit()
+
+    def log_metadata_lookup(self, book_id: int, title: str, status: str, source: str = '',
+                            changes: str = '{}') -> None:
+        """Add a lookup to the Logs page's list (changes: JSON {field: [before, after]}), keeping
+        only the newest LOOKUP_LOG_KEEP."""
+        self.cur.execute("INSERT INTO metadata_lookup_log (book_id, title, status, source, checked_at, changes) "
+                         "VALUES (?, ?, ?, ?, ?, ?)",
+                         (book_id, title or '', status, source or '',
+                          datetime.now(UTC).isoformat(timespec='seconds'), changes or '{}'))
+        self.cur.execute("DELETE FROM metadata_lookup_log WHERE id <= ?", (self.cur.lastrowid - LOOKUP_LOG_KEEP,))
+        self.con.commit()
+
+    def recent_metadata_lookups(self, limit: int = 100) -> list[dict]:
+        """The newest `limit` lookups, newest first: {book_id, title, status, source, checked_at, changes}."""
+        rows = self.cur.execute("SELECT book_id, title, status, source, checked_at, changes FROM metadata_lookup_log "
+                                "ORDER BY id DESC LIMIT ?", (limit,))
+        return [dict(zip(("book_id", "title", "status", "source", "checked_at", "changes"), row)) for row in rows]
+
+    def count_metadata_lookups(self) -> int:
+        return self.cur.execute("SELECT COUNT(*) FROM metadata_lookup_log").fetchone()[0]
 
     def set_book_edition(self, book_id: int, edition: int | None) -> None:
         """Store the book's edition number, or forget it when None."""

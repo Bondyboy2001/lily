@@ -533,6 +533,7 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
         return False
     with library_lock:
         cdb = db.CalibreDB(expire_on_commit=False, init=True)
+    title = ''
     try:
         with library_lock:
             book = cdb.get_book(book_id)
@@ -572,7 +573,7 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
         if unanswered is not None:
             unanswered.update(missed)
         if record is None:
-            _note_lookup(store, book_id, _missed_status(missed, busy))
+            _note_lookup(store, book_id, _missed_status(missed, busy), title=title)
             return False
         # A PDF's cover is its first page; a provider's is only taken by hand, in Fetch metadata
         url = '' if page_cover else getattr(record, 'cover', '') or ''
@@ -580,10 +581,13 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
             cover = None
             if _cover_worth_fetching(store, book_id, url, getattr(record, 'cover_max_pixels', 0), current_cover):
                 cover = _download_cover(url, tmp)
+            changes = {}
             with library_lock:
                 before = _title_and_author(cdb, book)
-                changed = _apply_record(cdb, book, record, cover, replace_tags=force, mode=mode, store=store)
+                changed = _apply_record(cdb, book, record, cover, replace_tags=force, mode=mode, store=store,
+                                        changes=changes)
                 cover_state = _cover_state(_cover_path(book))
+                title = book.title
                 if changed:
                     source = getattr(getattr(record, 'source', None), 'description', 'a provider')
                     log.info(f"Applied metadata from {source} to book {book_id}")
@@ -591,18 +595,26 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
         if cover:
             # Weighed, whichever won: the same cover need not be fetched to compare again
             _remember_cover(store, book_id, url, cover_state)
-        _note_lookup(store, book_id, 'matched', getattr(getattr(record, 'source', None), 'description', ''))
+        source = getattr(getattr(record, 'source', None), 'description', '')
+        _note_lookup(store, book_id, 'matched', source, title, changes)
+        _log_changes(book_id, title, source, changes)
         _file_if_from_arxiv(book_id, record)
         return changed
     except Exception as e:
         log.error(f"Metadata lookup for book {book_id} failed: {e}", exc_info=True)
-        _note_lookup(store, book_id, 'failed')
+        _note_lookup(store, book_id, 'failed', title=title)
         with library_lock:
             _rollback(cdb)
         return False
     finally:
         with library_lock:
             cdb.session.close()
+
+
+def _log_changes(book_id, title, source, changes):
+    """Say in the service log what a lookup changed, a line a field: the Logs page shows it too."""
+    for field, (old, new) in changes.items():
+        log.info(f"Book {book_id} '{title}' from {source}: {field} {old or '(none)'!s} -> {new or '(none)'!s}")
 
 
 def _missed_status(missed, busy) -> str:
@@ -625,12 +637,14 @@ def _hand_edited(store, book_id) -> bool:
         return False
 
 
-def _note_lookup(store, book_id, status, source=''):
+def _note_lookup(store, book_id, status, source='', title='', changes=None):
     """Note what the book's lookup found: matched, nomatch (every provider answered and none
     has it) or failed (one didn't answer, or the lookup went wrong). The library's Metadata
-    filter and Retry failed read it; a failure here is logged, never the lookup's."""
+    filter and Retry failed read it, and the Logs page lists it with what it changed; a
+    failure here is logged, never the lookup's."""
     try:
         store.save_metadata_lookup(book_id, status, source)
+        store.log_metadata_lookup(book_id, title, status, source, json.dumps(changes or {}, ensure_ascii=False))
     except Exception as e:
         log.debug(f"Could not note the lookup of book {book_id}: {e}")
 
@@ -930,7 +944,7 @@ def _no_date(current) -> bool:
     return current is None or current.year <= _NO_DATE_YEAR
 
 
-def _apply_record(cdb, book, record, cover, replace_tags=False, mode=REPLACE, store=None):
+def _apply_record(cdb, book, record, cover, replace_tags=False, mode=REPLACE, store=None, changes=None):
     """Writes what the record changes and commits; True when anything changed.
 
     With mode REPLACE (see lookup_mode) the record's fields replace the book's; with FILL and
@@ -940,11 +954,13 @@ def _apply_record(cdb, book, record, cover, replace_tags=False, mode=REPLACE, st
     rating is left alone: a provider's is its readers' average, not this library's. A
     description that doesn't read as English is skipped for an English book. The record's tags
     are added to the book's or, with replace_tags in REPLACE, take their place. What changed is
-    kept in `store` as it was before, for Undo."""
+    kept in `store` as it was before, for Undo, and added to `changes` as {field: [before,
+    after]} for the Logs page (see described_changes)."""
     session = cdb.session
     changed = False
     dropped = []
     before = {}
+    new_description = None
     filling = mode != REPLACE
     with session.no_autoflush:
         # A book that goes by the title without its subtitle (or with it) keeps going by that
@@ -1006,6 +1022,7 @@ def _apply_record(cdb, book, record, cover, replace_tags=False, mode=REPLACE, st
         current = book.comments[0].text if book.comments else ''
         if description and description != current and (not filling or _blank_description(book)):
             before['description'] = current or ''
+            new_description = description
             if book.comments:
                 book.comments[0].text = description
             else:
@@ -1086,7 +1103,55 @@ def _apply_record(cdb, book, record, cover, replace_tags=False, mode=REPLACE, st
         helper.replace_cover_thumbnail_cache(book.id)
     if before and store is not None:
         _keep_change(store, book.id, getattr(getattr(record, 'source', None), 'description', ''), before)
+    if changes is not None:
+        # A comment added to a book that had none isn't on book.comments until it is read again
+        changes.update(described_changes(book, before, new_cover, new_description))
     return True
+
+
+def _snippet(html_text, length=160):
+    """A description as a line of plain text, cut short."""
+    text = " ".join(re.sub(r"<[^>]*>", " ", html_text or "").split())
+    return text if len(text) <= length else text[:length - 1].rstrip() + "…"
+
+
+def _date_text(value):
+    """A pubdate as YYYY-MM-DD; '' for none or calibre's "no date"."""
+    if not value:
+        return ''
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value)
+    return '' if _no_date(value) else value.date().isoformat()
+
+
+def described_changes(book, before, new_cover=False, description=None) -> dict:
+    """What a lookup changed, {field: [before, after]} as text, read from `before` (as
+    _apply_record keeps it for Undo) and the book as it is now; `description` is the one
+    applied, when there is one."""
+    def names(rows):
+        return ", ".join(row.name.replace('|', ',') for row in rows)
+    changes = {}
+    if 'title' in before:
+        changes['title'] = [before['title'], book.title]
+    if 'authors' in before:
+        changes['authors'] = [", ".join(n.replace('|', ',') for n in before['authors'] or []), names(book.authors)]
+    if 'description' in before:
+        if description is None:
+            description = book.comments[0].text if book.comments else ''
+        changes['description'] = [_snippet(before['description']), _snippet(description)]
+    if 'publisher' in before:
+        changes['publisher'] = [", ".join(before['publisher'] or []), names(book.publishers)]
+    if 'tags' in before:
+        changes['tags'] = [", ".join(before['tags'] or []), names(book.tags)]
+    if 'pubdate' in before:
+        changes['pubdate'] = [_date_text(before['pubdate']), _date_text(book.pubdate)]
+    if before.get('identifiers_added'):
+        added = set(before['identifiers_added'])
+        changes['identifiers'] = ['', ", ".join(f"{i.type} {i.val}" for i in book.identifiers
+                                                if i.type.lower() in added)]
+    if new_cover:
+        changes['cover'] = ['', 'new']
+    return changes
 
 
 def _keep_change(store, book_id, source, before):

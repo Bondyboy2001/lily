@@ -185,6 +185,18 @@ CREATE TABLE IF NOT EXISTS metadata_lookups(
     checked_at TEXT NOT NULL  -- UTC, ISO 8601
 );
 
+-- Every automatic metadata lookup, newest last, for the Logs page: the book, what the lookup
+-- found and what it changed. Only the newest LOOKUP_LOG_KEEP are kept (cwa_db.py)
+CREATE TABLE IF NOT EXISTS metadata_lookup_log(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    book_id INTEGER NOT NULL,
+    title TEXT NOT NULL DEFAULT '',  -- the book's title after the lookup: it may be deleted since
+    status TEXT NOT NULL,  -- matched, nomatch or failed, as metadata_lookups
+    source TEXT NOT NULL DEFAULT '',  -- the provider that matched
+    checked_at TEXT NOT NULL,  -- UTC, ISO 8601
+    changes TEXT NOT NULL DEFAULT '{}'  -- JSON: {field: [before, after]} for each field it changed
+);
+
 -- A book's edition, set by hand in the editor ("6" for the sixth): calibre has no field for it
 CREATE TABLE IF NOT EXISTS book_editions(
     book_id INTEGER PRIMARY KEY,
