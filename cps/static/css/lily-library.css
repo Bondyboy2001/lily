@@ -1866,6 +1866,9 @@ dl.book-info {
 /* Label on its own line, so "+ Add" sits under it even when there are no rows yet */
 .form-group:has(> .lily-edit-rows) > label { display: block; }
 
+/* "+ Add edition" sits under the Edit Metadata title field */
+#edition-add { margin-top: 8px; }
+
 .lily-edit-row {
     display: flex;
     align-items: center;

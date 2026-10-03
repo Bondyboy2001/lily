@@ -421,7 +421,7 @@ def test_editor_adds_only_title_and_authors_by_hand_and_shows_other_fields_once_
     assert 'id="tag-add"' not in template
     # The edition is the one optional field with an Add button (design §6.4)
     assert re.findall(r'<button type="button" class="btn btn-default btn-sm" id="([^"]+)"', template) == [
-        "author-add", "edition-add", "shelf-add"]
+        "edition-add", "author-add", "shelf-add"]
     # Title, authors and shelves always show; Details hides with its heading when it is empty
     for always in ('id="title"', 'id="author-rows"', 'id="shelf-rows"'):
         assert always in template

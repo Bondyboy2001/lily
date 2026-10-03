@@ -580,7 +580,7 @@ content (grid, panel, rows)
   rating, tags and description show only when the book has a value, which Fetch
   Metadata or the file gave; a value can be corrected or cleared, but there are
   no "Add …" buttons for them. The one exception is the edition: an "Add edition"
-  button (small secondary, like "Add author") under Series shows a number field
+  button (small secondary, like "Add author") under the Title field shows a number field
   ("6" for the sixth edition), shown from the start when the book has one; clearing
   it removes the edition. It is stored in cwa.db (`book_editions`), since calibre
   has no field for it. A section with nothing to show (Details, Tags,
