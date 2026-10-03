@@ -433,9 +433,9 @@ stamp), `--sunk` behind, a 1px
 `--line-soft` inset hairline (`outline-offset: -1px`), no shadow. A PDF whose cover is
 its first page has that page cropped to even side margins around the print on import and
 on Rebuild metadata (`cps/pdf_cover.py`), no wider than the tile, so the anchor rarely
-trims those. A cover more than 5% wider than A4 (a publisher's 3:4 front prints its title
-and author near the edge) is marked `.cover-wide` by `lily.js` and shown whole with
-`object-fit: contain`, centred on the `--sunk` bands, rather than losing words. Read state is a 3px `--success` inset outline plus a corner eye badge titled "Finished" on grid
+trims those. A cover more than 5% wider than A4 (a publisher's 3:4 front) still fills the
+tile — covers never letterbox — but is marked `.cover-wide` by `lily.js` and centred, so
+the crop comes evenly off both sides. Read state is a 3px `--success` inset outline plus a corner eye badge titled "Finished" on grid
 covers, and a green dot in list view. Mark-as-read controls use the eye
 glyph (`glyphicon-eye-open`), the same mark as the sidebar's Finished row. For editors, a book a metadata lookup has
 matched carries the green fetched mark (`.lily-fetched`, §6.4) on its cover's top-right corner.
@@ -524,10 +524,10 @@ content (grid, panel, rows)
 ### 6.4 Book page ("Frontispiece" layout)
 
 - **Stage** (`.book-detail-main`, §5.10): one `--sunk` band. On the left the cover is a
-  mounted plate: the grid's A4 tile (§5.15) on a `--surface` mount, padding 14 (8 on phones),
-  radius 8, flat. A cover whose shape differs from the tile letterboxes on the mount
-  (`object-fit: contain`) — the plate shows the whole cover, and one deformed cover cannot
-  stretch the stage. On the right, centred against it: the heading (series line, the book
+  mounted plate: the cover at its own shape on a `--surface` mount, padding 14 (8 on phones),
+  radius 8, flat. Nothing letterboxes; a cover taller than 1 : 1.6 is cropped to that
+  (`max-height: 160cqw`, `object-fit: cover`), so one deformed cover cannot stretch the
+  stage. On the right, centred against it: the heading (series line, the book
   title as a display line (§3.1), the authors as an italic `--accent` byline at 20px,
   the rating), then the fact tags, then the action bar, 22 apart. The stage is one
   row, so a tall cover never spreads the heading out.

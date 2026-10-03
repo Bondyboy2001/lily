@@ -269,13 +269,14 @@ def test_detail_page_is_a_frontispiece_stage():
     assert "grid-template-rows: auto" in main_rules[-1] and "minmax(0, 1fr)" in main_rules[-1]
     plate = next(body for selector, body in rules if selector == ".book-detail-cover")
     assert "background: var(--surface)" in plate and "box-shadow" not in plate
-    # Every plate is the grid's A4 tile; an odd cover letterboxes instead of stretching the stage.
+    # The plate takes the cover's shape (no letterbox); a deformed cover is cropped at 1:1.6.
     art = next(body for selector, body in rules
                if selector.split(",")[-1].strip() == ".book-detail-cover-art")
-    assert "aspect-ratio: 1 / 1.414" in art
+    assert "aspect-ratio" not in art and "container-type: inline-size" in art
     art_img = next(body for selector, body in rules
                    if selector.split(",")[-1].strip() == ".book-detail-cover-art img")
-    assert "height: 100%" in art_img and "object-fit: contain" in art_img
+    assert "height: auto" in art_img and "max-height: 160cqw" in art_img
+    assert "object-fit: cover" in art_img and "contain" not in art_img
     # The facts are tags, not a side panel.
     facts = next(body for selector, body in rules if selector == "dl.book-metadata")
     assert "display: flex" in facts and "flex-wrap: wrap" in facts and "background" not in facts
@@ -579,7 +580,7 @@ def test_covers_much_wider_than_a4_are_shown_whole():
     # §5.15: a 3:4 publisher cover prints words near its edge; a fill crop cut them off.
     css = read(CSS / "lily-library.css")
     wide = [b for s, b in css_rules(css) if ".lily-book .cover img.cover-wide" in s]
-    assert wide and "object-fit: contain" in wide[0]
+    assert wide and "object-position: center" in wide[0] and "contain" not in wide[0]
     assert '"cover-wide"' in read(JS / "lily.js")
 
 

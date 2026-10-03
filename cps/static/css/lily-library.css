@@ -212,13 +212,11 @@
     box-shadow: none;
 }
 
-/* A cover well over A4's width (a publisher's 3:4 front, say) prints its title and author
-   near the edge, so a fill would cut words off. lily.js marks it and it sits whole on
-   --sunk bands instead. PDF pages are cropped to the tile on import, so they still fill. */
+/* A cover well over A4's width (a publisher's 3:4 front, say) still fills the tile, but
+   lily.js marks it so the crop comes evenly off both sides rather than all off the right. */
 .container-fluid .lily-book .cover img.cover-wide,
 .continue-reading-item .cover img.cover-wide,
 .lily-order-cover.cover-wide {
-    object-fit: contain;
     object-position: center;
 }
 
@@ -1137,9 +1135,9 @@ dl.book-info {
 .book-info dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
 .book-info-id { font-variant-numeric: tabular-nums; }
 
-/* The plate: the cover on a --surface mount, flat like every panel. Every plate is the
-   grid's A4 tile (§5.15), so one deformed cover cannot stretch the stage; a cover whose
-   shape differs letterboxes on the mount instead. */
+/* The plate: the cover on a --surface mount, flat like every panel. The plate takes the
+   cover's own shape, so nothing letterboxes; a cover taller than 1:1.6 is cropped to that,
+   so one deformed cover cannot stretch the stage. */
 .book-detail-cover {
     position: relative;
     min-width: 0;
@@ -1153,15 +1151,17 @@ dl.book-info {
     position: relative;
     height: auto;
     margin: 0;
-    aspect-ratio: 1 / 1.414;
+    container-type: inline-size;
 }
 
 .container-fluid .book-detail-cover-art img,
 .book-detail-cover-art img {
     display: block;
     width: 100%;
-    height: 100%;
-    object-fit: contain;
+    height: auto;
+    max-height: 160cqw;
+    object-fit: cover;
+    object-position: center top;
     border: 0;
     border-radius: 4px 8px 8px 4px;
     box-shadow: none;
