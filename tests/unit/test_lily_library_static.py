@@ -109,12 +109,24 @@ def test_detail_page_has_no_description():
     assert "book-detail-description" not in read(CSS / "lily-library.css")
 
 
-def test_detail_page_does_not_show_tags_or_shelves():
+def test_detail_page_names_the_shelves_the_book_is_on():
+    # §6.4: an "On …" line under the action bar links each shelf the book is on; the Shelves
+    # menu shows or hides a shelf's link in place.
+    html = read(TEMPLATES / "detail.html")
+    line = re.search(r'<p class="book-on-shelves" id="book-on-shelves".*?</p>', html, flags=re.S)
+    assert line and "shelf.show_shelf" in line.group(0) and "{% if not on %} hidden" in line.group(0)
+    assert html.index('id="book-on-shelves"') > html.index('class="book-action-bar"')
+    js = read(JS / "shelves.js")
+    assert "updateOnShelves($item.data(\"shelf-url\"), data.on)" in js
+    css = read(CSS / "lily-library.css")
+    assert re.search(r"\.book-on-shelves a:not\(\[hidden\]\) ~ a:not\(\[hidden\]\)::before", css)
+
+
+def test_detail_page_does_not_show_tags():
     html = read(TEMPLATES / "detail.html")
     # The hidden form Fetch Metadata saves through carries the tags, unseen
     html = re.sub(r'<form [^>]*id="book_edit_frm" hidden>.*?</form>', "", html, flags=re.S)
     assert 'class="tags"' not in html and "entry.tags" not in html and "data='category'" not in html
-    assert 'class="shelves"' not in html and "book-shelves-row" not in html and "books_shelfs" not in html
     assert "is-tag" not in html and "is-tag" not in read(CSS / "lily-library.css")
 
 

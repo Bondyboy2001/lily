@@ -137,6 +137,16 @@
                         </button>
                     {% endif %}
                 </div>
+                {# The shelves the book is on, each linked; every shelf of the menu is here so ticking one
+                   shows its link without a reload (shelves.js). Hidden while the book is on none. #}
+                {% if shelf_menu %}
+                <p class="book-on-shelves" id="book-on-shelves"{% if not shelf_menu|selectattr("1")|list %} hidden{% endif %}>
+                    <span class="glyphicon glyphicon-list" aria-hidden="true"></span><span class="book-on-shelves-label">{{ _('On') }}</span>
+                    {%- for shelf, on in shelf_menu %}
+                    <a href="{{ url_for('shelf.show_shelf', shelf_id=shelf.id) }}"{% if not on %} hidden{% endif %}>{{ shelf.name }}</a>
+                    {%- endfor %}
+                </p>
+                {% endif %}
                 {# Where the last matched lookup came from (editors only; the date is in the details dialog) #}
                 {% if metadata_lookup and metadata_lookup.status == 'matched' and metadata_lookup.source %}
                 <p class="book-fetched-from">{{ _('Metadata fetched from %(source)s', source=metadata_lookup.source) }}</p>

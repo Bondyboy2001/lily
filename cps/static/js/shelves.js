@@ -1,7 +1,8 @@
 /*
  * Book page (detail.html): the Shelves menu's checkbox items put the book on a shelf or take it
  * off at once (shelf.set_book_on_shelf); the sidebar counts follow. A failure goes to the page's
- * message region (window.lilyFlash) and leaves the tick as it was.
+ * message region (window.lilyFlash) and leaves the tick as it was. The "On …" line under the
+ * action bar shows the link of each shelf the book is on, and hides while it is on none.
  */
 $(function () {
   "use strict";
@@ -17,6 +18,13 @@ $(function () {
     } else {
       badge.remove();
     }
+  }
+
+  function updateOnShelves(shelfUrl, on) {
+    var line = document.getElementById("book-on-shelves");
+    if (!line) { return; }
+    $(line).children("a").filter(function () { return this.getAttribute("href") === shelfUrl; }).prop("hidden", !on);
+    line.hidden = !$(line).children("a:not([hidden])").length;
   }
 
   $(document).on("click", ".book-shelves-menu .book-shelf-toggle", function (event) {
@@ -36,6 +44,7 @@ $(function () {
     }).done(function (data) {
       $item.attr("aria-checked", data.on ? "true" : "false");
       updateSidebarCount($item.data("shelf-url"), data.count);
+      updateOnShelves($item.data("shelf-url"), data.on);
     }).fail(function (xhr) {
       var message = (xhr && xhr.responseJSON && xhr.responseJSON.message) || $menu.data("failed");
       if (window.lilyFlash) { window.lilyFlash(message, "danger"); }

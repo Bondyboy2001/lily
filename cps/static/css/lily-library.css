@@ -876,6 +876,27 @@ dl.book-info {
     line-height: 1.4;
 }
 
+/* The shelves the book is on, under the action bar: each a link, commas between the shown ones. */
+.book-on-shelves {
+    margin: 12px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.book-on-shelves .glyphicon { margin-right: 6px; }
+
+.book-on-shelves-label { margin-right: 4px; }
+
+.book-on-shelves a { color: var(--accent); }
+
+.book-on-shelves a:not([hidden]) ~ a:not([hidden])::before {
+    content: ", ";
+    color: var(--muted);
+}
+
+.book-on-shelves + .book-fetched-from { margin-top: 4px; }
+
 /* The book title is content, set as a display line (design §3.1). */
 .book-detail-meta h1#title {
     margin: 0;

@@ -558,8 +558,12 @@ content (grid, panel, rows)
   For editors, when an automatic lookup changed the book, the footer holds a secondary
   "Undo lookup" (its tooltip names the source and date) that puts back the details from
   before; otherwise the dialog has no footer.
-- Tags and shelves are not shown on the book page. Tags are edited on the edit
-  page; shelves only through the Shelves menu below.
+- Tags are not shown on the book page; they are edited on the edit page.
+- **Shelves line** (`.book-on-shelves`, signed-in users): 12 under the action bar, 14px
+  `--muted`, the Shelves glyph then "On" and each shelf the book is on as an `--accent` link
+  to that shelf, comma-separated. Hidden while the book is on none. Ticking a shelf in the
+  Shelves menu shows or hides its link in place (`shelves.js`). The fetched-from line
+  follows it, 4 under.
 - The action bar is Read, Download, Mark as read, Shelves, View details (the info sign), Fetch metadata (the magnifying glass,
   opening the lookup dialog on the book page itself; Apply saves through a hidden form of the
   book's values and reloads the page), Edit metadata and Delete. The editor still takes `?fetch=1`.
