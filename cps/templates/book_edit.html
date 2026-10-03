@@ -49,20 +49,8 @@
     </div>
   </div>
 
-  {# Only the title and authors are added by hand. Every other field shows only when the book
-     has a value for it, which Fetch Metadata (or the file itself) gave; it can then be
-     corrected or cleared, and Fetch Metadata reveals any field it fills (edit_books.js) #}
-  {% set shown = {
-    'series': book.series|length > 0,
-    'publisher': book.publishers|length > 0,
-    'pubdate': book.pubdate and (book.pubdate|formatdateinput) != '',
-    'languages': book.languages|length > 0,
-    'rating': (book.ratings|length > 0 and book.ratings[0].rating > 0),
-    'tags': book.tags|length > 0,
-    'comments': (book.comments|length > 0 and book.comments[0].text|trim != ''),
-  } %}
-  {% set details_shown = shown.publisher or shown.pubdate or shown.languages or shown.rating %}
-  {# Middle: every section has a heading; fields under it carry plain labels #}
+  {# Middle: every section has a heading; fields under it carry plain labels. Every field
+     shows, blank when the book has no value: fill it by hand or with Fetch Metadata #}
   <div class="editbook-form">
     <section class="editbook-section">
     {# Fetch Metadata fills the whole form, so it sits by the form's first heading #}
@@ -73,26 +61,17 @@
     <div class="form-group">
       <label for="title">{{_('Title')}}</label>
       <input type="text" class="form-control" name="title" id="title" value="{{book.title}}">
-      {# The edition and volume are the optional fields added by hand, under the title they
-         belong to: "Add edition" / "Add volume" show them, and a cleared number removes one.
-         The book page shows them in the stage's corner ("9th ed. · Vol. 3") #}
-      <button type="button" class="btn btn-default btn-sm" id="edition-add"{% if edition %} hidden{% endif %}>
-        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> {{_('Add edition')}}
-      </button>
-      <button type="button" class="btn btn-default btn-sm" id="volume-add"{% if volume %} hidden{% endif %}>
-        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> {{_('Add volume')}}
-      </button>
     </div>
-    <div class="row" id="edition-field"{% if not edition %} hidden{% endif %}>
-      <div class="col-sm-3 form-group">
+    {# A cleared number removes it. The book page shows them in the stage's corner
+       ("9th ed. · Vol. 3"); they are stored in cwa.db, since calibre has no field for them #}
+    <div class="editbook-fields editbook-numbers">
+      <div class="form-group">
         <label for="edition">{{_('Edition')}}</label>
-        <input type="number" min="1" max="999" step="1" placeholder="6" class="form-control" name="edition" id="edition" value="{{ edition or '' }}">
+        <input type="number" min="1" max="999" step="1" class="form-control" name="edition" id="edition" value="{{ edition or '' }}">
       </div>
-    </div>
-    <div class="row" id="volume-field"{% if not volume %} hidden{% endif %}>
-      <div class="col-sm-3 form-group">
+      <div class="form-group">
         <label for="volume">{{_('Volume')}}</label>
-        <input type="number" min="1" max="999" step="1" placeholder="3" class="form-control" name="volume" id="volume" value="{{ volume or '' }}">
+        <input type="number" min="1" max="999" step="1" class="form-control" name="volume" id="volume" value="{{ volume or '' }}">
       </div>
     </div>
     {# One row per author over the hidden #authors field, which the server reads as an
@@ -106,56 +85,54 @@
       </button>
       <input type="hidden" name="authors" id="authors" value="{{' & '.join(authors)}}">
     </div>
-    <div class="row" data-optional="series"{% if not shown.series %} hidden{% endif %}>
-      <div class="col-sm-9 form-group">
-        <label for="series">{{_('Series')}}</label>
-        <input type="text" class="form-control typeahead" autocomplete="off" name="series" id="series" data-optional-value value="{% if book.series %}{{book.series[0].name}}{% endif %}">
-      </div>
-      <div class="col-sm-3 form-group">
-        <label for="series_index">{{_('Number')}}</label>
-        <input type="number" step="0.01" min="0" placeholder="1" class="form-control" name="series_index" id="series_index" value="{{book.series_index|formatfloat(2)}}">
-      </div>
+    {# No series number field: a save without one leaves the stored number alone
+       (edit_book_series_index) #}
+    <div class="form-group">
+      <label for="series">{{_('Series')}}</label>
+      <input type="text" class="form-control typeahead" autocomplete="off" name="series" id="series" value="{% if book.series %}{{book.series[0].name}}{% endif %}">
     </div>
     </section>
 
-    <section class="editbook-section"{% if not details_shown %} hidden{% endif %}>
+    <section class="editbook-section">
     <h3>{{_('Details')}}</h3>
     <div class="editbook-fields">
-      <div class="form-group" data-optional="publisher"{% if not shown.publisher %} hidden{% endif %}>
+      <div class="form-group editbook-publisher">
         <label for="publisher">{{_('Publisher')}}</label>
-        <input type="text" class="form-control typeahead" autocomplete="off" name="publisher" id="publisher" data-optional-value value="{% if book.publishers|length > 0 %}{{book.publishers[0].name}}{% endif %}">
+        <input type="text" class="form-control typeahead" autocomplete="off" name="publisher" id="publisher" value="{% if book.publishers|length > 0 %}{{book.publishers[0].name}}{% endif %}">
       </div>
-      <div class="form-group" data-optional="pubdate"{% if not shown.pubdate %} hidden{% endif %}>
+      <div class="form-group editbook-pubdate">
         <label for="pubdate">{{_('Published Date')}}</label>
         <div class="input-group">
-          <input type="text" class="datepicker form-control" name="pubdate" id="pubdate" data-optional-value value="{% if book.pubdate %}{{book.pubdate|formatdateinput}}{% endif %}">
+          <input type="text" class="datepicker form-control" name="pubdate" id="pubdate" value="{% if book.pubdate %}{{book.pubdate|formatdateinput}}{% endif %}">
           <input type="text" class="form-control fake-input hidden" id="fake_pubdate" value="{% if book.pubdate %}{{book.pubdate|formatdate}}{% endif %}">
           <span class="input-group-btn">
             <button type="button" id="pubdate_delete" class="datepicker_delete btn btn-default" title="{{_('Clear date')}}" aria-label="{{_('Clear date')}}"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></button>
           </span>
         </div>
       </div>
-      <div class="form-group" data-optional="languages"{% if not shown.languages %} hidden{% endif %}>
+      <div class="form-group editbook-languages">
         <label for="languages">{{_('Language')}}</label>
-        <input type="text" class="form-control typeahead" autocomplete="off" name="languages" id="languages" data-optional-value value="{% for language in book.languages %}{{language.language_name.strip()}}{% if not loop.last %}, {% endif %}{% endfor %}">
+        <input type="text" class="form-control typeahead" autocomplete="off" name="languages" id="languages" value="{% for language in book.languages %}{{language.language_name.strip()}}{% if not loop.last %}, {% endif %}{% endfor %}">
       </div>
-      <div class="form-group" data-optional="rating"{% if not shown.rating %} hidden{% endif %}>
+      <div class="form-group editbook-rating">
         <label id="rating-label">{{_('Rating')}}</label>
-        {{ image.rating_input('rating', (book.ratings[0].rating / 2)|int if book.ratings else 0, labelledby='rating-label', input_attrs='data-optional-value') }}
+        {{ image.rating_input('rating', (book.ratings[0].rating / 2)|int if book.ratings else 0, labelledby='rating-label') }}
       </div>
     </div>
     </section>
 
     {% set editable_shelves = g.shelves_access|selectattr('id', 'in', shelf_ids_editable)|list %}
-    {# One row per tag over the hidden #tags field, which the server reads as a
-       comma-separated list (edit_books.js). The tags a book has can be corrected or removed;
-       there is no adding one by hand #}
-    <section class="editbook-section" data-optional="tags"{% if not shown.tags %} hidden{% endif %}>
+    {# One chip per tag over the hidden #tags field, which the server reads as a
+       comma-separated list (edit_books.js) #}
+    <section class="editbook-section">
     <h3 id="tags-label">{{_('Tags')}}</h3>
     <div class="form-group" id="tag-editor">
       <ol class="lily-edit-rows" id="tag-rows" aria-labelledby="tags-label"
           data-placeholder="{{_('Tag')}}" data-remove-label="{{_('Remove tag')}}"></ol>
-      <input type="hidden" name="tags" id="tags" data-optional-value value="{% for tag in book.tags %}{{tag.name.strip()}}{% if not loop.last %}, {% endif %}{% endfor %}">
+      <button type="button" class="btn btn-default btn-sm" id="tag-add">
+        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> {{_('Add tag')}}
+      </button>
+      <input type="hidden" name="tags" id="tags" value="{% for tag in book.tags %}{{tag.name.strip()}}{% if not loop.last %}, {% endif %}{% endfor %}">
     </div>
     </section>
 
@@ -176,10 +153,10 @@
     <input type="hidden" name="shelves_present" value="1" disabled>
     <input type="hidden" name="shelves" id="shelves" value='{{ editable_shelves|selectattr("id", "in", book_shelf_ids)|map(attribute="name")|unique|list|tojson }}' disabled>
 
-    <section class="editbook-section" data-optional="comments"{% if not shown.comments %} hidden{% endif %}>
+    <section class="editbook-section">
     <h3><label for="comments">{{_('Description')}}</label></h3>
     <div class="form-group">
-      <textarea class="form-control lily-description" name="comments" id="comments" data-optional-value rows="3">{% if book.comments %}{{book.comments[0].text}}{%endif%}</textarea>
+      <textarea class="form-control lily-description" name="comments" id="comments" rows="3">{% if book.comments %}{{book.comments[0].text}}{%endif%}</textarea>
     </div>
     </section>
 

@@ -347,26 +347,26 @@ def test_epub_page_theme_follows_the_app_theme_until_one_is_picked():
 
 
 @pytest.mark.unit
-def test_book_editor_shows_only_the_optional_fields_with_values(client):
+def test_book_editor_shows_every_field_even_when_blank(client):
     env, c, book_id = client
     resp = c.get(f"/admin/book/{book_id}")
     assert resp.status_code == 200, resp.data[:300]
     html = resp.get_data(as_text=True)
-    # The fixture book has a language, a publish date and a tag, but no series, publisher,
-    # rating or description: those stay hidden, and nothing offers to add them by hand
-    for key in ("languages", "pubdate", "tags"):
-        assert f'data-optional="{key}">' in html, key
-    for key in ("series", "publisher", "rating", "comments"):
-        assert f'data-optional="{key}" hidden>' in html, key
-    assert "data-optional-add" not in html and 'id="tag-add"' not in html
-    assert 'id="author-add"' in html and 'id="title"' in html
+    # The fixture book has no series, publisher, rating or description: their fields still
+    # show, blank, and nothing in the form is hidden but the identifiers table
+    assert 'name="series" id="series" value=""' in html
+    assert 'name="publisher" id="publisher" value=""' in html
+    assert re.search(r'<textarea[^>]*id="comments"[^>]*></textarea>', html)
+    assert "data-optional" not in html
+    form = html.split('<div class="editbook-form">', 1)[1].split('<aside class="editbook-actions"', 1)[0]
+    assert re.findall(r'<(\w+)[^>]*\shidden[\s>]', form) == ["table"]
+    assert 'id="author-add"' in html and 'id="tag-add"' in html and 'id="title"' in html
     # The rating is a star radio group named by its visible label; "none" is chosen.
     group = re.search(r'<div class="lily-stars" role="radiogroup"[^>]*>(.*?)</div>', html, flags=re.S)
     assert group and 'aria-labelledby="rating-label"' in group.group(0)
     assert '<label id="rating-label">' in html
     radios = re.findall(r'<input type="radio"[^>]*name="rating"[^>]*>', group.group(1))
     assert [re.search(r'value="([^"]*)"', r).group(1) for r in radios] == ["1", "2", "3", "4", "5", ""]
-    assert all("data-optional-value" in r for r in radios)
     assert "checked" in radios[-1] and not any("checked" in r for r in radios[:-1])
     assert "<span class=\"sr-only\">3 stars</span>" in group.group(1)
     assert "<span class=\"sr-only\">1 star</span>" in group.group(1)

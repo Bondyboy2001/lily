@@ -80,19 +80,15 @@ def test_a_bad_edition_is_refused_and_the_old_one_kept(env):
     assert _edition(book) == 4
 
 
-def test_the_editor_hides_the_field_behind_add_edition_until_there_is_one(env):
+def test_the_editor_always_shows_the_edition_field(env):
     book = env.add_book("Probability", author="Robert Hogg")
     client = _login(env)
     html = client.get(f"/admin/book/{book}").get_data(as_text=True)
-    assert re.search(r'<div class="row" id="edition-field" hidden>', html)
-    # "Add edition" sits under the title field, and the Edition field opens just below it
-    assert re.search(r'id="title" value="Probability">\s*<button[^>]*id="edition-add"', html)
-    assert re.search(r'<button type="button" class="btn btn-default btn-sm" id="edition-add">', html)
-    assert 'name="edition" id="edition" value=""' in html
+    # A blank Edition field under the title, with no "Add edition" button
+    assert "edition-add" not in html and "edition-field" not in html
+    assert re.search(r'id="title" value="Probability">\s*</div>\s*.*?name="edition" id="edition" value=""', html, re.S)
     _save(env, client, book, edition="9")
     html = client.get(f"/admin/book/{book}").get_data(as_text=True)
-    assert '<div class="row" id="edition-field">' in html
-    assert re.search(r'id="edition-add" hidden>', html)
     assert 'name="edition" id="edition" value="9"' in html
 
 
@@ -155,4 +151,4 @@ def test_the_editor_and_get_meta_split_editions_alike():
     js = (Path(__file__).parents[2] / "cps/static/js/get_meta.js").read_text(encoding="utf-8")
     from cps.edition import _WORDS
     assert 'var EDITION_WORDS = ["' + '", "'.join(_WORDS) in js.replace("\n    ", " ")
-    assert "var split = splitEdition(book.title" in js and '$("#edition-field").prop("hidden", false)' in js
+    assert "var split = splitEdition(book.title" in js and "edition-field" not in js

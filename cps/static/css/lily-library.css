@@ -2106,17 +2106,17 @@ dl.book-info {
     overflow: hidden;
 }
 
-/* Details: the publisher takes a row, the shorter fields pair up beneath it; an empty
-   optional one is hidden (edit_books.js) */
+/* Details: the publisher takes a row, the shorter fields pair up beneath it. Edition and
+   Volume pair up the same way under the title, and stay paired on phones */
 .editbook-fields {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: 14px;
 }
-.editbook-fields [data-optional="publisher"] { grid-column: 1 / -1; }
+.editbook-fields .editbook-publisher { grid-column: 1 / -1; }
+/* The Rating label sits above its stars, like every other field's label */
+.editbook-rating > label { display: block; }
 
-.editbook-section[hidden],
-.editbook-section [data-optional][hidden] { display: none; }
 
 .editbook-section .row { margin-left: -8px; margin-right: -8px; }
 .editbook-section .row > [class*="col-"] { padding-left: 8px; padding-right: 8px; }
@@ -2161,7 +2161,7 @@ dl.book-info {
     }
 
     .editbook-cover-tools .editbook-read { margin-top: 0; }
-    .editbook-fields { grid-template-columns: minmax(0, 1fr); }
+    .editbook-fields:not(.editbook-numbers) { grid-template-columns: minmax(0, 1fr); }
     .editbook-cover-tools .editbook-side-group { margin-top: 14px; }
 
     /* One column: the fields, then the Save panel as a bar pinned to the bottom of

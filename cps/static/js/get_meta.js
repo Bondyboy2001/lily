@@ -157,7 +157,8 @@ $(function () {
     add("publisher", msg.publisher, book.publisher, form.publisher);
     add("pubDate", msg.pubdate, book.publishedDate, form.pubdate);
     add("series", msg.series, book.series, form.series);
-    if (book.series_index) {
+    // Only the book page's form carries a series number; the editor has none
+    if (book.series_index && field("series_index").length) {
       add("seriesIndex", msg.series_index, book.series_index, form.seriesIndex, {
         same: Number(book.series_index) === Number(form.seriesIndex),
       });
@@ -223,8 +224,6 @@ $(function () {
       var $edition = $("#edition");
       if (split.edition && $edition.length) {
         $edition.val(split.edition).trigger("change");
-        $("#edition-field").prop("hidden", false);
-        $("#edition-add").prop("hidden", true);
       }
     }
     if (updateItems.rating) {
@@ -273,7 +272,6 @@ $(function () {
     }
     // The save notes the book as matched by this provider (editbooks.py)
     set("metadata_source", (book.source && book.source.description) || "Fetch Metadata");
-    $form.trigger("lily:reveal-filled");
   }
 
   // The editor saves through its Save button; the book page's hidden form has none

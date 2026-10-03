@@ -139,8 +139,6 @@ var authors = new Bloodhound({
    text into values). Enter (or opts.splitKey) adds a row below, Backspace in an empty row
    removes it, and pasting a list spreads it over several rows. Code that sets the field fires
    "change", which redraws the rows (Fetch Metadata does this).
-   opts.fixed is for values that are not added by hand (tags): there is no Add button, and
-   Enter and the split key add no row; the rows there are can be corrected or removed.
    opts.chips sizes each input to its value, for rows that wrap as chips (tags). */
 function lilyRowEditor(opts) {
     var $field = opts.field, $rows = opts.rows;
@@ -222,7 +220,7 @@ function lilyRowEditor(opts) {
     $rows.on("keydown", INPUT, function (e) {
         if (e.key === "Enter" || (opts.splitKey && e.key === opts.splitKey)) {
             e.preventDefault();
-            if (!opts.fixed) { addAfter($(this).closest(".lily-edit-row"), ""); }
+            addAfter($(this).closest(".lily-edit-row"), "");
         } else if (e.key === "Backspace" && !$(this).val()) {
             e.preventDefault();
             removeRow($(this).closest(".lily-edit-row"));
@@ -233,7 +231,7 @@ function lilyRowEditor(opts) {
     $rows.on("paste", INPUT, function (e) {
         var text = (e.originalEvent.clipboardData || window.clipboardData).getData("text");
         var values = opts.split(text || "");
-        if (values.length < 2 || opts.fixed) { return; }
+        if (values.length < 2) { return; }
         e.preventDefault();
         var $row = $(this).closest(".lily-edit-row");
         $(this).typeahead("val", values.shift());
@@ -327,7 +325,7 @@ var tags = new Bloodhound({
 
 /* Tags: the hidden #tags field is the comma-separated list the server reads. */
 lilyRowEditor({
-    field: $("#tags"), rows: $("#tag-rows"), add: $(), fixed: true, chips: true,
+    field: $("#tags"), rows: $("#tag-rows"), add: $("#tag-add"), chips: true,
     name: "tags", display: "name", source: tags, splitKey: ",",
     split: function (raw) {
         return raw.split(",").map(function (t) { return t.trim(); })
@@ -421,34 +419,6 @@ $("#btn-upload-cover").on("change", function () {
     $("#upload-cover").text(filename);
 });
 
-
-/* Only the title and authors are added by hand. Every other field (series, publisher, date,
-   language, rating, tags, description) is hidden while empty. Fetch Metadata fires
-   "lily:reveal-filled" after filling the form, which shows each field that now has a value,
-   and the section it is in. */
-(function () {
-    var $form = $("#book_edit_frm");
-
-    $form.on("lily:reveal-filled", function () {
-        $form.find("[data-optional][hidden]").each(function () {
-            // typeahead puts a copy of its input (the hint) in front of it
-            var $value = $(this).find("[data-optional-value]").not(".tt-hint");
-            var value = $.trim(($value.is(":radio") ? $value.filter(":checked").val() : $value.val()) || "");
-            if (value === "" || value === "0") { return; }
-            $(this).prop("hidden", false).closest("section[hidden]").prop("hidden", false);
-            // The description box fits its text, which it could not measure while hidden
-            $(this).find("textarea").trigger("input");
-        });
-    });
-})();
-
-/* "Add edition" and "Add volume" show their field in its place, ready to type in. */
-$("#edition-add, #volume-add").on("click", function () {
-    var field = this.id.replace("-add", "");
-    $(this).prop("hidden", true);
-    $("#" + field + "-field").prop("hidden", false);
-    $("#" + field).trigger("focus");
-});
 
 /* Leaving with unsaved edits asks first (the browser's own "Leave site?" prompt). Only what
    the user types or picks counts: set-up code fills fields too. Saving, and Fetch Metadata's

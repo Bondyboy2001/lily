@@ -420,27 +420,29 @@ def test_cover_quick_actions_are_floating_round_buttons():
     assert "--cover-tint" not in read(JS / "lily.js")
 
 
-def test_editor_adds_only_title_and_authors_by_hand_and_shows_other_fields_once_fetched():
+def test_editor_shows_every_field_even_when_blank():
+    # Design §6.4: nothing hides while empty, so any field can be filled by hand
     template = read(TEMPLATES / "book_edit.html")
-    for key in ("series", "publisher", "pubdate", "languages", "rating", "tags", "comments"):
-        assert f'data-optional="{key}"{{% if not shown.{key} %}} hidden{{% endif %}}' in template
-    # No "Add …" for any of them: only authors have an Add button
-    assert "data-optional-add" not in template and "editbook-add-fields" not in template
-    assert 'id="tag-add"' not in template
-    # The edition and volume are the optional fields with an Add button (design §6.4)
+    assert "data-optional" not in template and "shown." not in template and "details_shown" not in template
+    assert "editbook-section\"{%" not in template and " hidden{% endif %}" not in template
+    for field in ('id="title"', 'id="edition"', 'id="volume"', 'id="author-rows"', 'id="series"',
+                  'id="publisher"', 'id="pubdate"', 'id="languages"',
+                  "image.rating_input('rating'", 'id="tag-rows"', 'id="comments"'):
+        assert field in template, field
+    # Edition and Volume are plain fields, paired under the title; Add author and Add tag stay
+    numbers = template.split('<div class="editbook-fields editbook-numbers">', 1)[1].split("{# One row per author", 1)[0]
+    assert numbers.index('id="edition"') < numbers.index('id="volume"')
     assert re.findall(r'<button type="button" class="btn btn-default btn-sm" id="([^"]+)"', template) == [
-        "edition-add", "volume-add", "author-add"]
-    # Title and authors always show; Details hides with its heading when it is empty
-    for always in ('id="title"', 'id="author-rows"'):
-        assert always in template
-    assert '<section class="editbook-section"{% if not details_shown %} hidden{% endif %}>' in template
+        "author-add", "tag-add"]
+    assert 'name="series_index"' not in template
+    assert 'if (book.series_index && field("series_index").length) {' in read(JS / "get_meta.js")
     edit_js = read(JS / "edit_books.js")
-    assert '$form.on("lily:reveal-filled", function () {' in edit_js
-    assert '.closest("section[hidden]").prop("hidden", false)' in edit_js
-    assert 'add: $(), fixed: true' in edit_js and "data-optional-add" not in edit_js
+    assert 'add: $("#tag-add"), chips: true' in edit_js
+    for gone in ("reveal-filled", "edition-add", "volume-add", "opts.fixed"):
+        assert gone not in edit_js, gone
+    assert "reveal-filled" not in read(JS / "get_meta.js") and "edition-field" not in read(JS / "get_meta.js")
     css = read(CSS / "lily-library.css")
-    assert ".editbook-section[hidden]" in css and "editbook-add-fields" not in css
-    assert '$form.trigger("lily:reveal-filled");' in read(JS / "get_meta.js")
+    assert "data-optional" not in css and ".editbook-fields .editbook-publisher { grid-column: 1 / -1; }" in css
 
 
 def test_fetch_metadata_search_is_a_field_and_a_separate_button():

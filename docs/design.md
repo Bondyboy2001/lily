@@ -597,19 +597,18 @@ content (grid, panel, rows)
   bottom of the viewport. Shelves are not edited here (the book page's Shelves menu
   does that); the form keeps disabled `shelves` fields only so Fetch Metadata can file
   an arXiv paper on the arXiv shelf.
-  Title and authors always show, and are the only things added by hand. Series, publisher, published date, language,
-  rating, tags and description show only when the book has a value, which Fetch
-  Metadata or the file gave; a value can be corrected or cleared, but there are
-  no "Add …" buttons for them. The exceptions are the edition and volume: "Add edition"
-  and "Add volume" buttons (small secondary, like "Add author", side by side) under the
-  Title field each show a number field ("6" for the sixth edition, "3" for volume 3),
-  shown from the start when the book has one; clearing it removes it. They are stored
-  in cwa.db (`book_editions`, `book_volumes`), since calibre has no field for them. A section with nothing to show (Details, Tags,
-  Description) is hidden with its heading, and Fetch Metadata reveals any field
-  it fills.
-  Authors are one field per row with a × beside it. Tags wrap as chips
+  Every field always shows, blank when the book has no value, to fill by hand or
+  with Fetch Metadata; clearing one removes the value. Under Title sit Edition and
+  Volume, two number fields side by side ("6" for the sixth edition, "3" for volume
+  3; they stay paired on phones), stored in cwa.db (`book_editions`, `book_volumes`)
+  since calibre has no field for them. Then Authors and Series (no series number:
+  a save leaves the stored one alone, and Fetch Metadata offers one only on the
+  book page); Details
+  (publisher, published date, language, rating); Tags; Description.
+  Authors are one field per row with a × beside it, and "Add author" below. Tags wrap as chips
   (`#tag-rows`): each value's field is sized to its text inside a `--control-tint`
-  chip with a small × and shows its field edge only while focused. Details puts
+  chip with a small × and shows its field edge only while focused; "Add tag" below
+  adds one (Enter or a comma in a chip starts the next). Details puts
   Publisher on its own row and pairs the shorter fields under it (one column on
   phones).
   The description box fits its text (no drag handle), padding 14/16 and
