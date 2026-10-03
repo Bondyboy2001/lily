@@ -138,7 +138,9 @@ CREATE TABLE IF NOT EXISTS metadata_rebuild_progress(
     checked INTEGER NOT NULL,
     updated INTEGER NOT NULL,
     covers INTEGER NOT NULL,
-    total INTEGER NOT NULL
+    total INTEGER NOT NULL,
+    full INTEGER NOT NULL DEFAULT 0,  -- a Full rebuild, so carrying it on replaces details too
+    done TEXT NOT NULL DEFAULT ''  -- books above next_book_id already checked, comma-separated
 );
 
 -- The provider cover last weighed against each book's own, so a later lookup need not download it again to compare

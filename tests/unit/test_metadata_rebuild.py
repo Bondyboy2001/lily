@@ -306,7 +306,8 @@ def test_a_stopped_rebuild_is_carried_on_from_where_it_got_to(env, monkeypatch):
     ids = [env.add_book(t) for t in ("One", "Two", "Three", "Four")]
     task, looked_up = _run_rebuild(env, monkeypatch, stop_after=ids[1])
     assert looked_up == ids[:2] and task.message == "Stopped: 2 of 4 books checked, 2 updated"
-    assert saved_progress() == {"next_book_id": ids[2], "checked": 2, "updated": 2, "covers": 0, "total": 4}
+    assert saved_progress() == {"next_book_id": ids[2], "checked": 2, "updated": 2, "covers": 0, "total": 4,
+                                "full": False, "done": []}
 
     status = _login(env).get("/cwa-settings/rebuild-metadata/status").get_json()
     assert status == {"state": "idle", "message": "The last rebuild stopped after 2 of 4 books.",
@@ -454,3 +455,40 @@ def test_a_full_rebuild_overwrites_after_copying_the_library(env, monkeypatch):
     # An ordinary rebuild only fills
     task, __ = _run_rebuild(env, monkeypatch)
     assert not any(task.overwrote)
+
+
+@pytest.mark.unit
+def test_continuing_a_stopped_full_rebuild_keeps_it_full(env, monkeypatch):
+    from cps.tasks.metadata_rebuild import saved_progress
+    ids = [env.add_book(t) for t in ("One", "Two", "Three", "Four")]
+    task, looked_up = _run_rebuild(env, monkeypatch, stop_after=ids[1], full=True)
+    assert task.overwrote == [True, True] and saved_progress()["full"] is True
+    # The page's Continue sends only resume: the rest are still replaced, not filled
+    task, looked_up = _run_rebuild(env, monkeypatch, resume=True)
+    assert looked_up == ids[2:] and task.overwrote == [True, True]
+    assert task.message == "Done: 4 books checked, 4 updated"
+
+
+@pytest.mark.unit
+def test_a_carried_on_rebuild_skips_the_books_already_checked_past_its_mark(env, monkeypatch):
+    # Books run several at once, so a later one can finish before an earlier one
+    from cwa_db import CWA_DB
+    ids = [env.add_book(t) for t in ("One", "Two", "Three", "Four", "Five")]
+    CWA_DB().save_rebuild_progress(ids[1], 2, 2, 0, 5, full=True, done=[ids[3]])
+    task, looked_up = _run_rebuild(env, monkeypatch, resume=True)
+    assert looked_up == [ids[1], ids[2], ids[4]]
+    assert task.message == "Done: 5 books checked, 5 updated"
+
+
+@pytest.mark.unit
+def test_progress_is_saved_every_few_seconds_not_every_book(env, monkeypatch):
+    from cwa_db import CWA_DB
+    from cps.tasks import metadata_rebuild
+    ids = [env.add_book(t) for t in ("One", "Two", "Three", "Four")]
+    saves = []
+    save = CWA_DB.save_rebuild_progress
+    monkeypatch.setattr(CWA_DB, "save_rebuild_progress", lambda self, *a, **k: saves.append(a[0]) or save(self, *a, **k))
+    monkeypatch.setattr(metadata_rebuild, "PROGRESS_EVERY", 3600)
+    task, looked_up = _run_rebuild(env, monkeypatch, stop_after=ids[2])
+    # Once at the first book, then when stopped
+    assert looked_up == ids[:3] and saves == [ids[1], ids[3]]

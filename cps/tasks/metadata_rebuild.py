@@ -4,15 +4,17 @@
 """Task that looks every book up again with the metadata providers (Settings → Metadata → Rebuild).
 
 It first makes each author the people it names (cps/author_cleanup.py), and after each lookup gives a PDF
-with no cover its first page, or centres a page-render cover on what is printed
-(cps/pdf_cover.py).
+with no cover (or only the old "Cover not available" card) its first page (cps/pdf_cover.py). It
+doesn't render a PDF that has a cover: a lookup never changes a PDF-only book's cover, and Redo PDF
+covers is there to make every cover page 1 again.
 
 A book that gets new details is kept in step like an edit is (metadata_helper does it): its folder
 follows a new title or first author, and with "Write edits into book files" on, the change is
 queued for the files.
 
-How far a run has got is saved after every book (cwa.db), so one that was stopped, or cut short by
-a restart, can be carried on from there instead of starting again.
+How far a run has got is saved every few seconds (cwa.db), so one that was stopped, or cut short by
+a restart, can be carried on from there instead of starting again: a full one stays full, and the
+books it had already checked are not checked again.
 
 A rebuild skips a book that is up to date: its last lookup matched it or found nothing, and it
 hasn't changed since, and fills only what a matched book lacks. A full rebuild first copies the
@@ -24,6 +26,7 @@ was edited by hand. A book with no match keeps what it has."""
 import os
 import sqlite3
 import sys
+import time
 from collections import Counter
 from datetime import datetime, timedelta, UTC
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
@@ -42,6 +45,9 @@ log = logger.create()
 
 # Books looked up at once: a lookup is mostly waiting on the providers, a few seconds a book
 WORKERS = 4
+# Seconds between saves of how far a run got: on the NAS a commit syncs the disk (~45 ms), and a
+# restart repeats only the books since the last save
+PROGRESS_EVERY = 5
 
 
 def saved_progress():
@@ -80,6 +86,10 @@ class TaskRebuildMetadata(CalibreTask):
         self.full = full
         # Books skipped as up to date
         self.skipped = 0
+        # Books checked above the lowest one still to do, so a carried-on run skips them
+        self._done = set()
+        # When the progress was last saved (time.monotonic)
+        self._saved_at = 0.0
 
     @property
     def name(self):
@@ -130,6 +140,9 @@ class TaskRebuildMetadata(CalibreTask):
             log.warning("Rebuild: progress will not be saved: %s", ex)
         try:
             progress = self._store.get_rebuild_progress() if self.resume and self._store else None
+            if progress and progress["full"]:
+                # Carrying on a full rebuild: the books still to do are replaced, not filled
+                self.full = True
             if self.full and not progress and self._store:
                 _backup_library()
                 self._store.clear_lookup_records()
@@ -145,7 +158,9 @@ class TaskRebuildMetadata(CalibreTask):
                 wanted = set(self.book_ids)
                 book_ids = [book_id for book_id in book_ids if book_id in wanted]
             if progress:
-                book_ids = [book_id for book_id in book_ids if book_id >= progress["next_book_id"]]
+                self._done = set(progress["done"])
+                book_ids = [book_id for book_id in book_ids
+                            if book_id >= progress["next_book_id"] and book_id not in self._done]
                 self.checked, self.updated, self.covers = (progress[k] for k in ("checked", "updated", "covers"))
                 log.info("Rebuild: carrying on after %s books, from book %s", self.checked, progress["next_book_id"])
             self.total = self.checked + len(book_ids)
@@ -209,8 +224,10 @@ class TaskRebuildMetadata(CalibreTask):
                 with library_lock:
                     cdb.session.rollback()
                 log.error("Rebuild: book %s failed: %s", book_id, ex, exc_info=True)
+            self._done.add(book_id)
             self._count()
-        self._save_progress(running)
+        if time.monotonic() - self._saved_at >= PROGRESS_EVERY:
+            self._save_progress(running)
 
     def _still_to_look_up(self, books):
         """The books not up to date: never looked up, failed, or changed since their lookup
@@ -256,14 +273,19 @@ class TaskRebuildMetadata(CalibreTask):
         return N_('. No answer from %(providers)s', providers=providers)
 
     def _save_progress(self, running):
-        """Note the lowest book not yet checked, for a later run to carry on from; nothing is
-        kept once every book is done."""
+        """Note the lowest book not yet checked, and the books above it already checked, for a
+        later run to carry on from; nothing is kept once every book is done."""
         if not self._store or self.book_ids is not None:
             return
+        self._saved_at = time.monotonic()
         waiting = list(running.values()) + ([self._unsubmitted] if self._unsubmitted is not None else [])
         try:
             if waiting:
-                self._store.save_rebuild_progress(min(waiting), self.checked, self.updated, self.covers, self.total)
+                next_book_id = min(waiting)
+                # Those below it are passed for good
+                self._done = {book_id for book_id in self._done if book_id > next_book_id}
+                self._store.save_rebuild_progress(next_book_id, self.checked, self.updated, self.covers, self.total,
+                                                  full=self.full, done=self._done)
             else:
                 self._store.clear_rebuild_progress()
         except Exception as ex:
@@ -349,12 +371,13 @@ def _backup_library():
 
 
 def _look_up(fetch, book_id, make_covers, overwrite=False):
-    """One book's work in the pool: the lookup, then making a PDF's page 1 cover.
-    Returns (updated, cover changed, providers that failed to answer).
+    """One book's work in the pool: the lookup, then making a PDF's page 1 cover when it has
+    none. Returns (updated, cover changed, providers that failed to answer).
 
-    The cover comes second, so a PDF-only book shows page 1 even when the provider just set a
-    cover (cover_job). Its paths are read after the lookup, which moves the book's folder when
-    the title or first author changes."""
+    A cover the PDF already has is kept without rendering page 1 to compare: the lookup takes no
+    provider's cover for a PDF-only book, so it is still what Redo PDF covers or the import made.
+    The cover's paths are read after the lookup, which moves the book's folder when the title or
+    first author changes."""
     from cps.metadata_helper import library_lock
     unanswered = set()
     # Only a full rebuild overwrites; the keyword stays out otherwise (tests pass bare fetchers)
@@ -365,12 +388,12 @@ def _look_up(fetch, book_id, make_covers, overwrite=False):
     with library_lock:
         cdb = db.CalibreDB(expire_on_commit=False, init=True)
         try:
-            cover = _cover_job(cdb, book_id)
+            cover = _cover_job(cdb, book_id, replace=False)
         finally:
             cdb.session.close()
     return updated, pdf_cover.try_fix_cover(cover, book_id), unanswered
 
 
-def _cover_job(cdb, book_id, store=None):
+def _cover_job(cdb, book_id, store=None, replace=True):
     book = cdb.session.get(db.Books, book_id)
-    return pdf_cover.cover_job(book, config.get_book_path(), store) if book else None
+    return pdf_cover.cover_job(book, config.get_book_path(), store, replace) if book else None

@@ -111,7 +111,10 @@ def test_rebuild_progress_is_one_row_until_cleared(temp_cwa_db):
     temp_cwa_db.save_rebuild_progress(7, 3, 1, 0, 10)
     temp_cwa_db.save_rebuild_progress(9, 5, 2, 1, 10)
     assert temp_cwa_db.get_rebuild_progress() == {"next_book_id": 9, "checked": 5, "updated": 2,
-                                                  "covers": 1, "total": 10}
+                                                  "covers": 1, "total": 10, "full": False, "done": []}
+    temp_cwa_db.save_rebuild_progress(9, 7, 2, 1, 10, full=True, done={12, 11})
+    assert temp_cwa_db.get_rebuild_progress() == {"next_book_id": 9, "checked": 7, "updated": 2,
+                                                  "covers": 1, "total": 10, "full": True, "done": [11, 12]}
     temp_cwa_db.clear_rebuild_progress()
     assert temp_cwa_db.get_rebuild_progress() is None
 

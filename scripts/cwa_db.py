@@ -347,6 +347,7 @@ class CWA_DB:
             "cwa_duplicate_file_matches",
             "cwa_duplicate_resolutions",
             "cwa_operation_jobs",
+            "metadata_rebuild_progress",
         ]
         self.tables, self.schema = _read_schema_file(self.schema_path)
         self.cwa_default_settings = self.get_cwa_default_settings()
@@ -934,15 +935,24 @@ class CWA_DB:
             print(f"\n{tabulate(newest_ten, headers=headers, tablefmt='rounded_grid')}\n")
 
     def get_rebuild_progress(self) -> dict | None:
-        """How far an unfinished Rebuild metadata run got, or None when the last one finished."""
-        row = self.cur.execute("SELECT next_book_id, checked, updated, covers, total "
+        """How far an unfinished Rebuild metadata run got, or None when the last one finished.
+        `full` says it was a Full rebuild; `done` lists the books above next_book_id it checked."""
+        row = self.cur.execute("SELECT next_book_id, checked, updated, covers, total, full, done "
                                "FROM metadata_rebuild_progress WHERE id = 1").fetchone()
-        return dict(zip(("next_book_id", "checked", "updated", "covers", "total"), row)) if row else None
+        if not row:
+            return None
+        progress = dict(zip(("next_book_id", "checked", "updated", "covers", "total"), row[:5]))
+        progress["full"] = bool(row[5])
+        progress["done"] = sorted(int(i) for i in (row[6] or "").split(",") if i.strip().isdigit())
+        return progress
 
-    def save_rebuild_progress(self, next_book_id: int, checked: int, updated: int, covers: int, total: int) -> None:
+    def save_rebuild_progress(self, next_book_id: int, checked: int, updated: int, covers: int, total: int,
+                              full: bool = False, done=()) -> None:
         self.cur.execute("INSERT OR REPLACE INTO metadata_rebuild_progress "
-                         "(id, next_book_id, checked, updated, covers, total) VALUES (1, ?, ?, ?, ?, ?)",
-                         (next_book_id, checked, updated, covers, total))
+                         "(id, next_book_id, checked, updated, covers, total, full, done) "
+                         "VALUES (1, ?, ?, ?, ?, ?, ?, ?)",
+                         (next_book_id, checked, updated, covers, total, int(bool(full)),
+                          ",".join(str(i) for i in sorted(done))))
         self.con.commit()
 
     def clear_rebuild_progress(self) -> None:

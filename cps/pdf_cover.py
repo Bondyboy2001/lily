@@ -162,16 +162,17 @@ def _hand_cover(book_id, store=None):
         return True
 
 
-def cover_job(book, library_path, store=None):
+def cover_job(book, library_path, store=None, replace=True):
     """(PDF path, cover.jpg path, has a cover, replace its cover) of a PDF book, or None for a
     book with no PDF. The cover is replaced by page 1 when PDFs are the book's only files and
-    nobody chose its cover by hand (asked of store, a CWA_DB, when given)."""
+    nobody chose its cover by hand (asked of store, a CWA_DB, when given). With replace False,
+    a cover the book has is kept, and nobody is asked."""
     pdf = next((d for d in book.data if d.format.upper() == 'PDF'), None)
     if pdf is None:
         return None
     folder = os.path.join(library_path, book.path)
     only_pdf = all(d.format.upper() == 'PDF' for d in book.data)
-    replace = only_pdf and not _hand_cover(book.id, store)
+    replace = replace and only_pdf and not _hand_cover(book.id, store)
     return (os.path.join(folder, pdf.name + '.pdf'), os.path.join(folder, 'cover.jpg'),
             bool(book.has_cover), replace)
 

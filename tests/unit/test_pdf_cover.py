@@ -167,6 +167,26 @@ def test_rebuild_flags_a_pdf_that_had_no_cover(env, monkeypatch):
 
 
 @pytest.mark.unit
+def test_rebuild_keeps_a_pdfs_cover_without_rendering_page_one(env, monkeypatch):
+    # The lookup takes no provider cover for a PDF-only book, so its cover needs no re-render
+    from cps import metadata_helper
+    from cps.tasks.metadata_rebuild import TaskRebuildMetadata
+    env.add_book("Paper", fmt="PDF")
+    replaced = []
+    monkeypatch.setattr(metadata_helper, "fetch_and_apply_metadata",
+                        lambda book_id, force=False, unanswered=None: False)
+    monkeypatch.setattr(pdf_cover, "available", lambda: True)
+    monkeypatch.setattr(pdf_cover, "_hand_cover", lambda *a: pytest.fail("no hand-cover check needed"))
+    monkeypatch.setattr(pdf_cover, "fix_cover", lambda p, c, has_cover, replace=False: replaced.append(replace) or False)
+    monkeypatch.setattr("cps.duplicate_index.mark_duplicate_index_pending", lambda reason=None: None)
+
+    task = TaskRebuildMetadata(workers=1)
+    with env.app.test_request_context():
+        task.start(None)
+    assert replaced == [False] and task.covers == 0
+
+
+@pytest.mark.unit
 def test_cover_job_replaces_only_a_pdf_only_books_cover_not_picked_by_hand(env):
     from cps import db
     from cwa_db import CWA_DB
