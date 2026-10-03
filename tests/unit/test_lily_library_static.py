@@ -608,6 +608,8 @@ def test_covers_take_their_own_shape_on_a_shelf():
     assert slot and "aspect-ratio: 1 / 1.414" in slot[0]
     cover = [b for s, b in rules if ".lily-book .cover" in s and "grid-area: 1 / 1" in b]
     assert cover and "aspect-ratio: var(--r)" in cover[0] and "align-self: end" in cover[0]
+    # A narrow cover hugs the left edge, where its title starts, not the slot's centre
+    assert "justify-self: start" in cover[0]
     assert "calc(141.4cqw * var(--r))" in cover[0]
     order = [b for s, b in rules if s == ".lily-order-cover"]
     assert order and "aspect-ratio: var(--r" in order[0]

@@ -424,7 +424,7 @@ advanced search (a custom rating column is a plain number field).
 
 A shelf: each grid card keeps an A4 slot (**1 : 1.414**) so titles line up, and the cover
 inside it takes the image's own shape (`--r`, width / height, set by `lily.js` on load),
-standing on the slot's foot and centred across it. Nothing is cropped or letterboxed: a US
+standing on the slot's foot at its left edge, so the title lines up under it. Nothing is cropped or letterboxed: a US
 Letter page or a publisher's 3:4 front is a little shorter than the slot, a 2:3 jacket a
 little narrower. Only outliers past 1:2 or 1:1 are clamped and trimmed. `--sunk` behind
 while it loads, a 1px `--line-soft` inset hairline (`outline-offset: -1px`), no shadow; the

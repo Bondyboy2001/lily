@@ -137,7 +137,7 @@
 }
 
 /* A shelf: every card keeps an A4 slot (1:1.414) so titles line up, and the cover inside it
-   takes the image's own shape, standing on the slot's foot and centred across it. Nothing is
+   takes the image's own shape, standing on the slot's foot at its left edge, under which the title starts. Nothing is
    cropped or letterboxed: a Letter page or a 3:4 front is a little shorter, a 2:3 jacket a
    little narrower. lily.js sets --r (width / height) once the image loads. */
 .lily-grid > .lily-book {
@@ -160,7 +160,7 @@
     position: relative;
     grid-area: 1 / 1;
     align-self: end;
-    justify-self: center;
+    justify-self: start;
     width: min(100%, calc(141.4cqw * var(--r)));
     height: auto;
     margin: 0 0 8px;
