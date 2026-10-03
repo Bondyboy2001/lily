@@ -10,7 +10,7 @@ name: Release
 # v4.4.0-3-gabc1234 for the third commit after v4.4.0.
 #
 # Each platform builds natively on its own runner (no QEMU), in parallel with the
-# checks (the tests split over two runners), and pushes by digest only; the amd64 job then pulls that digest and runs
+# checks (the tests split over three runners), and pushes by digest only; the amd64 job then pulls that digest and runs
 # the /health smoke test on it. Nothing is tagged until the publish job, which waits
 # for the checks and both builds and then ties the two digests together under the
 # tags. A failed run leaves an untagged digest that no tag points at.
@@ -35,13 +35,14 @@ permissions:
 
 jobs:
   checks:
-    name: Checks and tests ${{ matrix.shard }}/2
+    name: Checks and tests ${{ matrix.shard }}/3
     runs-on: ubuntu-latest
-    # The tests were the slowest job; two runners halve them. Shard 1 also lints.
+    # The tests were the slowest job; three runners split them (each also spends ~9 s
+    # starting pytest), so they finish about when the amd64 build does. Shard 1 also lints.
     strategy:
       fail-fast: true
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     env:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
@@ -86,7 +87,7 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/scripts
           # tests/conftest.py splits the suite by file
-          LILY_TEST_SHARD: ${{ matrix.shard }}/2
+          LILY_TEST_SHARD: ${{ matrix.shard }}/3
         run: pytest -m "smoke or unit" -n auto --tb=short
 
   # Dead code marks the run failed (and opens the release-failing issue) but does not hold
@@ -158,15 +159,22 @@ jobs:
           fi
           echo "IMAGE_NAMES=$names" >> "$GITHUB_ENV"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
       - name: Log in to GHCR
         uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The smoke test pulls the new image, which shares all but its app layers with the
+      # last release. Fetching that one now, while buildx starts and the build runs,
+      # leaves the smoke test only the few MB that changed (a full pull took ~15 s).
+      - name: Pre-pull the last release for the smoke test
+        if: matrix.platform == 'linux/amd64'
+        run: nohup docker pull -q "ghcr.io/${GITHUB_REPOSITORY,,}:latest" > /dev/null 2>&1 &
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to Docker Hub
         if: env.HAS_DOCKERHUB == 'true'
