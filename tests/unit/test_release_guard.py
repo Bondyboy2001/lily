@@ -34,7 +34,8 @@ def _jobs(text):
 
 def test_dead_code_fails_the_run_without_holding_back_the_image():
     jobs = _jobs((ROOT / ".github/workflows/release.yml").read_text())
-    assert "uvx vulture" in jobs["dead-code"] and "vulture" not in jobs["checks"]
-    assert "needs: [checks, build]\n" in jobs["publish"]
-    assert "needs: [checks, dead-code, build, publish]\n" in jobs["notify"]
+    assert "uvx vulture" in jobs["dead-code"] and "vulture" not in jobs["checks"] + jobs["lint"]
+    assert "uvx ruff" in jobs["lint"] and "uvx mypy" in jobs["lint"]
+    assert "needs: [checks, lint, build]\n" in jobs["publish"]
+    assert "needs: [checks, lint, dead-code, build, publish]\n" in jobs["notify"]
     assert "if: always() && github.ref == 'refs/heads/main'" in jobs["notify"]

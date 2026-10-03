@@ -38,7 +38,7 @@ jobs:
     name: Checks and tests ${{ matrix.shard }}/3
     runs-on: ubuntu-latest
     # The tests were the slowest job; three runners split them (each also spends ~9 s
-    # starting pytest), so they finish about when the amd64 build does. Shard 1 also lints.
+    # starting pytest), so they finish about when the amd64 build does.
     strategy:
       fail-fast: true
       matrix:
@@ -63,14 +63,6 @@ jobs:
             requirements.lock
             requirements-dev.txt
 
-      - name: Run ruff
-        if: matrix.shard == 1
-        run: uvx ruff==0.16.9 check cps scripts tests
-
-      - name: Run mypy
-        if: matrix.shard == 1
-        run: uvx mypy==2.3.1
-
       - name: Install dependencies
         run: |
           # Same pins as the image (requirements.lock)
@@ -89,6 +81,24 @@ jobs:
           # tests/conftest.py splits the suite by file
           LILY_TEST_SHARD: ${{ matrix.shard }}/3
         run: pytest -m "smoke or unit" -n auto --tb=short
+
+  # Lint and types block the image like the tests; on their own runner they don't hold
+  # up a test shard (they made shard 1 the slowest by ~10 s).
+  lint:
+    name: Lint and type check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.2.0
+
+      - name: Run ruff
+        run: uvx ruff==0.16.9 check cps scripts tests
+
+      - name: Run mypy
+        run: uvx mypy==2.3.1
 
   # Dead code marks the run failed (and opens the release-failing issue) but does not hold
   # back the image: publish doesn't wait on it. Config + whitelist in pyproject.toml
@@ -262,7 +272,7 @@ jobs:
   publish:
     name: Publish multi-arch tags
     runs-on: ubuntu-latest
-    needs: [checks, build]
+    needs: [checks, lint, build]
     timeout-minutes: 15
     permissions:
       contents: read
@@ -325,7 +335,7 @@ jobs:
   notify:
     name: Report release status
     runs-on: ubuntu-latest
-    needs: [checks, dead-code, build, publish]
+    needs: [checks, lint, dead-code, build, publish]
     if: always() && github.ref == 'refs/heads/main'
     permissions:
       issues: write
