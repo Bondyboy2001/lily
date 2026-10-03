@@ -28,8 +28,7 @@
                  covers: redoBtn ? redoBtn.querySelector(".glyphicon") : null };
   var stops = { metadata: stopBtn, covers: redoStopBtn };
   var timer = null;
-  // Each row shows its own progress: the rebuild row has no help text of its own, so the
-  // line appears under its label; the covers row's goes after its static help
+  // Each row shows its own progress in a line under its label
   var lines = {};
   lines.metadata = statusLine(btn);
   lines.covers = redoBtn ? statusLine(redoBtn) : null;

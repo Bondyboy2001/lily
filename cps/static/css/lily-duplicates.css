@@ -72,9 +72,8 @@
 
 .dup-card { padding: 14px; margin-bottom: 22px; }
 
-.dup-card-title { margin: 0 0 4px; }
+.dup-card-title { margin: 0 0 14px; }
 
-.dup-card-text { margin: 0 0 14px; color: var(--muted); }
 
 .dup-resolve-row {
     display: flex;

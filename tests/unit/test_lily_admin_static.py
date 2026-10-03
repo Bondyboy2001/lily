@@ -62,6 +62,14 @@ def test_settings_pages_use_the_shared_row_macros(name):
     assert 'class="lp' in html or "f.group(" in html
 
 
+@pytest.mark.parametrize(
+    "name", SETTINGS_FORMS + ["user_table.html", "duplicates.html", "logs.html"])
+def test_settings_pages_carry_no_help_text(name):
+    html = read(TEMPLATES / name)
+    assert "help=" not in html, name
+    assert "dup-card-text" not in html, name
+
+
 @pytest.mark.parametrize("name", SETTINGS_FORMS + ["user_table.html"])
 def test_settings_pages_share_the_settings_frame(name):
     html = read(TEMPLATES / name)

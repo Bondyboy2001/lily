@@ -631,6 +631,9 @@ Build every settings page from the macros. Never hand-write rows.
   becomes a scrolling chip strip.
 - Rows: min-height 52, padding 11 0, label 15/500 `--ink`, help 13px `--muted`
   (max 52ch). **No hairlines between rows.**
+- Settings pages (Profile, Import & Metadata, Users, Duplicates, Logs) carry **no
+  help text**: no `help=` on their macros and no explanatory paragraphs under
+  headings. The label says it all; a live status line (rebuild progress) is fine.
 - Save bar `.lp-actions.is-save`: sticky to the bottom on `--paper`, Primary
   last on the right; hidden until the form is dirty (visible without JS).
 - **Users** (`user_table.html`) is the one settings page without rows: People cards

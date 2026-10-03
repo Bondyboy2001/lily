@@ -7,10 +7,8 @@
 
     {% call f.group(None, id='section-metadata') %}
       {{ f.toggle('auto_metadata_fetch_enabled', _('Fetch metadata for new books'), cwa_settings['auto_metadata_fetch_enabled']) }}
-      {{ f.toggle('auto_metadata_enforcement', _('Write edits into book files'), cwa_settings['auto_metadata_enforcement'],
-         help=_('Edits are saved into EPUB and AZW3 files too, not just the library. PDFs are never changed.')) }}
-      {{ f.input('config_google_books_api_key', _('Google Books API key'), config.config_google_books_api_key, type='password',
-         help=_('Without one, Google Books rarely answers and lookups rely on the other providers. A free key comes from the Google Cloud console.')) }}
+      {{ f.toggle('auto_metadata_enforcement', _('Write edits into book files'), cwa_settings['auto_metadata_enforcement']) }}
+      {{ f.input('config_google_books_api_key', _('Google Books API key'), config.config_google_books_api_key, type='password') }}
       {# lily-metadata-rebuild.js: confirms, queues the task and shows its progress under the label #}
       {% call f.row(_('Rebuild metadata'), cls='is-actions') %}
         <button type="button" class="btn btn-default" id="rebuild_metadata"
@@ -21,8 +19,7 @@
                 data-url="{{ url_for('cwa_settings.stop_rebuild_metadata') }}">{{ _('Stop') }}</button>
       {% endcall %}
       {# No confirmation: the run only re-renders covers, and its Stop sits beside the button #}
-      {% call f.row(_('Redo PDF covers'), cls='is-actions',
-         help=_('Renders page 1 of each PDF again as its cover, centred on the print. Covers you picked yourself are kept. Nothing is looked up, so it is much quicker than a rebuild.')) %}
+      {% call f.row(_('Redo PDF covers'), cls='is-actions') %}
         <button type="button" class="btn btn-default" id="redo_pdf_covers"
                 data-url="{{ url_for('cwa_settings.redo_pdf_covers') }}">
           <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> {{ _('Redo') }}</button>
@@ -37,12 +34,10 @@
     {% call f.group(_('Lookup Problems'), id='section-lookup-problems', actions=retry) %}
       {% if lookups.get('failed') %}
       {{ f.link(url_for('web.index', metadata='failed'), _('Lookup failed'),
-         help=_('A provider didn’t answer, so the book may still be found. Retry failed asks again.'),
          value=lookups['failed'], id='lookups_failed') }}
       {% endif %}
       {% if lookups.get('nomatch') %}
       {{ f.link(url_for('web.index', metadata='nomatch'), _('No match'),
-         help=_('Every provider answered, but none has a book with this title and author.'),
          value=lookups['nomatch'], id='lookups_nomatch') }}
       {% endif %}
     {% endcall %}

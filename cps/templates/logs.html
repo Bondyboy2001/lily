@@ -47,7 +47,7 @@
     {% if more %}<a href="{{ url_for('logs.show_logs', lookups=more) }}">{{ _('Show more') }}</a>{% endif %}
   </p>
   {% else %}
-  <p class="lookups-count">{{ _('No lookups yet. Books are looked up when they are imported with Fetch metadata for new books on, or by Rebuild metadata.') }}</p>
+  <p class="lookups-count">{{ _('No lookups yet.') }}</p>
   {% endif %}
 </section>
 
