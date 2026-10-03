@@ -33,7 +33,7 @@ from .cw_advocate.exceptions import UnacceptableAddressException
 from . import calibre_db, cli_param
 from .string_helper import strip_whitespaces
 from . import logger, config, db, ub, fs
-from .constants import (STATIC_DIR as _STATIC_DIR, CACHE_TYPE_THUMBNAILS, THUMBNAIL_TYPE_COVER, EXTENSIONS_AUDIO, is_unknown_author)
+from .constants import (STATIC_DIR as _STATIC_DIR, CACHE_TYPE_THUMBNAILS, THUMBNAIL_TYPE_COVER, EXTENSIONS_AUDIO)
 
 # Track books with pending thumbnail generation to prevent duplicate tasks
 _pending_thumbnail_books = set()
@@ -843,11 +843,9 @@ def get_download_link(book_id, book_format):
         log.error("Requested format %s for book id %s not found in database", book_format.upper(), book_id)
         abort(404)
 
-    file_name = book.title
-    # calibre's "Unknown" stand-in is no author to name the file after
-    if len(book.authors) > 0 and not is_unknown_author(book.authors[0].name):
-        file_name = file_name + ' - ' + book.authors[0].name
-    file_name = get_valid_filename(file_name, replace_whitespace=False)
+    # "The Rust Programming Language (17860)": the title, then the book's id in brackets
+    # (added after the title is cleaned, so a long title's cut never drops the id)
+    file_name = '%s (%d)' % (get_valid_filename(book.title, replace_whitespace=False, chars=116), book.id)
     headers = Headers()
     headers["Content-Type"] = mimetypes.types_map.get('.' + book_format, "application/octet-stream")
     headers["Content-Disposition"] = "attachment; filename=%s.%s; filename*=UTF-8''%s.%s" % (

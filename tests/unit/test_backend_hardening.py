@@ -202,16 +202,23 @@ def test_download_without_user_agent_does_not_crash(env):
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("author, file_name", [
-    ("Frank Herbert", "Dune - Frank Herbert.epub"),
-    ("Unknown", "Dune.epub"),  # calibre's stand-in for no author is not one to name the file after
-])
-def test_a_download_is_named_after_the_title_and_the_author_it_has(env, author, file_name):
+@pytest.mark.parametrize("author", ["Frank Herbert", "Unknown"])
+def test_a_download_is_named_after_the_title_and_the_book_id(env, author):
+    # "The Rust Programming Language (17860).pdf": title, then the id in brackets; no author
     from urllib.parse import quote
     book_id = env.add_book("Dune", author=author)
     _add_book_file(env, book_id)
     disposition = _login(env).get(f"/download/{book_id}/epub").headers["Content-Disposition"]
-    assert disposition.startswith(f"attachment; filename={quote(file_name)};")
+    assert disposition.startswith(f"attachment; filename={quote(f'Dune ({book_id}).epub')};")
+
+
+def test_a_long_title_keeps_the_id_in_the_download_name(env):
+    from urllib.parse import unquote
+    book_id = env.add_book("A" * 200)
+    _add_book_file(env, book_id)
+    disposition = _login(env).get(f"/download/{book_id}/epub").headers["Content-Disposition"]
+    name = unquote(disposition.split("filename=")[1].split(";")[0])
+    assert name.endswith(f" ({book_id}).epub") and len(name) < 140
 
 
 # --------------------------------------------------------------------------- 4. web reader progress
