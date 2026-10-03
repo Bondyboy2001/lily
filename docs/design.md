@@ -370,6 +370,9 @@ header.
 - **Toast** (`.lily-refresh-toast`): the only floating message. Bottom-right
   16px, `--surface`, `--line-soft` edge, radius 10, `--menu-shadow`, 14px text,
   tone icon (accent busy, success done, danger error), dismisses itself.
+  After an upload it also says when the library already had the book ("Added Salt,
+  which was already in the library", linking the earlier copy) or when the file can't
+  be opened (error tone, linking the new book), so neither waits to be found later.
 
 ### 5.9 Pills and badges
 
@@ -494,7 +497,10 @@ content (grid, panel, rows)
 - **Duplicates notice:** when duplicate groups exist, a dismissible warning Notice
   ("3 groups of duplicate books. Review duplicates") joins the flashes at the top of
   the page, once per browser session and again when the count rises. It is never a
-  dialog: nothing covers the page the user came to use.
+  dialog: nothing covers the page the user came to use. There is no setup notice: the
+  first page an editor opens queues the one-time scan that builds the duplicate index
+  (at most once every half hour). While a scan is queued after an import or running,
+  the Duplicates page says "Checking New Books", never "No Duplicate Books".
 - **No Continue Reading row and no Reading list** (`/inprogress` is gone), and no "Continue"
   anywhere: the book page's button always says "Read".
 - **No series anywhere:** Lily shows, edits, sorts, searches and browses no series
@@ -508,7 +514,10 @@ content (grid, panel, rows)
   the next order). Page numbers (`image.pager`) sit after the sort chips on
   the same row, 38 tall, wrapping under them when narrow; lists have no pager
   at the bottom. The pager is page numbers only, with "…" opening a jump-to-page
-  box: no Previous or Next.
+  box: no Previous or Next. A new simple search starts at Relevance, best match
+  first (the term is the book's id, the title is the term, starts with it, holds it,
+  holds every word, then the authors hold every word), which has no direction chip;
+  picking another sort applies it. Advanced search has no Relevance.
 - **Metadata filter** (`?metadata=matched|nomatch|failed|unchecked`): reached
   from the Import & Metadata page's lookup rows. While it is on, its four chips
   (`image.metadata_chips`) lead the toolbar; the chosen one turns it off.
@@ -681,7 +690,10 @@ breakpoints as §3), so controls match the rest of the site. The epub `#viewer`
 stays unzoomed because epub.js sizes its iframe from it; its insets are
 multiplied by `--reader-zoom` by hand. The book *page* themes (Light, Sepia,
 Dark in `epub_themes.css`) are content and keep their own hex values. The PDF
-reader (pdf.js `viewer.css`) is outside the system; `lily-pdf.css` only zooms
+reader (pdf.js `viewer.css`) is outside the system, but its chrome follows Lily's
+Light/Dark choice (pdf.js' `is-light`/`is-dark` and `viewerCssTheme`), not the
+browser's colour scheme; a file pdf.js can't open shows a `.pdf-error` panel
+("This PDF file could not be opened…") instead of an empty "0 of 0". `lily-pdf.css` only zooms
 its toolbars (1.25× base, times the site zoom, from 1100px) to the site's
 control size and keeps the pages unzoomed. Its toolbar starts with a "Back to
 book" link (`#backToBook`, a pdf.js `toolbarButton` with its own chevron), and
