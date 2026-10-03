@@ -67,12 +67,6 @@
   color: var(--muted);
 }
 
-
-.container-fluid .author .author-hidden,
-.container-fluid .author .author-hidden-divider {
-  display: none;
-}
-
 .book-meta {
   padding-bottom: 20px;
 }

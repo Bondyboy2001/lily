@@ -168,12 +168,3 @@ def metadata_fetched_filter(book_id):
             fetched = set()
         g._lily_fetched_ids = fetched
     return book_id in fetched
-
-
-@jinjia.app_template_filter('music')
-def contains_music(book_formats):
-    result = False
-    for format in book_formats:
-        if format.format.lower() in g.constants.EXTENSIONS_AUDIO:
-            result = True
-    return result
