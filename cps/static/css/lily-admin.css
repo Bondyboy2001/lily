@@ -204,6 +204,9 @@
 
 .lp-row.is-wide { grid-template-columns: minmax(0, 1fr); }
 .lp-row.is-wide > .lp-control { width: 100%; }
+/* A row of buttons (Rebuild, Retry failed, Stop) sizes to them so they stay on one line. */
+.lp-row.is-actions { grid-template-columns: minmax(0, 1fr) auto; }
+.lp-row.is-actions > .lp-control { flex-wrap: nowrap; }
 
 .lp-text { min-width: 0; }
 
@@ -499,6 +502,8 @@ input[type="checkbox"].lp-switch:disabled { opacity: .4; cursor: not-allowed; }
 @media (max-width: 600px) {
     .lp-row { grid-template-columns: minmax(0, 1fr); min-height: 0; }
     .lp-row.is-toggle { grid-template-columns: minmax(0, 1fr) auto; }
+    .lp-row.is-actions { grid-template-columns: minmax(0, 1fr); }
+    .lp-row.is-actions > .lp-control { flex-wrap: wrap; }
     .lp-control { justify-content: flex-start; }
     a.lp-row { grid-template-columns: minmax(0, 1fr) auto; }
     a.lp-row .lp-value { display: none; }

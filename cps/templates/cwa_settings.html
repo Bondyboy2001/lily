@@ -20,7 +20,7 @@
       {{ f.input('config_google_books_api_key', _('Google Books API key'), config.config_google_books_api_key, type='password',
          help=_('Without one, Google Books rarely answers and lookups rely on the other providers. A free key comes from the Google Cloud console.')) }}
       {# lily-metadata-rebuild.js: confirms, queues the task and shows its progress under the label #}
-      {% call f.row(_('Rebuild metadata')) %}
+      {% call f.row(_('Rebuild metadata'), cls='is-actions') %}
         <button type="button" class="btn btn-default" id="rebuild_metadata"
                 data-url="{{ url_for('cwa_settings.rebuild_metadata') }}" data-status-url="{{ url_for('cwa_settings.rebuild_metadata_status') }}">
           <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span> {{ _('Rebuild') }}
