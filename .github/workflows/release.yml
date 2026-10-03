@@ -10,7 +10,7 @@ name: Release
 # v4.4.0-3-gabc1234 for the third commit after v4.4.0.
 #
 # Each platform builds natively on its own runner (no QEMU), in parallel with the
-# checks, and pushes by digest only; the amd64 job then pulls that digest and runs
+# checks (the tests split over two runners), and pushes by digest only; the amd64 job then pulls that digest and runs
 # the /health smoke test on it. Nothing is tagged until the publish job, which waits
 # for the checks and both builds and then ties the two digests together under the
 # tags. A failed run leaves an untagged digest that no tag points at.
@@ -34,34 +34,14 @@ permissions:
   contents: read
 
 jobs:
-  on-main:
-    name: Commit is on main
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.value }}
-    steps:
-      # git describe needs every commit and tag but no file contents: a blobless clone
-      # takes seconds where the full one sometimes took most of a minute.
-      - name: Checkout code (full history, no blobs)
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          filter: blob:none
-
-      - name: Check the commit is on origin/main
-        run: |
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            echo "::error::${GITHUB_REF_NAME} ($GITHUB_SHA) is not on origin/main. Merge first, then tag main."
-            exit 1
-          fi
-
-      - name: Version
-        id: version
-        run: echo "value=$(git describe --tags --match 'v*' --always)" >> "$GITHUB_OUTPUT"
-
   checks:
-    name: Lint, type check and unit tests
+    name: Checks and tests ${{ matrix.shard }}/2
     runs-on: ubuntu-latest
+    # The tests were the slowest job; two runners halve them. Shard 1 also lints.
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: [1, 2]
     env:
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
@@ -83,13 +63,16 @@ jobs:
             requirements-dev.txt
 
       - name: Run ruff
+        if: matrix.shard == 1
         run: uvx ruff==0.16.9 check cps scripts tests
 
       # Dead code fails the release too (config + whitelist in pyproject.toml [tool.vulture])
       - name: Run vulture
+        if: matrix.shard == 1
         run: uvx vulture==2.16
 
       - name: Run mypy
+        if: matrix.shard == 1
         run: uvx mypy==2.3.1
 
       - name: Install dependencies
@@ -107,12 +90,13 @@ jobs:
       - name: Run smoke and unit tests
         env:
           PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/scripts
+          # tests/conftest.py splits the suite by file
+          LILY_TEST_SHARD: ${{ matrix.shard }}/2
         run: pytest -m "smoke or unit" -n auto --tb=short
 
   build:
     name: Build ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
-    needs: [on-main]
     timeout-minutes: 60
     permissions:
       contents: read
@@ -128,8 +112,25 @@ jobs:
     env:
       HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
     steps:
-      - name: Checkout code
+      # git describe needs every commit and tag; blobless, the full history takes
+      # seconds, and only the checked-out tree's files are downloaded.
+      - name: Checkout code (full history, no old blobs)
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      # Checked here rather than in a job of its own, which held both builds back ~10 s
+      - name: Check the commit is on origin/main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::${GITHUB_REF_NAME} ($GITHUB_SHA) is not on origin/main. Merge first, then tag main."
+            exit 1
+          fi
+
+      - name: Version
+        id: version
+        run: echo "value=$(git describe --tags --match 'v*' --always)" >> "$GITHUB_OUTPUT"
 
       - name: Build date
         id: date
@@ -178,7 +179,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           # VERSION ends up in /app/CWA_RELEASE (About, admin page, /health) and the image label
           build-args: |
-            VERSION=${{ needs.on-main.outputs.version }}
+            VERSION=${{ steps.version.outputs.value }}
             BUILD_DATE=${{ steps.date.outputs.value }}
           outputs: type=image,"name=${{ env.IMAGE_NAMES }}",push-by-digest=true,name-canonical=true,push=true
           # The layer cache lives in GHCR, not the Actions cache: that one is capped at
@@ -197,7 +198,7 @@ jobs:
       - name: Smoke test (container starts, /health returns 200 and this version)
         if: matrix.platform == 'linux/amd64'
         env:
-          EXPECTED: Lily/${{ needs.on-main.outputs.version }}
+          EXPECTED: Lily/${{ steps.version.outputs.value }}
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY,,}@$DIGEST"
@@ -256,8 +257,8 @@ jobs:
           pattern: digests-*
           merge-multiple: true
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      # No setup-buildx here: imagetools only talks to the registries, and the
+      # runner's preinstalled buildx does that without starting a builder (~5 s).
 
       - name: Log in to GHCR
         uses: docker/login-action@v4

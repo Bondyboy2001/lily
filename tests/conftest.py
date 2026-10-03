@@ -332,6 +332,44 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(skip_docker_integration)
 
 
+class _ShardPlugin:
+    """LILY_TEST_SHARD=i/n keeps only shard i of n (CI runs the shards in parallel).
+
+    Whole files go to one shard, so module fixtures aren't built twice, and the
+    files are dealt out biggest first to the emptiest shard, which keeps the
+    shards within a few tests of each other. Every xdist worker computes the
+    same split, since it depends only on the collected items.
+    """
+
+    def __init__(self, index: int, total: int):
+        self.index, self.total = index, total
+
+    @pytest.hookimpl(trylast=True)  # after -m deselection, so shards split what actually runs
+    def pytest_collection_modifyitems(self, config, items):
+        counts: dict[str, int] = {}
+        for item in items:
+            path = item.nodeid.split("::")[0]
+            counts[path] = counts.get(path, 0) + 1
+        loads = [0] * self.total
+        owner = {}
+        for path, count in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
+            emptiest = loads.index(min(loads))
+            owner[path] = emptiest
+            loads[emptiest] += count
+        keep, drop = [], []
+        for item in items:
+            (keep if owner[item.nodeid.split("::")[0]] == self.index - 1 else drop).append(item)
+        config.hook.pytest_deselected(items=drop)
+        items[:] = keep
+
+
+def pytest_configure(config):
+    shard = os.environ.get("LILY_TEST_SHARD")
+    if shard:
+        index, total = (int(part) for part in shard.split("/"))
+        config.pluginmanager.register(_ShardPlugin(index, total), "lily-shard")
+
+
 # ============================================================================
 # Docker Container Fixtures (for integration tests)
 # ============================================================================

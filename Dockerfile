@@ -251,6 +251,8 @@ VOLUME ["/config", "/cwa-book-ingest", "/calibre-library"]
 # Uses shell form to support environment variable substitution for CWA_PORT_OVERRIDE
 # /health returns 503 when metadata.db can't be read or the ingest / metadata services are down,
 # so a broken library marks the container unhealthy; curl's own time limits keep a wedged app
-# from leaving probes hanging until Docker's timeout
-HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+# from leaving probes hanging until Docker's timeout. During the start period it probes every
+# 2 s (Docker 25+; older engines ignore it), so after an update the NAS shows healthy as soon
+# as the app answers rather than up to 30 s later.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --start-interval=2s --retries=3 \
   CMD curl -fs --connect-timeout 2 --max-time 4 http://localhost:${CWA_PORT_OVERRIDE:-8083}/health || curl -fs -k --connect-timeout 2 --max-time 4 https://localhost:${CWA_PORT_OVERRIDE:-8083}/health || exit 1
