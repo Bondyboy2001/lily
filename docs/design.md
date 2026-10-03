@@ -403,10 +403,8 @@ one level deep.
 ### 5.12 Progress and busy
 
 - **Progress bar:** 4px, radius 999, track `--control-tint`, bar `--accent`
-  (tone variants for success/warning/danger). On a cover (the in-progress list, `/inprogress`) it
-  runs flush along the bottom edge, 5px, on an ink-22% track (`--control-tint`
-  vanishes over cover art); the share read is written under the title
-  ("33% read", 14px `--muted`), not on the bar.
+  (tone variants for success/warning/danger). Covers carry no progress bar: there is no
+  in-progress list, and a book in progress says "Continue · 33%" on its own page.
 - **Busy:** spin the control's own glyph (`.glyphicon-spin`), or `.is-busy`
   (opacity .4) on an icon button. No full-page spinners.
 
@@ -496,7 +494,7 @@ content (grid, panel, rows)
   ("3 groups of duplicate books. Review duplicates") joins the flashes at the top of
   the page, once per browser session and again when the count rises. It is never a
   dialog: nothing covers the page the user came to use.
-- **No Continue Reading row, no Reading list in the sidebar:** a book in progress says
+- **No Continue Reading row and no Reading list** (`/inprogress` is gone): a book in progress says
   "Continue · 33%" on its book page.
 - **No series anywhere:** Lily shows, edits, sorts, searches and browses no series
   (no Series page or OPDS feed, no "Book N of", no "Next in" row, no series on

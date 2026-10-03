@@ -102,7 +102,6 @@ class TestFilterChips:
         env.add_book("Book One")
         client = _login(env)
         assert "Last read" not in _get(client, "/newest/stored/")
-        assert "Last read" not in _get(client, "/inprogress/stored/")
 
     def test_there_is_no_series_page_or_series_sort(self, env):
         env.add_book("Book One")

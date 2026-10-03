@@ -5,7 +5,7 @@
 
 import pytest
 
-from .lily_env import lily_env, ADMIN_PASSWORD, in_progress_rows
+from .lily_env import lily_env, ADMIN_PASSWORD
 
 @pytest.fixture
 def env(tmp_path, temp_cwa_db):
@@ -209,12 +209,9 @@ class TestInProgressReadingPositions:
                                          book_id=bid, format="pdf",
                                          cfi="page:9", percent=0.9))
         ub.session_commit()
-        rows = in_progress_rows(ub.session, admin.id,
-                                         library_uuid=lib)
-        assert rows == [(bid, pytest.approx(90.0))]
-        # Continue opens the format last read in
+        # Continue names the scoped percent and opens the format last read in
         html = _login(env).get(f"/book/{bid}").get_data(as_text=True)
-        assert f"/read/{bid}/pdf" in html
+        assert "90%" in html and f"/read/{bid}/pdf" in html
 
     def test_missing_format_offers_no_reader_link(self, env):
         from cps import ub
@@ -239,38 +236,12 @@ class TestInProgressReadingPositions:
                                          book_id=bid, format="epub",
                                          cfi="epubcfi(/5)", percent=0.5))
         ub.session_commit()
-        rows = in_progress_rows(ub.session, admin.id,
-                                         library_uuid=_library_uuid(env))
-        assert rows == [(bid, None)]
-
-    def test_scoped_position_recency_outranks_older_books(self, env):
-        from datetime import datetime, timedelta, timezone
-        from cps import ub
-        admin = env.admin()
-        lib = _library_uuid(env)
-        old = datetime.now(timezone.utc) - timedelta(days=30)
-        bids = []
-        for i in range(5):
-            b = env.add_book(f"Stale{i}", fmt="EPUB")
-            rb = ub.ReadBook(user_id=admin.id, book_id=b,
-                             read_status=ub.ReadBook.STATUS_IN_PROGRESS,
-                             last_modified=old)
-            ub.session.add(rb)
-            bids.append(b)
-        fresh = bids[0]
-        ub.session.add(ub.ReaderPosition(user_id=admin.id, library_uuid=lib,
-                                         book_id=fresh, format="epub",
-                                         cfi="epubcfi(/8)", percent=0.8,
-                                         last_modified=datetime.now(timezone.utc)))
-        ub.session_commit()
-        rows = in_progress_rows(ub.session, admin.id,
-                                         library_uuid=lib)
-        assert rows[0][0] == fresh
-        assert rows[0][1] == pytest.approx(80.0)
+        html = _login(env).get(f"/book/{bid}").get_data(as_text=True)
+        assert "50%" not in html
 
     def test_multiple_formats_pick_newest(self, env):
         from datetime import datetime, timedelta, timezone
-        from cps import ub, web, calibre_db, db
+        from cps import ub, calibre_db, db
         admin = env.admin()
         lib = _library_uuid(env)
         bid = env.add_book("TwoFmtPos", fmt="EPUB")
@@ -293,8 +264,8 @@ class TestInProgressReadingPositions:
                                          cfi="epubcfi(/9)", percent=0.9,
                                          last_modified=now))
         ub.session_commit()
-        rows = web._in_progress_rows(ub.session, admin.id, 12, lib)
-        assert rows == [(bid, pytest.approx(40.0), "pdf")]
+        html = _login(env).get(f"/book/{bid}").get_data(as_text=True)
+        assert "40%" in html and f"/read/{bid}/pdf" in html
 
 
 @pytest.mark.unit

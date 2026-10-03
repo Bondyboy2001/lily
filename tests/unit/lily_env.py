@@ -213,10 +213,3 @@ def lily_env(tmp_path, **config_overrides):
         ub.session, ub.app_DB_path = saved_ub
         config.__dict__.clear()
         config.__dict__.update(saved_config)
-
-
-def in_progress_rows(session, user_id, limit=None, library_uuid=None):
-    """[(book_id, percent)] from web._in_progress_rows, the in-progress books query."""
-    from cps.web import _in_progress_rows
-    return [(book_id, percent) for book_id, percent, __ in
-            _in_progress_rows(session, user_id, limit or 12, library_uuid)]

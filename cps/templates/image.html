@@ -202,8 +202,7 @@
 {%- endmacro %}
 
 {# One book in a cover grid (index, author, search, shelf). Cards are plain: cover and title, no authors. #}
-{# progress: the share read (0-100) of a book in progress, drawn along the cover's foot (Reading list) #}
-{% macro book_card(book, user, is_read=False, alt=None, progress=None) -%}
+{% macro book_card(book, user, is_read=False, alt=None) -%}
     {%- set formats = book.data|map(attribute='format')|map('lower')|list -%}
     <div class="book lily-book{{ " is-read" if is_read }}">
       <div class="cover">
@@ -214,20 +213,11 @@
           </span>
         </a>
         {{ cover_actions(book, user, formats, is_read) }}
-        {% if progress is not none %}
-        <div class="progress reading-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100"
-             aria-valuenow="{{ progress|round|int }}" aria-label="{{_('Reading progress')}}">
-          <div class="progress-bar" style="width: {{ progress|round(1) }}%;"></div>
-        </div>
-        {% endif %}
       </div>
       <div class="meta">
         <a href="{{ url_for('web.show_book', book_id=book.id) }}">
           <p title="{{ book.title }}" class="title">{{ book.title }}</p>
         </a>
-        {% if progress is not none %}
-        <p class="reading-percent">{{ _('%(percent)s%% read', percent=progress|round|int) }}</p>
-        {% endif %}
       </div>
     </div>
 {%- endmacro %}

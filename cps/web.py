@@ -602,8 +602,6 @@ def render_books_list(data, sort_param, book_id, page):
     order = get_sort_function(sort_param, data)
     if data == "read":
         return render_read_books(page, True, order=order)
-    elif data == "inprogress":
-        return render_reading_books(page, order=order)
     elif data == "author":
         return render_author_books(page, book_id, order)
     elif data == "search":
@@ -614,8 +612,10 @@ def render_books_list(data, sort_param, book_id, page):
         term = json.loads(flask_session.get('query', '{}'))
         offset = int(int(config.config_books_per_page) * (page - 1))
         return render_adv_search_results(term, offset, order, config.config_books_per_page)
+    elif data != "newest":
+        abort(404)
     else:
-        website = data or "newest"
+        website = data
         entries, pagination = calibre_db.fill_indexpage(page, 0, db.Books,
                                                                 list_filters.filter_expression(), order[0],
                                                                 True, config.config_read_column, cards_only=True)
@@ -653,48 +653,10 @@ def _latest_reader_positions(session, user_id, library_uuid, book_ids=None):
     return positions
 
 
-def _in_progress_rows(session, user_id, limit, library_uuid):
-    """[(book_id, percent, format)] for in-progress books, most recently touched first."""
-    rows = (session.query(ub.ReadBook.book_id, ub.ReadBook.last_modified,
-                          ub.WebReaderProgress.percent, ub.WebReaderProgress.last_modified)
-            .outerjoin(ub.WebReaderProgress,
-                       and_(ub.WebReaderProgress.user_id == ub.ReadBook.user_id,
-                            ub.WebReaderProgress.book_id == ub.ReadBook.book_id))
-            .filter(ub.ReadBook.user_id == user_id,
-                    ub.ReadBook.read_status == ub.ReadBook.STATUS_IN_PROGRESS)
-            .all())
-    positions = _latest_reader_positions(session, user_id, library_uuid,
-                                         book_ids={row[0] for row in rows})
-    ranked = []
-    seen = set()
-    for book_id, rb_modified, web_percent, wrp_modified in rows:
-        if book_id in seen:
-            continue
-        seen.add(book_id)
-        pos = positions.get(book_id)
-        stamps = [t for t in (rb_modified, wrp_modified,
-                              pos[2] if pos else None) if t is not None]
-        touched = max(stamps) if stamps else None
-        ranked.append((touched, book_id, web_percent, pos))
-    ranked.sort(key=lambda r: (r[0] is not None, r[0], r[1]), reverse=True)
-
-    result = []
-    for _touched, book_id, web_percent, pos in ranked[:limit * 3]:
-        percent = None
-        raw = pos[0] if pos and pos[0] is not None else web_percent
-        if raw is not None:
-            try:
-                percent = max(0.0, min(100.0, float(raw) * 100.0))
-            except (TypeError, ValueError):
-                percent = None
-        result.append((book_id, percent, pos[1] if pos else None))
-    return result
-
-
 def _book_resume(user_id, book_id, reader_list):
     """{'percent': 0-100, 'format': fmt} for the book page's Continue button, or None.
 
-    The newest scoped position wins, as on the Reading list; the format is only kept
+    The newest scoped position wins; the format is only kept
     when the browser can still read it.
     """
     try:
@@ -766,24 +728,6 @@ def render_read_books(page, are_read, as_xml=False, order=None):
     name = _('Finished') + ' (' + str(pagination.total_count) + ')'
     return render_title_template('index.html', entries=entries, pagination=pagination,
                                  title=name, page="read", order=order[1])
-
-
-def render_reading_books(page, order):
-    """Books the current user has started but not finished (ReadBook in progress, as the
-    "reading" list filter uses)."""
-    entries, pagination = calibre_db.fill_indexpage(page, 0, db.Books,
-                                                    list_filters.filter_expression({"status": "reading"}),
-                                                    order[0], True, config.config_read_column, cards_only=True)
-    name = _('Reading') + ' (' + str(pagination.total_count) + ')'
-    progress = {}
-    try:
-        rows = _in_progress_rows(ub.session, int(current_user.id), pagination.total_count or 1,
-                                      _library_uuid())
-        progress = {book_id: percent for book_id, percent, _fmt in rows if percent is not None}
-    except Exception as ex:
-        log.debug("Could not load reading progress: %s", ex)
-    return render_title_template('index.html', entries=entries, pagination=pagination,
-                                 title=name, page="inprogress", order=order[1], reading_progress=progress)
 
 
 # ################################### Health Check ##################################################################

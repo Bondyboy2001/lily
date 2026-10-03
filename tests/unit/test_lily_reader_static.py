@@ -282,9 +282,10 @@ def test_finished_shows_in_the_sidebar_and_reading_does_not(client):
     ub.session.add(ub.ReadBook(user_id=admin.id, book_id=finished, read_status=ub.ReadBook.STATUS_FINISHED))
     ub.session.commit()
 
-    html = c.get("/inprogress/stored/").get_data(as_text=True)
+    html = c.get("/newest/stored/").get_data(as_text=True)
     assert 'id="nav_inprogress"' not in html and 'id="nav_read"' in html
-    assert "Halfway Book" in html and "Done Book" not in html and "Untouched Book" not in html
+    # The Reading list page is gone (2026-10-03)
+    assert c.get("/inprogress/stored/").status_code == 404
 
     html = c.get("/read/stored/").get_data(as_text=True)
     assert "Done Book" in html and "Halfway Book" not in html and "Untouched Book" not in html
