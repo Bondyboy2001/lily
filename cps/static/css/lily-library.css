@@ -1171,8 +1171,8 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
     pointer-events: none;
 }
 
-/* The edition: bare text in the stage's top-right corner, 16 in (12 on phones), set like the byline. */
-.book-edition {
+/* The edition and volume: bare text in the stage's top-right corner, 16 in (12 on phones), set like the byline. */
+.book-corner {
     position: absolute;
     top: 16px;
     right: 20px;
@@ -1437,7 +1437,7 @@ dl.book-info {
 }
 
 @media (max-width: 1099px) {
-    .book-edition { top: 12px; right: 16px; }
+    .book-corner { top: 12px; right: 16px; }
     .book-detail-main { padding: 24px; gap: 24px; }
     .book-detail-extra { padding: 0 24px; }
     .book-detail-meta h1#title { font-size: 40px; }
@@ -1461,7 +1461,7 @@ dl.book-info {
 
     .book-detail-meta h1#title { font-size: 30px; line-height: 1.08; letter-spacing: -0.015em; }
     .book-detail-meta .author { margin-top: 2px; font-size: 17px; }
-    .book-edition { font-size: 17px; }
+    .book-corner { font-size: 17px; }
 
     .book-action-bar > .btn.btn-primary { flex: 1 1 100%; }
     .book-action-bar > .btn.is-icon,
@@ -1966,8 +1966,8 @@ dl.book-info {
 /* Label on its own line, so "+ Add" sits under it even when there are no rows yet */
 .form-group:has(> .lily-edit-rows) > label { display: block; }
 
-/* A button under an Edit Metadata field ("+ Add edition" under the title) */
-.editbook-form .form-group > .form-control + .btn { margin-top: 8px; }
+/* Buttons under an Edit Metadata field ("+ Add edition", "+ Add volume" under the title) */
+.editbook-form .form-group > .form-control ~ .btn { margin-top: 8px; }
 
 .lily-edit-row {
     display: flex;

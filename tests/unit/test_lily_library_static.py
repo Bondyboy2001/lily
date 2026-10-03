@@ -427,9 +427,9 @@ def test_editor_adds_only_title_and_authors_by_hand_and_shows_other_fields_once_
     # No "Add …" for any of them: only authors and shelves have an Add button
     assert "data-optional-add" not in template and "editbook-add-fields" not in template
     assert 'id="tag-add"' not in template
-    # The edition is the one optional field with an Add button (design §6.4)
+    # The edition and volume are the optional fields with an Add button (design §6.4)
     assert re.findall(r'<button type="button" class="btn btn-default btn-sm" id="([^"]+)"', template) == [
-        "edition-add", "author-add", "shelf-add"]
+        "edition-add", "volume-add", "author-add", "shelf-add"]
     # Title, authors and shelves always show; Details hides with its heading when it is empty
     for always in ('id="title"', 'id="author-rows"', 'id="shelf-rows"'):
         assert always in template

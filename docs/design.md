@@ -553,8 +553,9 @@ content (grid, panel, rows)
 - **Plate marks:** the plate wears exactly the grid cover's marks (`image.cover_marks`, §5.15): a
   ribbon per file type from the top edge, Finished and Fetched discs bottom-left, and the 3px
   `--success` edge once read. The read toggle updates the edge and the eye in place.
-- **Edition** (`.book-edition`, everyone): set in the editor, shown as "9th ed." (full
-  "9th edition" in its tooltip and for screen readers) in the stage's top-right corner, 16 down
+- **Edition and volume** (`.book-corner`, holding `.book-edition` and `.book-volume`, everyone):
+  set in the editor, shown as "9th ed." and "Vol. 3" (full "9th edition" / "Volume 3" in
+  their tooltips and for screen readers), joined by " · " when a book has both, in the stage's top-right corner, 16 down
   and 20 in (12 and 16 on phones), never on the cover. Bare text, no pill, set like the byline:
   `--font-body` 20px italic `--accent` (17 on phones). Grid cards don't show it.
 - **Fetched mark** (`.lily-fetched`, `image.fetched_mark`, editors only): a 22px `--surface` disc
@@ -589,11 +590,11 @@ content (grid, panel, rows)
   the only things added by hand. Series, publisher, published date, language,
   rating, tags and description show only when the book has a value, which Fetch
   Metadata or the file gave; a value can be corrected or cleared, but there are
-  no "Add …" buttons for them. The one exception is the edition: an "Add edition"
-  button (small secondary, like "Add author") under the Title field shows a number field
-  ("6" for the sixth edition), shown from the start when the book has one; clearing
-  it removes the edition. It is stored in cwa.db (`book_editions`), since calibre
-  has no field for it. A section with nothing to show (Details, Tags,
+  no "Add …" buttons for them. The exceptions are the edition and volume: "Add edition"
+  and "Add volume" buttons (small secondary, like "Add author", side by side) under the
+  Title field each show a number field ("6" for the sixth edition, "3" for volume 3),
+  shown from the start when the book has one; clearing it removes it. They are stored
+  in cwa.db (`book_editions`, `book_volumes`), since calibre has no field for them. A section with nothing to show (Details, Tags,
   Description) is hidden with its heading, and Fetch Metadata reveals any field
   it fills.
   The description box fits its text (no drag handle), padding 14/16 and

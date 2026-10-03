@@ -481,11 +481,12 @@ $("#btn-upload-cover").on("change", function () {
     });
 })();
 
-/* "Add edition" shows the Edition field in its place, ready to type in. */
-$("#edition-add").on("click", function () {
+/* "Add edition" and "Add volume" show their field in its place, ready to type in. */
+$("#edition-add, #volume-add").on("click", function () {
+    var field = this.id.replace("-add", "");
     $(this).prop("hidden", true);
-    $("#edition-field").prop("hidden", false);
-    $("#edition").trigger("focus");
+    $("#" + field + "-field").prop("hidden", false);
+    $("#" + field).trigger("focus");
 });
 
 /* Leaving with unsaved edits asks first (the browser's own "Leave site?" prompt). Only what

@@ -333,7 +333,7 @@ def do_edit_book(book_id, upload_formats=None):
             modify_date |= _same_day(book.pubdate) != db.Books.DEFAULT_PUBDATE.date()
             book.pubdate = db.Books.DEFAULT_PUBDATE
 
-        # The edition lives in cwa.db (calibre has no field for it), saved once the book is.
+        # The edition and volume live in cwa.db (calibre has no field for them), saved once the book is.
         # Only the editor sends the field, so other saves leave it as it is.
         edition = _UNCHANGED
         if "edition" in to_save and not upload_formats:
@@ -343,6 +343,14 @@ def do_edit_book(book_id, upload_formats=None):
                         edition=to_save["edition"]), category="error")
                 edit_error = True
                 edition = _UNCHANGED
+        volume = _UNCHANGED
+        if "volume" in to_save and not upload_formats:
+            volume = parse_volume(to_save["volume"])
+            if volume is _INVALID:
+                flash(_("'%(volume)s' is not a volume. Write the number, like 3 for volume 3.",
+                        volume=to_save["volume"]), category="error")
+                edit_error = True
+                volume = _UNCHANGED
 
         # Stage 3: Commit all changes to the database.
         if modify_date:
@@ -372,6 +380,8 @@ def do_edit_book(book_id, upload_formats=None):
 
         if edition is not _UNCHANGED:
             _save_edition(book.id, edition)
+        if volume is not _UNCHANGED:
+            _save_volume(book.id, volume)
 
         if refresh_cover_thumbnail_after_commit:
             helper.replace_cover_thumbnail_cache(
@@ -768,6 +778,7 @@ def render_edit_book(book_id):
 
     return render_title_template('book_edit.html', book=book, authors=author_names, cc=cc,
                                  edition=book_edition(book.id),
+                                 volume=book_volume(book.id),
                                  shelf_ids_editable=[shelf.id for shelf in _editable_shelves()],
                                  book_shelf_ids=_book_shelf_ids(book.id),
                                  reader_list=helper.check_read_formats(book),
@@ -813,6 +824,40 @@ def _save_edition(book_id, edition):
     except Exception as e:
         log.error("Could not save book %s's edition: %s", book_id, e)
         flash(_("The edition couldn't be saved."), category="error")
+
+
+def parse_volume(raw):
+    """The editor's Volume field: None when blank (no volume), the number for 1-999,
+    else _INVALID. "Vol. 3" is read as 3, the way the book page writes it."""
+    value = (raw or "").strip().lower()
+    if not value:
+        return None
+    for prefix in ("volume", "vol.", "vol"):
+        if value.startswith(prefix):
+            value = value[len(prefix):].strip()
+            break
+    if not value.isdigit() or not 1 <= int(value) <= 999:
+        return _INVALID
+    return int(value)
+
+
+def book_volume(book_id):
+    """The book's volume number from cwa.db, or None."""
+    try:
+        from cwa_db import CWA_DB
+        return CWA_DB().get_book_volume(book_id)
+    except Exception as e:
+        log.debug("Could not read book %s's volume: %s", book_id, e)
+        return None
+
+
+def _save_volume(book_id, volume):
+    try:
+        from cwa_db import CWA_DB
+        CWA_DB().set_book_volume(book_id, volume)
+    except Exception as e:
+        log.error("Could not save book %s's volume: %s", book_id, e)
+        flash(_("The volume couldn't be saved."), category="error")
 
 
 def _same_day(value):

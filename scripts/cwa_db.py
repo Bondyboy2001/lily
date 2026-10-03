@@ -897,6 +897,19 @@ class CWA_DB:
         row = self.cur.execute("SELECT edition FROM book_editions WHERE book_id = ?", (book_id,)).fetchone()
         return row[0] if row else None
 
+    def set_book_volume(self, book_id: int, volume: int | None) -> None:
+        """Store the book's volume number, or forget it when None."""
+        if volume is None:
+            self.cur.execute("DELETE FROM book_volumes WHERE book_id = ?", (book_id,))
+        else:
+            self.cur.execute("INSERT OR REPLACE INTO book_volumes (book_id, volume) VALUES (?, ?)",
+                             (book_id, volume))
+        self.con.commit()
+
+    def get_book_volume(self, book_id: int) -> int | None:
+        row = self.cur.execute("SELECT volume FROM book_volumes WHERE book_id = ?", (book_id,)).fetchone()
+        return row[0] if row else None
+
     def get_metadata_lookup(self, book_id: int) -> dict | None:
         """{status, source, checked_at} from the book's last lookup, or None when it has had none."""
         row = self.cur.execute("SELECT status, source, checked_at FROM metadata_lookups WHERE book_id = ?",

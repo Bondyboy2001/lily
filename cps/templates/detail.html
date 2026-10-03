@@ -14,9 +14,13 @@
     {# "Frontispiece" (design §6.4): a stage with the cover as a mounted plate beside the title,
        byline and actions; below it the description, the lookup line and what to read next. #}
     <div class="book-detail-main">
-        {# The edition ("9th ed."), set in the editor, in the stage's top-right corner #}
-        {% if edition %}
-        <span class="book-edition" id="book-edition" title="{{ _('%(nth)s edition', nth=edition|ordinal) }}">{{ _('%(nth)s ed.', nth=edition|ordinal) }}<span class="sr-only"> ({{ _('%(nth)s edition', nth=edition|ordinal) }})</span></span>
+        {# The edition and volume ("9th ed. · Vol. 3"), set in the editor, in the stage's top-right corner #}
+        {% if edition or volume %}
+        <span class="book-corner">
+        {%- if edition %}<span class="book-edition" id="book-edition" title="{{ _('%(nth)s edition', nth=edition|ordinal) }}">{{ _('%(nth)s ed.', nth=edition|ordinal) }}<span class="sr-only"> ({{ _('%(nth)s edition', nth=edition|ordinal) }})</span></span>{% endif %}
+        {%- if edition and volume %}<span aria-hidden="true"> · </span>{% endif %}
+        {%- if volume %}<span class="book-volume" id="book-volume" title="{{ _('Volume %(num)s', num=volume) }}">{{ _('Vol. %(num)s', num=volume) }}<span class="sr-only"> ({{ _('Volume %(num)s', num=volume) }})</span></span>{% endif -%}
+        </span>
         {% endif %}
         {# The plate wears the grid card's marks: format ribbons, and Finished and Fetched (editors only) #}
         {% set fetched = none %}

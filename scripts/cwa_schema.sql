@@ -190,3 +190,9 @@ CREATE TABLE IF NOT EXISTS book_editions(
     book_id INTEGER PRIMARY KEY,
     edition INTEGER NOT NULL
 );
+
+-- A book's volume, set by hand in the editor ("3" for volume 3): calibre has no field for it
+CREATE TABLE IF NOT EXISTS book_volumes(
+    book_id INTEGER PRIMARY KEY,
+    volume INTEGER NOT NULL
+);
