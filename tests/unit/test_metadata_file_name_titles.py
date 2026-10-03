@@ -184,6 +184,49 @@ def test_an_isbn_on_the_pages_for_a_title_that_is_not_on_them_is_another_books(e
     assert applied == []
 
 
+# A series' list of its other books, then the book's own copyright page, whose ISBN the PDF's
+# text layer garbled (a digit too many); the Basel edition's ISBN under it reads right
+SERIES_LIST = """Applied and Numerical Harmonic Analysis
+J. M. Cooper: Introduction to Partial Differential Equations with MATLAB
+(ISBN 0-81 76-3967-5)
+G.T. Herman: Geometry of Digital Spaces (ISBN 0-81 76-3897-0)
+An Introduction to Wavelet Analysis  David F. Walnut
+ISBN 0-81763-3962-4 (alk. paper)
+ISBN 3-7643-3962-4 SPIN 10574019"""
+
+
+def test_the_isbns_a_series_list_prints_come_after_the_books_own():
+    from cps.metadata_helper import isbn_on_pages, isbns_on_pages
+    assert isbns_on_pages(SERIES_LIST) == ["3764339624", "0817639675", "0817638970"]
+    assert isbn_on_pages(SERIES_LIST) == "3764339624"
+
+
+def test_a_book_in_a_series_list_is_not_the_book_whose_pages_list_it(env, monkeypatch):
+    calls = []
+    cooper = record("Introduction to partial differential equations with MATLAB", ["Jeffery Cooper"],
+                    identifiers={"isbn": "0817639675"})
+    walnut = record("An Introduction to Wavelet Analysis", ["David F. Walnut"], identifiers={"isbn": "3764339624"})
+    by_isbn = {"0817639675": cooper, "3764339624": walnut}
+    provider = _provider("google", calls=calls)
+    provider.search_identifiers = lambda ids, *a: calls.append(("google", "ids", ids)) or [by_isbn[ids["isbn"]]]
+    # The book's own ISBN comes first; were it a series list's, Cooper's would be refused
+    helper, applied = _setup(monkeypatch, [provider], front=SERIES_LIST)
+    book_id = env.add_book("Wavelets (scan)", author="David F. Walnut", fmt="PDF")
+    assert helper.fetch_and_apply_metadata(book_id) is True
+    assert applied == [walnut.title]
+    assert ("google", "ids", {"isbn": "3764339624"}) in calls
+
+
+def test_a_title_on_the_pages_by_another_author_is_not_the_printed_isbns_book():
+    from cps.metadata_helper import printed_isbn_is_this_book
+    cooper = record("Introduction to partial differential equations with MATLAB", ["Jeffery Cooper"])
+    assert not printed_isbn_is_this_book(cooper, "An Introduction to Wavelet Analysis", ["David F. Walnut"],
+                                         SERIES_LIST)
+    # With no author to go by, or one not on the pages (perhaps saved wrong), the title on them decides
+    assert printed_isbn_is_this_book(cooper, "Untitled-1", [], SERIES_LIST)
+    assert printed_isbn_is_this_book(cooper, "Wavelets", ["Jane Roe"], SERIES_LIST)
+
+
 def test_a_book_with_its_own_isbn_and_a_cut_title_is_the_isbns_record(env, monkeypatch):
     import sqlite3
     helper, applied = _setup(monkeypatch, [_provider("google", by_id=[GRAPHS])])

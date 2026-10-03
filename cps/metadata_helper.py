@@ -276,14 +276,22 @@ def isbn_in_title(title: str) -> str:
     return isbn if isbn and _isbn_checks(isbn) else ""
 
 
-def isbn_on_pages(page_text: str) -> str:
-    """The first ISBN printed on the pages (the print edition's, on a copyright page); empty
-    when there is none."""
+def isbns_on_pages(page_text: str) -> list[str]:
+    """The ISBNs printed on the pages, the book's own likely first: a series list before the
+    title page names its other books "(ISBN 0-8176-3967-5)", in brackets after their titles,
+    so a bracketed ISBN comes after any that isn't."""
+    found: list[tuple[str, bool]] = []
     for match in _ISBN_ON_PAGE.finditer(page_text or ""):
         isbn = compact_isbn(match.group(1))
-        if ISBN_RE.fullmatch(isbn) and _isbn_checks(isbn):
-            return isbn
-    return ""
+        if ISBN_RE.fullmatch(isbn) and _isbn_checks(isbn) and isbn not in (i for i, _ in found):
+            found.append((isbn, page_text[max(match.start() - 1, 0):match.start()] == "("))
+    return [isbn for isbn, bracketed in sorted(found, key=lambda f: f[1])]
+
+
+def isbn_on_pages(page_text: str) -> str:
+    """The ISBN printed on the pages most likely the book's own (the print edition's, on a
+    copyright page; see isbns_on_pages); empty when there is none."""
+    return next(iter(isbns_on_pages(page_text)), "")
 
 
 def _squash(text: str) -> str:
@@ -331,29 +339,47 @@ def found_by_id_is_this_book(record, ids: dict, title: str, authors, page_text: 
         return True
     if named_isbn or named_by_file(title):
         # Its title says nothing about it, but its title page does
-        return _on_pages(record, page_text)
+        return _on_pages(record, page_text) and not _printed_by_other(authors, record, page_text)
     return _same_book(title, authors, record)
+
+
+def other_author(authors, record) -> bool:
+    """Whether the record is by someone else: both sides name authors and share no surname."""
+    book_surnames, record_surnames = surnames(authors), surnames(getattr(record, 'authors', None))
+    return bool(book_surnames and record_surnames and not book_surnames & record_surnames)
+
+
+def _printed_by_other(authors, record, page_text: str) -> bool:
+    """Whether the record is by someone else while the pages print the book's own author: then
+    its title on them is a mention (a series list of other books), not the title page. A book
+    whose author is not printed there may have one saved wrong."""
+    return other_author(authors, record) and any(
+        title_on_page(name, page_text) for name in surnames(authors))
 
 
 def _same_book(title: str, authors, record) -> bool:
     """The same title (subtitle aside, or the record's as a file's name left it) and no
-    other author: authors differ only when both sides name some and they share no surname."""
+    other author."""
     main = _main_title(title)
     if not (main and main == _main_title(record.title) or loosely_titled(title, record)):
         return False
-    book_surnames, record_surnames = surnames(authors), surnames(getattr(record, 'authors', None))
-    return not (book_surnames and record_surnames and not book_surnames & record_surnames)
+    return not other_author(authors, record)
 
 
 def printed_isbn_is_this_book(record, title: str, authors, page_text: str) -> bool:
-    """Whether the record found by the ISBN a book's copyright page prints is that book: its
-    title is on those pages too, or is the book's own with no other author. (The pages can
-    print another book's ISBN: the set a volume belongs to, the hardback of a reprint.)"""
-    return _on_pages(record, page_text) or _same_book(title, authors, record)
+    """Whether the record found by the ISBN a book's pages print is that book: its title is
+    on those pages too and they don't name the book's own author beside another's, or its
+    title is the book's own. (The
+    pages can print other books' ISBNs: the set a volume belongs to, the hardback of a
+    reprint, the publisher's list of the series' other titles.)"""
+    return (_on_pages(record, page_text) and not _printed_by_other(authors, record, page_text)
+            or _same_book(title, authors, record))
 
 
 # A book's title page and copyright page come within its first few pages, after its cover
 FRONT_PAGES = 8
+# The printed ISBNs looked up, the likeliest first: a lookup each, and a series list prints many
+PRINTED_ISBNS_TRIED = 3
 
 
 def pdf_first_page_text(book) -> str:
@@ -770,13 +796,15 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
         # A match leaves the slower searches to finish on their own
         pool.shutdown(wait=False)
     record = _find_loosely(searched, title, authors, page_text, unanswered, busy, cover)
-    pages, printed = page_text, ''
+    pages, printed = page_text, []
     if record is None and front_matter and 'isbn' not in lookup_ids:
         pages = "\n".join((page_text, front_matter()))
-        printed = isbn_on_pages(pages)
-        if printed:
-            record = _find_by_identifiers({'isbn': printed}, unanswered, lambda found, ids: (
+        printed = isbns_on_pages(pages)[:PRINTED_ISBNS_TRIED]
+        for isbn in printed:
+            record = _find_by_identifiers({'isbn': isbn}, unanswered, lambda found, ids: (
                 printed_isbn_is_this_book(found, title, authors, pages)), busy)
+            if record is not None:
+                break
         if record is None and pages.strip() != page_text.strip():
             # The title page is among them: it can confirm a title the first page could not
             record = _find_loosely(searched, title, authors, pages, unanswered, busy, cover)
@@ -787,11 +815,12 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
     return record
 
 
-def _find_by_barcode(back_cover, title, authors, pages, unanswered, busy, tried=''):
+def _find_by_barcode(back_cover, title, authors, pages, unanswered, busy, tried=()):
     """The record found by the ISBN barcode on the book's back cover, checked as a printed
-    ISBN's is (printed_isbn_is_this_book); None without one, or when it is the ISBN `tried`."""
+    ISBN's is (printed_isbn_is_this_book); None without one, or when it is among the ISBNs
+    `tried`."""
     scanned = back_cover() if back_cover else ''
-    if not scanned or scanned == tried:
+    if not scanned or scanned in tried:
         return None
     log.info(f"Looking '{title}' up by the ISBN barcode on its back cover, {scanned}")
     return _find_by_identifiers({'isbn': scanned}, unanswered, lambda found, ids: (

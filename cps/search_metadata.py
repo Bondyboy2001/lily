@@ -94,11 +94,15 @@ def _file_identifiers(book_id, title):
     return find_paper_identifiers(title or book.title, page_text), page_text
 
 
-def _pinned(record, file_ids, form_ids, page_text):
+def _pinned(record, file_ids, form_ids, page_text, authors=()):
     """Whether a record an identifier lookup found stays pinned first as an exact
-    match. A DOI read off the PDF's first page may be a citation, so its record
-    needs its title on that page, unless the book's own identifiers name it too."""
-    from cps.metadata_helper import title_on_page
+    match. One by another author is not: the book's ISBN may be one an earlier
+    lookup read off a series list of other books. A DOI read off the PDF's first
+    page may be a citation, so its record needs its title on that page, unless the
+    book's own identifiers name it too."""
+    from cps.metadata_helper import other_author, title_on_page
+    if other_author(authors, record):
+        return False
     doi = file_ids.get("doi", "").lower()
     if not doi or doi == form_ids.get("doi", "").lower():
         return True
@@ -185,6 +189,8 @@ def metadata_search():
     records, status = _run_search(provider, "" if typed else query,
                                   typed or {**file_ids, **form_ids})
     score = _scorer(form, "" if typed else query)
+    # An identifier typed in is the one wanted, whoever the form says wrote the book
+    authors = [] if typed else [a.strip() for a in (form.get("authors") or "").split("&") if a.strip()]
     data, seen = [], set()
     for record, exact in records:
         key = (record.source.description, str(record.id))
@@ -192,7 +198,7 @@ def metadata_search():
             continue
         seen.add(key)
         item = asdict(record)
-        item["exact_match"] = exact and _pinned(record, file_ids, form_ids, page_text)
+        item["exact_match"] = exact and _pinned(record, file_ids, form_ids, page_text, authors)
         item["score"] = score(record)
         data.append(item)
     # The dialog names a provider that didn't answer, and says when a key would help

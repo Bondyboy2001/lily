@@ -176,6 +176,18 @@ def test_a_cited_doi_on_the_first_page_is_not_pinned_as_exact():
     assert _pinned(cited, file_ids, {"doi": "10.1038/nature16961"}, page) is True
 
 
+def test_a_record_by_another_author_is_not_pinned_as_exact():
+    """The book's saved ISBN may be one an earlier lookup read off a series list of other books."""
+    from types import SimpleNamespace
+    from cps.search_metadata import _pinned
+    cooper = SimpleNamespace(title="Introduction to partial differential equations with MATLAB",
+                             authors=["Jeffery Cooper"], identifiers={"isbn": "0817639675"})
+    isbn = {"isbn": "0817639675"}
+    assert _pinned(cooper, {}, isbn, "", ["David F. Walnut"]) is False
+    assert _pinned(cooper, {}, isbn, "", ["Jeffery M. Cooper"]) is True
+    assert _pinned(cooper, {}, isbn, "", []) is True
+
+
 @pytest.mark.parametrize("given, expected", [
     ("Garcia, Stephan Ramon", "Stephan Ramon Garcia"),
     ("Miller,  Steven J.", "Steven J. Miller"),
