@@ -509,53 +509,71 @@ input[type="checkbox"].lp-switch:disabled { opacity: .4; cursor: not-allowed; }
     a.lp-row .lp-value { display: none; }
 }
 
-/* ---- Logs: the latest metadata lookups, a table (§5.11): when, book, result, before → after ---- */
-.lily-lookups .lookups-table { margin: 0; }
-.lookups-table > tbody > tr > td { vertical-align: top; }
-.lookups-table .lookup-when { white-space: nowrap; font-size: 13px; color: var(--muted); }
-.lookups-table .lookup-book a { color: var(--ink); font-weight: 500; }
-.lookups-table .lookup-gone { color: var(--muted); }
-.lookups-table .lookup-result { white-space: nowrap; }
-.lookups-table .lookup-source { display: block; margin-top: 4px; font-size: 13px; color: var(--muted); }
-.lookups-table .lookup-changes ul { margin: 0; padding: 0; list-style: none; }
-.lookups-table .lookup-changes li { font-size: 13px; overflow-wrap: anywhere; }
-.lookups-table .lookup-changes li + li { margin-top: 4px; }
-.lookups-table .lookup-field { margin-right: 6px; font-weight: 600; color: var(--ink-soft); }
-.lookups-table .lookup-before { color: var(--muted); }
-.lookups-table .lookup-arrow { color: var(--faint); }
-.lookups-table .lookup-none { font-size: 13px; color: var(--muted); }
-.lily-lookups .lookups-count { margin: 8px 4px 0; font-size: 13px; color: var(--muted); }
-
-/* A narrow pane: each lookup stacks, its result and changes under the book */
-@container lp-settings (max-width: 760px) {
-    .lookups-table > thead { display: none; }
-    .lookups-table > tbody > tr { display: block; padding: 8px 0; }
-    .lookups-table > tbody > tr > td { display: block; padding: 2px 10px; }
-    .lookups-table .lookup-result { white-space: normal; }
-    .lookups-table .lookup-source { display: inline; margin: 0 0 0 6px; }
+/* ---- Logs: two pills (App, Metadata) over one clean, live list; newest at the bottom ---- */
+/* The bar sticks under the top bar (logs.js sets --logs-bar-top to its height). */
+.lily-logs .logs-bar {
+    position: sticky;
+    top: var(--logs-bar-top, var(--topbar-height));
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 0 0 14px;
+    padding: 8px 0;
+    background: var(--paper);
 }
-
-/* ---- Logs: a live tail in a pre under the pane heading, Copy in its top-right corner ---- */
-.lily-logs .logs-status { min-height: 18px; margin: 0 4px 8px; font-size: 13px; color: var(--muted); }
+.lily-logs .logs-tabs { display: flex; gap: 6px; }
+.lily-logs .logs-live { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.lily-logs .logs-live::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: var(--accent); }
+.lily-logs .logs-live.is-error::before { background: var(--danger); }
+.lily-logs .logs-copy { margin-left: auto; }
+.lily-logs .logs-status { margin: 0 0 14px; font-size: 13px; color: var(--muted); }
 .lily-logs .logs-status.is-error { color: var(--danger); }
-.lily-logs .logs-status:empty { min-height: 0; margin: 0; }
-.lily-logs .logs-frame { position: relative; }
-.lily-logs .logs-copy { position: absolute; top: 8px; right: 8px; }
+.lily-logs .logs-status:empty { display: none; }
 /* logs.js copies through this when the Clipboard API is missing (plain HTTP). */
 .logs-copy-buffer { position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
-.lily-logs .logs-output {
+.lily-logs .logs-output { max-width: 120ch; }
+.lily-logs .logs-group + .logs-group,
+.lily-logs .logs-line + .logs-source { margin-top: 22px; }
+.lily-logs .logs-source { margin: 0 0 4px; font-size: 13px; color: var(--muted); }
+.lily-logs .logs-empty { margin: 0; color: var(--muted); }
+/* One entry per line: a short time, then the text, wrapped by word under itself. */
+.lily-logs .logs-line {
+    display: grid;
+    grid-template-columns: 8ch minmax(0, 1fr);
+    column-gap: 14px;
     margin: 0;
-    padding: 12px 46px 12px 14px; /* the right gutter keeps lines clear of the Copy button */
-    max-height: 65vh;
-    overflow: auto;
-    border: 1px solid var(--line);
     border-radius: 4px;
-    background: var(--sunk);
-    color: var(--ink);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    word-break: break-all;
 }
+.lily-logs .logs-line time { color: var(--faint); font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.lily-logs .logs-text { min-width: 0; overflow-wrap: anywhere; }
+.lily-logs .logs-app .logs-line { font-family: var(--font-mono); font-size: 12px; line-height: 1.75; }
+.lily-logs .logs-app .logs-line + .logs-line { margin-top: 4px; }
+.lily-logs .logs-level { font-weight: 500; color: var(--warning); }
+.lily-logs .is-error .logs-level { color: var(--danger); }
+
+/* Metadata: the book, then what the lookup found; what it changed under it */
+.lily-logs .logs-lookups .logs-line { grid-template-columns: 5ch minmax(0, 1fr); }
+.lily-logs .logs-lookups .logs-line + .logs-line { margin-top: 8px; }
+.lily-logs .logs-lookups .logs-line time { line-height: 22px; }
+.lily-logs .logs-lookups a { color: var(--ink); }
+.lily-logs .logs-lookups a:hover { color: var(--accent); }
+.lily-logs .lookup-gone { color: var(--muted); }
+.lily-logs .lookup-result { margin-left: 8px; color: var(--muted); }
+.lily-logs .is-failed .lookup-result { color: var(--danger); }
+.lily-logs .lookup-changes { display: block; font-size: 13px; color: var(--muted); }
+.lily-logs .lookup-field { margin-right: 4px; color: var(--ink-soft); }
+.lily-logs .lookup-arrow { color: var(--faint); }
+
+@container lp-settings (max-width: 760px) {
+    .lily-logs .logs-line { column-gap: 8px; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .lily-logs .logs-live::before { animation: logs-breathe 2s ease-in-out infinite; }
+    .lily-logs .logs-live.is-error::before { animation: none; }
+    .lily-logs .logs-line.is-new { animation: logs-arrive 1.6s ease-out; }
+}
+@keyframes logs-breathe { 50% { opacity: .35; } }
+@keyframes logs-arrive { from { background: var(--accent-soft); } to { background: transparent; } }

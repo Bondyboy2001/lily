@@ -33,14 +33,14 @@ def _fake_source(tmp_path, monkeypatch, name="fake.log", body="INFO line\nERROR 
 class TestAccess:
     def test_page_and_json_need_admin(self, clients):
         _, visitor, user, admin = clients
-        for path in ("/logs", "/logs/data"):
+        for path in ("/logs", "/logs/data", "/logs/lookups"):
             assert visitor.get(path).status_code in (302, 401)
             assert user.get(path).status_code == 403
             assert admin.get(path).status_code == 200
 
     def test_no_store_on_both(self, clients):
         _, _, _, admin = clients
-        for path in ("/logs", "/logs/data"):
+        for path in ("/logs", "/logs/data", "/logs/lookups"):
             assert admin.get(path).headers["Cache-Control"] == "no-store"
 
 

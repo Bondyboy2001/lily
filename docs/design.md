@@ -645,6 +645,15 @@ Build every settings page from the macros. Never hand-write rows.
   a `--control-tint` tile (radius 10) with a `+` on an `--accent-soft` disc and an
   accent label, not a Primary button. Under 760px it is one column, and the tile
   becomes a short row.
+- **Logs** (`logs.html`, `logs.js`) is plain text with no rows or cards: a bar of two chips
+  (App, Metadata) as tabs, a breathing `--accent` "Live" dot and the Copy icon button,
+  sticky under the top bar. Below it is one list, oldest first with the newest at the bottom.
+  The page follows new lines while the reader is at the bottom, and they fade in from
+  `--accent-soft`. Each line is a short time (12px mono `--faint`) and then its text,
+  wrapped by word under itself. App lines are 12px mono under a 13px `--muted` service
+  name, and only a "Warning" (`--warning`) or "Error" (`--danger`) word carries colour.
+  Metadata lines are 15px: the book, then the result in `--muted` (failed in `--danger`),
+  with what changed in 13px under it. There is no table, no pill and no "show more".
 - A form page outside the frame (the shelf editor) is the same groups and
   bar, capped at 640px. A short field like a name is a wide row, label
   above the field. Its quiet `.is-danger` delete sits at the left of the bar,

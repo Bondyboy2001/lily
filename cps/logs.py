@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Admin Logs page: the latest metadata lookups, each with what it changed, over a live,
-bounded tail of the app log and the captured service output."""
+"""Admin Logs page: two live views, the app log (a bounded tail of the app log and the captured
+service output) and the latest metadata lookups, each with what it changed."""
 
 import hashlib
 import json
@@ -15,8 +15,8 @@ import re
 import stat
 from datetime import datetime
 
-from flask import Blueprint, jsonify, make_response, request
-from flask_babel import format_datetime, gettext as _
+from flask import Blueprint, jsonify, make_response, render_template, request
+from flask_babel import format_date, gettext as _
 
 from . import logger
 from .admin import admin_required
@@ -196,7 +196,7 @@ def _no_store(response):
     return response
 
 
-# Lookups listed at first, and how many more "Show more" adds
+# How many lookups the Metadata view lists
 LOOKUPS_SHOWN = 100
 
 
@@ -206,55 +206,70 @@ def _field_labels():
             'identifiers': _('Identifiers'), 'cover': _('Cover')}
 
 
-def _lookup_rows(limit):
-    """The newest lookups for the page, newest first, and how many there are in all. Each is
-    {book_id, title, exists, status, source, when, iso, changes: [(label, before, after)]}."""
+def _lookup_rows(after=0, day=''):
+    """The newest lookups (above id `after`), oldest first so the newest sits at the bottom like the
+    app log. Each is {id, book_id, title, exists, status, source, time, iso, day, day_label, changes:
+    [(label, before, after)]}; day_label is set on the first row of each day after `day`."""
     import sys
     if '/app/calibre-web-automated/scripts/' not in sys.path:
         sys.path.insert(1, '/app/calibre-web-automated/scripts/')
     from cwa_db import CWA_DB
     from . import calibre_db, db
     try:
-        store = CWA_DB()
-        entries, total = store.recent_metadata_lookups(limit), store.count_metadata_lookups()
+        entries = CWA_DB().recent_metadata_lookups(LOOKUPS_SHOWN, after)
     except Exception as e:
         log.debug("No metadata lookups to list: %s", e)
-        return [], 0
+        return []
     ids = {entry['book_id'] for entry in entries}
     present = {row[0] for row in calibre_db.session.query(db.Books.id).filter(db.Books.id.in_(ids))} if ids else set()
     labels = _field_labels()
     rows = []
-    for entry in entries:
+    for entry in reversed(entries):
         try:
             changes = json.loads(entry['changes'] or '{}')
         except ValueError:
             changes = {}
         try:
-            when = datetime.fromisoformat(entry['checked_at'])
-            shown = format_datetime(when, 'd MMM, HH:mm')
+            # Stored in UTC; shown in the server's local time, like the app log beside it
+            when = datetime.fromisoformat(entry['checked_at']).astimezone()
+            time, this_day, day_label = when.strftime('%H:%M'), when.date().isoformat(), format_date(when.date(), 'd MMMM')
         except (TypeError, ValueError):
-            shown = entry['checked_at']
+            time, this_day, day_label = entry['checked_at'], '', ''
         rows.append({
-            'book_id': entry['book_id'], 'title': entry['title'] or _('Book %(id)s', id=entry['book_id']),
+            'id': entry['id'], 'book_id': entry['book_id'],
+            'title': entry['title'] or _('Book %(id)s', id=entry['book_id']),
             'exists': entry['book_id'] in present, 'status': entry['status'], 'source': entry['source'],
-            'when': shown, 'iso': entry['checked_at'],
+            'time': time, 'iso': entry['checked_at'], 'day': this_day,
+            'day_label': day_label if this_day != day else '',
             'changes': [(labels.get(field, field), old, new) for field, (old, new) in changes.items()],
         })
-    return rows, total
+        day = this_day
+    return rows
 
 
 @logs.route("/logs")
 @user_login_required
 @admin_required
 def show_logs():
-    try:
-        limit = min(max(int(request.args.get('lookups', LOOKUPS_SHOWN)), LOOKUPS_SHOWN), 5000)
-    except ValueError:
-        limit = LOOKUPS_SHOWN
-    lookups, total = _lookup_rows(limit)
     return _no_store(make_response(render_title_template(
-        'logs.html', title=_('Logs'), page='logs', lookups=lookups, lookups_total=total,
-        more=min(limit + LOOKUPS_SHOWN * 4, 5000) if total > limit else None)))
+        'logs.html', title=_('Logs'), page='logs', lookups=_lookup_rows())))
+
+
+@logs.route("/logs/lookups")
+@user_login_required
+@admin_required
+def lookups_data():
+    """Lookups newer than `after` (the last id the page shows), as rows ready to append.
+    `day` is the day of that last row, so a new day gets its heading."""
+    try:
+        after = max(int(request.args.get('after', 0)), 0)
+    except ValueError:
+        after = 0
+    rows = _lookup_rows(after, request.args.get('day', ''))
+    return _no_store(jsonify({
+        'success': True,
+        'html': render_template('logs_lookup_rows.html', lookups=rows) if rows else '',
+    }))
 
 
 @logs.route("/logs/data")

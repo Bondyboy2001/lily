@@ -1,0 +1,31 @@
+{#- Metadata lookups as log lines, oldest first: the time, the book, what the lookup found and,
+    under it, every field it changed (before → after). A day's first row carries the day.
+    The Logs page lists these, and /logs/lookups sends new ones in the same markup. -#}
+{%- for lookup in lookups %}
+{%- if lookup.day_label %}
+<p class="logs-source" data-day="{{ lookup.day }}">{{ lookup.day_label }}</p>
+{%- endif %}
+<p class="logs-line lookup is-{{ lookup.status }}" data-id="{{ lookup.id }}" data-day="{{ lookup.day }}">
+  <time datetime="{{ lookup.iso }}">{{ lookup.time }}</time>
+  <span class="logs-text">
+    {%- if lookup.exists %}<a href="{{ url_for('web.show_book', book_id=lookup.book_id) }}">{{ lookup.title }}</a>
+    {%- else %}<span class="lookup-gone" title="{{ _('No longer in the library') }}">{{ lookup.title }}</span>{% endif %}
+    <span class="lookup-result">
+      {%- if lookup.status == 'matched' %}{% if lookup.source %}{{ _('matched on %(source)s', source=lookup.source) }}{% else %}{{ _('matched') }}{% endif %}
+      {%- elif lookup.status == 'failed' %}{{ _('failed') }}
+      {%- elif lookup.status == 'manual' %}{{ _('filled in by hand') }}
+      {%- else %}{{ _('no match') }}{% endif -%}
+    </span>
+    {%- if lookup.changes %}
+    <span class="lookup-changes">
+      {%- for label, before, after in lookup.changes %}
+      {%- if not loop.first %}<span class="lookup-sep" aria-hidden="true"> · </span>{% endif %}
+      <span class="lookup-change"><span class="lookup-field">{{ label }}</span>
+        {%- if before %} <span class="lookup-before">{{ before }}</span> <span class="lookup-arrow" aria-label="{{ _('changed to') }}">→</span>{% endif %}
+        <span class="lookup-after">{{ after or _('(none)') }}</span></span>
+      {%- endfor -%}
+    </span>
+    {%- endif -%}
+  </span>
+</p>
+{%- endfor %}

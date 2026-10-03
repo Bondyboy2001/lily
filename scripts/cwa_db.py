@@ -995,14 +995,13 @@ class CWA_DB:
         self.cur.execute("DELETE FROM metadata_lookup_log WHERE id <= ?", (self.cur.lastrowid - LOOKUP_LOG_KEEP,))
         self.con.commit()
 
-    def recent_metadata_lookups(self, limit: int = 100) -> list[dict]:
-        """The newest `limit` lookups, newest first: {book_id, title, status, source, checked_at, changes}."""
-        rows = self.cur.execute("SELECT book_id, title, status, source, checked_at, changes FROM metadata_lookup_log "
-                                "ORDER BY id DESC LIMIT ?", (limit,))
-        return [dict(zip(("book_id", "title", "status", "source", "checked_at", "changes"), row)) for row in rows]
-
-    def count_metadata_lookups(self) -> int:
-        return self.cur.execute("SELECT COUNT(*) FROM metadata_lookup_log").fetchone()[0]
+    def recent_metadata_lookups(self, limit: int = 100, after: int = 0) -> list[dict]:
+        """The newest `limit` lookups with an id above `after`, newest first:
+        {id, book_id, title, status, source, checked_at, changes}."""
+        fields = ("id", "book_id", "title", "status", "source", "checked_at", "changes")
+        rows = self.cur.execute("SELECT id, book_id, title, status, source, checked_at, changes FROM metadata_lookup_log "
+                                "WHERE id > ? ORDER BY id DESC LIMIT ?", (after, limit))
+        return [dict(zip(fields, row)) for row in rows]
 
     def set_book_edition(self, book_id: int, edition: int | None) -> None:
         """Store the book's edition number, or forget it when None."""

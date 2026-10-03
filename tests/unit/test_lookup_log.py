@@ -31,8 +31,10 @@ def test_the_log_keeps_only_the_newest_lookups(env, monkeypatch):
     monkeypatch.setattr(cwa_db, "LOOKUP_LOG_KEEP", 3)
     for book in range(1, 6):
         store.log_metadata_lookup(book, f"Book {book}", "nomatch")
-    assert [e["book_id"] for e in store.recent_metadata_lookups()] == [5, 4, 3]
-    assert store.count_metadata_lookups() == 3
+    newest = store.recent_metadata_lookups()
+    assert [e["book_id"] for e in newest] == [5, 4, 3]
+    # Only those after a given id: what the page asks for while it is open
+    assert [e["book_id"] for e in store.recent_metadata_lookups(after=newest[1]["id"])] == [5]
 
 
 def test_a_lookup_logs_its_book_result_and_changes(env, monkeypatch):
@@ -73,21 +75,63 @@ def test_the_logs_page_lists_lookups_with_their_changes(env):
                               json.dumps({"title": ["dune", "Dune"], "pubdate": ["", "1965-08-01"]}))
     store.log_metadata_lookup(9999, "Gone Book", "failed")
     html = _admin(env).get("/logs").get_data(as_text=True)
-    section = html[html.index('id="section-lookups"'):html.index('id="section-service-logs"')]
-    assert "Metadata Lookups" in section
-    # Newest first; a deleted book is named but not linked
-    assert section.index("Gone Book") < section.index(f'href="/book/{book}"')
-    assert 'title="No longer in the library"' in section
-    assert '<span class="label label-success">Matched</span>' in section and "Google Books" in section
-    assert '<span class="label label-danger">Failed</span>' in section
-    assert '<span class="lookup-field">Title</span>' in section and '<span class="lookup-before">dune</span>' in section
-    assert '<span class="lookup-field">Published</span>' in section and '<span class="lookup-after">1965-08-01</span>' in section
-    assert "Showing the latest 2 of 2 lookups." in section and "Show more" not in section
-    # The live log is still there, under its own heading
-    assert "Service Logs" in html and 'id="log_output"' in html
+    panel = html[html.index('id="logs_metadata"'):]
+    # Oldest first, newest at the bottom; a deleted book is named but not linked
+    assert panel.index(f'href="/book/{book}"') < panel.index("Gone Book")
+    assert 'title="No longer in the library"' in panel
+    assert '<span class="lookup-result">matched on Google Books</span>' in panel
+    assert '<p class="logs-line lookup is-failed"' in panel and '<span class="lookup-result">failed</span>' in panel
+    assert '<span class="lookup-field">Title</span> <span class="lookup-before">dune</span>' in panel
+    assert '<span class="lookup-field">Published</span>' in panel and '<span class="lookup-after">1965-08-01</span>' in panel
+    # One day heading for the two, and no count or "Show more"
+    assert panel.count('class="logs-source"') == 1
+    assert "Show more" not in html and "Showing the latest" not in html
+    assert 'id="lookup_empty" hidden' in panel
+    # The app log is the other view, behind its own pill
+    assert 'id="logs_tab_app"' in html and 'id="log_output"' in html
+
+
+def test_new_lookups_arrive_after_the_last_one_shown(env):
+    env, store = env
+    store.log_metadata_lookup(1, "First", "nomatch")
+    client = _admin(env)
+    html = client.get("/logs").get_data(as_text=True)
+    first = int(html.split('data-id="')[1].split('"')[0])
+    day = html.split('data-day="')[1].split('"')[0]
+    reply = client.get(f"/logs/lookups?after={first}&day={day}").get_json()
+    assert reply == {"success": True, "html": ""}
+    store.log_metadata_lookup(2, "Second <b>", "manual")
+    reply = client.get(f"/logs/lookups?after={first}&day={day}")
+    assert reply.headers["Cache-Control"] == "no-store"
+    row = reply.get_json()["html"]
+    assert "Second &lt;b&gt;" in row and "First" not in row
+    assert '<span class="lookup-result">filled in by hand</span>' in row
+    # Same day as the last row shown, so no second day heading
+    assert 'class="logs-source"' not in row
+    # A bogus id lists from the start rather than failing
+    assert "First" in client.get("/logs/lookups?after=x").get_json()["html"]
 
 
 def test_the_logs_page_says_when_nothing_was_looked_up(env):
     env, __ = env
     html = _admin(env).get("/logs").get_data(as_text=True)
-    assert "No lookups yet." in html
+    assert '<p class="logs-empty" id="lookup_empty">No lookups yet.</p>' in html
+
+
+def test_lookup_times_are_local_like_the_app_log(env, monkeypatch):
+    import time
+    env, store = env
+    monkeypatch.setenv("TZ", "Asia/Tokyo")
+    time.tzset()
+    try:
+        store.cur.execute("INSERT INTO metadata_lookup_log (book_id, title, status, checked_at) VALUES (?, ?, ?, ?)",
+                          (1, "Late Night", "nomatch", "2026-10-03T19:29:20+00:00"))
+        store.con.commit()
+        panel = _admin(env).get("/logs").get_data(as_text=True)
+        panel = panel[panel.index('id="logs_metadata"'):]
+        # 19:29 UTC is 04:29 the next morning in Tokyo
+        assert '<p class="logs-source" data-day="2026-10-04">4 October</p>' in panel
+        assert ">04:29</time>" in panel
+    finally:
+        monkeypatch.delenv("TZ")
+        time.tzset()

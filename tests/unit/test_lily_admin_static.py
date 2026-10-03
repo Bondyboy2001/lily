@@ -127,29 +127,43 @@ def test_utility_pages_share_the_settings_frame(name):
     assert "{% block pane_class %} is-wide{% endblock %}" in html, name
 
 
-def test_logs_page_is_a_live_tail():
+def test_logs_page_is_two_live_views_behind_two_pills():
     html = read(TEMPLATES / "logs.html")
-    assert 'id="log_output"' in html and 'role="status"' in html
+    tabs = html[html.index('role="tablist"'):html.index("</div>", html.index('role="tablist"'))]
+    # Two chips as tabs: App first and chosen, then Metadata
+    assert tabs.count('class="btn lily-chip') == 2 and tabs.count('role="tab"') == 2
+    assert tabs.index('id="logs_tab_app"') < tabs.index('id="logs_tab_metadata"')
+    assert 'class="btn lily-chip active" role="tab" id="logs_tab_app" aria-selected="true"' in tabs
+    assert 'id="log_output"' in html and 'id="lookup_output"' in html and 'role="status"' in html
+    assert 'id="logs_metadata" role="tabpanel"' in html and html.count('role="log"') == 2
+    # Neat: no table, no pills on rows, no count or "show more"
+    rows = read(TEMPLATES / "logs_lookup_rows.html")
+    for gone in ("<table", "label-", "Show more", "Showing the latest"):
+        assert gone not in html and gone not in rows, gone
     js = read(REPO_ROOT / "cps/static/js/logs.js")
-    assert "visibilitychange" in js and "since=" in js
+    assert "visibilitychange" in js and "since=" in js and "?after=" in js
+    assert "IntersectionObserver" in js and "is-new" in js
+    css = read(REPO_ROOT / "cps/static/css/lily-admin.css")
+    assert re.search(r"\.lily-logs \.logs-bar \{[^}]*position: sticky;[^}]*top: var\(--logs-bar-top", css)
+    # Motion only when the reader hasn't asked for less
+    motion = css[css.index("@media (prefers-reduced-motion: no-preference)", css.index(".lily-logs")):]
+    assert ".logs-live::before { animation: logs-breathe" in motion and ".logs-line.is-new { animation" in motion
 
 
 def test_logs_page_copies_what_it_shows():
     html = read(TEMPLATES / "logs.html")
-    button = html[html.index('id="log_copy"'):html.index("</button>")]
-    # An icon button in the log's top-right corner, named by its tooltip and a hidden label.
+    button = html[html.index('id="log_copy"'):html.index("</button>", html.index('id="log_copy"'))]
+    # An icon button at the end of the bar, named by its tooltip and a hidden label.
     assert 'class="icon-btn logs-copy"' in button and "disabled" in button
     assert 'title="{{ _(\'Copy logs\') }}"' in button and 'class="sr-only logs-copy-label"' in button
     assert "glyphicon-copy" in button and 'aria-hidden="true"' in button and 'aria-live="polite"' in button
-    frame = html[html.index('class="logs-frame"'):]
-    assert frame.index('id="log_copy"') < frame.index('id="log_output"') < frame.index("</div>")
+    bar = html[html.index('class="logs-bar"'):html.index('id="logs_status"')]
+    assert bar.index('role="tablist"') < bar.index('id="logs_live"') < bar.index('id="log_copy"')
     js = read(REPO_ROOT / "cps/static/js/logs.js")
     # Plain-HTTP installs have no Clipboard API, so there must be a fallback.
     assert "navigator.clipboard" in js and "isSecureContext" in js and 'execCommand("copy")' in js
-    assert '$copy.prop("disabled", !text)' in js
     css = read(REPO_ROOT / "cps/static/css/lily-admin.css")
-    assert ".logs-copy-buffer" in css and ".lily-logs .logs-frame { position: relative; }" in css
-    assert ".lily-logs .logs-copy { position: absolute; top: 8px; right: 8px; }" in css
+    assert ".logs-copy-buffer" in css and ".lily-logs .logs-copy { margin-left: auto; }" in css
 
 
 @pytest.mark.parametrize("name", SETTINGS_FORMS)
