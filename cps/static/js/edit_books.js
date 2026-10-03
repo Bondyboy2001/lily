@@ -138,8 +138,7 @@ var authors = new Bloodhound({
    (opts.read / opts.write convert between the field and a list, opts.split splits one input's
    text into values). Enter (or opts.splitKey) adds a row below, Backspace in an empty row
    removes it, and pasting a list spreads it over several rows. Code that sets the field fires
-   "change", which redraws the rows (Fetch Metadata does this).
-   opts.chips sizes each input to its value, for rows that wrap as chips (tags). */
+   "change", which redraws the rows (Fetch Metadata does this). */
 function lilyRowEditor(opts) {
     var $field = opts.field, $rows = opts.rows;
     if (!$field.length || !$rows.length) { return; }
@@ -165,11 +164,6 @@ function lilyRowEditor(opts) {
         $field.val(opts.write(values));
     }
 
-    // A chip's field is as wide as its value (opts.chips)
-    function fitChip($input) {
-        $input.attr("size", Math.max(($input.val() || "").length, 3));
-    }
-
     function makeRow(value) {
         var $input = $("<input>", {type: "text", "class": "form-control typeahead lily-edit-input",
             autocomplete: "off", placeholder: placeholder, "aria-label": placeholder});
@@ -183,7 +177,6 @@ function lilyRowEditor(opts) {
             {name: opts.name, display: opts.display, source: opts.source}
         );
         $input.typeahead("val", value || "");
-        if (opts.chips) { fitChip($input); }
         return $row;
     }
 
@@ -212,10 +205,7 @@ function lilyRowEditor(opts) {
 
     opts.add.on("click", function () { addAfter(null, ""); });
 
-    $rows.on("input typeahead:select typeahead:autocomplete", INPUT, function () {
-        if (opts.chips) { fitChip($(this)); }
-        sync();
-    });
+    $rows.on("input typeahead:select typeahead:autocomplete", INPUT, function () { sync(); });
 
     $rows.on("keydown", INPUT, function (e) {
         if (e.key === "Enter" || (opts.splitKey && e.key === opts.splitKey)) {
@@ -325,7 +315,7 @@ var tags = new Bloodhound({
 
 /* Tags: the hidden #tags field is the comma-separated list the server reads. */
 lilyRowEditor({
-    field: $("#tags"), rows: $("#tag-rows"), add: $("#tag-add"), chips: true,
+    field: $("#tags"), rows: $("#tag-rows"), add: $("#tag-add"),
     name: "tags", display: "name", source: tags, splitKey: ",",
     split: function (raw) {
         return raw.split(",").map(function (t) { return t.trim(); })

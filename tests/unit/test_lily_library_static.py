@@ -437,7 +437,8 @@ def test_editor_shows_every_field_even_when_blank():
     assert 'name="series_index"' not in template
     assert 'if (book.series_index && field("series_index").length) {' in read(JS / "get_meta.js")
     edit_js = read(JS / "edit_books.js")
-    assert 'add: $("#tag-add"), chips: true' in edit_js
+    # Tags use the authors' row editor: a field per value, × beside it, Add tag below
+    assert 'add: $("#tag-add"),' in edit_js and "chips" not in edit_js
     for gone in ("reveal-filled", "edition-add", "volume-add", "opts.fixed"):
         assert gone not in edit_js, gone
     assert "reveal-filled" not in read(JS / "get_meta.js") and "edition-field" not in read(JS / "get_meta.js")
@@ -483,7 +484,7 @@ def test_editor_layout():
     assert 'glyphicon glyphicon-remove", "aria-hidden": "true"' in read(JS / "edit_books.js")
     css = read(CSS / "lily-library.css")
     assert "grid-template-columns: 220px minmax(0, 640px) 220px;" in css
-    assert "#tag-rows {\n    flex-direction: row;\n    flex-wrap: wrap;" in css
+    assert "#tag-rows" not in css
 
 
 def test_editor_has_no_shelves_section():

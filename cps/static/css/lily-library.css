@@ -1988,57 +1988,14 @@ dl.book-info {
 }
 
 .lily-edit-field { flex: 1; min-width: 0; }
-.lily-edit-rows:not(#tag-rows) .lily-edit-field .twitter-typeahead { display: block !important; }
+.lily-edit-field .twitter-typeahead { display: block !important; }
 
 /* typeahead copies the input's background onto its read-only hint only when the input is
    already on the page; rows are built detached, so the hint would keep the read-only look */
-.lily-edit-rows:not(#tag-rows) .lily-edit-field .tt-hint {
+.lily-edit-field .tt-hint {
     background: var(--paper) !important;
     opacity: 1;
 }
-
-/* Tags wrap as chips (§5.3): each value sits in a tinted chip with its × inside, and
-   shows its field edge only while it is being corrected */
-#tag-rows {
-    flex-direction: row;
-    flex-wrap: wrap;
-}
-
-#tag-rows .lily-edit-row {
-    gap: 0;
-    padding-right: 2px;
-    border-radius: var(--control-radius);
-    background: var(--control-tint);
-}
-
-#tag-rows .lily-edit-field { flex: none; }
-/* No inline completion hint behind a chip: it would draw its own small box */
-#tag-rows .tt-hint { display: none; }
-
-/* field-sizing fits the text exactly; where it isn't supported the size attribute
-   (edit_books.js fitChip) gives a near width */
-#tag-rows .lily-edit-input {
-    width: auto;
-    field-sizing: content;
-    min-width: 3ch;
-    padding: 0 2px 0 10px;
-    border-color: transparent;
-    background: transparent;
-    color: var(--ink-soft);
-}
-
-#tag-rows .lily-edit-input:focus {
-    border-color: var(--faint);
-    background: var(--paper);
-    color: var(--ink);
-}
-
-#tag-rows .icon-btn.lily-edit-remove {
-    width: 24px;
-    height: 24px;
-    font-size: 13px;
-}
-#tag-rows .icon-btn.lily-edit-remove .glyphicon { font-size: 13px; }
 
 /* Every "remove/clear this value" control (row editor, date clear, rating clear) is the
    same × glyph in the same 30px square, muted until hovered, then danger red. The trash

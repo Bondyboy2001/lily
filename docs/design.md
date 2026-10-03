@@ -605,10 +605,9 @@ content (grid, panel, rows)
   a save leaves the stored one alone, and Fetch Metadata offers one only on the
   book page); Details
   (publisher, published date, language, rating); Tags; Description.
-  Authors are one field per row with a × beside it, and "Add author" below. Tags wrap as chips
-  (`#tag-rows`): each value's field is sized to its text inside a `--control-tint`
-  chip with a small × and shows its field edge only while focused; "Add tag" below
-  adds one (Enter or a comma in a chip starts the next). Details puts
+  Authors and Tags are the same row editor: one field per value with a × beside
+  it, and "Add author" / "Add tag" below (Enter, or a comma in a tag, starts the
+  next row). Details puts
   Publisher on its own row and pairs the shorter fields under it (one column on
   phones).
   The description box fits its text (no drag handle), padding 14/16 and
