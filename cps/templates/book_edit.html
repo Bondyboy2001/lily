@@ -61,17 +61,27 @@
       <label for="title">{{_('Title')}}</label>
       <input type="text" class="form-control" name="title" id="title" value="{{book.title}}">
     </div>
-    {# A cleared number removes it. The book page shows them in the stage's corner
-       ("9th ed. · Vol. 3"); they are stored in cwa.db, since calibre has no field for them #}
+    {# Edition and Volume are added by hand like an author or a tag: while a book has none,
+       "Add edition" / "Add volume" stand in for the field and show it (edit_books.js). A cleared
+       number removes it. The book page shows them in the stage's corner ("9th ed. · Vol. 3");
+       they are stored in cwa.db, since calibre has no field for them #}
     <div class="editbook-fields editbook-numbers">
-      <div class="form-group">
+      <div class="form-group" id="edition-field"{% if not edition %} hidden{% endif %}>
         <label for="edition">{{_('Edition')}}</label>
         <input type="number" min="1" max="999" step="1" class="form-control" name="edition" id="edition" value="{{ edition or '' }}">
       </div>
-      <div class="form-group">
+      <div class="form-group" id="volume-field"{% if not volume %} hidden{% endif %}>
         <label for="volume">{{_('Volume')}}</label>
         <input type="number" min="1" max="999" step="1" class="form-control" name="volume" id="volume" value="{{ volume or '' }}">
       </div>
+    </div>
+    <div class="editbook-number-adds"{% if edition and volume %} hidden{% endif %}>
+      <button type="button" class="btn btn-default btn-sm" id="edition-add"{% if edition %} hidden{% endif %}>
+        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> {{_('Add edition')}}
+      </button>
+      <button type="button" class="btn btn-default btn-sm" id="volume-add"{% if volume %} hidden{% endif %}>
+        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span> {{_('Add volume')}}
+      </button>
     </div>
     {# One row per author over the hidden #authors field, which the server reads as an
        " & "-separated list, in the book's own order: never sorted (edit_books.js) #}

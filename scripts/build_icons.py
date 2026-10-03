@@ -48,7 +48,6 @@ ICONS = {
     "log-in": "sign-in",
     "menu-hamburger": "list",
     "minus": "minus",
-    "music": "music-notes",
     "ok": "check",
     "ok-circle": "check-circle",
     "pencil": "pencil-simple",

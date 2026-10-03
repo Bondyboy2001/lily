@@ -149,7 +149,7 @@ title on the book page (a 52px/700 display line, `text-wrap: balance`; 46 below
 | 11px | 400–500 | Mono counts (nav, chips, list counts), pill and badge labels |
 | 12px | 400–600 | Field labels above a control (`.dup-field`), dense meta, logs (mono) |
 | 13px | 400 | Help text (`.lp-help`), units, values in link rows, footnotes |
-| 14px | 400 | Secondary lines: author under a title, `dt` labels, menu meta |
+| 14px | 400 | Secondary lines: reading share under a title, `dt` labels, menu meta |
 | **15px** | 400 / 500 | **Base.** Body, buttons, fields, nav rows, row titles (500) |
 | 17–22px | 400 | Long-form reading: book description (22 italic, 19 on phones), author bio (17) |
 | 22px | 600 | `--title-size` |
@@ -406,7 +406,7 @@ one level deep.
 - **Progress bar:** 4px, radius 999, track `--control-tint`, bar `--accent`
   (tone variants for success/warning/danger). On a cover (the Reading list) it
   runs flush along the bottom edge, 5px, on an ink-22% track (`--control-tint`
-  vanishes over cover art); the share read is written under the author
+  vanishes over cover art); the share read is written under the title
   ("33% read", 14px `--muted`), not on the bar.
 - **Busy:** spin the control's own glyph (`.glyphicon-spin`), or `.is-busy`
   (opacity .4) on an icon button. No full-page spinners.
@@ -480,7 +480,7 @@ content (grid, panel, rows)
 
 - **Grid** (`.lily-grid`): `repeat(auto-fill, minmax(190px, 1fr))`, gap 26;
   phones 2-up, gap 22×14. Card: cover (§5.15), then title 15/500 clamped to
-  two lines, then meta 14px `--muted`. Quick actions are round buttons
+  two lines, and no author line (the book page carries the byline). Quick actions are round buttons
   in a row at the cover's bottom right, 8px in, 6 apart: 32px `--surface`
   discs with a 1px `--line` edge and `--menu-shadow`, `--ink` icons, `--accent` on hover. They rise and fade in
   on hover/focus and stay visible on touch (36px, 8 apart). Read state fills the eye's disc
@@ -582,9 +582,12 @@ content (grid, panel, rows)
   does that); the form keeps disabled `shelves` fields only so Fetch Metadata can file
   an arXiv paper on the arXiv shelf.
   Every field always shows, blank when the book has no value, to fill by hand or
-  with Fetch Metadata; clearing one removes the value. Under Title sit Edition and
-  Volume, two number fields side by side ("6" for the sixth edition, "3" for volume
-  3; they stay paired on phones), stored in cwa.db (`book_editions`, `book_volumes`)
+  with Fetch Metadata; clearing one removes the value. Edition and Volume are the
+  exception: they are added by hand like an author or a tag, so under Title a book
+  without them shows "Add edition" / "Add volume" buttons (`.btn-sm`, plus icon),
+  each replaced by its number field when clicked or filled by Fetch Metadata ("6" for
+  the sixth edition, "3" for volume 3; the two fields pair side by side, also on
+  phones), stored in cwa.db (`book_editions`, `book_volumes`)
   since calibre has no field for them. Then Authors; Details (published date
   only: Lily keeps no publisher, language or rating); Tags; Description.
   Authors and Tags are the same row editor: one field per value with a × beside

@@ -179,6 +179,7 @@ $(function () {
       var $edition = $("#edition");
       if (split.edition && $edition.length) {
         $edition.val(split.edition).trigger("change");
+        $edition.closest("form").trigger("lily:show-number", ["edition"]);
       }
     }
     // A provider with no cover sends Lily's placeholder; that leaves the book's own cover alone.

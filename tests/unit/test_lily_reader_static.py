@@ -329,7 +329,7 @@ def test_book_editor_shows_every_field_even_when_blank(client):
     assert resp.status_code == 200, resp.data[:300]
     html = resp.get_data(as_text=True)
     # The fixture book has no series or description: their fields still show, blank, and
-    # nothing in the form is hidden but the identifiers table. No publisher, language or rating.
+    # only Edition and Volume (added by hand) and the identifiers table are hidden. No publisher, language or rating.
     assert 'name="series"' not in html and 'name="series_index"' not in html
     for gone in ('name="publisher"', 'name="languages"', 'name="rating"'):
         assert gone not in html, gone
@@ -337,7 +337,9 @@ def test_book_editor_shows_every_field_even_when_blank(client):
     assert re.search(r'<textarea[^>]*id="comments"[^>]*></textarea>', html)
     assert "data-optional" not in html
     form = html.split('<div class="editbook-form">', 1)[1].split('<aside class="editbook-actions"', 1)[0]
-    assert re.findall(r'<(\w+)[^>]*\shidden[\s>]', form) == ["table"]
+    # Hidden in the form: only Edition and Volume, behind their Add buttons, and the identifiers table
+    assert re.findall(r'<(\w+)[^>]*\shidden[\s>]', form) == ["div", "div", "table"]
+    assert 'id="edition-add">' in form and 'id="volume-add">' in form
     assert 'id="author-add"' in html and 'id="tag-add"' in html and 'id="title"' in html
 
 

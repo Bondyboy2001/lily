@@ -297,6 +297,20 @@ $("#btn-upload-cover").on("change", function () {
 });
 
 
+/* "Add edition" and "Add volume" show their field in its place, ready to type in. Fetch Metadata
+   fires "lily:show-number" when it fills one, which shows that field the same way. */
+function lilyShowNumber(field) {
+    $("#" + field + "-field").prop("hidden", false);
+    $("#" + field + "-add").prop("hidden", true);
+    $(".editbook-number-adds").prop("hidden", !$(".editbook-number-adds button:not([hidden])").length);
+}
+$("#edition-add, #volume-add").on("click", function () {
+    var field = this.id.replace("-add", "");
+    lilyShowNumber(field);
+    $("#" + field).trigger("focus");
+});
+$("#book_edit_frm").on("lily:show-number", function (e, field) { lilyShowNumber(field); });
+
 /* Leaving with unsaved edits asks first (the browser's own "Leave site?" prompt). Only what
    the user types or picks counts: set-up code fills fields too. Saving, and Fetch Metadata's
    Apply, which saves by itself, leave freely. */

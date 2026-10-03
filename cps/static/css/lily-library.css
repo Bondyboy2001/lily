@@ -343,30 +343,6 @@
 
 .lily-book .meta > a:hover .title { color: var(--accent); }
 
-.container-fluid .lily-book .meta .author,
-.lily-book .meta .author {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
-    color: var(--muted);
-    font-size: 14px;
-    font-weight: 400;
-    line-height: 1.4;
-}
-
-.lily-book .meta .author a { color: var(--muted); }
-
-.lily-book .meta .author a:hover { color: var(--accent); }
-
-.container-fluid .lily-book .author .author-hidden,
-.container-fluid .lily-book .author .author-hidden-divider { display: none; }
-
-.lily-book .meta .author .glyphicon-music {
-    margin-left: 4px;
-    font-size: 11px;
-}
-
 /* A read book's cover is edged in green (lily.js toggles .is-read with the eye button). */
 .lily-book.is-read .cover::after {
     z-index: 3;
@@ -1569,6 +1545,14 @@ dl.book-info {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: 14px;
+}
+
+/* Add edition / Add volume, side by side under the title while the book lacks them */
+.editbook-number-adds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 15px;
 }
 
 .editbook-section .row { margin-left: -8px; margin-right: -8px; }

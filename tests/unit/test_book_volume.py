@@ -62,16 +62,16 @@ def test_the_editor_saves_changes_and_clears_the_volume(env):
     assert _volume(book) is None
 
 
-def test_the_editor_always_shows_the_volume_field(env):
+def test_the_editor_offers_add_volume_until_the_book_has_one(env):
     book = env.add_book("Probability", author="Robert Hogg")
     client = _login(env)
     html = client.get(f"/admin/book/{book}").get_data(as_text=True)
-    # A blank Volume field beside Edition, with no "Add volume" button
-    assert "volume-add" not in html and "volume-field" not in html
-    assert re.search(r'id="edition"[^>]*>\s*</div>\s*<div class="form-group">\s*<label for="volume">', html)
-    assert 'name="volume" id="volume" value=""' in html
+    # No volume: "Add volume" sits beside "Add edition", the field hidden after Edition's
+    assert '<div class="form-group" id="volume-field" hidden>' in html
+    assert re.search(r'id="edition-add">.*?</button>\s*<button type="button" class="btn btn-default btn-sm" id="volume-add">', html, re.S)
     _save(env, client, book, volume="3")
     html = client.get(f"/admin/book/{book}").get_data(as_text=True)
+    assert '<div class="form-group" id="volume-field">' in html and 'id="volume-add" hidden>' in html
     assert 'name="volume" id="volume" value="3"' in html
 
 

@@ -201,9 +201,9 @@
 <span class="lily-fetched"{% if id %} id="{{ id }}"{% endif %} role="img" title="{{ label }}" aria-label="{{ label }}"><span class="glyphicon glyphicon-ok" aria-hidden="true"></span></span>
 {%- endmacro %}
 
-{# One book in a cover grid (index, author, search, shelf). Cards are plain: cover, title, authors. #}
+{# One book in a cover grid (index, author, search, shelf). Cards are plain: cover and title, no authors. #}
 {# progress: the share read (0-100) of a book in progress, drawn along the cover's foot (Reading list) #}
-{% macro book_card(book, user, is_read=False, authors_max=0, alt=None, progress=None) -%}
+{% macro book_card(book, user, is_read=False, alt=None, progress=None) -%}
     {%- set formats = book.data|map(attribute='format')|map('lower')|list -%}
     <div class="book lily-book{{ " is-read" if is_read }}">
       <div class="cover">
@@ -228,21 +228,6 @@
         {% if progress is not none %}
         <p class="reading-percent">{{ _('%(percent)s%% read', percent=progress|round|int) }}</p>
         {% endif %}
-        <p class="author">
-          {% for author in book.authors|named_authors %}
-            {% if loop.index > authors_max and authors_max != 0 %}
-              {% if not loop.first %}<span class="author-hidden-divider">&amp;</span>{% endif %}
-              <a class="author-name author-hidden" href="{{ url_for('web.books_list', data='author', sort_param='stored', book_id=author.id) }}">{{ author.name.replace('|',',')|shortentitle(30) }}</a>
-              {% if loop.last %}
-                <a href="#" class="author-expand" data-authors-max="{{ authors_max }}" data-collapse-caption="({{ _('reduce') }})">(...)</a>
-              {% endif %}
-            {% else %}
-              {% if not loop.first %}<span>&amp;</span>{% endif %}
-              <a class="author-name" href="{{ url_for('web.books_list', data='author', sort_param='stored', book_id=author.id) }}">{{ author.name.replace('|',',')|shortentitle(30) }}</a>
-            {% endif %}
-          {% endfor %}
-          {% if book.data|music %}<span class="glyphicon glyphicon-music" aria-hidden="true"></span>{% endif %}
-        </p>
       </div>
     </div>
 {%- endmacro %}

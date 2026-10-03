@@ -80,15 +80,18 @@ def test_a_bad_edition_is_refused_and_the_old_one_kept(env):
     assert _edition(book) == 4
 
 
-def test_the_editor_always_shows_the_edition_field(env):
+def test_the_editor_offers_add_edition_until_the_book_has_one(env):
     book = env.add_book("Probability", author="Robert Hogg")
     client = _login(env)
     html = client.get(f"/admin/book/{book}").get_data(as_text=True)
-    # A blank Edition field under the title, with no "Add edition" button
-    assert "edition-add" not in html and "edition-field" not in html
-    assert re.search(r'id="title" value="Probability">\s*</div>\s*.*?name="edition" id="edition" value=""', html, re.S)
+    # No edition: the field waits hidden behind an "Add edition" button, like Add tag
+    assert '<div class="form-group" id="edition-field" hidden>' in html
+    assert re.search(r'<button type="button" class="btn btn-default btn-sm" id="edition-add">', html)
+    assert 'name="edition" id="edition" value=""' in html
     _save(env, client, book, edition="9")
     html = client.get(f"/admin/book/{book}").get_data(as_text=True)
+    assert '<div class="form-group" id="edition-field">' in html
+    assert 'id="edition-add" hidden>' in html
     assert 'name="edition" id="edition" value="9"' in html
 
 

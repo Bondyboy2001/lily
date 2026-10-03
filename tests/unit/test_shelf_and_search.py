@@ -193,12 +193,13 @@ def test_simple_search_matches_every_word_across_fields(env):
 
     def found(query):
         html = admin.get("/search", query_string={"query": query}, follow_redirects=True).get_data(as_text=True)
-        return {t for t in ("Frank Herbert", "Dune Messiah Notes", "Children of Herbert", "Graph Growth")
-                if t in html}
+        # cards carry titles only; "Dune" is matched whole so "Dune Messiah Notes" doesn't count
+        return {t for t in ("Dune", "Dune Messiah Notes", "Children of Herbert", "Graph Growth")
+                if f'class="title">{t}</p>' in html}
 
-    assert found("dune herbert") == {"Frank Herbert"}
-    assert found("herbert fiction") == {"Frank Herbert"}  # author + tag
-    assert found("arrakis herbert") == {"Frank Herbert"}  # description + author
+    assert found("dune herbert") == {"Dune"}
+    assert found("herbert fiction") == {"Dune"}  # author + tag
+    assert found("arrakis herbert") == {"Dune"}  # description + author
     assert found("dune nosuchword") == set()
     assert found("growth 2601.22106") == {"Graph Growth"}  # title + identifier
     assert found("arXiv: 2601.22106") == {"Graph Growth"}  # the whole term is one id

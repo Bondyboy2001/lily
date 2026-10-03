@@ -412,28 +412,31 @@ def test_cover_quick_actions_are_floating_round_buttons():
 
 
 def test_editor_shows_every_field_even_when_blank():
-    # Design §6.4: nothing hides while empty, so any field can be filled by hand
+    # Design §6.4: nothing hides while empty but Edition and Volume, behind their Add buttons
     template = read(TEMPLATES / "book_edit.html")
     assert "data-optional" not in template and "shown." not in template and "details_shown" not in template
-    assert "editbook-section\"{%" not in template and " hidden{% endif %}" not in template
+    assert "editbook-section\"{%" not in template
+    assert template.count(" hidden{% endif %}") == 5  # the two fields, the two buttons, their row
     for field in ('id="title"', 'id="edition"', 'id="volume"', 'id="author-rows"',
                   'id="pubdate"', 'id="tag-rows"', 'id="comments"'):
         assert field in template, field
     # No publisher, language or rating: Lily keeps none of them
     for gone in ('id="publisher"', 'id="languages"', "rating_input"):
         assert gone not in template, gone
-    # Edition and Volume are plain fields, paired under the title; Add author and Add tag stay
+    # Edition and Volume pair under the title, added by hand like authors and tags
     numbers = template.split('<div class="editbook-fields editbook-numbers">', 1)[1].split("{# One row per author", 1)[0]
     assert numbers.index('id="edition"') < numbers.index('id="volume"')
     assert re.findall(r'<button type="button" class="btn btn-default btn-sm" id="([^"]+)"', template) == [
-        "author-add", "tag-add"]
+        "edition-add", "volume-add", "author-add", "tag-add"]
     assert 'name="series_index"' not in template
     edit_js = read(JS / "edit_books.js")
     # Tags use the authors' row editor: a field per value, × beside it, Add tag below
     assert 'add: $("#tag-add"),' in edit_js and "chips" not in edit_js
-    for gone in ("reveal-filled", "edition-add", "volume-add", "opts.fixed"):
+    for gone in ("reveal-filled", "opts.fixed"):
         assert gone not in edit_js, gone
-    assert "reveal-filled" not in read(JS / "get_meta.js") and "edition-field" not in read(JS / "get_meta.js")
+    assert '$("#edition-add, #volume-add").on("click"' in edit_js
+    # Fetch Metadata shows the Edition field when it takes an edition off the title
+    assert 'trigger("lily:show-number", ["edition"])' in read(JS / "get_meta.js")
     css = read(CSS / "lily-library.css")
     assert "data-optional" not in css and "editbook-publisher" not in css
 
@@ -569,7 +572,7 @@ def test_read_toggles_flip_their_label_without_aria_pressed():
 
 
 def test_book_views_hide_the_unknown_author_placeholder():
-    for name in ["detail.html", "image.html", "listenmp3.html", "shelf_order.html"]:
+    for name in ["detail.html", "listenmp3.html", "shelf_order.html"]:
         assert "|named_authors" in read(TEMPLATES / name), name
 
 
@@ -714,3 +717,10 @@ def test_there_is_no_offline_reading_and_old_workers_are_let_go():
     js = read(REPO_ROOT / "cps/static/js/lily.js")
     assert "navigator.serviceWorker.getRegistrations()" in js and "reg.unregister()" in js
     assert 'n.indexOf("lily-") === 0' in js and "window.caches.delete(n)" in js
+
+
+def test_grid_cards_show_no_authors():
+    image = read(TEMPLATES / "image.html")
+    card = re.search(r"{% macro book_card.*?{%- endmacro %}", image, flags=re.S).group(0)
+    assert "author" not in card.split("-%}", 1)[1]
+    assert ".lily-book .meta .author" not in read(CSS / "lily-library.css")
