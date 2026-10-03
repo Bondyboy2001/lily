@@ -52,7 +52,7 @@ def get_book_titles_json():
     def word_match(word):
         pattern = db.like_pattern(db.lcase(word))
         return or_(func.lower(db.Books.title).like(pattern, escape="\\"),
-                   db.Books.authors.any(func.lower(db.Authors.name).like(pattern, escape="\\")))
+                   db.books_named(db.books_authors_link.c.author, db.Authors, pattern))
 
     # A suggestion shows the title, authors and cover; leave the other relationships
     # (tags, identifiers, ...) unloaded instead of one query each per keystroke.

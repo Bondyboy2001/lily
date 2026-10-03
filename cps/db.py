@@ -1013,8 +1013,9 @@ class CalibreDB:
 
         def word_match(word):
             folded = lcase(word)
-            matches = [Books.tags.any(contains(Tags.name, folded)),
-                       Books.authors.any(contains(Authors.name, folded)),
+            pattern = like_pattern(folded)
+            matches = [books_named(books_tags_link.c.tag, Tags, pattern),
+                       books_named(books_authors_link.c.author, Authors, pattern),
                        contains(Books.title, folded)]
             matches += identifier_match(word)
             for c in text_columns:
@@ -1215,9 +1216,19 @@ def like_pattern(value):
     return "%" + value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
 
+def books_named(link_column, model, pattern):
+    """Books linked (through link_column) to a tag or author whose folded name is LIKE pattern.
+    The names are matched once in a subquery: a per-book EXISTS folded every linked name again
+    for each book, which made search and suggestions scan the whole library through lcase."""
+    names = select(model.id).where(func.lower(model.name).like(pattern, escape="\\"))
+    return Books.id.in_(select(link_column.table.c.book).where(link_column.in_(names)))
+
+
 def lcase(s):
     try:
-        return unidecode.unidecode(s.lower())
+        s = s.lower()
+        # SQLite calls this once per row a search scans; most text is ASCII already.
+        return s if s.isascii() else unidecode.unidecode(s)
     except Exception as ex:
         _log = logger.create()
         _log.error_or_exception(ex)
