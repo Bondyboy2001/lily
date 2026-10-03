@@ -1442,7 +1442,6 @@ def show_book(book_id):
         for lang_index in range(0, len(entry.languages)):
             entry.languages[lang_index].language_name = isoLanguages.get_language_name(get_locale(), entry.languages[
                 lang_index].lang_code)
-        cc = calibre_db.get_cc_columns(config, filter_config_custom_read=True)
         entry.tags = sort(entry.tags, key=lambda tag: tag.name)
 
         # Filter tags based on user's allowed/denied tags (Issue #906)
@@ -1476,9 +1475,7 @@ def show_book(book_id):
         if read_book == ub.ReadBook.STATUS_IN_PROGRESS and current_user.is_authenticated:
             resume = _book_resume(int(current_user.id), book_id, entry.reader_list)
 
-        cwa_db = CWA_DB()
-        cwa_settings = cwa_db.cwa_settings
-        metadata_lookup = _metadata_lookup(cwa_db, book_id) if current_user.role_edit() else None
+        metadata_lookup = _metadata_lookup(CWA_DB(), book_id) if current_user.role_edit() else None
 
         from .editbooks import book_edition
 
@@ -1499,10 +1496,8 @@ def show_book(book_id):
                                      entry=entry,
                                      related=related,
                                      resume=resume,
-                                     cc=cc,
                                      is_xhr=request.headers.get('X-Requested-With') == 'XMLHttpRequest',
                                      title=entry.title,
-                                     cwa_settings=cwa_settings,
                                      metadata_lookup=metadata_lookup,
                                      edition=book_edition(book_id),
                                      shelf_menu=shelf_menu,
