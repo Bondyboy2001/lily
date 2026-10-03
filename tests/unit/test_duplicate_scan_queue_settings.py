@@ -276,7 +276,6 @@ def test_cwa_settings_saves_only_the_fields_the_page_shows(monkeypatch):
     module = _load_cwa_functions(monkeypatch, request)
     _SettingsCwaDB.instances = []
     config = sys.modules["cps.config"]
-    config.config_uploading = 1
 
     module.set_cwa_settings()
 
@@ -285,4 +284,5 @@ def test_cwa_settings_saves_only_the_fields_the_page_shows(monkeypatch):
         "auto_metadata_fetch_enabled": 1,
         "auto_metadata_enforcement": 0,
     }
-    assert config.config_google_books_api_key == "abc" and config.config_uploading == 1
+    assert config.config_google_books_api_key == "abc"
+    assert not hasattr(config, "config_uploading")

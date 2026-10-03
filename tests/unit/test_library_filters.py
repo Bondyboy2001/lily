@@ -149,8 +149,6 @@ class TestFilterChips:
 class TestSetupChecklist:
     def test_uploads_are_no_step(self, env):
         # Uploads are always on: settings has no switch for them, so the checklist never asks
-        from cps import config
-        config.config_uploading = 0
         html = _get(_login(env), "/")
         assert "Uploads enabled" not in html
 

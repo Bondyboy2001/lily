@@ -63,8 +63,6 @@ class _Settings(_Base):
     config_access_log = Column(SmallInteger, default=0)
     config_access_logfile = Column(String, default=logger.DEFAULT_ACCESS_LOG)
 
-    # Enable uploads by default on brand-new instances
-    config_uploading = Column(SmallInteger, default=1)
     config_anonbrowse = Column(SmallInteger, default=0)
     config_use_https = Column(Boolean, default=False)
 
