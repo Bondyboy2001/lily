@@ -59,13 +59,8 @@
   <div class="modal-dialog modal-sm">
     <div class="modal-content">
       <div class="modal-header"><h4 class="modal-title" id="rebuildMetadataTitle">{{ _('Rebuild Metadata?') }}</h4></div>
-      <div class="modal-body">
-        {# What a rebuild does, so it is never started blind #}
-        <p id="rebuildMetadataWhat">{{ _('Books not looked up yet, those whose lookup failed and those changed since are looked up; the rest are up to date and skipped. A book keeps the details it has and gets the ones it lacks; one whose details came from its file name takes the match’s. Books you’ve edited keep their title and authors. Authors and tags are tidied first.') }}</p>
-        {% if rebuild_time.books %}
-        <p id="rebuildMetadataTime">{{ _('Rebuild looks up %(pending)s of %(books)s books, which takes %(time)s. Full rebuild forgets what earlier lookups found and looks up all %(books)s, which takes %(full_time)s. Each change can be undone from the book’s details.', pending=rebuild_time.pending, books=rebuild_time.books, time=rebuild_time.time, full_time=rebuild_time.full_time) }}</p>
-        {% endif %}
-        {# Filled in by lily-metadata-rebuild.js when a stopped rebuild can be carried on #}
+      <div class="modal-body" hidden>
+        {# Filled in and shown by lily-metadata-rebuild.js when a stopped rebuild can be carried on #}
         <p id="rebuildMetadataResume" hidden></p>
       </div>
       <div class="modal-footer">

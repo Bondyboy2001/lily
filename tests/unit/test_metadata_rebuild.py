@@ -385,13 +385,14 @@ def test_retry_failed_looks_up_only_the_failed_books(env, monkeypatch):
 
 
 @pytest.mark.unit
-def test_the_rebuild_confirmation_says_what_it_does_and_how_long(env):
+def test_the_rebuild_confirmation_only_asks(env):
     for title in ("One", "Two"):
         env.add_book(title)
     html = _login(env).get("/cwa-settings").get_data(as_text=True)
     modal = html[html.index('id="rebuildMetadataModal"'):]
-    assert "keeps the details it has and gets the ones it lacks" in modal
-    assert "Rebuild looks up 2 of 2 books, which takes under an hour" in modal and "rebuild_metadata_full" in modal
+    # Just the question and its buttons: no explanation or time estimate
+    assert 'id="rebuildMetadataWhat"' not in modal and 'id="rebuildMetadataTime"' not in modal
+    assert "rebuild_metadata_full" in modal
     assert 'id="retry_failed"' not in html
 
 

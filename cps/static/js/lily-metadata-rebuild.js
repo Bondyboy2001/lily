@@ -104,6 +104,8 @@
   btn.addEventListener("click", function () {
     resumeText.textContent = resume;
     resumeText.hidden = !resume;
+    // The body holds only that line: no empty gap above the buttons without it
+    resumeText.parentNode.hidden = !resume;
     restartBtn.hidden = !resume;
     confirmBtn.textContent = resume ? confirmBtn.dataset.continueLabel : confirmBtn.dataset.label;
     $("#rebuildMetadataModal").modal("show");

@@ -58,37 +58,7 @@ def set_cwa_settings():
         return redirect(url_for('cwa_settings.set_cwa_settings'))
 
     return render_title_template("cwa_settings.html", title=_("Import & Metadata"), page="cwa-settings",
-                                 cwa_settings=cwa_db.get_cwa_settings(), config=config, lookups=_lookup_counts(cwa_db),
-                                 rebuild_time=_rebuild_time())
-
-
-# A lookup takes about this long a book, four at once (measured on 2026-10-03)
-SECONDS_A_BOOK = 1.5
-
-
-def _rebuild_time():
-    """For the confirmation: how many books a rebuild looks up (those not up to date) and a full
-    rebuild (all), and how long each takes, in words."""
-    from .. import calibre_db, db
-    from ..tasks.metadata_rebuild import TaskRebuildMetadata
-    try:
-        books = calibre_db.session.query(db.Books.id, db.Books.last_modified).all()
-        task = TaskRebuildMetadata()
-        task._store = CWA_DB()
-        pending = len(task._still_to_look_up(books))
-    except Exception as e:
-        log.debug("No books to count: %s", e)
-        return {"books": 0, "pending": 0, "time": "", "full_time": ""}
-    return {"books": len(books), "pending": pending, "time": _duration(pending), "full_time": _duration(len(books))}
-
-
-def _duration(books):
-    hours = books * SECONDS_A_BOOK / 3600
-    if hours < 1:
-        return _("under an hour")
-    if hours < 1.5:
-        return _("about an hour")
-    return _("about %(hours)s hours", hours=round(hours))
+                                 cwa_settings=cwa_db.get_cwa_settings(), config=config, lookups=_lookup_counts(cwa_db))
 
 
 def _lookup_counts(cwa_db):
