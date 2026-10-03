@@ -141,3 +141,26 @@
 }
 
 #bookmark-status:empty { display: none; }
+
+/* A file pdf.js can't open: a panel in the middle of the empty page, like the DjVu reader's. */
+.pdf-error {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 10;
+    box-sizing: border-box;
+    width: max-content;
+    max-width: min(440px, calc(100vw - 32px));
+    margin: 0;
+    padding: 22px;
+    border: 1px solid var(--field-border-color);
+    border-radius: 10px;
+    background: var(--doorhanger-bg-color);
+    color: var(--main-color);
+    font: message-box;
+    font-size: 15px;
+    text-align: center;
+    transform: translate(-50%, -50%);
+}
+
+.pdf-error:empty { display: none; }

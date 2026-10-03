@@ -27,6 +27,13 @@ See https://github.com/adobe-type-tools/cmap-resources
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="google" content="notranslate">
     <title>{{title}}</title>
+    {% include 'lily_theme_head.html' %}
+    <script>
+      // pdf.js draws its chrome dark only for the browser's colour scheme; follow Lily's Light/Dark
+      // choice instead (its is-light / is-dark classes, and viewerCssTheme 1 / 2 below)
+      document.documentElement.classList.add(
+        document.documentElement.getAttribute("data-theme") === "dark" ? "is-dark" : "is-light");
+    </script>
 
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}"> 
@@ -48,6 +55,8 @@ See https://github.com/adobe-type-tools/cmap-resources
         PDFViewerApplicationOptions.set('disableRange', false);
         PDFViewerApplicationOptions.set('disableStream', true);
         PDFViewerApplicationOptions.set('disablePreferences', true);
+        PDFViewerApplicationOptions.set('viewerCssTheme',
+            document.documentElement.classList.contains('is-dark') ? 2 : 1);
         // pdf.js fetches in 64 KB ranges by default, and most library PDFs aren't linearized,
         // so page 1 waited on 100+ sequential requests (7 s at 40 ms RTT). 1 MB ranges: under 1 s.
         // rangeChunkSize isn't an AppOption, so it goes in through open().
@@ -119,6 +128,8 @@ See https://github.com/adobe-type-tools/cmap-resources
       </div>  <!-- sidebarContainer -->
 
       <div id="mainContainer">
+        <p id="pdf-error" class="pdf-error" role="status" aria-live="polite"
+           data-error-text="{{ _('This PDF file could not be opened. You can still download it from the book page.') }}"></p>
         <div id="progress-sync-status" role="status" aria-live="polite" class="lily-progress-status"
              data-pending-text="{{ _('Saved on this device; waiting to sync') }}"
              data-synced-text="{{ _('Synced') }}"></div>
@@ -586,6 +597,12 @@ See https://github.com/adobe-type-tools/cmap-resources
                 // The tab keeps the book's title; pdf.js would show the PDF's own title and
                 // file name ("Title - Title - Author.pdf").
                 app.setTitle = function () { document.title = {{ title|tojson }}; };
+                // A file pdf.js can't open would leave an empty grey page ("0 of 0"); say so,
+                // as the DjVu reader does
+                app.eventBus.on("documenterror", function () {
+                    var status = document.getElementById("pdf-error");
+                    status.textContent = status.getAttribute("data-error-text");
+                });
                 // documentinit follows pdf.js' start-up view, which would undo a zoom set sooner.
                 app.eventBus.on("documentinit", function () {
                     var savedZoom = null;
