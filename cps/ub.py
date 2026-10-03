@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -12,7 +11,7 @@ import os
 import sys
 import sqlite3
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, UTC
 import itertools
 import uuid
 from flask import session as flask_session
@@ -203,7 +202,7 @@ class UserBase:
 
     def set_view_property(self, page, prop, value):
         if not self.view_settings.get(page):
-            self.view_settings[page] = dict()
+            self.view_settings[page] = {}
         self.view_settings[page][prop] = value
         try:
             flag_modified(self, "view_settings")
@@ -305,9 +304,9 @@ class Anonymous(AnonymousUserMixin, UserBase):
 
     def set_view_property(self, page, prop, value):
         if not 'view' in flask_session:
-            flask_session['view'] = dict()
+            flask_session['view'] = {}
         if not flask_session['view'].get(page):
-            flask_session['view'][page] = dict()
+            flask_session['view'][page] = {}
         flask_session['view'][page][prop] = value
 
 class User_Sessions(Base):
@@ -339,8 +338,8 @@ class Shelf(Base):
     is_public = Column(Integer, default=0)
     user_id = Column(Integer, ForeignKey('user.id'))
     books = relationship("BookShelf", backref="ub_shelf", cascade="all, delete-orphan", lazy="dynamic")
-    created = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created = Column(DateTime, default=lambda: datetime.now(UTC))
+    last_modified = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     def __repr__(self):
         return '<Shelf %d:%r>' % (self.id, self.name)
@@ -352,7 +351,7 @@ class DismissedDuplicateGroup(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
     group_hash = Column(String(32), nullable=False)  # MD5 hash of title+author combo
-    dismissed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    dismissed_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     __table_args__ = (
         # User can only dismiss the same duplicate group once
@@ -372,7 +371,7 @@ class BookShelf(Base):
     book_id = Column(Integer)
     order = Column(Integer)
     shelf = Column(Integer, ForeignKey('shelf.id'))
-    date_added = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    date_added = Column(DateTime, default=lambda: datetime.now(UTC))
 
     def __repr__(self):
         return '<Book %r>' % self.id
@@ -390,7 +389,7 @@ class ReadBook(Base):
     book_id = Column(Integer, unique=False)
     user_id = Column(Integer, ForeignKey('user.id'), unique=False)
     read_status = Column(Integer, unique=False, default=STATUS_UNREAD, nullable=False)
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    last_modified = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
     # Active reading time in the web reader since this read began, which reaching the end
     # needs enough of before the book counts as finished (web._update_read_status_from_web_progress)
     reading_seconds = Column(Integer, default=0)
@@ -421,8 +420,8 @@ class WebReaderProgress(Base):
     book_id = Column(Integer, nullable=False)
     cfi = Column(String)
     percent = Column(Float)
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc),
-                           onupdate=lambda: datetime.now(timezone.utc))
+    last_modified = Column(DateTime, default=lambda: datetime.now(UTC),
+                           onupdate=lambda: datetime.now(UTC))
 
 
 # Reading position scoped to a user, library, book and format.
@@ -438,8 +437,8 @@ class ReaderPosition(Base):
     format = Column(String, nullable=False)
     cfi = Column(String)
     percent = Column(Float)
-    last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc),
-                           onupdate=lambda: datetime.now(timezone.utc))
+    last_modified = Column(DateTime, default=lambda: datetime.now(UTC),
+                           onupdate=lambda: datetime.now(UTC))
 
 
 class ReaderLegacyLibrary(Base):
@@ -455,7 +454,7 @@ def receive_before_flush(session, flush_context, instances):
     # Maintain the last_modified_bit for the Shelf table.
     for change in itertools.chain(session.new, session.deleted):
         if isinstance(change, BookShelf):
-            change.ub_shelf.last_modified = datetime.now(timezone.utc)
+            change.ub_shelf.last_modified = datetime.now(UTC)
 
 
 # Baseclass representing Downloads from calibre-web in app.db
@@ -499,7 +498,7 @@ def filename(context):
         if entity_id is not None and resolution is not None and thumb_type is not None:
             if thumb_type == constants.THUMBNAIL_TYPE_COVER:
                 return f"book_{entity_id}_r{resolution}.{ext}"
-            elif thumb_type == constants.THUMBNAIL_TYPE_SERIES:
+            if thumb_type == constants.THUMBNAIL_TYPE_SERIES:
                 return f"series_{entity_id}_r{resolution}.{ext}"
     except Exception:
         # fall back to uuid naming if anything unexpected occurs
@@ -520,7 +519,7 @@ class Thumbnail(Base):
     type = Column(SmallInteger, default=constants.THUMBNAIL_TYPE_COVER)
     resolution = Column(SmallInteger, default=constants.COVER_THUMBNAIL_SMALL)
     filename = Column(String, default=filename)
-    generated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    generated_at = Column(DateTime, default=lambda: datetime.now(UTC))
     expiration = Column(DateTime, nullable=True)
 
 
@@ -557,7 +556,7 @@ def migrate_bookmark_table(engine, _session):
             _session.commit()
         except exc.OperationalError:  # bookmark rows from before the reader's bookmark list
             _safe_session_rollback(_session, "bookmark." + column.key)
-            _run_ddl_with_retry(engine, "ALTER TABLE bookmark ADD column '{}' String".format(column.key))
+            _run_ddl_with_retry(engine, f"ALTER TABLE bookmark ADD column '{column.key}' String")
 
 
 def migrate_read_book_table(engine, _session):
@@ -600,7 +599,7 @@ def migrate_user_table(engine, _session):
             try:
                 os.makedirs(migration_dir, exist_ok=True)
                 with open(migration_marker, "w", encoding="utf-8") as marker:
-                    marker.write(datetime.now(timezone.utc).isoformat())
+                    marker.write(datetime.now(UTC).isoformat())
             except Exception as marker_error:
                 print(
                     f"[Migration] Warning: Could not persist duplicates sidebar migration marker: {marker_error}",
@@ -629,7 +628,7 @@ def migrate_performance_indexes(engine):
     for index_name, table_name, columns in _PERFORMANCE_INDEXES:
         try:
             _run_ddl_with_retry(engine, 'CREATE INDEX IF NOT EXISTS "{}" ON "{}" ({})'.format(
-                index_name, table_name, ', '.join('"{}"'.format(c) for c in columns)))
+                index_name, table_name, ', '.join(f'"{c}"' for c in columns)))
         except Exception as e:
             log.warning("Could not create index %s on %s: %s", index_name, table_name, e)
 
@@ -764,7 +763,7 @@ def _removed_schema_present(con):
     columns = {}
     for table, removed in _REMOVED_COLUMNS.items():
         if table in tables:
-            present = {row[1] for row in con.execute('PRAGMA table_info("{}")'.format(table))}
+            present = {row[1] for row in con.execute(f'PRAGMA table_info("{table}")')}
             found = [column for column in removed if column in present]
             if found:
                 columns[table] = found
@@ -782,14 +781,14 @@ def _rebuild_table(con, table):
     model = Base.metadata.tables[table]
     staging = model.to_metadata(MetaData(), name=table + "__rebuild")
     staging.indexes.clear()  # the old table's indexes keep these names until it is dropped
-    present = {row[1] for row in con.execute('PRAGMA table_info("{}")'.format(table))}
-    kept = ", ".join('"{}"'.format(c.name) for c in model.columns if c.name in present)
+    present = {row[1] for row in con.execute(f'PRAGMA table_info("{table}")')}
+    kept = ", ".join(f'"{c.name}"' for c in model.columns if c.name in present)
     con.execute("BEGIN")
     try:
         con.execute(str(CreateTable(staging).compile(dialect=dialect)))
-        con.execute('INSERT INTO "{0}__rebuild" ({1}) SELECT {1} FROM "{0}"'.format(table, kept))
-        con.execute('DROP TABLE "{}"'.format(table))
-        con.execute('ALTER TABLE "{0}__rebuild" RENAME TO "{0}"'.format(table))
+        con.execute(f'INSERT INTO "{table}__rebuild" ({kept}) SELECT {kept} FROM "{table}"')
+        con.execute(f'DROP TABLE "{table}"')
+        con.execute(f'ALTER TABLE "{table}__rebuild" RENAME TO "{table}"')
         for index in model.indexes:
             con.execute(str(CreateIndex(index, if_not_exists=True).compile(dialect=dialect)))
         con.execute("COMMIT")
@@ -818,11 +817,11 @@ def migrate_drop_removed_schema(engine):
             finally:
                 copy.close()
         for table in tables:
-            con.execute('DROP TABLE IF EXISTS "{}"'.format(table))
+            con.execute(f'DROP TABLE IF EXISTS "{table}"')
         for table, removed in columns.items():
             for column in removed:
                 try:
-                    con.execute('ALTER TABLE "{}" DROP COLUMN "{}"'.format(table, column))
+                    con.execute(f'ALTER TABLE "{table}" DROP COLUMN "{column}"')
                 except sqlite3.OperationalError as e:
                     if table not in Base.metadata.tables:
                         log.warning("Could not drop %s.%s from app.db: %s", table, column, e)
@@ -955,7 +954,7 @@ def _set_app_db_pragmas(dbapi_connection, connection_record):
 
 
 def _create_app_db_engine(db_path):
-    engine = create_engine('sqlite:///{0}'.format(db_path), echo=False,
+    engine = create_engine(f'sqlite:///{db_path}', echo=False,
                            connect_args={'timeout': 30})
     event.listen(engine, "connect", _set_app_db_pragmas)
     return engine
@@ -1035,18 +1034,18 @@ def password_change(user_credentials=None):
                 print("Password doesn't comply with password validation rules")
                 sys.exit(4)
             if session_commit() == "":
-                print("Password for user '{}' changed".format(username))
+                print(f"Password for user '{username}' changed")
                 sys.exit(0)
             else:
                 print("Failed changing password")
                 sys.exit(3)
         else:
-            print("Username '{}' not valid, can't change password".format(username))
+            print(f"Username '{username}' not valid, can't change password")
             sys.exit(3)
 
 
 def get_new_session_instance():
-    new_engine = create_engine('sqlite:///{0}'.format(app_DB_path), echo=False,
+    new_engine = create_engine(f'sqlite:///{app_DB_path}', echo=False,
                                connect_args={'timeout': 30})
     new_session = scoped_session(sessionmaker())
     new_session.configure(bind=new_engine)

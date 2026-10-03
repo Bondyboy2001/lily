@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -27,7 +26,7 @@ def do_calibre_export(book_id, book_format):
             my_env['CALIBRE_OVERRIDE_DATABASE_PATH'] = os.path.join(config.config_calibre_dir, "metadata.db")
         library_path = config.get_book_path()
         opf_command = [calibredb_binarypath, 'export', '--dont-write-opf', '--with-library', library_path,
-                       '--to-dir', tmp_dir, '--formats', book_format, "--template", "{}".format(temp_file_name),
+                       '--to-dir', tmp_dir, '--formats', book_format, "--template", f"{temp_file_name}",
                        str(book_id)]
         p = process_open(opf_command, quotes, my_env)
         _, err = p.communicate()
@@ -75,5 +74,4 @@ def get_calibre_binarypath(binary):
             return os.path.join(binariesdir, SUPPORTED_CALIBRE_BINARIES[binary])
         except KeyError:
             log.error("Binary not supported by Lily: %s", SUPPORTED_CALIBRE_BINARIES[binary])
-            pass
     return ""

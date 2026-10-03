@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -42,7 +41,7 @@
 # Inspired by http://flask.pocoo.org/snippets/35/
 
 
-class ReverseProxied(object):
+class ReverseProxied:
     """Wrap the application in this middleware and configure the
     front-end server to add these headers, to let you quietly bind
     this to a URL other than / and to an HTTP scheme that is

@@ -33,12 +33,9 @@ itself.
 
 """
 from collections import OrderedDict
-import hashlib
-import pickle
 
 from requests import Session as RequestsSession
 
-# import cw_advocate
 from .adapters import ValidatingHTTPAdapter
 from .exceptions import MountDisabledException
 
@@ -77,10 +74,6 @@ class Session(RequestsSession):
             raise MountDisabledException(
                 "mount() is disabled to prevent protection bypasses"
             )
-
-
-def session(*args, **kwargs):
-    return Session(*args, **kwargs)
 
 
 def request(method, url, **kwargs):
@@ -128,81 +121,8 @@ def get(url, **kwargs):
     return request('get', url, **kwargs)
 
 
-class RequestsAPIWrapper:
-    """Provides a `requests.api`-like interface with a specific validator"""
-
-    # Due to how the classes are dynamically constructed pickling may not work
-    # correctly unless loaded within the same interpreter instance.
-    # Enable at your peril.
-    SUPPORT_WRAPPER_PICKLING = False
-
-    def __init__(self, validator):
-        # Do this here to avoid circular import issues
-        try:
-            from .futures import FuturesSession
-            have_requests_futures = True
-        except ImportError:
-            have_requests_futures = False
-
-        self.validator = validator
-        outer_self = self
-
-        class _WrappedSession(Session):
-            """An `advocate.Session` that uses the wrapper's blacklist
-
-            the wrapper is meant to be a transparent replacement for `requests`,
-            so people should be able to subclass `wrapper.Session` and still
-            get the desired validation behaviour
-            """
-            DEFAULT_VALIDATOR = outer_self.validator
-
-        self._make_wrapper_cls_global(_WrappedSession)
-
-        if have_requests_futures:
-
-            class _WrappedFuturesSession(FuturesSession):
-                """Like _WrappedSession, but for `FuturesSession`s"""
-                DEFAULT_VALIDATOR = outer_self.validator
-            self._make_wrapper_cls_global(_WrappedFuturesSession)
-
-            self.FuturesSession = _WrappedFuturesSession
-
-        self.request = self._default_arg_wrapper(request)
-        self.get = self._default_arg_wrapper(get)
-        self.Session = _WrappedSession
-
-    def __getattr__(self, item):
-        # This class is meant to mimic the requests base module, so if we don't
-        # have this attribute, it might be on the base module (like the Request
-        # class, etc.)
-        try:
-            return object.__getattribute__(self, item)
-        except AttributeError:
-            from . import cw_advocate
-            return getattr(cw_advocate, item)
-
-    def _default_arg_wrapper(self, fun):
-        def wrapped_func(*args, **kwargs):
-            kwargs.setdefault("validator", self.validator)
-            return fun(*args, **kwargs)
-        return wrapped_func
-
-    def _make_wrapper_cls_global(self, cls):
-        if not self.SUPPORT_WRAPPER_PICKLING:
-            return
-        # Gnarly, but necessary to give pickle a consistent module-level
-        # reference for each wrapper.
-        wrapper_hash = hashlib.sha256(pickle.dumps(self)).hexdigest()
-        cls.__name__ = "_".join((cls.__name__, wrapper_hash))
-        cls.__qualname__ = ".".join((__name__, cls.__name__))
-        if not globals().get(cls.__name__):
-            globals()[cls.__name__] = cls
-
-
 __all__ = (
     "get",
     "request",
-    "session",
     "Session",
-    "RequestsAPIWrapper",
 )

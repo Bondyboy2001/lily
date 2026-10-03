@@ -42,8 +42,7 @@ def cover_processing(tmp_file_path, img, extension):
         with open(tmp_cover_name, "wb") as f:
             f.write(img)
         return tmp_cover_name
-    else:
-        return None
+    return None
 
 
 def get_audio_file_info(
@@ -53,7 +52,7 @@ def get_audio_file_info(
     audio_file = mutagen.File(tmp_file_path)
     comments = None
     if original_file_extension in [".mp3", ".wav", ".aiff"]:
-        cover_data = list()
+        cover_data = []
         for key, val in audio_file.tags.items():
             if key.startswith("APIC:"):
                 cover_data.append(val)
@@ -209,7 +208,7 @@ def get_audio_file_info(
                     cover_type = ".jpg"
                     cover_bin = c
                     break
-                elif c.imageformat == mutagen.mp4.AtomDataType.PNG:
+                if c.imageformat == mutagen.mp4.AtomDataType.PNG:
                     cover_type = ".png"
                     cover_bin = c
                     break

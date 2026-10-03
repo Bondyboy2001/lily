@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2026 Calibre-Web contributors
 # Copyright (C) 2024-2026 Calibre-Web Automated contributors
@@ -72,7 +71,7 @@ class TaskBackupDatabases(CalibreTask):
     """Nightly consistent snapshots of app.db, cwa.db and metadata.db into <backup root>/<timestamp>/."""
 
     def __init__(self, task_message=N_('Backing up databases')):
-        super(TaskBackupDatabases, self).__init__(task_message)
+        super().__init__(task_message)
         self.log = logger.create()
 
     def run(self, worker_thread):
@@ -92,7 +91,7 @@ class TaskBackupDatabases(CalibreTask):
                 errors["verify"] = str(e)
         if errors:
             self._handleError("Database backup failed for: " + ", ".join(
-                "{} ({})".format(name, err) for name, err in sorted(errors.items())))
+                f"{name} ({err})" for name, err in sorted(errors.items())))
         else:
             self._handleSuccess()
 

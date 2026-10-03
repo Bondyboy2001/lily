@@ -88,7 +88,7 @@ class AutoLibrary:
             self.metadb_path = db_files[0]
             print(f"[cwa-auto-library]: Existing library found at {self.lib_path}, mounting now...")
             return True
-        elif len(db_files) > 1:
+        if len(db_files) > 1:
             print("[cwa-auto-library]: Multiple metadata.db files found in library directory:\n")
             for db in db_files:
                 print(f"    - {db} | Size: {os.path.getsize(db)}")
@@ -98,8 +98,7 @@ class AutoLibrary:
             print(f"\n[cwa-auto-library]: Automatically mounting the largest database using the following db file - {db_files[index_of_biggest_db]} ...")
             print("\n[cwa-auto-library]: If this is unwanted, please ensure only 1 metadata.db file / only your desired Calibre Database exists in '/calibre-library', then restart the container")
             return True
-        else:
-            return False
+        return False
 
     # Sets the library's location in both dirs.json and the CW db
     def set_library_location(self):
@@ -107,9 +106,8 @@ class AutoLibrary:
             self.update_dirs_json()
             self.update_calibre_web_db()
             return
-        else:
-            print("[cwa-auto-library]: ERROR: metadata.db found but not mounted")
-            sys.exit(1)
+        print("[cwa-auto-library]: ERROR: metadata.db found but not mounted")
+        sys.exit(1)
 
     # Uses sql to update CW's app.db with the correct library location (config_calibre_dir in the settings table)
     def update_calibre_web_db(self):

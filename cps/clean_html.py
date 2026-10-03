@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -29,9 +28,9 @@ def clean_string(unsafe_text, book_id=0):
         else:
             safe_text = clean_html(unsafe_text)
     except ParserError as e:
-        log.error("Comments of book {} are corrupted: {}".format(book_id, e))
+        log.error(f"Comments of book {book_id} are corrupted: {e}")
         safe_text = ""
     except TypeError as e:
-        log.error("Comments can't be parsed, maybe 'lxml' is too new, try installing 'bleach': {}".format(e))
+        log.error(f"Comments can't be parsed, maybe 'lxml' is too new, try installing 'bleach': {e}")
         safe_text = ""
     return safe_text

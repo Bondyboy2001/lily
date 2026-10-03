@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -290,7 +289,7 @@ def feed_hot():
     all_books = ub.session.query(ub.Downloads, func.count(ub.Downloads.book_id)).order_by(
         func.count(ub.Downloads.book_id).desc()).group_by(ub.Downloads.book_id)
     hot_books = all_books.offset(off).limit(config.config_books_per_page)
-    entries = list()
+    entries = []
     for book in hot_books:
         query = calibre_db.generate_linked_query(config.config_read_column, db.Books)
         download_book = query.filter(calibre_db.common_filters()).filter(
@@ -447,7 +446,7 @@ def feed_ratingindex():
 
     pagination = Pagination((int(off) / (int(config.config_books_per_page)) + 1), config.config_books_per_page,
                             len(entries))
-    element = list()
+    element = []
     for entry in entries:
         element.append(FeedObject(entry[0].id, _("{} Stars").format(entry.name)))
     return render_xml_template('feed.xml', listelements=element, folder='opds.feed_ratings', pagination=pagination)
@@ -471,7 +470,7 @@ def feed_formatindex():
         .order_by(db.Data.format).all()
     pagination = Pagination((int(off) / (int(config.config_books_per_page)) + 1), config.config_books_per_page,
                             len(entries))
-    element = list()
+    element = []
     for entry in entries:
         element.append(FeedObject(entry.format, entry.format))
     return render_xml_template('feed.xml', listelements=element, folder='opds.feed_format', pagination=pagination)
@@ -550,8 +549,8 @@ def feed_shelf(book_id):
                                                            ub.Shelf.id == book_id),
                                                       and_(ub.Shelf.is_public == 1,
                                                            ub.Shelf.id == book_id))).first()
-    result = list()
-    pagination = list()
+    result = []
+    pagination = []
     # user is allowed to access shelf
     if shelf:
         result, pagination = calibre_db.fill_indexpage((int(off) / (int(config.config_books_per_page)) + 1),
@@ -566,13 +565,13 @@ def feed_shelf(book_id):
             .join(db.Books, ub.BookShelf.book_id == db.Books.id, isouter=True) \
             .filter(db.Books.id == None).all()
         for entry in wrong_entries:
-            log.info('Not existing book {} in {} deleted'.format(entry.book_id, shelf))
+            log.info(f'Not existing book {entry.book_id} in {shelf} deleted')
             try:
                 ub.session.query(ub.BookShelf).filter(ub.BookShelf.book_id == entry.book_id).delete()
                 ub.session.commit()
             except (OperationalError, InvalidRequestError) as e:
                 ub.session.rollback()
-                log.error_or_exception("Settings Database error: {}".format(e))
+                log.error_or_exception(f"Settings Database error: {e}")
     return render_xml_template('feed.xml', entries=result, pagination=pagination)
 
 
@@ -584,27 +583,13 @@ def opds_download_link(book_id, book_format):
     return get_download_link(book_id, book_format.lower())
 
 
-@opds.route("/ajax/book/<string:uuid>/<library>")
-@opds.route("/ajax/book/<string:uuid>", defaults={'library': ""})
-@requires_basic_auth_if_no_ano
-def get_metadata_calibre_companion(uuid, library):
-    entry = calibre_db.session.query(db.Books).filter(db.Books.uuid.like("%" + uuid + "%")).first()
-    if entry is not None:
-        js = render_template('json.txt', entry=entry)
-        response = make_response(js)
-        response.headers["Content-Type"] = "application/json; charset=utf-8"
-        return response
-    else:
-        return ""
-
-
 @opds.route("/opds/thumb_240_240/<book_id>")
 @opds.route("/opds/cover_240_240/<book_id>")
 @opds.route("/opds/cover_90_90/<book_id>")
 @opds.route("/opds/cover/<book_id>")
 @requires_basic_auth_if_no_ano
 def feed_get_cover(book_id):
-    # feed.xml / json.txt link every book's cover AND thumbnail rel to this one
+    # feed.xml links every book's cover AND thumbnail rel to this one
     # route, and it's used for every book in every catalog page (i.e. mostly
     # list/grid browsing, not single-cover detail views) -- MEDIUM is truthy
     # (so it already hits the cache/on-demand generation in
@@ -653,8 +638,7 @@ def feed_search(term):
         entries_count = len(entries) if len(entries) > 0 else 1
         pagination = Pagination(1, entries_count, entries_count)
         return render_xml_template('feed.xml', searchterm=term, entries=entries, pagination=pagination)
-    else:
-        return render_xml_template('feed.xml', searchterm="")
+    return render_xml_template('feed.xml', searchterm="")
 
 
 

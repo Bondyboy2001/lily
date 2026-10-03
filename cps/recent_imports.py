@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # SPDX-License-Identifier: GPL-3.0-or-later
 

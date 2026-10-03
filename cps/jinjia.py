@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -124,7 +123,7 @@ def formatfloat(value, decimals=1):
 
 @jinjia.app_template_filter('escapedlink')
 def escapedlink_filter(url, text):
-    return "<a href='{}'>{}</a>".format(url, escape(text))
+    return f"<a href='{url}'>{escape(text)}</a>"
 
 
 @jinjia.app_template_filter('readable_formats')
@@ -140,7 +139,7 @@ def book_last_modified(book):
 
 @jinjia.app_template_filter('get_cover_srcset')
 def get_cover_srcset(book):
-    srcset = list()
+    srcset = []
     resolutions = {
         constants.COVER_THUMBNAIL_SMALL: 'sm',
         constants.COVER_THUMBNAIL_MEDIUM: 'md',
@@ -179,11 +178,10 @@ def filesizeformat_binary(num_bytes):
     # Format with 1 decimal place, but remove if .0
     if unit_index == 0:  # Bytes - no decimal
         return f"{int(size)} {units[unit_index]}"
-    else:
-        formatted = f"{size:.1f}"
-        if formatted.endswith('.0'):
-            formatted = formatted[:-2]
-        return f"{formatted} {units[unit_index]}"
+    formatted = f"{size:.1f}"
+    if formatted.endswith('.0'):
+        formatted = formatted[:-2]
+    return f"{formatted} {units[unit_index]}"
 
 
 # a book's authors without calibre's "Unknown" stand-in, so a book with no author shows none

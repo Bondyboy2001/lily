@@ -12,7 +12,7 @@ import os
 import sys
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable
+from collections.abc import Iterable
 
 from sqlalchemy import func
 from sqlalchemy.orm import lazyload, selectinload
@@ -861,9 +861,7 @@ def has_valid_duplicate_index_baseline(settings, candidate_book_ids=None):
         return False
 
     if library_book_ids and int(cache_data.get("last_scanned_book_id") or 0) <= 0:
-        if candidate_ids and library_book_ids.issubset(candidate_ids):
-            return True
-        return False
+        return bool(candidate_ids and library_book_ids.issubset(candidate_ids))
 
     fingerprint = get_criteria_fingerprint(settings)
     cwa_db.cur.execute(
@@ -1005,10 +1003,7 @@ def duplicate_index_needs_manual_full_scan(settings, cwa_db=None, cache_data=_CA
         if classification == _MISSING_EXISTING:
             return True
 
-        if ingest_batch_follow_up_pending():
-            return False
-
-        return True
+        return not ingest_batch_follow_up_pending()
     finally:
         if owns_db:
             close = getattr(cwa_db, "close", None)

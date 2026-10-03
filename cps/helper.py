@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -16,7 +15,7 @@ import regex
 import shutil
 import socket
 import platform
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 import requests
 import unidecode
 
@@ -185,7 +184,7 @@ def edit_book_read_status(book_id, read_status=None):
             read_book.read_status = ub.ReadBook.STATUS_FINISHED
             book = read_book
         ub.session.merge(book)
-        ub.session_commit("Book {} readbit toggled".format(book_id))
+        ub.session_commit(f"Book {book_id} readbit toggled")
     else:
         try:
             calibre_db.create_functions(config)
@@ -204,12 +203,12 @@ def edit_book_read_status(book_id, read_status=None):
                 calibre_db.session.commit()
         except (KeyError, AttributeError, IndexError):
             log.error(
-                "Custom Column No.{} does not exist in calibre database".format(config.config_read_column))
-            return "Custom Column No.{} does not exist in calibre database".format(config.config_read_column)
+                f"Custom Column No.{config.config_read_column} does not exist in calibre database")
+            return f"Custom Column No.{config.config_read_column} does not exist in calibre database"
         except (OperationalError, InvalidRequestError) as ex:
             calibre_db.session.rollback()
-            log.error("Read status could not set: {}".format(ex))
-            return _("Read status could not set: {}".format(ex.orig))
+            log.error(f"Read status could not set: {ex}")
+            return _(f"Read status could not set: {ex.orig}")
     return ""
 
 
@@ -251,9 +250,8 @@ def rename_all_files_on_change(one_book, new_path, old_path, all_new_name):
                 log.info("File already exists at destination: %s", new_file)
                 file_format.name = all_new_name
                 continue
-            else:
-                log.error("Neither old nor new file exists - cannot rename %s to %s", old_file, new_file)
-                continue
+            log.error("Neither old nor new file exists - cannot rename %s to %s", old_file, new_file)
+            continue
 
         # A case-only change on a case-insensitive disk: the "destination" is this same file, so
         # removing it would delete the book
@@ -282,7 +280,7 @@ def rename_all_files_on_change(one_book, new_path, old_path, all_new_name):
                 shutil.copy2(old_file, new_file)
                 os.remove(old_file)
                 log.info("Successfully copied and removed old file: %s", old_file)
-            except (OSError, IOError) as fallback_ex:
+            except OSError as fallback_ex:
                 log.error("Copy+delete fallback also failed for %s: %s", old_file, fallback_ex)
                 # Don't update the database name if we failed to rename the file
                 continue
@@ -364,7 +362,7 @@ def move_files_on_change(calibre_path, new_author_dir, new_titledir, localbook, 
                 try:
                     shutil.copy2(original_filepath, os.path.join(new_path, db_filename))
                     os.remove(original_filepath)
-                except (OSError, IOError) as fallback_ex:
+                except OSError as fallback_ex:
                     log.error("Copy+delete fallback also failed: %s", fallback_ex)
                     raise
             log.debug("Moving title: %s to %s", original_filepath, new_path)
@@ -381,7 +379,7 @@ def move_files_on_change(calibre_path, new_author_dir, new_titledir, localbook, 
                     try:
                         shutil.copytree(path, new_path, dirs_exist_ok=True)
                         shutil.rmtree(path)
-                    except (OSError, IOError) as fallback_ex:
+                    except OSError as fallback_ex:
                         log.error("Copy tree fallback also failed: %s", fallback_ex)
                         raise
             elif _same_entry(path, new_path):
@@ -409,7 +407,7 @@ def move_files_on_change(calibre_path, new_author_dir, new_titledir, localbook, 
                             try:
                                 shutil.copy2(src_file, dest_file)
                                 os.remove(src_file)
-                            except (OSError, IOError) as fallback_ex:
+                            except OSError as fallback_ex:
                                 log.error("Copy+delete fallback failed for %s: %s", src_file, fallback_ex)
                                 # Continue with other files even if one fails
                                 continue
@@ -418,13 +416,13 @@ def move_files_on_change(calibre_path, new_author_dir, new_titledir, localbook, 
             if os.path.exists(os.path.split(path)[0]) and not os.listdir(os.path.split(path)[0]):
                 try:
                     shutil.rmtree(os.path.split(path)[0])
-                except (IOError, OSError) as ex:
+                except OSError as ex:
                     log.error("Deleting authorpath for book %s failed: %s", localbook.id, ex)
 
         # change location in database to new author/title path
         localbook.path = os.path.join(new_author_dir, new_titledir).replace('\\', '/')
     except OSError as ex:
-        log.error_or_exception("Rename title from {} to {} failed with error: {}".format(path, new_path, ex))
+        log.error_or_exception(f"Rename title from {path} to {new_path} failed with error: {ex}")
         return _("Rename title from: '%(src)s' to '%(dest)s' failed with error: %(error)s",
                  src=path, dest=new_path, error=str(ex))
     return False
@@ -464,7 +462,7 @@ def valid_email(emails):
             # Regex according to https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/email#validation
             if not re.search(r"^[\w.!#$%&'*+\\/=?^_`{|}~-]+@[\w](?:[\w-]{0,61}[\w])?(?:\.[\w](?:[\w-]{0,61}[\w])?)*$",
                              email):
-                log.error("Invalid Email address format for {}".format(email))
+                log.error(f"Invalid Email address format for {email}")
                 raise Exception(_("Invalid Email address format"))
             valid_emails.append(email)
     return ",".join(valid_emails)
@@ -601,10 +599,8 @@ def get_book_cover_internal(book, resolution=None):
         if os.path.isfile(os.path.join(cover_file_path, "cover.jpg")):
             resp = send_from_directory(cover_file_path, "cover.jpg")
             return _apply_cover_cache_headers(resp) if cover_is_final else resp
-        else:
-            return get_cover_on_failure()
-    else:
         return get_cover_on_failure()
+    return get_cover_on_failure()
 
 
 def get_book_cover_thumbnails_by_formats(book, resolution, formats):
@@ -619,7 +615,7 @@ def get_book_cover_thumbnails_by_formats(book, resolution, formats):
                 .filter(ub.Thumbnail.entity_id == book.id)
                 .filter(ub.Thumbnail.resolution == resolution)
                 .filter(ub.Thumbnail.format.in_(list(formats)))
-                .filter(or_(ub.Thumbnail.expiration.is_(None), ub.Thumbnail.expiration > datetime.now(timezone.utc)))
+                .filter(or_(ub.Thumbnail.expiration.is_(None), ub.Thumbnail.expiration > datetime.now(UTC)))
                 .all())
         for row in rows:
             result.setdefault(row.format, row)
@@ -684,10 +680,10 @@ def save_cover_from_url(url, book_path):
             requests.exceptions.ConnectionError,
             requests.exceptions.Timeout) as ex:
         # "Invalid host" can be the result of a redirect response
-        log.error(u'Cover Download Error %s', ex)
+        log.error('Cover Download Error %s', ex)
         return False, _("Error Downloading Cover")
     except MissingDelegateError as ex:
-        log.info(u'File Format Error %s', ex)
+        log.info('File Format Error %s', ex)
         return False, _("Cover Format Error")
     except UnacceptableAddressException:
         log.error("Localhost or local network was accessed for cover upload")
@@ -721,7 +717,7 @@ def save_cover_from_filestorage(filepath, saved_filename, img):
             else:
                 # upload of jpg/png... from hdd
                 img.save(os.path.join(filepath, saved_filename))
-    except (IOError, OSError):
+    except OSError:
         log.error("Cover-file is not a valid image file, or could not be stored")
         return False, _("Cover-file is not a valid image file, or could not be stored")
     return True, None
@@ -855,7 +851,7 @@ def get_download_link(book_id, book_format):
         book = calibre_db.get_book(book_id)
 
     if not book:
-        log.error("Book id {} not found for downloading".format(book_id))
+        log.error(f"Book id {book_id} not found for downloading")
         abort(404)
 
     data1 = calibre_db.get_book_format(book.id, book_format.upper())

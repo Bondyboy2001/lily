@@ -28,7 +28,7 @@ if not importlib:
 
 
 def load_dependencies():
-    deps = list()
+    deps = []
     if getattr(sys, 'frozen', False):
         pip_installed = os.path.join(BASE_DIR, ".pip_installed")
         if os.path.exists(pip_installed):
@@ -39,7 +39,7 @@ def load_dependencies():
     if importlib or pkgresources:
         req_path = os.path.join(BASE_DIR, "requirements.txt")
         if os.path.exists(req_path):
-            with open(req_path, 'r') as f:
+            with open(req_path) as f:
                 for line in f:
                     if not line.startswith('#') and not line == '\n' and not line.startswith('git'):
                         res = re.match(r'(.*?)([<=>\s]+)([\d\.]+),?\s?([<=>\s]+)?([\d\.]+)?(?:\s?;\s?'
@@ -51,8 +51,8 @@ def load_dependencies():
                             else:
                                 if res.group(7) and res.group(8):
                                     val = res.group(8).split(".")
-                                    if not eval(str(sys.version_info[0]) + "." + "{:02d}".format(sys.version_info[1]) +
-                                                res.group(7) + val[0] + "." + "{:02d}".format(int(val[1]))):
+                                    if not eval(str(sys.version_info[0]) + "." + f"{sys.version_info[1]:02d}" +
+                                                res.group(7) + val[0] + "." + f"{int(val[1]):02d}"):
                                         continue
                                 elif res.group(10) and res.group(11):
                                     # only installed if platform is eqal, don't check if platform is not equal
@@ -74,7 +74,7 @@ def load_dependencies():
 
 
 def dependency_check():
-    d = list()
+    d = []
     dep_version_int = None
     low_check = None
     deps = load_dependencies()

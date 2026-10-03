@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -92,7 +91,7 @@ def parse_xmp(pdf_file):
     try:
         xmp_info = pdf_file.xmp_metadata
     except Exception as ex:
-        log.debug('Can not read PDF XMP metadata {}'.format(ex))
+        log.debug(f'Can not read PDF XMP metadata {ex}')
         return None
 
     if xmp_info:
@@ -141,7 +140,7 @@ def pdf_meta(tmp_file_path, original_file_name, original_file_extension, no_cove
             try:
                 doc_info = pdf_file.metadata
             except Exception as exc:
-                log.debug('Can not read PDF DocumentInfo {}'.format(exc))
+                log.debug(f'Can not read PDF DocumentInfo {exc}')
             xmp_info = parse_xmp(pdf_file)
 
     if xmp_info:

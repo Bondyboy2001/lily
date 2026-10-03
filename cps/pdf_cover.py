@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
@@ -23,7 +22,7 @@ crops and writes the images."""
 import hashlib
 import os
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from cps import logger
 
@@ -265,7 +264,7 @@ def mark_cover_changed(book):
     """Flag the book as having a cover and bump last_modified: cover URLs and cached thumbnails
     are keyed on it. The caller commits."""
     book.has_cover = 1
-    book.last_modified = datetime.now(timezone.utc)
+    book.last_modified = datetime.now(UTC)
 
 
 def fix_book_cover(book, library_path):

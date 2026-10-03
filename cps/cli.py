@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -22,7 +21,7 @@ def version_info():
     return "Calibre-Web version: %s -%s" % (_STABLE_VERSION.replace("b", " Beta"), _NIGHTLY_VERSION[1])
 
 
-class CliParameter(object):
+class CliParameter:
 
     def __init__(self):
         self.user_credentials = None
@@ -120,7 +119,7 @@ class CliParameter(object):
                     # on Windows python < 3.4, inet_pton is not available
                     # inet_atom only handles IPv4 addresses
                     socket.inet_aton(self.ip_address)
-            except socket.error as err:
+            except OSError as err:
                 print(self.ip_address, ':', err)
                 sys.exit(1)
 

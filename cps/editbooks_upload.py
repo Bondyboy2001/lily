@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -11,7 +10,7 @@ Routes are attached to the editbook blueprint; editbooks.py imports this module 
 
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 
 from flask import flash
@@ -104,7 +103,7 @@ def _get_ingest_path(uploaded_file, prefix_parts=None):
 
     base_name = secure_filename(uploaded_file.filename)
     # CWA change: use timestamp for more predictable sorting vs uuid
-    unique = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+    unique = datetime.now(UTC).strftime("%Y%m%d_%H%M%S_%f")
     prefix = "_".join([str(p) for p in (prefix_parts or []) if p])
     final_name = f"{prefix + '_' if prefix else ''}{unique}_{base_name}"
     final_path = os.path.join(ingest_dir, final_name)
@@ -132,19 +131,19 @@ def _ensure_ingest_dir_writable(ingest_dir=None, allow_create=False, check_write
         try:
             os.makedirs(ingest_dir, exist_ok=True)
         except Exception as e:
-            raise PermissionError("Ingest directory missing and could not be created: {} ({})".format(ingest_dir, e))
+            raise PermissionError(f"Ingest directory missing and could not be created: {ingest_dir} ({e})")
     if not os.path.isdir(ingest_dir):
-        raise PermissionError("Ingest directory missing: {}".format(ingest_dir))
+        raise PermissionError(f"Ingest directory missing: {ingest_dir}")
     if check_write:
         if not os.access(ingest_dir, os.W_OK | os.X_OK):
-            raise PermissionError("Ingest directory not writable: {}".format(ingest_dir))
+            raise PermissionError(f"Ingest directory not writable: {ingest_dir}")
         # Verify write by touching a temp file (covers ACL/mount oddities)
-        test_path = os.path.join(ingest_dir, ".cwa_write_test_{}".format(uuid.uuid4().hex))
+        test_path = os.path.join(ingest_dir, f".cwa_write_test_{uuid.uuid4().hex}")
         try:
             with open(test_path, "w", encoding="utf-8") as handle:
                 handle.write("ok")
         except Exception as e:
-            raise PermissionError("Ingest directory not writable: {} ({})".format(ingest_dir, e))
+            raise PermissionError(f"Ingest directory not writable: {ingest_dir} ({e})")
         finally:
             try:
                 if os.path.exists(test_path):
@@ -223,7 +222,7 @@ def upload():
                 WorkerThread.add(current_user.name, TaskUpload(upload_text, escape(requested_file.filename)))
 
             except Exception as e:
-                log.error_or_exception("Failed to queue format upload for ingest: {}".format(e))
+                log.error_or_exception(f"Failed to queue format upload for ingest: {e}")
                 flash(_("Failed to queue upload for processing"), category="error")
                 return _upload_response(url_for('edit-book.show_edit_book', book_id=book_id), queued)
 
@@ -231,7 +230,7 @@ def upload():
         return _upload_response(url_for('edit-book.show_edit_book', book_id=book_id), queued)
 
     # New book uploads: queue files to ingest atomically
-    elif len(request.files.getlist("btn-upload")):
+    if len(request.files.getlist("btn-upload")):
         try:
             _ensure_ingest_dir_writable(allow_create=True, check_write=False)
         except PermissionError as e:
@@ -251,7 +250,7 @@ def upload():
                 upload_text = N_("Upload done, processing, please wait...")
                 WorkerThread.add(current_user.name, TaskUpload(upload_text, escape(requested_file.filename)))
             except Exception as e:
-                log.error_or_exception("Failed to queue upload for ingest: {}".format(e))
+                log.error_or_exception(f"Failed to queue upload for ingest: {e}")
                 flash(_("Failed to queue upload for processing"), category="error")
                 return _upload_response(url_for('web.index'), queued)
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -22,7 +21,6 @@ import html
 from concurrent.futures import ThreadPoolExecutor
 from html.parser import HTMLParser
 from os import getenv
-from typing import Dict, List, Optional
 from xml.etree import ElementTree
 
 import requests
@@ -69,7 +67,7 @@ class google_scholar(Metadata):
 
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
-    ) -> Optional[List[MetaRecord]]:
+    ) -> list[MetaRecord] | None:
         if not query.strip():
             return []
         # A bare arXiv id means nothing to Crossref's text search
@@ -90,8 +88,8 @@ class google_scholar(Metadata):
         return val
 
     def search_identifiers(
-        self, identifiers: Dict[str, str], generic_cover: str = "", locale: str = "en"
-    ) -> List[MetaRecord]:
+        self, identifiers: dict[str, str], generic_cover: str = "", locale: str = "en"
+    ) -> list[MetaRecord]:
         lookups = []
         doi = DOI_RE.search(identifiers.get("doi", ""))
         doi = doi.group(0) if doi else ""
@@ -105,7 +103,7 @@ class google_scholar(Metadata):
         return self._run(lookups)
 
     @staticmethod
-    def _run(lookups) -> List[MetaRecord]:
+    def _run(lookups) -> list[MetaRecord]:
         """Runs the lookups at once and joins their records. Raises only when every
         one failed, so one source being down still shows the other's results and
         an outage is reported as a failed search rather than as no results."""
@@ -124,7 +122,7 @@ class google_scholar(Metadata):
             log.warning("Scholar source failed: %s", e)
         return records
 
-    def _search_arxiv(self, query: str) -> List[MetaRecord]:
+    def _search_arxiv(self, query: str) -> list[MetaRecord]:
         """arXiv papers for an id or text; raises when arXiv can't be reached."""
         arxiv_id = ARXIV_ID_RE.search(query)
         if not arxiv_id:
@@ -153,7 +151,7 @@ class google_scholar(Metadata):
                 records.append(record)
         return records
 
-    def _fetch_datacite_doi(self, arxiv_id: str) -> List[MetaRecord]:
+    def _fetch_datacite_doi(self, arxiv_id: str) -> list[MetaRecord]:
         """The paper from DataCite's record of arXiv's DOI; empty when it has none."""
         response = get_patiently(self.DATACITE_URL + "/" + ARXIV_DOI_PREFIX + arxiv_id,
                                  headers=self.HEADERS, timeout=10)
@@ -163,7 +161,7 @@ class google_scholar(Metadata):
         record = self._parse_datacite_hit(response.json().get("data") or {})
         return [record] if record else []
 
-    def _fetch_arxiv_abs(self, arxiv_id) -> List[MetaRecord]:
+    def _fetch_arxiv_abs(self, arxiv_id) -> list[MetaRecord]:
         """The paper from its abstract page's citation_* meta tags (the ones Google
         Scholar reads); empty when arXiv has no such paper."""
         response = requests.get(
@@ -203,7 +201,7 @@ class google_scholar(Metadata):
         match.identifiers["doi"] = tags.first("citation_doi") or ARXIV_DOI_PREFIX + arxiv_id
         return match
 
-    def _parse_arxiv_entry(self, entry) -> Optional[MetaRecord]:
+    def _parse_arxiv_entry(self, entry) -> MetaRecord | None:
         title = " ".join((entry.findtext(ATOM + "title") or "").split())
         abs_url = entry.findtext(ATOM + "id") or ""
         arxiv_id = ARXIV_ID_RE.search(abs_url)
@@ -233,7 +231,7 @@ class google_scholar(Metadata):
         match.identifiers["doi"] = entry.findtext(ARXIV_NS + "doi") or ARXIV_DOI_PREFIX + arxiv_id
         return match
 
-    def _search_datacite(self, query: str) -> List[MetaRecord]:
+    def _search_datacite(self, query: str) -> list[MetaRecord]:
         """arXiv papers whose title matches the text, best first."""
         if not re.search(r"\w", query):
             return []
@@ -255,9 +253,9 @@ class google_scholar(Metadata):
         phrase = " ".join(query.split()).replace("\\", "\\\\").replace('"', '\\"')
         # Lower case, so a typed "and" or "not" isn't read as an operator
         words = " AND ".join(w.lower() for w in re.findall(r"\w+", query))
-        return 'titles.title:"{}"^5 OR titles.title:({})'.format(phrase, words)
+        return f'titles.title:"{phrase}"^5 OR titles.title:({words})'
 
-    def _parse_datacite_hit(self, hit: Dict) -> Optional[MetaRecord]:
+    def _parse_datacite_hit(self, hit: dict) -> MetaRecord | None:
         attrs = hit.get("attributes", {})
         title = " ".join(((attrs.get("titles") or [{}])[0].get("title") or "").split())
         arxiv_id = next((i.get("identifier") for i in attrs.get("identifiers", [])
@@ -300,7 +298,7 @@ class google_scholar(Metadata):
         match.identifiers["doi"] = journal_doi or ARXIV_DOI_PREFIX + arxiv_id
         return match
 
-    def _search_semantic_scholar(self, query: str) -> List[MetaRecord]:
+    def _search_semantic_scholar(self, query: str) -> list[MetaRecord]:
         """Semantic Scholar's closest title match, if it has one. Still busy after the second
         try, it is left out of the searches of the next minute."""
         if self._s2_busy.active():
@@ -320,7 +318,7 @@ class google_scholar(Metadata):
         hits = response.json().get("data", [])
         return [r for r in (self._parse_semantic_scholar(h) for h in hits) if r]
 
-    def _parse_semantic_scholar(self, hit: Dict) -> Optional[MetaRecord]:
+    def _parse_semantic_scholar(self, hit: dict) -> MetaRecord | None:
         title = " ".join((hit.get("title") or "").split())
         if not title or not hit.get("paperId"):
             return None
@@ -349,7 +347,7 @@ class google_scholar(Metadata):
             match.identifiers["doi"] = doi
         return match
 
-    def _search_crossref(self, query: str) -> List[MetaRecord]:
+    def _search_crossref(self, query: str) -> list[MetaRecord]:
         doi = DOI_RE.search(query)
         params = {
             "rows": self.MAX_RESULTS,
@@ -411,7 +409,7 @@ class google_scholar(Metadata):
             log.debug("No Google Books cover at its address for ISBN %s: %s", isbn, e)
         return ""
 
-    def _parse_crossref_item(self, item: Dict) -> Optional[MetaRecord]:
+    def _parse_crossref_item(self, item: dict) -> MetaRecord | None:
         title = " ".join((item.get("title") or [""])[0].split())
         doi = item.get("DOI")
         if not title or not doi:
@@ -451,14 +449,14 @@ class google_scholar(Metadata):
         return match
 
 
-def _crossref_isbn(item: Dict) -> str:
+def _crossref_isbn(item: dict) -> str:
     """The first ISBN Crossref gives for a work, compacted; '' for none (a journal's article)."""
     return compact_isbn((item.get("ISBN") or [""])[0])
 
 
-def _subject_names(subjects) -> List[str]:
+def _subject_names(subjects) -> list[str]:
     """arXiv's "Computation and Language (cs.CL)" subjects as their names, once each."""
-    names: List[str] = []
+    names: list[str] = []
     for subject in subjects:
         name = re.sub(r"\s*\([^()]*\)\s*$", "", " ".join(subject.split()))
         if name and name not in names:
@@ -471,7 +469,7 @@ class _CitationTags(HTMLParser):
 
     def __init__(self):
         super().__init__()
-        self.tags: Dict[str, List[str]] = {}
+        self.tags: dict[str, list[str]] = {}
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)

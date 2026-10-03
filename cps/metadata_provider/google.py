@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -6,7 +5,6 @@
 # See CONTRIBUTORS for full list of authors.
 
 # Google Books api document: https://developers.google.com/books/docs/v1/using
-from typing import Dict, List, Optional
 from datetime import datetime
 from os import getenv
 
@@ -37,15 +35,15 @@ class Google(Metadata):
 
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
-    ) -> Optional[List[MetaRecord]]:
+    ) -> list[MetaRecord] | None:
         title_tokens = list(self.get_title_tokens(query, strip_joiners=False))
         if title_tokens:
             query = " ".join(title_tokens)
         return self._fetch(query, generic_cover, locale)
 
     def search_identifiers(
-        self, identifiers: Dict[str, str], generic_cover: str = "", locale: str = "en"
-    ) -> List[MetaRecord]:
+        self, identifiers: dict[str, str], generic_cover: str = "", locale: str = "en"
+    ) -> list[MetaRecord]:
         isbn = identifiers.get("isbn")
         if not isbn:
             return []
@@ -59,7 +57,7 @@ class Google(Metadata):
         # Without a key, Google shares a small anonymous quota per IP and soon answers 429
         return getattr(config, "config_google_books_api_key", None) or getenv("GOOGLE_BOOKS_API_KEY") or ""
 
-    def _fetch(self, q: str, generic_cover: str, locale: str) -> List[MetaRecord]:
+    def _fetch(self, q: str, generic_cover: str, locale: str) -> list[MetaRecord]:
         params = {"q": q}
         key = self._api_key()
         if key:
@@ -85,7 +83,7 @@ class Google(Metadata):
         return val
 
     def _parse_search_result(
-        self, result: Dict, generic_cover: str, locale: str
+        self, result: dict, generic_cover: str, locale: str
     ) -> MetaRecord|None:
         volume_info = result.get("volumeInfo", {})
         if "title" not in volume_info:
@@ -132,7 +130,7 @@ class Google(Metadata):
         return ""
 
     @staticmethod
-    def _parse_isbn(result: Dict, match: MetaRecord) -> MetaRecord:
+    def _parse_isbn(result: dict, match: MetaRecord) -> MetaRecord:
         identifiers = result["volumeInfo"].get("industryIdentifiers", [])
         for identifier in identifiers:
             if identifier.get("type") == Google.ISBN_TYPE:
@@ -141,7 +139,7 @@ class Google(Metadata):
         return match
 
     @staticmethod
-    def _parse_cover(result: Dict, generic_cover: str) -> str:
+    def _parse_cover(result: dict, generic_cover: str) -> str:
         if result["volumeInfo"].get("imageLinks"):
             cover_url = result["volumeInfo"]["imageLinks"]["thumbnail"]
 
@@ -155,7 +153,7 @@ class Google(Metadata):
         return generic_cover
 
     @staticmethod
-    def _parse_languages(result: Dict, locale: str) -> List[str]:
+    def _parse_languages(result: dict, locale: str) -> list[str]:
         language_iso2 = result["volumeInfo"].get("language", "")
         languages = (
             [get_language_name(locale, get_lang3(language_iso2))]

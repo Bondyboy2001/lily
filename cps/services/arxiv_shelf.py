@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -9,7 +8,7 @@ shelf and removes the Papers shelf."""
 
 import os
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -110,7 +109,7 @@ def replace_papers_shelf_once(marker_path):
             session.delete(papers)
     os.makedirs(os.path.dirname(marker_path), exist_ok=True)
     with open(marker_path, "w", encoding="utf-8") as marker:
-        marker.write(datetime.now(timezone.utc).isoformat())
+        marker.write(datetime.now(UTC).isoformat())
     if added or removed:
         log.info("Put %d arXiv papers on the arXiv shelf%s", added, "; removed the Papers shelf" if removed else "")
     return added

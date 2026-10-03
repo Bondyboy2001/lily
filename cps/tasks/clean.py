@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -16,7 +15,7 @@ from cps.services.worker import CalibreTask
 
 class TaskClean(CalibreTask):
     def __init__(self, task_message=N_('Delete temp folder contents')):
-        super(TaskClean, self).__init__(task_message)
+        super().__init__(task_message)
         self.log = logger.create()
         self.app_db_session = ub.get_new_session_instance()
 
@@ -27,7 +26,7 @@ class TaskClean(CalibreTask):
         except FileNotFoundError:
             pass
         except (PermissionError, OSError) as e:
-            self.log.error("Error deleting temp folder: {}".format(e))
+            self.log.error(f"Error deleting temp folder: {e}")
         # delete expired session keys
         self.log.debug("Deleted expired session_keys" )
         expiry = int(datetime.datetime.now().timestamp())

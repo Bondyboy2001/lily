@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -33,5 +32,4 @@ def cover_processing(tmp_file_name, img, extension):
         with open(tmp_cover_name, 'wb') as f:
             f.write(img)
         return tmp_cover_name
-    else:
-        return None
+    return None

@@ -15,7 +15,7 @@ Kept free of Flask/cps imports so it can be used from the web app and from tests
 
 import os
 import shutil
-from typing import Callable
+from collections.abc import Callable
 
 # The live database is snapshotted properly by db_backup.py; copying it file-by-file
 # can capture a torn WAL-mode database.

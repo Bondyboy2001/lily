@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -30,7 +29,7 @@ class BackgroundScheduler:
             return False
 
         if cls._instance is None:
-            cls._instance = super(BackgroundScheduler, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             cls.log = logger.create()
             logger.logging.getLogger('tzlocal').setLevel(logger.logging.WARNING)
             cls.scheduler = BScheduler()

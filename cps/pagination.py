@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -9,7 +8,7 @@ from math import ceil
 
 
 # simple pagination for the feed
-class Pagination(object):
+class Pagination:
     def __init__(self, page, per_page, total_count):
         self.page = int(page)
         self.per_page = int(per_page)

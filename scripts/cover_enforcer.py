@@ -221,7 +221,7 @@ class Book:
 
     def get_calibre_library(self) -> str:
         """Gets Calibre-Library location from dirs.json"""
-        with open(dirs_json, 'r') as f:
+        with open(dirs_json) as f:
             dirs = json.load(f)
         return dirs['calibre_library_dir'] # Returns without / on the end
 
@@ -288,8 +288,7 @@ class Book:
             except subprocess.TimeoutExpired:
                 if attempt < max_retries - 1:
                     continue
-                else:
-                    raise
+                raise
 
         # If all retries failed
         raise RuntimeError(f"Failed to export metadata for book {self.book_id} after {max_retries} attempts")
@@ -354,13 +353,12 @@ class Enforcer:
                 "split_path": split_path,
                 "db_path": db_path
             }
-        else:
-            con.close()
-            return None
+        con.close()
+        return None
 
 
     def get_calibre_library(self) -> str:
-        with open(dirs_json, 'r') as f:
+        with open(dirs_json) as f:
             dirs = json.load(f)
         return dirs['calibre_library_dir'] # Returns without / on the end
 
@@ -395,13 +393,12 @@ class Enforcer:
                     if attempt < max_retries - 1:
                         time.sleep(retry_delay)
                         continue
-                    else:
-                        print(f"[cover-metadata-enforcer] WARNING: Log file '{os.path.basename(file_path)}' not found after {max_retries} attempts. "
-                              f"This may be due to a race condition or the file was already processed and deleted.", flush=True)
-                        return None
+                    print(f"[cover-metadata-enforcer] WARNING: Log file '{os.path.basename(file_path)}' not found after {max_retries} attempts. "
+                          f"This may be due to a race condition or the file was already processed and deleted.", flush=True)
+                    return None
 
                 # Try to read the file
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding='utf-8') as f:
                     log_info = json.load(f)
 
                 log_info['book_id'] = book_id
@@ -412,18 +409,16 @@ class Enforcer:
                 if attempt < max_retries - 1:
                     time.sleep(retry_delay)
                     continue
-                else:
-                    print(f"[cover-metadata-enforcer] WARNING: Log file '{os.path.basename(file_path)}' not found after {max_retries} attempts. "
-                          f"This may be due to a race condition or the file was already processed and deleted.", flush=True)
-                    return None
+                print(f"[cover-metadata-enforcer] WARNING: Log file '{os.path.basename(file_path)}' not found after {max_retries} attempts. "
+                      f"This may be due to a race condition or the file was already processed and deleted.", flush=True)
+                return None
             except json.JSONDecodeError as e:
                 if attempt < max_retries - 1:
                     # File might still be being written
                     time.sleep(retry_delay)
                     continue
-                else:
-                    print(f"[cover-metadata-enforcer] ERROR: Failed to parse log file '{os.path.basename(file_path)}': {e}", flush=True)
-                    return None
+                print(f"[cover-metadata-enforcer] ERROR: Failed to parse log file '{os.path.basename(file_path)}': {e}", flush=True)
+                return None
             except Exception as e:
                 print(f"[cover-metadata-enforcer] ERROR: Unexpected error reading log file '{os.path.basename(file_path)}': {e}", flush=True)
                 return None
@@ -593,10 +588,9 @@ class Enforcer:
                 self.empty_metadata_temp()
 
             return book_objects
-        else:
-            print(f"[cover-metadata-enforcer]: No supported file formats found in {book_dir}.", flush=True)
-            print("[cover-metadata-enforcer]: *** NOTICE **** Only EPUB & AZW3 formats are currently supported.", flush=True)
-            return []
+        print(f"[cover-metadata-enforcer]: No supported file formats found in {book_dir}.", flush=True)
+        print("[cover-metadata-enforcer]: *** NOTICE **** Only EPUB & AZW3 formats are currently supported.", flush=True)
+        return []
 
 
     def _enforce_file(self, book_dir: str, file: str, new_metadata_path: str | None = None) -> "Book":
@@ -668,8 +662,8 @@ class Enforcer:
             t_end = time.time()
 
             return successful_enforcements, (t_end - t_start), len(supported_files)
-        else: # No supported files found
-            return False, False, False
+        # No supported files found
+        return False, False, False
 
 
     def replace_old_metadata(self, old_metadata: str, new_metadata: str) -> None:

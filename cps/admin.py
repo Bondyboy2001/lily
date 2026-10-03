@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -91,9 +90,8 @@ def reconnect():
     if cli_param.reconnect_enable:
         calibre_db.reconnect_db(config, ub.app_DB_path)
         return json.dumps({})
-    else:
-        log.debug("'/reconnect' was accessed but is not enabled")
-        abort(404)
+    log.debug("'/reconnect' was accessed but is not enabled")
+    abort(404)
 
 
 @admi.route("/admin/usertable")
@@ -189,15 +187,15 @@ def _handle_new_user(to_save, content):
         ub.session.add(content)
         ub.session.commit()
         flash(_("User '%(user)s' created", user=content.name), category="success")
-        log.debug("User {} created".format(content.name))
+        log.debug(f"User {content.name} created")
         return redirect(url_for('admin.edit_user_table'))
     except IntegrityError:
         ub.session.rollback()
-        log.error("Found an existing account for {} or {}".format(content.name, content.email))
+        log.error(f"Found an existing account for {content.name} or {content.email}")
         flash(_("A user with that name or email already exists. Choose a different one."), category="error")
     except OperationalError as e:
         ub.session.rollback()
-        log.error_or_exception("Settings Database error: {}".format(e))
+        log.error_or_exception(f"Settings Database error: {e}")
         flash(_("Couldn't add the user. Try again; if it keeps failing, check Logs in Settings."),
               category="error")
 
@@ -217,12 +215,10 @@ def _delete_user(content):
             ub.session.query(ub.User).filter(ub.User.id == content.id).delete()
             ub.session.query(ub.User_Sessions).filter(ub.User_Sessions.user_id == content.id).delete()
             ub.session_commit()
-            log.info("User {} deleted".format(content.name))
+            log.info(f"User {content.name} deleted")
             return _("User '%(nick)s' deleted", nick=content.name)
-        else:
-            raise Exception(_("Can't delete Guest User"))
-    else:
-        raise Exception(_("No admin user remaining, can't delete user"))
+        raise Exception(_("Can't delete Guest User"))
+    raise Exception(_("No admin user remaining, can't delete user"))
 
 
 def _handle_edit_user(to_save, content):
@@ -235,7 +231,7 @@ def _handle_edit_user(to_save, content):
         return redirect(url_for('admin.edit_user_table'))
     if not ub.session.query(ub.User).filter(ub.User.role.op('&')(constants.ROLE_ADMIN) == constants.ROLE_ADMIN,
                                             ub.User.id != content.id).count() and 'admin_role' not in to_save:
-        log.warning("No admin user remaining, can't remove admin role from {}".format(content.name))
+        log.warning(f"No admin user remaining, can't remove admin role from {content.name}")
         flash(_("No admin user remaining, can't remove admin role"), category="error")
         return redirect(url_for('admin.edit_user_table'))
 
@@ -274,12 +270,12 @@ def _handle_edit_user(to_save, content):
         flash(_("User '%(nick)s' updated", nick=content.name), category="success")
     except IntegrityError as ex:
         ub.session.rollback()
-        log.error("An unknown error occurred while changing user: {}".format(str(ex)))
+        log.error(f"An unknown error occurred while changing user: {str(ex)}")
         flash(_("Couldn't save the user. Try again; if it keeps failing, check Logs in Settings."),
               category="error")
     except OperationalError as e:
         ub.session.rollback()
-        log.error_or_exception("Settings Database error: {}".format(e))
+        log.error_or_exception(f"Settings Database error: {e}")
         flash(_("Couldn't save the user. Try again; if it keeps failing, check Logs in Settings."),
               category="error")
     return ""

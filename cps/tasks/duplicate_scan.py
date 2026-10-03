@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -36,7 +35,7 @@ log = logger.create()
 class TaskDuplicateScan(CalibreTask):
     def __init__(self, full_scan=True, task_message=None, trigger_type='manual', user_id=None, book_ids=None,
                  include_new_books=None):
-        super(TaskDuplicateScan, self).__init__(task_message or N_('Duplicate scan'))
+        super().__init__(task_message or N_('Duplicate scan'))
         self.full_scan = full_scan
         self.trigger_type = trigger_type
         self.result_count = 0

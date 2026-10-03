@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -70,7 +69,7 @@ class WorkerThread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
 
-        self.dequeued = list()
+        self.dequeued = []
 
         self.doLock = threading.Lock()
         self.queue = ImprovedQueue()
@@ -82,7 +81,7 @@ class WorkerThread(threading.Thread):
         ins = cls.get_instance()
         ins.num += 1
         username = user if user is not None else 'System'
-        log.debug("Add Task for user: {} - {}".format(username, task))
+        log.debug(f"Add Task for user: {username} - {task}")
         ins.queue.put(QueuedTask(
             num=ins.num,
             user=username,
@@ -99,7 +98,7 @@ class WorkerThread(threading.Thread):
             ins.num += 1
             ins.dequeued.append(QueuedTask(num=ins.num, user=user if user is not None else 'System',
                                            added=datetime.now(), task=task, hidden=False))
-        log.debug("Start parallel task for user: {} - {}".format(user, task))
+        log.debug(f"Start parallel task for user: {user} - {task}")
         thread = threading.Thread(target=task.start, args=(ins,), name="task-%s" % task.id, daemon=True)
         thread.start()
         return thread

@@ -17,7 +17,7 @@ import time
 import shutil
 import sqlite3
 import fcntl
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 
 import title_card  # stdlib only at import time; Wand loads when a card is drawn
@@ -102,7 +102,7 @@ class ProcessLock:
             while True:
                 try:
                     fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except (IOError, OSError):
+                except OSError:
                     # Lock is held by another live process
                     if time.time() - start_time >= timeout:
                         break
@@ -135,7 +135,7 @@ class ProcessLock:
     def _get_holding_pid(self):
         """Get the PID recorded by the process holding the lock (diagnostic only)"""
         try:
-            with open(self.lock_path, 'r') as f:
+            with open(self.lock_path) as f:
                 pid_str = f.read().strip()
             return int(pid_str) if pid_str.isdigit() else "unknown"
         except Exception:
@@ -652,13 +652,12 @@ class NewBookProcessor:
                     "split_path": split_path,
                     "db_path": db_path,
                 }
-            else:
-                return None
+            return None
 
 
     def get_dirs(self, dirs_json_path: str) -> tuple[str, str, str]:
         dirs = {}
-        with open(dirs_json_path, 'r') as f:
+        with open(dirs_json_path) as f:
             dirs: dict[str, str] = json.load(f)
 
         ingest_folder = f"{dirs['ingest_folder']}/"
@@ -670,10 +669,7 @@ class NewBookProcessor:
 
     def is_supported_audiobook(self) -> bool:
         input_format = Path(self.filepath).suffix[1:].lower()
-        if input_format in self.supported_audiobook_formats:
-            return True
-        else:
-            return False
+        return input_format in self.supported_audiobook_formats
 
     def backup(self, input_file, backup_type):
         output_path = None
@@ -900,7 +896,7 @@ class NewBookProcessor:
                             print("[ingest-processor] INFO: Skipping timestamp adjust (title_sort SQL function unavailable).", flush=True)
                         else:
                             cur = con.cursor()
-                            now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S+00:00")
+                            now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S+00:00")
                             cur.execute('UPDATE books SET timestamp = ? WHERE id = ?', (now, self.last_added_book_id))
                             print(f"[ingest-processor] INFO: Set timestamp to {now} for newly imported book id={self.last_added_book_id}.", flush=True)
                 except Exception as e:
@@ -1111,7 +1107,7 @@ def main(filepath=None):
         allowed_len = MAX_LENGTH - len(ext)
 
         # Ignore sidecar manifests entirely (handled when the real file is processed)
-        if filename.endswith(".cwa.json") or filename.endswith(".cwa.failed.json"):
+        if filename.endswith((".cwa.json", ".cwa.failed.json")):
             print(f"[ingest-processor] Skipping sidecar manifest file: {filename}", flush=True)
             return 0
 
@@ -1163,7 +1159,7 @@ def main(filepath=None):
         manifest_path = filepath + ".cwa.json"
         try:
             if Path(manifest_path).exists():
-                with open(manifest_path, 'r', encoding='utf-8') as mf:
+                with open(manifest_path, encoding='utf-8') as mf:
                     manifest = json.load(mf)
                 action = manifest.get("action")
                 if action == "add_format":

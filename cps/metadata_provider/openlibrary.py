@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -9,7 +8,6 @@
 import re
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from typing import Dict, List, Optional
 
 
 from cps import logger
@@ -32,14 +30,14 @@ class OpenLibrary(Metadata):
 
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
-    ) -> Optional[List[MetaRecord]]:
+    ) -> list[MetaRecord] | None:
         records = self.search_titles(query, generic_cover, locale)
         self._add_descriptions(records)
         return records
 
     def search_titles(
         self, query: str, generic_cover: str = "", locale: str = "en"
-    ) -> List[MetaRecord]:
+    ) -> list[MetaRecord]:
         """search() without the descriptions, which are a request each: a lookup that applies
         one exact match finds it by title and authors, then calls complete() on it alone."""
         if not query.strip():
@@ -53,15 +51,15 @@ class OpenLibrary(Metadata):
         return record
 
     def search_identifiers(
-        self, identifiers: Dict[str, str], generic_cover: str = "", locale: str = "en"
-    ) -> List[MetaRecord]:
+        self, identifiers: dict[str, str], generic_cover: str = "", locale: str = "en"
+    ) -> list[MetaRecord]:
         isbn = identifiers.get("isbn")
         if not isbn:
             return []
         # The work (authors, subjects) and the edition (publisher, date) come separately
         with ThreadPoolExecutor(max_workers=2) as pool:
             docs = pool.submit(self._search_docs, {"isbn": isbn, "limit": 1})
-            edition = pool.submit(self._get_json, "/isbn/{}.json".format(isbn))
+            edition = pool.submit(self._get_json, f"/isbn/{isbn}.json")
             docs, edition = docs.result(), edition.result() or {}
         if not docs:
             return []
@@ -76,13 +74,13 @@ class OpenLibrary(Metadata):
         self._add_descriptions([record])
         return [record]
 
-    def _request(self, path: str, params: Optional[Dict] = None) -> Dict:
+    def _request(self, path: str, params: dict | None = None) -> dict:
         # Busy is likely: Rebuild metadata asks for several books at once
         response = get_patiently(self.BASE_URL + path, pause=2, params=params, headers=self.HEADERS, timeout=15)
         response.raise_for_status()
         return response.json()
 
-    def _get_json(self, path: str, params: Optional[Dict] = None) -> Optional[Dict]:
+    def _get_json(self, path: str, params: dict | None = None) -> dict | None:
         """A detail of a record already found (edition, description): None when it can't be had."""
         try:
             return self._request(path, params)
@@ -90,11 +88,11 @@ class OpenLibrary(Metadata):
             log.warning("Open Library request %s failed: %s", path, e)
             return None
 
-    def _search_docs(self, params: Dict) -> List[Dict]:
+    def _search_docs(self, params: dict) -> list[dict]:
         """The search itself: a failure is raised, not passed off as no results."""
         return self._request("/search.json", dict(params, fields=SEARCH_FIELDS)).get("docs", [])
 
-    def _parse_doc(self, doc: Dict, generic_cover: str, locale: str) -> Optional[MetaRecord]:
+    def _parse_doc(self, doc: dict, generic_cover: str, locale: str) -> MetaRecord | None:
         title = doc.get("title")
         key = doc.get("key")  # "/works/OL45883W"
         if not title or not key:
@@ -116,14 +114,14 @@ class OpenLibrary(Metadata):
             self.COVER_URL.format(doc["cover_i"]) if doc.get("cover_i") else generic_cover
         )
         year = doc.get("first_publish_year")
-        match.publishedDate = "{:04d}-01-01".format(year) if year else ""
+        match.publishedDate = f"{year:04d}-01-01" if year else ""
         match.tags = doc.get("subject", [])[:10]
         match.languages = self._parse_languages(doc.get("language", []), locale)
         match.identifiers = {"openlibrary": work_id}
         return match
 
     @staticmethod
-    def _parse_languages(codes: List[str], locale) -> List[str]:
+    def _parse_languages(codes: list[str], locale) -> list[str]:
         # A work lists every language any edition appeared in; only a single one is telling
         if len(codes) != 1:
             return []
@@ -133,10 +131,10 @@ class OpenLibrary(Metadata):
             return []
         return [name] if name and name != "Unknown" else []
 
-    def _add_descriptions(self, records: List[MetaRecord]) -> None:
+    def _add_descriptions(self, records: list[MetaRecord]) -> None:
         # Search results carry no description; each work has its own
         def fetch(record):
-            work = self._get_json("/works/{}.json".format(record.id)) or {}
+            work = self._get_json(f"/works/{record.id}.json") or {}
             description = work.get("description") or ""
             if isinstance(description, dict):
                 description = description.get("value", "")
@@ -147,7 +145,7 @@ class OpenLibrary(Metadata):
                 list(pool.map(fetch, records))
 
     @staticmethod
-    def _parse_date(raw: Optional[str]) -> str:
+    def _parse_date(raw: str | None) -> str:
         if not raw:
             return ""
         for fmt in ("%B %d, %Y", "%b %d, %Y", "%Y-%m-%d", "%B %Y", "%b %Y", "%Y"):
@@ -156,4 +154,4 @@ class OpenLibrary(Metadata):
             except ValueError:
                 continue
         year = re.search(r"\b(1\d|20)\d{2}\b", raw)
-        return "{}-01-01".format(year.group(0)) if year else ""
+        return f"{year.group(0)}-01-01" if year else ""

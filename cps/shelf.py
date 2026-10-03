@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -7,7 +6,7 @@
 
 """Shelves: create, edit, delete, order and add books."""
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from flask import Blueprint, flash, redirect, request, url_for, abort, jsonify
 from flask_babel import gettext as _
@@ -52,7 +51,7 @@ def delete_shelf(shelf_id):
             flash(_("Shelf successfully deleted"), category="success")
     except InvalidRequestError as e:
         ub.session.rollback()
-        log.error_or_exception("Settings Database error: {}".format(e))
+        log.error_or_exception(f"Settings Database error: {e}")
         flash(_("Couldn't delete the shelf. Try again; if it keeps failing, check Logs in Settings."),
               category="error")
     return redirect(url_for('web.index'))
@@ -84,11 +83,11 @@ def order_shelf(shelf_id):
                 ub.session.commit()
             except (OperationalError, InvalidRequestError) as e:
                 ub.session.rollback()
-                log.error_or_exception("Settings Database error: {}".format(e))
+                log.error_or_exception(f"Settings Database error: {e}")
                 flash(_("Couldn't save the shelf order. Try again; if it keeps failing, check Logs in Settings."),
                       category="error")
 
-        result = list()
+        result = []
         if shelf:
             result = calibre_db.session.query(db.Books) \
                 .join(ub.BookShelf, ub.BookShelf.book_id == db.Books.id, isouter=True) \
@@ -97,16 +96,15 @@ def order_shelf(shelf_id):
         return render_title_template('shelf_order.html', entries=result,
                                      title=_("Change Order of Shelf: %(name)s", name=shelf.name),
                                      shelf=shelf, page="shelforder")
-    else:
-        abort(404)
+    abort(404)
 
 
 def check_shelf_edit_permissions(cur_shelf):
     if not cur_shelf.is_public and not cur_shelf.user_id == int(current_user.id):
-        log.error("User {} not allowed to edit shelf: {}".format(current_user.id, cur_shelf.name))
+        log.error(f"User {current_user.id} not allowed to edit shelf: {cur_shelf.name}")
         return False
     if cur_shelf.is_public and not current_user.role_edit_shelfs():
-        log.info("User {} not allowed to edit public shelves".format(current_user.id))
+        log.info(f"User {current_user.id} not allowed to edit public shelves")
         return False
     return True
 
@@ -116,7 +114,7 @@ def check_shelf_view_permissions(cur_shelf):
         if cur_shelf.is_public:
             return True
         if current_user.is_anonymous or cur_shelf.user_id != current_user.id:
-            log.error("User is unauthorized to view non-public shelf: {}".format(cur_shelf.name))
+            log.error(f"User is unauthorized to view non-public shelf: {cur_shelf.name}")
             return False
     except Exception as e:
         log.error(e)
@@ -145,13 +143,13 @@ def create_edit_shelf(shelf, page_title, page, shelf_id=False):
                 flash_text = _("Shelf %(title)s changed", title=shelf_title)
             try:
                 ub.session.commit()
-                log.info("Shelf {} {}".format(shelf_title, shelf_action))
+                log.info(f"Shelf {shelf_title} {shelf_action}")
                 flash(flash_text, category="success")
                 return redirect(url_for('shelf.show_shelf', shelf_id=shelf.id))
             except (OperationalError, InvalidRequestError) as ex:
                 ub.session.rollback()
                 log.error_or_exception(ex)
-                log.error_or_exception("Settings Database error: {}".format(ex))
+                log.error_or_exception(f"Settings Database error: {ex}")
                 flash(_("Couldn't save the shelf. Try again; if it keeps failing, check Logs in Settings."),
                       category="error")
             except Exception as ex:
@@ -179,7 +177,7 @@ def check_shelf_is_unique(title, is_public, shelf_id=False):
                                    .first() is None
 
         if not is_shelf_name_unique:
-            log.error("A public shelf with the name '{}' already exists.".format(title))
+            log.error(f"A public shelf with the name '{title}' already exists.")
             flash(_("A public shelf with the name '%(title)s' already exists.", title=title),
                   category="error")
     else:
@@ -190,7 +188,7 @@ def check_shelf_is_unique(title, is_public, shelf_id=False):
                                    .first() is None
 
         if not is_shelf_name_unique:
-            log.error("A private shelf with the name '{}' already exists.".format(title))
+            log.error(f"A private shelf with the name '{title}' already exists.")
             flash(_("A private shelf with the name '%(title)s' already exists.", title=title),
                   category="error")
     return is_shelf_name_unique
@@ -202,7 +200,7 @@ def delete_shelf_helper(cur_shelf):
     shelf_id = cur_shelf.id
     ub.session.delete(cur_shelf)
     ub.session.query(ub.BookShelf).filter(ub.BookShelf.shelf == shelf_id).delete()
-    ub.session_commit("successfully deleted Shelf {}".format(cur_shelf.name))
+    ub.session_commit(f"successfully deleted Shelf {cur_shelf.name}")
     return True
 
 
@@ -215,7 +213,7 @@ def change_shelf_order(shelf_id, order):
         book = ub.session.query(ub.BookShelf).filter(ub.BookShelf.shelf == shelf_id) \
             .filter(ub.BookShelf.book_id == entry.id).first()
         book.order = index
-    ub.session_commit("Shelf-id:{} - Order changed".format(shelf_id))
+    ub.session_commit(f"Shelf-id:{shelf_id} - Order changed")
 
 
 def render_show_shelf(shelf_id, page_no, sort_param):
@@ -265,13 +263,13 @@ def render_show_shelf(shelf_id, page_no, sort_param):
             .join(db.Books, ub.BookShelf.book_id == db.Books.id, isouter=True) \
             .filter(db.Books.id == None).all()
         for entry in wrong_entries:
-            log.info('Not existing book {} in {} deleted'.format(entry.book_id, shelf))
+            log.info(f'Not existing book {entry.book_id} in {shelf} deleted')
             try:
                 ub.session.query(ub.BookShelf).filter(ub.BookShelf.book_id == entry.book_id).delete()
                 ub.session.commit()
             except (OperationalError, InvalidRequestError) as e:
                 ub.session.rollback()
-                log.error_or_exception("Settings Database error: {}".format(e))
+                log.error_or_exception(f"Settings Database error: {e}")
                 flash(_("Couldn't tidy up books missing from this shelf. If it keeps failing, check Logs in Settings."),
                       category="error")
 
@@ -283,9 +281,8 @@ def render_show_shelf(shelf_id, page_no, sort_param):
                                      page="shelf",
                                      status=status,
                                      order=sort_param)
-    else:
-        flash(_("Error opening shelf. Shelf does not exist or is not accessible"), category="error")
-        return redirect(url_for("web.index"))
+    flash(_("Error opening shelf. Shelf does not exist or is not accessible"), category="error")
+    return redirect(url_for("web.index"))
 
 
 @shelf.route("/shelf/<int:shelf_id>/book/<int:book_id>", methods=["POST"])
@@ -310,10 +307,10 @@ def set_book_on_shelf(shelf_id, book_id):
             max_order = ub.session.query(func.max(ub.BookShelf.order)).filter(
                 ub.BookShelf.shelf == shelf_id).scalar()
             cur_shelf.books.append(ub.BookShelf(shelf=shelf_id, book_id=book_id, order=(max_order or 0) + 1))
-            cur_shelf.last_modified = datetime.now(timezone.utc)
+            cur_shelf.last_modified = datetime.now(UTC)
         elif not data["on"] and link:
             ub.session.delete(link)
-            cur_shelf.last_modified = datetime.now(timezone.utc)
+            cur_shelf.last_modified = datetime.now(UTC)
         ub.session.commit()
     except (OperationalError, InvalidRequestError) as e:
         ub.session.rollback()

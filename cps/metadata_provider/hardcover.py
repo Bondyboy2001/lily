@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -9,7 +8,6 @@
 # Hardcover API: https://docs.hardcover.app/api/getting-started/
 import json
 from os import getenv
-from typing import Dict, List, Optional
 
 import requests
 
@@ -58,8 +56,8 @@ class Hardcover(Metadata):
     )
 
     def search_identifiers(
-        self, identifiers: Dict[str, str], generic_cover: str = "", locale: str = "en"
-    ) -> List[MetaRecord]:
+        self, identifiers: dict[str, str], generic_cover: str = "", locale: str = "en"
+    ) -> list[MetaRecord]:
         """A Hardcover book id: that book's editions."""
         book_id = str(identifiers.get("hardcover-id", "")).strip()
         if not book_id.isdigit():
@@ -75,11 +73,11 @@ class Hardcover(Metadata):
 
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
-    ) -> Optional[List[MetaRecord]]:
+    ) -> list[MetaRecord] | None:
         data = self._query(Hardcover.SEARCH_QUERY, query)
         if not data:
             return []
-        val: List[MetaRecord] = []
+        val: list[MetaRecord] = []
         try:
             raw_results = self._safe_get(data, "data", "search", "results", default=[])
             if isinstance(raw_results, str):
@@ -102,7 +100,7 @@ class Hardcover(Metadata):
     def available(self) -> bool:
         return bool(getattr(config, "config_hardcover_token", None) or getenv("HARDCOVER_TOKEN"))
 
-    def _query(self, gql: str, variable) -> Optional[Dict]:
+    def _query(self, gql: str, variable) -> dict | None:
         """Runs a GraphQL query. None without a token (Hardcover is off until HARDCOVER_TOKEN
         is set), quietly: a library rebuild asks once a book. A failed request is raised."""
         token = getattr(config, "config_hardcover_token", None) or getenv("HARDCOVER_TOKEN")
@@ -130,8 +128,8 @@ class Hardcover(Metadata):
         return response_data
 
     def _parse_title_result(
-        self, result: Dict, generic_cover: str, locale: str
-    ) -> Optional[MetaRecord]:
+        self, result: dict, generic_cover: str, locale: str
+    ) -> MetaRecord | None:
         try:
             document = self._safe_get(result, "document", default={})
             if not document:
@@ -171,9 +169,9 @@ class Hardcover(Metadata):
             return None
 
     def _parse_edition_results(
-        self, result: Dict, generic_cover: str, locale: str
-    ) -> List[MetaRecord]:
-        editions: List[MetaRecord] = []
+        self, result: dict, generic_cover: str, locale: str
+    ) -> list[MetaRecord]:
+        editions: list[MetaRecord] = []
         book_id = result.get("id", "")
         for edition in result.get("editions", []) or []:
             match = MetaRecord(
@@ -212,7 +210,7 @@ class Hardcover(Metadata):
         return editions
 
     @staticmethod
-    def _parse_title_url(result: Dict, url: str) -> str:
+    def _parse_title_url(result: dict, url: str) -> str:
         document = result.get("document", {})
         hardcover_slug = document.get("slug", "")
         if hardcover_slug:
@@ -220,7 +218,7 @@ class Hardcover(Metadata):
         return url
 
     @staticmethod
-    def _parse_edition_url(result: Dict, edition: Dict, url: str) -> str:
+    def _parse_edition_url(result: dict, edition: dict, url: str) -> str:
         edition_id = edition.get("id", "")
         slug = result.get("slug", "")
         if edition_id:
@@ -228,12 +226,12 @@ class Hardcover(Metadata):
         return url
 
     @staticmethod
-    def _parse_edition_authors(edition: Dict, authors: List[str]) -> List[str]:
+    def _parse_edition_authors(edition: dict, authors: list[str]) -> list[str]:
         try:
             contributions = edition.get("contributions", [])
             if not isinstance(contributions, list):
                 return authors
-            result_authors: List[str] = []
+            result_authors: list[str] = []
             for contrib in contributions:
                 if isinstance(contrib, dict) and "author" in contrib:
                     author_data = contrib.get("author")
@@ -245,7 +243,7 @@ class Hardcover(Metadata):
             return authors
 
     @staticmethod
-    def _parse_tags(result: Dict, tags: List[str]) -> List[str]:
+    def _parse_tags(result: dict, tags: list[str]) -> list[str]:
         try:
             cached_tags = result.get("cached_tags", [])
             # Hardcover GraphQL now returns cached_tags as a scalar JSON value (!json)
@@ -254,7 +252,7 @@ class Hardcover(Metadata):
             # - a list of strings: ["..."] (possible shape)
             # - a JSON-encoded string: "[\"...\"]" (defensive handling)
             # - a single string: "..."
-            parsed: List[str] = []
+            parsed: list[str] = []
             # If it's a string, try to json-decode, otherwise treat as single tag
             if isinstance(cached_tags, str):
                 try:
@@ -284,7 +282,7 @@ class Hardcover(Metadata):
             return tags
 
     @staticmethod
-    def _parse_languages(edition: Dict, locale: str) -> List[str]:
+    def _parse_languages(edition: dict, locale: str) -> list[str]:
         language_iso = (edition.get("language") or {}).get("code3", "")
         languages = [get_language_name(locale, language_iso)] if language_iso else []
         return languages

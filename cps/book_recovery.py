@@ -24,7 +24,7 @@ import threading
 import time
 import uuid as uuid_module
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from . import config, logger, ub
 
@@ -408,7 +408,7 @@ def capture_book(book, book_format="", reason="delete"):
             manifest = {
                 "version": MANIFEST_VERSION,
                 "recovery_id": recovery_id,
-                "created_utc": datetime.now(timezone.utc).isoformat(),
+                "created_utc": datetime.now(UTC).isoformat(),
                 "library_uuid": lib_uuid,
                 "book_id": book.id,
                 "book_uuid": book_row[0].get("uuid"),
@@ -532,7 +532,7 @@ def _load_manifest(entry_dir):
     if not os.path.isfile(path) or os.path.islink(path):
         return None
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             manifest = json.load(f)
         return _validate_manifest(manifest, entry_dir)
     except (OSError, ValueError, TypeError, AttributeError, RecoveryError):

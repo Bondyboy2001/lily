@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -93,7 +92,7 @@ def duplicate_index_setup_notification(settings, cwa_db=None, cache_data=None, c
 
 
 def get_sidebar_config():
-    sidebar = list()
+    sidebar = []
     sidebar.append({"glyph": "glyphicon-book", "text": _('Books'), "link": 'web.index', "id": "new",
                     "visibility": constants.SIDEBAR_RECENT, 'public': True, "page": "newest"})
     sidebar.append({"glyph": "glyphicon-fire", "text": _('Hot Books'), "link": 'web.books_list', "id": "hot",
@@ -149,7 +148,7 @@ def shelf_book_counts(shelf_ids):
     rows = (ub.session.query(ub.BookShelf.shelf, func.count(ub.BookShelf.id))
             .filter(ub.BookShelf.shelf.in_(shelf_ids))
             .group_by(ub.BookShelf.shelf).all())
-    return {shelf_id: count for shelf_id, count in rows}
+    return dict(rows)
 
 # Checks if an update for CWA is available, returning True if yes
 def cwa_update_available() -> tuple[bool, str, str]:
@@ -186,7 +185,7 @@ def cwa_update_notification() -> None:
     if not get_request_cwa_db().cwa_settings['cwa_update_notifications']:
         return
     try:
-        with open(UPDATE_NOTICE_FILE, 'r') as f:
+        with open(UPDATE_NOTICE_FILE) as f:
             last_notification = f.read().strip()
     except OSError:
         last_notification = ""
@@ -284,5 +283,5 @@ def render_title_template(*args, **kwargs):
                        duplicate_notification=duplicate_notification,
                        *args, **kwargs)
     except PermissionError:
-        log.error("No permission to access {} file.".format(args[0]))
+        log.error(f"No permission to access {args[0]} file.")
         abort(403)

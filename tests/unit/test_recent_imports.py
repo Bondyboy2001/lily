@@ -38,5 +38,5 @@ def test_recent_imports_names_the_books_added_since_the_last_answer(env):
 def test_the_importer_writes_date_added_in_utc():
     # datetime.now() is local time; labelled +00:00 it put every import an hour ahead in summer
     source = (Path(__file__).resolve().parents[2] / "scripts/ingest_processor.py").read_text()
-    assert 'datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S+00:00")' in source
+    assert 'datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S+00:00")' in source
     assert 'datetime.now().strftime("%Y-%m-%d %H:%M:%S+00:00")' not in source

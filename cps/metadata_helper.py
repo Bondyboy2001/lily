@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -17,7 +16,7 @@ import shutil
 import sys
 import tempfile
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from cps import logger, db, constants, helper
 from cps.clean_html import clean_string
@@ -977,7 +976,7 @@ def _apply_record(cdb, book, record, cover, replace_tags=False, mode=REPLACE, st
 
     if not changed:
         return False
-    book.last_modified = datetime.now(timezone.utc)
+    book.last_modified = datetime.now(UTC)
     undo, done = _place_cover(book, cover) if new_cover else (None, None)
     try:
         session.flush()
@@ -1080,7 +1079,7 @@ def _restore(cdb, book, before):
             if identifier.type.lower() in added:
                 book.identifiers.remove(identifier)
                 session.delete(identifier)
-    book.last_modified = datetime.now(timezone.utc)
+    book.last_modified = datetime.now(UTC)
     session.flush()
     for row in dropped:
         if _unused(session, row):

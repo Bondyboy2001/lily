@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -13,7 +12,8 @@ from tornado import httputil
 from tornado.ioloop import IOLoop
 from tornado.log import access_log
 
-from typing import List, Tuple, Optional, Callable, Any, Dict, Text
+from typing import Any
+from collections.abc import Callable
 from types import TracebackType
 import typing
 
@@ -29,14 +29,8 @@ class MyWSGIContainer(WSGIContainer):
 
             def start_response(
                 status: str,
-                headers: List[Tuple[str, str]],
-                exc_info: Optional[
-                    Tuple[
-                        "Optional[Type[BaseException]]",
-                        Optional[BaseException],
-                        Optional[TracebackType],
-                    ]
-                ] = None,
+                headers: list[tuple[str, str]],
+                exc_info: tuple["type[BaseException] | None", BaseException | None, TracebackType | None] | None = None,
             ) -> Callable[[bytes], Any]:
                 data["status"] = status
                 data["headers"] = headers
@@ -57,7 +51,7 @@ class MyWSGIContainer(WSGIContainer):
             status_code_str, reason = data["status"].split(" ", 1)
             status_code = int(status_code_str)
             headers = data["headers"]  # type: List[Tuple[str, str]]
-            header_set = set(k.lower() for (k, v) in headers)
+            header_set = {k.lower() for (k, v) in headers}
             body = escape.utf8(body)
             if status_code != 304:
                 if "content-length" not in header_set:
@@ -79,7 +73,7 @@ class MyWSGIContainer(WSGIContainer):
             IOLoop.current().spawn_callback(self.handle_request, request)
 
 
-    def environ(self, request: httputil.HTTPServerRequest) -> Dict[Text, Any]:
+    def environ(self, request: httputil.HTTPServerRequest) -> dict[str, Any]:
         try:
             environ = WSGIContainer.environ(self, request)
         except TypeError:

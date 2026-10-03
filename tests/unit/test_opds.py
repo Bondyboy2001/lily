@@ -8,7 +8,7 @@ Unit tests for cps/opds.py
 
 Tests cover the OPDS cover-image route contract:
 - feed_get_cover() must request a cacheable (non-original) thumbnail
-  resolution. feed.xml/json.txt reuse this single route for every book's
+  resolution. feed.xml reuses this single route for every book's
   "image" and "image/thumbnail" rel on every catalog page, so if it ever
   regresses to requesting no resolution (or COVER_THUMBNAIL_ORIGINAL, which
   is falsy), get_book_cover_internal()'s `if resolution:` check silently

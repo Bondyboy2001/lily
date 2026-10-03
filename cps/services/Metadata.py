@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -12,7 +11,7 @@ import re
 import time
 
 import requests
-from typing import Dict, Generator, List, Optional, Union
+from collections.abc import Generator
 
 from cps import constants
 
@@ -41,25 +40,25 @@ def natural_author(name):
 
 @dataclasses.dataclass
 class MetaRecord:
-    id: Union[str, int]
+    id: str | int
     # In full, "Title: Subtitle" when the provider knows a subtitle (kept below too, so a
     # book known by the title alone still matches: metadata_suggestions.title_forms)
     title: str
-    authors: List[str]
+    authors: list[str]
     url: str
     source: MetaSourceInfo
     cover: str = os.path.join(constants.STATIC_DIR, 'generic_cover.svg')
-    description: Optional[str] = ""
-    series: Optional[str] = None
-    series_index: Optional[Union[int, float]] = 0
-    identifiers: Dict[str, Union[str, int]] = dataclasses.field(default_factory=dict)
-    publisher: Optional[str] = None
-    publishedDate: Optional[str] = None
-    rating: Optional[int] = 0
-    languages: Optional[List[str]] = dataclasses.field(default_factory=list)
-    tags: Optional[List[str]] = dataclasses.field(default_factory=list)
-    format: Optional[str] = None
-    subtitle: Optional[str] = None
+    description: str | None = ""
+    series: str | None = None
+    series_index: int | float | None = 0
+    identifiers: dict[str, str | int] = dataclasses.field(default_factory=dict)
+    publisher: str | None = None
+    publishedDate: str | None = None
+    rating: int | None = 0
+    languages: list[str] | None = dataclasses.field(default_factory=list)
+    tags: list[str] | None = dataclasses.field(default_factory=list)
+    format: str | None = None
+    subtitle: str | None = None
     # The most pixels the cover can have, when the provider knows: a book whose own cover is
     # at least that large keeps it without the provider's being downloaded to compare
     cover_max_pixels: int = 0
@@ -117,12 +116,12 @@ class Metadata:
     @abc.abstractmethod
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
-    ) -> Optional[List[MetaRecord]]:
+    ) -> list[MetaRecord] | None:
         pass
 
     def search_identifiers(
-        self, identifiers: Dict[str, str], generic_cover: str = "", locale: str = "en"
-    ) -> List[MetaRecord]:
+        self, identifiers: dict[str, str], generic_cover: str = "", locale: str = "en"
+    ) -> list[MetaRecord]:
         """Exact lookup by the book's identifiers (lower-case type -> value, e.g.
         {"isbn": ..., "doi": ..., "arxiv": ...}). Providers that can't look up by id
         return nothing."""
@@ -130,7 +129,7 @@ class Metadata:
 
     def search_titles(
         self, query: str, generic_cover: str = "", locale: str = "en"
-    ) -> Optional[List[MetaRecord]]:
+    ) -> list[MetaRecord] | None:
         """search() for a lookup that applies a single exact match (imports, Rebuild metadata):
         it picks by title and authors, then calls complete() on that record alone. A provider
         whose search makes a request per result to fill in details leaves them out here and
@@ -152,7 +151,7 @@ class Metadata:
     @staticmethod
     def get_title_tokens(
         title: str, strip_joiners: bool = True
-    ) -> Generator[str, None, None]:
+    ) -> Generator[str]:
         """
         Taken from calibre source code
         It's a simplified (cut out what is unnecessary) version of

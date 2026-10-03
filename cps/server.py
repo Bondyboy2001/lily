@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -38,7 +37,7 @@ def _readable_listen_address(address, port):
     return '%s:%s' % (address, port)
 
 
-class WebServer(object):
+class WebServer:
 
     def __init__(self):
         signal.signal(signal.SIGINT, self._killServer)
@@ -74,7 +73,7 @@ class WebServer(object):
         keyfile_path = config.get_config_keyfile()
         if certfile_path and keyfile_path:
             if os.path.isfile(certfile_path) and os.path.isfile(keyfile_path):
-                self.ssl_args = dict(certfile=certfile_path, keyfile=keyfile_path)
+                self.ssl_args = {'certfile': certfile_path, 'keyfile': keyfile_path}
             else:
                 log.warning('The specified paths for the ssl certificate file and/or key file seem to be broken. '
                             'Ignoring ssl.')
@@ -127,9 +126,9 @@ class WebServer(object):
         address = ('::', self.listen_port)
         try:
             sock = WSGIServer.get_listener(address, family=socket.AF_INET6)
-        except socket.error as ex:
+        except OSError as ex:
             log.error('%s', ex)
-            log.warning('Unable to listen on {}, trying on IPv4 only...'.format(address))
+            log.warning(f'Unable to listen on {address}, trying on IPv4 only...')
             address = ('', self.listen_port)
             sock = WSGIServer.get_listener(address, family=socket.AF_INET)
 
@@ -154,7 +153,7 @@ class WebServer(object):
             os.name == "nt"
             and __main__.__package__ == ""
             and not os.path.exists(py_script)
-            and os.path.exists("{}.exe".format(py_script))
+            and os.path.exists(f"{py_script}.exe")
         ):
             # Executed a file, like "python app.py".
             py_script = os.path.abspath(py_script)
@@ -162,7 +161,7 @@ class WebServer(object):
             if os.name == "nt":
                 # Windows entry points have ".exe" extension and should be
                 # called directly.
-                if not os.path.exists(py_script) and os.path.exists("{}.exe".format(py_script)):
+                if not os.path.exists(py_script) and os.path.exists(f"{py_script}.exe"):
                     py_script += ".exe"
 
                 if (
@@ -183,7 +182,7 @@ class WebServer(object):
                     name = os.path.splitext(os.path.basename(py_script))[0]
 
                     if name != "__main__":
-                        py_module += ".{}".format(name)
+                        py_module += f".{name}"
                 else:
                     # Incorrectly rewritten by pydevd debugger from "-m script" to "script".
                     py_module = py_script
@@ -192,7 +191,7 @@ class WebServer(object):
 
         rv.extend(args)
         if os.name == 'nt':
-            rv = ['"{}"'.format(a) for a in rv]
+            rv = [f'"{a}"' for a in rv]
         return rv
 
     def _start_gevent(self):

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -21,7 +20,7 @@ def process_open(command, quotes=(), env=None, sout=subprocess.PIPE, serr=subpro
                 command[key] = '"' + element + '"'
         exc_command = " ".join(command)
     else:
-        exc_command = [x for x in command]
+        exc_command = list(command)
 
     return subprocess.Popen(exc_command, shell=False, stdout=sout, stderr=serr, universal_newlines=newlines, env=env) # nosec
 

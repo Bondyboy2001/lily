@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -44,7 +43,7 @@ def init_cache_busting(app):
                 file_path = file_path.replace("\\", "/")  # Convert Windows path to web path
                 hash_table[file_path] = file_hash
             except PermissionError:
-                log.error("No permission to access {} file.".format(rooted_filename))
+                log.error(f"No permission to access {rooted_filename} file.")
 
     log.debug('Finished computing cache-busting values')
 

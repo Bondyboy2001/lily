@@ -36,7 +36,7 @@ import os
 import sys
 import time
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional, Set, Tuple
+from collections.abc import Iterable
 
 
 @dataclass(frozen=True)
@@ -53,7 +53,7 @@ class FileStat:
     fired: bool = False  # already emitted for this exact stat; don't refire until it changes
 
 
-def iter_files(root: str, recursive: bool = True, extensions: Optional[Set[str]] = None) -> Iterable[str]:
+def iter_files(root: str, recursive: bool = True, extensions: set[str] | None = None) -> Iterable[str]:
     if not recursive:
         try:
             for name in os.listdir(root):
@@ -71,14 +71,14 @@ def iter_files(root: str, recursive: bool = True, extensions: Optional[Set[str]]
                 yield fp
 
 
-def _match_ext(path: str, extensions: Optional[Set[str]]) -> bool:
+def _match_ext(path: str, extensions: set[str] | None) -> bool:
     if not extensions:
         return True
     _, ext = os.path.splitext(path)
     return ext.lower().lstrip('.') in extensions
 
 
-def get_stat(path: str) -> Optional[Tuple[int, int]]:
+def get_stat(path: str) -> tuple[int, int] | None:
     try:
         st = os.stat(path)
         return st.st_size, getattr(st, 'st_mtime_ns', int(st.st_mtime * 1e9))
@@ -101,21 +101,21 @@ class PollScanner:
     consecutive scans and for at least ``stabilize`` seconds of observation time.
     """
 
-    def __init__(self, root: str, recursive: bool = True, extensions: Optional[Set[str]] = None,
+    def __init__(self, root: str, recursive: bool = True, extensions: set[str] | None = None,
                  stable_scans: int = 2, stabilize: float = 1.5):
         self.root = root
         self.recursive = recursive
         self.extensions = extensions
         self.stable_scans = max(1, int(stable_scans))
         self.stabilize = max(0.0, float(stabilize))
-        self.index: Dict[FileKey, FileStat] = {}
+        self.index: dict[FileKey, FileStat] = {}
 
-    def scan(self, now: Optional[float] = None) -> list[str]:
+    def scan(self, now: float | None = None) -> list[str]:
         """Run one scan and return the paths that became ready during it."""
         if now is None:
             now = time.monotonic()
         ready: list[str] = []
-        seen: Set[FileKey] = set()
+        seen: set[FileKey] = set()
         for fp in iter_files(self.root, self.recursive, self.extensions):
             fk = FileKey(fp)
             seen.add(fk)
@@ -154,7 +154,7 @@ class PollScanner:
         return ready
 
 
-def main(argv: Optional[Iterable[str]] = None) -> int:
+def main(argv: Iterable[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Polling watcher fallback emitting inotify-like events")
     p.add_argument("--path", required=True, help="Directory to watch")
     p.add_argument("--interval", type=float, default=5.0, help="Polling interval in seconds (default: 5)")

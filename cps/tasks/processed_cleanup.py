@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2026 Calibre-Web contributors
 # Copyright (C) 2024-2026 Calibre-Web Automated contributors
@@ -89,7 +88,7 @@ class TaskCleanProcessedBooks(CalibreTask):
     """Nightly retention cleanup of /config/processed_books/{imported,failed}."""
 
     def __init__(self, task_message=N_('Cleaning up processed book backups'), root=PROCESSED_BOOKS_ROOT):
-        super(TaskCleanProcessedBooks, self).__init__(task_message)
+        super().__init__(task_message)
         self.log = logger.create()
         self.root = root
 

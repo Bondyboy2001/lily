@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -8,7 +7,7 @@
 """Tasks that generate and clean up cover thumbnails."""
 
 import os
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from dataclasses import dataclass
 
 from .. import constants
@@ -43,7 +42,7 @@ def get_resize_width(resolution, original_width, original_height):
 
 class TaskGenerateCoverThumbnails(CalibreTask):
     def __init__(self, book_id=-1, task_message='', book_path=None, last_modified=None):
-        super(TaskGenerateCoverThumbnails, self).__init__(task_message)
+        super().__init__(task_message)
         self.log = logger.create()
         self.book_id = book_id
         self.book_path = book_path
@@ -111,7 +110,7 @@ class TaskGenerateCoverThumbnails(CalibreTask):
                 BookCoverSource(
                     id=int(self.book_id),
                     path=self.book_path,
-                    last_modified=self.last_modified or datetime.now(timezone.utc),
+                    last_modified=self.last_modified or datetime.now(UTC),
                 )
             ]
         return self.get_books_with_covers(self.book_id)
@@ -121,7 +120,7 @@ class TaskGenerateCoverThumbnails(CalibreTask):
             .query(ub.Thumbnail) \
             .filter(ub.Thumbnail.type == constants.THUMBNAIL_TYPE_COVER) \
             .filter(ub.Thumbnail.entity_id == book_id) \
-            .filter(or_(ub.Thumbnail.expiration.is_(None), ub.Thumbnail.expiration > datetime.now(timezone.utc))) \
+            .filter(or_(ub.Thumbnail.expiration.is_(None), ub.Thumbnail.expiration > datetime.now(UTC))) \
             .all()
 
     def create_book_cover_thumbnails(self, book):
@@ -192,7 +191,7 @@ class TaskGenerateCoverThumbnails(CalibreTask):
             self.app_db_session.rollback()
 
     def update_book_cover_thumbnail(self, book, thumbnail):
-        thumbnail.generated_at = datetime.now(timezone.utc)
+        thumbnail.generated_at = datetime.now(UTC)
 
         try:
             self.app_db_session.commit()
@@ -229,9 +228,8 @@ class TaskGenerateCoverThumbnails(CalibreTask):
 
     def __str__(self):
         if self.book_id > 0:
-            return "Add Cover Thumbnails for Book {}".format(self.book_id)
-        else:
-            return "Generate Cover Thumbnails"
+            return f"Add Cover Thumbnails for Book {self.book_id}"
+        return "Generate Cover Thumbnails"
 
     @property
     def is_cancellable(self):
@@ -240,7 +238,7 @@ class TaskGenerateCoverThumbnails(CalibreTask):
 
 class TaskClearCoverThumbnailCache(CalibreTask):
     def __init__(self, book_id, task_message=N_('Clearing cover thumbnail cache')):
-        super(TaskClearCoverThumbnailCache, self).__init__(task_message)
+        super().__init__(task_message)
         self.log = logger.create()
         self.book_id = book_id
         self.app_db_session = ub.get_new_session_instance()
@@ -302,8 +300,7 @@ class TaskClearCoverThumbnailCache(CalibreTask):
     def __str__(self):
         if self.book_id > 0:
             return "Replace/Delete Cover Thumbnails for book " + str(self.book_id)
-        else:
-            return "Delete Thumbnail cache directory"
+        return "Delete Thumbnail cache directory"
 
     @property
     def is_cancellable(self):

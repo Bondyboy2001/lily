@@ -395,8 +395,7 @@ def invalidate_cache():
         if success:
             log.info("[cwa-duplicates] Cache invalidated - will refresh on next status check")
             return jsonify({'success': True, 'message': 'Cache invalidated'})
-        else:
-            return jsonify({'success': False, 'error': 'Failed to invalidate cache'}), 500
+        return jsonify({'success': False, 'error': 'Failed to invalidate cache'}), 500
 
     except Exception as e:
         log.error("[cwa-duplicates] Error invalidating cache: %s", str(e))
@@ -524,7 +523,7 @@ def execute_resolution():
         group_hashes = request.json.get('group_hashes')
         if not isinstance(group_hashes, list):
             return jsonify({'success': False, 'error': _('Preview the resolution first')}), 400
-        previewed = set(str(group_hash) for group_hash in group_hashes)
+        previewed = {str(group_hash) for group_hash in group_hashes}
         duplicate_groups = [group for group in _get_duplicate_groups_for_resolution(current_user.id)
                             if group['group_hash'] in previewed]
         result = auto_resolve_duplicates(

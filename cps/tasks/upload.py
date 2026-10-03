@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -14,7 +13,7 @@ from cps.services.worker import CalibreTask, STAT_FINISH_SUCCESS
 
 class TaskUpload(CalibreTask):
     def __init__(self, task_message, book_title):
-        super(TaskUpload, self).__init__(task_message)
+        super().__init__(task_message)
         self.start_time = self.end_time = datetime.now()
         self.stat = STAT_FINISH_SUCCESS
         self.progress = 1
@@ -28,7 +27,7 @@ class TaskUpload(CalibreTask):
         return N_("Upload")
 
     def __str__(self):
-        return "Upload {}".format(self.book_title)
+        return f"Upload {self.book_title}"
 
     @property
     def is_cancellable(self):

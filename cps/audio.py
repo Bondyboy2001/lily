@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -20,7 +19,7 @@ def get_audio_file_info(tmp_file_path, original_file_extension, original_file_na
     audio_file = mutagen.File(tmp_file_path)
     comments = None
     if original_file_extension in [".mp3", ".wav", ".aiff"]:
-        cover_data = list()
+        cover_data = []
         for key, val in audio_file.tags.items():
             if key.startswith("APIC:"):
                 cover_data.append(val)
@@ -116,14 +115,14 @@ def get_audio_file_info(tmp_file_path, original_file_extension, original_file_na
                     cover_type =".jpg"
                     cover_bin = c
                     break
-                elif c.imageformat == mutagen.mp4.AtomDataType.PNG:
+                if c.imageformat == mutagen.mp4.AtomDataType.PNG:
                     cover_type = ".png"
                     cover_bin = c
                     break
             if cover_type:
                 cover.cover_processing(tmp_file_path, cover_bin, cover_type)
             else:
-                logger.error("Unknown covertype in file {} ".format(original_file_name))
+                logger.error(f"Unknown covertype in file {original_file_name} ")
 
     return BookMeta(
         file_path=tmp_file_path,

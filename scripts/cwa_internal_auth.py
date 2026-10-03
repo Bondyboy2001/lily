@@ -30,7 +30,7 @@ def get_internal_token() -> str:
     """Return the shared token, creating it atomically on first use."""
     path = _token_path()
     try:
-        with open(path, "r", encoding="ascii") as f:
+        with open(path, encoding="ascii") as f:
             token = f.read().strip()
         if token:
             return token
@@ -48,7 +48,7 @@ def get_internal_token() -> str:
         try:
             os.link(tmp_path, path)
         except FileExistsError:
-            with open(path, "r", encoding="ascii") as f:
+            with open(path, encoding="ascii") as f:
                 token = f.read().strip()
     finally:
         try:

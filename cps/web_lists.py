@@ -41,8 +41,7 @@ def author_list():
         # No initials filter on the authors page: the list is sorted, so the letter menu only adds noise
         return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=[],
                                      title="Authors", page="authorlist", data='author', order=order_no)
-    else:
-        abort(404)
+    abort(404)
 
 
 @web.route("/downloadlist")
@@ -62,8 +61,7 @@ def download_list():
             .group_by(func.upper(func.substr(ub.User.name, 1, 1))).all()
         return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=char_list,
                                      title=_("Downloads"), page="downloadlist", data="download", order=order_no)
-    else:
-        abort(404)
+    abort(404)
 
 
 @web.route("/publisher")
@@ -99,12 +97,11 @@ def publisher_list():
                 entries.append(none_publisher_entry)
 
         char_list = [entry[0].name[0].upper() for entry in entries if entry[0].name]
-        char_list = sorted(list(set(char_list)))
+        char_list = sorted(set(char_list))
 
         return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=char_list,
                                      title=_("Publishers"), page="publisherlist", data="publisher", order=order_no)
-    else:
-        abort(404)
+    abort(404)
 
 
 @web.route("/series")
@@ -137,20 +134,18 @@ def series_list():
                                          title=_("Series"),
                                          page="serieslist",
                                          data="series", order=order_no)
-        else:
-            entries = (calibre_db.session.query(db.Books, func.count('books_series_link').label('count'),
-                                                func.max(db.Books.series_index), db.Books.id)
-                       .join(db.books_series_link).join(db.Series).filter(calibre_db.common_filters())
-                       .options(*db.card_load_options(skip_others=True))
-                       .group_by(text('books_series_link.series'))
-                       .having(or_(func.max(db.Books.series_index), db.Books.series_index==""))
-                       .order_by(order)
-                       .all())
-            return render_title_template('grid.html', entries=entries, folder='web.books_list', charlist=char_list,
-                                         title=_("Series"), page="serieslist", data="series", bodyClass="grid-view",
-                                         order=order_no)
-    else:
-        abort(404)
+        entries = (calibre_db.session.query(db.Books, func.count('books_series_link').label('count'),
+                                            func.max(db.Books.series_index), db.Books.id)
+                   .join(db.books_series_link).join(db.Series).filter(calibre_db.common_filters())
+                   .options(*db.card_load_options(skip_others=True))
+                   .group_by(text('books_series_link.series'))
+                   .having(or_(func.max(db.Books.series_index), db.Books.series_index==""))
+                   .order_by(order)
+                   .all())
+        return render_title_template('grid.html', entries=entries, folder='web.books_list', charlist=char_list,
+                                     title=_("Series"), page="serieslist", data="series", bodyClass="grid-view",
+                                     order=order_no)
+    abort(404)
 
 
 @web.route("/ratings")
@@ -188,8 +183,7 @@ def ratings_list():
 
         return render_title_template('list.html', entries=entries, folder='web.books_list',
                                      title=_("Ratings"), page="ratingslist", data="ratings", order=order_no)
-    else:
-        abort(404)
+    abort(404)
 
 
 @web.route("/formats")
@@ -213,10 +207,9 @@ def formats_list():
                            .count())
         if no_format_count:
             entries.append([db.Category(_("Unknown"), "-1"), no_format_count])
-        return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=list(),
+        return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=[],
                                      title=_("File Formats List"), page="formatslist", data="formats", order=order_no)
-    else:
-        abort(404)
+    abort(404)
 
 
 @web.route("/language")
@@ -228,8 +221,7 @@ def language_overview():
         char_list = generate_char_list(languages)
         return render_title_template('list.html', entries=languages, folder='web.books_list', charlist=char_list,
                                      title=_("Languages"), page="langlist", data="language", order=order_no)
-    else:
-        abort(404)
+    abort(404)
 
 
 @web.route("/category")
@@ -256,5 +248,4 @@ def category_list():
         char_list = generate_char_list(entries)
         return render_title_template('list.html', entries=entries, folder='web.books_list', charlist=char_list,
                                      title=_("Tags"), page="catlist", data="category", order=order_no)
-    else:
-        abort(404)
+    abort(404)

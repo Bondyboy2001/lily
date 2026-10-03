@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -12,7 +11,7 @@ import shutil
 import sys
 import tempfile
 import time
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 import json
 
 from markupsafe import escape, Markup  # dependency of flask
@@ -183,7 +182,7 @@ def _update_shelves(book_id, to_save):
             wanted.add(shelf.id)
 
         current = set(_book_shelf_ids(book_id))
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for shelf in shelves:
             if shelf.id in wanted and shelf.id not in current:
                 max_order = ub.session.query(func.max(ub.BookShelf.order)).filter(
@@ -354,7 +353,7 @@ def do_edit_book(book_id, upload_formats=None):
 
         # Stage 3: Commit all changes to the database.
         if modify_date:
-            book.last_modified = datetime.now(timezone.utc)
+            book.last_modified = datetime.now(UTC)
             calibre_db.set_metadata_dirty(book.id)
 
         try:
@@ -459,11 +458,10 @@ def do_edit_book(book_id, upload_formats=None):
         if "detail_view" in to_save:
             # Back to the page the editor was opened from (a shelf, a search, the grid)
             return redirect(_return_to(to_save.get("next")) or url_for('web.show_book', book_id=book.id))
-        else:
-            return render_edit_book(book_id)
+        return render_edit_book(book_id)
 
     except (ValueError, OperationalError, IntegrityError, StaleDataError, InterfaceError, InvalidRequestError) as e:
-        log.error_or_exception("Database or Value error: {}".format(e))
+        log.error_or_exception(f"Database or Value error: {e}")
         calibre_db.session.rollback()
         flash(_("Couldn't save your changes to this book. Try again; if it keeps failing, check Logs in Settings."),
               category="error")
@@ -518,7 +516,7 @@ def identifier_list(to_save, book):
 def prepare_authors(authr, calibre_path):
     # handle authors
     input_authors = authr.split('&')
-    input_authors = list(map(lambda it: it.strip().replace(',', '|'), input_authors))
+    input_authors = [it.strip().replace(',', '|') for it in input_authors]
     # Remove duplicates in authors list
     input_authors = helper.uniq(input_authors)
 
@@ -537,7 +535,6 @@ def prepare_authors(authr, calibre_path):
             all_books = calibre_db.session.query(db.Books) \
                 .filter(db.Books.authors.any(db.Authors.name == renamed_author.name)).all()
             for one_book in all_books:
-                # ToDo: check
                 sorted_old_author = helper.get_sorted_author(old_author_name)
                 sorted_renamed_author = helper.get_sorted_author(in_aut)
                 # change author sort path
@@ -545,7 +542,7 @@ def prepare_authors(authr, calibre_path):
                     author_index = one_book.author_sort.index(sorted_old_author)
                     one_book.author_sort = one_book.author_sort.replace(sorted_old_author, sorted_renamed_author)
                 except ValueError:
-                    log.error("Sorted author {} not found in database".format(sorted_old_author))
+                    log.error(f"Sorted author {sorted_old_author} not found in database")
                     author_index = -1
                 # change book path if changed author is first author -> match on first position
                 if author_index == 0:
@@ -920,7 +917,7 @@ def edit_book_ratings(to_save, book):
 def edit_book_tags(tags, book):
     if tags is not None:
         input_tags = tags.split(',')
-        input_tags = list(map(lambda it: strip_whitespaces(it), input_tags))
+        input_tags = [strip_whitespaces(it) for it in input_tags]
         # Remove duplicates
         input_tags = helper.uniq(input_tags)
         return modify_database_object(input_tags, book.tags, db.Tags, calibre_db.session, 'tags')
@@ -1105,7 +1102,7 @@ def edit_cc_data(book_id, book, to_save, cc):
                             changed = True
             else:
                 input_tags = to_save[cc_string].split(',')
-                input_tags = list(map(lambda it: strip_whitespaces(it), input_tags))
+                input_tags = [strip_whitespaces(it) for it in input_tags]
                 changed |= modify_database_object(input_tags,
                                                   getattr(book, cc_string),
                                                   db.cc_classes[c.id],
@@ -1118,7 +1115,7 @@ def edit_cc_data(book_id, book, to_save, cc):
 # returns False if an error occurs or no book is uploaded, in all other cases the ebook metadata to change is returned
 def upload_book_formats(requested_files, book, book_id, no_cover=True):
     # Check and handle Uploaded file
-    to_save = dict()
+    to_save = {}
     error = False
     allowed_extensions = config.config_upload_formats.split(',')
     for requested_file in requested_files:
@@ -1178,7 +1175,7 @@ def upload_book_formats(requested_files, book, book_id, no_cover=True):
                     calibre_db.create_functions(config)
                 except (OperationalError, IntegrityError, StaleDataError) as e:
                     calibre_db.session.rollback()
-                    log.error_or_exception("Database error: {}".format(e))
+                    log.error_or_exception(f"Database error: {e}")
                     flash(_("Couldn't add the %(format)s file to this book. Try again; if it keeps failing, "
                             "check Logs in Settings.", format=file_ext.upper()),
                           category="error")
@@ -1211,9 +1208,8 @@ def upload_cover(cover_request, book):
                 # Note: save_cover_with_thumbnail_update already triggers thumbnail generation
                 # No need to call replace_cover_thumbnail_cache here (would create duplicate tasks)
                 return True
-            else:
-                flash(message, category="error")
-                return False
+            flash(message, category="error")
+            return False
     return None
 
 
@@ -1222,7 +1218,7 @@ def handle_title_on_edit(book, book_title):
     book_title = strip_whitespaces(book_title)
     if book.title != book_title:
         if book_title == '':
-            book_title = _(u'Unknown')
+            book_title = _('Unknown')
         book.title = book_title
         return True
     return False
@@ -1234,7 +1230,7 @@ def handle_author_on_edit(book, author_name, update_stored=True):
 
     # Search for each author if author is in database, if not, author name and sorted author name is generated new
     # everything then is assembled for sorted author field in database
-    sort_authors_list = list()
+    sort_authors_list = []
     for inp in input_authors:
         stored_author = calibre_db.session.query(db.Authors).filter(db.Authors.name == inp).first()
         if not stored_author:
@@ -1417,7 +1413,7 @@ def modify_identifiers(input_identifiers, db_identifiers, db_session):
         db_dict[identifier_type] = identifier
     # delete db identifiers not present in input or modify them with input val
     for identifier_type, identifier in db_dict.items():
-        if identifier_type not in input_dict.keys():
+        if identifier_type not in input_dict:
             db_session.delete(identifier)
             changed = True
         else:
@@ -1426,7 +1422,7 @@ def modify_identifiers(input_identifiers, db_identifiers, db_session):
             identifier.val = input_identifier.val
     # add input identifiers not present in db
     for identifier_type, identifier in input_dict.items():
-        if identifier_type not in db_dict.keys():
+        if identifier_type not in db_dict:
             db_session.add(identifier)
             changed = True
     return changed, error

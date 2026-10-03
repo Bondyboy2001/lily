@@ -32,7 +32,7 @@ class TaskMirrorLibrary(CalibreTask):
     """Copies new and changed book files and covers into the configured mirror folder."""
 
     def __init__(self, task_message=N_('Mirroring library files')):
-        super(TaskMirrorLibrary, self).__init__(task_message)
+        super().__init__(task_message)
         self.log = logger.create()
 
     def run(self, worker_thread):

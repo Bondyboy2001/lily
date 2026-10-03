@@ -46,7 +46,7 @@ _duplicate_scan_new_books = False
 ##————————————————————————————————————————————————————————————————————————————##
 
 def get_ingest_dir():
-    with open(DIRS_JSON, 'r') as f:
+    with open(DIRS_JSON) as f:
         dirs = json.load(f)
         return dirs['ingest_folder']
 

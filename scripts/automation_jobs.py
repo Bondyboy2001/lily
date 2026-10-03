@@ -10,7 +10,7 @@ from the ingest subprocess alike. Kept free of Flask/cps imports.
 import os
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 TERMINAL_STATES = ("succeeded", "failed", "interrupted", "skipped")
 
@@ -21,7 +21,7 @@ def _connect():
 
 
 def _now():
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def create_job(kind, user_id=None, filename="", parent_id=None, db=None):

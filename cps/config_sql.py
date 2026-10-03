@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -111,10 +110,10 @@ class _Settings(_Base):
 
 
 # Class holds all application specific settings in calibre-web automated
-class ConfigSQL(object):
+class ConfigSQL:
     # pylint: disable=no-member
     def __init__(self):
-        self.__dict__["dirty"] = list()
+        self.__dict__["dirty"] = []
         self.cli = None
 
     def init_config(self, session, cli):
@@ -242,7 +241,7 @@ class ConfigSQL(object):
             except OperationalError as e:
                 log.error('Database error: %s', e)
                 self._session.rollback()
-        self.__dict__["dirty"] = list()
+        self.__dict__["dirty"] = []
 
     def save(self):
         """Apply all configuration values to the underlying storage."""
@@ -304,9 +303,9 @@ def _migrate_table(session, orm_class):
                     column_default = "DEFAULT NULL"
                 else:
                     if isinstance(column.default.arg, bool):
-                        column_default = "DEFAULT {}".format(int(column.default.arg))
+                        column_default = f"DEFAULT {int(column.default.arg)}"
                     else:
-                        column_default = "DEFAULT `{}`".format(column.default.arg)
+                        column_default = f"DEFAULT `{column.default.arg}`"
                 if isinstance(column.type, JSON):
                     column_type = "JSON"
                 else:
@@ -319,7 +318,7 @@ def _migrate_table(session, orm_class):
                 session.execute(alter_table)
                 changed = True
             except json.decoder.JSONDecodeError as e:
-                log.error("Database corrupt column: {}".format(column_name))
+                log.error(f"Database corrupt column: {column_name}")
                 log.debug(e)
 
     if changed:

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
@@ -22,7 +21,7 @@ every book up again."""
 
 import sys
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, UTC
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from flask_babel import lazy_gettext as N_
@@ -55,7 +54,7 @@ def saved_progress():
 
 class TaskRebuildMetadata(CalibreTask):
     def __init__(self, workers=WORKERS, resume=False, book_ids=None, selection=False, full=False):
-        super(TaskRebuildMetadata, self).__init__(N_('Rebuilding metadata'))
+        super().__init__(N_('Rebuilding metadata'))
         self.workers = workers
         # Carry on where an unfinished run got to, rather than from the first book
         self.resume = resume
@@ -238,8 +237,8 @@ class TaskRebuildMetadata(CalibreTask):
 
     def _counts(self):
         """The numbers the status lines are written from."""
-        return dict(checked=self.checked, total=self.total, updated=self.updated, covers=self.covers,
-                    unanswered=self._skipped_note() + self._unanswered_note())
+        return {'checked': self.checked, 'total': self.total, 'updated': self.updated, 'covers': self.covers,
+                    'unanswered': self._skipped_note() + self._unanswered_note()}
 
     def _skipped_note(self):
         """', 120 up to date skipped', or empty."""
@@ -328,7 +327,7 @@ def _changed_since(last_modified, checked_at) -> bool:
     if last_modified is None:
         return False
     if last_modified.tzinfo is None:
-        last_modified = last_modified.replace(tzinfo=timezone.utc)
+        last_modified = last_modified.replace(tzinfo=UTC)
     # A lookup notes itself just after the change it made
     return last_modified > checked + timedelta(seconds=5)
 

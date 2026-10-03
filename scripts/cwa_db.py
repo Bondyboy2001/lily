@@ -11,7 +11,7 @@ import os
 import threading
 from sqlite3 import Error as sqlError
 import re
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 
 from tabulate import tabulate
 
@@ -61,7 +61,7 @@ def _read_schema_file(schema_path: str) -> tuple[list[str], list[str]]:
     if cached is not None:
         return list(cached[0]), list(cached[1])
     schema = []
-    with open(schema_path, 'r') as f:
+    with open(schema_path) as f:
         for line in f:
             if line != "\n":
                 schema.append(line)
@@ -395,7 +395,7 @@ class CWA_DB:
             remainder = line[default_start:].strip()
 
             # Handle different value types
-            if remainder.startswith("'") or remainder.startswith('"'):
+            if remainder.startswith(("'", '"')):
                 # String value with quotes - could be '', "value", or JSON
                 quote_char = remainder[0]
                 # Find the matching closing quote
@@ -429,7 +429,7 @@ class CWA_DB:
 
         # Add any settings present in the schema file but not in the db
         newly_added_settings = []
-        for setting in self.cwa_default_settings.keys():
+        for setting in self.cwa_default_settings:
             if setting not in cwa_setting_names:
                 success = self.add_missing_setting(setting)
                 if success:
@@ -515,7 +515,7 @@ class CWA_DB:
             def _normalize_format_list(value: str | None) -> str | None:
                 if value is None:
                     return None
-                parts = [p for p in str(value).split(',')]
+                parts = list(str(value).split(','))
                 cleaned = [(_strip_quotes(p) or "").strip().lower() for p in parts]
                 cleaned = [p for p in cleaned if p]
                 return ",".join(cleaned)
@@ -685,7 +685,7 @@ class CWA_DB:
             if setting == "default_settings" or setting not in self.cwa_default_settings:
                 # Columns kept from another version don't count towards "defaults"
                 continue
-            elif current_settings[setting] != self.cwa_default_settings[setting]:
+            if current_settings[setting] != self.cwa_default_settings[setting]:
                 default_check = False
                 self.cur.execute("UPDATE cwa_settings SET default_settings=0 WHERE default_settings=1;")
                 self.con.commit()
@@ -741,7 +741,7 @@ class CWA_DB:
 
     def update_cwa_settings(self, result) -> None:
         """Sets settings using POST request from set_cwa_settings()"""
-        for setting in result.keys():
+        for setting in result:
             if setting == "auto_ingest_ignored_formats":
                 result[setting] = ','.join(result[setting])
 
@@ -798,8 +798,7 @@ class CWA_DB:
             results.reverse()
             if web_ui:
                 return results
-            else:
-                print(f"\n{tabulate(results, headers=headers, tablefmt='rounded_grid')}\n")
+            print(f"\n{tabulate(results, headers=headers, tablefmt='rounded_grid')}\n")
         else:
             newest_ten = []
             x = 0
@@ -810,8 +809,7 @@ class CWA_DB:
                     break
             if web_ui:
                 return newest_ten
-            else:
-                print(f"\n{tabulate(newest_ten, headers=headers, tablefmt='rounded_grid')}\n")
+            print(f"\n{tabulate(newest_ten, headers=headers, tablefmt='rounded_grid')}\n")
 
     def get_rebuild_progress(self) -> dict | None:
         """How far an unfinished Rebuild metadata run got, or None when the last one finished."""
@@ -860,7 +858,7 @@ class CWA_DB:
     def save_metadata_change(self, book_id: int, source: str, before: str) -> None:
         """Keep what a lookup changed, as the book was before it (JSON), for Undo."""
         self.cur.execute("INSERT INTO metadata_changes (book_id, source, changed_at, before) VALUES (?, ?, ?, ?)",
-                         (book_id, source or '', datetime.now(timezone.utc).isoformat(timespec='seconds'), before))
+                         (book_id, source or '', datetime.now(UTC).isoformat(timespec='seconds'), before))
         self.con.commit()
 
     def last_metadata_change(self, book_id: int) -> dict | None:
@@ -881,7 +879,7 @@ class CWA_DB:
         """Note what a metadata lookup of the book found: matched, nomatch or failed."""
         self.cur.execute("INSERT OR REPLACE INTO metadata_lookups (book_id, status, source, checked_at) "
                          "VALUES (?, ?, ?, ?)",
-                         (book_id, status, source or '', datetime.now(timezone.utc).isoformat(timespec='seconds')))
+                         (book_id, status, source or '', datetime.now(UTC).isoformat(timespec='seconds')))
         self.con.commit()
 
     def set_book_edition(self, book_id: int, edition: int | None) -> None:

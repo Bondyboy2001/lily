@@ -102,7 +102,7 @@ def login_post():
         try:
             limiter.check()
         except RateLimitExceeded:
-            log.warning('Login rate limit hit for user "{}" IP-address: {}'.format(username, request.remote_addr))
+            log.warning(f'Login rate limit hit for user "{username}" IP-address: {request.remote_addr}')
             flash(_("Too many sign-in attempts. Wait a minute and try again."), category="error")
             return render_login(username), 429
     user = ub.session.query(ub.User).filter(func.lower(ub.User.name) == username).first()
@@ -111,12 +111,11 @@ def login_post():
     # Use request.remote_addr (already corrected by ProxyFix) instead of raw header
     ip_address = request.remote_addr
     if user and check_password_hash(str(user.password), form.get('password', '')) and user.name != "Guest":
-        log.debug(u"You are now logged in as: '{}'".format(user.name))
+        log.debug(f"You are now logged in as: '{user.name}'")
         return handle_login_user(user, remember_me, None, "success")
-    else:
-        log.warning('Login failed for user "{}" IP-address: {}'.format(username, ip_address))
+    log.warning(f'Login failed for user "{username}" IP-address: {ip_address}')
 
-        flash(_(u"Wrong Username or Password"), category="error")
+    flash(_("Wrong Username or Password"), category="error")
     return render_login(username, form.get("password", ""))
 
 
@@ -137,8 +136,7 @@ def logout():
         location = None
     if location:
         return redirect(location)
-    else:
-        return redirect(url_for('web.login'))
+    return redirect(url_for('web.login'))
 
 
 # ################################### Forced password change ########################################################
@@ -242,7 +240,7 @@ def change_profile():
         log.debug("Found an existing account for this Email")
     except OperationalError as e:
         ub.session.rollback()
-        log.error_or_exception("Database error: {}".format(e))
+        log.error_or_exception(f"Database error: {e}")
         flash(_("Couldn't save your profile. Try again; if it keeps failing, check Logs in Settings."),
               category="error")
 

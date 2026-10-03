@@ -22,7 +22,7 @@ log = logger.create()
 
 # helper function to apply localize status information in tasklist entries
 def render_task_status(tasklist):
-    rendered_tasklist = list()
+    rendered_tasklist = []
     for __, user, __, task, __ in tasklist:
         if user == current_user.name or current_user.role_admin():
             ret = {}
@@ -50,8 +50,8 @@ def render_task_status(tasklist):
                 else:
                     ret['status'] = _('Unknown Status')
 
-            ret['taskMessage'] = "{}: {}".format(task.name, task.message) if task.message else task.name
-            ret['progress'] = "{} %".format(int(task.progress * 100))
+            ret['taskMessage'] = f"{task.name}: {task.message}" if task.message else task.name
+            ret['progress'] = f"{int(task.progress * 100)} %"
             ret['user'] = escape(user)  # prevent xss
 
             # Hidden fields
@@ -75,9 +75,9 @@ def format_runtime(runtime):
     hours, minutes = divmod(minutes, 60)
     # ToDo: locale.number_symbols._data['timeSeparator'] -> localize time separator ?
     if hours:
-        ret_val += '{:d}:{:02d}:{:02d}s'.format(hours, minutes, seconds)
+        ret_val += f'{hours:d}:{minutes:02d}:{seconds:02d}s'
     elif minutes:
-        ret_val += '{:2d}:{:02d}s'.format(minutes, seconds)
+        ret_val += f'{minutes:2d}:{seconds:02d}s'
     else:
-        ret_val += '{:2d}s'.format(seconds)
+        ret_val += f'{seconds:2d}s'
     return ret_val

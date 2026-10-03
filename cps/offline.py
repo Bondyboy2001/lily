@@ -15,12 +15,12 @@ from flask import Blueprint, current_app, make_response, render_template, url_fo
 offline = Blueprint('offline', __name__)
 
 # Files the readers load by themselves, so a kept book's page doesn't name them: pdf.js' strings and
-# standard fonts, the DjVu viewer's generated scripts, and the fonts the reader chrome uses.
+# standard fonts, the DjVu viewer's generated scripts and decoding worker, and the reader's fonts.
 # Directories are walked; cmaps (CJK PDFs only, 1.6 MB) are left out.
 READER_EXTRAS = {
     "pdf": ["locale/locale.json", "locale/en-US", "standard_fonts"],
-    "djvu": ["js/libs/djvu_html5/djvu_html5"],
-    "djv": ["js/libs/djvu_html5/djvu_html5"],
+    "djvu": ["js/libs/djvu_html5/djvu_html5", "js/libs/djvu_html5/djvu_worker"],
+    "djv": ["js/libs/djvu_html5/djvu_html5", "js/libs/djvu_html5/djvu_worker"],
     "epub": ["fonts/eb-garamond", "fonts/source-sans-3", "fonts/atkinson-hyperlegible-next"],
     "all": ["fonts/literata"],
 }

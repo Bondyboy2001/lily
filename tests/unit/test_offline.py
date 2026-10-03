@@ -50,6 +50,8 @@ class TestRoutes:
         assert any("/static/locale/en-US/" in u for u in extras["pdf"])
         assert any("/static/standard_fonts/" in u for u in extras["pdf"])
         assert any(u.split("?")[0].endswith(".cache.js") for u in extras["djvu"])
+        # The viewer decodes pages in a worker; without it a kept DjVu book cannot open offline
+        assert any("/djvu_worker/" in u for u in extras["djvu"])
         assert any("/static/fonts/literata/" in u for u in extras["all"])
         assert not any("/cmaps/" in u for urls in extras.values() for u in urls)
 

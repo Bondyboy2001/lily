@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -182,7 +181,7 @@ def create_app():
     try:
         limiter.init_app(app)
     except Exception as e:
-        log.error('Wrong Flask Limiter configuration, falling back to default: {}'.format(e))
+        log.error(f'Wrong Flask Limiter configuration, falling back to default: {e}')
         app.config.update(RATELIMIT_STORAGE_URI=None)
         limiter.init_app(app)
 

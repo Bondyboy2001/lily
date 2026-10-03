@@ -1,11 +1,9 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-import sys
 
 from .iso_language_names import LANGUAGE_NAMES as _LANGUAGE_NAMES
 from . import logger
@@ -30,8 +28,7 @@ try:
         if name is not None:
             return _copy_fields(pyc_languages.get(name=name))
 except ImportError:
-    if sys.version_info >= (3, 12):
-        print("Python 3.12 isn't compatible with iso-639. Please install pycountry.")
+    print("Python 3.12 isn't compatible with iso-639. Please install pycountry.")
     from iso639 import languages
     get = languages.get
 
@@ -52,14 +49,14 @@ def get_language_name(locale, lang_code):
 
     name = names.get(lang_code, UNKNOWN_TRANSLATION)
     if name == UNKNOWN_TRANSLATION:
-        log.error("Missing translation for language name: {}".format(lang_code))
+        log.error(f"Missing translation for language name: {lang_code}")
 
     return name
 
 
 def get_language_code_from_name(locale, language_names, remainder=None):
-    language_names = set(strip_whitespaces(x).lower() for x in language_names if x)
-    lang = list()
+    language_names = {strip_whitespaces(x).lower() for x in language_names if x}
+    lang = []
     for key, val in get_language_names(locale).items():
         val = val.lower()
         if val in language_names:
@@ -71,7 +68,7 @@ def get_language_code_from_name(locale, language_names, remainder=None):
 
 
 def get_valid_language_codes_from_code(locale, language_names, remainder=None):
-    lang = list()
+    lang = []
     if "" in language_names:
         language_names.remove("")
     for k, __ in get_language_names(locale).items():

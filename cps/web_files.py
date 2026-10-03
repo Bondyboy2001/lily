@@ -155,7 +155,7 @@ def serve_book(book_id, book_format, anyname):
             try:
                 text_data = rawdata.decode(result['encoding']).encode('utf-8')
             except UnicodeDecodeError as e:
-                log.error("Encoding error in text file {}: {}".format(book.id, e))
+                log.error(f"Encoding error in text file {book.id}: {e}")
                 if "surrogate" in e.reason:
                     text_data = rawdata.decode(result['encoding'], 'surrogatepass').encode('utf-8', 'surrogatepass')
                 else:

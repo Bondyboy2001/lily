@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -23,7 +22,7 @@ log = logger.create()
 
 
 def get_scheduled_tasks():
-    tasks = list()
+    tasks = []
     # Delete temp folder
     tasks.append([lambda: TaskClean(), 'delete temp', True])
 
@@ -53,7 +52,7 @@ def register_scheduled_tasks():
         duration = config.schedule_duration
 
         # Register scheduled tasks
-        timezone_info = datetime.datetime.now(datetime.timezone.utc).astimezone().tzinfo
+        timezone_info = datetime.datetime.now(datetime.UTC).astimezone().tzinfo
         scheduler.schedule_tasks(tasks=get_scheduled_tasks(), trigger=CronTrigger(hour=start,
                                                    timezone=timezone_info))
         _schedule_duplicate_scan(scheduler, timezone_info)

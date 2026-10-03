@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -36,16 +35,10 @@ class _Logger(logging.Logger):
 
     def error_or_exception(self, message, stacklevel=2, *args, **kwargs):
         is_debug = self.getEffectiveLevel() <= logging.DEBUG
-        if sys.version_info > (3, 7):
-            if is_debug:
-                self.exception(message, stacklevel=stacklevel, *args, **kwargs)
-            else:
-                self.error(message, stacklevel=stacklevel, *args, **kwargs)
+        if is_debug:
+            self.exception(message, stacklevel=stacklevel, *args, **kwargs)
         else:
-            if is_debug:
-                self.exception(message, stack_info=True, *args, **kwargs)
-            else:
-                self.error(message, *args, **kwargs)
+            self.error(message, stacklevel=stacklevel, *args, **kwargs)
 
 
 def get(name=None):
@@ -105,7 +98,7 @@ def setup(log_file, log_level=None):
     else:
         try:
             file_handler = RotatingFileHandler(log_file, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT, encoding='utf-8')
-        except (IOError, PermissionError):
+        except (OSError, PermissionError):
             if log_file == DEFAULT_LOG_FILE:
                 raise
             file_handler = RotatingFileHandler(DEFAULT_LOG_FILE, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUP_COUNT, encoding='utf-8')
@@ -132,7 +125,7 @@ def create_access_log(log_file, log_name, formatter):
     access_log.setLevel(logging.INFO)
     try:
         file_handler = RotatingFileHandler(log_file, maxBytes=50000, backupCount=2, encoding='utf-8')
-    except (IOError, PermissionError):
+    except (OSError, PermissionError):
         if log_file == DEFAULT_ACCESS_LOG:
             raise
         file_handler = RotatingFileHandler(DEFAULT_ACCESS_LOG, maxBytes=50000, backupCount=2, encoding='utf-8')

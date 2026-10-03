@@ -9,7 +9,7 @@ hashing, title normalisation and which book of a group to keep. No routes and no
 database access beyond reading the format-priority setting, so cps/duplicate_index.py
 and the scan task can use them without importing the duplicates blueprint."""
 
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 import hashlib
 import re
 import sys
@@ -27,8 +27,8 @@ def _normalize_timestamp(ts):
     if ts is None:
         return None
     if ts.tzinfo is None:
-        return ts.replace(tzinfo=timezone.utc)
-    return ts.astimezone(timezone.utc)
+        return ts.replace(tzinfo=UTC)
+    return ts.astimezone(UTC)
 
 
 def _timestamp_or_default(ts, default):
@@ -39,8 +39,8 @@ def _timestamp_or_default(ts, default):
 _NON_WORD = re.compile(r"[\W_]+")
 _NAME_SUFFIXES = {"jr", "sr", "ii", "iii", "iv"}
 
-_AWARE_MIN = datetime.min.replace(tzinfo=timezone.utc)
-_AWARE_MAX = datetime.max.replace(tzinfo=timezone.utc)
+_AWARE_MIN = datetime.min.replace(tzinfo=UTC)
+_AWARE_MAX = datetime.max.replace(tzinfo=UTC)
 
 
 def generate_group_hash(title, author):
@@ -68,7 +68,7 @@ def group_hash_for_books(book_ids):
     """A duplicate group's identity: its books. Dismissing a group hides exactly
     these books together; a new copy turning up makes a new group to review."""
     composite = ",".join(str(book_id) for book_id in sorted(int(book_id) for book_id in book_ids))
-    return hashlib.md5(f"books:{composite}".encode('utf-8')).hexdigest()
+    return hashlib.md5(f"books:{composite}".encode()).hexdigest()
 
 
 def fold_for_duplicates(text):
@@ -140,15 +140,15 @@ def select_book_to_keep(books, strategy):
         # Keep the most recently added book
         return max(books, key=lambda b: _timestamp_or_default(b.timestamp, _AWARE_MIN))
 
-    elif strategy == 'oldest':
+    if strategy == 'oldest':
         # Keep the earliest added book
         return min(books, key=lambda b: _timestamp_or_default(b.timestamp, _AWARE_MAX))
 
-    elif strategy == 'merge':
+    if strategy == 'merge':
         # Merge into the newest book by default
         return max(books, key=lambda b: _timestamp_or_default(b.timestamp, _AWARE_MIN))
 
-    elif strategy == 'highest_quality_format':
+    if strategy == 'highest_quality_format':
         # Get format priority from settings
         try:
             import json
@@ -176,7 +176,7 @@ def select_book_to_keep(books, strategy):
         # Keep book with highest quality format, fallback to newest if tie
         return max(books, key=lambda b: (get_best_format_score(b), _timestamp_or_default(b.timestamp, _AWARE_MIN)))
 
-    elif strategy == 'most_metadata':
+    if strategy == 'most_metadata':
         # Count metadata completeness
         def metadata_score(book):
             score = 0
@@ -222,7 +222,7 @@ def select_book_to_keep(books, strategy):
         # Keep book with most complete metadata, fallback to newest if tie
         return max(books, key=lambda b: (metadata_score(b), _timestamp_or_default(b.timestamp, _AWARE_MIN)))
 
-    elif strategy == 'largest_file_size':
+    if strategy == 'largest_file_size':
         # Sum all format file sizes
         def total_file_size(book):
             if not book.data:
@@ -232,6 +232,5 @@ def select_book_to_keep(books, strategy):
         # Keep book with largest total file size, fallback to newest if tie
         return max(books, key=lambda b: (total_file_size(b), _timestamp_or_default(b.timestamp, _AWARE_MIN)))
 
-    else:
-        # Default fallback: keep newest
-        return max(books, key=lambda b: _timestamp_or_default(b.timestamp, _AWARE_MIN))
+    # Default fallback: keep newest
+    return max(books, key=lambda b: _timestamp_or_default(b.timestamp, _AWARE_MIN))

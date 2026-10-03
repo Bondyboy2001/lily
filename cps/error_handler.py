@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Calibre-Web Automated – fork of Calibre-Web
 # Copyright (C) 2018-2025 Calibre-Web contributors
 # Copyright (C) 2024-2025 Calibre-Web Automated contributors
@@ -29,7 +28,7 @@ def error_http(error):
         return upload_too_large_response()
     headers = {'WWW-Authenticate': f'Basic realm="{config.config_calibre_web_title or "lily"}"'} if error.code == 401 else {}
     return render_template('http_error.html',
-                           error_code="Error {0}".format(error.code),
+                           error_code=f"Error {error.code}",
                            error_name=error.name,
                            issue=False,
                            unconfigured=not config.db_configured,

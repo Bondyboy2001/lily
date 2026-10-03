@@ -34,7 +34,7 @@ def _rotated_dir_files(log_dir, prefix):
         names = os.listdir(log_dir)
     except OSError:
         return []
-    rotated = sorted(n for n in names if n.startswith('@') and (n.endswith('.s') or n.endswith('.u')))
+    rotated = sorted(n for n in names if n.startswith('@') and (n.endswith(('.s', '.u'))))
     entries = [(os.path.join(log_dir, n), _("%(prefix)s %(name)s", prefix=prefix, name=n))
                for n in rotated]
     if 'current' in names:
