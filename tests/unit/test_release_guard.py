@@ -4,7 +4,6 @@ import re
 from pathlib import Path
 
 import pytest
-import yaml
 
 pytestmark = pytest.mark.unit
 
@@ -27,9 +26,15 @@ def test_pre_push_hook_checks_the_pushed_commit():
     assert 'scripts/check.sh" "$local_sha"' in hook.read_text()
 
 
+def _jobs(text):
+    """Each job's YAML block in release.yml, by job id."""
+    body = text.split("\njobs:\n", 1)[1]
+    return dict(re.findall(r"^  ([\w-]+):\n((?:(?:    .*)?\n)+)", body, re.M))
+
+
 def test_dead_code_fails_the_run_without_holding_back_the_image():
-    jobs = yaml.safe_load((ROOT / ".github/workflows/release.yml").read_text())["jobs"]
-    assert "vulture" in str(jobs["dead-code"]) and "vulture" not in str(jobs["checks"])
-    assert set(jobs["publish"]["needs"]) == {"checks", "build"}
-    assert set(jobs["notify"]["needs"]) == {"checks", "dead-code", "build", "publish"}
-    assert "always()" in jobs["notify"]["if"]
+    jobs = _jobs((ROOT / ".github/workflows/release.yml").read_text())
+    assert "uvx vulture" in jobs["dead-code"] and "vulture" not in jobs["checks"]
+    assert "needs: [checks, build]\n" in jobs["publish"]
+    assert "needs: [checks, dead-code, build, publish]\n" in jobs["notify"]
+    assert "if: always() && github.ref == 'refs/heads/main'" in jobs["notify"]
