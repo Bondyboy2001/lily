@@ -1135,15 +1135,12 @@ dl.book-info {
 .book-info dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
 .book-info-id { font-variant-numeric: tabular-nums; }
 
-/* The plate: the cover on a --surface mount, flat like every panel. The plate takes the
-   cover's own shape, so nothing letterboxes; a cover taller than 1:1.6 is cropped to that,
-   so one deformed cover cannot stretch the stage. */
+/* The plate: the bare cover, edge to edge with no mount. It takes the cover's own shape, so
+   nothing letterboxes; a cover taller than 1:1.6 is cropped to that, so one deformed cover
+   cannot stretch the stage. */
 .book-detail-cover {
     position: relative;
     min-width: 0;
-    padding: 14px;
-    border-radius: 8px;
-    background: var(--surface);
 }
 
 .container-fluid .book-detail-cover-art.cover,
@@ -1163,7 +1160,7 @@ dl.book-info {
     object-fit: cover;
     object-position: center top;
     border: 0;
-    border-radius: 4px 8px 8px 4px;
+    border-radius: 8px;
     box-shadow: none;
     outline: 1px solid var(--line-soft);
     outline-offset: -1px;
@@ -1392,7 +1389,7 @@ dl.book-info {
         text-align: center;
     }
 
-    .book-detail-cover { width: 196px; padding: 8px; }
+    .book-detail-cover { width: 196px; }
     .book-detail-head { align-items: center; width: 100%; }
     .book-detail-meta { align-items: center; }
     .book-detail-actions { width: 100%; }

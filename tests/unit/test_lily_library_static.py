@@ -268,7 +268,8 @@ def test_detail_page_is_a_frontispiece_stage():
     # Phone: one centred column, row sizing reset.
     assert "grid-template-rows: auto" in main_rules[-1] and "minmax(0, 1fr)" in main_rules[-1]
     plate = next(body for selector, body in rules if selector == ".book-detail-cover")
-    assert "background: var(--surface)" in plate and "box-shadow" not in plate
+    # The bare cover: no mount, so no whitespace round it.
+    assert "background" not in plate and "padding" not in plate and "box-shadow" not in plate
     # The plate takes the cover's shape (no letterbox); a deformed cover is cropped at 1:1.6.
     art = next(body for selector, body in rules
                if selector.split(",")[-1].strip() == ".book-detail-cover-art")

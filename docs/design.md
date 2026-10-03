@@ -524,8 +524,8 @@ content (grid, panel, rows)
 ### 6.4 Book page ("Frontispiece" layout)
 
 - **Stage** (`.book-detail-main`, §5.10): one `--sunk` band. On the left the cover is a
-  mounted plate: the cover at its own shape on a `--surface` mount, padding 14 (8 on phones),
-  radius 8, flat. Nothing letterboxes; a cover taller than 1 : 1.6 is cropped to that
+  plate: the bare cover at its own shape, radius 8, flat, with no mount or padding around
+  it. Nothing letterboxes; a cover taller than 1 : 1.6 is cropped to that
   (`max-height: 160cqw`, `object-fit: cover`), so one deformed cover cannot stretch the
   stage. On the right, centred against it: the heading (series line, the book
   title as a display line (§3.1), the authors as an italic `--accent` byline at 20px,
