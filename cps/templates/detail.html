@@ -1,5 +1,6 @@
 {% extends is_xhr|yesno("fragment.html", "layout.html") %}
 {% import 'image.html' as image %}
+{% import 'meta_fetch.html' as meta_fetch %}
 {% block header %}
     <meta property="og:type" content="book" />
     <meta property="og:title" content="{{ entry.title|truncate(35) }}" />
@@ -13,17 +14,17 @@
     {# "Frontispiece" (design §6.4): a stage with the cover as a mounted plate beside the title,
        byline, fact tags and actions; below it the description, the lookup line and what to read next. #}
     <div class="book-detail-main">
-        {# A green dot in the stage's top-right corner once a metadata lookup has found the book (editors only) #}
-        {% if metadata_lookup and metadata_lookup.status == 'matched' %}
-            {% set fetched = _('Metadata fetched from %(source)s on %(date)s', source=metadata_lookup.source, date=metadata_lookup.checked|formatdate) if metadata_lookup.source
-                             else _('Metadata fetched on %(date)s', date=metadata_lookup.checked|formatdate) %}
-            <span class="book-fetched-dot" id="book-fetched-dot" role="img" title="{{ fetched }}" aria-label="{{ fetched }}"></span>
-        {% endif %}
         <div class="book-detail-cover">
             <div class="book-detail-cover-art cover">
                 <img id="detailcover" alt="{{ entry.title }}"
                      src="{{ url_for('web.get_cover', book_id=entry.id, resolution='og', c=entry|last_modified) }}"/>
             </div>
+            {# A green check on the plate's top-right corner once a metadata lookup has found the book (editors only) #}
+            {% if metadata_lookup and metadata_lookup.status == 'matched' %}
+                {% set fetched = _('Metadata fetched from %(source)s on %(date)s', source=metadata_lookup.source, date=metadata_lookup.checked|formatdate) if metadata_lookup.source
+                                 else _('Metadata fetched on %(date)s', date=metadata_lookup.checked|formatdate) %}
+                {{ image.fetched_mark(fetched, id='book-fetched-dot') }}
+            {% endif %}
         </div>
         <div class="book-detail-head">
             <div class="book-detail-meta">
@@ -150,11 +151,11 @@
                         <span class="glyphicon glyphicon-info-sign" aria-hidden="true"></span>
                     </button>
                     {% if current_user.role_edit() %}
-                        {# Opens the editor with the metadata lookup already running (get_meta.js reads ?fetch=1) #}
-                        <a href="{{ url_for('edit-book.show_edit_book', book_id=entry.id, fetch=1) }}" id="fetch_book_meta" class="btn is-icon"
-                           title="{{ _('Fetch metadata') }}" aria-label="{{ _('Fetch metadata') }}">
+                        {# Opens the metadata lookup here; Apply saves and reloads this page (get_meta.js) #}
+                        <button type="button" id="fetch_book_meta" class="btn is-icon" data-toggle="modal" data-target="#metaModal"
+                                title="{{ _('Fetch metadata') }}" aria-label="{{ _('Fetch metadata') }}">
                             <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
-                        </a>
+                        </button>
                         <a href="{{ url_for('edit-book.show_edit_book', book_id=entry.id) }}" id="edit_book" class="btn is-icon"
                            title="{{ _('Edit metadata') }}" aria-label="{{ _('Edit metadata') }}">
                             <span class="glyphicon glyphicon-pencil" aria-hidden="true"></span>
@@ -299,10 +300,41 @@
       </div>
     </div>
     {{ delete_book(current_user.role_delete_books() and current_user.role_edit()) }}
+    {% if current_user.role_edit() %}
+    {# What Fetch Metadata compares its results with and saves through the editor's handler
+       (edit_book). The always-sent fields hold the book's values, since the save would clear
+       them if left out; the rest stay disabled, and so unsent, unless a result fills them. #}
+    <form action="{{ url_for('edit-book.edit_book', book_id=entry.id) }}" method="post" id="book_edit_frm" hidden>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="detail_view" value="1">
+        <input type="hidden" name="title" value="{{ entry.title }}">
+        <input type="hidden" name="authors" value="{{ (entry.ordered_authors|named_authors)|map(attribute='name')|map('replace', '|', ',')|join(' & ') }}">
+        <input type="hidden" name="rating" value="{% if entry.ratings %}{{ (entry.ratings[0].rating / 2)|int }}{% endif %}">
+        <input type="hidden" name="pubdate" value="{% if entry.pubdate %}{{ entry.pubdate|formatdateinput }}{% endif %}">
+        <input type="hidden" name="series_index" value="{{ entry.series_index|formatfloat(2) }}">
+        <input type="hidden" name="series" value="{% if entry.series %}{{ entry.series[0].name }}{% endif %}" disabled>
+        <input type="hidden" name="publisher" value="{% if entry.publishers %}{{ entry.publishers[0].name }}{% endif %}" disabled>
+        <input type="hidden" name="languages" value="{{ entry.languages|map(attribute='language_name')|map('trim')|join(', ') }}" disabled>
+        <input type="hidden" name="tags" value="{{ entry.tags|map(attribute='name')|map('trim')|join(', ') }}" disabled>
+        <input type="hidden" name="comments" value="{% if entry.comments %}{{ entry.comments[0].text }}{% endif %}" disabled>
+        <input type="hidden" name="cover_url" value="" disabled>
+        <input type="hidden" name="shelves_present" value="1" disabled>
+        <input type="hidden" name="shelves" value='{{ shelf_menu|selectattr("1")|map(attribute="0")|map(attribute="name")|unique|list|tojson }}' disabled>
+        <input type="hidden" name="metadata_source" value="" disabled>
+        <table id="identifier-table"><tbody>
+            {% for identifier in entry.identifiers %}
+            <tr><td><input type="hidden" class="identifier-type" name="identifier-type-{{ identifier.id }}" value="{{ identifier.type }}"></td>
+                <td><input type="hidden" class="identifier-val" name="identifier-val-{{ identifier.id }}" value="{{ identifier.val }}"></td></tr>
+            {% endfor %}
+        </tbody></table>
+    </form>
+    {{ meta_fetch.meta_modal(entry.id) }}
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block js %}
+{% if current_user.role_edit() %}{{ meta_fetch.meta_scripts() }}{% endif %}
 <script src="{{ url_for('static', filename='js/details.js') }}"></script>
 <script src="{{ url_for('static', filename='js/shelves.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fullscreen.js') }}"></script>

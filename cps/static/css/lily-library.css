@@ -281,6 +281,26 @@
 
 .lily-book .cover .lily-cover-count { left: auto; right: 6px; }
 
+/* Fetched mark: a filled --success disc with a check on the cover's top-right corner once a
+   metadata lookup has matched the book (editors only). A --surface ring keeps it clear of the cover. */
+.lily-fetched {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--surface);
+    border-radius: 999px;
+    background: var(--success);
+    color: var(--surface);
+    font-size: 11px;
+    line-height: 1;
+}
+
 .container-fluid .lily-book .meta,
 .lily-book .meta {
     margin: 0;
@@ -1074,14 +1094,13 @@ body[data-book-view="list"] .lily-grid > .lily-book .lily-cover-actions .lily-to
 }
 
 /* Metadata fetched: a filled --success dot in the stage's top-right corner, named by its tooltip. */
-.book-fetched-dot {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    width: 12px;
-    height: 12px;
-    border-radius: 999px;
-    background: var(--success);
+/* The fetched mark on the plate: the grid's green check, a little larger, on its top-right corner. */
+.book-detail-cover .lily-fetched {
+    top: 6px;
+    right: 6px;
+    width: 26px;
+    height: 26px;
+    font-size: 13px;
 }
 
 /* The details dialog (#bookInfoModal): label and value side by side, rows apart by space alone. */
@@ -1102,6 +1121,7 @@ dl.book-info {
    grid's A4 tile (§5.15), so one deformed cover cannot stretch the stage; a cover whose
    shape differs letterboxes on the mount instead. */
 .book-detail-cover {
+    position: relative;
     min-width: 0;
     padding: 14px;
     border-radius: 8px;

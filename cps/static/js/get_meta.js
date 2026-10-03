@@ -16,12 +16,15 @@
  */
 /* global _, i18nMsg, getPath */
 
-// Fetch Metadata on the edit page. One search box takes a title and author, an ISBN,
-// a DOI or an arXiv id; the server says which providers to ask, and each is asked
-// separately so its results show as soon as they arrive, ranked with the rest. Apply
-// fills the form with a result's ticked fields and saves.
+// Fetch Metadata on the edit page and the book page. One search box takes a title and
+// author, an ISBN, a DOI or an arXiv id; the server says which providers to ask, and each
+// is asked separately so its results show as soon as they arrive, ranked with the rest.
+// Apply fills #book_edit_frm with a result's ticked fields and saves. On the book page that
+// form is hidden: the fields only a result may change start disabled, so an untouched one
+// is not sent and the save leaves it as it is.
 $(function () {
   var msg = i18nMsg;
+  var $form = $("#book_edit_frm");
   var metaSelectionKey = "cwa.metaSelection";
   var metaSelectionCache = null;
   var FAILED = { error: true, timeout: true };
@@ -51,6 +54,26 @@ $(function () {
   function htmlToText(html) {
     // DOMParser documents run no scripts and load no images
     return new DOMParser().parseFromString(String(html || ""), "text/html").body.textContent || "";
+  }
+
+  // The form's fields by name: the book page's own ids (its h1 is #title) aren't the form's
+  function field(name) {
+    return $form.find("[name='" + name + "']");
+  }
+
+  // Sets a field, which the save then sends
+  function set(name, value) {
+    return field(name).prop("disabled", false).val(value);
+  }
+
+  // The editor's rating is a group of star radios (image.html rating_input); the book page's a hidden field
+  function ratingInput() {
+    return $form.find("input[name='rating']");
+  }
+
+  function ratingValue() {
+    var $rating = ratingInput();
+    return $rating.is(":radio") ? $rating.filter(":checked").val() : $rating.val();
   }
 
   var bookResultTemplate = _.template($("#template-book-result").html());
@@ -100,7 +123,7 @@ $(function () {
   }
 
   function getUniqueValues(attribute_name, book) {
-    var presentArray = $.map(String($("#" + attribute_name).val() || "").split(","), $.trim).filter(Boolean);
+    var presentArray = $.map(String(field(attribute_name).val() || "").split(","), $.trim).filter(Boolean);
     $.each(book[attribute_name] || [], function (i, el) {
       if ($.inArray(el, presentArray) === -1) presentArray.push(el);
     });
@@ -110,7 +133,7 @@ $(function () {
   // The book's identifiers (ISBN, DOI, arXiv...) from the edit form, for exact lookups
   function currentIdentifiers() {
     var ids = {};
-    $("#identifier-table tr").each(function () {
+    $form.find("#identifier-table tr").each(function () {
       var type = $.trim($(this).find(".identifier-type").val() || "");
       var val = $.trim($(this).find(".identifier-val").val() || "");
       if (type && val) { ids[type.toLowerCase()] = val; }
@@ -119,7 +142,7 @@ $(function () {
   }
 
   function currentAuthors() {
-    return String($("#authors").val() || "").split("&").map($.trim)
+    return String(field("authors").val() || "").split("&").map($.trim)
       .filter(function (a) { return a && a.toLowerCase() !== "unknown"; });
   }
 
@@ -130,10 +153,10 @@ $(function () {
   // The form's values, read once per render rather than once per card
   function readForm() {
     return {
-      title: $("#title").val(), authors: $("#authors").val(), publisher: $("#publisher").val(),
-      pubdate: $("#pubdate").val(), series: $("#series").val(), seriesIndex: $("#series_index").val(),
-      rating: $("input[name='rating']:checked").val(), description: htmlToText($("#comments").val()),
-      tags: $("#tags").val(), languages: $("#languages").val(), ids: currentIdentifiers(),
+      title: field("title").val(), authors: field("authors").val(), publisher: field("publisher").val(),
+      pubdate: field("pubdate").val(), series: field("series").val(), seriesIndex: field("series_index").val(),
+      rating: ratingValue(), description: htmlToText(field("comments").val()),
+      tags: field("tags").val(), languages: field("languages").val(), ids: currentIdentifiers(),
     };
   }
 
@@ -183,41 +206,46 @@ $(function () {
     var book = result.book;
     var updateItems = ticksOf(result.$el);
     if (updateItems.description) {
-      $("#comments").val(book.description || "").trigger("lily:set-html");
+      set("comments", book.description || "").trigger("lily:set-html");
     }
     if (updateItems.tags) {
-      $("#tags").val(getUniqueValues("tags", book).join(", ")).trigger("change");
+      set("tags", getUniqueValues("tags", book).join(", ")).trigger("change");
     }
     if (updateItems.languages) {
-      $("#languages").val(getUniqueValues("languages", book).join(", "));
+      set("languages", getUniqueValues("languages", book).join(", "));
     }
     if (updateItems.authors) {
-      $("#authors").val((book.authors || []).join(" & ")).trigger("change");
+      set("authors", (book.authors || []).join(" & ")).trigger("change");
     }
     if (updateItems.title) {
-      $("#title").val(book.title);
+      set("title", book.title);
     }
     if (updateItems.rating) {
-      // The rating is a radio group (image.html rating_input): check the matching star, or none.
-      var $star = $("input[name='rating'][value='" + Math.round(book.rating) + "']");
-      ($star.length ? $star : $("#rating-none")).prop("checked", true);
+      // In the editor, check the matching star, or none
+      var $rating = ratingInput();
+      if ($rating.is(":radio")) {
+        var $star = $rating.filter("[value='" + Math.round(book.rating) + "']");
+        ($star.length ? $star : $rating.filter("[value='']")).prop("checked", true);
+      } else {
+        $rating.val(Math.round(book.rating) || "");
+      }
     }
     // A provider with no cover sends Lily's placeholder; that leaves the book's own cover alone.
-    if (updateItems.cover && book.cover && !/\/generic_cover\.svg(\?|$)/.test(book.cover) && $("#cover_url").length) {
+    if (updateItems.cover && book.cover && !/\/generic_cover\.svg(\?|$)/.test(book.cover) && field("cover_url").length) {
       $(".cover img").attr("src", book.cover);
-      $("#cover_url").val(book.cover);
+      set("cover_url", book.cover);
     }
     if (updateItems.pubDate) {
-      $("#pubdate").val(fullDate(book.publishedDate)).trigger("change");
+      set("pubdate", fullDate(book.publishedDate)).trigger("change");
     }
     if (updateItems.publisher) {
-      $("#publisher").val(book.publisher);
+      set("publisher", book.publisher);
     }
     if (updateItems.series && book.series) {
-      $("#series").val(book.series);
+      set("series", book.series);
     }
     if (updateItems.seriesIndex && book.series_index) {
-      $("#series_index").val(book.series_index);
+      set("series_index", book.series_index);
     }
     $.each(book.identifiers || {}, function (key, value) {
       if (updateItems[key] && value !== "" && value !== null) {
@@ -226,28 +254,35 @@ $(function () {
     });
     // A result from arXiv carries the paper's arXiv id: add an arXiv chip to the Shelves
     // editor, which the save turns into the shelf
-    var $shelves = $("#shelves");
+    var $shelves = field("shelves");
     if (book.identifiers && book.identifiers.arxiv && $shelves.length) {
       var names;
       try { names = JSON.parse($shelves.val() || "[]"); } catch (e) { names = []; }
       if (!names.some(function (n) { return n.toLowerCase() === "arxiv"; })) {
         names.push("arXiv");
-        $shelves.val(JSON.stringify(names)).trigger("change");
+        set("shelves", JSON.stringify(names)).trigger("change");
+        set("shelves_present", "1");
       }
     }
     // The save notes the book as matched by this provider (editbooks.py)
-    $("#metadata_source").val((book.source && book.source.description) || "Fetch Metadata");
-    $("#book_edit_frm").trigger("lily:reveal-filled");
+    set("metadata_source", (book.source && book.source.description) || "Fetch Metadata");
+    $form.trigger("lily:reveal-filled");
   }
 
+  // The editor saves through its Save button; the book page's hidden form has none
   function save() {
     $("#metaModal").modal("hide");
-    $("#submit").trigger("click");
+    var $submit = $form.find("#submit");
+    if ($submit.length) {
+      $submit.trigger("click");
+    } else {
+      $form[0].submit();
+    }
   }
 
   function setIdentifier(type, value) {
     var normalized = type.trim().toLowerCase();
-    var $row = $("#identifier-table tbody tr").filter(function () {
+    var $row = $form.find("#identifier-table tbody tr").filter(function () {
       return ($(this).find("input.identifier-type").val() || "").trim().toLowerCase() === normalized;
     }).first();
     if ($row.length) {
@@ -266,7 +301,7 @@ $(function () {
       .append(cell("identifier-type", "identifier-type-", msg.identifier_type, type))
       .append(cell("identifier-val", "identifier-val-", msg.identifier_value, value))
       .append($("<td>").append($("<button>", { type: "button", "class": "btn btn-danger identifier-remove" }).text(msg.remove)))
-      .appendTo($("#identifier-table tbody"));
+      .appendTo($form.find("#identifier-table tbody"));
   }
 
   // ---- Results ----
@@ -398,9 +433,10 @@ $(function () {
     runSearch($("#keyword").val());
   });
 
-  $("#get_meta").click(function () {
+  // The editor's Fetch metadata button and the book page's
+  $("#get_meta, #fetch_book_meta").click(function () {
     // Title and first author: a title alone finds every book of that name
-    var text = $.trim([$("#title").val(), currentAuthors()[0] || ""].join(" "));
+    var text = $.trim([field("title").val(), currentAuthors()[0] || ""].join(" "));
     $("#keyword").val(text);
     runSearch(text);
   });
@@ -419,7 +455,7 @@ $(function () {
   // zoom (lily.css), so divide by it.
   function placeBesideCover() {
     var dialog = $("#metaModal .modal-dialog")[0];
-    var cover = $(".editbook-cover-section .cover")[0];
+    var cover = $(".editbook-cover-section .cover, .book-detail-cover .cover")[0];
     var zoom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--page-zoom")) || 1;
     var left = cover ? Math.round(cover.getBoundingClientRect().right / zoom + 24) : 0;
     var room = Math.floor(window.innerWidth / zoom - left - 24);

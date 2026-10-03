@@ -53,4 +53,4 @@ def test_text_that_is_no_date_is_refused_and_the_old_date_kept(env):
 def test_fetch_metadata_fills_the_date_field_with_a_whole_date():
     from pathlib import Path
     js = (Path(__file__).resolve().parents[2] / "cps/static/js/get_meta.js").read_text(encoding="utf-8")
-    assert '$("#pubdate").val(fullDate(book.publishedDate))' in js
+    assert 'set("pubdate", fullDate(book.publishedDate))' in js

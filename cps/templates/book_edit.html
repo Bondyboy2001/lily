@@ -1,5 +1,6 @@
 {% extends "layout.html" %}
 {% import 'image.html' as image %}
+{% import 'meta_fetch.html' as meta_fetch %}
 {% block body %}
 {% if book %}
 <form role="form" action="{{ url_for('edit-book.edit_book', book_id=book.id) }}" method="post" enctype="multipart/form-data" id="book_edit_frm">
@@ -266,96 +267,12 @@
 {{ delete_book(current_user.role_delete_books()) }}
 {{ delete_confirm_modal() }}
 
-<div class="modal fade" id="metaModal" data-book-id="{{ book.id }}" tabindex="-1" role="dialog" aria-labelledby="metaModalLabel">
-  <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-label="{{_('Close')}}"><span aria-hidden="true">&times;</span></button>
-        <h4 class="modal-title" id="metaModalLabel">{{_('Fetch Metadata')}}</h4>
-        <form class="padded-bottom" id="meta-search">
-          <label class="sr-only" for="keyword">{{_('Keyword')}}</label>
-          <input type="text" class="form-control" id="keyword" name="keyword" placeholder="{{_("Title and author, ISBN, DOI or arXiv id")}}">
-          <button type="submit" class="btn btn-default" id="do-search">{{_("Search")}}</button>
-        </form>
-      </div>
-      <div class="modal-body">
-        <div id="meta-info">
-          {{_("Loading...")}}
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button id="meta_close" type="button" class="btn btn-default" data-dismiss="modal">{{_('Close')}}</button>
-      </div>
-    </div>
-  </div>
-</div>
+{{ meta_fetch.meta_modal(book.id) }}
 {% endblock %}
 
 {% block js %}
-<script type="text/template" id="template-book-result">
-  <li class="media<%- book.exact_match ? ' meta-exact' : '' %>" data-uid="<%- uid %>">
-    <div class="media-image">
-      {# A provider with no cover sends nothing or Lily's placeholder: no picture to pick #}
-      <% if (safeUrl(book.cover) && !/\/generic_cover\.svg(\?|$)/.test(book.cover)) { %>
-      <div class="media-image-wrapper">
-        <img
-          src="<%- safeUrl(book.cover) %>"
-          alt="<%- book.title ? 'Cover of ' + book.title : 'Cover' %>"
-        >
-        {# Unticked: a PDF keeps its first page unless this cover is chosen here #}
-        <input type="checkbox" data-meta-value="cover" aria-label="{{_('Use this cover')}}">
-      </div>
-      <% } else { %>
-      <div class="meta-no-cover">{{_('No cover')}}</div>
-      <% } %>
-      <button type="button" class="btn btn-default meta-apply" title="{{_('Fill the form with the ticked fields and save')}}">{{_("Apply")}}</button>
-      <div><a class="meta_source" href="<%- safeUrl(book.url) || safeUrl(book.source.link) %>" target="_blank" rel="noopener"><%- book.source.description %></a></div>
-      <% if (book.exact_match) { %>
-      <div><span class="label label-success meta-exact-match">{{_("Exact match")}}</span></div>
-      <% } %>
-      <% if (book.format) { %>
-      <div>{{_("Format")}}: <%- book.format %></div>
-      <% } %>
-    </div>
-    <% if (!book.exact_match && book.score) { %>
-    <div class="meta-score" title="{{_('How well this result matches the book')}}"><span class="sr-only">{{_("Match")}} </span><%- Math.round(book.score * 100) %>%</div>
-    <% } %>
-    <dl class="media-body">
-      <% fields.forEach(function (f) { %>
-        <dt><label><input type="checkbox" data-meta-value="<%- f.key %>" checked> <%- f.label %></label></dt>
-        <dd class="<%- f.cls || '' %><%- f.same ? ' meta-same' : '' %>">
-          <% if (f.link) { %><a href="<%- safeUrl(f.link) %>" target="_blank" rel="noopener"><%- f.text %></a><% } else { %><span class="meta-value"><%- f.text %></span><% } %>
-          <% if (f.editions) { %>
-            <a href="#" class="meta-editions" data-hardcover-id="<%- f.editions %>"><span class="glyphicon glyphicon-search" aria-hidden="true"></span> {{_("Editions")}}</a>
-          <% } %>
-        </dd>
-      <% }); %>
-    </dl>
-  </li>
-</script>
-<script>
-  var i18nMsg = {
-    'loading': {{_('Loading...')|safe|tojson}},
-    'search_error': {{_('Search error!')|safe|tojson}},
-    'no_result': {{_('No results. Try another title, or an ISBN, DOI or arXiv id.')|safe|tojson}},
-    'author': {{_('Author')|safe|tojson}},
-    'publisher': {{_('Publisher')|safe|tojson}},
-    'comments': {{_('Description')|safe|tojson}},
-    'title': {{_('Title')|safe|tojson}},
-    'pubdate': {{_('Published')|safe|tojson}},
-    'series': {{_('Series')|safe|tojson}},
-    'series_index': {{_('Series index')|safe|tojson}},
-    'rating': {{_('Rating')|safe|tojson}},
-    'tags': {{_('Tags')|safe|tojson}},
-    'languages': {{_('Languages')|safe|tojson}},
-    'identifier_type': {{_('Identifier Type')|safe|tojson}},
-    'identifier_value': {{_('Identifier Value')|safe|tojson}},
-    'remove': {{_('Remove')|safe|tojson}},
-  };
-  var language = 'en';
-</script>
+{{ meta_fetch.meta_scripts() }}
 <script src="{{ url_for('static', filename='js/libs/typeahead.bundle.js') }}"></script>
-<script src="{{ url_for('static', filename='js/get_meta.js') }}"></script>
 <script src="{{ url_for('static', filename='js/libs/tinymce/tinymce.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/libs/bootstrap-datepicker/bootstrap-datepicker.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/edit_books.js') }}"></script>

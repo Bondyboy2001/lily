@@ -218,6 +218,12 @@
     </div>
 {%- endmacro %}
 
+{# The green check on a cover's top-right corner once a metadata lookup has matched the book
+   (editors only): on grid cards and the book page's plate (design §6.3, §6.4) #}
+{% macro fetched_mark(label, id=None) -%}
+<span class="lily-fetched"{% if id %} id="{{ id }}"{% endif %} role="img" title="{{ label }}" aria-label="{{ label }}"><span class="glyphicon glyphicon-ok" aria-hidden="true"></span></span>
+{%- endmacro %}
+
 {# One book in a cover grid (index, author, search, shelf). Cards are plain: cover, title, authors. #}
 {# progress: the share read (0-100) of a book in progress, drawn along the cover's foot (Reading list) #}
 {% macro book_card(book, user, is_read=False, authors_max=0, series_link=True, alt=None, extra_class='', progress=None) -%}
@@ -228,6 +234,7 @@
           <span class="img">
             {{ book_cover(book, alt=alt) }}
             {% if is_read %}<span class="badge read glyphicon glyphicon-eye-open" aria-hidden="true"></span>{% endif %}
+            {% if book.id|metadata_fetched %}{{ fetched_mark(_('Metadata fetched')) }}{% endif %}
           </span>
         </a>
         {{ cover_actions(book, user, formats, is_read) }}

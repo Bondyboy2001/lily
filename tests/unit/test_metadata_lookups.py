@@ -161,7 +161,7 @@ def test_book_page_shows_the_lookup_to_editors(env):
     html = _login(env).get(f"/book/{book}").get_data(as_text=True)
     fact = re.search(r'<div class="book-metadata-lookup">.*?</div>', html, flags=re.S)
     assert fact and ">From Open Library</dd>" in fact.group(0) and 'title="Looked up ' in fact.group(0)
-    dot = re.search(r'<span class="book-fetched-dot"[^>]*>', html)
+    dot = re.search(r'<span class="lily-fetched" id="book-fetched-dot"[^>]*>', html)
     assert dot and 'aria-label="Metadata fetched from Open Library on ' in dot.group(0)
     env.add_user("reader", password="pw")
     html = _login(env, "reader", "pw").get(f"/book/{book}").get_data(as_text=True)
@@ -194,5 +194,61 @@ def test_applying_a_fetch_metadata_result_marks_the_book_matched(env, before):
 def test_fetch_metadata_apply_names_its_provider_for_the_save():
     from pathlib import Path
     root = Path(__file__).resolve().parents[2] / "cps"
-    assert '$("#metadata_source").val(' in (root / "static/js/get_meta.js").read_text(encoding="utf-8")
+    assert 'set("metadata_source", ' in (root / "static/js/get_meta.js").read_text(encoding="utf-8")
     assert 'name="metadata_source"' in (root / "templates/book_edit.html").read_text(encoding="utf-8")
+
+
+def test_grid_cards_of_matched_books_carry_the_green_check_for_editors(env):
+    matched = env.add_book("Dune")
+    env.add_book("Emma")
+    _store().save_metadata_lookup(matched, "matched", "Open Library")
+    html = _login(env).get("/").get_data(as_text=True)
+    assert html.count('class="lily-fetched"') == 1
+    card = html[html.index('data-book-id="%d"' % matched):]
+    assert card.index('class="lily-fetched"') < card.index("</a>")
+    env.add_user("reader", password="pw")
+    assert "lily-fetched" not in _login(env, "reader", "pw").get("/").get_data(as_text=True)
+
+
+def test_applying_a_result_on_the_book_page_changes_only_what_it_fills(env):
+    import html as html_lib
+    import sqlite3
+    book = env.add_book("Dune", tags=("sf",))
+    # The save checks the book's folder, as the editor's does
+    (env.library_dir / "Test Author" / "Dune").mkdir(parents=True)
+    con = sqlite3.connect(env.library_dir / "metadata.db")
+    con.create_function("title_sort", 1, lambda t: t)
+    con.create_function("uuid4", 0, lambda: "")
+    con.execute("INSERT INTO identifiers (book, type, val) VALUES (?, 'isbn', '9780441013593')", (book,))
+    con.execute("UPDATE books SET pubdate = '1965-08-01 00:00:00+00:00' WHERE id = ?", (book,))
+    con.commit()
+    con.close()
+    c = _login(env)
+    page = c.get(f"/book/{book}").get_data(as_text=True)
+    form = re.search(r'<form action="([^"]+)" method="post" id="book_edit_frm" hidden>(.*?)</form>', page, flags=re.S)
+    assert form
+    # What get_meta.js sends: the enabled fields, plus the ones a result filled (here the publisher)
+    data = {}
+    for tag in re.findall(r"<input [^>]*>", form.group(2)):
+        name = html_lib.unescape(re.search(r'name="([^"]+)"', tag).group(1))
+        value = html_lib.unescape(re.search(r'value=(?:"([^"]*)"|\'([^\']*)\')', tag).group(1) or "")
+        if " disabled" not in tag:
+            data[name] = value
+    assert "tags" not in data and "comments" not in data and "shelves_present" not in data
+    data.update(publisher="Chilton Books", metadata_source="Open Library")
+    resp = c.post(html_lib.unescape(form.group(1)), data=data)
+    assert resp.status_code == 302 and resp.headers["Location"].endswith(f"/book/{book}")
+    con = sqlite3.connect(env.library_dir / "metadata.db")
+    try:
+        assert con.execute("SELECT p.name FROM publishers p JOIN books_publishers_link l ON l.publisher = p.id "
+                           "WHERE l.book = ?", (book,)).fetchall() == [("Chilton Books",)]
+        assert con.execute("SELECT t.name FROM tags t JOIN books_tags_link l ON l.tag = t.id WHERE l.book = ?",
+                           (book,)).fetchall() == [("sf",)]
+        assert con.execute("SELECT type, val FROM identifiers WHERE book = ?", (book,)).fetchall() == [
+            ("isbn", "9780441013593")]
+        assert con.execute("SELECT pubdate FROM books WHERE id = ?", (book,)).fetchone()[0].startswith("1965-08-01")
+        assert con.execute("SELECT a.name FROM authors a JOIN books_authors_link l ON l.author = a.id "
+                           "WHERE l.book = ?", (book,)).fetchall() == [("Test Author",)]
+    finally:
+        con.close()
+    assert _store().get_metadata_lookup(book)["status"] == "matched"

@@ -437,7 +437,8 @@ trims those. A cover more than 5% wider than A4 (a publisher's 3:4 front prints 
 and author near the edge) is marked `.cover-wide` by `lily.js` and shown whole with
 `object-fit: contain`, centred on the `--sunk` bands, rather than losing words. Read state is a 3px `--success` inset outline plus a corner eye badge titled "Finished" on grid
 covers, and a green dot in list view. Mark-as-read controls use the eye
-glyph (`glyphicon-eye-open`), the same mark as the sidebar's Finished row.
+glyph (`glyphicon-eye-open`), the same mark as the sidebar's Finished row. For editors, a book a metadata lookup has
+matched carries the green fetched mark (`.lily-fetched`, §6.4) on its cover's top-right corner.
 
 ---
 
@@ -555,9 +556,10 @@ content (grid, panel, rows)
 - **Lookup line** (`dl.book-record`, editors only): one 13px `--muted` line under the
   description, aligned with its text, saying what the last metadata lookup found
   ("From Open Library", "No match" or "Lookup failed", with the date in its tooltip).
-- **Fetched dot** (`.book-fetched-dot`, editors only): a filled 12px `--success` circle
-  16 from the stage's top-right corner once a metadata lookup has matched the book; its
-  tooltip and label say where from and when ("Metadata fetched from Open Library on ‹date›").
+- **Fetched mark** (`.lily-fetched`, `image.fetched_mark`, editors only): a filled 26px `--success`
+  disc with a `--surface` check and ring, 6 from the cover plate's top-right corner, once a metadata
+  lookup has matched the book; its tooltip and label say where from and when ("Metadata fetched
+  from Open Library on ‹date›"). Grid cards carry the same mark at 22px.
   No dot before a lookup, or after one that found nothing.
 - **Details dialog** (`#bookInfoModal`, §5.7): the info button in the action bar opens
   "Book Details", a two-column `dl.book-info` (label `--muted`, value `--ink`, 15px, rows
@@ -568,7 +570,8 @@ content (grid, panel, rows)
 - Tags and shelves are not shown on the book page; both stay editable on the
   edit page.
 - The action bar is Read, Download, Mark as read, Shelves, View details (the info sign), Fetch metadata (the magnifying glass,
-  opening the editor with the lookup running, `?fetch=1`), Edit metadata and Delete.
+  opening the lookup dialog on the book page itself; Apply saves through a hidden form of the
+  book's values and reloads the page), Edit metadata and Delete. The editor still takes `?fetch=1`.
   The Shelves icon (`glyphicon-list`) opens a menu of the shelves you may change, each a
   checkbox item (`role=menuitemcheckbox`, a tick when on) that puts the book on or takes
   it off at once, plus "New shelf"; sidebar counts follow without a reload (`shelves.js`).
@@ -594,7 +597,7 @@ content (grid, panel, rows)
   score is a bare 24px number ("21%") in the card's top right; an exact match
   shows its pill under Apply instead. A result's cover carries no text over the art.
   A result without a cover shows an empty "No cover" slot the cover's shape, with no
-  tick box. The dialog opens beside the edit page's cover, not over it, whenever 600px
+  tick box. The dialog opens beside the cover (the editor's or the book page's plate), not over it, whenever 600px
   of window is left (get_meta.js).
 
 ### 6.5 Settings (`settings_layout.html`, `lily_form.html`)

@@ -208,6 +208,24 @@ def named_authors_filter(authors):
     return [author for author in authors or [] if not constants.is_unknown_author(author.name)]
 
 
+# True once a metadata lookup has matched the book, for an editor's green check on its cover;
+# the matched ids are read once per request
+@jinjia.app_template_filter('metadata_fetched')
+def metadata_fetched_filter(book_id):
+    if not current_user.is_authenticated or not current_user.role_edit():
+        return False
+    fetched = g.get('_lily_fetched_ids')
+    if fetched is None:
+        try:
+            from .render_template import get_request_cwa_db
+            fetched = set(get_request_cwa_db().metadata_lookup_ids('matched'))
+        except Exception as e:
+            log.debug("Could not read the matched books: %s", e)
+            fetched = set()
+        g._lily_fetched_ids = fetched
+    return book_id in fetched
+
+
 @jinjia.app_template_filter('music')
 def contains_music(book_formats):
     result = False

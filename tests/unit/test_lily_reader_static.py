@@ -646,7 +646,10 @@ def test_book_page_has_no_fetch_prompt_but_a_lookup_button(client, temp_cwa_db):
     html = c.get(f"/book/{book_id}").get_data(as_text=True)
     # The fetched dot says whether metadata was looked up; there is no notice for it
     assert "book-fetch-prompt" not in html and "hasn't been fetched" not in html
-    assert f"/admin/book/{book_id}?fetch=1" in html
+    # The lookup opens on the book page, with a hidden form of the book's values to save through
+    assert 'id="fetch_book_meta"' in html and 'id="metaModal" data-book-id="%d"' % book_id in html
+    assert 'id="book_edit_frm"' in html and 'name="detail_view" value="1"' in html
+    assert "js/get_meta.js" in html
     # The edit page takes the flag and the lookup button it opens is there
     edit = c.get(f"/admin/book/{book_id}?fetch=1").get_data(as_text=True)
     assert 'id="get_meta"' in edit

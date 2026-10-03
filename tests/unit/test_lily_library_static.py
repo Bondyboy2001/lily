@@ -62,8 +62,8 @@ def test_detail_edit_and_read_state_are_named_icon_buttons():
     edit = re.search(r'<a href="[^"]*show_edit_book[^"]*" id="edit_book" class="btn is-icon"[^>]*>', html, flags=re.S)
     assert edit, "Edit Metadata icon button missing"
     assert "aria-label=\"{{ _('Edit metadata') }}\"" in edit.group(0)
-    # Fetch metadata sits just before Edit and opens the editor with the lookup running.
-    fetch = re.search(r'<a href="[^"]*show_edit_book[^"]*fetch=1[^"]*" id="fetch_book_meta" class="btn is-icon"[^>]*>', html, flags=re.S)
+    # Fetch metadata sits just before Edit and opens the lookup on this page.
+    fetch = re.search(r'<button type="button" id="fetch_book_meta" class="btn is-icon" data-toggle="modal" data-target="#metaModal"[^>]*>', html, flags=re.S)
     assert fetch and "aria-label=\"{{ _('Fetch metadata') }}\"" in fetch.group(0)
     assert html.index('id="fetch_book_meta"') < html.index('id="edit_book"')
     toggle = re.search(r'<button[^>]*id="toggle-read-btn"[^>]*>(.*?)</button>', html, flags=re.S)
@@ -114,6 +114,8 @@ def test_detail_description_has_no_heading_and_shows_in_full():
 
 def test_detail_page_does_not_show_tags_or_shelves():
     html = read(TEMPLATES / "detail.html")
+    # The hidden form Fetch Metadata saves through carries the tags, unseen
+    html = re.sub(r'<form [^>]*id="book_edit_frm" hidden>.*?</form>', "", html, flags=re.S)
     assert 'class="tags"' not in html and "entry.tags" not in html and "data='category'" not in html
     assert 'class="shelves"' not in html and "book-shelves-row" not in html and "books_shelfs" not in html
     assert "is-tag" not in html and "is-tag" not in read(CSS / "lily-library.css")
@@ -298,10 +300,13 @@ def test_detail_page_is_a_frontispiece_stage():
     dialog = html[html.index('id="bookInfoModal"'):]
     assert '<dl class="book-info">' in dialog
     assert dialog.index("entry.timestamp|formatdate") < dialog.index("entry.last_modified|formatdate")
-    # A matched lookup puts a green dot in the stage's top-right corner.
-    assert "metadata_lookup.status == 'matched'" in stage and 'class="book-fetched-dot"' in stage
-    dot = next(body for selector, body in rules if selector == ".book-fetched-dot")
-    assert "position: absolute" in dot and "var(--success)" in dot and "border-radius: 999px" in dot
+    # A matched lookup puts the green check on the cover plate's top-right corner.
+    plate = stage[stage.index('<div class="book-detail-cover">'):stage.index('<div class="book-detail-head">')]
+    assert "metadata_lookup.status == 'matched'" in plate and "image.fetched_mark(fetched, id='book-fetched-dot')" in plate
+    dot = next(body for selector, body in rules if selector == ".lily-fetched")
+    assert "position: absolute" in dot and "background: var(--success)" in dot and "border-radius: 999px" in dot
+    assert "top: 6px" in dot and "right: 6px" in dot
+    assert "position: relative" in next(body for selector, body in rules if selector == ".book-detail-cover")
     info = next(body for selector, body in rules if selector == "dl.book-info")
     assert "display: grid" in info and "border" not in info
 
@@ -430,11 +435,11 @@ def test_editor_adds_only_title_and_authors_by_hand_and_shows_other_fields_once_
     assert 'add: $(), fixed: true' in edit_js and "data-optional-add" not in edit_js
     css = read(CSS / "lily-library.css")
     assert ".editbook-section[hidden]" in css and "editbook-add-fields" not in css
-    assert '$("#book_edit_frm").trigger("lily:reveal-filled");' in read(JS / "get_meta.js")
+    assert '$form.trigger("lily:reveal-filled");' in read(JS / "get_meta.js")
 
 
 def test_fetch_metadata_search_is_a_field_and_a_separate_button():
-    template = read(TEMPLATES / "book_edit.html")
+    template = read(TEMPLATES / "meta_fetch.html")
     form = template.split('<form class="padded-bottom" id="meta-search">', 1)[1].split("</form>", 1)[0]
     assert "input-group" not in form
     css = read(CSS / "lily-library.css")
