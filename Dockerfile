@@ -70,6 +70,9 @@ RUN \
   apt-get install -y --no-install-recommends \
   imagemagick \
   ghostscript \
+  # A scanned PDF's pages read by OCR, and its back cover's ISBN barcode (cps/page_ocr.py)
+  tesseract-ocr \
+  zbar-tools \
   qpdf \
   libmagic1 \
   libxi6 \

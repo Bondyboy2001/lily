@@ -19,7 +19,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, UTC
 
-from cps import logger, db, constants, cover_match, helper
+from cps import logger, db, constants, cover_match, helper, page_ocr
 from cps.clean_html import clean_string
 from cps.edition import split_edition
 from cps.helper import get_sorted_author
@@ -368,14 +368,39 @@ def pdf_front_matter_text(book) -> str:
 
 
 def _pdf_text(book, first: int, last: int) -> str:
+    path, mtime = _pdf_file(book)
+    return _read_pages(path, mtime, first, last) if path else ""
+
+
+def _pdf_file(book):
+    """(path, mtime) of the book's PDF; (None, 0) without one."""
     from cps.pdf_fast import source
     path = source(book)
-    if path is None:
-        return ""
     try:
-        return _read_pages(path, os.path.getmtime(path), first, last)
+        return (path, os.path.getmtime(path)) if path else (None, 0)
     except OSError:
-        return ""
+        return None, 0
+
+
+# A scan's pages read by OCR for its title page and copyright page: fewer than FRONT_PAGES,
+# as each takes a moment
+OCR_FRONT_PAGES = 5
+
+
+def scanned_text(book, text: str, first: int, last: int) -> str:
+    """The pages' text, or what OCR reads on them when they have no text layer: a scan (see
+    page_ocr). Only the automatic lookup asks for it: OCR blocks while it reads, and Fetch
+    metadata runs on the server's event loop."""
+    if not page_ocr.needs_ocr(text) or not page_ocr.available():
+        return text
+    path, mtime = _pdf_file(book)
+    return (page_ocr.ocr_pages(path, mtime, first, last) or text) if path else text
+
+
+def back_cover_isbn(book) -> str:
+    """The ISBN barcode on the last page of the book's PDF, a scan's back cover; '' for none."""
+    path, mtime = _pdf_file(book)
+    return page_ocr.back_cover_isbn(path, mtime) if path else ""
 
 
 @functools.lru_cache(maxsize=32)
@@ -526,20 +551,24 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
         mode = lookup_mode(title, authors, _hand_edited(store, book_id))
         # Its PDF is read without holding the library: a page takes ~0.5 s on a NAS, and the
         # rebuild's other lookups would queue behind it
-        page_text = pdf_first_page_text(book)
-        front_matter = functools.partial(pdf_front_matter_text, book)
+        # A scan's pages are read by OCR
+        page_text = scanned_text(book, pdf_first_page_text(book), 0, 1)
+
+        def front_matter():
+            return scanned_text(book, pdf_front_matter_text(book), 1, OCR_FRONT_PAGES)
         if named_by_file(title) or not authors:
             # What it is shows on its title page, its author there too, and its ISBN on the
             # copyright page
             page_text = "\n".join((page_text, front_matter()))
             front_matter = str
-        missed, busy = set(), set()
         # Otherwise the pages after the first are read only when the searches find nothing,
         # and not while holding the library
+        missed, busy = set(), set()
         # The book's cover, shrunk only when a record's cover is weighed against it
         book_cover = functools.cache(lambda: cover_match.file_thumbnail(current_cover)) if current_cover else None
         record = _find_record(title, authors, own_ids, page_text, missed,
-                              front_matter=front_matter, papers_too=papers_too, busy=busy, cover=book_cover)
+                              front_matter=front_matter, papers_too=papers_too, busy=busy, cover=book_cover,
+                              back_cover=functools.partial(back_cover_isbn, book))
         if unanswered is not None:
             unanswered.update(missed)
         if record is None:
@@ -669,7 +698,7 @@ def _may_be_a_paper(book) -> bool:
 
 
 def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matter=None, papers_too=True,
-                 busy=None, cover=None):
+                 busy=None, cover=None, back_cover=None):
     """The provider record that is exactly this book, or None. An identifier lookup
     comes first: a paper by its arXiv id or DOI, as its title is often the file name,
     which no title search matches; a book by its ISBN, its own, the one its file was named
@@ -681,7 +710,9 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
     the first when called. Google Books is asked last of the book sources (see _lookup_order),
     and the paper sources weighed after it for a book (see _search_order). Providers that
     fail to answer are added to `unanswered`, and to `busy` when out of quota. `cover` gives
-    the book's cover thumbnail when called, to weigh the records' covers against."""
+    the book's cover thumbnail when called, to weigh the records' covers against. Last, a
+    book with no ISBN is looked up by the barcode on its back cover: `back_cover` reads it
+    when called."""
     lookup_ids = find_paper_identifiers(title, page_text, own_ids)
     named_isbn = isbn_in_title(title)
     isbn = own_ids.get('isbn') or named_isbn or (isbn_on_pages(page_text) if named_by_file(title) else '')
@@ -693,8 +724,11 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
         return record
     if named_by_file(title) or named_isbn:
         # No provider has a book called "427551_Print.indd"
-        log.info(f"No identifier found for '{title}'; keeping its details")
-        return None
+        record = None if 'isbn' in lookup_ids else _find_by_barcode(
+            back_cover, title, authors, page_text, unanswered, busy)
+        if record is None:
+            log.info(f"No identifier found for '{title}'; keeping its details")
+        return record
     query = " ".join([search_title(title)] + authors)
     searched = []
     providers = [p for p in _search_order(lookup_ids, page_text) if p.__id__ != PAPERS or papers_too]
@@ -722,6 +756,7 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
         # A match leaves the slower searches to finish on their own
         pool.shutdown(wait=False)
     record = _find_loosely(searched, title, authors, page_text, unanswered, busy, cover)
+    pages, printed = page_text, ''
     if record is None and front_matter and 'isbn' not in lookup_ids:
         pages = "\n".join((page_text, front_matter()))
         printed = isbn_on_pages(pages)
@@ -731,9 +766,22 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
         if record is None and pages.strip() != page_text.strip():
             # The title page is among them: it can confirm a title the first page could not
             record = _find_loosely(searched, title, authors, pages, unanswered, busy, cover)
+    if record is None and 'isbn' not in lookup_ids:
+        record = _find_by_barcode(back_cover, title, authors, pages, unanswered, busy, tried=printed)
     if record is None:
         log.info(f"No exact metadata match for '{title}'; keeping its details")
     return record
+
+
+def _find_by_barcode(back_cover, title, authors, pages, unanswered, busy, tried=''):
+    """The record found by the ISBN barcode on the book's back cover, checked as a printed
+    ISBN's is (printed_isbn_is_this_book); None without one, or when it is the ISBN `tried`."""
+    scanned = back_cover() if back_cover else ''
+    if not scanned or scanned == tried:
+        return None
+    log.info(f"Looking '{title}' up by the ISBN barcode on its back cover, {scanned}")
+    return _find_by_identifiers({'isbn': scanned}, unanswered, lambda found, ids: (
+        printed_isbn_is_this_book(found, title, authors, pages)), busy)
 
 
 def _find_by_identifiers(lookup_ids, unanswered, is_this_book, busy=None):
