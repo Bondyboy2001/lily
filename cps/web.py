@@ -654,7 +654,7 @@ def _latest_reader_positions(session, user_id, library_uuid, book_ids=None):
 
 
 def _book_resume(user_id, book_id, reader_list):
-    """{'percent': 0-100, 'format': fmt} for the book page's Continue button, or None.
+    """{'format': fmt} for the book page's Continue button, or None for a book not started.
 
     The newest scoped position wins; the format is only kept
     when the browser can still read it.
@@ -669,8 +669,8 @@ def _book_resume(user_id, book_id, reader_list):
             raw = legacy[0] if legacy else None
         if raw is None:
             return None
-        return {'percent': int(round(max(0.0, min(1.0, float(raw))) * 100)),
-                'format': fmt if fmt in reader_list else None}
+        float(raw)  # a position that is no number is no start
+        return {'format': fmt if fmt in reader_list else None}
     except (TypeError, ValueError, OperationalError, InvalidRequestError):
         return None
 

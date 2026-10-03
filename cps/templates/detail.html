@@ -54,11 +54,11 @@
                     {% set can_download = current_user.role_download() and entry.data|length %}
                     {% set can_delete = current_user.role_edit() and current_user.role_delete_books() %}
                     {% if can_read %}
-                        {# A book in progress is named "Continue · 33%" and opens the format it was last read in, in a new tab. #}
-                        {% set read_name = resume and (_('Continue') ~ ' · ' ~ resume.percent ~ '%') or _('Read') %}
+                        {# A book in progress is named "Continue" and opens the format it was last read in, in a new tab. #}
+                        {% set read_name = resume and _('Continue') or _('Read') %}
                         <a id="readbtn" class="btn btn-primary" target="_blank" rel="noopener" data-reader-link=""
                            href="{{ url_for('web.read_book', book_id=entry.id, book_format=(resume and resume.format) or entry.reader_list[0]) }}" title="{{ read_name }}">
-                            <span class="glyphicon glyphicon-book" aria-hidden="true"></span><span class="book-action-label">{% if resume %}{{ _('Continue') }} · {{ resume.percent }}%{% else %}{{ _('Read') }}{% endif %}</span>
+                            <span class="glyphicon glyphicon-book" aria-hidden="true"></span><span class="book-action-label">{{ read_name }}</span>
                         </a>
                     {% endif %}
                     {% if can_download %}

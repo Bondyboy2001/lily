@@ -865,7 +865,8 @@ dl.book-info {
     color: var(--muted);
 }
 
-.book-on-shelves + .book-fetched-from { margin-top: 6px; }
+/* Only after a shown shelves line: the line is in the page, hidden, for a book on no shelf. */
+.book-on-shelves:not([hidden]) + .book-fetched-from { margin-top: 6px; }
 
 /* The book title is content, set as a display line (design §3.1). */
 .book-detail-meta h1#title {

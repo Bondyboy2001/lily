@@ -404,7 +404,7 @@ one level deep.
 
 - **Progress bar:** 4px, radius 999, track `--control-tint`, bar `--accent`
   (tone variants for success/warning/danger). Covers carry no progress bar: there is no
-  in-progress list, and a book in progress says "Continue · 33%" on its own page.
+  in-progress list, and a book in progress says "Continue" on its own page.
 - **Busy:** spin the control's own glyph (`.glyphicon-spin`), or `.is-busy`
   (opacity .4) on an icon button. No full-page spinners.
 
@@ -444,7 +444,7 @@ matched carries the green fetched tick (`.lily-fetched`, §6.4): a disc beside t
 - **Sidebar:** 232px (`--sidebar-width`), `--sunk`, 1px `--line` on its right
   edge, sticky full height. Groups "Browse" and "Shelves", each headed by a
   `.nav-head` heading. Browse is Books, Finished and Authors; there is no Reading row
-  (a book in progress says "Continue · 33%" on its own page). Always shown from 768px up; on phones it is an off-canvas
+  (a book in progress says "Continue" on its own page). Always shown from 768px up; on phones it is an off-canvas
   drawer with an ink-30% scrim, closed by the scrim or Escape, and `visibility: hidden` while closed so its links
   leave the tab order. Opening the drawer moves focus to its first link and
   makes `.lily-main` inert; every way of closing it returns focus to the toggle.
@@ -495,7 +495,7 @@ content (grid, panel, rows)
   the page, once per browser session and again when the count rises. It is never a
   dialog: nothing covers the page the user came to use.
 - **No Continue Reading row and no Reading list** (`/inprogress` is gone): a book in progress says
-  "Continue · 33%" on its book page.
+  "Continue" on its book page.
 - **No series anywhere:** Lily shows, edits, sorts, searches and browses no series
   (no Series page or OPDS feed, no "Book N of", no "Next in" row, no series on
   cards, in Fetch Metadata or in Advanced Search), and metadata lookups don't write
@@ -530,7 +530,7 @@ content (grid, panel, rows)
 - **≤1499px:** a smaller plate (≤268) and a 46px title. **≤1099px:** stage padding 24,
   title 40. **≤767px:** the stage stacks and centres: a 196px plate, a 30px title, Read across the full width with the icon buttons sharing the line
   under it. Reset row sizing here.
-- Read is the Primary and wears its word ("Read", or "Continue · 33%" for a book in
+- Read is the Primary and wears its word ("Read", or "Continue" for a book in
   progress, opening the reader in a new tab at the format last read). Every other action
   is a 44px square icon button named by its `title` and a hidden label; Delete comes last,
   spaced like the rest. Read state, once on, is the eye in `--success` on a 34% `--success` tint.

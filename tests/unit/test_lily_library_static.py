@@ -50,9 +50,10 @@ def test_detail_page_has_no_inline_styles_and_one_primary():
     assert 'class="btn btn-primary"' in read_btn
     assert 'class="book-action-label">' in read_btn
     assert "url_for('web.read_book'" in read_btn
-    assert "{{ _('Read') }}" in read_btn
-    # A book in progress offers to continue, with how far in it is.
-    assert "{{ _('Continue') }}" in read_btn and "resume.percent" in read_btn
+    assert 'class="book-action-label">{{ read_name }}</span>' in read_btn
+    assert "_('Read')" in html
+    # A book in progress offers to continue, with no percent on the button
+    assert "_('Continue')" in html and "resume.percent" not in html
     assert html.count("btn-primary") == 1
     assert "btn-danger" not in html
 
@@ -121,6 +122,8 @@ def test_detail_page_names_the_shelves_the_book_is_on():
     assert "updateOnShelves($item.data(\"shelf-url\"), data.on)" in js
     css = read(CSS / "lily-library.css")
     assert re.search(r"\.book-on-shelves a:not\(\[hidden\]\) ~ a:not\(\[hidden\]\)::before", css)
+    # A hidden shelves line (book on no shelf) must not pull the fetched line up to 6px
+    assert ".book-on-shelves:not([hidden]) + .book-fetched-from" in css
 
 
 def test_detail_page_does_not_show_tags():
