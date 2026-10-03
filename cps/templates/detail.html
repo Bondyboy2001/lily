@@ -156,13 +156,6 @@
                 <div class="comments" id="book-description">{{ entry.comments[0].text|flatten_breaks }}</div>
             </section>
         {% endif %}
-        {% if current_user.role_edit() and not metadata_lookup %}
-            {# Never looked up, by hand or by the importer: one step to the lookup instead of Edit, Fetch metadata, Apply, Save #}
-            <div class="alert alert-info book-detail-prompt" id="book-fetch-prompt">
-                <span>{{ _("This book's metadata hasn't been fetched yet.") }}
-                    <a href="{{ url_for('edit-book.show_edit_book', book_id=entry.id, fetch=1) }}">{{ _('Fetch metadata') }}</a></span>
-            </div>
-        {% endif %}
 
         {# What its last metadata lookup found, quietly under the description (editors only) #}
         {% if metadata_lookup %}

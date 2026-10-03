@@ -551,7 +551,7 @@ content (grid, panel, rows)
   they never scroll.
 - **Description:** a pull-quote: `--font-body` 22px italic, line-height 1.6, `--ink-soft`,
   the full width of the page (no measure cap), indented 64 behind a 112px `--accent` opening mark (19px, 40 and 76 on
-  phones). A book without one shows editors the "Fetch metadata" notice instead.
+  phones). There is no "not fetched yet" notice: the fetched dot already says so.
 - **Lookup line** (`dl.book-record`, editors only): one 13px `--muted` line under the
   description, aligned with its text, saying what the last metadata lookup found
   ("From Open Library", "No match" or "Lookup failed", with the date in its tooltip).

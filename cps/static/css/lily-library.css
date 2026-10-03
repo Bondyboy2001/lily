@@ -1357,8 +1357,6 @@ dl.book-metadata:not(:has(> div)) { display: none; }
     color: var(--accent);
 }
 
-.book-detail-prompt { align-self: start; margin: 0; }
-
 .book-detail-description .comments {
     font-family: var(--font-body);
     font-size: 22px;
