@@ -539,8 +539,8 @@ content (grid, panel, rows)
   under it. Reset row sizing here.
 - Read is the Primary and wears its word ("Read", or "Continue · 33%" for a book in
   progress, opening the reader in a new tab at the format last read). Every other action
-  is a 44px square icon button named by its `title` and a hidden label; Delete sits 14px
-  apart at the end. Read state, once on, is the eye in `--success` on a 34% `--success` tint.
+  is a 44px square icon button named by its `title` and a hidden label; Delete comes last,
+  spaced like the rest. Read state, once on, is the eye in `--success` on a 34% `--success` tint.
 - **Fact tags** (`dl.book-metadata`, one `.book-fact` per fact): radius 999, 30 tall,
   padding 0 14, 14px/500, `--control-tint` with `--ink-soft`; a tag holding a link takes
   `--accent-soft` with an `--accent` label (`--selected` on hover). Each tag keeps its `dt`

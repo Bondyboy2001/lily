@@ -80,6 +80,8 @@ def test_detail_edit_and_read_state_are_named_icon_buttons():
     share = re.search(r"^\.book-action-bar > \.btn\.is-icon \{([^}]*)\}", css, flags=re.M)
     assert share and "flex: none" in share.group(1)
     assert re.search(r"\.book-action-bar > \.btn\.btn-primary \{ flex: 1 1 100%; \}", css)
+    # Delete sits evenly with the other buttons, no extra gap before it.
+    assert not re.search(r"\.book-action-bar > \.btn\.is-danger \{ margin-left", css)
 
 
 def test_detail_rare_actions_are_icon_buttons_not_a_menu():
