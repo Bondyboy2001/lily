@@ -19,7 +19,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, UTC
 
-from cps import logger, db, constants, helper
+from cps import logger, db, constants, cover_match, helper
 from cps.clean_html import clean_string
 from cps.edition import split_edition
 from cps.helper import get_sorted_author
@@ -63,30 +63,51 @@ def matched_title(title: str, record):
     return next((form for form in title_forms(record) if titles_match(title, form)), None)
 
 
-def best_metadata_match(title: str, authors, results, page_text: str = ""):
+def best_metadata_match(title: str, authors, results, page_text: str = "", cover=None):
     """Return the result that is exactly this book, or None.
 
     The title must match exactly (see titles_match), with or without the result's subtitle,
     and, when both sides list authors, they must share a surname. A result naming the
     authors wins over one that names none. A book with no author has only its title to go
     by, and titles like "Calculus" are shared by many books: one of the result's authors must
-    be printed on the book's pages (author_on_pages)."""
+    be printed on the book's pages (author_on_pages), or its cover be the book's (cover_is).
+    Of several editions that match, the one whose cover is the book's wins. `cover` gives the
+    book's cover thumbnail when called (cover_match)."""
     book_surnames = surnames(authors)
     title_only = None
+    matches = []
+    weighed = 0
     for result in results or []:
         if matched_title(title, result) is None:
             continue
         if not book_surnames:
             if author_on_pages(result, page_text):
-                return result
+                matches.append(result)
+            elif weighed < COVERS_WEIGHED:
+                weighed += 1
+                if cover_is(result, cover):
+                    matches.append(result)
             continue
         result_surnames = surnames(getattr(result, 'authors', None))
         if result_surnames:
             if book_surnames & result_surnames:
-                return result
+                matches.append(result)
         elif title_only is None:
             title_only = result
-    return title_only
+    if len(matches) > 1:
+        return next((m for m in matches[:COVERS_WEIGHED] if cover_is(m, cover)), matches[0])
+    return matches[0] if matches else title_only
+
+
+# The most provider covers a match downloads to weigh against the book's
+COVERS_WEIGHED = 5
+
+
+def cover_is(record, cover) -> bool:
+    """Whether the record's cover is the book's: `cover` gives the book's thumbnail when
+    called. False when either has none, or too little detail to tell (cover_match)."""
+    mine = cover() if cover else None
+    return bool(mine) and cover_match.same_cover(mine, cover_match.remote_thumbnail(getattr(record, 'cover', '') or ''))
 
 
 def author_on_pages(record, page_text: str) -> bool:
@@ -156,20 +177,25 @@ def _on_pages(record, page_text: str) -> bool:
     return any(title_on_page(form, page_text) for form in title_forms(record))
 
 
-def loose_metadata_match(title: str, authors, results, page_text: str = ""):
+def loose_metadata_match(title: str, authors, results, page_text: str = "", cover=None):
     """The result that is this book going by a title its file's name damaged (see
     loosely_titled), or None.
 
     Such a title says less than an exact one, so one of the book's authors must be among the
-    result's, or the result's title printed on the book's own pages. Results that are
-    different books leave it undecided."""
+    result's, the result's title printed on the book's own pages, or its cover the book's
+    (cover_is). Results that are different books leave it undecided."""
     book_surnames = surnames(authors)
     found = None
+    weighed = 0
     for result in results or []:
         if not loosely_titled(title, result):
             continue
         if not (book_surnames & surnames(getattr(result, 'authors', None)) or _on_pages(result, page_text)):
-            continue
+            if weighed >= COVERS_WEIGHED:
+                continue
+            weighed += 1
+            if not cover_is(result, cover):
+                continue
         if found is None:
             found = result
         elif _normalise(found.title) != _normalise(result.title):
@@ -510,8 +536,10 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
         missed, busy = set(), set()
         # Otherwise the pages after the first are read only when the searches find nothing,
         # and not while holding the library
+        # The book's cover, shrunk only when a record's cover is weighed against it
+        book_cover = functools.cache(lambda: cover_match.file_thumbnail(current_cover)) if current_cover else None
         record = _find_record(title, authors, own_ids, page_text, missed,
-                              front_matter=front_matter, papers_too=papers_too, busy=busy)
+                              front_matter=front_matter, papers_too=papers_too, busy=busy, cover=book_cover)
         if unanswered is not None:
             unanswered.update(missed)
         if record is None:
@@ -641,7 +669,7 @@ def _may_be_a_paper(book) -> bool:
 
 
 def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matter=None, papers_too=True,
-                 busy=None):
+                 busy=None, cover=None):
     """The provider record that is exactly this book, or None. An identifier lookup
     comes first: a paper by its arXiv id or DOI, as its title is often the file name,
     which no title search matches; a book by its ISBN, its own, the one its file was named
@@ -652,7 +680,8 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
     up by the ISBN on its copyright page: `front_matter` gives the text of its pages after
     the first when called. Google Books is asked last of the book sources (see _lookup_order),
     and the paper sources weighed after it for a book (see _search_order). Providers that
-    fail to answer are added to `unanswered`, and to `busy` when out of quota."""
+    fail to answer are added to `unanswered`, and to `busy` when out of quota. `cover` gives
+    the book's cover thumbnail when called, to weigh the records' covers against."""
     lookup_ids = find_paper_identifiers(title, page_text, own_ids)
     named_isbn = isbn_in_title(title)
     isbn = own_ids.get('isbn') or named_isbn or (isbn_on_pages(page_text) if named_by_file(title) else '')
@@ -680,7 +709,7 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
                 results = (asked[provider].result() if provider in asked
                            else provider.search_titles(query, "", "en")) or []
                 # Only the record applied needs the details a provider fetches per result
-                record = best_metadata_match(title, authors, results, page_text)
+                record = best_metadata_match(title, authors, results, page_text, cover)
                 if record is not None:
                     record = provider.complete(record)
             except Exception as e:
@@ -692,7 +721,7 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
     finally:
         # A match leaves the slower searches to finish on their own
         pool.shutdown(wait=False)
-    record = _find_loosely(searched, title, authors, page_text, unanswered, busy)
+    record = _find_loosely(searched, title, authors, page_text, unanswered, busy, cover)
     if record is None and front_matter and 'isbn' not in lookup_ids:
         pages = "\n".join((page_text, front_matter()))
         printed = isbn_on_pages(pages)
@@ -701,7 +730,7 @@ def _find_record(title, authors, own_ids, page_text, unanswered=None, front_matt
                 printed_isbn_is_this_book(found, title, authors, pages)), busy)
         if record is None and pages.strip() != page_text.strip():
             # The title page is among them: it can confirm a title the first page could not
-            record = _find_loosely(searched, title, authors, pages, unanswered, busy)
+            record = _find_loosely(searched, title, authors, pages, unanswered, busy, cover)
     if record is None:
         log.info(f"No exact metadata match for '{title}'; keeping its details")
     return record
@@ -725,11 +754,11 @@ def _find_by_identifiers(lookup_ids, unanswered, is_this_book, busy=None):
     return None
 
 
-def _find_loosely(searched, title, authors, page_text, unanswered, busy=None):
+def _find_loosely(searched, title, authors, page_text, unanswered, busy=None, cover=None):
     """The first loose match (see loose_metadata_match) among the results the title
     searches gave, completed by its provider, or None."""
     for provider, results in searched:
-        record = loose_metadata_match(title, authors, results, page_text)
+        record = loose_metadata_match(title, authors, results, page_text, cover)
         if record is None:
             continue
         try:
