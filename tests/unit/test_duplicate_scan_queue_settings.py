@@ -267,13 +267,16 @@ def test_internal_duplicate_queue_defaults_to_sixty_second_debounce(monkeypatch)
 
 
 def test_cwa_settings_saves_only_the_fields_the_page_shows(monkeypatch):
+    # The merge choice and uploads are no longer on the page: a posted value changes nothing
     request = SimpleNamespace(
         method="POST",
         form={"auto_metadata_fetch_enabled": "on", "auto_ingest_automerge": "overwrite",
-              "config_google_books_api_key": " abc ", "config_uploading": "on"},
+              "config_google_books_api_key": " abc ", "config_uploading": ""},
     )
     module = _load_cwa_functions(monkeypatch, request)
     _SettingsCwaDB.instances = []
+    config = sys.modules["cps.config"]
+    config.config_uploading = 1
 
     module.set_cwa_settings()
 
@@ -281,17 +284,5 @@ def test_cwa_settings_saves_only_the_fields_the_page_shows(monkeypatch):
     assert saved == {
         "auto_metadata_fetch_enabled": 1,
         "auto_metadata_enforcement": 0,
-        "auto_ingest_automerge": "overwrite",
     }
-    config = sys.modules["cps.config"]
     assert config.config_google_books_api_key == "abc" and config.config_uploading == 1
-
-
-def test_cwa_settings_ignores_an_unknown_merge_option(monkeypatch):
-    request = SimpleNamespace(method="POST", form={"auto_ingest_automerge": "drop_table"})
-    module = _load_cwa_functions(monkeypatch, request)
-    _SettingsCwaDB.instances = []
-
-    module.set_cwa_settings()
-
-    assert "auto_ingest_automerge" not in _SettingsCwaDB.instances[0].updated_settings

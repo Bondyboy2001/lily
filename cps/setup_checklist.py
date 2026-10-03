@@ -12,7 +12,7 @@ from flask import url_for
 from flask_babel import gettext as _
 from werkzeug.security import check_password_hash
 
-from . import config, constants, logger, ub
+from . import constants, logger, ub
 from .cw_login import current_user
 
 log = logger.create()
@@ -61,9 +61,6 @@ def setup_checklist():
         else:
             password_href = url_for("admin.edit_user", user_id=default_pw_user.id)
         items = [
-            {"id": "uploads", "label": _("Uploads enabled"),
-             "hint": _("Off by default. Until it is on, the Upload button stays hidden."),
-             "done": bool(config.config_uploading), "href": url_for("cwa_settings.set_cwa_settings")},
             {"id": "password", "label": _("Default admin password changed"),
              "hint": _("The admin account still accepts the default password."),
              "done": default_pw_user is None, "href": password_href},

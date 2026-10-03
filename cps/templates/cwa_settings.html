@@ -5,15 +5,7 @@
   <form id="cwa_settings_form" action="{{ url_for('cwa_settings.set_cwa_settings') }}" method="post" autocomplete="off">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-    {% call f.group(_('Import')) %}
-      {{ f.select('auto_ingest_automerge', _('If the book is already in the library'),
-         [('new_record', _('Keep both')), ('overwrite', _('Replace it')), ('ignore', _('Skip the new copy'))],
-         cwa_settings['auto_ingest_automerge']) }}
-      {{ f.toggle('config_uploading', _('Uploads from the browser'), config.config_uploading,
-         help=_('Users also need the Upload permission.')) }}
-    {% endcall %}
-
-    {% call f.group(_('Metadata')) %}
+    {% call f.group(None, id='section-metadata') %}
       {{ f.toggle('auto_metadata_fetch_enabled', _('Fetch metadata for new books'), cwa_settings['auto_metadata_fetch_enabled']) }}
       {{ f.toggle('auto_metadata_enforcement', _('Write edits into book files'), cwa_settings['auto_metadata_enforcement'],
          help=_('Edits are saved into EPUB and AZW3 files too, not just the library. PDFs are never changed.')) }}

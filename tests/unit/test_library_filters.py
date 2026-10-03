@@ -147,12 +147,12 @@ class TestFilterChips:
 
 @pytest.mark.unit
 class TestSetupChecklist:
-    def test_admin_sees_open_steps(self, env):
+    def test_uploads_are_no_step(self, env):
+        # Uploads are always on: settings has no switch for them, so the checklist never asks
         from cps import config
         config.config_uploading = 0
         html = _get(_login(env), "/")
-        assert 'id="lily-setup"' in html
-        assert "Uploads enabled" in html
+        assert "Uploads enabled" not in html
 
     def test_default_password_is_detected(self, env):
         from cps import constants, ub
@@ -186,3 +186,37 @@ def test_sidebar_shelf_counts(env):
     ub.session.commit()
     html = _get(_login(env), "/")
     assert 'title="Full (1)"' in html and 'title="Empty (0)"' in html
+
+
+@pytest.fixture
+def fetched_env(tmp_path, temp_cwa_db):
+    # cwa.db is made first, so the library's connections attach it
+    (tmp_path / "lib").mkdir()
+    with lily_env(tmp_path / "lib") as e:
+        e.app.jinja_env.globals.setdefault("csrf_token", lambda: "")
+        from cps.editbooks import editbook
+        from cps.duplicates import duplicates
+        from cps.cwa_functions import library_refresh, cwa_settings
+        for bp in (editbook, duplicates, library_refresh, cwa_settings):
+            if bp.name not in e.app.blueprints:
+                e.app.register_blueprint(bp)
+        yield e, temp_cwa_db
+
+
+def test_last_fetched_sort_puts_the_latest_lookup_first_and_unlooked_books_last(fetched_env):
+    env, store = fetched_env
+    ids = {title: env.add_book(title) for title in ("Never Looked Up", "Looked Up Long Ago", "Looked Up Today")}
+    for title, when in (("Looked Up Long Ago", "2026-01-01T09:00:00+00:00"),
+                        ("Looked Up Today", "2026-10-03T09:00:00+00:00")):
+        store.cur.execute("INSERT INTO metadata_lookups (book_id, status, source, checked_at) VALUES (?, 'matched', '', ?)",
+                          (ids[title], when))
+    store.con.commit()
+    client = _login(env)
+
+    def order(html):
+        grid = html[html.index('class="lily-list-toolbar"'):]
+        return re.findall(r'<p title="([^"]+)" class="title"', grid)
+
+    assert order(_get(client, "/newest/fetchnew/")) == ["Looked Up Today", "Looked Up Long Ago", "Never Looked Up"]
+    assert order(_get(client, "/newest/fetchold/")) == ["Looked Up Long Ago", "Looked Up Today", "Never Looked Up"]
+    assert "Last fetched" in _get(client, "/newest/stored/")

@@ -57,6 +57,26 @@ _app_read_book = sql_table('book_read_link',
                            schema='app_settings')
 
 
+# When each book's metadata was last looked up (cwa.db): the "Last fetched" sort.
+_cwa_lookups = sql_table('metadata_lookups',
+                         sql_column('book_id', Integer),
+                         sql_column('checked_at', String),
+                         schema='cwa')
+
+
+def last_fetched_order(newest_first=True):
+    """ORDER BY term for when each book's metadata was last looked up; never-looked-up books last."""
+    fetched = (select(_cwa_lookups.c.checked_at)
+               .where(_cwa_lookups.c.book_id == Books.id)
+               .scalar_subquery())
+    return (fetched.desc() if newest_first else fetched.asc()).nulls_last()
+
+
+def _cwa_db_file():
+    """Lily's own database, where the lookups are noted (scripts/cwa_db.py)."""
+    return os.path.join(os.environ.get("CWA_DB_PATH", "/config"), "cwa.db")
+
+
 def last_read_order(newest_first=True):
     """ORDER BY term for when the current user last read or marked each book; never-read books last."""
     last_read = (select(func.max(_app_read_book.c.last_modified))
@@ -1288,12 +1308,19 @@ def _register_functions(conn, config=None):
 
 def _connection_setup(dbpath, app_db_path):
     """Prepare each new pooled connection as the library expects: metadata.db attached as
-    `calibre`, app.db as `app_settings`, and calibre's SQL functions registered."""
+    `calibre`, app.db as `app_settings`, cwa.db as `cwa`, and calibre's SQL functions registered."""
     def on_connect(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
         try:
             cursor.execute("ATTACH DATABASE ? AS calibre", (dbpath,))
             cursor.execute("ATTACH DATABASE ? AS app_settings", (app_db_path,))
+            cwa = _cwa_db_file()
+            if os.path.isfile(cwa):
+                cursor.execute("ATTACH DATABASE ? AS cwa", (cwa,))
+            else:
+                # Not made yet: an empty stand-in, so the sort lists every book as never looked up
+                cursor.execute("ATTACH DATABASE ':memory:' AS cwa")
+                cursor.execute("CREATE TABLE cwa.metadata_lookups (book_id INTEGER, checked_at TEXT)")
         finally:
             cursor.close()
         _register_functions(dbapi_connection)

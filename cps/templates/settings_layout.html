@@ -14,7 +14,7 @@
   {'id': 'profile', 'group': 'account', 'label': _('Profile'), 'shown': signed_in,
    'href': url_for('web.profile'), 'eps': ['web.profile']},
 
-  {'id': 'import', 'group': 'admin', 'label': _('Import & Metadata'), 'shown': is_admin,
+  {'id': 'metadata', 'group': 'admin', 'label': _('Metadata'), 'shown': is_admin,
    'href': url_for('cwa_settings.set_cwa_settings'), 'eps': ['cwa_settings.set_cwa_settings']},
   {'id': 'users', 'group': 'admin', 'label': _('Users'), 'shown': is_admin,
    'href': url_for('admin.edit_user_table'), 'eps': ['admin.edit_user_table', 'admin.edit_user', 'admin.new_user']},

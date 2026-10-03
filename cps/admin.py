@@ -72,7 +72,6 @@ def before_request():
             config.db_configured = False
     g.constants = constants
     g.allow_anonymous = config.config_anonbrowse
-    g.allow_upload = config.config_uploading
     g.config_authors_max = config.config_authors_max
     # The library lives at /calibre-library (autoconfigured above); there is no page to point
     # Lily elsewhere, so without a usable metadata.db every page but login says so.

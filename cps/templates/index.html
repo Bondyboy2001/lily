@@ -35,7 +35,7 @@
     {# Grid/List icons, pinned to the toolbar's top right #}
     {{ self.view_switch() }}
     {% if page == 'hot' %}{% set sort_fields = ['downloads'] %}
-    {% else %}{% set sort_fields = ['added', 'read', 'title', 'author', 'published'] %}{% endif %}
+    {% else %}{% set sort_fields = ['added', 'read', 'fetched', 'title', 'author', 'published'] %}{% endif %}
     {% if list_filters and list_filters.active.get('metadata') %}{{ image.metadata_chips(list_filters) }}{% endif %}
     {{ image.sort_menu(order, url_for('web.books_list', data=page, book_id=id, sort_param='SORT_PARAM', **(list_filters.args if list_filters else {})), sort_fields) }}
     {{ image.pager(pagination) }}
@@ -55,11 +55,9 @@
   {% elif not entries[0] and page == 'newest' %}
   {% call image.empty_state('glyphicon-book', _('Add Your First Book'),
                             _('Upload a book to start your library, or drop files into the import folder and Lily adds them automatically.')) %}
-    {% if current_user.role_upload() and g.allow_upload %}
+    {% if current_user.role_upload() %}
     {# Opens the same file picker as the top bar's Upload button #}
     <label for="btn-upload" class="btn btn-primary lily-upload-btn"><span class="glyphicon glyphicon-upload" aria-hidden="true"></span>{{_('Upload books')}}</label>
-    {% elif current_user.role_admin() and not g.allow_upload %}
-    <a class="btn btn-default" href="{{ url_for('cwa_settings.set_cwa_settings') }}">{{_('Turn on uploads')}}</a>
     {% endif %}
   {% endcall %}
   {% elif not entries[0] and page == 'inprogress' %}

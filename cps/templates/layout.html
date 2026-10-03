@@ -95,7 +95,7 @@
           </form>
           <a href="{{url_for('search.advanced_search')}}" id="advanced_search" class="icon-btn" title="{{_('Advanced search')}}" aria-label="{{_('Advanced search')}}"><span class="glyphicon glyphicon-filter" aria-hidden="true"></span></a>
           <div class="lily-topbar-actions">
-            {% if current_user.role_upload() and g.allow_upload %}
+            {% if current_user.role_upload() %}
             <form id="form-upload" class="lily-upload" action="{{ url_for('edit-book.upload') }}" data-title="{{_('Uploading…')}}" data-footer="{{_('Close')}}" data-failed="{{_('Upload Failed')}}" data-message="{{_('Upload done, processing, please wait...')}}" method="post" enctype="multipart/form-data">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <span class="icon-btn btn-file" title="{{_('Upload books')}}"><span class="glyphicon glyphicon-upload" aria-hidden="true"></span><input id="btn-upload" name="btn-upload" aria-label="{{_('Upload books')}}"

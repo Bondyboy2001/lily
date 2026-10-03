@@ -27,7 +27,7 @@
         {% if not content.role_anonymous() %}{{ f.check('admin_role', _('Admin'), content.role_admin()) }}{% endif %}
         {{ f.check('download_role', _('Download'), content.role_download()) }}
         {{ f.check('viewer_role', _('Read in browser'), content.role_viewer()) }}
-        {% if config.config_uploading %}{{ f.check('upload_role', _('Upload'), content.role_upload()) }}{% endif %}
+        {{ f.check('upload_role', _('Upload'), content.role_upload()) }}
         {{ f.check('edit_role', _('Edit books'), content.role_edit()) }}
         {{ f.check('delete_role', _('Delete books'), content.role_delete_books()) }}
         {% if not content.role_anonymous() %}

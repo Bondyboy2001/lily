@@ -24,6 +24,7 @@
     {%- set sorts = {
         'added': (_('Date added'), 'old', 'new'),
         'read': (_('Last read'), 'readold', 'readnew'),
+        'fetched': (_('Last fetched'), 'fetchold', 'fetchnew'),
         'title': (_('Title'), 'abc', 'zyx'),
         'author': (_('Author'), 'authaz', 'authza'),
         'published': (_('Published'), 'pubold', 'pubnew'),
@@ -61,7 +62,7 @@
 
 {# Page numbers for a paginated book list; they sit in the list's toolbar, after Sort. #}
 {# The Metadata filter's chips (list_filters.py), shown once the filter is on, which the
-   Import & Metadata page's lookup rows do: one per thing a lookup can find. The chosen one
+   Metadata settings page's lookup rows do: one per thing a lookup can find. The chosen one
    turns the filter off again. #}
 {% macro metadata_chips(list_filters) -%}
     {%- set chosen = list_filters.active.get('metadata') -%}

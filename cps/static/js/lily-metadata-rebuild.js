@@ -1,5 +1,5 @@
 /*
- * Import & Metadata → Rebuild metadata (templates/cwa_settings.html): confirm, start the
+ * Settings → Metadata → Rebuild metadata (templates/cwa_settings.html): confirm, start the
  * rebuild, then show its progress in a help line under the label until it finishes, with Stop
  * beside it meanwhile. A stopped rebuild is followed until the books under way are done.
  * Opening the page while a rebuild runs picks it up again. After a rebuild that was stopped

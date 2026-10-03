@@ -29,7 +29,7 @@ def _login(env, name, password):
 class TestSettingsRail:
     def test_admin_rail_lists_only_remaining_sections(self, env):
         html = _login(env, env.admin().name, ADMIN_PASSWORD).get("/me").get_data(as_text=True)
-        assert _rail_ids(html) == ["profile", "import", "users", "duplicates", "logs"]
+        assert _rail_ids(html) == ["profile", "metadata", "users", "duplicates", "logs"]
         assert "id='logout'" in html
 
     def test_reader_rail_has_profile_and_logout_only(self, env):

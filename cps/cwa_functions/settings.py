@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Import & Metadata settings page (/cwa-settings) and metadata-provider settings helpers."""
+"""Metadata settings page (/cwa-settings) and metadata-provider settings helpers."""
 
 import threading
 
@@ -32,10 +32,10 @@ _rebuild_start_lock = threading.Lock()
 ##                                                                            ##
 ##————————————————————————————————————————————————————————————————————————————##
 
-# What the Import & Metadata page shows. Toggles missing from a submitted form are off;
-# every Lily setting not listed here keeps its stored value.
+# What the Metadata page shows. Toggles missing from a submitted form are off; every Lily
+# setting not listed here keeps its stored value (an import keeps both copies of a book
+# already there, and uploads stay on, as they always have)
 FORM_TOGGLES = ['auto_metadata_fetch_enabled', 'auto_metadata_enforcement']
-AUTOMERGE_OPTIONS = ['new_record', 'overwrite', 'ignore']
 
 
 @cwa_settings.route("/cwa-settings", methods=["GET", "POST"])
@@ -45,11 +45,8 @@ def set_cwa_settings():
     cwa_db = CWA_DB()
     if request.method == 'POST':
         result = {setting: 1 if request.form.get(setting) else 0 for setting in FORM_TOGGLES}
-        if request.form.get('auto_ingest_automerge') in AUTOMERGE_OPTIONS:
-            result['auto_ingest_automerge'] = request.form['auto_ingest_automerge']
         cwa_db.update_cwa_settings(result)
 
-        config.config_uploading = 1 if request.form.get('config_uploading') else 0
         if 'config_google_books_api_key' in request.form:
             config.config_google_books_api_key = request.form['config_google_books_api_key'].strip()
         config.save()
@@ -57,7 +54,7 @@ def set_cwa_settings():
         flash(_("Settings saved"), category="success")
         return redirect(url_for('cwa_settings.set_cwa_settings'))
 
-    return render_title_template("cwa_settings.html", title=_("Import & Metadata"), page="cwa-settings",
+    return render_title_template("cwa_settings.html", title=_("Metadata"), page="cwa-settings",
                                  cwa_settings=cwa_db.get_cwa_settings(), config=config, lookups=_lookup_counts(cwa_db))
 
 

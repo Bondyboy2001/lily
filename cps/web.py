@@ -593,6 +593,10 @@ def get_sort_function(sort_param, data):
         order = [db.last_read_order(newest_first=True), db.Books.timestamp.desc()]
     if sort_param == 'readold':
         order = [db.last_read_order(newest_first=False), db.Books.timestamp.desc()]
+    if sort_param == 'fetchnew':
+        order = [db.last_fetched_order(newest_first=True), db.Books.timestamp.desc()]
+    if sort_param == 'fetchold':
+        order = [db.last_fetched_order(newest_first=False), db.Books.timestamp.desc()]
     if sort_param == 'authaz':
         order = [db.Books.author_sort.asc(), db.Books.sort]
     if sort_param == 'authza':

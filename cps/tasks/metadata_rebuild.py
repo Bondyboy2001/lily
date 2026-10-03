@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # See CONTRIBUTORS for full list of authors.
 
-"""Task that looks every book up again with the metadata providers (Import & Metadata → Rebuild).
+"""Task that looks every book up again with the metadata providers (Settings → Metadata → Rebuild).
 
 It first makes each author the people it names (cps/author_cleanup.py) and clears tags that are
 not subjects (ISBNs, publisher lines, shop listing scraps), and after each lookup gives a PDF
