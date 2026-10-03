@@ -104,6 +104,18 @@
                             <span id="read-icon" class="glyphicon glyphicon-eye-open" aria-hidden="true"></span><span class="book-action-label sr-only">{{ read_label }}</span>
                         </button>
                     {% endif %}
+                    {% if offline_book %}
+                        {# Save offline (offline.js): hidden until the page knows this browser can keep books
+                           (a service worker, so HTTPS or localhost), then on (.is-on) while the book is
+                           saved on this device. The label names the next action, like the read toggle. #}
+                        <button type="button" class="btn is-icon" id="offline-btn" hidden
+                                data-book="{{ offline_book|tojson|forceescape }}"
+                                data-save="{{ _('Save offline') }}" data-remove="{{ _('Remove offline copy') }}"
+                                data-saving="{{ _('Saving offline…') }}" data-failed="{{ _('Couldn’t save this book offline. Try again while online.') }}"
+                                title="{{ _('Save offline') }}">
+                            <span class="glyphicon glyphicon-cloud-download" aria-hidden="true"></span><span class="book-action-label sr-only">{{ _('Save offline') }}</span>
+                        </button>
+                    {% endif %}
                     {# Shelves: the shelves this user may change, each a checkbox item that puts the book
                        on or takes it off at once (§5.6), and a way to start a new shelf (shelves.js) #}
                     {% if not current_user.is_anonymous %}

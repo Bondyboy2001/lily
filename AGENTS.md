@@ -9,9 +9,11 @@
 
 Lily is a single-user home library read in the web reader. These are settled; don't reverse them without being asked.
 
-- Removed for good, routes included: Kobo/KOReader sync, email and send-to-eReader, LDAP/OAuth/proxy/magic-link login, public registration, Google Drive, 2FA and API tokens, statistics, archive, Keep offline button, Convert to EPUB and any format conversion, Kepub, the auto-zipper, translations (English only).
+- Removed for good, routes included: Kobo/KOReader sync, email and send-to-eReader, LDAP/OAuth/proxy/magic-link login, public registration, Google Drive, 2FA and API tokens, statistics, archive, Convert to EPUB and any format conversion, Kepub, the auto-zipper, translations (English only).
+- Offline reading: the book page's Save offline button keeps a book on the device (asked for again 2026-10-03); books in progress are kept on their own. There is still no Offline page.
+- Tags are the user's own: lookups and imports never add them, and the sidebar has no Tags entry.
 - Shelves: a book's shelves change from the book page's Shelves menu or the edit page's Shelves rows. Shelf-page covers have no remove button.
-- Settings are Profile / Import & Metadata / Users / Duplicates / Logs. Don't add pages for options the user will never touch.
+- Settings are Profile / Metadata / Users / Duplicates / Logs. Don't add pages for options the user will never touch.
 
 # Verification
 

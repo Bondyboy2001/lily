@@ -1384,6 +1384,13 @@ def show_book(book_id):
         if read_book == ub.ReadBook.STATUS_IN_PROGRESS and current_user.is_authenticated:
             resume = _book_resume(int(current_user.id), book_id, entry.reader_list)
 
+        # Save offline: the format the reader opens, when the service worker can keep it
+        offline_book = None
+        if current_user.role_viewer():
+            candidates = [(resume or {}).get('format')] + list(entry.reader_list)
+            offline_fmt = next((f for f in candidates if f in OFFLINE_FORMATS), None)
+            offline_book = offline_book_spec(entry, offline_fmt) if offline_fmt else None
+
         metadata_lookup = _metadata_lookup(CWA_DB(), book_id) if current_user.role_edit() else None
         metadata_change = _metadata_change(CWA_DB(), book_id) if current_user.role_edit() else None
 
@@ -1399,6 +1406,7 @@ def show_book(book_id):
         return render_title_template('detail.html',
                                      entry=entry,
                                      resume=resume,
+                                     offline_book=offline_book,
                                      is_xhr=request.headers.get('X-Requested-With') == 'XMLHttpRequest',
                                      title=entry.title,
                                      metadata_lookup=metadata_lookup,

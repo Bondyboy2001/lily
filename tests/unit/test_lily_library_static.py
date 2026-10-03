@@ -93,7 +93,7 @@ def test_detail_rare_actions_are_icon_buttons_not_a_menu():
         btn = re.search(r'<button[^>]*' + re.escape(needle) + r'[^>]*>', html, flags=re.S)
         assert btn, needle
         assert "aria-label=\"{{ _('" + label + "') }}\"" in btn.group(0)
-    # No archive or Keep offline button
+    # No archive button, nor the old Keep offline one (Save offline is #offline-btn)
     for gone in ("toggle-archive-btn", "keep-offline-btn"):
         assert gone not in html
     shelves = re.search(r'<button[^>]*id="book-shelves-btn"[^>]*>', html, flags=re.S)

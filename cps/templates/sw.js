@@ -14,7 +14,10 @@
  *   book files, covers    network first, the saved copy offline (byte ranges sliced for pdf.js)
  *   everything else       untouched (API calls, uploads, POSTs)
  *
- * offline.js on the library page sends: sync {books}.
+ * offline.js sends: sync {books} from the library page (the books in progress, kept on their
+ * own), and from a book page's Save offline button keep {book}, drop {id} and status {ids}.
+ * A book saved by hand is "pinned" and stays until it is removed by hand; one removed by hand
+ * while in progress is "excluded" and isn't kept on its own again until it leaves the list.
  */
 const VERSION = {{ version|tojson }};
 const SCOPE = {{ scope|tojson }};
@@ -82,8 +85,8 @@ async function inParallel(items, worker) {
   await Promise.all(runners);
 }
 
-// Index of kept books: {id: {id, title, author, format, reader, page, cover, auto,
-// savedAt, bytes, pages:[], files:[], statics:[]}}
+// Index of kept books: {id: {id, title, author, format, reader, page, cover, auto, pinned,
+// excluded, savedAt, pages:[], files:[], statics:[]}}
 async function readIndex() {
   const res = await (await caches.open(META_CACHE)).match(INDEX_URL);
   return res ? res.json() : {};
@@ -131,23 +134,16 @@ async function saveAll(touched, refreshFiles) {
     if (await staticCache.match(u)) { return; }
     try { await staticCache.put(u, await fetchOk(u)); } catch (e) { /* optional asset */ }
   });
-  let bytes = 0;
   await inParallel([...touched.files], async (u) => {
-    let hit = refreshFiles ? null : await bookCache.match(u);
-    if (!hit) {
-      try {
-        await bookCache.put(u, await fetchOk(u));
-        hit = await bookCache.match(u);
-      } catch (e) {
-        // The book file itself must be there; an extra cover size may not be.
-        if (/\/show\//.test(u)) { throw e; }
-        touched.files.delete(u);
-        return;
-      }
+    if (!refreshFiles && await bookCache.match(u)) { return; }
+    try {
+      await bookCache.put(u, await fetchOk(u));
+    } catch (e) {
+      // The book file itself must be there; an extra cover size may not be.
+      if (/\/show\//.test(u)) { throw e; }
+      touched.files.delete(u);
     }
-    bytes += Number(hit.headers.get("Content-Length")) || (await hit.clone().blob()).size;
   });
-  return bytes;
 }
 
 async function keepBook(book, how) {
@@ -158,12 +154,13 @@ async function keepBook(book, how) {
   try { await savePage(book.page, touched); } catch (e) { /* the reader alone is enough */ }
   if (book.cover) { touched.files.add(abs(book.cover)); }
   (EXTRAS[book.format] || []).concat(EXTRAS.all || []).forEach((u) => touched.statics.add(abs(u)));
-  const bytes = await saveAll(touched, how.refreshFiles);
+  await saveAll(touched, how.refreshFiles);
   const entry = {
     id: book.id, title: book.title, author: book.author || "", format: book.format,
     reader: abs(book.reader), page: abs(book.page), cover: book.cover ? abs(book.cover) : "",
     auto: how.auto === undefined ? !!old.auto : how.auto,
-    excluded: false, savedAt: Date.now(), bytes: bytes,
+    pinned: how.pinned === undefined ? !!old.pinned : how.pinned,
+    excluded: false, savedAt: Date.now(),
     pages: [...touched.pages], files: [...touched.files], statics: [...touched.statics]
   };
   // Drop what an earlier copy used and this one doesn't (e.g. an asset version from before a deploy).
@@ -199,6 +196,35 @@ async function dropBook(id) {
   return null;
 }
 
+// Save offline, pressed: keep the book until it is removed by hand.
+async function pinBook(book) {
+  await keepBook(book, { pinned: true, refreshFiles: true });
+  return true;
+}
+
+// Remove offline copy, pressed. A book in progress would be kept again on the next library
+// visit, so it stays in the index as excluded, its files gone, until it leaves the list.
+async function unpinBook(id) {
+  const entry = (await readIndex())[id];
+  if (!entry) { return false; }
+  await dropBook(id);
+  if (entry.auto) {
+    const index = await readIndex();
+    index[id] = { id: entry.id, auto: true, pinned: false, excluded: true, savedAt: Date.now(),
+                  pages: [], files: [], statics: [] };
+    await writeIndex(index);
+  }
+  return false;
+}
+
+// Which of these books are on this device: {id: true|false}.
+async function savedStatus(ids) {
+  const index = await readIndex();
+  const status = {};
+  ids.forEach((id) => { const e = index[id]; status[id] = !!(e && !e.excluded); });
+  return status;
+}
+
 async function patchEntry(id, fields) {
   const index = await readIndex();
   if (!index[id]) { return; }
@@ -206,19 +232,23 @@ async function patchEntry(id, fields) {
   await writeIndex(index);
 }
 
-// The books in progress, as the library page hands them over: keep those books and let go of the ones that left.
-// An "excluded" entry is a mark left by the removed Offline page's trash button; it is kept again.
+// The books in progress, as the library page hands them over: keep those books and let go of
+// the ones that left, unless they were saved by hand. One removed by hand (excluded) is left out
+// while it stays in progress, and forgotten once it leaves.
 async function syncAuto(books) {
   const wanted = new Map(books.map((b) => [String(b.id), b]));
   for (const [id, entry] of Object.entries(await readIndex())) {
-    if (wanted.has(id)) { continue; }
-    if (entry.auto) {
+    if (wanted.has(id) || !entry.auto) { continue; }
+    if (entry.pinned) {
+      await patchEntry(id, { auto: false });
+    } else {
       await dropBook(id);
     }
   }
   for (const book of books) {
     const entry = (await readIndex())[book.id];
-    if (!entry || entry.excluded || Date.now() - entry.savedAt > REFRESH_AFTER_MS) {
+    if (entry && entry.excluded) { continue; }
+    if (!entry || Date.now() - entry.savedAt > REFRESH_AFTER_MS) {
       try { await keepBook(book, { auto: true }); } catch (e) { /* tried again on the next visit */ }
     } else if (!entry.auto) {
       await patchEntry(book.id, { auto: true });
@@ -256,6 +286,9 @@ self.addEventListener("message", (event) => {
   const work = (async () => {
     switch (msg.type) {
       case "sync": return serial(() => syncAuto(msg.books || []));
+      case "keep": return serial(() => pinBook(msg.book));
+      case "drop": return serial(() => unpinBook(String(msg.id)));
+      case "status": return savedStatus((msg.ids || []).map(String));
       default: throw new Error("Unknown message " + msg.type);
     }
   })();

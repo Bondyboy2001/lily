@@ -28,6 +28,8 @@ ICONS = {
     "bookmark": "bookmark-simple",
     "chevron-right": "caret-right",
     "collapse-down": "caret-down",
+    "cloud-check": "cloud-check",
+    "cloud-download": "cloud-arrow-down",
     "cog": "gear",
     "collapse-up": "caret-up",
     "copy": "copy",

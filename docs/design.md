@@ -569,13 +569,13 @@ content (grid, panel, rows)
   before; otherwise the dialog has no footer.
 - Tags and shelves are not shown on the book page. Tags are edited on the edit
   page; shelves only through the Shelves menu below.
-- The action bar is Read, Download, Mark as read, Shelves, View details (the info sign), Fetch metadata (the magnifying glass,
+- The action bar is Read, Download, Mark as read, Save offline (§6.8), Shelves, View details (the info sign), Fetch metadata (the magnifying glass,
   opening the lookup dialog on the book page itself; Apply saves through a hidden form of the
   book's values and reloads the page), Edit metadata and Delete. The editor still takes `?fetch=1`.
   The Shelves icon (`glyphicon-list`) opens a menu of the shelves you may change, each a
   checkbox item (`role=menuitemcheckbox`, a tick when on) that puts the book on or takes
   it off at once, plus "New shelf"; sidebar counts follow without a reload (`shelves.js`).
-  The edit page has no Shelves section. There is no archive and no Keep offline button.
+  The edit page has no Shelves section. There is no archive.
   Shelf pages offer no remove action on covers either.
 - Papers: the arXiv id, linked to its abstract page, is in the details dialog with the
   other identifiers.
@@ -721,8 +721,13 @@ request says so in one quiet line at the foot of the page (`#bookmark-status`,
 
 - Only where the browser runs a service worker: HTTPS or localhost. Over plain
   `http://host:port` nothing changes.
-- Books in progress (the Reading list) are kept automatically and let go when they leave it;
-  there is no button to keep or remove a book.
+- Books in progress (the Reading list) are kept automatically and let go when they leave it.
+- **Save offline** on the book page (`#offline-btn`, a cloud icon) keeps any book on this
+  device until it is removed with the same button; it is on (`.is-on`, accent tint, a cloud
+  with a tick) while the book is saved here, spins while saving, and stays hidden where there
+  is no service worker. Its label names the next action ("Save offline" / "Remove offline
+  copy"), like the read toggle. Removing a book in progress keeps it off the device until it
+  leaves the Reading list.
 - With no network, a page that was kept opens from the device; anything else gets the
   browser's own offline error. There is no Offline page listing the kept books.
 - Reading positions save on the device and sync when the connection is back

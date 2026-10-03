@@ -3,6 +3,8 @@
 
 import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -74,6 +76,22 @@ class TestRoutes:
 
 @pytest.mark.unit
 class TestBookSpecs:
+    def test_the_book_page_offers_save_offline(self, env):
+        epub = env.add_book("Kept Book", fmt="EPUB")
+        client = _login(env)
+        html = client.get(f"/book/{epub}").get_data(as_text=True)
+        button = re.search(r'<button type="button" class="btn is-icon" id="offline-btn" hidden\s+data-book="([^"]+)"', html)
+        assert button, "no Save offline button"
+        book = json.loads(button.group(1).replace("&#34;", '"').replace("&quot;", '"').replace("&amp;", "&"))
+        assert book["id"] == epub and book["format"] == "epub"
+        assert book["reader"] == f"/read/{epub}/epub" and book["page"] == f"/book/{epub}"
+        assert 'data-remove="Remove offline copy"' in html and "glyphicon-cloud-download" in html
+
+    def test_a_book_the_worker_cannot_keep_has_no_button(self, env):
+        mobi = env.add_book("Mobi Only", fmt="MOBI")
+        html = _login(env).get(f"/book/{mobi}").get_data(as_text=True)
+        assert 'id="offline-btn"' not in html
+
     def test_library_hands_over_the_books_in_progress(self, env):
         from cps import ub
         reading = env.add_book("In Progress", fmt="EPUB")
@@ -108,10 +126,19 @@ class TestWorkerRules:
     def test_pdf_byte_ranges_come_from_the_saved_file(self):
         assert '"Content-Range": "bytes " + start + "-" + end + "/" + size' in SW and "status: 206" in SW
 
-    def test_the_worker_only_takes_the_library_sync(self):
-        assert 'case "sync"' in SW and 'case "list"' not in SW and 'case "drop"' not in SW
+    def test_the_worker_takes_the_library_sync_and_the_save_offline_button(self):
+        for kind in ("sync", "keep", "drop", "status"):
+            assert f'case "{kind}"' in SW, kind
+        # No Offline page listing the kept books
+        assert 'case "list"' not in SW
         # Shell caches left by the Offline page are cleared on activate.
         assert 'n.startsWith("lily-shell-")' in SW
+
+    @pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+    def test_keeping_rules(self):
+        cases = Path(__file__).with_name("offline_worker_cases.mjs")
+        result = subprocess.run(["node", str(cases)], capture_output=True, text=True, timeout=60)
+        assert result.returncode == 0, result.stdout + result.stderr
 
     def test_nothing_switches_on_without_a_secure_context(self):
         assert '!("serviceWorker" in navigator) || !window.isSecureContext' in JS
