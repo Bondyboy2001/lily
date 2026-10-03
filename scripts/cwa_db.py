@@ -903,6 +903,19 @@ class CWA_DB:
                                (book_id,)).fetchone()
         return dict(zip(("status", "source", "checked_at"), row)) if row else None
 
+    def metadata_lookups_by_book(self) -> dict[int, tuple[str, str]]:
+        """{book_id: (status, checked_at)} for every book looked up."""
+        return {row[0]: (row[1], row[2]) for row in
+                self.cur.execute("SELECT book_id, status, checked_at FROM metadata_lookups")}
+
+    def clear_lookup_records(self) -> None:
+        """Forget what earlier lookups found, the covers they weighed and a rebuild's progress,
+        for a full rebuild. Hand edits and the changes Undo can put back are kept."""
+        self.cur.execute("DELETE FROM metadata_lookups")
+        self.cur.execute("DELETE FROM metadata_cover_checks")
+        self.cur.execute("DELETE FROM metadata_rebuild_progress")
+        self.con.commit()
+
     def metadata_lookup_ids(self, status: str | None = None) -> list[int]:
         """The books whose last lookup ended in `status`; every book looked up when it is None."""
         if status is None:

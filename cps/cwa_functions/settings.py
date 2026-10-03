@@ -67,21 +67,28 @@ SECONDS_A_BOOK = 1.5
 
 
 def _rebuild_time():
-    """How long a rebuild of the whole library takes, in words, for its confirmation."""
+    """For the confirmation: how many books a rebuild looks up (those not up to date) and a full
+    rebuild (all), and how long each takes, in words."""
     from .. import calibre_db, db
+    from ..tasks.metadata_rebuild import TaskRebuildMetadata
     try:
-        books = calibre_db.session.query(db.Books.id).count()
+        books = calibre_db.session.query(db.Books.id, db.Books.last_modified).all()
+        task = TaskRebuildMetadata()
+        task._store = CWA_DB()
+        pending = len(task._still_to_look_up(books))
     except Exception as e:
         log.debug("No books to count: %s", e)
-        return {"books": 0, "time": ""}
+        return {"books": 0, "pending": 0, "time": "", "full_time": ""}
+    return {"books": len(books), "pending": pending, "time": _duration(pending), "full_time": _duration(len(books))}
+
+
+def _duration(books):
     hours = books * SECONDS_A_BOOK / 3600
     if hours < 1:
-        time = _("under an hour")
-    elif hours < 1.5:
-        time = _("about an hour")
-    else:
-        time = _("about %(hours)s hours", hours=round(hours))
-    return {"books": books, "time": time}
+        return _("under an hour")
+    if hours < 1.5:
+        return _("about an hour")
+    return _("about %(hours)s hours", hours=round(hours))
 
 
 def _lookup_counts(cwa_db):
@@ -107,7 +114,9 @@ def rebuild_metadata():
     """Start a lookup of every book with the metadata providers, a few at once. It runs on its
     own thread, so covers and duplicate scans don't wait behind it. With `failed`, it looks up only
     the books whose last lookup failed (Retry failed). With `book_ids` (comma-separated), only
-    those books. With `resume`, it carries on where a stopped or interrupted rebuild got to."""
+    those books. With `resume`, it carries on where a stopped or interrupted rebuild got to. With
+    `full`, it forgets what earlier lookups found and looks every book up again, instead of
+    skipping the books that are up to date."""
     from ..services.worker import WorkerThread
     from ..tasks.metadata_rebuild import TaskRebuildMetadata
     # Two requests at once (two tabs) start one rebuild
@@ -126,7 +135,7 @@ def rebuild_metadata():
                 return jsonify({"success": True, "none": True})
             task = TaskRebuildMetadata(book_ids=book_ids, selection=True)
         else:
-            task = TaskRebuildMetadata(resume=bool(request.form.get("resume")))
+            task = TaskRebuildMetadata(resume=bool(request.form.get("resume")), full=bool(request.form.get("full")))
         WorkerThread.add_parallel(current_user.name, task)
     return jsonify({"success": True, "task_id": str(task.id)})
 

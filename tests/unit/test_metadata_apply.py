@@ -499,3 +499,18 @@ def test_the_same_title_is_respelled_only_from_poor_casing(env, monkeypatch, tit
     assert helper.fetch_and_apply_metadata(book, force=True) is True
     assert _q(env, "SELECT title FROM books") == [(kept,)]
     assert _q(env, "SELECT a.name FROM books_authors_link l JOIN authors a ON a.id=l.author") == [("J. Lesslie Hall",)]
+
+
+def test_the_pdf_is_read_without_holding_the_library(env, monkeypatch):
+    from cps import metadata_helper
+    book = env.add_book("Dune", author="Frank Herbert", fmt="PDF")
+    helper = _setup(monkeypatch, _record(title="Dune", authors=["Frank Herbert"], description="Spice."))
+    held = []
+
+    def read(book):
+        # RLock: acquirable here even when held by this thread, so ask whether it's owned
+        held.append(metadata_helper.library_lock._is_owned())
+        return ""
+    monkeypatch.setattr(helper, "pdf_first_page_text", read)
+    helper.fetch_and_apply_metadata(book, force=True)
+    assert held == [False]

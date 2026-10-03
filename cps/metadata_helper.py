@@ -483,15 +483,18 @@ def fetch_and_apply_metadata(book_id: int, force: bool = False, unanswered=None)
             authors = [a.name.replace('|', ',') for a in book.authors or []
                        if not placeholder_author(a.name)]
             own_ids = normalise_identifiers({i.type: i.val for i in book.identifiers or []})
-            page_text = pdf_first_page_text(book)
             title = book.title
-            if named_by_file(title):
-                # What it is shows on its title page, and its ISBN on the copyright page
-                page_text = "\n".join((page_text, pdf_front_matter_text(book)))
             current_cover = _cover_path(book)
+            # These load the book's files too, so the PDF reads below need no library access
             page_cover = _keeps_page_cover(book)
             papers_too = _may_be_a_paper(book)
-            mode = lookup_mode(title, authors, _hand_edited(store, book_id))
+        mode = lookup_mode(title, authors, _hand_edited(store, book_id))
+        # Its PDF is read without holding the library: a page takes ~0.5 s on a NAS, and the
+        # rebuild's other lookups would queue behind it
+        page_text = pdf_first_page_text(book)
+        if named_by_file(title):
+            # What it is shows on its title page, and its ISBN on the copyright page
+            page_text = "\n".join((page_text, pdf_front_matter_text(book)))
         missed, busy = set(), set()
         # The pages after the first are read only when the searches find nothing, and not
         # while holding the library

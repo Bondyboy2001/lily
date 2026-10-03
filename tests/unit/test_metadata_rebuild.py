@@ -390,7 +390,7 @@ def test_the_rebuild_confirmation_says_what_it_does_and_how_long(env):
     html = _login(env).get("/cwa-settings").get_data(as_text=True)
     modal = html[html.index('id="rebuildMetadataModal"'):]
     assert "keeps the details it has and gets the ones it lacks" in modal
-    assert "For 2 books this takes under an hour" in modal
+    assert "Rebuild looks up 2 of 2 books, which takes under an hour" in modal and "rebuild_metadata_full" in modal
     assert 'id="retry_failed"' not in html
 
 
@@ -406,3 +406,41 @@ def test_a_full_rebuild_clears_none_descriptions(env, monkeypatch):
     con = sqlite3.connect(env.library_dir / "metadata.db")
     assert con.execute("SELECT count(*) FROM comments").fetchone()[0] == 0
     con.close()
+
+
+@pytest.mark.unit
+def test_a_rebuild_skips_books_up_to_date_and_a_full_one_does_not(env, monkeypatch):
+    import sqlite3
+    from cwa_db import CWA_DB
+    matched, nomatch, failed, edited, unchecked = (env.add_book(t) for t in ("A", "B", "C", "D", "E"))
+    store = CWA_DB()
+    for book, status in ((matched, "matched"), (nomatch, "nomatch"), (failed, "failed"), (edited, "matched")):
+        store.save_metadata_lookup(book, status)
+    store.save_cover_check(matched, "http://cover", "1:2")
+    # Edited after its lookup
+    con = sqlite3.connect(env.library_dir / "metadata.db")
+    con.create_function("title_sort", 1, lambda t: t)  # calibre's triggers call it
+    con.execute("UPDATE books SET last_modified='2999-01-01 00:00:00+00:00' WHERE id=?", (edited,))
+    con.commit()
+    con.close()
+    task, looked_up = _run_rebuild(env, monkeypatch)
+    assert looked_up == [failed, edited, unchecked] and task.skipped == 2
+    assert task.message == "Done: 3 books checked, 3 updated, 2 up to date skipped"
+    task, looked_up = _run_rebuild(env, monkeypatch, full=True)
+    assert looked_up == [matched, nomatch, failed, edited, unchecked] and task.skipped == 0
+    # What earlier lookups found is forgotten (the stand-in lookup notes nothing)
+    assert store.get_metadata_lookup(matched) is None and store.get_cover_check(matched) is None
+
+
+@pytest.mark.unit
+def test_the_full_rebuild_button_is_offered_and_sent(env, monkeypatch):
+    from cps.services.worker import WorkerThread
+    queued = []
+    monkeypatch.setattr(WorkerThread, "add_parallel", classmethod(lambda cls, user, task: queued.append(task)))
+    monkeypatch.setattr(WorkerThread, "tasks", property(lambda self: []))
+    c = _login(env)
+    html = c.get("/cwa-settings").get_data(as_text=True)
+    assert 'id="rebuild_metadata_full"' in html
+    c.post("/cwa-settings/rebuild-metadata", data={"full": "1"})
+    c.post("/cwa-settings/rebuild-metadata")
+    assert [task.full for task in queued] == [True, False]

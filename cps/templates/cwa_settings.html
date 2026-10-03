@@ -64,9 +64,9 @@
       <div class="modal-header"><h4 class="modal-title" id="rebuildMetadataTitle">{{ _('Rebuild Metadata?') }}</h4></div>
       <div class="modal-body">
         {# What a rebuild does, so it is never started blind #}
-        <p id="rebuildMetadataWhat">{{ _('Every book is looked up again. A book keeps the details it has and gets the ones it lacks; one whose details came from its file name takes the match’s. Books you’ve edited keep their title and authors. Authors and tags are tidied first.') }}</p>
+        <p id="rebuildMetadataWhat">{{ _('Books not looked up yet, those whose lookup failed and those changed since are looked up; the rest are up to date and skipped. A book keeps the details it has and gets the ones it lacks; one whose details came from its file name takes the match’s. Books you’ve edited keep their title and authors. Authors and tags are tidied first.') }}</p>
         {% if rebuild_time.books %}
-        <p>{{ _('For %(books)s books this takes %(time)s. Each change can be undone from the book’s details.', books=rebuild_time.books, time=rebuild_time.time) }}</p>
+        <p id="rebuildMetadataTime">{{ _('Rebuild looks up %(pending)s of %(books)s books, which takes %(time)s. Full rebuild forgets what earlier lookups found and looks up all %(books)s, which takes %(full_time)s. Each change can be undone from the book’s details.', pending=rebuild_time.pending, books=rebuild_time.books, time=rebuild_time.time, full_time=rebuild_time.full_time) }}</p>
         {% endif %}
         {# Filled in by lily-metadata-rebuild.js when a stopped rebuild can be carried on #}
         <p id="rebuildMetadataResume" hidden></p>
@@ -74,6 +74,8 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-default" data-dismiss="modal">{{ _('Cancel') }}</button>
         <button type="button" class="btn btn-default" id="rebuild_metadata_restart" hidden>{{ _('Start again') }}</button>
+        {# Forgets earlier lookups and looks every book up again #}
+        <button type="button" class="btn btn-default" id="rebuild_metadata_full">{{ _('Full rebuild') }}</button>
         <button type="button" class="btn btn-danger" id="rebuild_metadata_confirm"
                 data-label="{{ _('Rebuild') }}" data-continue-label="{{ _('Continue') }}">{{ _('Rebuild') }}</button>
       </div>

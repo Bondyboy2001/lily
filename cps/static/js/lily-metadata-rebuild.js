@@ -4,7 +4,8 @@
  * beside it meanwhile. A stopped rebuild is followed until the books under way are done.
  * Opening the page while a rebuild runs picks it up again. After a rebuild that was stopped
  * or cut short, the dialog offers to continue from there or start again. Retry failed starts
- * a run of only the books whose last lookup failed, shown the same way.
+ * a run of only the books whose last lookup failed, and the dialog's Full rebuild one that
+ * forgets earlier lookups and looks every book up again, both shown the same way.
  */
 (function () {
   "use strict";
@@ -16,6 +17,7 @@
   var restartBtn = document.getElementById("rebuild_metadata_restart");
   var resumeText = document.getElementById("rebuildMetadataResume");
   var retryBtn = document.getElementById("retry_failed");
+  var fullBtn = document.getElementById("rebuild_metadata_full");
   // How far an unfinished rebuild got, in words; empty when there is none to continue
   var resume = "";
   var glyph = btn.querySelector(".glyphicon");
@@ -108,6 +110,7 @@
   });
   confirmBtn.addEventListener("click", function () { start(resume ? { resume: "1" } : null); });
   restartBtn.addEventListener("click", function () { start(null); });
+  fullBtn.addEventListener("click", function () { start({ full: "1" }); });
   if (retryBtn) {
     retryBtn.addEventListener("click", function () { start({ failed: "1" }); });
   }

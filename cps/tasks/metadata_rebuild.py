@@ -14,10 +14,15 @@ follows a new title or first author, and with "Write edits into book files" on, 
 queued for the files.
 
 How far a run has got is saved after every book (cwa.db), so one that was stopped, or cut short by
-a restart, can be carried on from there instead of starting again."""
+a restart, can be carried on from there instead of starting again.
+
+A rebuild skips a book that is up to date: its last lookup matched it or found nothing, and it
+hasn't changed since. A full rebuild first forgets what earlier lookups found (cwa.db) and looks
+every book up again."""
 
 import sys
 from collections import Counter
+from datetime import datetime, timedelta, timezone
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from flask_babel import lazy_gettext as N_
@@ -49,7 +54,7 @@ def saved_progress():
 
 
 class TaskRebuildMetadata(CalibreTask):
-    def __init__(self, workers=WORKERS, resume=False, book_ids=None, selection=False):
+    def __init__(self, workers=WORKERS, resume=False, book_ids=None, selection=False, full=False):
         super(TaskRebuildMetadata, self).__init__(N_('Rebuilding metadata'))
         self.workers = workers
         # Carry on where an unfinished run got to, rather than from the first book
@@ -70,6 +75,10 @@ class TaskRebuildMetadata(CalibreTask):
         self._unsubmitted = None
         # Books whose authors the tidy before the lookups changed
         self.authors_tidied = 0
+        # Forget earlier lookups and look every book up again, rather than skip those up to date
+        self.full = full
+        # Books skipped as up to date
+        self.skipped = 0
 
     @property
     def name(self):
@@ -120,12 +129,17 @@ class TaskRebuildMetadata(CalibreTask):
             log.warning("Rebuild: progress will not be saved: %s", ex)
         try:
             progress = self._store.get_rebuild_progress() if self.resume and self._store else None
+            if self.full and not progress and self._store:
+                self._store.clear_lookup_records()
             with library_lock:
                 if not progress and self.book_ids is None:
                     self._tidy_authors(cdb)
                     self._tidy_tags(cdb)
                     self._clear_none_descriptions(cdb)
-                book_ids = [row[0] for row in cdb.session.query(db.Books.id).order_by(db.Books.id).all()]
+                books = cdb.session.query(db.Books.id, db.Books.last_modified).order_by(db.Books.id).all()
+            book_ids = [row[0] for row in books]
+            if self.book_ids is None and not self.full:
+                book_ids = self._still_to_look_up(books)
             if self.book_ids is not None:
                 # Those still in the library; picked here, not in SQL, as there can be thousands
                 wanted = set(self.book_ids)
@@ -197,6 +211,25 @@ class TaskRebuildMetadata(CalibreTask):
             self._count()
         self._save_progress(running)
 
+    def _still_to_look_up(self, books):
+        """The books not up to date: never looked up, failed, or changed since their lookup
+        matched them or found nothing. The others are counted as skipped."""
+        try:
+            lookups = self._store.metadata_lookups_by_book() if self._store else {}
+        except Exception as ex:
+            log.warning("Rebuild: could not read the earlier lookups, so every book is looked up: %s", ex)
+            return [book_id for book_id, __ in books]
+        wanted = []
+        for book_id, last_modified in books:
+            status, checked = lookups.get(book_id, (None, None))
+            if status in ("matched", "nomatch") and not _changed_since(last_modified, checked):
+                self.skipped += 1
+            else:
+                wanted.append(book_id)
+        if self.skipped:
+            log.info("Rebuild: %s books are up to date and skipped", self.skipped)
+        return wanted
+
     def _count(self):
         self.checked += 1
         self.progress = self.checked / self.total
@@ -206,7 +239,11 @@ class TaskRebuildMetadata(CalibreTask):
     def _counts(self):
         """The numbers the status lines are written from."""
         return dict(checked=self.checked, total=self.total, updated=self.updated, covers=self.covers,
-                    unanswered=self._unanswered_note())
+                    unanswered=self._skipped_note() + self._unanswered_note())
+
+    def _skipped_note(self):
+        """', 120 up to date skipped', or empty."""
+        return str(N_(', %(skipped)s up to date skipped', skipped=self.skipped)) if self.skipped else ''
 
     def _unanswered_note(self):
         """'. No answer from Google (120), Open Library (3)': the books each provider failed to
@@ -280,6 +317,20 @@ class TaskRebuildMetadata(CalibreTask):
             return
         self.covers += 1
         helper.replace_cover_thumbnail_cache(book_id)
+
+
+def _changed_since(last_modified, checked_at) -> bool:
+    """Whether the book changed after its lookup (checked_at, ISO 8601 UTC). Any doubt: changed."""
+    try:
+        checked = datetime.fromisoformat(checked_at)
+    except (TypeError, ValueError):
+        return True
+    if last_modified is None:
+        return False
+    if last_modified.tzinfo is None:
+        last_modified = last_modified.replace(tzinfo=timezone.utc)
+    # A lookup notes itself just after the change it made
+    return last_modified > checked + timedelta(seconds=5)
 
 
 def _look_up(fetch, book_id, centre_covers):
