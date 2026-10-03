@@ -76,17 +76,11 @@ def delete_required(f):
     return inner
 
 
-@editbook.route("/ajax/delete/<int:book_id>", methods=["POST"])
-@user_login_required
-def delete_book_from_details(book_id):
-    return Response(delete_book_from_table(book_id, "", True), mimetype='application/json')
-
-
 @editbook.route("/delete/<int:book_id>", defaults={'book_format': ""}, methods=["POST"])
 @editbook.route("/delete/<int:book_id>/<string:book_format>", methods=["POST"])
 @user_login_required
 def delete_book_ajax(book_id, book_format):
-    return delete_book_from_table(book_id, book_format, False, request.form.to_dict().get('location', ""))
+    return delete_book_from_table(book_id, book_format, request.form.to_dict().get('location', ""))
 
 
 @editbook.route("/admin/book/<int:book_id>", methods=['GET'])
@@ -691,25 +685,12 @@ def prepare_authors(authr, calibre_path):
     return input_authors
 
 
-def render_delete_book_result(book_format, json_response, warning, book_id, location=""):
+def render_delete_book_result(book_format, book_id, location=""):
     if book_format:
-        if json_response:
-            return json.dumps([warning, {"location": url_for("edit-book.show_edit_book", book_id=book_id),
-                                         "type": "success",
-                                         "format": book_format,
-                                         "message": _('Format deleted')}])
-        else:
-            flash(_('Format deleted'), category="success")
-            return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
-    else:
-        if json_response:
-            return json.dumps([warning, {"location": get_redirect_location(location, "web.index"),
-                                         "type": "success",
-                                         "format": book_format,
-                                         "message": _('Book deleted')}])
-        else:
-            flash(_('Book deleted'), category="success")
-            return redirect(get_redirect_location(location, "web.index"))
+        flash(_('Format deleted'), category="success")
+        return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
+    flash(_('Book deleted'), category="success")
+    return redirect(get_redirect_location(location, "web.index"))
 
 
 def _perform_book_deletion(book, book_format="", recovery_id=None):
@@ -853,54 +834,28 @@ def merge_books(to_book, from_books, delete_sources=True):
     return results, recovery_ids
 
 
-def delete_book_from_table(book_id, book_format, json_response, location=""):
-    warning = {}
+def delete_book_from_table(book_id, book_format, location=""):
     if current_user.role_delete_books():
         book = calibre_db.get_filtered_book(book_id)
         if book:
             try:
                 warning_msg, _recovery_id = _perform_book_deletion(book, book_format)
                 if warning_msg:
-                    if json_response:
-                        warning = {"location": url_for("edit-book.show_edit_book", book_id=book_id),
-                                   "type": "warning",
-                                   "format": "",
-                                   "message": warning_msg}
-                    else:
-                        flash(warning_msg, category="warning")
+                    flash(warning_msg, category="warning")
             except Exception as ex:
                 log.error_or_exception(ex)
                 calibre_db.session.rollback()
                 ub.session.rollback()
-                if json_response:
-                    return json.dumps([{"location": url_for("edit-book.show_edit_book", book_id=book_id),
-                                        "type": "danger",
-                                        "format": "",
-                                        "message": str(ex)}])
-                else:
-                    flash(str(ex), category="error")
-                    return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
+                flash(str(ex), category="error")
+                return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
         else:
             # book not found
             log.error('Book with id "%s" could not be deleted: not found', book_id)
-            if json_response:
-                return json.dumps([{"location": url_for("edit-book.show_edit_book", book_id=book_id),
-                                    "type": "danger",
-                                    "format": "",
-                                    "message": _("Book not found")}])
-            else:
-                flash(_("Book not found"), category="error")
-                return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
-        return render_delete_book_result(book_format, json_response, warning, book_id, location)
-    message = _("You are missing permissions to delete books")
-    if json_response:
-        return json.dumps({"location": url_for("edit-book.show_edit_book", book_id=book_id),
-                           "type": "danger",
-                           "format": "",
-                           "message": message})
-    else:
-        flash(message, category="error")
-        return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
+            flash(_("Book not found"), category="error")
+            return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
+        return render_delete_book_result(book_format, book_id, location)
+    flash(_("You are missing permissions to delete books"), category="error")
+    return redirect(url_for('edit-book.show_edit_book', book_id=book_id))
 
 
 def _return_to(value):

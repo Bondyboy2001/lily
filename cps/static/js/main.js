@@ -43,58 +43,6 @@ function postButton(event, action, redirectLocation=""){
     newForm.submit();
 }
 
-function elementSorter(a, b) {
-    a = +a.slice(0, -2);
-    b = +b.slice(0, -2);
-    if (a > b) return 1;
-    if (a < b) return -1;
-    return 0;
-}
-
-// Generic control/related handler to show/hide fields based on a checkbox' value
-// e.g.
-//  <input type="checkbox" data-control="stuff-to-show">
-//  <div data-related="stuff-to-show">...</div>
-$(document).on("change", "input[type=\"checkbox\"][data-control]", function () {
-    var $this = $(this);
-    var name = $this.data("control");
-    var showOrHide = $this.prop("checked");
-
-    $("[data-related=\"" + name + "\"]").each(function () {
-        $(this).toggle(showOrHide);
-    });
-});
-
-// Generic control/related handler to show/hide fields based on a select' value
-$(document).on("change", "select[data-control]", function() {
-    var $this = $(this);
-    var name = $this.data("control");
-    var showOrHide = parseInt($this.val(), 10);
-    // var showOrHideLast = $("#" + name + " option:last").val()
-    for (var i = 0; i < $(this)[0].length; i++) {
-        var element = parseInt($(this)[0][i].value, 10);
-        if (element === showOrHide) {
-            $("[data-related^=" + name + "][data-related*=-" + element + "]").show();
-        } else {
-            $("[data-related^=" + name + "][data-related*=-" + element + "]").hide();
-        }
-    }
-});
-
-// Generic control/related handler to show/hide fields based on a select' value
-// this one is made to show all values if select value is not 0
-$(document).on("change", "select[data-controlall]", function() {
-    var $this = $(this);
-    var name = $this.data("controlall");
-    var showOrHide = parseInt($this.val(), 10);
-    if (showOrHide) {
-        $("[data-related=" + name + "]").show();
-    } else {
-        $("[data-related=" + name + "]").hide();
-    }
-});
-
-
 $(document).on("click", ".postAction", function (event) {
     // $(".sendbutton").on("click", "body", function(event) {
     postButton(event, $(this).data('action'));
@@ -210,38 +158,15 @@ $("#delete_confirm").click(function(event) {
     //get data-id attribute of the clicked element
     var deleteId = $(this).data("delete-id");
     var bookFormat = $(this).data("delete-format");
-    var ajaxResponse = $(this).data("ajax");
     if (bookFormat) {
         postButton(event, getPath() + "/delete/" + deleteId + "/" + bookFormat);
     } else {
-        if (ajaxResponse) {
-            var path = getPath() + "/ajax/delete/" + deleteId;
-            $.ajax({
-                method:"post",
-                url: path,
-                timeout: 900,
-                success:function(data) {
-                    data.forEach(function(item) {
-                        if (!jQuery.isEmptyObject(item)) {
-                            if (item.format != "") {
-                                $("button[data-delete-format='"+item.format+"']").addClass('hidden');
-                            }
-                            $( ".navbar" ).after( '<div class="row-fluid text-center" >' +
-                                '<div id="flash_'+item.type+'" class="alert alert-'+item.type+'">'+item.message+'</div>' +
-                                '</div>');
-                        }
-                    });
-                    $("#books-table").bootstrapTable("refresh");
-                }
-            });
-        } else {
-            var loc = sessionStorage.getItem("back");
-            if (!loc) {
-                loc = $(this).data("back");
-            }
-            sessionStorage.removeItem("back");
-            postButton(event, getPath() + "/delete/" + deleteId, loc);
+        var loc = sessionStorage.getItem("back");
+        if (!loc) {
+            loc = $(this).data("back");
         }
+        sessionStorage.removeItem("back");
+        postButton(event, getPath() + "/delete/" + deleteId, loc);
     }
 });
 
@@ -265,7 +190,6 @@ $("#deleteModal").on("show.bs.modal", function(e) {
     }
     $(e.currentTarget).find("#delete_confirm").data("delete-id", bookId);
     $(e.currentTarget).find("#delete_confirm").data("delete-format", bookfomat);
-    $(e.currentTarget).find("#delete_confirm").data("ajax", $(e.relatedTarget).data("ajax"));
 });
 
 $(function() {
@@ -322,11 +246,6 @@ $(function() {
         var placeholder = String($(this).data("placeholder"));
         window.location.href = template.split(placeholder).join(String(target));
     });
-
-    // Init all data control handlers to default
-    $("input[data-control]").trigger("change");
-    $("select[data-control]").trigger("change");
-    $("select[data-controlall]").trigger("change");
 
     $("#btndeluser").click(function() {
         confirmDialog(

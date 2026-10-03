@@ -342,7 +342,7 @@ def test_deleting_a_whole_book_forgets_it_without_regrouping_the_library():
     delete_key_calls = []
     module, calls = _load_editbooks_module(delete_key_calls)
 
-    result = module.delete_book_from_table(12, "", True)
+    result = module.delete_book_from_table(12, "")
 
     assert result == "deleted"
     assert ("whole", 12) in calls
@@ -358,7 +358,7 @@ def test_deleting_one_format_rechecks_that_book():
     queued = []
     module._queue_duplicate_scan_after_change = lambda book_ids=None: queued.append(book_ids)
 
-    result = module.delete_book_from_table(12, "EPUB", True)
+    result = module.delete_book_from_table(12, "EPUB")
 
     assert result == "deleted"
     assert "format-delete" in calls

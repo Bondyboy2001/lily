@@ -341,13 +341,6 @@
     }
   }
 
-  function stopChecking() {
-    if (timer) {
-      clearTimeout(timer);
-      timer = null;
-    }
-  }
-
   function setButtonBusy(busy) {
     var btn = document.getElementById("refresh-library");
     if (btn) {
