@@ -3,16 +3,31 @@
 - `docs/design.md` is the design guide: tokens, type, spacing, components, page layouts and the "never" list. Read it before any UI change. Use a component it defines rather than styling by hand. If the language changes, update the guide, `lily.css` and the static tests in the same change. Don't copy anything listed under "Known drift"; fix it toward the guide when you touch it.
 - Headings use two sizes only: `--title-size` for page titles (top bar, modals, login) and `--heading-size` for every other heading (sections, table columns, sidebar groups, menu groups, empty states). All are title case, in `--heading`, never uppercase. Book titles are content and keep their own look. Use Literata through the `--font-*` tokens; never hard-code a font.
 - Do not add horizontal divider lines (the top bar's bottom rule is the one exception). Use spacing and surface panels to separate content. Keep normal text wrapping, control outlines, and accessible focus indicators.
-- Book page uses the "Frontispiece" layout (design §6.4): a `--sunk` stage with the cover as a mounted plate beside the display title, italic byline, fact tags (file and date, plus the arXiv link for a paper) and actions (View details opens a dialog with Date added, Last edited and the other facts), with a green dot in its top-right corner once metadata has been fetched; under it the description as a pull-quote, the editors' metadata-lookup line, then the related rows. On phones the stage stacks and centres; reset row sizing there.
+- The book page uses the "Frontispiece" layout; design §6.4 is the source of truth for it. Update §6.4, not this file, when it changes.
+
+# Product decisions
+
+Lily is a single-user home library read in the web reader. These are settled; don't reverse them without being asked.
+
+- Removed for good, routes included: Kobo/KOReader sync, email and send-to-eReader, LDAP/OAuth/proxy/magic-link login, public registration, Google Drive, 2FA and API tokens, statistics, archive, Keep offline button, Convert to EPUB and any format conversion, Kepub, the auto-zipper, translations (English only).
+- Shelves: a book's shelves change from the book page's Shelves menu or the edit page's Shelves rows. Shelf-page covers have no remove button.
+- Settings are Profile / Import & Metadata / Users / Duplicates / Logs. Don't add pages for options the user will never touch.
 
 # Verification
 
-- Run shared UI checks with `.venv/bin/python -m pytest tests/unit/test_lily_library_static.py tests/unit/test_lily_design_static.py tests/unit/test_lily_admin_static.py tests/unit/test_lily_duplicates_static.py tests/unit/test_lily_reader_static.py`.
+- Quick UI check for template/CSS changes: `.venv/bin/python -m pytest tests/unit/test_lily_library_static.py tests/unit/test_lily_design_static.py tests/unit/test_lily_admin_static.py tests/unit/test_lily_duplicates_static.py tests/unit/test_lily_reader_static.py`.
+- Before pushing anything else, run what CI runs: `uvx ruff==0.16.9 check cps scripts tests`, `uvx vulture==2.16` (dead code: delete it, don't whitelist it), `uvx mypy==2.3.1`, then `PYTHONPATH=.:scripts .venv/bin/python -m pytest -m "smoke or unit" -n auto`.
+- Don't pipe pytest into `tail`/`head` to judge the result; read the summary line and any `FAILED` lines.
 - Run `git diff --check` before finishing changes.
+- After a change, rebuild the local container (`scripts/deploy-local.sh`, :8083) and look at the page. From a worktree, copy `docker-compose.local.yml` in and run `docker-compose -p lily -f docker-compose.local.yml up -d --build --force-recreate`.
 
 # Git and releases
 
-- Work on `main`. Don't start long-lived branches; if a change needs one, merge it back the same day.
-- When a change is finished and its checks pass, commit it and push to `main` straight away. Stage only the files you changed (`git add <paths>`, never `git add -A`), since other sessions may be editing the same tree. Don't leave finished work uncommitted.
-- Every push to `main` runs `.github/workflows/release.yml`: ruff, mypy, unit tests and a container `/health` check, then it publishes `coldestpillow/lily:latest` (and GHCR). A failing check publishes nothing, so keep `main` green.
-- When running several sessions in parallel, give each its own worktree (`claude --worktree`), then merge to `main` and delete the worktree when done.
+- The main checkout is shared by parallel sessions and is often dirty with their unfinished work. Make each change in your own worktree off `origin/main` (`claude --worktree`, or `git worktree add ../lily-<topic> origin/main -b <topic>`), push it, then remove the worktree and its branch.
+- Don't start long-lived branches; merge back the same day.
+- When a change is finished and its checks pass, commit it and push to `main` straight away. Stage only the files you changed (`git add <paths>`, never `git add -A`). Don't leave finished work uncommitted.
+- If the push is rejected, `git pull --rebase origin main`, re-run the checks touching what changed, and push again. Never force-push `main`.
+- Other sessions commit between your steps: make fix-ups new commits, not `--amend`, and don't use `git stash` in the shared checkout.
+- Commit messages: `type(area): a plain sentence of what the user now sees`, e.g. `feat(book): a Shelves menu on the book page puts the book on a shelf or takes it off`. Types: feat, fix, chore, docs, refactor, test.
+- Every push to `main` runs `.github/workflows/release.yml`: ruff, mypy, unit tests and a container `/health` check, then it publishes `coldestpillow/lily:latest` (and GHCR), which the NAS pulls. A failing check publishes nothing, so keep `main` green. Docs-only pushes don't trigger it.
+- Tag `vX.Y.Z` on `main` after a good batch of changes; the release adds `:X.Y.Z` and `:X.Y` image tags to roll back to.
